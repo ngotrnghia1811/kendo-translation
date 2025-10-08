@@ -1,0 +1,12 @@
+{
+  "regions": ["iad1"],
+  "functions": {
+    "app/api/**/*.ts": { "maxDuration": 30 }
+  },
+  "crons": [
+    {
+      "path": "/api/segments/cleanup-locks",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}
