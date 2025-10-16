@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:report": "playwright show-report test-results/report",
+    "test:install": "npx camoufox fetch && playwright install firefox"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
@@ -19,10 +24,12 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.48.0",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "camoufox": "^0.1.19",
     "eslint": "^9",
     "eslint-config-next": "^16.2.0",
     "pg": "^8.20.0",
