@@ -10,7 +10,7 @@
  * walk through every UI state.
  */
 
-import { test as base, expect, type Page, type Browser } from '@playwright/test'
+import { test as base, expect, type Page, type Browser, type BrowserContext } from '@playwright/test'
 import path from 'path'
 import fs from 'fs'
 
@@ -22,7 +22,7 @@ type StepIndex = { value: number }
 
 type CamoufoxFixtures = {
     page: Page
-    screenshot: (label: string) => Promise<void>
+    snap: (label: string) => Promise<void>
 }
 
 // ---------------------------------------------------------------------------
@@ -44,15 +44,39 @@ function screenshotDir(testTitle: string): string {
     return dir
 }
 
+/**
+ * Resolve the `storageState` declared via `test.use({ storageState })` or
+ * `project.use.storageState` so that our self-launched browser context can
+ * honour it.  Returns either an absolute path, a storage-state object, or
+ * `undefined` if none configured.
+ */
+function resolveStorageState(
+    raw: unknown,
+): string | undefined {
+    if (!raw) return undefined
+    if (typeof raw === 'string') {
+        const abs = path.isAbsolute(raw) ? raw : path.join(process.cwd(), raw)
+        return fs.existsSync(abs) ? abs : undefined
+    }
+    return undefined
+}
+
 // ---------------------------------------------------------------------------
 // Fixture
 // ---------------------------------------------------------------------------
 
 export const test = base.extend<CamoufoxFixtures>({
-    // Override the default `page` fixture to use Camoufox when available
+    // Override the default `page` fixture to use Camoufox when available.
+    // We honour `storageState` from the test/project config so that auth
+    // cookies produced by `tests/global-setup.ts` are loaded into the
+    // self-launched browser context.
     page: async ({ browser }, use, testInfo) => {
         let camoufoxBrowser: Browser | null = null
+        let context: BrowserContext | null = null
         let page: Page
+
+        const storageState = resolveStorageState(testInfo.project.use.storageState)
+        const contextOptions = storageState ? { storageState } : undefined
 
         try {
             // Attempt to launch Camoufox (requires `camoufox` npm package +
@@ -66,23 +90,26 @@ export const test = base.extend<CamoufoxFixtures>({
                 os: 'windows',
                 humanize: false,
             })
-            page = await camoufoxBrowser.newPage()
-            console.log('[camoufox-fixture] Using Camoufox browser')
+            context = await camoufoxBrowser.newContext(contextOptions)
+            page = await context.newPage()
+            console.log('[camoufox-fixture] Using Camoufox browser' + (storageState ? ` (storageState=${path.basename(storageState)})` : ''))
         } catch {
             // Fall back to the standard Playwright browser (useful in CI
             // environments where Camoufox binaries haven't been fetched)
-            console.log('[camoufox-fixture] Camoufox not available – falling back to standard browser')
-            page = await browser.newPage()
+            console.log('[camoufox-fixture] Camoufox not available – falling back to standard browser' + (storageState ? ` (storageState=${path.basename(storageState)})` : ''))
+            context = await browser.newContext(contextOptions)
+            page = await context.newPage()
         }
 
         await use(page)
 
         await page.close()
+        if (context) await context.close()
         if (camoufoxBrowser) await camoufoxBrowser.close()
     },
 
     // Convenience screenshot helper with auto-incrementing step counter
-    screenshot: async ({ page }, use, testInfo) => {
+    snap: [async ({ page }, use, testInfo) => {
         const stepIndex: StepIndex = { value: 0 }
         const dir = screenshotDir(testInfo.title)
 
@@ -96,7 +123,7 @@ export const test = base.extend<CamoufoxFixtures>({
         }
 
         await use(take)
-    },
+    }, { scope: 'test' }],
 })
 
 export { expect }

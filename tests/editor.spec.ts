@@ -19,22 +19,22 @@ import { test, expect } from './helpers/camoufox-fixture'
 const BASE = process.env.TEST_BASE_URL ?? 'http://localhost:3000'
 
 test.describe('Translation Editor', () => {
-    test('Editor page renders with no data (unauthenticated)', async ({ page, screenshot }) => {
+    test('Editor page renders with no data (unauthenticated)', async ({ page, snap }) => {
         const fakeId = 'editor-test-doc-000'
         await page.goto(`${BASE}/documents/${fakeId}/edit`)
-        await screenshot('editor_page_initial')
+        await snap('editor_page_initial')
 
         // Wait for any render (could be loading or error state)
         await page.waitForTimeout(2000)
-        await screenshot('editor_page_after_load')
+        await snap('editor_page_after_load')
 
         // Page should not be blank
         const bodyText = await page.evaluate(() => document.body.innerText)
         expect(bodyText.trim().length).toBeGreaterThan(0)
-        await screenshot('editor_content_confirmed')
+        await snap('editor_content_confirmed')
     })
 
-    test('Editor page shows loading indicator', async ({ page, screenshot }) => {
+    test('Editor page shows loading indicator', async ({ page, snap }) => {
         const fakeId = 'editor-test-doc-000'
 
         // Intercept the API calls to simulate loading
@@ -44,14 +44,14 @@ test.describe('Translation Editor', () => {
         })
 
         await page.goto(`${BASE}/documents/${fakeId}/edit`)
-        await screenshot('editor_loading_state')
+        await snap('editor_loading_state')
 
         // Should show some loading indicator
         await page.waitForTimeout(500)
-        await screenshot('editor_loading_500ms')
+        await snap('editor_loading_500ms')
     })
 
-    test('Editor intercepts segment API and renders segments', async ({ page, screenshot }) => {
+    test('Editor intercepts segment API and renders segments', async ({ page, snap }) => {
         const fakeId = 'editor-mock-segments-doc'
 
         // Mock the document API
@@ -118,23 +118,23 @@ test.describe('Translation Editor', () => {
         )
 
         await page.goto(`${BASE}/documents/${fakeId}/edit`)
-        await screenshot('editor_with_mock_data_initial')
+        await snap('editor_with_mock_data_initial')
 
         await page.waitForTimeout(2000)
-        await screenshot('editor_with_mock_data_loaded')
+        await snap('editor_with_mock_data_loaded')
 
         // Should see segment source text somewhere on the page
         const bodyText = await page.evaluate(() => document.body.innerText)
-        await screenshot('editor_content_check')
+        await snap('editor_content_check')
 
         // If the editor renders properly, source text should appear
         if (bodyText.includes('稽古')) {
-            await screenshot('editor_japanese_text_visible')
+            await snap('editor_japanese_text_visible')
             expect(bodyText).toContain('稽古')
         }
     })
 
-    test('Segment editor textarea appears on click', async ({ page, screenshot }) => {
+    test('Segment editor textarea appears on click', async ({ page, snap }) => {
         const fakeId = 'editor-click-test-doc'
 
         // Mock APIs
@@ -194,20 +194,20 @@ test.describe('Translation Editor', () => {
         )
 
         await page.goto(`${BASE}/documents/${fakeId}/edit`)
-        await screenshot('editor_click_test_initial')
+        await snap('editor_click_test_initial')
 
         await page.waitForTimeout(2000)
-        await screenshot('editor_click_test_loaded')
+        await snap('editor_click_test_loaded')
 
         // Try to click on any segment row
         const segmentRows = page.locator('[data-segment-id], tr, .segment-row').first()
         try {
             await segmentRows.click({ timeout: 3000 })
-            await screenshot('editor_after_segment_click')
+            await snap('editor_after_segment_click')
             await page.waitForTimeout(500)
-            await screenshot('editor_after_click_wait')
+            await snap('editor_after_click_wait')
         } catch {
-            await screenshot('editor_no_clickable_segment')
+            await snap('editor_no_clickable_segment')
         }
     })
 })

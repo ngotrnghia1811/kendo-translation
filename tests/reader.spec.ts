@@ -96,25 +96,25 @@ async function setupMocks(page: any, docId: string) {
 }
 
 test.describe('Reader View', () => {
-    test('Reader page renders with mock data', async ({ page, screenshot }) => {
+    test('Reader page renders with mock data', async ({ page, snap }) => {
         await setupMocks(page, MOCK_DOC_ID)
 
         await page.goto(`${BASE}/documents/${MOCK_DOC_ID}/read`)
-        await screenshot('reader_initial_load')
+        await snap('reader_initial_load')
 
         await page.waitForTimeout(2000)
-        await screenshot('reader_after_load')
+        await snap('reader_after_load')
 
         const bodyText = await page.evaluate(() => document.body.innerText)
         expect(bodyText.trim().length).toBeGreaterThan(0)
-        await screenshot('reader_content_present')
+        await snap('reader_content_present')
     })
 
-    test('Mode switcher tabs are visible', async ({ page, screenshot }) => {
+    test('Mode switcher tabs are visible', async ({ page, snap }) => {
         await setupMocks(page, MOCK_DOC_ID)
         await page.goto(`${BASE}/documents/${MOCK_DOC_ID}/read`)
         await page.waitForTimeout(2000)
-        await screenshot('reader_mode_tabs_check')
+        await snap('reader_mode_tabs_check')
 
         // Check for mode button labels
         const singleBtn = page.locator('button:has-text("Single"), button:has-text("single")')
@@ -123,81 +123,81 @@ test.describe('Reader View', () => {
 
         try {
             await expect(singleBtn.first()).toBeVisible({ timeout: 5000 })
-            await screenshot('reader_single_tab_visible')
+            await snap('reader_single_tab_visible')
         } catch {
-            await screenshot('reader_single_tab_not_found')
+            await snap('reader_single_tab_not_found')
         }
 
         try {
             await expect(bilingualBtn.first()).toBeVisible({ timeout: 3000 })
-            await screenshot('reader_bilingual_tab_visible')
+            await snap('reader_bilingual_tab_visible')
         } catch {
-            await screenshot('reader_bilingual_tab_not_found')
+            await snap('reader_bilingual_tab_not_found')
         }
 
         try {
             await expect(alignedBtn.first()).toBeVisible({ timeout: 3000 })
-            await screenshot('reader_aligned_tab_visible')
+            await snap('reader_aligned_tab_visible')
         } catch {
-            await screenshot('reader_aligned_tab_not_found')
+            await snap('reader_aligned_tab_not_found')
         }
     })
 
-    test('Switching to bilingual mode shows both languages', async ({ page, screenshot }) => {
+    test('Switching to bilingual mode shows both languages', async ({ page, snap }) => {
         await setupMocks(page, MOCK_DOC_ID)
         await page.goto(`${BASE}/documents/${MOCK_DOC_ID}/read`)
         await page.waitForTimeout(2000)
-        await screenshot('reader_before_bilingual_switch')
+        await snap('reader_before_bilingual_switch')
 
         const bilingualBtn = page.locator('button:has-text("Bilingual")').first()
         try {
             await bilingualBtn.click({ timeout: 5000 })
-            await screenshot('reader_bilingual_clicked')
+            await snap('reader_bilingual_clicked')
             await page.waitForTimeout(500)
-            await screenshot('reader_bilingual_view')
+            await snap('reader_bilingual_view')
 
             const bodyText = await page.evaluate(() => document.body.innerText)
             // Both languages should appear
             if (bodyText.includes('剣道')) {
                 expect(bodyText).toContain('剣道')
-                await screenshot('reader_bilingual_ja_visible')
+                await snap('reader_bilingual_ja_visible')
             }
             if (bodyText.includes('Kendo')) {
                 expect(bodyText).toContain('Kendo')
-                await screenshot('reader_bilingual_en_visible')
+                await snap('reader_bilingual_en_visible')
             }
         } catch {
-            await screenshot('reader_bilingual_button_not_available')
+            await snap('reader_bilingual_button_not_available')
         }
     })
 
-    test('Switching to aligned mode shows table layout', async ({ page, screenshot }) => {
+    test('Switching to aligned mode shows table layout', async ({ page, snap }) => {
         await setupMocks(page, MOCK_DOC_ID)
         await page.goto(`${BASE}/documents/${MOCK_DOC_ID}/read`)
         await page.waitForTimeout(2000)
-        await screenshot('reader_before_aligned_switch')
+        await snap('reader_before_aligned_switch')
 
         const alignedBtn = page.locator('button:has-text("Aligned")').first()
         try {
             await alignedBtn.click({ timeout: 5000 })
-            await screenshot('reader_aligned_clicked')
+            await snap('reader_aligned_clicked')
             await page.waitForTimeout(500)
-            await screenshot('reader_aligned_view')
+            await snap('reader_aligned_view')
 
             // Table should appear
             const table = page.locator('table')
             try {
                 await expect(table).toBeVisible({ timeout: 3000 })
-                await screenshot('reader_aligned_table_visible')
+                await snap('reader_aligned_table_visible')
             } catch {
-                await screenshot('reader_aligned_table_not_found')
+                await snap('reader_aligned_table_not_found')
             }
         } catch {
-            await screenshot('reader_aligned_button_not_available')
+            await snap('reader_aligned_button_not_available')
         }
     })
 
-    test('Reader shows empty state for document with no segments', async ({ page, screenshot }) => {
+    test('Reader shows empty state for document with no segments', async ({ page, snap }) => {
         const emptyDocId = 'reader-empty-doc-000'
 
         await page.route(`**/api/documents/${emptyDocId}`, route =>
@@ -225,16 +225,16 @@ test.describe('Reader View', () => {
         )
 
         await page.goto(`${BASE}/documents/${emptyDocId}/read`)
-        await screenshot('reader_empty_initial')
+        await snap('reader_empty_initial')
         await page.waitForTimeout(2000)
-        await screenshot('reader_empty_after_load')
+        await snap('reader_empty_after_load')
 
         const bodyText = await page.evaluate(() => document.body.innerText)
-        await screenshot('reader_empty_content')
+        await snap('reader_empty_content')
 
         // Should show "No segments" or similar message
         if (bodyText.toLowerCase().includes('no segments') || bodyText.toLowerCase().includes('no content')) {
-            await screenshot('reader_empty_state_message_visible')
+            await snap('reader_empty_state_message_visible')
         }
     })
 })

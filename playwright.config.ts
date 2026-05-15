@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
     testDir: './tests',
+    globalSetup: require.resolve('./tests/global-setup.ts'),
     timeout: 60_000,
     expect: {
         timeout: 10_000,
@@ -14,6 +15,12 @@ export default defineConfig({
         ['list'],
     ],
     outputDir: 'test-results/artifacts',
+    webServer: {
+        command: 'npm run dev',
+        url: process.env.TEST_BASE_URL || 'http://localhost:3000',
+        reuseExistingServer: !process.env.CI,
+        timeout: 120_000,
+    },
     use: {
         baseURL: process.env.TEST_BASE_URL || 'http://localhost:3000',
         screenshot: 'on',

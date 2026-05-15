@@ -22,32 +22,36 @@ const MOCK_USERS = [
 ]
 
 test.describe('Admin Dashboard', () => {
-    test('Admin page renders heading', async ({ page, screenshot }) => {
-        await page.goto(`${BASE}/admin`)
-        await screenshot('admin_initial_load')
+    test.describe('Authenticated', () => {
+        test.use({ storageState: 'tests/.auth/admin.json' })
 
-        await page.waitForSelector('h1', { timeout: 10_000 })
-        await screenshot('admin_heading_visible')
+        test('Admin page renders heading', async ({ page, snap }) => {
+            await page.goto(`${BASE}/admin`)
+            await snap('admin_initial_load')
 
-        const heading = await page.locator('h1').first().innerText()
-        expect(heading.toLowerCase()).toContain('admin')
-        await screenshot('admin_heading_confirmed')
+            await page.waitForSelector('h1', { timeout: 10_000 })
+            await snap('admin_heading_visible')
+
+            const heading = await page.locator('h1').first().innerText()
+            expect(heading.toLowerCase()).toContain('admin')
+            await snap('admin_heading_confirmed')
+        })
     })
 
-    test('Admin page shows loading skeleton', async ({ page, screenshot }) => {
+    test('Admin page shows loading skeleton', async ({ page, snap }) => {
         // Add artificial delay to capture loading state
         await page.route('**/api/admin/users', route =>
             new Promise(resolve => setTimeout(() => resolve(route.continue()), 2000)),
         )
 
         await page.goto(`${BASE}/admin`)
-        await screenshot('admin_loading_state')
+        await snap('admin_loading_state')
 
         await page.waitForTimeout(300)
-        await screenshot('admin_loading_skeleton')
+        await snap('admin_loading_skeleton')
     })
 
-    test('Stats cards render with mocked data', async ({ page, screenshot }) => {
+    test('Stats cards render with mocked data', async ({ page, snap }) => {
         await page.route('**/api/admin/users', route =>
             route.fulfill({
                 status: 200,
@@ -70,24 +74,24 @@ test.describe('Admin Dashboard', () => {
         )
 
         await page.goto(`${BASE}/admin`)
-        await screenshot('admin_with_mock_initial')
+        await snap('admin_with_mock_initial')
         await page.waitForTimeout(2000)
-        await screenshot('admin_with_mock_loaded')
+        await snap('admin_with_mock_loaded')
 
         const bodyText = await page.evaluate(() => document.body.innerText)
 
         // Stats should show numbers
         if (bodyText.includes('Total Documents') || bodyText.includes('Segmented')) {
-            await screenshot('admin_stats_cards_visible')
+            await snap('admin_stats_cards_visible')
         }
 
         // Users count: 3
         if (bodyText.includes('3')) {
-            await screenshot('admin_user_count_visible')
+            await snap('admin_user_count_visible')
         }
     })
 
-    test('User table renders rows with role badges', async ({ page, screenshot }) => {
+    test('User table renders rows with role badges', async ({ page, snap }) => {
         await page.route('**/api/admin/users', route =>
             route.fulfill({
                 status: 200,
@@ -105,46 +109,46 @@ test.describe('Admin Dashboard', () => {
         )
 
         await page.goto(`${BASE}/admin`)
-        await screenshot('admin_table_initial')
+        await snap('admin_table_initial')
         await page.waitForTimeout(2000)
-        await screenshot('admin_table_loaded')
+        await snap('admin_table_loaded')
 
         const bodyText = await page.evaluate(() => document.body.innerText)
 
         if (bodyText.includes('admin_user')) {
             expect(bodyText).toContain('admin_user')
-            await screenshot('admin_username_visible')
+            await snap('admin_username_visible')
         }
 
         if (bodyText.includes('translator_1')) {
             expect(bodyText).toContain('translator_1')
-            await screenshot('admin_translator_visible')
+            await snap('admin_translator_visible')
         }
 
         // Null username should show "No username"
         if (bodyText.includes('No username')) {
-            await screenshot('admin_no_username_fallback')
+            await snap('admin_no_username_fallback')
         }
 
         // Role badges
         if (bodyText.includes('admin') && bodyText.includes('translator') && bodyText.includes('reader')) {
-            await screenshot('admin_role_badges_all_visible')
+            await snap('admin_role_badges_all_visible')
         }
     })
 
-    test('/api/admin/users returns JSON with users array', async ({ page, screenshot }) => {
+    test('/api/admin/users returns JSON with users array', async ({ page, snap }) => {
         await page.goto(`${BASE}/api/admin/users`)
-        await screenshot('admin_users_api_response')
+        await snap('admin_users_api_response')
 
         const body = await page.evaluate(() => document.body.innerText)
         try {
             const json = JSON.parse(body)
             expect(json).toHaveProperty('users')
             expect(Array.isArray(json.users)).toBe(true)
-            await screenshot('admin_users_api_confirmed')
+            await snap('admin_users_api_confirmed')
         } catch {
             // Supabase not available in test env — acceptable
-            await screenshot('admin_users_api_error_or_auth_required')
+            await snap('admin_users_api_error_or_auth_required')
         }
     })
 })
