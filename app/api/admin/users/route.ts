@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 
 export async function GET() {
     try {
-        const supabase = createAdminClient()
+        const supabase = await createAdminClient()
 
         const { data: users, error } = await supabase
             .from('profiles')

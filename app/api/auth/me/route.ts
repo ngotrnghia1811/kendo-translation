@@ -4,24 +4,30 @@ import { NextResponse } from 'next/server'
 export async function GET() {
     try {
         const supabase = await createClient()
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        // Use getUser() rather than getSession(): getUser() revalidates the JWT
+        // against Supabase Auth and refreshes the token when needed, while
+        // getSession() returns only what's already in the cookie.  The latter
+        // can return null right after a fresh sign-in if the cookie's
+        // refresh-token round-trip hasn't been propagated to subsequent
+        // requests yet.  See @supabase/ssr docs.
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-        if (sessionError || !session) {
+        if (userError || !user) {
             return NextResponse.json({ user: null, profile: null })
         }
 
-        const adminSupabase = createAdminClient()
+        const adminSupabase = await createAdminClient()
         const { data: profile } = await adminSupabase
             .from('profiles')
             .select('*')
-            .eq('id', session.user.id)
+            .eq('id', user.id)
             .single()
 
         return NextResponse.json({
-            user: session.user,
+            user,
             profile: profile || {
-                id: session.user.id,
-                email: session.user.email,
+                id: user.id,
+                email: user.email,
                 role: 'reader'
             }
         })
