@@ -1,3 +1,5 @@
+_references*
+
 # dependencies
 /node_modules
 /.pnp
@@ -5,6 +7,7 @@
 
 # testing
 /coverage
+/test-results/
 
 # next.js
 /.next/
@@ -32,3 +35,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# opencode
+.opencode*
+
+# playwright auth state (populated by tests/global-setup.ts)
+tests/.auth/
+
+# supabase dashboard recon (archived; contains real session cookie)
+/scripts/dashboard-recon/
