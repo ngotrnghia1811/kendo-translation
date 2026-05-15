@@ -38,6 +38,10 @@ next-env.d.ts
 
 # opencode
 .opencode*
+opencode-local.sh
+
+# local scripts (one-time / machine-specific)
+setup_git_history.sh
 
 # playwright auth state (populated by tests/global-setup.ts)
 tests/.auth/

@@ -1,0 +1,238 @@
+{
+    "giongo": {
+        "description": "Sound-imitating words (擬音語)",
+        "entries": {
+            "ガタガタ": [
+                "rattling",
+                "clattering",
+                "shaking violently"
+            ],
+            "ゴロゴロ": [
+                "rumbling",
+                "rolling sound",
+                "thunder"
+            ],
+            "ザーザー": [
+                "pouring rain",
+                "heavy rain sound"
+            ],
+            "バタバタ": [
+                "flapping",
+                "bustling",
+                "frantic"
+            ],
+            "ドンドン": [
+                "banging",
+                "pounding",
+                "knocking loudly"
+            ],
+            "カチカチ": [
+                "clicking",
+                "ticking",
+                "clacking"
+            ],
+            "パチパチ": [
+                "crackling",
+                "clapping",
+                "snapping"
+            ],
+            "シュッシュ": [
+                "whooshing",
+                "swishing",
+                "hissing"
+            ]
+        }
+    },
+    "gitaigo": {
+        "description": "State/condition-describing words (擬態語)",
+        "entries": {
+            "ピカピカ": [
+                "sparkling",
+                "gleaming",
+                "shiny",
+                "brand new"
+            ],
+            "シーン": [
+                "dead silence",
+                "complete stillness",
+                "utter quiet"
+            ],
+            "もふもふ": [
+                "fluffy",
+                "soft and fuzzy",
+                "plush"
+            ],
+            "ツルツル": [
+                "smooth",
+                "slippery",
+                "slick"
+            ],
+            "ベトベト": [
+                "sticky",
+                "gooey",
+                "tacky"
+            ],
+            "カラカラ": [
+                "dry",
+                "parched",
+                "empty"
+            ],
+            "ギラギラ": [
+                "glaring",
+                "dazzling",
+                "garish"
+            ],
+            "ヒンヤリ": [
+                "cool to the touch",
+                "chilly",
+                "refreshingly cold"
+            ]
+        }
+    },
+    "giyogo": {
+        "description": "Movement/manner-describing words (擬容語)",
+        "entries": {
+            "ニコニコ": [
+                "smiling brightly",
+                "beaming",
+                "grinning"
+            ],
+            "ぐるぐる": [
+                "spinning",
+                "going in circles",
+                "whirling"
+            ],
+            "ヨロヨロ": [
+                "staggering",
+                "wobbling",
+                "tottering"
+            ],
+            "スタスタ": [
+                "walking briskly",
+                "striding",
+                "marching"
+            ],
+            "フラフラ": [
+                "swaying",
+                "unsteady",
+                "dizzy"
+            ],
+            "テクテク": [
+                "trudging along",
+                "plodding",
+                "walking steadily"
+            ],
+            "ソロソロ": [
+                "slowly",
+                "stealthily",
+                "gradually"
+            ]
+        }
+    },
+    "gijogo": {
+        "description": "Emotion-describing words (擬情語)",
+        "entries": {
+            "ドキドキ": [
+                "heart pounding",
+                "nervous excitement",
+                "throbbing heart"
+            ],
+            "ワクワク": [
+                "excited anticipation",
+                "thrilled",
+                "eager excitement"
+            ],
+            "イライラ": [
+                "irritated",
+                "frustrated",
+                "annoyed"
+            ],
+            "ソワソワ": [
+                "restless",
+                "fidgety",
+                "antsy"
+            ],
+            "ハラハラ": [
+                "anxious",
+                "on edge",
+                "suspenseful"
+            ],
+            "ウキウキ": [
+                "cheerful",
+                "lighthearted",
+                "buoyant"
+            ],
+            "ムカムカ": [
+                "nauseous",
+                "queasy",
+                "feeling sick"
+            ],
+            "ゾクゾク": [
+                "shivering",
+                "thrilling",
+                "spine-tingling"
+            ]
+        }
+    },
+    "giseigo": {
+        "description": "Voice/animal sounds (擬声語)",
+        "entries": {
+            "ワンワン": [
+                "barking",
+                "woof woof",
+                "bow-wow"
+            ],
+            "ニャーニャー": [
+                "meowing",
+                "mewing",
+                "mew"
+            ],
+            "モーモー": [
+                "mooing",
+                "lowing"
+            ],
+            "コケコッコー": [
+                "cock-a-doodle-doo",
+                "crowing"
+            ],
+            "ゲロゲロ": [
+                "croaking",
+                "ribbit"
+            ],
+            "チュンチュン": [
+                "chirping",
+                "tweeting",
+                "cheeping"
+            ]
+        }
+    },
+    "kendo_specific": {
+        "description": "Kendo-domain onomatopoeia",
+        "entries": {
+            "メン": [
+                "Men! (head strike kiai)",
+                "strike to the head"
+            ],
+            "コテ": [
+                "Kote! (wrist strike kiai)",
+                "strike to the wrist"
+            ],
+            "ドウ": [
+                "Do! (torso strike kiai)",
+                "strike to the torso"
+            ],
+            "ツキ": [
+                "Tsuki! (thrust strike kiai)",
+                "thrust to the throat"
+            ],
+            "パシッ": [
+                "sharp striking sound",
+                "crack of bamboo"
+            ],
+            "バシッ": [
+                "powerful striking sound",
+                "solid hit"
+            ]
+        }
+    }
+}
