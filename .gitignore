@@ -47,4 +47,7 @@ setup_git_history.sh
 tests/.auth/
 
 # supabase dashboard recon (archived; contains real session cookie)
-/scripts/dashboard-recon/
+# Allowlist the .ts helpers; keep screenshots/JSON/TXT (which may carry
+# session cookies, PATs, or IPs) local-only.
+/scripts/dashboard-recon/*
+!/scripts/dashboard-recon/*.ts
