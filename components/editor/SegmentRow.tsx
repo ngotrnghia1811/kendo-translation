@@ -1,7 +1,6 @@
 'use client'
 
 import type { Segment, UserPresence } from '@/types/database'
-import QualityBadge from './QualityBadge'
 import SegmentEditor from './SegmentEditor'
 import SegmentToolbar from './SegmentToolbar'
 import { SegmentPresenceTag } from './PresenceIndicator'
@@ -39,10 +38,12 @@ export default function SegmentRow({
 
     const statusBadge = () => {
         switch (segment.status) {
-            case 'approved':
-                return <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">Approved</span>
-            case 'reviewed':
-                return <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">Reviewed</span>
+            case 'qa_approved':
+                return <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">QA Approved</span>
+            case 'proofread':
+                return <span className="text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">Proofread</span>
+            case 'edited':
+                return <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">Edited</span>
             case 'translated':
                 return <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">Translated</span>
             default:
@@ -72,7 +73,6 @@ export default function SegmentRow({
             {/* Row number */}
             <div className="flex flex-col items-center justify-start pt-3 text-xs text-gray-400 border-r border-gray-200 dark:border-gray-700">
                 <span>{segment.position + 1}</span>
-                <QualityBadge score={segment.quality_score} />
             </div>
 
             {/* Source text (read-only) */}

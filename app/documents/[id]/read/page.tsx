@@ -18,7 +18,7 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
     .from('segments')
     .select('*')
     .eq('article_id', id)
-    .eq('status', 'approved')
+    .eq('status', 'qa_approved')
     .order('position');
 
   const translatedSegments = (segments || []).filter(s => s.target_text);

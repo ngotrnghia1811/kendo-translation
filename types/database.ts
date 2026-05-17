@@ -22,7 +22,15 @@ export interface Article {
   updated_at: string | null
 }
 
-export type SegmentStatus = 'draft' | 'translated' | 'reviewed' | 'approved'
+export type SegmentStatus =
+  | 'draft'
+  | 'translated'
+  | 'edited'
+  | 'proofread'
+  | 'qa_approved'
+
+/** Internal workflow phase a user can be assigned to per document. */
+export type WorkflowPhase = 'translate' | 'edit' | 'proofread' | 'qa'
 
 export interface Segment {
   id: string
@@ -37,7 +45,6 @@ export interface Segment {
   locked_at: string | null
   translated_by: string | null
   reviewed_by: string | null
-  quality_score: number | null
   quality_detail: QualityDetail | null
   metadata: Record<string, unknown> | null
   created_at: string
@@ -72,6 +79,8 @@ export interface SegmentComment {
   user_id: string
   content: string
   resolved: boolean
+  parent_comment_id: string | null
+  mentions: string[]
   created_at: string
 }
 
@@ -119,4 +128,69 @@ export interface DocumentWithProgress extends Article {
     approved: number
     percentage: number
   }
+}
+
+// === Migration 004 / Contract v1.2 cooperation tables ===
+
+export interface DocumentAssignment {
+  id: string
+  user_id: string
+  document_id: string
+  allowed_phases: WorkflowPhase[]
+  assigned_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface SegmentPhaseTransition {
+  id: string
+  segment_id: string
+  from_status: SegmentStatus | string
+  to_status: SegmentStatus | string
+  actor_id: string | null
+  acknowledged_minor: boolean
+  note: string | null
+  created_at: string
+}
+
+export type SuggestionStatus = 'pending' | 'accepted' | 'rejected' | 'superseded'
+export type AuthorKind = 'human' | 'agent'
+
+export interface SegmentSuggestion {
+  id: string
+  segment_id: string
+  suggester_id: string
+  suggester_kind: AuthorKind
+  proposed_text: string
+  status: SuggestionStatus
+  accepter_id: string | null
+  accepted_at: string | null
+  created_at: string
+}
+
+export type QAIssueCategory =
+  | 'Mistranslation'
+  | 'Terminology'
+  | 'Register/Keigo'
+  | 'Fluency'
+  | 'Cultural-adaptation'
+  | 'Omission/Addition'
+  | 'Style'
+
+export type QAIssueSeverity = 'minor' | 'major' | 'critical'
+
+export interface QAIssue {
+  id: string
+  segment_id: string
+  category: QAIssueCategory
+  severity: QAIssueSeverity
+  char_start: number | null
+  char_end: number | null
+  body: string | null
+  author_id: string | null
+  author_kind: AuthorKind
+  resolved: boolean
+  resolved_by: string | null
+  resolved_at: string | null
+  created_at: string
 }

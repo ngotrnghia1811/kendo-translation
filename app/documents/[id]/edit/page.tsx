@@ -7,13 +7,14 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import type { Segment } from '@/types/database';
 
-type SegmentStatus = 'draft' | 'translated' | 'reviewed' | 'approved';
+type SegmentStatus = 'draft' | 'translated' | 'edited' | 'proofread' | 'qa_approved';
 
 const STATUS_COLORS: Record<SegmentStatus, string> = {
   draft: 'bg-gray-100 text-gray-600',
   translated: 'bg-blue-100 text-blue-700',
-  reviewed: 'bg-yellow-100 text-yellow-700',
-  approved: 'bg-green-100 text-green-700',
+  edited: 'bg-yellow-100 text-yellow-700',
+  proofread: 'bg-purple-100 text-purple-700',
+  qa_approved: 'bg-green-100 text-green-700',
 };
 
 export default function EditPage() {
@@ -110,7 +111,7 @@ export default function EditPage() {
   const stats = {
     total: segments.length,
     translated: segments.filter(s => s.status !== 'draft').length,
-    approved: segments.filter(s => s.status === 'approved').length,
+    approved: segments.filter(s => s.status === 'qa_approved').length,
   };
 
   if (loading) {
@@ -240,7 +241,7 @@ export default function EditPage() {
                     {saving ? 'Saving…' : 'Save'}
                   </button>
                   <button
-                    onClick={() => saveSegment(seg.id, editingText, 'approved')}
+                    onClick={() => saveSegment(seg.id, editingText, 'qa_approved')}
                     disabled={saving || !editingText.trim()}
                     className="text-xs px-4 py-2 border border-green-400 text-green-700 rounded-lg hover:bg-green-50 transition-colors disabled:opacity-50"
                   >
