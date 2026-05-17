@@ -77,24 +77,59 @@ class OpenAIProvider implements LLMProvider {
 }
 
 class OpenRouterProvider implements LLMProvider {
-  private apiKey: string;
+  private apiKeys: string[];
   private baseUrl: string;
 
   constructor() {
-    this.apiKey = process.env.OPENROUTER_API_KEY || '';
+    this.apiKeys = OpenRouterProvider.collectKeys();
     this.baseUrl = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
+  }
+
+  /**
+   * Pool keys from env. Priority order:
+   *   1. OPENROUTER_API_KEY (singular) when not a placeholder
+   *   2. all OPENROUTER_API_KEY_<digits> entries
+   * Any value starting with 'sk-or-v1-REPLACE' is treated as a placeholder
+   * and filtered out. Returning an empty list is allowed — chat() will
+   * surface 'No OpenRouter API key configured' which the agents route
+   * maps to 503.
+   */
+  private static collectKeys(): string[] {
+    const isPlaceholder = (v: string) => v.startsWith('sk-or-v1-REPLACE');
+    const out: string[] = [];
+    const primary = process.env.OPENROUTER_API_KEY;
+    if (primary && !isPlaceholder(primary)) out.push(primary);
+    const numbered = Object.keys(process.env)
+      .filter((k) => /^OPENROUTER_API_KEY_\d+$/.test(k))
+      .sort();
+    for (const k of numbered) {
+      const v = process.env[k];
+      if (v && !isPlaceholder(v) && !out.includes(v)) out.push(v);
+    }
+    return out;
+  }
+
+  /** Random pick from the pool. Exposed as a method so future round-robin
+   *  or quota-aware variants can swap in without touching chat(). */
+  private pickKey(): string {
+    if (this.apiKeys.length === 0) {
+      throw new Error('No OpenRouter API key configured');
+    }
+    const idx = Math.floor(Math.random() * this.apiKeys.length);
+    return this.apiKeys[idx];
   }
 
   getDefaultModel(): string { return 'meta-llama/llama-3.3-70b-instruct:free'; }
 
   async chat(messages: Message[], options?: ChatOptions): Promise<ChatResponse> {
     const model = options?.model || this.getDefaultModel();
+    const apiKey = this.pickKey();
 
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'HTTP-Referer': 'https://kendo-translation.local',
         'X-Title': 'Kendo Translation Platform',
       },
