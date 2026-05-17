@@ -63,7 +63,7 @@ export async function GET(
 
     const { data, error } = await supabase
         .from('document_assignments')
-        .select('*')
+        .select('*, user:profiles!user_id(username)')
         .eq('document_id', documentId)
         .order('created_at', { ascending: true });
 
