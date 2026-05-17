@@ -29,7 +29,7 @@ export async function GET(
 
     const { data, error } = await supabase
         .from('segment_suggestions')
-        .select('*')
+        .select('*, suggester:profiles!suggester_id(username)')
         .eq('segment_id', segmentId)
         .order('created_at', { ascending: true });
 
