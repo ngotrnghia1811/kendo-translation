@@ -32,7 +32,7 @@ export async function GET(
 
     const { data, error } = await supabase
         .from('segment_comments')
-        .select('*')
+        .select('*, author:profiles!user_id(username)')
         .eq('segment_id', segmentId)
         .order('created_at', { ascending: true });
 
