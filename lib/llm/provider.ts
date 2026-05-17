@@ -240,3 +240,77 @@ export async function chat(messages: Message[], options?: ChatOptions): Promise<
   const provider = getProvider();
   return provider.chat(messages, options);
 }
+
+/**
+ * Try OpenRouter models in a configurable fallback chain. The chain is
+ * read from env at call time:
+ *   1. DEFAULT_OPENROUTER_MODEL
+ *   2. BACKUP_OPENROUTER_MODEL
+ *   3. CHEAP_OPENROUTER_MODEL
+ * Missing/empty entries are skipped. If none are set, falls through to
+ * `agentChat(agentType, ...)` (single-model, uses provider default).
+ *
+ * On a retryable upstream failure (rate-limit / "Provider returned error")
+ * with remaining models available, advances to the next model. All other
+ * errors (including auth, network, and the last-model error) propagate.
+ */
+const RETRYABLE_RE = /429|rate.?limit|Provider returned error|temporarily/i;
+
+export async function agentChatWithFallback(
+  agentType: AgentType,
+  messages: Message[],
+  options?: Omit<ChatOptions, 'model'>
+): Promise<ChatResponse> {
+  const chain = [
+    process.env.DEFAULT_OPENROUTER_MODEL,
+    process.env.BACKUP_OPENROUTER_MODEL,
+    process.env.CHEAP_OPENROUTER_MODEL,
+  ].filter((m): m is string => typeof m === 'string' && m.trim().length > 0);
+
+  if (chain.length === 0) {
+    return agentChat(agentType, messages, options);
+  }
+
+  const provider = getProvider('openrouter');
+  let lastErr: unknown = null;
+  for (let i = 0; i < chain.length; i++) {
+    const model = chain[i];
+    const startTime = Date.now();
+    try {
+      const response = await provider.chat(messages, { ...options, model });
+      const { logAgentCall } = await import('./agent-logger');
+      logAgentCall({
+        agentType,
+        messages,
+        response: response.content,
+        model: response.model,
+        usage: response.usage,
+        durationMs: Date.now() - startTime,
+        articleId: options?.articleId,
+        videoId: options?.videoId,
+      });
+      return response;
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      const { logAgentCall } = await import('./agent-logger');
+      logAgentCall({
+        agentType,
+        messages,
+        response: '',
+        model,
+        durationMs: Date.now() - startTime,
+        error: msg,
+        articleId: options?.articleId,
+        videoId: options?.videoId,
+      });
+      const hasNext = i < chain.length - 1;
+      if (hasNext && RETRYABLE_RE.test(msg)) {
+        continue;
+      }
+      throw err;
+    }
+  }
+  // Unreachable in practice — the loop either returns or throws.
+  throw lastErr instanceof Error ? lastErr : new Error('All fallback models failed');
+}
