@@ -5,17 +5,28 @@ import { createClient } from '@/lib/supabase/client';
 import { useMacRag } from '@/lib/hooks/useMacRag';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import type { Segment } from '@/types/database';
+import type { Segment, SegmentStatus } from '@/types/database';
+import PhaseBadge from '@/components/shared/PhaseBadge';
+import PhaseAdvanceButton from '@/components/editor/PhaseAdvanceButton';
+import PhaseTransitionHistory from '@/components/editor/PhaseTransitionHistory';
+import SuggestionPanel from '@/components/editor/SuggestionPanel';
+import {
+    AgentSuggestionPanel,
+    type AgentPhase,
+} from '@/components/editor/AgentSuggestionPanel';
+import CommentThread from '@/components/editor/CommentThread';
 
-type SegmentStatus = 'draft' | 'translated' | 'edited' | 'proofread' | 'qa_approved';
-
-const STATUS_COLORS: Record<SegmentStatus, string> = {
-  draft: 'bg-gray-100 text-gray-600',
-  translated: 'bg-blue-100 text-blue-700',
-  edited: 'bg-yellow-100 text-yellow-700',
-  proofread: 'bg-purple-100 text-purple-700',
-  qa_approved: 'bg-green-100 text-green-700',
-};
+/**
+ * Map a segment's current status to the LLM agent phase that should
+ * run *next*: draft → translate, translated → edit, everything else
+ * → proofread. qa_approved short-circuits in the UI.
+ */
+function agentPhaseFor(status: SegmentStatus): AgentPhase | null {
+    if (status === 'qa_approved') return null;
+    if (status === 'draft') return 'translate';
+    if (status === 'translated') return 'edit';
+    return 'proofread';
+}
 
 export default function EditPage() {
   const params = useParams<{ id: string }>();
@@ -29,6 +40,8 @@ export default function EditPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [suggestionRefreshKey, setSuggestionRefreshKey] = useState(0);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -70,6 +83,7 @@ export default function EditPage() {
 
     setActiveSegment(seg.id);
     setEditingText(seg.target_text || '');
+    setDetailsOpen(false);
 
     await fetch(`/api/segments/${seg.id}/lock`, { method: 'POST' });
   };
@@ -176,9 +190,7 @@ export default function EditPage() {
                     <p className="text-xs text-gray-500 mt-1 truncate">{seg.target_text}</p>
                   )}
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_COLORS[seg.status as SegmentStatus] || STATUS_COLORS.draft}`}>
-                  {seg.status}
-                </span>
+                <PhaseBadge status={seg.status as SegmentStatus} size="sm" />
               </div>
             </button>
           ))}
@@ -247,7 +259,73 @@ export default function EditPage() {
                   >
                     Approve
                   </button>
+                  <button
+                    onClick={() => setDetailsOpen(o => !o)}
+                    className="text-xs px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors ml-auto"
+                    data-testid="segment-details-toggle"
+                    data-open={detailsOpen}
+                  >
+                    {detailsOpen ? 'Hide details ▴' : 'Details ▾'}
+                  </button>
                 </div>
+                {/* Cooperation drawer: phase advance + history + suggestions + agent + comments */}
+                {detailsOpen && (
+                  <div
+                    data-testid="segment-details-drawer"
+                    className="space-y-4 border-t border-gray-200 pt-4 mt-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <PhaseBadge status={seg.status as SegmentStatus} />
+                      <PhaseAdvanceButton
+                        segmentId={seg.id}
+                        currentStatus={seg.status as SegmentStatus}
+                        onAdvanced={(next) => {
+                          setSegments(prev =>
+                            prev.map(s => s.id === seg.id ? { ...s, status: next } : s)
+                          );
+                        }}
+                        onStaleStatus={(actual) => {
+                          setSegments(prev =>
+                            prev.map(s => s.id === seg.id ? { ...s, status: actual } : s)
+                          );
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Phase History</p>
+                      <PhaseTransitionHistory segmentId={seg.id} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Suggestions</p>
+                      <SuggestionPanel
+                        key={`suggestions-${seg.id}-${suggestionRefreshKey}`}
+                        segmentId={seg.id}
+                        onAccepted={(text) => {
+                          // Stamp the editor with the accepted text and save
+                          // through the segment PATCH so the soft-lock contract
+                          // is preserved (suggestion PATCH does not touch
+                          // segments.target_text by design).
+                          setEditingText(text);
+                          void saveSegment(seg.id, text, seg.status as SegmentStatus === 'draft' ? 'translated' : seg.status as SegmentStatus);
+                        }}
+                      />
+                    </div>
+                    {agentPhaseFor(seg.status as SegmentStatus) && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Agent</p>
+                        <AgentSuggestionPanel
+                          segmentId={seg.id}
+                          phase={agentPhaseFor(seg.status as SegmentStatus)!}
+                          onCreated={() => setSuggestionRefreshKey(k => k + 1)}
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Comments</p>
+                      <CommentThread segmentId={seg.id} />
+                    </div>
+                  </div>
+                )}
               </div>
             ) : null;
           })() : (
