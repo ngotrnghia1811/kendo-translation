@@ -8,15 +8,15 @@
  *    background refresh so any RLS-side server-only fields (e.g. the
  *    embedded `author` profile join) populate correctly.
  *  - Surface `loading` / `error` / `refresh` for callers.
- *
- * Realtime subscription is deliberately out of scope for this unit;
- * callers may invoke `refresh()` manually or wrap the hook with a
- * polling/subscribe layer later.
+ *  - Subscribe to `segment_comments` postgres_changes filtered on
+ *    `segment_id=eq.<segmentId>` and re-fetch on any INSERT/UPDATE/
+ *    DELETE so collaborators see new replies in near-real-time.
  */
 
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 export interface CommentAuthor {
     username: string | null
@@ -84,6 +84,29 @@ export function useCommentsThread(segmentId: string): UseCommentsThreadResult {
             aliveRef.current = false
         }
     }, [refresh])
+
+    // Realtime fanout for the comment thread.
+    const supabase = useMemo(() => createClient(), [])
+    useEffect(() => {
+        const channel = supabase
+            .channel(`seg-comments:${segmentId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'segment_comments',
+                    filter: `segment_id=eq.${segmentId}`,
+                },
+                () => {
+                    void refresh()
+                }
+            )
+            .subscribe()
+        return () => {
+            void supabase.removeChannel(channel)
+        }
+    }, [supabase, segmentId, refresh])
 
     const post = useCallback<UseCommentsThreadResult['post']>(
         async (content, opts) => {

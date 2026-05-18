@@ -3,12 +3,17 @@
  * for a single segment. Fetches from `/api/segments/[id]/transitions`
  * on mount; shows from→to, actor username, timestamp, optional note,
  * and the acknowledged_minor flag when set.
+ *
+ * Subscribes to `segment_phase_transitions` postgres_changes filtered
+ * on `segment_id=eq.<segmentId>` so other collaborators' transitions
+ * appear without a manual refresh.
  */
 
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PhaseBadge } from '@/components/shared/PhaseBadge'
+import { createClient } from '@/lib/supabase/client'
 import type { SegmentStatus } from '@/types/database'
 
 interface ActorRef {
@@ -50,30 +55,61 @@ function formatTime(iso: string): string {
 export function PhaseTransitionHistory({ segmentId }: Props) {
     const [rows, setRows] = useState<TransitionRow[] | null>(null)
     const [error, setError] = useState<string | null>(null)
+    const aliveRef = useRef(true)
 
-    useEffect(() => {
-        let cancelled = false
-        setRows(null)
-        setError(null)
-        fetch(`/api/segments/${segmentId}/transitions`)
-            .then(async (res) => {
-                if (!res.ok) {
-                    const body = await res.text()
-                    throw new Error(`HTTP ${res.status}: ${body}`)
-                }
-                return res.json() as Promise<{ transitions: TransitionRow[] }>
-            })
-            .then((data) => {
-                if (!cancelled) setRows(data.transitions ?? [])
-            })
-            .catch((err: unknown) => {
-                if (!cancelled)
-                    setError(err instanceof Error ? err.message : String(err))
-            })
-        return () => {
-            cancelled = true
+    const refresh = useCallback(async () => {
+        try {
+            const res = await fetch(`/api/segments/${segmentId}/transitions`)
+            if (!res.ok) {
+                const body = await res.text()
+                throw new Error(`HTTP ${res.status}: ${body}`)
+            }
+            const data = (await res.json()) as { transitions: TransitionRow[] }
+            if (aliveRef.current) {
+                setRows(data.transitions ?? [])
+                setError(null)
+            }
+        } catch (err: unknown) {
+            if (aliveRef.current) {
+                setError(err instanceof Error ? err.message : String(err))
+            }
         }
     }, [segmentId])
+
+    useEffect(() => {
+        aliveRef.current = true
+        setRows(null)
+        setError(null)
+        void refresh()
+        return () => {
+            aliveRef.current = false
+        }
+    }, [refresh])
+
+    // Realtime: refetch on any INSERT for this segment's transitions
+    // (the table is append-only, so INSERT is the only event of
+    // interest, but '*' is harmless and future-proof).
+    const supabase = useMemo(() => createClient(), [])
+    useEffect(() => {
+        const channel = supabase
+            .channel(`seg-transitions:${segmentId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'segment_phase_transitions',
+                    filter: `segment_id=eq.${segmentId}`,
+                },
+                () => {
+                    void refresh()
+                }
+            )
+            .subscribe()
+        return () => {
+            void supabase.removeChannel(channel)
+        }
+    }, [supabase, segmentId, refresh])
 
     if (error) {
         return (

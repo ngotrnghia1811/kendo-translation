@@ -7,11 +7,16 @@
  * and re-fetch the list. Applying accepted text to
  * `segments.target_text` is the caller's responsibility via the
  * existing PATCH /api/segments/[id] (preserves soft-lock contract).
+ *
+ * Subscribes to `segment_suggestions` postgres_changes filtered on
+ * `segment_id=eq.<segmentId>` so collaborator activity (including
+ * agent-authored suggestions) refreshes the panel automatically.
  */
 
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 export type SuggestionStatus = 'pending' | 'accepted' | 'rejected' | 'superseded'
 export type SuggesterKind = 'human' | 'agent'
@@ -75,6 +80,30 @@ export function useSuggestions(segmentId: string): UseSuggestionsResult {
             aliveRef.current = false
         }
     }, [refresh])
+
+    // Realtime: refetch whenever any segment_suggestions row for this
+    // segment is inserted, updated, or deleted by anyone.
+    const supabase = useMemo(() => createClient(), [])
+    useEffect(() => {
+        const channel = supabase
+            .channel(`seg-suggestions:${segmentId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'segment_suggestions',
+                    filter: `segment_id=eq.${segmentId}`,
+                },
+                () => {
+                    void refresh()
+                }
+            )
+            .subscribe()
+        return () => {
+            void supabase.removeChannel(channel)
+        }
+    }, [supabase, segmentId, refresh])
 
     const transition = useCallback(
         async (id: string, status: SuggestionStatus): Promise<SuggestionRow> => {
