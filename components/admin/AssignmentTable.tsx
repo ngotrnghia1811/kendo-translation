@@ -3,19 +3,25 @@
  * on a single document. Lists existing assignments with inline edit /
  * remove, and an 'Add' row at the bottom for new grants.
  *
- * User picker is stubbed as a raw user-id field for this unit; a real
- * search-by-username picker will replace it once we add a profiles
- * search endpoint.
+ * User picker uses the admin-only `/api/profiles?search=` endpoint:
+ * a search input drives a dropdown of matching profiles; the operator
+ * selects one to commit a UUID to the upsert call.
  */
 
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
     useDocumentAssignment,
     type AssignmentRow,
 } from '@/lib/hooks/useDocumentAssignment'
 import type { WorkflowPhase } from '@/types/database'
+
+interface ProfileLite {
+    id: string
+    username: string
+    role: string
+}
 
 const ALL_PHASES: WorkflowPhase[] = ['translate', 'edit', 'proofread', 'qa']
 
@@ -171,21 +177,83 @@ function AssignmentEditRow({
 
 function AddAssignmentRow({
     onAdd,
+    excludeUserIds,
 }: {
     onAdd: (userId: string, phases: WorkflowPhase[]) => Promise<void>
+    excludeUserIds: Set<string>
 }) {
-    const [userId, setUserId] = useState('')
+    const [search, setSearch] = useState('')
+    const [results, setResults] = useState<ProfileLite[]>([])
+    const [searching, setSearching] = useState(false)
+    const [searchError, setSearchError] = useState<string | null>(null)
+    const [selected, setSelected] = useState<ProfileLite | null>(null)
     const [phases, setPhases] = useState<WorkflowPhase[]>([])
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
+    // Debounced search against /api/profiles.
+    useEffect(() => {
+        if (selected) {
+            // User already locked in a pick — don't keep searching.
+            return
+        }
+        const q = search.trim()
+        if (q.length === 0) {
+            setResults([])
+            setSearchError(null)
+            return
+        }
+        let cancelled = false
+        const handle = setTimeout(async () => {
+            setSearching(true)
+            setSearchError(null)
+            try {
+                const res = await fetch(
+                    `/api/profiles?search=${encodeURIComponent(q)}&limit=20`
+                )
+                if (!res.ok) {
+                    const body = await res.json().catch(() => ({}))
+                    throw new Error(
+                        body?.error ?? `Search failed (${res.status})`
+                    )
+                }
+                const body = (await res.json()) as { profiles: ProfileLite[] }
+                if (!cancelled) setResults(body.profiles ?? [])
+            } catch (e) {
+                if (!cancelled)
+                    setSearchError(
+                        e instanceof Error ? e.message : String(e)
+                    )
+            } finally {
+                if (!cancelled) setSearching(false)
+            }
+        }, 200)
+        return () => {
+            cancelled = true
+            clearTimeout(handle)
+        }
+    }, [search, selected])
+
+    const pick = (p: ProfileLite) => {
+        setSelected(p)
+        setSearch(p.username)
+        setResults([])
+    }
+
+    const clearPick = () => {
+        setSelected(null)
+        setSearch('')
+        setResults([])
+    }
+
     const submit = async () => {
-        if (busy) return
+        if (busy || !selected) return
         setBusy(true)
         setError(null)
         try {
-            await onAdd(userId.trim(), phases)
-            setUserId('')
+            await onAdd(selected.id, phases)
+            setSelected(null)
+            setSearch('')
             setPhases([])
         } catch (e) {
             setError(e instanceof Error ? e.message : String(e))
@@ -194,21 +262,86 @@ function AddAssignmentRow({
         }
     }
 
+    const visibleResults = results.filter((r) => !excludeUserIds.has(r.id))
+
     return (
         <tr
             data-testid="assignment-row-add"
             className="border-b border-slate-200 bg-slate-50"
         >
             <td className="px-2 py-1.5 text-xs text-slate-500" colSpan={2}>
-                <input
-                    type="text"
-                    value={userId}
-                    onChange={(e) => setUserId(e.target.value)}
-                    placeholder="user id (UUID)"
-                    disabled={busy}
-                    className="w-full rounded border border-slate-300 px-1.5 py-0.5 font-mono text-xs"
-                    data-testid="assignment-add-user-id"
-                />
+                <div className="relative">
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={(e) => {
+                            setSearch(e.target.value)
+                            if (selected) setSelected(null)
+                        }}
+                        placeholder="Search username…"
+                        disabled={busy}
+                        className="w-full rounded border border-slate-300 px-1.5 py-0.5 text-xs"
+                        data-testid="assignment-add-user-id"
+                        autoComplete="off"
+                    />
+                    {selected && (
+                        <button
+                            type="button"
+                            onClick={clearPick}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 hover:text-slate-800"
+                            data-testid="assignment-add-user-clear"
+                            aria-label="Clear selection"
+                        >
+                            ×
+                        </button>
+                    )}
+                    {!selected &&
+                        search.trim().length > 0 &&
+                        (searching ||
+                            visibleResults.length > 0 ||
+                            searchError) && (
+                            <ul
+                                className="absolute z-10 mt-0.5 max-h-48 w-full overflow-y-auto rounded border border-slate-300 bg-white shadow"
+                                data-testid="assignment-add-user-picker"
+                            >
+                                {searching && (
+                                    <li className="px-2 py-1 text-xs text-slate-500">
+                                        Searching…
+                                    </li>
+                                )}
+                                {searchError && (
+                                    <li className="px-2 py-1 text-xs text-red-600">
+                                        {searchError}
+                                    </li>
+                                )}
+                                {!searching &&
+                                    !searchError &&
+                                    visibleResults.length === 0 && (
+                                        <li className="px-2 py-1 text-xs text-slate-500">
+                                            No matches.
+                                        </li>
+                                    )}
+                                {visibleResults.map((p) => (
+                                    <li key={p.id}>
+                                        <button
+                                            type="button"
+                                            onClick={() => pick(p)}
+                                            className="block w-full px-2 py-1 text-left text-xs hover:bg-slate-100"
+                                            data-testid="assignment-add-user-picker-option"
+                                            data-user-id={p.id}
+                                        >
+                                            <span className="font-medium">
+                                                {p.username}
+                                            </span>{' '}
+                                            <span className="text-slate-500">
+                                                ({p.role})
+                                            </span>
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                </div>
             </td>
             <td className="px-2 py-1.5">
                 <PhaseCheckboxes
@@ -222,7 +355,7 @@ function AddAssignmentRow({
                 <button
                     type="button"
                     onClick={submit}
-                    disabled={busy || !userId.trim() || phases.length === 0}
+                    disabled={busy || !selected || phases.length === 0}
                     className="rounded bg-slate-800 px-2 py-0.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-50"
                     data-testid="assignment-add-submit"
                 >
@@ -349,6 +482,9 @@ export function AssignmentTable({ documentId }: AssignmentTableProps) {
                         )
                     )}
                     <AddAssignmentRow
+                        excludeUserIds={
+                            new Set(assignments.map((a) => a.user_id))
+                        }
                         onAdd={(userId, phases) =>
                             upsert(userId, phases).then(() => undefined)
                         }
