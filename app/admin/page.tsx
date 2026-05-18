@@ -142,11 +142,12 @@ export default function AdminPage() {
                             <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">User</th>
                             <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">ID</th>
                             <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Role</th>
+                            <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {users.map((user) => (
-                            <tr key={user.id} className="border-b border-gray-200 dark:border-gray-700">
+                            <tr key={user.id} className="border-b border-gray-200 dark:border-gray-700" data-testid="admin-user-row" data-user-id={user.id}>
                                 <td className="p-3 text-sm text-gray-900 dark:text-white">
                                     {user.username || 'No username'}
                                 </td>
@@ -159,6 +160,15 @@ export default function AdminPage() {
                                     }`}>
                                         {user.role}
                                     </span>
+                                </td>
+                                <td className="p-3">
+                                    <Link
+                                        href={`/admin/users/${user.id}/assignments`}
+                                        className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-300"
+                                        data-testid="admin-user-assignments-link"
+                                    >
+                                        Assignments
+                                    </Link>
                                 </td>
                             </tr>
                         ))}
