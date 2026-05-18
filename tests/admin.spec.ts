@@ -136,19 +136,23 @@ test.describe('Admin Dashboard', () => {
         }
     })
 
-    test('/api/admin/users returns JSON with users array', async ({ page, snap }) => {
-        await page.goto(`${BASE}/api/admin/users`)
-        await snap('admin_users_api_response')
+    test.describe('/api/admin/users (real endpoint, authenticated as admin)', () => {
+        test.use({ storageState: 'tests/.auth/admin.json' })
 
-        const body = await page.evaluate(() => document.body.innerText)
-        try {
-            const json = JSON.parse(body)
-            expect(json).toHaveProperty('users')
-            expect(Array.isArray(json.users)).toBe(true)
-            await snap('admin_users_api_confirmed')
-        } catch {
-            // Supabase not available in test env — acceptable
-            await snap('admin_users_api_error_or_auth_required')
-        }
+        test('/api/admin/users returns JSON with users array', async ({ page, snap }) => {
+            await page.goto(`${BASE}/api/admin/users`)
+            await snap('admin_users_api_response')
+
+            const body = await page.evaluate(() => document.body.innerText)
+            try {
+                const json = JSON.parse(body)
+                expect(json).toHaveProperty('users')
+                expect(Array.isArray(json.users)).toBe(true)
+                await snap('admin_users_api_confirmed')
+            } catch {
+                // Supabase not available in test env — acceptable
+                await snap('admin_users_api_error_or_auth_required')
+            }
+        })
     })
 })
