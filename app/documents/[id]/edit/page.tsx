@@ -17,6 +17,17 @@ import {
 import CommentThread from '@/components/editor/CommentThread';
 
 /**
+ * Per-segment cooperation counts surfaced as badges on the segment list.
+ * Shape mirrors GET /api/documents/[id]/segment-activity.
+ */
+interface ActivityRow {
+    segment_id: string;
+    pending_suggestions: number;
+    unresolved_comments: number;
+    recent_transitions_24h: number;
+}
+
+/**
  * Map a segment's current status to the LLM agent phase that should
  * run *next*: draft → translate, translated → edit, everything else
  * → proofread. qa_approved short-circuits in the UI.
@@ -42,6 +53,20 @@ export default function EditPage() {
   const [error, setError] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [suggestionRefreshKey, setSuggestionRefreshKey] = useState(0);
+  const [activity, setActivity] = useState<Map<string, ActivityRow>>(new Map());
+
+  const refreshActivity = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/documents/${params.id}/segment-activity`);
+      if (!res.ok) return;
+      const json = (await res.json()) as { activity: ActivityRow[] };
+      const next = new Map<string, ActivityRow>();
+      for (const row of json.activity ?? []) next.set(row.segment_id, row);
+      setActivity(next);
+    } catch {
+      /* non-fatal: badges simply stay stale */
+    }
+  }, [params.id]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -52,7 +77,8 @@ export default function EditPage() {
     if (art) setArticle(art as { id: string; title: string });
     if (segs) setSegments(segs as Segment[]);
     setLoading(false);
-  }, [params.id]);
+    void refreshActivity();
+  }, [params.id, refreshActivity]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -173,7 +199,9 @@ export default function EditPage() {
         {/* Segment list */}
         <div className="space-y-2">
           <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Segments</h3>
-          {segments.map(seg => (
+          {segments.map(seg => {
+            const act = activity.get(seg.id);
+            return (
             <button
               key={seg.id}
               onClick={() => selectSegment(seg)}
@@ -190,10 +218,50 @@ export default function EditPage() {
                     <p className="text-xs text-gray-500 mt-1 truncate">{seg.target_text}</p>
                   )}
                 </div>
-                <PhaseBadge status={seg.status as SegmentStatus} size="sm" />
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {act && (act.pending_suggestions > 0 || act.unresolved_comments > 0 || act.recent_transitions_24h > 0) && (
+                    <span
+                      data-testid="segment-activity-badges"
+                      className="flex items-center gap-1"
+                    >
+                      {act.pending_suggestions > 0 && (
+                        <span
+                          data-testid="segment-activity-suggestions"
+                          data-count={act.pending_suggestions}
+                          title={`${act.pending_suggestions} pending suggestion${act.pending_suggestions === 1 ? '' : 's'}`}
+                          className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800"
+                        >
+                          {act.pending_suggestions}·✎
+                        </span>
+                      )}
+                      {act.unresolved_comments > 0 && (
+                        <span
+                          data-testid="segment-activity-comments"
+                          data-count={act.unresolved_comments}
+                          title={`${act.unresolved_comments} unresolved comment${act.unresolved_comments === 1 ? '' : 's'}`}
+                          className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-800"
+                        >
+                          {act.unresolved_comments}·💬
+                        </span>
+                      )}
+                      {act.recent_transitions_24h > 0 && (
+                        <span
+                          data-testid="segment-activity-transitions"
+                          data-count={act.recent_transitions_24h}
+                          title={`${act.recent_transitions_24h} transition${act.recent_transitions_24h === 1 ? '' : 's'} in the last 24h`}
+                          className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-800"
+                        >
+                          {act.recent_transitions_24h}·⇺
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  <PhaseBadge status={seg.status as SegmentStatus} size="sm" />
+                </div>
               </div>
             </button>
-          ))}
+            );
+          })}
         </div>
 
         {/* Editor panel */}
@@ -283,11 +351,13 @@ export default function EditPage() {
                           setSegments(prev =>
                             prev.map(s => s.id === seg.id ? { ...s, status: next } : s)
                           );
+                          void refreshActivity();
                         }}
                         onStaleStatus={(actual) => {
                           setSegments(prev =>
                             prev.map(s => s.id === seg.id ? { ...s, status: actual } : s)
                           );
+                          void refreshActivity();
                         }}
                       />
                     </div>
@@ -307,6 +377,7 @@ export default function EditPage() {
                           // segments.target_text by design).
                           setEditingText(text);
                           void saveSegment(seg.id, text, seg.status as SegmentStatus === 'draft' ? 'translated' : seg.status as SegmentStatus);
+                          void refreshActivity();
                         }}
                       />
                     </div>
@@ -316,7 +387,10 @@ export default function EditPage() {
                         <AgentSuggestionPanel
                           segmentId={seg.id}
                           phase={agentPhaseFor(seg.status as SegmentStatus)!}
-                          onCreated={() => setSuggestionRefreshKey(k => k + 1)}
+                          onCreated={() => {
+                            setSuggestionRefreshKey(k => k + 1);
+                            void refreshActivity();
+                          }}
                         />
                       </div>
                     )}
