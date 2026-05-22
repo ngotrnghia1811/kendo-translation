@@ -79,36 +79,64 @@ in **content**. Each phase has a generic contract:
 
 ### Phase 0 — Context Initialization
 
-**Generic contract.** Build a `ContextObject` from the task input. Identify
-domain, style, entities, key terms, and any task-specific signals.
+**Generic contract.** Build a `ContextObject` from the task input. The
+`ContextObject` is structured as a four-level **hierarchical context
+model** — each level a strictly broader scope of grounding. Phase 0 is
+responsible for materialising L1 and L2 directly from the segment and its
+article; L3 and L4 are deferred to Phase 1 retrieval (they require
+cross-segment / cross-article queries).
+
+**The four levels.**
+
+| Level | Name              | Scope                                      | Phase   | Purpose                                              |
+|-------|-------------------|--------------------------------------------|---------|------------------------------------------------------|
+| L1    | Segment-local     | The segment itself (source ± current target) | Phase 0 | Domain, style, entities, key terms, task-specific signals on the unit of work |
+| L2    | Article-local     | Sibling segments in the same `articles` row | Phase 0 | Adjacent prose for register / consistency / co-reference; degrades to L4 escalation when sparse |
+| L3    | Project-corpus    | All accepted segments across articles in the project | Phase 1 | TM neighbours, terminology in active use, prior phase transitions |
+| L4    | External / cross-domain | TM/terminology beyond the project, Wikidata, domain corpora | Phase 1 | Fallback when L1–L3 are thin; brings in canonical renderings and entity anchors |
+
+L2 may be **degenerate** (e.g., an article with two empty-source meta
+segments and one real segment). When degenerate, Phase 2 must flag the
+gap and mandate L4 escalation. See `docs/MAC-RAG-EXAMPLES.md`
+"Phase 0 — Hierarchical Context Model" for the worked taxonomy.
 
 **Task plug-points.**
-- Which inputs the task receives (source text only, source+target, source+
-  target+notes, etc.).
-- Which task-specific signals matter (e.g., honorific level for translate;
-  consistency targets for edit; surface-form rules for proofread; quality
-  dimensions for QA).
+- Which inputs the task receives at L1 (source text only, source+target,
+  source+target+notes, etc.).
+- Which task-specific signals matter at L1 (e.g., honorific level for
+  translate; consistency targets for edit; surface-form rules for
+  proofread; quality dimensions for QA).
+- Which L2 signals matter (adjacent target renderings for edit/proofread;
+  adjacent source register for translate).
 
 ### Phase 1 — RAG Retrieval
 
 **Generic contract.** In parallel, retrieve everything that might inform the
-task from N sources, each with its own relevancy threshold.
+task from N sources, each with its own relevancy threshold. Phase 1 is
+where **L3 (project-corpus)** and **L4 (external / cross-domain)** are
+materialised; L1/L2 are direct lookups owned by Phase 0 and need no
+retrieval.
 
-**Generic source taxonomy** (the canonical four, extensible):
+**Generic source taxonomy** (the canonical four, extensible). Each source
+maps to one or more hierarchy levels:
 
-| Source           | Query method                | Purpose                                  |
-|------------------|------------------------------|------------------------------------------|
-| Translation Memory | Lexical or semantic match  | Prior accepted text in same language pair |
-| Terminology DB   | Exact + fuzzy term match     | Required/forbidden/preferred renderings   |
-| Domain Corpus    | Semantic similarity          | Domain prose for style and pattern grounding |
-| Cross-Lingual KB | Entity lookup                | Wikidata/Wikipedia anchors for proper nouns |
+| Source           | Query method                | Level(s) | Purpose                                  |
+|------------------|------------------------------|----------|------------------------------------------|
+| Translation Memory | Lexical or semantic match  | L3 (in-project) + L4 (cross-project) | Prior accepted text in same language pair |
+| Terminology DB   | Exact + fuzzy term match     | L3 (project-curated) + L4 (canonical) | Required/forbidden/preferred renderings   |
+| Domain Corpus    | Semantic similarity          | L4       | Domain prose for style and pattern grounding |
+| Cross-Lingual KB | Entity lookup                | L4       | Wikidata/Wikipedia anchors for proper nouns |
 
 **Task plug-points.**
 - Which sources are relevant (translate uses all four; proofread mainly
   uses TM + style guide; QA uses prior QA-flagged segments).
 - Which thresholds (translate cares about ≥70% TM; proofread can use ≥50%).
+- Which **L4 channels** are appropriate for the task (translate: TM
+  neighbours + Wikidata; edit: parallel-renderings TM; proofread: style
+  guide; QA: past `qa_issues` patterns).
 - Optional task-specific retrieval sources (e.g., edit pulls the segment's
-  own revision history; QA pulls past `qa_issues` for similar segments).
+  own revision history as an L1-extension; QA pulls past `qa_issues` for
+  similar segments as an L3/L4 signal).
 
 ### Phase 2 — Context Pairing
 
@@ -194,9 +222,9 @@ subsumption, all four follow this template.
 
 | Phase | Behaviour                                                          |
 |-------|--------------------------------------------------------------------|
-| 0     | Build `ContextObject` (domain, style, keigo level, entities, key terms). |
-| 1     | TM + Terminology + Domain Corpus + Cross-Lingual KB, in parallel. JA-side analysis via `ja-en-agent.ts` runs alongside. |
-| 2     | Weight TM by match%/recency/domain; weight terms by type (required > do-not-translate > preferred); flag missing terminology gaps. |
+| 0     | Build `ContextObject`. **L1**: source text, domain, style, keigo level, entities, key terms. **L2**: sibling segments in the same article for register continuity. |
+| 1     | **L3/L4** in parallel: TM + Terminology + Domain Corpus + Cross-Lingual KB. JA-side analysis via `ja-en-agent.ts` runs alongside. L4 channels: cross-article TM neighbours, Wikidata entity lookups. |
+| 2     | Weight TM by match%/recency/domain; weight terms by type (required > do-not-translate > preferred); flag missing terminology gaps; mandate L4 escalation when L2 is degenerate. |
 | 3     | 3 candidates: `literal` / `natural` / `formal`. Default recommended: `natural`. |
 | 4a    | LLM-scored 4-dim quality (0.30/0.35/0.20/0.15). |
 | 4b    | Save TM pair (gated by quality threshold); promote new terms; record helpful context. |
@@ -209,8 +237,8 @@ stamps the editor directly — see § 5.)
 
 | Phase | Behaviour                                                          |
 |-------|--------------------------------------------------------------------|
-| 0     | Build `ContextObject` from source + current target. Identify divergence hotspots between source meaning and target rendering. |
-| 1     | TM (for parallel renderings of same source) + Terminology + the segment's **own revision history** (new retrieval source). |
+| 0     | Build `ContextObject`. **L1**: source + current target; detect divergence hotspots between source meaning and target rendering. **L2**: sibling segments for adjacent rendering patterns. |
+| 1     | **L3/L4**: TM (for parallel renderings of same source) + Terminology + the segment's **own revision history** (L1-extension retrieval source). |
 | 2     | Weight prior edits to similar segments; flag accuracy gaps where target may diverge from source meaning. |
 | 3     | 3 candidates: `light_touch` (minimal change) / `accuracy_focus` (correct meaning errors) / `fluency_focus` (improve readability). Default: `accuracy_focus`. |
 | 4a    | LLM-scored 4-dim: Accuracy-improvement 0.40 / Fluency-preservation 0.25 / Minimal-change 0.20 / Terminology 0.15. |
@@ -223,8 +251,8 @@ stamps the editor directly — see § 5.)
 
 | Phase | Behaviour                                                          |
 |-------|--------------------------------------------------------------------|
-| 0     | Build `ContextObject` from source + current target. Capture house-style signals (capitalization rules, punctuation conventions). |
-| 1     | TM (for surface-form precedent) + **Style Guide** (new retrieval source — capitalisation, italics for romanizations, punctuation). |
+| 0     | Build `ContextObject`. **L1**: source + current target; capture house-style signals (capitalization, punctuation). **L2**: sibling segments for cross-segment surface-form consistency (e.g., 'datotsu' vs. 'Datotsu' in neighbours). |
+| 1     | **L3/L4**: TM (for surface-form precedent) + **Style Guide** (new L4 retrieval source — capitalisation, italics for romanizations, punctuation). |
 | 2     | Weight style-guide entries by directness of match; flag consistency gaps (e.g., "men" vs. "*men*" used inconsistently in adjacent segments). |
 | 3     | 3 candidates: `conservative` (touch nothing semantic) / `standard` (apply house style) / `house_style` (aggressive normalisation). Default: `standard`. |
 | 4a    | LLM-scored 3-dim: Surface-correctness 0.50 / Consistency 0.30 / Meaning-preservation 0.20. |
@@ -240,8 +268,8 @@ text, and it is strictly **advisory** to the human QA gate.
 
 | Phase | Behaviour                                                          |
 |-------|--------------------------------------------------------------------|
-| 0     | Build `ContextObject` from source + final target. Identify QA risk signals (numbers, names, terminology, register shifts). |
-| 1     | Source segment + final target + **past `qa_issues` for similar segments** (new retrieval source) + Terminology + Style Guide. |
+| 0     | Build `ContextObject`. **L1**: source + final target; identify QA risk signals (numbers, names, terminology, register shifts). **L2**: sibling segments for cross-segment QA-risk patterns. |
+| 1     | **L3/L4**: source segment + final target + **past `qa_issues` for similar segments** (new L3/L4 retrieval source) + Terminology + Style Guide. |
 | 2     | Weight past QA issues by similarity; flag any unresolved-prior-issue gaps. |
 | 3     | **Single pass** (`approaches: ['issue_scan']`, N=1). LLM produces a structured list of `{ type, severity, location, description, suggestion }` issues. No multi-candidate. |
 | 4a    | Score the *issue list itself*: Issue-recall (estimate vs. plausible-true-issues), False-positive-rate (LLM self-critique of each issue), Severity-calibration (do severities match historical patterns). |
@@ -329,10 +357,27 @@ What exists today vs. what the generalized design needs.
 
 | Task        | What works today                            | What's missing                                       |
 |-------------|---------------------------------------------|------------------------------------------------------|
-| translate   | Phase 0–3 + 4a (no 4b)                      | Domain Corpus + Cross-Lingual KB retrieval; Phase 4b memory write; embeddings-based TM (currently lexical) |
+| translate   | Phase 0–3 + 4a (no 4b)                      | Phase 4b memory write; full embeddings-based TM ranking on top of the existing `pgvector` column; Cross-Lingual KB (Wikidata) lookup; **L2-degenerate detection** that mandates L4 escalation when sibling segments are sparse |
 | edit        | Phase 3 only (single LLM call)              | Phases 0, 1, 2, 4a, 4b; revision-history retrieval; edit-specific quality dimensions |
 | proofread   | Phase 3 only (single LLM call)              | Phases 0, 1, 2, 4a, 4b; style-guide retrieval source; proofread-specific quality dimensions |
 | QA-advisory | Nothing (no agent today)                    | Entire pipeline; `qa_issues` similarity retrieval; issue-list scorer; human-confirmation UI for write-back |
+
+### Retrieval substrate (corrects earlier framing)
+
+The pgvector and terminology substrates already exist; the gap is in
+*ranking and integration*, not in *presence*:
+
+- `translation_memory` (1,264 rows) has an `embedding pgvector` column and
+  a `source_tsv tsvector` column. Today MAC-RAG uses lexical/tsvector
+  ranking; embedding-based ranking is plumbed in schema but not in
+  retrieval code.
+- `terminology` (920 rows) is populated and queryable; the L3 channel is
+  live.
+- **Domain Corpus** as a *separate* L4 source (beyond cross-article TM
+  neighbours) and **Cross-Lingual KB** (Wikidata) remain not implemented.
+  The earlier framing of "Domain Corpus missing" should be read as
+  "missing as a *distinct* L4 retrieval source separate from cross-article
+  TM" — basic in-project corpus access via TM is live.
 
 ### Database
 
@@ -373,15 +418,18 @@ shows the structural shape of each phase. Actual LLM output will vary.
 (after human accepts).
 
 ```
-Phase 0 — Context
-  domain: kendo (0.94)   style: formal/instructional/teineigo
-  entities: [打突, 間合い]    keyTerms: [打突, 間合い]
+Phase 0 — Context (L1 + L2)
+  L1 (segment-local):
+    domain: kendo (0.94)   style: formal/instructional/teineigo
+    entities: [打突, 間合い]    keyTerms: [打突, 間合い]
+  L2 (article-local):
+    sibling segments scanned for register/keigo continuity
 
-Phase 1 — Retrieval
-  TM:        "打突の機会を捉える" → "seize the opportunity to strike" (78%)
-  Terms:     required(間合い→maai); do-not-translate(剣道, 道場)
-  Corpus:    [GAP — not implemented]
-  Cross-KB:  [GAP — not implemented]
+Phase 1 — Retrieval (L3 + L4)
+  TM (L3):   "打突の機会を捉える" → "seize the opportunity to strike" (78%)
+  Terms (L3): required(間合い→maai); do-not-translate(剣道, 道場)
+  Corpus (L4):    [GAP — not implemented as distinct source]
+  Cross-KB (L4):  [GAP — not implemented]
 
 Phase 2 — Pairing
   promptContext built; coverageReport: overall=0.85, no gaps
@@ -410,14 +458,18 @@ Cooperation write
 **Status precondition:** `translated`. **Status postcondition:** `edited`.
 
 ```
-Phase 0 — Context
-  domain: kendo   style: formal/instructional
-  detected target weaknesses: "chance to hit" undertranslates 打突; "distance" untransliterated for 間合い
+Phase 0 — Context (L1 + L2)
+  L1 (segment-local):
+    domain: kendo   style: formal/instructional
+    detected target weaknesses: "chance to hit" undertranslates 打突;
+                                "distance" untransliterated for 間合い
+  L2 (article-local):
+    sibling segments scanned for adjacent target renderings
 
-Phase 1 — Retrieval
-  TM:                same as translate
-  Terms:             required(間合い→maai); preferred(打突→datotsu)
-  Revision history:  [new source — segment's prior edits, none yet]
+Phase 1 — Retrieval (L3 + L4)
+  TM (L3):           same as translate
+  Terms (L3):        required(間合い→maai); preferred(打突→datotsu)
+  Revision history:  [L1-extension — segment's prior edits, none yet]
 
 Phase 2 — Pairing
   flag: target uses "distance" where terminology requires "maai"
@@ -448,14 +500,17 @@ Cooperation write
 **Status precondition:** `edited`. **Status postcondition:** `proofread`.
 
 ```
-Phase 0 — Context
-  detected surface issues: 'Datotsu' and 'Maai' capitalised mid-sentence;
-                            kendo romanizations should be lowercased
+Phase 0 — Context (L1 + L2)
+  L1 (segment-local):
+    detected surface issues: 'Datotsu' and 'Maai' capitalised mid-sentence;
+                              kendo romanizations should be lowercased
+  L2 (article-local):
+    cross-segment consistency check: 'datotsu' vs. 'Datotsu' in neighbours
 
-Phase 1 — Retrieval
-  TM:           neighbouring segments use 'datotsu' (lowercase) consistently
-  Terms:        capitalisation rule: kendo romanizations lowercase
-  Style Guide:  [new source — italicise romanizations on first mention only]
+Phase 1 — Retrieval (L3 + L4)
+  TM (L3):           neighbouring segments use 'datotsu' (lowercase) consistently
+  Terms (L3):        capitalisation rule: kendo romanizations lowercase
+  Style Guide (L4):  [new source — italicise romanizations on first mention only]
 
 Phase 2 — Pairing
   flag: cross-segment inconsistency (Datotsu vs datotsu)
@@ -488,14 +543,17 @@ Cooperation write
 (still `proofread`); only human can advance to `qa_approved`.
 
 ```
-Phase 0 — Context
-  source/target parallel; QA risk signals: technical terms, no numerals,
-                                            no proper names, no register shift
+Phase 0 — Context (L1 + L2)
+  L1 (segment-local):
+    source/target parallel; QA risk signals: technical terms, no numerals,
+                                              no proper names, no register shift
+  L2 (article-local):
+    sibling segments scanned for cross-segment QA-risk patterns
 
-Phase 1 — Retrieval
-  Past qa_issues:  none for similar segments yet
-  Terms:           required terms all present in target
-  Style Guide:     all rules satisfied
+Phase 1 — Retrieval (L3 + L4)
+  Past qa_issues (L3/L4):  none for similar segments yet
+  Terms (L3):              required terms all present in target
+  Style Guide (L4):        all rules satisfied
 
 Phase 2 — Pairing
   no historical issue patterns; light context

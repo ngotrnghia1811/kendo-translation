@@ -171,9 +171,11 @@ the only code/schema work in this plan, and even W7 is design-only
 (implementation comes later).
 
 ```
-W1  research:  read gemini_kendo_book_translator prompts            (TODO 6)
-W2  research:  pick a real DB segment to use as running example     (TODO 5)
-W3  doc:       hierarchical context model — Phase 0 rewrite         (TODO 1)
+W1  research:  read gemini_kendo_book_translator prompts            (TODO 6)   [DONE → Appendix A]
+W2  research:  pick a real DB segment to use as running example     (TODO 5)   [DONE → Appendix B]
+W3  doc:       hierarchical context model — Phase 0 rewrite         (TODO 1)   [DONE — model-only first cut; W3.5 follows]
+W3b doc:       propagate hierarchical context model into MAC-RAG.md spec (Phase 0/1 + §3 task tables + §5 gap-map refresh + §6 worked-example blocks)
+W3.5 doc:      integrate the hierarchical context model into Steps 1–3 of all 4 walkthroughs
 W4  doc:       Context Builder Panel as explicit pipeline step      (TODO 2)
 W5  doc:       prose-first [HUMAN SEES] rewrite across all 4 tasks  (TODO 3)
 W6  doc:       prompt examples aligned with W1 findings             (TODO 6)
@@ -463,6 +465,20 @@ Day 6:  W12 commits
 These five decisions block plan execution and are also surfaced in
 `docs/DEV-STATE-2026-05-20.md` §10.
 
+**Resolution log (session of 2026-05-22):**
+
+- D1: **A** → superseded by **D6 = B** (see below) after Appendix B
+  uncovered that `translation_memory` (1,264 rows, pgvector) and
+  `terminology` (920 rows) already exist.
+- D2: **A** (one real translated segment + synthesized downstream).
+- D3: **B** (partial adoption, divergences documented in Appendix A).
+- D4: **A** (committed `3dd6842`).
+- D5: **A** (pushed to `origin/main` at `3dd6842`).
+- **D6 (new): B** — retarget W7 from "full from-scratch" to "**extension
+  design**": document existing memory tables, identify gaps for MAC-RAG's
+  context-builder needs, propose additions (new tables or columns) without
+  removing what is already there. Triggered by Appendix B §B.7.
+
 1. **Memory DB scope** (gates W7).
    - Option A: full from-scratch design tailored to MAC-RAG.
    - Option B: lift the v2 schema at `_references/kendo-translation-v2/`
@@ -517,10 +533,416 @@ Recommended immediate execution order:
 
 ---
 
-## 7. Appendices (populated as work units execute)
+## 7. Appendices
 
-- **Appendix A — W1 findings: prompt conventions in
-  `_references/gemini_kendo_book_translator`.** Empty.
-- **Appendix B — W2 findings: real DB segment candidates.** Empty.
+### Appendix A — W1 findings: prompt conventions in `_references/gemini_kendo_book_translator`
+
+Reviewed at commit `3dd6842` against `_references/gemini_kendo_book_translator/`:
+`translation_prompt.md` (314 lines), `README.md`, `config.json`,
+`source_spec.json`, `kendo_dict.md` (2,395 lines), one fully-rendered output
+sample (`translated/100 practice full_trilingual.md`, 40,505 lines, 367 pages),
+and the builder code `universal_agents/core/book_prompts.py` that assembles the
+system prompt at runtime.
+
+#### A.1 Architectural shape
+
+The reference agent is a **PDF-page batch translator** with a single
+deterministic LLM call per page. It is not interactive, not cooperation-first,
+and not segment-keyed. One file, one persona, the entire book.
+
+- One **system prompt** (`translation_prompt.md`) is sent once at conversation
+  start (and re-sent after every 15-page conversation rollover; see
+  `build_book_new_conversation_prompt`).
+- The system prompt has **five modules** in a fixed order:
+  1. **Role** — persona declaration with credential framing.
+  2. **Task Description / Context** — background, objective, constraints,
+     audience, consistency policy, reference material pointer.
+  3. **Instructions** — six numbered steps (read & analyse → translate
+     sentence-by-sentence → terminology rules → quality checks → special
+     content types → output format).
+  4. **Examples** — three positive few-shot pages plus two `BAD / GOOD`
+     contrastive demonstrations.
+  5. **Format Reminder** — terminating reference card: an output-shape ASCII
+     template, a formatting-rules table, consistency-tracking policy, and tone
+     guidance per content type.
+- The system prompt is followed by `---\n## Reference Dictionary\n<2,395 lines
+  of kendo_dict.md>` appended directly into context.
+- Per-page user turns are minimal: `"Here is page N of M. Please translate it
+  following the same format and rules as before:"`.
+- No retrieval is performed. The full dictionary lives in the prompt every
+  conversation. No RAG, no per-page candidate selection.
+
+#### A.2 Twelve conventions worth extracting, ranked by adoption value for MAC-RAG
+
+For each convention: what it is, **why it works there**, and whether it
+transplants to MAC-RAG **As-is**, **Adapt** (with stated cooperation-surface
+adjustment), or **Reject** (with reason). Per D3, partial adoption with
+documented divergences is the policy.
+
+1. **Five-module prompt skeleton** (Role / Task / Instructions / Examples /
+   Format).
+   - Why it works: it puts the persona before the task before the rules, so
+     models bind expertise before reading constraints; the Format section
+     terminates context with the schema the model must hit.
+   - **Adapt.** MAC-RAG has four task variants (translate/edit/proofread/QA)
+     that share modules 1 and 2 but diverge in 3, 4, 5. Use a five-module
+     skeleton per task type, factor the shared Role/Task into a reusable
+     header.
+
+2. **Persona-by-credentials framing.**
+   - "Senior professional translator, 15+ years budō, dictionary-bound,
+     publishing-quality." Concrete and bounded.
+   - **Adapt.** Replace the bare credential blob with a **role-card per
+     phase**: translator-agent, editor-agent, proofreader-agent, QA-advisory
+     agent. Each role-card declares its own bounded scope plus the
+     cooperation-surface invariant (`I propose; I never commit;` for all four
+     phases).
+
+3. **Fidelity-first hard constraint, written at the top of Task Description.**
+   - "Do not paraphrase, summarize, omit, or editorialize. Every sentence in
+     the source must appear in the output."
+   - **As-is** for translate. For edit, replace with "preserve sentence
+     boundaries and JA-sentence count from the source; never silently merge
+     or drop." For proofread, replace with "you may rewrite freely but every
+     change must be justifiable from the source or the edit history." For QA,
+     replace with "you may not propose new text; only flag issues with span
+     references."
+
+4. **Dictionary as authoritative single source of truth, with a published
+   lookup protocol** (Step 3, sub-steps 3a–3e).
+   - Every kendo term: consult dictionary first; if present, use dictionary
+     gloss; if absent, translate and tag `[T/N: Term not in reference
+     dictionary]`.
+   - **Adapt.** MAC-RAG already has a populated `terminology` table (920
+     rows; see B.6 below). The Phase-1 context builder should retrieve only
+     the terms that lexically hit the current segment plus a small radius of
+     neighbours; do not paste the whole 2,395-line dictionary into every
+     prompt. Adoption note: keep the **"dictionary entry overrides general
+     knowledge"** policy verbatim; reject the **"send the entire dictionary
+     every turn"** mechanism.
+
+5. **First-occurrence annotation policy.**
+   - First occurrence: `*rōmaji* (漢字 — gloss)`. Subsequent: `*rōmaji*`.
+   - **Adapt with care.** MAC-RAG translates segment-by-segment, not page-by-
+     page. "First occurrence" is a document-level scope. To preserve this in
+     a segment-keyed pipeline, the context builder must surface
+     `terminology_seen_in_prior_segments_of_this_article` to the agent, plus
+     an explicit instruction line: "Annotate at first occurrence within this
+     article only. The set of already-annotated terms is: {list}." This is a
+     **direct dependency** for W3 (hierarchical context).
+
+6. **Sentence-boundary contract.**
+   - Sentences end on `。 ？ ！`. Headings and standalone phrases each count
+     as one unit. Sentence count in output must match source.
+   - **As-is.** This is already implicit in `segments(position INT, source_text
+     TEXT)` — one segment = one unit. Worth re-declaring inside the agent
+     prompt as an inviolable rule.
+
+7. **Three positive few-shot examples plus contrastive BAD/GOOD pairs.**
+   - Pages 5 (instructional), 12 (philosophical), 28 (headings+technical
+     terms) cover content type breadth. Two BAD/GOOD pairs anchor common
+     failures.
+   - **Adapt.** Translate-agent gets three positive examples drawn from the
+     real DB (per D2 + W2 choice in Appendix B). Edit/proofread/QA agents
+     each need their own examples; these will largely be **synthesized** per
+     D2 because the DB has no edited/proofread/QA data yet. Include at least
+     one contrastive BAD/GOOD per phase that demonstrates the
+     cooperation-surface invariant from §A.2.2.
+
+8. **Output-shape ASCII template plus a per-rule formatting table.**
+   - The system prompt closes with a literal text template (`Page [#] / ...
+     / === END OF PAGE [#] ===`) and a 12-row rules table.
+   - **Adopt the discipline; change the artefact.** MAC-RAG agent outputs are
+     JSON, not free-form trilingual blocks. Each agent's prompt should end
+     with the JSON output schema (e.g. for translate-agent: `{
+     "proposed_text": str, "confidence": float, "terminology_used":
+     [{"source_term": str, "target_term": str}], "translator_notes":
+     [str] }`) plus a small table that maps each field to its semantic.
+
+9. **Translator's notes mechanism** `[T/N: ...]`.
+   - Used for genuine ambiguity, transcription errors, terms-not-in-
+     dictionary. Used sparingly.
+   - **Adopt.** Map `[T/N]` text inserts to a structured `translator_notes:
+     [str]` field in the agent's JSON output. Surface these to the HUMAN in
+     the cooperation surface as "agent notes for this segment." This
+     directly serves TODO 3 (humans see prose, not data).
+
+10. **Consistency policy in two parts: (a) terminology consistency, (b) tone
+    consistency by content type.**
+    - "If translated a certain way on page 1, it must remain identical on
+      page 50."
+    - Per-content-type tone table (instructional → direct; philosophical →
+      contemplative; historical → scholarly).
+    - **Adopt both, route differently.** (a) belongs in the context builder
+      (retrieve prior chosen translations from `translation_memory` for
+      lexical hits in current segment). (b) belongs in the role-card per
+      task; the article-level metadata `articles.tags` could declare content
+      type if populated, but presently is not — see Appendix B.
+
+11. **Conversation rollover for context-budget management.**
+    - Every 15 turns, start a new conversation and re-paste the full system
+      prompt + dictionary.
+    - **Reject the mechanism, adopt the lesson.** MAC-RAG segments are
+      independent prompt instances, not turns in a conversation. The lesson
+      to keep: every prompt must self-contain everything it needs;
+      conversational state is unreliable. This is already aligned with the
+      MAC-RAG-EXAMPLES Phase-1 design.
+
+12. **Reject-list / "Example of What NOT to Do."**
+    - Two explicit BAD patterns: translating kendo terms into English
+      equivalents, and merging two source sentences into one.
+    - **Adopt and extend per phase.** Edit-agent's reject-list must include:
+      "do not rewrite for style alone with no error to fix." Proofreader's
+      reject-list must include: "do not introduce new content beyond
+      polishing." QA-advisory's reject-list must include: "do not write
+      replacement text; only flag." The reject-list is the cleanest place to
+      encode cooperation-surface invariants in agent-readable form.
+
+#### A.3 Conventions explicitly **not** adopted
+
+- **Full-dictionary in-prompt** (see A.2.4) — replaced by retrieved
+  terminology subset.
+- **Page-as-unit translation** (see A.2.6) — replaced by segment-as-unit.
+- **Browser-automation transport / Gemini Pro UI scraping** — irrelevant;
+  MAC-RAG uses OpenRouter API.
+- **Trilingual output (JA/EN/ZH)** — MAC-RAG is JA→EN only.
+- **`book_title`-as-context-only** framing — MAC-RAG has richer context
+  (`articles.title_ja`, `articles.tags`, neighbour segments, prior
+  translations); use them.
+
+#### A.4 Direct hand-offs to other work units
+
+- **W3 (hierarchical context).** A.2.5 is a hard dependency: first-occurrence
+  annotation requires document-scope context, not just current-segment
+  context. The context-builder design in W3 must surface
+  `terms_already_annotated_in_this_article` as an explicit field.
+- **W4 (Context Builder Panel).** A.2.8 motivates a "preview the composed
+  prompt" panel: if the reference agent's failure modes are mostly format
+  drift, exposing the literal prompt to a human reviewer catches them.
+- **W6 (Prompt examples aligned with W1).** This appendix is the working
+  brief. Per-phase agent prompts in W6 should adopt conventions A.2.1, .2,
+  .3, .6, .8, .9, .10, .12 directly; adapt .4, .5, .7; reject .11.
+- **W7 (memory DB design).** A.2.4 + A.2.10(a) imply the memory DB's primary
+  query interface is "given current segment, return: (i) relevant
+  terminology entries, (ii) prior chosen translations for the same source
+  lemmas in this article, (iii) prior chosen translations across the corpus
+  with quality ≥ threshold." Two of those three are already supported by the
+  existing `terminology` and `translation_memory` schemas (see Appendix B).
+
+---
+
+### Appendix B — W2 findings: real DB segment candidates
+
+Source: live query of Supabase project `mbgmyvmsvenvtecvrjia` on `2026-05-22`
+via the management API. **Several premises in the prior session's compressed
+context are wrong; corrections are listed first.**
+
+#### B.1 Corrections to prior context
+
+| Prior assertion | Actual state |
+|---|---|
+| "89 segments: 85 draft / 4 translated / 0 elsewhere" | **89 segments: 73 draft / 16 translated.** `segments.status` has only these two distinct values in production data; `edited / proofread / qa_approved` are CHECK-allowed but unused. |
+| "DB has only segment data (mono or bilingual pairs)" (TODO 4 premise) | **Wrong.** `translation_memory` has **1,264 rows** with pgvector `embedding` column populated and a `tsvector` full-text index; `terminology` has **920 rows** with domain/term-type metadata; `agent_prompts` table exists (1 row, schema: `user_id, agent_type, approach, template`). Memory infrastructure is partially built, not absent. |
+| "Documents table; segments.document_id" | **Articles table; segments.article_id; segments.position (not segment_index).** 958 articles total (mostly unsegmented; only the segmented ones surface in the UI). |
+
+These corrections invalidate parts of W7's premise as currently written and
+should be propagated into `docs/DEV-STATE-2026-05-20.md` during W12.
+
+#### B.2 The 16 `translated` segments at a glance
+
+| # | article_id (short) | article title | pos | src_len | tgt_len | target text status |
+|---|---|---|---:|---:|---:|---|
+| 1 | `93f7a0e0` | 相手の心を動かす仕かけとは（清野 忍） | 0 | 81 | 212 | **real** — KENDOJIDAI metadata header, faithfully bilingualised |
+| 2 | `93f7a0e0` | 〃 | 2 | 51 | 54 | placeholder `[wave-2 advance probe seed @ 2026-05-17T06:02:00.736Z]` |
+| 3 | `93f7a0e0` | 〃 | 3 | 31 | 54 | placeholder seed |
+| 4 | `93f7a0e0` | 〃 | 4 | 17 | 54 | placeholder seed |
+| 5 | `93f7a0e0` | 〃 | 5 | 16 | 54 | placeholder seed |
+| 6 | `93f7a0e0` | 〃 | 6 | 59 | 54 | placeholder seed |
+| 7 | `93f7a0e0` | 〃 | 7 | 28 | 54 | placeholder seed |
+| 8 | `93f7a0e0` | 〃 | 8 | 86 | 54 | placeholder seed |
+| 9 | `93f7a0e0` | 〃 | 9 | 47 | 54 | placeholder seed |
+| 10 | `93f7a0e0` | 〃 | 10 | 78 | 54 | placeholder seed |
+| 11 | `93f7a0e0` | 〃 | 11 | 36 | 54 | placeholder seed |
+| 12 | `93f7a0e0` | 〃 | 12 | 116 | 54 | placeholder seed |
+| 13 | `93f7a0e0` | 〃 | 13 | 79 | 54 | placeholder seed |
+| 14 | `c914a0bb` | Kendo Philosophy: The Way of the Sword | 0 | 28 | 76 | **real prose translation** |
+| 15 | `c914a0bb` | 〃 | 1 | 0 | 175 | empty source, agent meta-commentary in target |
+| 16 | `c914a0bb` | 〃 | 2 | 0 | 160 | empty source, agent meta-commentary in target |
+
+So **only two rows out of 16 carry usable real-target translations**: row 1
+(article `93f7a0e0`, position 0) and row 14 (article `c914a0bb`, position 0).
+The other 14 are seed placeholders or empty-source meta-rows.
+
+#### B.3 Candidate evaluation
+
+Both real-target rows are evaluated as the running example for translate.
+
+##### Candidate A — `c914a0bb` position 0
+
+- **article_id:** `c914a0bb-f8d9-4b7f-9c40-fc50dd34bbbe`
+- **article title:** "Kendo Philosophy: The Way of the Sword" (no
+  `title_ja`)
+- **segment id:** `d644d349-325e-4098-a7b4-0ec2fa7e4318`
+- **source:** `剣道は単なる武術ではなく、精神的な修養の道でもあります。`
+- **target:** `Kendo is not merely a martial art, but also a path of
+  spiritual cultivation.`
+- **Pros.**
+  - Self-contained, grammatically simple JA sentence.
+  - Hits four populated `terminology` entries: 剣道 (kendō), 武術 (bujutsu),
+    修養 (no entry, will need a `[T/N]` — useful demo of the
+    not-in-dictionary path from §A.2.4), 道 (dō).
+  - Target translation is clean, idiomatic, faithful — a believable
+    human-accepted final state.
+  - Article is short (`segment_count = 3`) and segmented, so the full doc
+    fits inside the prompt; convenient for W3's hierarchical context
+    walkthrough.
+- **Cons.**
+  - Only 3 segments in the whole article; "surrounding segments" context
+    radius is shallow. Positions 1 and 2 are empty-source meta-rows, which
+    means the natural neighbour-list is degenerate.
+  - No `title_ja` — Japanese article-level context is thin.
+  - Article appears to be a synthetic demo, not a real KENDOJIDAI piece
+    (translation_status was `draft`; structure is unusual).
+
+##### Candidate B — `93f7a0e0` position 0
+
+- **article_id:** `93f7a0e0-a669-43cf-9a06-8f942b9479e8`
+- **article title:** `相手の心を動かす仕かけとは（清野 忍）` (both `title` and
+  `title_ja` populated identically — same string)
+- **segment id:** `f523bffc-5dc5-4b49-859b-99898b6389ea`
+- **source:** `Tweet\n\nPocket\n\n2025.12　KENDOJIDAI\n\n写真＝西口邦彦\n\n構成＝土屋智弘\n\n*本記事に掲載された画像の無断転載・使用を固く禁じます。`
+- **target:** `Tweet\n\nPocket\n\nDecember 2025 | KENDOJIDAI\n\nPhotography:
+  Kunihiko Nishiguchi\n\nText & Composition: Tomohiro Tsuchiya\n\n*Unauthorized
+  reproduction or use of the images featured in this article is strictly
+  prohibited.`
+- **Pros.**
+  - Real KENDOJIDAI article structure. 86 segments total — plenty of
+    neighbour radius for W3's hierarchical context.
+  - Title contains a Japanese-language piece of editorial flavour for
+    document-level context.
+- **Cons.**
+  - Source is **metadata / boilerplate**, not prose. Date, photographer,
+    composer, copyright notice. Translating it does not exercise any kendo
+    terminology, sentence-boundary handling, philosophical tone, or
+    first-occurrence annotation policy.
+  - Almost no value as a running example for the conventions in Appendix A.
+  - The downstream segments (positions 2–13) are not really translated; they
+    are wave-2 advance-probe placeholders, so the running example cannot be
+    "show real article state evolving" — only "show the agent translating
+    this single non-representative metadata segment."
+
+#### B.4 Recommendation
+
+**Candidate A.** Despite its short article context, it is the only segment in
+the database that:
+
+- has substantive linguistic content,
+- has a clean, idiomatic human-accepted target,
+- exercises terminology lookup against the populated `terminology` table,
+- exercises the `[T/N: term not in dictionary]` path (for 修養),
+- and reads naturally as a "real Kendo book sentence" for the reader.
+
+Synthesize all downstream walkthrough states (edit / proofread / QA) on top of
+this real translate state, marking each `[SYNTHESIZED]` per D2.
+
+For the W3 hierarchical-context example, since article `c914a0bb` itself is
+thin, **augment with a same-domain sibling from `translation_memory`**: the
+1,264-row TM is populated with real KENDOJIDAI bilingual content (e.g. rows
+matching `source_text ILIKE '%剣道%'` return rich prose paragraphs). The
+walkthrough can show the context builder retrieving a TM neighbour from a
+different article as a real example of "broader corpus context," explicitly
+marked as cross-article retrieval rather than same-article-neighbour
+retrieval.
+
+#### B.5 Concrete data block for W8 to consume
+
+```text
+ARTICLE
+  id:            c914a0bb-f8d9-4b7f-9c40-fc50dd34bbbe
+  title:         Kendo Philosophy: The Way of the Sword
+  title_ja:      (null)
+  segment_count: 3
+  segmented:     true
+  translation_status: draft
+
+SEGMENT (running example)
+  id:            d644d349-325e-4098-a7b4-0ec2fa7e4318
+  article_id:    c914a0bb-f8d9-4b7f-9c40-fc50dd34bbbe
+  position:      0
+  status:        translated
+  source_text:   剣道は単なる武術ではなく、精神的な修養の道でもあります。
+  target_text:   Kendo is not merely a martial art, but also a path of spiritual cultivation.
+
+TERMINOLOGY HITS (from terminology table, real)
+  剣道 → kendō    — "The way of the sword."
+  武術 → bujutsu  — "Martial art" or "military art."
+  道   → dō (1)   — "The way", i.e. a way of enlightenment …
+  修養 → (not found in terminology table — emits [T/N: shūyō — spiritual cultivation])
+
+CROSS-ARTICLE TM CONTEXT (example, real row from translation_memory)
+  source_text: [JA] 伸びる剣道の法則（笠村浩二）
+  target_text: <multi-paragraph KENDOJIDAI body containing 剣道 in context>
+  domain:      kendo
+  quality:     silver
+  human_approved: false
+```
+
+W8 should treat this block as the canonical input. All downstream walkthrough
+states are derived from it and marked `[SYNTHESIZED]`.
+
+#### B.6 Schema discoveries with downstream impact
+
+These corrections to schema knowledge must propagate to W7 (memory DB
+design) and W12 (refresh `DEV-STATE-2026-05-20.md`):
+
+- `articles` (not `documents`): `id, title, title_ja, content_ja, content_en,
+  source_url, source_url_ja, source_url_en, tags[], translation_status,
+  quality_score, match_score, segmented, segment_count, translator_id,
+  created_at, updated_at`.
+- `segments`: `id, article_id, position (not segment_index), source_text,
+  target_text, source_lang, target_lang, status, locked_by, locked_at,
+  translated_by, reviewed_by, quality_detail JSONB, metadata JSONB,
+  created_at, updated_at`. **No CHECK constraint visible at column-info
+  level; in practice only `{draft, translated}` are observed.**
+- `terminology` (920 rows): `id, source_term, target_term, reading, domain,
+  term_type, notes, created_at`. Already populated for kendo domain;
+  `term_type` distinguishes `preferred` from likely alternates.
+- `translation_memory` (1,264 rows): `id, source_text, target_text,
+  source_lang, target_lang, domain, quality, human_approved, source_url,
+  embedding (USER-DEFINED, pgvector), source_tsv (tsvector), created_by,
+  article_id, usage_count, last_used_at, created_at, updated_at`. Has
+  embedding-based and full-text search infrastructure ready. **W7 should
+  treat this as the starting point, not propose building from scratch.**
+- `agent_prompts` (1 row): `id, user_id, agent_type, approach, template,
+  created_at, updated_at`. Existing prompt-storage scheme. W6 may extend
+  this schema rather than design a new one.
+- `segment_revisions` (1 row), `segment_phase_transitions` (12 rows): audit
+  trails exist but are barely populated.
+
+These findings materially change the framing of TODO 4. The work is not
+"build a memory DB from scratch" but **"document the memory tables that
+already exist, extend them where MAC-RAG needs more, and define the
+context-builder's query interface against them."** This may warrant
+revisiting D1 (currently "full from-scratch design") — flagged as **NEW
+DECISION D6** at end of this appendix.
+
+#### B.7 New decision raised by this appendix
+
+**D6 — Memory DB framing in W7, given existing tables.**
+
+- Option A: keep W7 as "full from-scratch design," position the existing
+  `translation_memory` / `terminology` / `agent_prompts` tables as
+  prior-art-to-be-superseded.
+- Option B (recommended): retarget W7 as "**extension** design — document the
+  existing schemas, identify gaps for MAC-RAG's context-builder needs,
+  propose additions (new tables or columns) without removing what is
+  already there."
+- Option C: split W7 into two units — W7a (document & evaluate existing
+  memory tables) → W7b (gap-fill design).
+
+This is a user-blocking decision for W7. It does **not** block W3, W4, W5,
+W6, W8.
+
+---
 
 End of plan.

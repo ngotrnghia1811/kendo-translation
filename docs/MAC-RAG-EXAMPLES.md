@@ -35,6 +35,192 @@ QA-advisory walkthroughs will follow in later additions.
 
 ---
 
+## Phase 0 — Hierarchical Context Model
+
+> Addresses TODO 1 (broader context) and the hard dependency from
+> `docs/MAC-RAG-EXAMPLES-TODO-PLAN.md` Appendix A.2.5 (first-occurrence
+> annotation requires document-scope context).
+
+Every MAC-RAG agent run begins by **assembling context for a single segment**.
+"Context" is not just the segment's source text. It is a **four-level
+hierarchy**, each level answering a different question:
+
+| Level | Question it answers | Cost/latency | Shown to HUMAN | Shown to AGENT |
+|---|---|---|---|---|
+| **L1 — Segment** | "What exact text am I working on right now?" | trivial (1 row) | yes (the editor pane) | yes (every phase) |
+| **L2 — Neighbour window** | "What did the immediately surrounding text say?" | cheap (≤ 2k segments scan, hot cache) | yes (the editor scrolls; surfaced verbatim above/below) | yes (translate, edit, proofread) |
+| **L3 — Article** | "What is the whole piece about; what choices have already been made in it?" | moderate (article metadata + every translated sibling segment) | yes (a collapsible "article context" panel; W4 will make this editable) | yes (translate, edit, proofread, QA) |
+| **L4 — Corpus** | "How has this expression been handled elsewhere in our memory?" | costly (pgvector `translation_memory` lookup + `terminology` lookup) | yes (rendered as prose summary, not raw rows — TODO 3) | yes (translate, edit, proofread) |
+
+The walkthroughs that follow this section use **L1 only** in Steps 1–3 today
+(that is the current shipped state); the explicit hierarchy laid out here is
+what the implementation must converge to. Walkthrough integration is the
+follow-up work unit **W3.5** in
+`docs/MAC-RAG-EXAMPLES-TODO-PLAN.md`.
+
+### L1 — Segment
+
+The single row from `segments` for the segment currently in focus.
+
+Fields surfaced:
+
+- `segments.id`, `segments.article_id`, `segments.position`,
+  `segments.status`.
+- `segments.source_text` — the JA sentence to operate on.
+- `segments.target_text` — empty for `translate`, populated for downstream
+  phases.
+- `segments.metadata` (JSONB) — phase-specific notes from prior phases.
+- `segments.locked_by`, `segments.locked_at` — soft-lock state (informational
+  to the agent; the lock is enforced by the API, not by the prompt).
+
+**Example (running example, from
+`docs/MAC-RAG-EXAMPLES-TODO-PLAN.md` Appendix B candidate A):**
+
+```text
+id:           d644d349-325e-4098-a7b4-0ec2fa7e4318
+article_id:   c914a0bb-f8d9-4b7f-9c40-fc50dd34bbbe
+position:     0
+status:       draft        (state at start of translate)
+source_text:  剣道は単なる武術ではなく、精神的な修養の道でもあります。
+target_text:  (empty)
+```
+
+### L2 — Neighbour window
+
+The ± k segments around the current segment within the same article.
+
+- **Translate / edit / proofread:** k = 2 by default. Both source_text and
+  target_text (if any) for each neighbour are surfaced; their `status` is
+  surfaced so the agent knows which neighbours are reliable and which are
+  still `draft`.
+- **QA-advisory:** k = 2 for span context, plus the previous and next
+  segments that share a paragraph boundary in `articles.content_ja`.
+
+Fields surfaced per neighbour: `position, status, source_text, target_text`.
+Empty-source-text neighbours (article-meta rows) are kept but flagged
+`(meta)`.
+
+**Example (running example):**
+
+Article `c914a0bb` has only 3 segments and the current segment is at
+`position = 0`, so the natural neighbour-list is `position 1` and `position
+2`:
+
+```text
+position 1, status=translated, source_text=(empty/meta), target_text="This translation aims to preserve the essence …"  (meta)
+position 2, status=translated, source_text=(empty/meta), target_text="The word \"修養\" (shūyō) is translated …"        (meta)
+```
+
+When the natural neighbour window is degenerate (as here), the context
+builder **must escalate to L4** rather than silently shipping a thin
+context — see L4 below.
+
+### L3 — Article
+
+Article-level metadata plus the article-level glossary state.
+
+Fields surfaced:
+
+- `articles.id`, `articles.title`, `articles.title_ja`, `articles.tags[]`,
+  `articles.translation_status`, `articles.segment_count`.
+- `articles.content_ja` head (first N chars, for chapter-level orientation —
+  not the full content).
+- `articles.source_url`, `articles.source_url_ja`, `articles.source_url_en`
+  (so the agent can recognise the publication context, e.g. KENDOJIDAI).
+- **Glossary state:** the set of terms already annotated at first-occurrence
+  in this article. This is the field that satisfies Appendix A.2.5. It is
+  computed by scanning every `status ∈ {translated, edited, proofread,
+  qa_approved}` segment of this article for `*rōmaji* (漢字 — gloss)`
+  patterns and listing the rōmaji forms already used. The agent uses this to
+  decide whether to annotate or just write the rōmaji.
+
+**Example (running example):**
+
+```text
+article.id:                 c914a0bb-f8d9-4b7f-9c40-fc50dd34bbbe
+article.title:              Kendo Philosophy: The Way of the Sword
+article.title_ja:           (null)
+article.tags:               (empty)
+article.translation_status: draft
+article.segment_count:      3
+article.glossary_state:     []   (this is segment 0; nothing annotated yet)
+```
+
+### L4 — Corpus
+
+Cross-article retrieval from `translation_memory` and `terminology`. This is
+the level that satisfies Appendix A.2.4 (dictionary-as-SoT policy) and
+Appendix A.2.10(a) (terminology consistency across the corpus).
+
+Retrieval queries:
+
+- **Terminology lookup** — for each kendo-domain term that appears in
+  `segments.source_text`, look up `terminology.source_term` exact-match
+  first, then `reading` and `target_term` fuzzy-match fallback. Returns
+  `source_term, target_term, reading, domain, term_type, notes`.
+- **Translation-memory lookup** — `translation_memory` rows filtered by
+  `domain = articles.tags` (when set) or `domain = 'kendo'`, ordered by
+  (a) tsvector match against `source_text`, then (b) pgvector cosine
+  similarity against the embedding of the current segment, then (c)
+  `human_approved DESC, quality DESC, usage_count DESC`. Top-N (default 3)
+  returned.
+- **Article-internal prior translations** — when L2 is degenerate (as in the
+  running example), L4 additionally pulls translated rows from other
+  articles that share `articles.tags` or have high TM similarity, **flagged
+  explicitly as cross-article**.
+
+**Example (running example):**
+
+```text
+terminology hits (real rows from `terminology` table):
+  剣道 → kendō    "The way of the sword."                        (preferred)
+  武術 → bujutsu  "Martial art" or "military art." Bujutsu …      (preferred)
+  道   → dō (1)   "The way", i.e. a way of enlightenment …       (preferred)
+  修養 → (no entry)                                                → translator note candidate
+
+translation_memory neighbours (real rows, domain=kendo, top-3):
+  1. source: [JA] 伸びる剣道の法則（笠村浩二）
+     target: <KENDOJIDAI body using 剣道 in philosophical context>
+     quality: silver, human_approved: false
+  2. source: [JA] 攻撃主体の剣道構築に向けて（竹中健太郎）
+     target: <KENDOJIDAI essay using 剣道 in instructional context>
+     quality: silver, human_approved: false
+  3. source: [JA] 大人開始組のための剣道講座（前編）
+     target: <KENDOJIDAI piece using 剣道 in introductory context>
+     quality: silver, human_approved: false
+```
+
+### How the four levels compose into a single prompt
+
+The context builder concatenates the four levels in order (L1 → L2 → L3 →
+L4) into a single human-readable block, wraps it with the
+phase-appropriate role card, and emits two outputs:
+
+- **the composed prompt**, sent to the LLM; and
+- **the context preview**, rendered as prose in the cooperation surface so
+  the HUMAN can see exactly what the agent is being told (TODO 1 + TODO 3).
+
+In a later work unit (**W4**, "Context Builder Panel as explicit pipeline
+step"), the HUMAN will also be able to **edit** the composed prompt before
+it hits the LLM (TODO 2). W3 (this section) defines only the model. W4
+defines the editing surface. W5 defines the prose-rendering rules for the
+preview. W7 defines the memory-DB extensions that make L4 queryable
+efficiently.
+
+### Mapping levels to phases
+
+| Phase | L1 | L2 | L3 | L4 |
+|---|---|---|---|---|
+| translate | required | required | required (glossary state critical) | required (TM neighbours + terminology) |
+| edit | required | required (style consistency) | required (preserve prior choices) | optional (TM as tie-breaker) |
+| proofread | required | required (flow continuity) | required (article-level voice) | optional |
+| QA-advisory | required | required (span context) | required (article-level invariants) | not used (QA flags, never proposes) |
+
+This table is the contract that W3.5 (walkthrough integration) will use to
+rewrite Steps 1–3 of each walkthrough.
+
+---
+
 ## Translate — full walkthrough
 
 ### Setup
@@ -106,7 +292,9 @@ phase output; only the final candidates and quality summary.
 ### Step 3 — Phase 0: Context Initialization
 
 Server-side. `lib/context/context-builder.ts` inspects the source segment
-and the document.
+and the document. Phase 0 materialises the **L1 (segment-local)** and
+**L2 (article-local)** layers of the hierarchical context model
+(see "Phase 0 — Hierarchical Context Model" above).
 
 `[AGENT IN]`
 
@@ -135,6 +323,14 @@ and the document.
 }
 ```
 
+**Hierarchy mapping.**
+- **L1 (segment-local):** `domain`, `register`, `subRegister`,
+  `politeness`, `entities`, `keyTerms` — all derived directly from the
+  source segment.
+- **L2 (article-local):** `documentTitle`, `neighbours.prev`,
+  `neighbours.next` — derived from sibling segments in the same article.
+- **L3 / L4:** not materialised at Phase 0; deferred to Step 4.
+
 No human-visible UI yet. This object exists only on the server and is
 threaded into Phase 1.
 
@@ -144,9 +340,14 @@ threaded into Phase 1.
 
 ### Step 4 — Phase 1: RAG Retrieval
 
-The server fans out across retrieval sources.
+The server fans out across retrieval sources. Phase 1 materialises the
+**L3 (project-corpus)** and **L4 (external / cross-domain)** layers of
+the hierarchy. L1/L2 are already in hand from Step 3 and are *not*
+re-queried here.
 
-**TM search** (`lib/retrieval/tm-search.ts`).
+**TM search** (`lib/retrieval/tm-search.ts`) — primarily **L3**
+(project-curated TM in `translation_memory`); when the query lacks
+in-project matches it falls back to **L4** cross-project neighbours.
 
 `[AGENT IN]`
 
@@ -166,7 +367,9 @@ The server fans out across retrieval sources.
 ]
 ```
 
-**Terminology lookup** (`lib/retrieval/terminology.ts`).
+**Terminology lookup** (`lib/retrieval/terminology.ts`) — **L3**
+(project-curated `terminology` rows), with canonical kendo romanizations
+crossing into **L4** territory.
 
 `[AGENT OUT]`
 
@@ -181,8 +384,9 @@ The server fans out across retrieval sources.
 ]
 ```
 
-**Domain Corpus** and **Cross-Lingual KB**: `[GAP]` — sources defined in
-plan, not yet implemented. The pipeline currently proceeds without them.
+**Domain Corpus (L4)** and **Cross-Lingual KB (L4)**: `[GAP]` — sources
+defined in plan, not yet implemented as distinct channels. The pipeline
+currently proceeds with TM-based L3/L4 only.
 
 Still no human-visible UI. All retrieval is internal.
 
@@ -193,7 +397,8 @@ Still no human-visible UI. All retrieval is internal.
 ### Step 5 — Phase 2: Context Pairing
 
 `lib/context/context-pairer.ts` fuses Phase 0 + Phase 1 into a prompt
-context and a coverage report.
+context and a coverage report. Pairing inputs: **L1 + L2** from Step 3,
+**L3 + L4** from Step 4.
 
 `[AGENT OUT]`
 
@@ -218,13 +423,117 @@ context and a coverage report.
 }
 ```
 
+Within `promptContext`: `domain`/`register` carry **L1** signals;
+`neighbourTargets` carries **L2**; `tmExamples` and the three `terms*`
+arrays carry **L3** (with L4 fallback where applicable).
+
 The high coverage (0.85) means the agent has enough grounding to proceed
 to multi-candidate generation without flagging the human for context help.
+Had **L2** been degenerate (e.g., empty-meta sibling segments — see
+"Phase 0 — Hierarchical Context Model"), `coverageReport.gaps` would
+mandate **L4 escalation** here.
 
 `[GAP]` If a Context Builder Panel existed, this is the moment it would
 surface to the human ("here is what the agent will use; want to edit?").
 Today the panel does not exist; `useMacRag` keeps `promptContext` in
 memory but renders no UI for it.
+
+---
+
+### Step 5b — Context Builder Panel (human prompt review)
+
+This is the **first point in the pipeline where the human sees what the
+agent will see**. Today the orchestrator runs Phases 0–2 and Phase 3 in
+one shot; the design promotes the boundary between them to a UI surface.
+
+**HTTP shape change.** `POST /api/mac-rag` no longer runs end-to-end. It
+returns at Phase 2 with the composed prompt. The client then issues a
+second call, `POST /api/mac-rag/generate`, with the (possibly
+human-edited) prompt to trigger Phase 3.
+
+`[AGENT OUT]` of the first call (`POST /api/mac-rag` for translate)
+
+```json
+{
+  "stage": "phase2_complete",
+  "segmentId": "5f3a…-47",
+  "task": "translate",
+  "composedPrompt": {
+    "system": "You translate Japanese kendo prose to English with a literary register. Preserve kendo romanizations (datotsu, maai, zanshin) unchanged.",
+    "user":   "Source: 打突の機会を見逃さず、間合いを詰める。\n\nDomain: kendo (formal/instructional/teineigo)\nNeighbours:\n  prev: Maintain zanshin; do not break kamae.\n  next: Aim for ki-ken-tai-itchi.\nTM examples:\n  - 打突の機会を捉える。 → Seize the opportunity to strike. (0.78)\n  - 間合いを詰めて打突する。 → Close the maai and strike. (0.71)\nRequired terms: 間合い → maai\nPreferred terms: 打突 → datotsu (first technical use)\nDo not translate: 剣道 → kendo, 道場 → dojo"
+  },
+  "approaches": ["literal", "natural", "formal"],
+  "coverageReport": { "overall": 0.85, "gaps": [] }
+}
+```
+
+`[HUMAN SEES]` the **Context Builder Panel**. A two-pane view:
+
+```
+┌─ Context Builder ────────────────────────────────────────────────────┐
+│ Task: translate          Segment: …-47          Coverage: 0.85       │
+├──────────────────────────────────────────────────────────────────────┤
+│ System prompt (editable)                                             │
+│   You translate Japanese kendo prose to English with a literary      │
+│   register. Preserve kendo romanizations (datotsu, maai, zanshin)    │
+│   unchanged.                                                         │
+├──────────────────────────────────────────────────────────────────────┤
+│ User prompt (editable)                                               │
+│   Source: 打突の機会を見逃さず、間合いを詰める。                       │
+│                                                                       │
+│   Domain: kendo (formal/instructional/teineigo)                      │
+│   Neighbours:                                                        │
+│     prev: Maintain zanshin; do not break kamae.                      │
+│     next: Aim for ki-ken-tai-itchi.                                  │
+│   TM examples:                                                       │
+│     - 打突の機会を捉える。 → Seize the opportunity to strike. (0.78)   │
+│     - 間合いを詰めて打突する。 → Close the maai and strike. (0.71)    │
+│   Required terms: 間合い → maai                                       │
+│   Preferred terms: 打突 → datotsu (first technical use)               │
+│   Do not translate: 剣道 → kendo, 道場 → dojo                         │
+├──────────────────────────────────────────────────────────────────────┤
+│ Will generate 3 candidates: literal / natural / formal               │
+├──────────────────────────────────────────────────────────────────────┤
+│        [ Generate ]   [ Cancel ]   [ Skip panel next time ]          │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+`[HUMAN ACTS]`. Three typical paths:
+
+- **Accept as-is.** Click **Generate**. The user prompt is sent
+  unchanged.
+- **Light edit.** Strike one TM example the user thinks is misleading;
+  add a one-line note like "render 詰める as 'close', not 'narrow'";
+  then **Generate**.
+- **Cancel.** Click **Cancel**. No Phase 3, no `segment_suggestions`
+  write. The orchestrator state is discarded.
+
+`[AGENT IN]` of the second call (`POST /api/mac-rag/generate` for
+translate)
+
+```json
+{
+  "segmentId": "5f3a…-47",
+  "task": "translate",
+  "composedPrompt": { "system": "…", "user": "… (possibly edited) …" },
+  "approaches": ["literal", "natural", "formal"]
+}
+```
+
+**Defaults.** The panel is **default-on** for translate (and edit and
+proofread). A user-level setting `userPreferences.skip_context_builder`
+lets a user opt out per task. Click "Skip panel next time" inside the
+panel to set this flag for the current task without leaving the page.
+
+`[GAP]` **Open: prune-retrieval-results UI.** The mock-up above lets the
+human edit the *composed prompt as text*. A richer design would let them
+click individual TM rows or terminology entries to remove them from the
+prompt structurally. Decision deferred.
+
+`[GAP]` **Open: prompt-edit audit trail.** If the human edits the
+prompt, do we persist the edit (and its diff against the agent's
+proposal) for later audit? A `prompt_edits` table is a candidate; see
+W7 in `docs/MAC-RAG-EXAMPLES-TODO-PLAN.md`. Decision deferred.
 
 ---
 
@@ -599,6 +908,12 @@ ground truth.
 
 ### Step 3 — Phase 0: Context Initialization (edit-shaped)
 
+Phase 0 builds **L1 (segment-local)** and **L2 (article-local)**, with an
+edit-specific twist: L1 is wider here because it covers *both* the source
+text **and** the current target. The `targetAnalysis` sub-object is the
+edit task's distinctive L1 signal — it scores and diagnoses the existing
+target before any revision proposal is generated.
+
 `[AGENT OUT]` (a `ContextObject` with target-side analysis added)
 
 ```json
@@ -625,6 +940,14 @@ ground truth.
 }
 ```
 
+**Hierarchy mapping.**
+- **L1 (segment-local):** `domain`, `register`, `subRegister`,
+  `politeness`, `entities`, `keyTerms`, and the entire `targetAnalysis`
+  block (source + current target are both segment-local for edit).
+- **L2 (article-local):** `neighbours.prev`, `neighbours.next` — used to
+  detect adjacent rendering patterns that the edit must keep consistent
+  with.
+
 This is the structural difference: Phase 0 for edit also runs a
 diagnostic pass over the existing target to surface what's worth
 revising and what is **already good and must not be regressed**.
@@ -633,9 +956,12 @@ revising and what is **already good and must not be regressed**.
 
 ### Step 4 — Phase 1: RAG Retrieval
 
-Same retrieval sources as translate, plus one new one:
+Same **L3/L4** sources as translate, plus one new task-specific source:
 
-**Revision history of this segment** (`segment_suggestions` accepted rows).
+**Revision history of this segment** (`segment_suggestions` accepted
+rows) — an **L1-extension** retrieval source: it's still segment-scoped,
+but reaches *backward in time* on the same segment rather than outward
+to siblings or the project corpus.
 
 `[AGENT OUT]`
 
@@ -661,6 +987,11 @@ Same retrieval sources as translate, plus one new one:
 }
 ```
 
+**Hierarchy mapping.**
+- **L3 (project-corpus):** `tm`, `terminology`.
+- **L1-extension:** `revisionHistory` (this segment's own history).
+- **L4:** `domainCorpus`, `crossLingualKb` — `[GAP]` as in translate.
+
 The revision history matters: it tells the edit agent that `wenqian`
 **chose** "Without missing" over "Seize every opportunity" during
 translate. That is a signal to be conservative about overturning it.
@@ -668,6 +999,10 @@ translate. That is a signal to be conservative about overturning it.
 ---
 
 ### Step 5 — Phase 2: Context Pairing
+
+Pairing inputs: **L1 + L2** from Step 3, **L3 + L4** from Step 4, plus
+the **L1-extension** revision history that distinguishes edit from
+translate.
 
 `[AGENT OUT]`
 
@@ -689,8 +1024,84 @@ translate. That is a signal to be conservative about overturning it.
 }
 ```
 
+Within `promptContext`: `currentTarget`, `weaknessHints`, `preserveHints`
+carry **L1**; `tmExamples`, `termsRequired`, `termsPreferred` carry
+**L3**; `translatorIntent` is synthesised from the **L1-extension**
+revision history.
+
 `[GAP]` Again, no Context Builder Panel yet — the human doesn't see this
 intermediate object.
+
+---
+
+### Step 5b — Context Builder Panel (edit-shaped)
+
+Same two-stage HTTP contract as translate. The edit version of the panel
+emphasises **what the agent has been told to preserve**, because the edit
+task carries the most regret risk: a poorly-guided edit can regress the
+translator's deliberate choices.
+
+`[AGENT OUT]` of the first call
+
+```json
+{
+  "stage": "phase2_complete",
+  "segmentId": "5f3a…-47",
+  "task": "edit",
+  "composedPrompt": {
+    "system": "You are an editor of Japanese→English kendo prose. Improve the current target where it diverges from source meaning or misses terminology. Preserve correct romanizations and the translator's deliberate phrasings.",
+    "user":   "Source: 打突の機会を見逃さず、間合いを詰める。\nCurrent target: Without missing the opportunity for datotsu, close the maai.\n\nPreserve:\n  - datotsu (correct romanization)\n  - maai (correct romanization)\nWeakness hints:\n  - 'Without missing' is literal; consider rhythm\nTranslator intent:\n  - wenqian explicitly edited 'Seize every' to 'Without missing'; treat as deliberate\nRequired terms: 間合い → maai\nPreferred terms: 打突 → datotsu"
+  },
+  "approaches": ["light_touch", "accuracy_focus", "fluency_focus"],
+  "coverageReport": { "overall": 0.88, "gaps": [] }
+}
+```
+
+`[HUMAN SEES]` the panel, with an extra **Preserve** band surfaced
+prominently:
+
+```
+┌─ Context Builder (edit) ─────────────────────────────────────────────┐
+│ Task: edit   Segment: …-47   Coverage: 0.88                          │
+├──────────────────────────────────────────────────────────────────────┤
+│ Preserve (do not regress):                                           │
+│   • datotsu — correct romanization                                   │
+│   • maai — correct romanization                                      │
+│   • Translator intent: 'Without missing' chosen by wenqian over      │
+│     'Seize every' — treat as deliberate                              │
+├──────────────────────────────────────────────────────────────────────┤
+│ System prompt (editable)  …                                          │
+│ User prompt (editable)    …                                          │
+├──────────────────────────────────────────────────────────────────────┤
+│ Will generate 3 candidates: light_touch / accuracy_focus / fluency   │
+├──────────────────────────────────────────────────────────────────────┤
+│        [ Generate ]   [ Cancel ]   [ Skip panel next time ]          │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+`[HUMAN ACTS]`. The editor typically:
+
+- Skims the **Preserve** band first; this is the panel's main value for
+  the edit task.
+- Optionally drops a weakness hint they disagree with, or adds a
+  task-specific constraint ("do not lengthen the sentence").
+- Clicks **Generate**.
+
+`[AGENT IN]` of the second call
+
+```json
+{
+  "segmentId": "5f3a…-47",
+  "task": "edit",
+  "composedPrompt": { "system": "…", "user": "… (possibly edited) …" },
+  "approaches": ["light_touch", "accuracy_focus", "fluency_focus"]
+}
+```
+
+**Defaults.** Default-on. Same user-level skip toggle as translate.
+
+`[GAP]` Same two open questions as translate: prune-retrieval-results
+UI, and prompt-edit audit trail.
 
 ---
 
@@ -1090,7 +1501,11 @@ post-generalization shape.
 
 ### Step 3 — Phase 0: Context Initialization (proofread-shaped)
 
-The Phase 0 pass is heavily **surface-oriented** for proofread.
+The Phase 0 pass is heavily **surface-oriented** for proofread. Phase 0
+materialises **L1 (segment-local)** surface analysis and pulls **L2
+(article-local)** neighbour evidence — both are essential because
+proofread issues are typically surface inconsistencies that only become
+visible when the segment is compared to its siblings.
 
 `[AGENT OUT]`
 
@@ -1124,6 +1539,13 @@ The Phase 0 pass is heavily **surface-oriented** for proofread.
 }
 ```
 
+**Hierarchy mapping.**
+- **L1 (segment-local):** `domain`, `register`, `entities`, and the
+  entire `targetSurfaceAnalysis` block — all derived from the target
+  segment's surface form.
+- **L2 (article-local):** `neighbours.prev`, `neighbours.next` — the
+  evidence that adjacent text uses lowercase romanizations.
+
 The neighbours matter: they confirm the rest of the document uses
 lowercase romanizations (`zanshin`, `kamae`, `ki-ken-tai-itchi`), so the
 flagged capitalisation is **inconsistent**, not a deliberate choice.
@@ -1133,7 +1555,9 @@ flagged capitalisation is **inconsistent**, not a deliberate choice.
 ### Step 4 — Phase 1: RAG Retrieval
 
 Proofread brings in two retrieval sources that translate and edit do not
-emphasise:
+emphasise. The L2 evidence collected in Step 3 is amplified by L3 TM
+neighbours and a project-wide `documentConsistency` scan; the style
+guide is a new L4 source.
 
 **Cross-segment consistency check** — scan the document for how
 `datotsu` and `maai` are cased elsewhere.
@@ -1171,6 +1595,14 @@ emphasise:
 }
 ```
 
+**Hierarchy mapping.**
+- **L3 (project-corpus):** `tm`, `terminology`, `documentConsistency`
+  (project-scoped scan).
+- **L4 (external):** `styleGuide` — currently prompt-embedded `[GAP]`,
+  but conceptually an L4 source.
+- **L4 (planned):** `qaIssuePatterns`, `domainCorpus`, `crossLingualKb`
+  — `[GAP]`.
+
 The `documentConsistency` block is the decisive evidence: 12-to-1 in
 favour of lowercase. The proofread agent now has very high confidence
 that this segment is the outlier.
@@ -1178,6 +1610,10 @@ that this segment is the outlier.
 ---
 
 ### Step 5 — Phase 2: Context Pairing
+
+Pairing inputs: **L1 + L2** from Step 3 (surface analysis + neighbour
+casing); **L3 + L4** from Step 4 (TM, terminology, document consistency,
+style guide).
 
 `[AGENT OUT]`
 
@@ -1201,8 +1637,79 @@ that this segment is the outlier.
 }
 ```
 
+Within `promptContext`: `currentTarget`, `preserveHints` carry **L1**;
+the `surfaceIssues` strings fuse **L1** (the offending tokens) with
+**L3** (the consistency ratios); `italicHint` carries **L4** style-guide
+provenance.
+
 The high coverage reflects that proofread is mostly a rule-checking task
 once retrieval is done; little is left to ambiguity.
+
+---
+
+### Step 5b — Context Builder Panel (proofread-shaped)
+
+Same two-stage HTTP contract. The proofread version of the panel is
+notably **shorter** — proofread rests on a small number of explicit
+surface rules and decisive document-consistency evidence, so the prompt
+fits in a few lines.
+
+`[AGENT OUT]` of the first call
+
+```json
+{
+  "stage": "phase2_complete",
+  "segmentId": "5f3a…-47",
+  "task": "proofread",
+  "composedPrompt": {
+    "system": "You are a proofreader of Japanese→English kendo prose. Correct surface issues (casing, italicisation, punctuation) only. Never alter sentence structure or word choice beyond surface corrections. Preserve adequacy exactly.",
+    "user":   "Current target: Without letting an opportunity for Datotsu pass, close the Maai.\n\nSurface issues to address:\n  - Datotsu → datotsu (casing; 12:1 document consistency)\n  - Maai → maai   (casing; 9:1 document consistency)\nItalics hint: first-occurrence italicisation requires chapter scan; not determinable here.\nPreserve:\n  - sentence structure\n  - word choice beyond casing\n  - adequacy"
+  },
+  "approaches": ["conservative", "standard", "house_style"],
+  "coverageReport": { "overall": 0.92, "gaps": [] }
+}
+```
+
+`[HUMAN SEES]` the panel:
+
+```
+┌─ Context Builder (proofread) ────────────────────────────────────────┐
+│ Task: proofread   Segment: …-47   Coverage: 0.92                     │
+├──────────────────────────────────────────────────────────────────────┤
+│ Surface issues:                                                      │
+│   • Datotsu → datotsu (casing; 12:1 consistency)                     │
+│   • Maai → maai (casing; 9:1 consistency)                            │
+├──────────────────────────────────────────────────────────────────────┤
+│ System prompt (editable)  …                                          │
+│ User prompt (editable)    …                                          │
+├──────────────────────────────────────────────────────────────────────┤
+│ Will generate 3 candidates: conservative / standard / house_style    │
+├──────────────────────────────────────────────────────────────────────┤
+│        [ Generate ]   [ Cancel ]   [ Skip panel next time ]          │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+`[HUMAN ACTS]`. Proofreaders typically scan the surface-issues list,
+accept, and click **Generate**. The panel exists mostly as a safety
+checkpoint — for catching cases where the surface "issue" is actually a
+deliberate stylistic choice the human wants to keep.
+
+`[AGENT IN]` of the second call
+
+```json
+{
+  "segmentId": "5f3a…-47",
+  "task": "proofread",
+  "composedPrompt": { "system": "…", "user": "… (possibly edited) …" },
+  "approaches": ["conservative", "standard", "house_style"]
+}
+```
+
+**Defaults.** Default-on. Some proofreaders may prefer to skip the
+panel because the surface-rule space is small; the same user-level skip
+toggle applies.
+
+`[GAP]` Same two open questions as translate/edit.
 
 ---
 
@@ -1579,7 +2086,11 @@ approaches — N=1 generation, single style. Future task variants (e.g.
 
 Phase 0 for QA does a **parallel pass on both source and target** and
 classifies the segment by its QA-risk profile — what kinds of mistakes
-are *possible* for a segment of this shape.
+are *possible* for a segment of this shape. **L1 (segment-local)**
+carries the risk profile; **L2 (article-local)** is folded in here as
+`phaseHistorySummary` — a phase-by-phase audit of how this segment moved
+through the pipeline, which is article-scoped through the segment's own
+phase-transition rows.
 
 `[AGENT OUT]`
 
@@ -1606,6 +2117,13 @@ are *possible* for a segment of this shape.
 }
 ```
 
+**Hierarchy mapping.**
+- **L1 (segment-local):** `domain`, `register`, the entire `riskProfile`
+  block — all derived from this segment's source + final target.
+- **L2 (article-local, segment-history scope):** `phaseHistorySummary`
+  — a compressed read of the segment's own `segment_phase_transitions`
+  rows; article-scoped because the workflow is the article's.
+
 The `riskProfile` flags `hasNegation: true`. Negation in JA→EN is a
 known source of polarity flips (model accidentally drops the "without"),
 so QA will attend to it.
@@ -1620,7 +2138,8 @@ slightly more scrutiny than a fully-human-touched segment.
 
 QA's distinctive retrieval source is **past QA issues** — the
 `qa_issues` table itself, queried for patterns that historically
-appeared on segments with similar risk profiles.
+appeared on segments with similar risk profiles. This is the QA task's
+primary **L3/L4** channel.
 
 `[AGENT OUT]`
 
@@ -1649,12 +2168,22 @@ appeared on segments with similar risk profiles.
 }
 ```
 
+**Hierarchy mapping.**
+- **L3 (project-corpus):** `pastQaIssues` (project-scoped `qa_issues`
+  rows), `terminology`, `documentConsistency`.
+- **L4 (external):** `qaIssuePatterns` (cross-project canonical patterns,
+  `[GAP]`), `styleGuide` (`[GAP]`).
+- TM is explicitly **not used** — QA verifies; it does not generate.
+
 QA does not consult the TM the way translate/edit do. TM is for
 generation; QA is for verification.
 
 ---
 
 ### Step 5 — Phase 2: Context Pairing
+
+Pairing inputs: **L1 + L2** from Step 3 (risk profile + phase history);
+**L3 + L4** from Step 4 (past QA issues + terminology + style guide).
 
 `[AGENT OUT]`
 
@@ -1677,6 +2206,97 @@ generation; QA is for verification.
   "coverageReport": { "overall": 0.93, "gaps": [] }
 }
 ```
+
+Within `promptContext`: `source`, `target`, `riskFocus` carry **L1**;
+`knownPatterns` carries **L3** (past QA issues distilled);
+`termsRequired`/`termsPreferred` carry **L3** with presence checks
+folded back against **L1**.
+
+---
+
+### Step 5b — Context Builder Panel (QA-shaped, default-off)
+
+QA-advisory is the one task where the panel is **default-off**. Two
+reasons:
+
+1. QA is a single-pass generation (`approaches: ['issue_scan']`, N=1).
+   There is no candidate diversity to steer with prompt edits.
+2. QA-advisory's value comes from being a *fresh* second pair of eyes;
+   pre-shaping its prompt risks the human anchoring the agent to the
+   issues they already suspect, defeating the point.
+
+Therefore the orchestrator runs Phases 0 → 3 in a single call for QA by
+default. The panel can be **turned on per-user** via
+`userPreferences.context_builder.qa = true` for users who want to
+review or constrain the QA prompt (e.g., to instruct the agent to
+ignore a specific known-false-positive pattern for this segment).
+
+When enabled, the panel shape is the same two-stage HTTP contract as
+the other tasks:
+
+`[AGENT OUT]` of the first call (only emitted when the toggle is on)
+
+```json
+{
+  "stage": "phase2_complete",
+  "segmentId": "5f3a…-47",
+  "task": "qa",
+  "composedPrompt": {
+    "system": "You are a QA reviewer for a Japanese→English kendo translation. Examine the source and target for translation issues. Categorise each issue as terminology / accuracy / fluency / consistency / style with severity major / minor / info. Output a JSON array. If no material issues, return []. Do NOT propose a fixed translation — only flag issues.",
+    "user":   "Source:  打突の機会を見逃さず、間合いを詰める。\nTarget:  Without letting an opportunity for datotsu pass, close the maai.\n\nRisk focus:\n  - polarity / negation (見逃さず ↔ 'without ... pass')\n  - terminology consistency (datotsu, maai)\nKnown patterns:\n  - polarity flip on JA negation (7 historical occurrences)\nRequired terms (✓ present): 間合い → maai\nPreferred terms (✓ present): 打突 → datotsu"
+  },
+  "approaches": ["issue_scan"],
+  "coverageReport": { "overall": 0.93, "gaps": [] }
+}
+```
+
+`[HUMAN SEES]` (only when toggle is on) — a leaner panel because there
+is only one approach and no candidate diversity:
+
+```
+┌─ Context Builder (QA, optional) ─────────────────────────────────────┐
+│ Task: qa   Segment: …-47   Coverage: 0.93                            │
+├──────────────────────────────────────────────────────────────────────┤
+│ Risk focus:                                                          │
+│   • polarity / negation                                              │
+│   • terminology consistency                                          │
+│ Known patterns:                                                      │
+│   • polarity flip on JA negation (7 historical)                      │
+├──────────────────────────────────────────────────────────────────────┤
+│ System prompt (editable)  …                                          │
+│ User prompt (editable)    …                                          │
+├──────────────────────────────────────────────────────────────────────┤
+│ Single-pass issue scan (N=1)                                         │
+├──────────────────────────────────────────────────────────────────────┤
+│        [ Run QA ]   [ Cancel ]   [ Turn off panel for QA ]           │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+`[HUMAN ACTS]` (only when toggle is on). QA reviewer typically clicks
+**Run QA** without editing; the panel mainly serves as a transparency
+checkpoint ("the agent will scan for these risks") rather than a
+steering surface.
+
+`[AGENT IN]` of the second call (only when toggle is on)
+
+```json
+{
+  "segmentId": "5f3a…-47",
+  "task": "qa",
+  "composedPrompt": { "system": "…", "user": "… (possibly edited) …" },
+  "approaches": ["issue_scan"]
+}
+```
+
+**Defaults.** Default-**off**. The per-user toggle is the only path to
+the panel for QA. The "Turn off panel for QA" button inside the panel
+flips the flag back without leaving the page.
+
+`[GAP]` Same two open questions as the other tasks: prune-retrieval-
+results UI, prompt-edit audit trail. For QA, audit-trail is
+particularly weighty — pre-shaping a QA prompt has reviewer-bias
+implications that may warrant mandatory logging even if optional
+elsewhere.
 
 ---
 
