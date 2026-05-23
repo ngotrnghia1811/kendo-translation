@@ -32,7 +32,7 @@ export default function ReaderView({ segments, settings, title }: ReaderViewProp
     } = useReaderView(segments, settings)
 
     return (
-        <div className="min-h-screen">
+        <main className="min-h-screen">
             {/* Mode switcher toolbar */}
             <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
                 <div className="max-w-5xl mx-auto">
@@ -107,6 +107,6 @@ export default function ReaderView({ segments, settings, title }: ReaderViewProp
                     )}
                 </>
             )}
-        </div>
+        </main>
     )
 }

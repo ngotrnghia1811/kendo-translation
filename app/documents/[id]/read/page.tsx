@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import ReaderView from '@/components/reader/ReaderView';
 
 export default async function ReadPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -14,14 +15,27 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
 
   if (!article) notFound();
 
+  // Fetch ALL segments (no DB-side status filter) so ReaderView's paragraph
+  // merging sees the full ordered sequence. We then apply the reader-visibility
+  // contract in JS below: only segments that are qa_approved OR already have
+  // target_text are exposed to the public reader. If we want a configurable
+  // status filter later, it should live in document_settings.
   const { data: segments } = await supabase
     .from('segments')
     .select('*')
     .eq('article_id', id)
-    .eq('status', 'qa_approved')
     .order('position');
 
-  const translatedSegments = (segments || []).filter(s => s.target_text);
+  const { data: settings } = await supabase
+    .from('document_settings')
+    .select('*')
+    .eq('article_id', id)
+    .maybeSingle();
+
+  // Readers see approved segments or any segment with a populated translation.
+  const readableSegments = (segments || []).filter(
+    (s) => s.status === 'qa_approved' || s.target_text
+  );
 
   return (
     <div className="min-h-screen bg-white">
@@ -41,8 +55,8 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-10">
-        {translatedSegments.length === 0 ? (
+      {readableSegments.length === 0 ? (
+        <main className="max-w-4xl mx-auto px-6 py-10">
           <div className="text-center py-20 text-gray-400">
             <p className="text-4xl mb-4">📝</p>
             <p className="font-medium text-gray-600">No approved translations yet</p>
@@ -51,27 +65,14 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
               Open Editor →
             </Link>
           </div>
-        ) : (
-          <div className="space-y-8">
-            {translatedSegments.map((seg, i) => (
-              <div key={seg.id} className="grid grid-cols-2 gap-6 pb-6 border-b border-gray-100 last:border-0">
-                <div>
-                  {i === 0 && (
-                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Japanese</p>
-                  )}
-                  <p className="text-gray-900 leading-relaxed">{seg.source_text}</p>
-                </div>
-                <div>
-                  {i === 0 && (
-                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">English</p>
-                  )}
-                  <p className="text-gray-700 leading-relaxed">{seg.target_text}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </main>
+        </main>
+      ) : (
+        <ReaderView
+          segments={readableSegments}
+          settings={settings ?? null}
+          title={article.title}
+        />
+      )}
     </div>
   );
 }
