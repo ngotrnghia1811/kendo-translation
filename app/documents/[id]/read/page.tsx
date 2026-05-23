@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient, createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import ReaderView from '@/components/reader/ReaderView';
@@ -14,6 +14,24 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
     .single();
 
   if (!article) notFound();
+
+  // Determine whether the current viewer should see editor affordances.
+  // Mirrors the role check in app/api/auth/me/route.ts: look up the
+  // profiles row by user id via the admin client and allow translator/admin.
+  // Defaults to false for unauthenticated users and on any lookup failure.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let canEdit = false;
+  if (user) {
+    const adminSupabase = await createAdminClient();
+    const { data: profile } = await adminSupabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+    canEdit = profile?.role === 'translator' || profile?.role === 'admin';
+  }
 
   // Fetch ALL segments (no DB-side status filter) so ReaderView's paragraph
   // merging sees the full ordered sequence. We then apply the reader-visibility
@@ -46,12 +64,14 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
             <span className="text-gray-300">/</span>
             <h1 className="text-sm font-medium text-gray-900">{article.title}</h1>
           </div>
-          <Link
-            href={`/documents/${id}/edit`}
-            className="text-xs px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition-colors"
-          >
-            Edit
-          </Link>
+          {canEdit && (
+            <Link
+              href={`/documents/${id}/edit`}
+              className="text-xs px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Edit
+            </Link>
+          )}
         </div>
       </header>
 
@@ -61,9 +81,11 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
             <p className="text-4xl mb-4">📝</p>
             <p className="font-medium text-gray-600">No approved translations yet</p>
             <p className="text-sm mt-2">Approve segments in the editor to see them here.</p>
-            <Link href={`/documents/${id}/edit`} className="inline-block mt-4 text-sm text-blue-600 hover:underline">
-              Open Editor →
-            </Link>
+            {canEdit && (
+              <Link href={`/documents/${id}/edit`} className="inline-block mt-4 text-sm text-blue-600 hover:underline">
+                Open Editor →
+              </Link>
+            )}
           </div>
         </main>
       ) : (
