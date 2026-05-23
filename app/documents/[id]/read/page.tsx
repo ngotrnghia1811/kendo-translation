@@ -79,12 +79,19 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
         <main className="max-w-4xl mx-auto px-6 py-10">
           <div className="text-center py-20 text-gray-400">
             <p className="text-4xl mb-4">📝</p>
-            <p className="font-medium text-gray-600">No approved translations yet</p>
-            <p className="text-sm mt-2">Approve segments in the editor to see them here.</p>
-            {canEdit && (
-              <Link href={`/documents/${id}/edit`} className="inline-block mt-4 text-sm text-blue-600 hover:underline">
-                Open Editor →
-              </Link>
+            {canEdit ? (
+              <>
+                <p className="font-medium text-gray-600">No approved translations yet</p>
+                <p className="text-sm mt-2">Approve segments in the editor to see them here.</p>
+                <Link href={`/documents/${id}/edit`} className="inline-block mt-4 text-sm text-blue-600 hover:underline">
+                  Open Editor →
+                </Link>
+              </>
+            ) : (
+              <>
+                <p className="font-medium text-gray-600">No translations available yet</p>
+                <p className="text-sm mt-2">This document hasn&apos;t been published for reading yet. Check back later.</p>
+              </>
             )}
           </div>
         </main>
