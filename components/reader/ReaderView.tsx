@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import type { Segment, DocumentSettings } from '@/types/database'
 import { useReaderView, type ReaderMode } from '@/hooks/useReaderView'
 import LanguageSelector from '@/components/shared/LanguageSelector'
@@ -11,6 +12,8 @@ interface ReaderViewProps {
     segments: Segment[]
     settings: DocumentSettings | null
     title: string
+    articleId: string
+    canEdit: boolean
 }
 
 const MODE_LABELS: Record<ReaderMode, string> = {
@@ -19,7 +22,7 @@ const MODE_LABELS: Record<ReaderMode, string> = {
     aligned: 'Aligned (sentence)',
 }
 
-export default function ReaderView({ segments, settings, title }: ReaderViewProps) {
+export default function ReaderView({ segments, settings, title, articleId, canEdit }: ReaderViewProps) {
     const {
         mode,
         setMode,
@@ -36,7 +39,22 @@ export default function ReaderView({ segments, settings, title }: ReaderViewProp
             {/* Mode switcher toolbar */}
             <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
                 <div className="max-w-5xl mx-auto">
-                    <h1 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">{title}</h1>
+                    {/* Top row: breadcrumb + Edit affordance */}
+                    <div className="flex items-center justify-between mb-3 gap-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <Link href="/documents" className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm shrink-0">← Documents</Link>
+                            <span className="text-gray-300 dark:text-gray-600 shrink-0">/</span>
+                            <h1 className="text-lg font-semibold text-gray-900 dark:text-white truncate">{title}</h1>
+                        </div>
+                        {canEdit && (
+                            <Link
+                                href={`/documents/${articleId}/edit`}
+                                className="text-xs px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition-colors shrink-0"
+                            >
+                                Edit
+                            </Link>
+                        )}
+                    </div>
 
                     <div className="flex items-center justify-between flex-wrap gap-3">
                         {/* Mode tabs */}

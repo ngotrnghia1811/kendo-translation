@@ -57,49 +57,52 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="min-h-screen bg-white">
-      <header className="border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Link href="/documents" className="text-gray-400 hover:text-gray-600 text-sm">← Documents</Link>
-            <span className="text-gray-300">/</span>
-            <h1 className="text-sm font-medium text-gray-900">{article.title}</h1>
-          </div>
-          {canEdit && (
-            <Link
-              href={`/documents/${id}/edit`}
-              className="text-xs px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              Edit
-            </Link>
-          )}
-        </div>
-      </header>
-
       {readableSegments.length === 0 ? (
-        <main className="max-w-4xl mx-auto px-6 py-10">
-          <div className="text-center py-20 text-gray-400">
-            <p className="text-4xl mb-4">📝</p>
-            {canEdit ? (
-              <>
-                <p className="font-medium text-gray-600">No approved translations yet</p>
-                <p className="text-sm mt-2">Approve segments in the editor to see them here.</p>
-                <Link href={`/documents/${id}/edit`} className="inline-block mt-4 text-sm text-blue-600 hover:underline">
-                  Open Editor →
+        <>
+          <header className="border-b border-gray-200">
+            <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Link href="/documents" className="text-gray-400 hover:text-gray-600 text-sm">← Documents</Link>
+                <span className="text-gray-300">/</span>
+                <h1 className="text-sm font-medium text-gray-900">{article.title}</h1>
+              </div>
+              {canEdit && (
+                <Link
+                  href={`/documents/${id}/edit`}
+                  className="text-xs px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  Edit
                 </Link>
-              </>
-            ) : (
-              <>
-                <p className="font-medium text-gray-600">No translations available yet</p>
-                <p className="text-sm mt-2">This document hasn&apos;t been published for reading yet. Check back later.</p>
-              </>
-            )}
-          </div>
-        </main>
+              )}
+            </div>
+          </header>
+          <main className="max-w-4xl mx-auto px-6 py-10">
+            <div className="text-center py-20 text-gray-400">
+              <p className="text-4xl mb-4">📝</p>
+              {canEdit ? (
+                <>
+                  <p className="font-medium text-gray-600">No approved translations yet</p>
+                  <p className="text-sm mt-2">Approve segments in the editor to see them here.</p>
+                  <Link href={`/documents/${id}/edit`} className="inline-block mt-4 text-sm text-blue-600 hover:underline">
+                    Open Editor →
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <p className="font-medium text-gray-600">No translations available yet</p>
+                  <p className="text-sm mt-2">This document hasn&apos;t been published for reading yet. Check back later.</p>
+                </>
+              )}
+            </div>
+          </main>
+        </>
       ) : (
         <ReaderView
           segments={readableSegments}
           settings={settings ?? null}
           title={article.title}
+          articleId={id}
+          canEdit={canEdit}
         />
       )}
     </div>
