@@ -105,6 +105,8 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                         <SingleLanguageView
                             paragraphs={paragraphs}
                             displayLang={displayLang}
+                            sourceLang={sourceLang}
+                            targetLang={targetLang}
                             getParagraphText={getParagraphText}
                         />
                     )}

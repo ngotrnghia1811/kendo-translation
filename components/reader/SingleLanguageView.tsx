@@ -10,16 +10,21 @@ interface Paragraph {
 interface SingleLanguageViewProps {
     paragraphs: Paragraph[]
     displayLang: 'source' | 'target'
+    sourceLang: string
+    targetLang: string
     getParagraphText: (paragraph: Paragraph, lang: 'source' | 'target') => string
 }
 
 export default function SingleLanguageView({
     paragraphs,
     displayLang,
+    sourceLang,
+    targetLang,
     getParagraphText,
 }: SingleLanguageViewProps) {
+    const currentLang = displayLang === 'source' ? sourceLang : targetLang
     return (
-        <article className="max-w-2xl mx-auto py-8 px-4 prose dark:prose-invert">
+        <article lang={currentLang} className="max-w-2xl mx-auto py-8 px-4 prose dark:prose-invert">
             {paragraphs.map((paragraph, idx) => {
                 const text = getParagraphText(paragraph, displayLang)
                 if (!text.trim()) return null

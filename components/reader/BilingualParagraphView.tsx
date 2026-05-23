@@ -32,7 +32,7 @@ export default function BilingualParagraphView({
                     <div key={paragraph.position} className="space-y-1">
                         {/* Source paragraph */}
                         {sourceText.trim() && (
-                            <div className="border-l-4 border-red-400 dark:border-red-600 pl-4 py-2">
+                            <div lang={sourceLang} className="border-l-4 border-red-400 dark:border-red-600 pl-4 py-2">
                                 <p className="text-base leading-relaxed text-gray-800 dark:text-gray-200">
                                     {sourceText}
                                 </p>
@@ -46,7 +46,7 @@ export default function BilingualParagraphView({
 
                         {/* Target paragraph */}
                         {targetText.trim() && (
-                            <div className="border-l-4 border-blue-400 dark:border-blue-600 pl-4 py-2">
+                            <div lang={targetLang} className="border-l-4 border-blue-400 dark:border-blue-600 pl-4 py-2">
                                 <p className="text-base leading-relaxed text-gray-800 dark:text-gray-200">
                                     {targetText}
                                 </p>
