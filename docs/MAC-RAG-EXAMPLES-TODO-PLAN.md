@@ -177,7 +177,7 @@ W3  doc:       hierarchical context model — Phase 0 rewrite         (TODO 1)  
 W3b doc:       propagate hierarchical context model into MAC-RAG.md spec (Phase 0/1 + §3 task tables + §5 gap-map refresh + §6 worked-example blocks)
 W3.5 doc:      integrate the hierarchical context model into Steps 1–3 of all 4 walkthroughs
 W4  doc:       Context Builder Panel as explicit pipeline step      (TODO 2)
-W5  doc:       prose-first [HUMAN SEES] rewrite across all 4 tasks  (TODO 3)
+W5  doc:       prose-first [HUMAN SEES] rewrite across all 4 tasks  (TODO 3)  [DONE]
 W6  doc:       prompt examples aligned with W1 findings             (TODO 6)
 W7  design:    write docs/MEMORY-DB-DESIGN.md                       (TODO 4)
 W8  doc:       integrate W2 real-segment data through all 4 walkthroughs (TODO 5)
@@ -291,7 +291,7 @@ unit's structural changes.
   - When the human edits the prompt, do we save the diff for audit?
     Likely yes; needs a `prompt_edits` audit table (W7 candidate).
 
-### W5 — Prose-first `[HUMAN SEES]` rewrite (TODO 3)
+### W5 — Prose-first `[HUMAN SEES]` rewrite (TODO 3) [DONE]
 
 - **Scope.** Sweep through every `[HUMAN SEES]` block in
   `docs/MAC-RAG-EXAMPLES.md` and rewrite the contents to be plain English
@@ -310,6 +310,28 @@ unit's structural changes.
   Compromise: show the *band label* in the UI mock-up
   ("Light review suggested"), keep the raw score in a small "(details)"
   drawer below. Decision: yes, do that.
+- **Status.** Rewrites applied at the major offender blocks: Translate
+  Step 10 candidates panel + Step 13 memory-update UI; Edit Step 10
+  candidates panel + Step 11 narration (`accuracy_focus` → "the
+  faithfulness-prioritised rewording"); Proofread Step 8 Branch A
+  auto-accept banner + Branch B policy-off panel; QA Step 9X clean-pass
+  report + Step 10X final status display + Step 9Y triage panel. Routing
+  bands now surface as human labels ("Light review suggested", "Worth
+  considering", "Needs a closer look", "Clean pass"); raw scores live
+  behind a collapsed "(details)" drawer per the open-question
+  resolution. Already-prose blocks (Translate/Edit/Proofread/QA Step 1
+  segment cards, spinners, phase-advance buttons, next-role views,
+  Proofread Step 10 memory-update, QA Step 10Y triage display) left
+  unchanged. Phase-status names (`draft`/`translated`/`edited`/
+  `proofread`/`qa_approved`) are retained as human-facing labels. The
+  Step 5b Context Builder accordion mock-ups (`Coverage: 0.85` style)
+  are intentionally exempt — they are developer-facing diagnostic
+  panels, not end-user surfaces. Meta-quotes of internal field names in
+  narrator commentary (explaining the design rule itself, or pointing
+  to where raw numbers live behind drawers) are retained. The QA Step
+  11 memory-update threshold-tuning mock-up retains its raw threshold
+  values because exposing the threshold is the explicit purpose of that
+  control.
 
 ### W6 — Prompt examples aligned with W1 findings (TODO 6)
 

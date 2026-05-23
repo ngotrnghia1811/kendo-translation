@@ -451,7 +451,104 @@ returns at Phase 2 with the composed prompt. The client then issues a
 second call, `POST /api/mac-rag/generate`, with the (possibly
 human-edited) prompt to trigger Phase 3.
 
-`[AGENT OUT]` of the first call (`POST /api/mac-rag` for translate)
+The composed prompt below matches the five-module structure used in
+Step 6 (see "Step 6 — Phase 3: Multi-Candidate Generation" for the same
+prompt as it appears at the LLM boundary). Showing the full prompt here
+is intentional: the panel's value is exact transparency, not a
+summary.
+
+`[AGENT OUT]` of the first call (`POST /api/mac-rag` for translate) —
+**system prompt** (literal):
+
+```
+# Role
+You are a senior Japanese→English literary translator specialising in kendo
+prose. You have publishing-quality experience with budō literature and you
+work strictly within a terminology dictionary and a translation-memory
+substrate provided by the pipeline.
+
+Cooperation-surface invariant: **I propose; I never commit.** Your output
+is a candidate, not a final translation. A human will accept, edit, or
+reject it.
+
+# Task
+Translate the source segment below into English at a formal instructional
+register, suitable for inclusion in a published kendo text.
+
+Fidelity-first hard constraints:
+- Do not paraphrase, summarise, omit, or editorialise.
+- Preserve sentence count: one source sentence in → one English sentence
+  out.
+- Preserve kendo romanizations exactly as the dictionary specifies; do
+  not anglicise them.
+- The retrieved terminology and TM entries below are authoritative; do
+  not override them with general-knowledge alternatives.
+
+# Instructions
+1. Read the source segment in full before drafting.
+2. For every kendo term in the source, consult the retrieved terminology
+   first. If a term is present, use its `target_term` verbatim. If a term
+   is absent from the retrieved subset, translate it conservatively and
+   add an entry to `translator_notes` of the form
+   `[T/N: Term not in reference dictionary: <term>]`.
+3. Consult the retrieved TM examples for prior project-level choices on
+   adjacent phrasings. If a prior project choice exists, prefer it for
+   consistency unless it produces a clear infelicity in the current
+   segment.
+4. Draft the candidate according to the per-approach tail (literal /
+   natural / formal — only one is sent per call).
+5. Quality-check before emitting: sentence count matches; required terms
+   present; do-not-translate terms unchanged; output is valid JSON
+   matching the Format schema.
+
+# Examples
+**BAD** (violates cooperation-surface; agent commits instead of proposes)
+{ "proposed_text": "Strike when the opening appears.",
+  "auto_accept": true }
+The `auto_accept` field does not exist in the contract; emitting it is a
+violation of "I propose; I never commit."
+
+**GOOD**
+{ "proposed_text": "Strike at the opening; do not let it pass.",
+  "confidence": 0.82,
+  "terminology_used": [],
+  "translator_notes": [] }
+Fits the contract: a proposal with confidence, terminology trace, and an
+empty notes array when there is nothing to flag.
+
+# Format
+Return strictly valid JSON matching this schema:
+{
+  "proposed_text":    string,
+  "confidence":       number,
+  "terminology_used": [ { "source_term": string, "target_term": string } ],
+  "translator_notes": [string]
+}
+```
+
+**user prompt** (literal):
+
+```
+Source: 打突の機会を見逃さず、間合いを詰める。
+
+Retrieved TM (use for consistency):
+  - 打突の機会を捉える。 → Seize the opportunity to strike.
+  - 間合いを詰めて打突する。 → Close the maai and strike.
+
+Retrieved terminology:
+  - 間合い → maai (required; do not anglicise)
+  - 打突   → datotsu (preferred; romanize on first technical use)
+  - 剣道   → kendo  (do_not_translate)
+  - 道場   → dojo   (do_not_translate)
+
+Neighbour targets (for register continuity):
+  - prev: Maintain zanshin; do not break kamae.
+  - next: Aim for ki-ken-tai-itchi.
+
+Approach: <one of literal | natural | formal — set per parallel call>
+```
+
+**HTTP envelope** wrapping the two literal blocks:
 
 ```json
 {
@@ -459,38 +556,53 @@ human-edited) prompt to trigger Phase 3.
   "segmentId": "5f3a…-47",
   "task": "translate",
   "composedPrompt": {
-    "system": "You translate Japanese kendo prose to English with a literary register. Preserve kendo romanizations (datotsu, maai, zanshin) unchanged.",
-    "user":   "Source: 打突の機会を見逃さず、間合いを詰める。\n\nDomain: kendo (formal/instructional/teineigo)\nNeighbours:\n  prev: Maintain zanshin; do not break kamae.\n  next: Aim for ki-ken-tai-itchi.\nTM examples:\n  - 打突の機会を捉える。 → Seize the opportunity to strike. (0.78)\n  - 間合いを詰めて打突する。 → Close the maai and strike. (0.71)\nRequired terms: 間合い → maai\nPreferred terms: 打突 → datotsu (first technical use)\nDo not translate: 剣道 → kendo, 道場 → dojo"
+    "system": "<system prompt block above, literal>",
+    "user":   "<user prompt block above, literal>"
   },
   "approaches": ["literal", "natural", "formal"],
   "coverageReport": { "overall": 0.85, "gaps": [] }
 }
 ```
 
-`[HUMAN SEES]` the **Context Builder Panel**. A two-pane view:
+`[HUMAN SEES]` the **Context Builder Panel**. Because the literal prompt
+is long, the panel uses a five-module accordion (collapsed by default
+except Task) plus a flat read-only "view raw" toggle:
 
 ```
 ┌─ Context Builder ────────────────────────────────────────────────────┐
 │ Task: translate          Segment: …-47          Coverage: 0.85       │
 ├──────────────────────────────────────────────────────────────────────┤
-│ System prompt (editable)                                             │
-│   You translate Japanese kendo prose to English with a literary      │
-│   register. Preserve kendo romanizations (datotsu, maai, zanshin)    │
-│   unchanged.                                                         │
+│ System prompt (accordion; click ▸ to expand a module)                │
+│   ▸ Role          (collapsed)                                        │
+│   ▾ Task          (expanded — editable)                              │
+│       Translate the source segment below into English at a formal    │
+│       instructional register, suitable for inclusion in a published  │
+│       kendo text.                                                    │
+│       Fidelity-first hard constraints:                               │
+│         - Do not paraphrase, summarise, omit, or editorialise.       │
+│         - Preserve sentence count: one source → one English.         │
+│         - Preserve kendo romanizations exactly.                      │
+│         - Retrieved terminology and TM are authoritative.            │
+│   ▸ Instructions  (collapsed)                                        │
+│   ▸ Examples      (collapsed)                                        │
+│   ▸ Format        (collapsed — JSON schema)                          │
+│   [ View raw system prompt ]                                         │
 ├──────────────────────────────────────────────────────────────────────┤
-│ User prompt (editable)                                               │
+│ User prompt (editable, full)                                         │
 │   Source: 打突の機会を見逃さず、間合いを詰める。                       │
 │                                                                       │
-│   Domain: kendo (formal/instructional/teineigo)                      │
-│   Neighbours:                                                        │
-│     prev: Maintain zanshin; do not break kamae.                      │
-│     next: Aim for ki-ken-tai-itchi.                                  │
-│   TM examples:                                                       │
-│     - 打突の機会を捉える。 → Seize the opportunity to strike. (0.78)   │
-│     - 間合いを詰めて打突する。 → Close the maai and strike. (0.71)    │
-│   Required terms: 間合い → maai                                       │
-│   Preferred terms: 打突 → datotsu (first technical use)               │
-│   Do not translate: 剣道 → kendo, 道場 → dojo                         │
+│   Retrieved TM (use for consistency):                                │
+│     - 打突の機会を捉える。 → Seize the opportunity to strike.          │
+│     - 間合いを詰めて打突する。 → Close the maai and strike.            │
+│   Retrieved terminology:                                             │
+│     - 間合い → maai (required)                                        │
+│     - 打突   → datotsu (preferred; first technical use)               │
+│     - 剣道   → kendo  (do_not_translate)                              │
+│     - 道場   → dojo   (do_not_translate)                              │
+│   Neighbour targets:                                                 │
+│     - prev: Maintain zanshin; do not break kamae.                    │
+│     - next: Aim for ki-ken-tai-itchi.                                │
+│   Approach: <literal | natural | formal>                             │
 ├──────────────────────────────────────────────────────────────────────┤
 │ Will generate 3 candidates: literal / natural / formal               │
 ├──────────────────────────────────────────────────────────────────────┤
@@ -540,25 +652,113 @@ W7 in `docs/MAC-RAG-EXAMPLES-TODO-PLAN.md`. Decision deferred.
 ### Step 6 — Phase 3: Multi-Candidate Generation
 
 `lib/translation/multi-gen.ts` issues **three parallel LLM calls**, one per
-approach. Each call uses a shared system prompt (literary register +
-preserve kendo romanizations) plus an approach-specific instruction.
+approach. Each call uses a shared five-module system prompt (Role / Task
+/ Instructions / Examples / Format — per Appendix A.2.1 of the TODO plan)
+plus an approach-specific tail.
 
 `[AGENT IN]` (one of three; the `natural` call shown)
 
 ```
-system: You are a Japanese→English literary translator working on a kendo
-        text in formal instructional register. Preserve kendo romanizations
-        (men, kote, dō, tsuki, kiai, kamae, seme, zanshin). Use the
-        retrieved TM and terminology faithfully.
+system:
+# Role
+You are a senior Japanese→English literary translator specialising in kendo
+prose. You have publishing-quality experience with budō literature and you
+work strictly within a terminology dictionary and a translation-memory
+substrate provided by the pipeline.
 
-user:   Source: 打突の機会を見逃さず、間合いを詰める。
-        TM:
-          - 打突の機会を捉える。 → Seize the opportunity to strike.
-          - 間合いを詰めて打突する。 → Close the maai and strike.
-        Required terms: 間合い→maai
-        Preferred terms: 打突→datotsu (first technical use)
-        Approach: natural — render fluently for an instructional reader.
-        Return only the English translation.
+Cooperation-surface invariant: **I propose; I never commit.** Your output
+is a candidate, not a final translation. A human will accept, edit, or
+reject it.
+
+# Task
+Translate the source segment below into English at a formal instructional
+register, suitable for inclusion in a published kendo text.
+
+Fidelity-first hard constraints:
+- Do not paraphrase, summarise, omit, or editorialise.
+- Preserve sentence count: one source sentence in → one English sentence
+  out.
+- Preserve kendo romanizations exactly as the dictionary specifies; do
+  not anglicise them.
+- The retrieved terminology and TM entries below are authoritative; do
+  not override them with general-knowledge alternatives.
+
+# Instructions
+1. Read the source segment in full before drafting.
+2. For every kendo term in the source, consult the retrieved terminology
+   first. If a term is present, use its `target_term` verbatim. If a term
+   is absent from the retrieved subset, translate it conservatively and
+   add an entry to `translator_notes` of the form
+   `[T/N: Term not in reference dictionary: <term>]`.
+3. Consult the retrieved TM examples for prior project-level choices on
+   adjacent phrasings. If a prior project choice exists, prefer it for
+   consistency unless it produces a clear infelicity in the current
+   segment.
+4. Draft the candidate according to the per-approach tail (literal /
+   natural / formal — only one is sent per call).
+5. Quality-check before emitting: sentence count matches; required terms
+   present; do-not-translate terms unchanged; output is valid JSON
+   matching the Format schema.
+
+`[GAP]` First-occurrence annotation policy (Appendix A.2.5) requires the
+context builder to surface `terms_already_annotated_in_this_article`. That
+field is not produced today, so the translator agent currently treats
+every segment as if no prior annotation exists. Tracked in W3 / Context
+Builder follow-up.
+
+# Examples
+**BAD** (violates cooperation-surface; agent commits instead of proposes)
+```json
+{ "proposed_text": "Strike when the opening appears.",
+  "auto_accept": true }
+```
+The `auto_accept` field does not exist in the contract; emitting it is a
+violation of "I propose; I never commit."
+
+**GOOD**
+```json
+{ "proposed_text": "Strike at the opening; do not let it pass.",
+  "confidence": 0.82,
+  "terminology_used": [],
+  "translator_notes": [] }
+```
+Fits the contract: a proposal with confidence, terminology trace, and an
+empty notes array when there is nothing to flag.
+
+# Format
+Return strictly valid JSON matching this schema:
+
+```
+{
+  "proposed_text":    string,   // the English translation, no surrounding quotes
+  "confidence":       number,   // self-estimate, 0.0–1.0
+  "terminology_used": [         // every dictionary term used in proposed_text
+    { "source_term": string, "target_term": string }
+  ],
+  "translator_notes": [string]  // [T/N: ...] entries; empty if none
+}
+```
+
+user:
+Source: 打突の機会を見逃さず、間合いを詰める。
+
+Retrieved TM (use for consistency):
+  - 打突の機会を捉える。 → Seize the opportunity to strike.
+  - 間合いを詰めて打突する。 → Close the maai and strike.
+
+Retrieved terminology:
+  - 間合い → maai (required; do not anglicise)
+  - 打突   → datotsu (preferred; romanize on first technical use)
+  - 剣道   → kendo  (do_not_translate)
+  - 道場   → dojo   (do_not_translate)
+
+Neighbour targets (for register continuity):
+  - prev: Maintain zanshin; do not break kamae.
+  - next: Aim for ki-ken-tai-itchi.
+
+Approach: **natural** — render fluently for an instructional reader while
+respecting every constraint above. Prefer rhythm over near-literal mapping
+when both honour the source meaning.
 ```
 
 `[AGENT OUT]` (per-candidate, in parallel)
@@ -667,23 +867,36 @@ display but are not stored unless the human pins them.)
 `[HUMAN SEES]` (SuggestionPanel + AgentSuggestionPanel)
 
 ```
-┌─ Agent suggestion (light post-editing recommended) ────────┐
-│ ★ natural   overall 0.88                                   │
+┌─ Agent suggestion ─────────────────────────────────────────┐
+│ Light review suggested                                     │
+│                                                            │
+│ Recommended — fluent rendering                             │
 │   "Seize every opportunity for datotsu and close the maai."│
-│   fluency .92 · adequacy .86 · terminology .95 · style .82 │
+│   Reads smoothly · captures the source's meaning well ·    │
+│   uses required terminology · register fits the section    │
 │   [ Accept ]  [ Edit & accept ]  [ Reject ]                │
 │                                                            │
-│   literal   0.84   ▾  formal   0.86   ▾                    │
+│   ▸ Show alternative: a more literal rendering             │
+│   ▸ Show alternative: a more formal rendering              │
+│   ▸ Why this is recommended (details)                      │
 └────────────────────────────────────────────────────────────┘
 ```
 
 This is the **first moment the human sees any agent output**. Everything
 before this point was server-internal.
 
+Score floats and internal approach names (`natural`, `accuracy_focus`,
+…) never reach the human surface. The routing band ("Light review
+suggested" / "Worth considering" / "Needs a closer look") summarises
+quality on a single calibrated axis, and the four quality dimensions
+are spoken in plain English. A "details" drawer (collapsed by default)
+surfaces the raw scores for power users who explicitly opt in.
+
 The translator has four real choices at this moment:
 
 1. **Accept** the recommended candidate as-is.
-2. Expand `literal` or `formal`, then accept one of them.
+2. Expand the "more literal" or "more formal" alternative, then accept
+   one of them.
 3. Click **Edit & accept**, hand-modify, then commit.
 4. **Reject** all three and write from scratch.
 
@@ -782,9 +995,13 @@ this document.
 
 ```
 ┌─ Save what was learned? ───────────────────────────────────┐
-│ ☑ Add to translation memory  (confidence 0.88)             │
-│ ☐ Promote 打突→datotsu from preferred to required           │
-│ ☑ Mark TM hit "打突の機会を捉える" as helpful               │
+│ ☑ Add this segment to translation memory                   │
+│   (high confidence — would surface as a strong example)    │
+│ ☐ Promote 打突 → datotsu from "preferred" to "required"    │
+│   (seen N consistent accepts; one more accept would meet   │
+│    the threshold)                                          │
+│ ☑ Mark the TM example "打突の機会を捉える" as helpful      │
+│   (boosts its future retrieval rank)                       │
 │                                                            │
 │ [ Save selected ]   [ Skip ]                               │
 └────────────────────────────────────────────────────────────┘
@@ -1041,7 +1258,114 @@ emphasises **what the agent has been told to preserve**, because the edit
 task carries the most regret risk: a poorly-guided edit can regress the
 translator's deliberate choices.
 
-`[AGENT OUT]` of the first call
+The composed prompt below matches the five-module structure used in
+Step 6 (see "Step 6 — Phase 3: Multi-Candidate Generation" below for the
+same prompt as it appears at the LLM boundary). Showing the full prompt
+here is intentional: the panel's value is exact transparency, not a
+summary.
+
+`[AGENT OUT]` of the first call (`POST /api/mac-rag` for edit) —
+**system prompt** (literal):
+
+```
+# Role
+You are a senior bilingual editor of Japanese→English kendo prose. You
+work over a translation that has already been produced by a human
+translator. You revise it within the same terminology dictionary and
+translation-memory substrate that the translator used.
+
+Cooperation-surface invariant: **I propose; I never commit.** Your output
+is a proposed revision, not a final edit. A human editor will accept,
+amend, or reject it.
+
+# Task
+Revise the current English target where it diverges from the source
+meaning, regresses terminology, or contains an obvious infelicity.
+
+Fidelity-first hard constraints:
+- Preserve sentence count and structure unless a structural change is
+  the only way to fix a material adequacy defect.
+- Preserve every kendo romanization exactly as the dictionary specifies
+  (datotsu stays datotsu; maai stays maai).
+- Respect the translator's deliberate phrasing choices recorded in the
+  revision history; treat them as decisions, not defects.
+- Do not introduce a new style register; mirror the translator's
+  register.
+
+# Instructions
+1. Read source, current target, and the Preserve list before drafting.
+2. For every term in the Preserve list, confirm it survives unchanged in
+   your revision.
+3. For every weakness hint, decide independently whether it is real. If
+   you disagree, leave the surface form alone.
+4. Draft the revision according to the per-approach tail (light_touch /
+   accuracy_focus / fluency_focus — only one is sent per call).
+5. If no change is warranted, return the current target unchanged with
+   `change_rationale: "no material defect found"`. "No change" is a
+   first-class output, not a failure.
+6. Quality-check before emitting: all Preserve items present unchanged;
+   terminology intact; output is valid JSON matching the Format schema.
+
+# Examples
+**BAD** (regresses a romanization the translator chose deliberately)
+{ "proposed_text": "Without missing the opportunity for *strike*, close the spacing.",
+  "change_rationale": "anglicised technical terms for fluency",
+  "confidence": 0.7,
+  "preserved_invariants": [],
+  "translator_notes": [] }
+Anglicising datotsu→strike and maai→spacing violates the romanization
+constraint. `preserved_invariants` is empty, which itself is a red flag.
+
+**GOOD**
+{ "proposed_text": "Without letting an opportunity for datotsu pass, close the maai.",
+  "change_rationale": "tightened 'Without missing' → 'Without letting ... pass' for rhythm; romanizations preserved",
+  "confidence": 0.78,
+  "preserved_invariants": ["datotsu", "maai", "sentence count"],
+  "translator_notes": [] }
+A surgical change, with both romanizations preserved and the rationale
+named explicitly.
+
+# Format
+Return strictly valid JSON matching this schema:
+{
+  "proposed_text":         string,
+  "change_rationale":      string,
+  "confidence":            number,
+  "preserved_invariants":  [string],
+  "translator_notes":      [string]
+}
+```
+
+**user prompt** (literal):
+
+```
+Source:         打突の機会を見逃さず、間合いを詰める。
+Current target: Without missing the opportunity for datotsu, close the maai.
+
+Preserve (do not regress):
+  - datotsu (correct romanization)
+  - maai    (correct romanization)
+  - sentence count and overall structure
+
+Translator intent (revision history):
+  - wenqian explicitly edited "Seize every" → "Without missing"; treat
+    as deliberate, not as a defect.
+
+Weakness hints (advisory only — disagree freely):
+  - "Without missing" is literal; consider rhythm.
+
+Retrieved TM (for consistency reference):
+  - 打突の機会を捉える。     → Seize the opportunity to strike.
+  - 間合いを詰めて打突する。 → Close the maai and strike.
+
+Retrieved terminology:
+  - 間合い → maai     (required; do not anglicise)
+  - 打突   → datotsu  (preferred; do not anglicise)
+
+Approach: <one of light_touch | accuracy_focus | fluency_focus — set per parallel call>
+```
+
+**HTTP envelope** wrapping the two literal blocks:
 
 ```json
 {
@@ -1049,8 +1373,8 @@ translator's deliberate choices.
   "segmentId": "5f3a…-47",
   "task": "edit",
   "composedPrompt": {
-    "system": "You are an editor of Japanese→English kendo prose. Improve the current target where it diverges from source meaning or misses terminology. Preserve correct romanizations and the translator's deliberate phrasings.",
-    "user":   "Source: 打突の機会を見逃さず、間合いを詰める。\nCurrent target: Without missing the opportunity for datotsu, close the maai.\n\nPreserve:\n  - datotsu (correct romanization)\n  - maai (correct romanization)\nWeakness hints:\n  - 'Without missing' is literal; consider rhythm\nTranslator intent:\n  - wenqian explicitly edited 'Seize every' to 'Without missing'; treat as deliberate\nRequired terms: 間合い → maai\nPreferred terms: 打突 → datotsu"
+    "system": "<system prompt block above, literal>",
+    "user":   "<user prompt block above, literal>"
   },
   "approaches": ["light_touch", "accuracy_focus", "fluency_focus"],
   "coverageReport": { "overall": 0.88, "gaps": [] }
@@ -1058,20 +1382,47 @@ translator's deliberate choices.
 ```
 
 `[HUMAN SEES]` the panel, with an extra **Preserve** band surfaced
-prominently:
+prominently before the five-module accordion:
 
 ```
 ┌─ Context Builder (edit) ─────────────────────────────────────────────┐
-│ Task: edit   Segment: …-47   Coverage: 0.88                          │
+│ Task: edit              Segment: …-47          Coverage: 0.88        │
 ├──────────────────────────────────────────────────────────────────────┤
 │ Preserve (do not regress):                                           │
 │   • datotsu — correct romanization                                   │
-│   • maai — correct romanization                                      │
+│   • maai    — correct romanization                                   │
 │   • Translator intent: 'Without missing' chosen by wenqian over      │
 │     'Seize every' — treat as deliberate                              │
 ├──────────────────────────────────────────────────────────────────────┤
-│ System prompt (editable)  …                                          │
-│ User prompt (editable)    …                                          │
+│ System prompt (accordion; click ▸ to expand a module)                │
+│   ▸ Role          (collapsed)                                        │
+│   ▾ Task          (expanded — editable)                              │
+│       Revise the current English target where it diverges from the   │
+│       source meaning, regresses terminology, or contains an obvious  │
+│       infelicity.                                                    │
+│       Fidelity-first hard constraints:                               │
+│         - Preserve sentence count and structure unless a structural  │
+│           change is the only way to fix a material adequacy defect.  │
+│         - Preserve every kendo romanization exactly.                 │
+│         - Respect the translator's deliberate phrasing choices.      │
+│         - Do not introduce a new style register.                     │
+│   ▸ Instructions  (collapsed)                                        │
+│   ▸ Examples      (collapsed)                                        │
+│   ▸ Format        (collapsed — JSON schema)                          │
+│   [ View raw system prompt ]                                         │
+├──────────────────────────────────────────────────────────────────────┤
+│ User prompt (editable, full)                                         │
+│   Source:         打突の機会を見逃さず、間合いを詰める。               │
+│   Current target: Without missing the opportunity for datotsu,       │
+│                   close the maai.                                    │
+│                                                                       │
+│   Preserve: datotsu / maai / sentence count and structure            │
+│   Translator intent: wenqian "Seize every" → "Without missing"       │
+│     (deliberate, not a defect)                                       │
+│   Weakness hints (advisory): rhythm of "Without missing"             │
+│   Retrieved TM: 2 entries                                            │
+│   Retrieved terminology: 間合い→maai (req), 打突→datotsu (pref)       │
+│   Approach: <light_touch | accuracy_focus | fluency_focus>           │
 ├──────────────────────────────────────────────────────────────────────┤
 │ Will generate 3 candidates: light_touch / accuracy_focus / fluency   │
 ├──────────────────────────────────────────────────────────────────────┤
@@ -1087,7 +1438,7 @@ prominently:
   task-specific constraint ("do not lengthen the sentence").
 - Clicks **Generate**.
 
-`[AGENT IN]` of the second call
+`[AGENT IN]` of the second call (`POST /api/mac-rag/generate` for edit)
 
 ```json
 {
@@ -1107,35 +1458,126 @@ UI, and prompt-edit audit trail.
 
 ### Step 6 — Phase 3: Multi-Candidate Generation
 
-Three parallel LLM calls, **edit approaches** (not translate approaches):
+`lib/translation/multi-gen.ts` issues **three parallel LLM calls**, one per
+**edit approach** (not translate approaches):
 
 - `light_touch` — surgical changes, minimum diff from current target.
 - `accuracy_focus` — prioritise adequacy over fluency; allowed to make
   larger changes if they materially improve faithfulness.
 - `fluency_focus` — prioritise readability while preserving terminology.
 
-`[AGENT IN]` (the `accuracy_focus` call)
+Each call uses a shared five-module system prompt (Role / Task /
+Instructions / Examples / Format — per Appendix A.2.1 of the TODO plan)
+plus an approach-specific tail.
+
+`[AGENT IN]` (one of three; the `accuracy_focus` call shown)
 
 ```
-system: You are revising an existing English translation of a Japanese
-        kendo text. The current translation is the work of a human
-        translator and must be respected — make changes only where they
-        materially improve accuracy or terminology. Preserve kendo
-        romanizations (datotsu, maai). Approach: accuracy_focus.
+system:
+# Role
+You are a senior bilingual editor of Japanese→English kendo prose. You
+work over a translation that has already been produced by a human
+translator. You revise it within the same terminology dictionary and
+translation-memory substrate that the translator used.
 
-user:   Source:  打突の機会を見逃さず、間合いを詰める。
-        Current: Without missing the opportunity for datotsu, close the maai.
-        TM:
-          - 打突の機会を捉える。 → Seize the opportunity to strike.
-          - 間合いを詰めて打突する。 → Close the maai and strike.
-        Required: 間合い→maai   Preferred: 打突→datotsu
-        Revision history: human translator deliberately chose
-          "Without missing" over a more idiomatic "Seize every".
-        Return only the revised English. If no change is needed, return
-        the current translation unchanged.
+Cooperation-surface invariant: **I propose; I never commit.** Your output
+is a proposed revision, not a final edit. A human editor will accept,
+amend, or reject it.
+
+# Task
+Revise the current English target where it diverges from the source
+meaning, regresses terminology, or contains an obvious infelicity.
+
+Fidelity-first hard constraints:
+- Preserve sentence count and structure unless a structural change is
+  the only way to fix a material adequacy defect.
+- Preserve every kendo romanization exactly as the dictionary specifies
+  (datotsu stays datotsu; maai stays maai).
+- Respect the translator's deliberate phrasing choices recorded in the
+  revision history; treat them as decisions, not defects.
+- Do not introduce a new style register; mirror the translator's
+  register.
+
+# Instructions
+1. Read source, current target, and the Preserve list before drafting.
+2. For every term in the Preserve list, confirm it survives unchanged in
+   your revision.
+3. For every weakness hint, decide independently whether it is real. If
+   you disagree, leave the surface form alone.
+4. Draft the revision according to the per-approach tail (light_touch /
+   accuracy_focus / fluency_focus — only one is sent per call).
+5. If no change is warranted, return the current target unchanged with
+   `change_rationale: "no material defect found"`. "No change" is a
+   first-class output, not a failure.
+6. Quality-check before emitting: all Preserve items present unchanged;
+   terminology intact; output is valid JSON matching the Format schema.
+
+# Examples
+**BAD** (regresses a romanization the translator chose deliberately)
+```json
+{ "proposed_text": "Without missing the opportunity for *strike*, close the spacing.",
+  "change_rationale": "anglicised technical terms for fluency",
+  "confidence": 0.7,
+  "preserved_invariants": [],
+  "translator_notes": [] }
+```
+Anglicising datotsu→strike and maai→spacing violates the romanization
+constraint. `preserved_invariants` is empty, which itself is a red flag.
+
+**GOOD**
+```json
+{ "proposed_text": "Without letting an opportunity for datotsu pass, close the maai.",
+  "change_rationale": "tightened 'Without missing' → 'Without letting ... pass' for rhythm; romanizations preserved",
+  "confidence": 0.78,
+  "preserved_invariants": ["datotsu", "maai", "sentence count"],
+  "translator_notes": [] }
+```
+A surgical change, with both romanizations preserved and the rationale
+named explicitly.
+
+# Format
+Return strictly valid JSON matching this schema:
+
+```
+{
+  "proposed_text":         string,   // the revised English target
+  "change_rationale":      string,   // one-sentence reason for the change (or "no material defect found")
+  "confidence":            number,   // self-estimate, 0.0–1.0
+  "preserved_invariants":  [string], // every Preserve item you verified survived
+  "translator_notes":      [string]  // [T/N: ...] entries; empty if none
+}
 ```
 
-`[AGENT OUT]`
+user:
+Source:         打突の機会を見逃さず、間合いを詰める。
+Current target: Without missing the opportunity for datotsu, close the maai.
+
+Preserve (do not regress):
+  - datotsu (correct romanization)
+  - maai    (correct romanization)
+  - sentence count and overall structure
+
+Translator intent (revision history):
+  - wenqian explicitly edited "Seize every" → "Without missing"; treat
+    as deliberate, not as a defect.
+
+Weakness hints (advisory only — disagree freely):
+  - "Without missing" is literal; consider rhythm.
+
+Retrieved TM (for consistency reference):
+  - 打突の機会を捉える。     → Seize the opportunity to strike.
+  - 間合いを詰めて打突する。 → Close the maai and strike.
+
+Retrieved terminology:
+  - 間合い → maai     (required; do not anglicise)
+  - 打突   → datotsu  (preferred; do not anglicise)
+
+Approach: **accuracy_focus** — prioritise adequacy over fluency. You may
+make larger changes than `light_touch` if they materially improve
+faithfulness to the source, but every Preserve item must survive.
+```
+
+`[AGENT OUT]` (per-candidate, in parallel)
 
 ```json
 {
@@ -1245,30 +1687,36 @@ suggest.
 `[HUMAN SEES]`
 
 ```
-┌─ Agent edit suggestion (standard post-editing) ─────────────┐
-│ Current:                                                    │
-│   "Without missing the opportunity for datotsu,             │
-│    close the maai."                                         │
-│                                                             │
-│ ★ accuracy_focus   overall 0.74                             │
-│   "Without letting an opportunity for datotsu pass,         │
-│    close the maai."                                         │
-│   Δ: "missing the opportunity" → "letting an opportunity    │
-│        … pass"                                              │
-│   accuracy +0.65 · fluency-pres 0.90 · churn 0.55 · term 1.0│
-│   [ Accept ]  [ Edit & accept ]  [ Reject ]                 │
-│                                                             │
-│   light_touch  0.55  (no change suggested) ▾                │
-│   fluency_focus 0.62  ▾                                     │
-└─────────────────────────────────────────────────────────────┘
+┌─ Agent edit suggestion ──────────────────────────────────────┐
+│ Worth considering                                            │
+│                                                              │
+│ Current:                                                     │
+│   "Without missing the opportunity for datotsu,              │
+│    close the maai."                                          │
+│                                                              │
+│ Recommended — prioritising faithfulness                      │
+│   "Without letting an opportunity for datotsu pass,          │
+│    close the maai."                                          │
+│   What changes: "missing the opportunity" →                  │
+│                 "letting an opportunity … pass"              │
+│   Materially more faithful · stays close to the translator's │
+│   rhythm · romanizations preserved                           │
+│   [ Accept ]  [ Edit & accept ]  [ Reject ]                  │
+│                                                              │
+│   ▸ Show alternative: a lighter touch (the agent suggests    │
+│     no change — current target stands)                       │
+│   ▸ Show alternative: a more fluent rewrite                  │
+│   ▸ Why this is recommended (details)                        │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 Two things to notice about the edit UI vs translate UI:
 
-1. The **current target is rendered at the top**, with a diff (`Δ:`)
-   showing what would change. Edit is always relative to something.
-2. `light_touch (no change suggested)` is shown explicitly as a valid
-   "the agent thinks you're already done" signal. Translate has no
+1. The **current target is rendered at the top**, with a plain-English
+   "what changes" summary. Edit is always relative to something.
+2. The "lighter touch" alternative is shown explicitly as a valid
+   "the agent thinks you're already done" signal — phrased in human
+   words, not as `light_touch (no change suggested)`. Translate has no
    equivalent — there is always a translation to propose.
 
 ---
@@ -1277,7 +1725,8 @@ Two things to notice about the edit UI vs translate UI:
 
 `[HUMAN ACTS]` `arashi` reads both candidates and the diff. Considers the
 revision-history hint (wenqian deliberately picked the literal form).
-Decides the accuracy_focus rewording is genuinely better and accepts.
+Decides the faithfulness-prioritised rewording is genuinely better and
+accepts.
 
 Clicks **Accept**.
 
@@ -1654,7 +2103,102 @@ notably **shorter** — proofread rests on a small number of explicit
 surface rules and decisive document-consistency evidence, so the prompt
 fits in a few lines.
 
-`[AGENT OUT]` of the first call
+The composed prompt below matches the five-module structure used in
+Step 6 below.
+
+`[AGENT OUT]` of the first call (`POST /api/mac-rag` for proofread) —
+**system prompt** (literal):
+
+```
+# Role
+You are a senior proofreader of English kendo prose translated from
+Japanese. You work over a translation that has already passed translate
+and edit phases. You correct surface issues only, using the project's
+style guide and document-wide consistency evidence.
+
+Cooperation-surface invariant: **I propose; I never commit.** Your output
+is a proposed surface correction, not a final proofread. A human
+proofreader will accept or reject it.
+
+# Task
+Correct surface issues in the current English target. Surface issues are
+limited to: casing, spelling, punctuation, italicisation, and
+document-wide consistency of romanizations.
+
+Fidelity-first hard constraints:
+- Do NOT alter word choice, sentence structure, or meaning.
+- Do NOT change adequacy in any direction; preserve it exactly.
+- If the existing text is already correct, return it unchanged with
+  `surface_changes: []`. "No change" is a first-class output.
+- Follow document-consistency evidence: if a romanization appears
+  lowercase 12 times and capitalised once (this segment), the
+  capitalised form is the outlier and should be corrected.
+
+# Instructions
+1. Read the current target alongside the surface-issues list and style
+   rules.
+2. For each surface issue, decide whether the evidence is decisive. Only
+   apply changes whose consistency evidence is strong.
+3. Apply the per-approach tail (conservative / standard / house_style —
+   only one is sent per call).
+4. Emit `surface_changes` as a structured list, one entry per change:
+   `{ "before": string, "after": string, "reason": string }`.
+5. Quality-check before emitting: word choice unchanged; sentence
+   structure unchanged; only surface attributes differ; output is valid
+   JSON matching the Format schema.
+
+# Examples
+**BAD** (rewords for fluency under the guise of proofreading)
+{ "proposed_text": "Without missing a chance for datotsu, close the maai.",
+  "surface_changes": [{ "before": "letting an opportunity pass",
+                        "after":  "missing a chance",
+                        "reason": "smoother phrasing" }],
+  "confidence": 0.7 }
+Rewording is out of scope for proofread. This is an edit, not a
+proofread.
+
+**GOOD**
+{ "proposed_text": "Without letting an opportunity for datotsu pass, close the maai.",
+  "surface_changes": [{ "before": "Datotsu", "after": "datotsu",
+                        "reason": "doc consistency 12:1 lowercase" },
+                      { "before": "Maai", "after": "maai",
+                        "reason": "doc consistency 9:1 lowercase" }],
+  "confidence": 0.95 }
+Two pure casing fixes; word choice and structure unchanged.
+
+# Format
+Return strictly valid JSON matching this schema:
+{
+  "proposed_text":    string,
+  "surface_changes":  [ { "before": string, "after": string, "reason": string } ],
+  "confidence":       number
+}
+```
+
+**user prompt** (literal):
+
+```
+Source:         打突の機会を見逃さず、間合いを詰める。
+Current target: Without letting an opportunity for Datotsu pass, close the Maai.
+
+Style rules:
+  - kendo romanizations lowercase mid-sentence
+  - italicise romanizations only on first occurrence per chapter
+    ([GAP] first-occurrence requires chapter scan — not determinable
+    from segment context alone)
+
+Doc-wide consistency evidence:
+  - datotsu: 12 lowercase, 1 capitalised (this segment)
+  - maai:     9 lowercase, 1 capitalised (this segment)
+
+Surface issues identified upstream:
+  - Datotsu → datotsu   (casing; 12:1 doc consistency)
+  - Maai    → maai      (casing;  9:1 doc consistency)
+
+Approach: <one of conservative | standard | house_style — set per parallel call>
+```
+
+**HTTP envelope** wrapping the two literal blocks:
 
 ```json
 {
@@ -1662,26 +2206,47 @@ fits in a few lines.
   "segmentId": "5f3a…-47",
   "task": "proofread",
   "composedPrompt": {
-    "system": "You are a proofreader of Japanese→English kendo prose. Correct surface issues (casing, italicisation, punctuation) only. Never alter sentence structure or word choice beyond surface corrections. Preserve adequacy exactly.",
-    "user":   "Current target: Without letting an opportunity for Datotsu pass, close the Maai.\n\nSurface issues to address:\n  - Datotsu → datotsu (casing; 12:1 document consistency)\n  - Maai → maai   (casing; 9:1 document consistency)\nItalics hint: first-occurrence italicisation requires chapter scan; not determinable here.\nPreserve:\n  - sentence structure\n  - word choice beyond casing\n  - adequacy"
+    "system": "<system prompt block above, literal>",
+    "user":   "<user prompt block above, literal>"
   },
   "approaches": ["conservative", "standard", "house_style"],
   "coverageReport": { "overall": 0.92, "gaps": [] }
 }
 ```
 
-`[HUMAN SEES]` the panel:
+`[HUMAN SEES]` the panel, with a leading **Surface issues** band:
 
 ```
 ┌─ Context Builder (proofread) ────────────────────────────────────────┐
-│ Task: proofread   Segment: …-47   Coverage: 0.92                     │
+│ Task: proofread         Segment: …-47          Coverage: 0.92        │
 ├──────────────────────────────────────────────────────────────────────┤
 │ Surface issues:                                                      │
-│   • Datotsu → datotsu (casing; 12:1 consistency)                     │
-│   • Maai → maai (casing; 9:1 consistency)                            │
+│   • Datotsu → datotsu (casing; 12:1 doc consistency)                 │
+│   • Maai    → maai    (casing;  9:1 doc consistency)                 │
 ├──────────────────────────────────────────────────────────────────────┤
-│ System prompt (editable)  …                                          │
-│ User prompt (editable)    …                                          │
+│ System prompt (accordion; click ▸ to expand a module)                │
+│   ▸ Role          (collapsed)                                        │
+│   ▾ Task          (expanded — editable)                              │
+│       Correct surface issues in the current English target.          │
+│       Surface = casing, spelling, punctuation, italicisation,        │
+│       document-wide consistency.                                     │
+│       Fidelity-first hard constraints:                               │
+│         - Do NOT alter word choice or structure.                     │
+│         - Do NOT change adequacy.                                    │
+│         - "No change" is a first-class output.                       │
+│   ▸ Instructions  (collapsed)                                        │
+│   ▸ Examples      (collapsed)                                        │
+│   ▸ Format        (collapsed — JSON schema)                          │
+│   [ View raw system prompt ]                                         │
+├──────────────────────────────────────────────────────────────────────┤
+│ User prompt (editable, full)                                         │
+│   Source:         打突の機会を見逃さず、間合いを詰める。               │
+│   Current target: Without letting an opportunity for Datotsu pass,   │
+│                   close the Maai.                                    │
+│   Style: lowercase mid-sentence; italics first-occurrence/chapter    │
+│   Doc consistency: datotsu 12:1, maai 9:1                            │
+│   Surface issues: Datotsu→datotsu, Maai→maai                         │
+│   Approach: <conservative | standard | house_style>                  │
 ├──────────────────────────────────────────────────────────────────────┤
 │ Will generate 3 candidates: conservative / standard / house_style    │
 ├──────────────────────────────────────────────────────────────────────┤
@@ -1694,7 +2259,8 @@ accept, and click **Generate**. The panel exists mostly as a safety
 checkpoint — for catching cases where the surface "issue" is actually a
 deliberate stylistic choice the human wants to keep.
 
-`[AGENT IN]` of the second call
+`[AGENT IN]` of the second call (`POST /api/mac-rag/generate` for
+proofread)
 
 ```json
 {
@@ -1724,30 +2290,109 @@ Three parallel LLM calls, **proofread approaches**:
 - `house_style` — apply full house style including optional rules
   (e.g. italicise romanizations).
 
-`[AGENT IN]` (the `standard` call)
+Each call uses a shared five-module system prompt (Role / Task /
+Instructions / Examples / Format — per Appendix A.2.1 of the TODO plan)
+plus an approach-specific tail.
+
+`[AGENT IN]` (one of three; the `standard` call shown)
 
 ```
-system: You are proofreading an English translation of a Japanese kendo
-        text. Make surface corrections only — casing, spelling,
-        punctuation, italicisation, document-wide consistency. Do NOT
-        change wording, sentence structure, or meaning. If the existing
-        text is already correct, return it unchanged. Approach: standard.
+system:
+# Role
+You are a senior proofreader of English kendo prose translated from
+Japanese. You work over a translation that has already passed translate
+and edit phases. You correct surface issues only, using the project's
+style guide and document-wide consistency evidence.
 
-user:   Source:  打突の機会を見逃さず、間合いを詰める。
-        Current: Without letting an opportunity for Datotsu pass, close the Maai.
-        Style:
-          - kendo romanizations lowercase mid-sentence
-          - italicise romanizations only on first occurrence per chapter
-        Doc consistency:
-          - datotsu: 12 lowercase, 1 capitalised (this segment)
-          - maai:     9 lowercase, 1 capitalised (this segment)
-        Surface issues identified upstream:
-          - Datotsu → datotsu
-          - Maai    → maai
-        Return only the corrected English.
+Cooperation-surface invariant: **I propose; I never commit.** Your output
+is a proposed surface correction, not a final proofread. A human
+proofreader will accept or reject it.
+
+# Task
+Correct surface issues in the current English target. Surface issues are
+limited to: casing, spelling, punctuation, italicisation, and
+document-wide consistency of romanizations.
+
+Fidelity-first hard constraints:
+- Do NOT alter word choice, sentence structure, or meaning.
+- Do NOT change adequacy in any direction; preserve it exactly.
+- If the existing text is already correct, return it unchanged with
+  `surface_changes: []`. "No change" is a first-class output.
+- Follow document-consistency evidence: if a romanization appears
+  lowercase 12 times and capitalised once (this segment), the
+  capitalised form is the outlier and should be corrected.
+
+# Instructions
+1. Read the current target alongside the surface-issues list and style
+   rules.
+2. For each surface issue, decide whether the evidence is decisive. Only
+   apply changes whose consistency evidence is strong.
+3. Apply the per-approach tail (conservative / standard / house_style —
+   only one is sent per call).
+4. Emit `surface_changes` as a structured list, one entry per change:
+   `{ "before": string, "after": string, "reason": string }`.
+5. Quality-check before emitting: word choice unchanged; sentence
+   structure unchanged; only surface attributes differ; output is valid
+   JSON matching the Format schema.
+
+# Examples
+**BAD** (rewords for fluency under the guise of proofreading)
+```json
+{ "proposed_text": "Without missing a chance for datotsu, close the maai.",
+  "surface_changes": [{ "before": "letting an opportunity pass",
+                        "after":  "missing a chance",
+                        "reason": "smoother phrasing" }],
+  "confidence": 0.7 }
+```
+Rewording is out of scope for proofread. This is an edit, not a
+proofread.
+
+**GOOD**
+```json
+{ "proposed_text": "Without letting an opportunity for datotsu pass, close the maai.",
+  "surface_changes": [{ "before": "Datotsu", "after": "datotsu",
+                        "reason": "doc consistency 12:1 lowercase" },
+                      { "before": "Maai", "after": "maai",
+                        "reason": "doc consistency 9:1 lowercase" }],
+  "confidence": 0.95 }
+```
+Two pure casing fixes; word choice and structure unchanged.
+
+# Format
+Return strictly valid JSON matching this schema:
+
+```
+{
+  "proposed_text":    string,    // the surface-corrected English target
+  "surface_changes":  [          // one entry per change applied
+    { "before": string, "after": string, "reason": string }
+  ],
+  "confidence":       number     // self-estimate, 0.0–1.0
+}
 ```
 
-`[AGENT OUT]`
+user:
+Source:         打突の機会を見逃さず、間合いを詰める。
+Current target: Without letting an opportunity for Datotsu pass, close the Maai.
+
+Style rules:
+  - kendo romanizations lowercase mid-sentence
+  - italicise romanizations only on first occurrence per chapter
+
+Doc-wide consistency evidence:
+  - datotsu: 12 lowercase, 1 capitalised (this segment)
+  - maai:     9 lowercase, 1 capitalised (this segment)
+
+Surface issues identified upstream:
+  - Datotsu → datotsu   (casing; 12:1 doc consistency)
+  - Maai    → maai      (casing;  9:1 doc consistency)
+
+Approach: **standard** — fix surface issues and enforce documented style
+rules. Apply optional rules (e.g., italics) only when their consistency
+evidence is strong; otherwise leave them alone.
+```
+
+`[AGENT OUT]` (per-candidate, in parallel)
 
 ```json
 {
@@ -1859,7 +2504,8 @@ also does not exist. Both are part of the design in MAC-RAG.md.
 │ EN: Without letting an opportunity for datotsu pass,         │
 │     close the maai.                                          │
 │                                                              │
-│ ⚡ Auto-applied by agent (quality 1.00, policy threshold 0.95)│
+│ ⚡ Auto-applied by agent — high-confidence surface fix,      │
+│   above this document's auto-accept threshold                │
 │   2 surface fixes: Datotsu → datotsu, Maai → maai            │
 │   [ Review ]  [ Revert ]                                     │
 │                                                              │
@@ -1879,20 +2525,24 @@ If `auto_accept_threshold` is unset or this segment's overall < threshold:
 `[HUMAN SEES]`
 
 ```
-┌─ Agent proofread suggestion (auto-accept eligible)──────────┐
+┌─ Agent proofread suggestion ────────────────────────────────┐
+│ This would be auto-accepted if document policy were on      │
+│                                                             │
 │ Current:                                                    │
 │   "Without letting an opportunity for Datotsu pass,         │
 │    close the Maai."                                         │
 │                                                             │
-│ ★ conservative   overall 1.00                               │
+│ Recommended — conservative casing fix                       │
 │   "Without letting an opportunity for datotsu pass,         │
 │    close the maai."                                         │
-│   Δ: Datotsu → datotsu · Maai → maai                        │
-│   surface 1.0 · consistency 1.0 · meaning 1.0               │
+│   What changes: Datotsu → datotsu · Maai → maai             │
+│   Pure surface fix · meaning preserved · matches            │
+│   document-wide casing                                      │
 │   [ Accept ]  [ Edit & accept ]  [ Reject ]                 │
 │                                                             │
-│   standard 1.00 (identical to conservative) ▾               │
-│   house_style 0.97 (with italics) ▾                         │
+│   ▸ Show alternative: standard (identical to recommended)   │
+│   ▸ Show alternative: house style (also italicises terms)   │
+│   ▸ Why this is recommended (details)                       │
 │                                                             │
 │ ⓘ This would be auto-accepted if document policy were on.   │
 └─────────────────────────────────────────────────────────────┘
@@ -2232,9 +2882,102 @@ review or constrain the QA prompt (e.g., to instruct the agent to
 ignore a specific known-false-positive pattern for this segment).
 
 When enabled, the panel shape is the same two-stage HTTP contract as
-the other tasks:
+the other tasks. The composed prompt below matches the five-module
+structure used in Step 6 below.
 
-`[AGENT OUT]` of the first call (only emitted when the toggle is on)
+`[AGENT OUT]` of the first call (only emitted when the toggle is on) —
+**system prompt** (literal):
+
+```
+# Role
+You are a senior QA reviewer for Japanese→English kendo translations.
+You provide a fresh, independent assessment of an already-edited and
+proofread translation. You work over the same terminology dictionary and
+translation-memory substrate used upstream, plus a list of historical
+risk patterns from the project.
+
+Cooperation-surface invariant: **I propose; I never commit.** Your
+output is an advisory issue list, not a verdict. A human reviewer will
+triage every flagged issue. You never write fixes; you only flag.
+
+# Task
+Examine the source and target for translation issues that survived
+translate / edit / proofread. Categorise each issue and assess severity.
+If you find no material issues, return an empty list.
+
+Fidelity-first hard constraints:
+- Do NOT propose a fixed translation. Output is issues only.
+- Do NOT flag stylistic preferences as defects; reserve `major` for
+  adequacy-breaking issues, `minor` for clear surface defects, `info`
+  for observations.
+- Quote the offending span verbatim in `span`; do not paraphrase it.
+- An empty `issues` array is a first-class output, not a failure.
+
+# Instructions
+1. Read source and target in full; do not skim.
+2. Walk the Risk-focus list as a checklist; for each focus, decide
+   whether the target exhibits the failure mode.
+3. Cross-check Required and Preferred terminology coverage independently.
+4. Consult Historical patterns for project-specific failure modes.
+5. For every issue found, emit one entry with category, severity, span,
+   and a one-line note.
+6. Quality-check before emitting: every `span` substring appears in the
+   target verbatim; output is valid JSON matching the Format schema.
+
+# Examples
+**BAD** (proposes a fix; violates "flag, do not fix")
+{ "issues": [
+    { "span": "Without letting an opportunity for datotsu pass",
+      "category": "accuracy",
+      "severity": "minor",
+      "note": "should read 'Do not let an opportunity for datotsu pass'" }
+  ] }
+The note proposes a replacement translation. QA must flag, not rewrite.
+
+**GOOD**
+{ "issues": [
+    { "span": "Without letting an opportunity for datotsu pass",
+      "category": "accuracy",
+      "severity": "info",
+      "note": "polarity construction is double-negative; verify against source 見逃さず" }
+  ] }
+Same observation, framed as a flag for human triage. No fix proposed.
+
+# Format
+Return strictly valid JSON matching this schema:
+{
+  "issues": [
+    {
+      "span":     string,                                  // verbatim substring of target
+      "category": "terminology" | "accuracy" | "fluency" | "consistency" | "style",
+      "severity": "major" | "minor" | "info",
+      "note":     string                                    // one-line flag; no fix proposed
+    }
+  ]
+}
+```
+
+**user prompt** (literal):
+
+```
+Source: 打突の機会を見逃さず、間合いを詰める。
+Target: Without letting an opportunity for datotsu pass, close the maai.
+
+Risk focus (advisory checklist):
+  - polarity / negation (見逃さず ↔ "without ... pass")
+  - terminology consistency (datotsu, maai)
+
+Historical patterns:
+  - polarity flip on JA negation (7 historical occurrences in this project)
+
+Required terms — coverage check:
+  - 間合い → maai     ✓ present in target
+
+Preferred terms — coverage check:
+  - 打突   → datotsu  ✓ present in target
+```
+
+**HTTP envelope** wrapping the two literal blocks:
 
 ```json
 {
@@ -2242,8 +2985,8 @@ the other tasks:
   "segmentId": "5f3a…-47",
   "task": "qa",
   "composedPrompt": {
-    "system": "You are a QA reviewer for a Japanese→English kendo translation. Examine the source and target for translation issues. Categorise each issue as terminology / accuracy / fluency / consistency / style with severity major / minor / info. Output a JSON array. If no material issues, return []. Do NOT propose a fixed translation — only flag issues.",
-    "user":   "Source:  打突の機会を見逃さず、間合いを詰める。\nTarget:  Without letting an opportunity for datotsu pass, close the maai.\n\nRisk focus:\n  - polarity / negation (見逃さず ↔ 'without ... pass')\n  - terminology consistency (datotsu, maai)\nKnown patterns:\n  - polarity flip on JA negation (7 historical occurrences)\nRequired terms (✓ present): 間合い → maai\nPreferred terms (✓ present): 打突 → datotsu"
+    "system": "<system prompt block above, literal>",
+    "user":   "<user prompt block above, literal>"
   },
   "approaches": ["issue_scan"],
   "coverageReport": { "overall": 0.93, "gaps": [] }
@@ -2255,7 +2998,7 @@ is only one approach and no candidate diversity:
 
 ```
 ┌─ Context Builder (QA, optional) ─────────────────────────────────────┐
-│ Task: qa   Segment: …-47   Coverage: 0.93                            │
+│ Task: qa                Segment: …-47          Coverage: 0.93        │
 ├──────────────────────────────────────────────────────────────────────┤
 │ Risk focus:                                                          │
 │   • polarity / negation                                              │
@@ -2263,8 +3006,27 @@ is only one approach and no candidate diversity:
 │ Known patterns:                                                      │
 │   • polarity flip on JA negation (7 historical)                      │
 ├──────────────────────────────────────────────────────────────────────┤
-│ System prompt (editable)  …                                          │
-│ User prompt (editable)    …                                          │
+│ System prompt (accordion; click ▸ to expand a module)                │
+│   ▸ Role          (collapsed)                                        │
+│   ▾ Task          (expanded — editable)                              │
+│       Examine source and target for translation issues that survived │
+│       translate / edit / proofread. Categorise and assess severity.  │
+│       Fidelity-first hard constraints:                               │
+│         - Do NOT propose a fixed translation.                        │
+│         - Quote spans verbatim.                                      │
+│         - Empty issues array is a first-class output.                │
+│   ▸ Instructions  (collapsed)                                        │
+│   ▸ Examples      (collapsed)                                        │
+│   ▸ Format        (collapsed — JSON schema)                          │
+│   [ View raw system prompt ]                                         │
+├──────────────────────────────────────────────────────────────────────┤
+│ User prompt (editable, full)                                         │
+│   Source: 打突の機会を見逃さず、間合いを詰める。                       │
+│   Target: Without letting an opportunity for datotsu pass,           │
+│           close the maai.                                            │
+│   Risk focus: polarity/negation; terminology consistency             │
+│   Historical: polarity flip on JA negation (7)                       │
+│   Required ✓ maai     Preferred ✓ datotsu                            │
 ├──────────────────────────────────────────────────────────────────────┤
 │ Single-pass issue scan (N=1)                                         │
 ├──────────────────────────────────────────────────────────────────────┤
@@ -2303,28 +3065,105 @@ elsewhere.
 ### Step 6 — Phase 3: Generation (N=1, `issue_scan`)
 
 A single LLM call. The agent must return a structured issue list (or
-empty list), not free text.
+empty list), not free text. Unlike translate/edit/proofread, there is
+only one approach (`issue_scan`) and no candidate diversity — the
+five-module prompt is reused verbatim from the Step 5b composed prompt
+above.
 
 `[AGENT IN]`
 
 ```
-system: You are a QA reviewer for a Japanese→English kendo translation.
-        Examine the source and target for translation issues. Categorise
-        each issue as terminology / accuracy / fluency / consistency /
-        style with severity major / minor / info. Output a JSON array.
-        If you find no material issues, return [].
-        Pay particular attention to known risk patterns flagged by the
-        pipeline. Do NOT propose a fixed translation — only flag issues.
+system:
+# Role
+You are a senior QA reviewer for Japanese→English kendo translations.
+You provide a fresh, independent assessment of an already-edited and
+proofread translation. You work over the same terminology dictionary and
+translation-memory substrate used upstream, plus a list of historical
+risk patterns from the project.
 
-user:   Source:  打突の機会を見逃さず、間合いを詰める。
-        Target:  Without letting an opportunity for datotsu pass, close the maai.
-        Risk focus:
-          - polarity / negation (見逃さず ↔ "without ... pass")
-          - terminology consistency (datotsu, maai)
-        Required terms present: 間合い→maai ✓, 打突→datotsu ✓
-        Historical patterns:
-          - "polarity flip on JA negation" (7 prior occurrences)
-        Return JSON only.
+Cooperation-surface invariant: **I propose; I never commit.** Your
+output is an advisory issue list, not a verdict. A human reviewer will
+triage every flagged issue. You never write fixes; you only flag.
+
+# Task
+Examine the source and target for translation issues that survived
+translate / edit / proofread. Categorise each issue and assess severity.
+If you find no material issues, return an empty list.
+
+Fidelity-first hard constraints:
+- Do NOT propose a fixed translation. Output is issues only.
+- Do NOT flag stylistic preferences as defects; reserve `major` for
+  adequacy-breaking issues, `minor` for clear surface defects, `info`
+  for observations.
+- Quote the offending span verbatim in `span`; do not paraphrase it.
+- An empty `issues` array is a first-class output, not a failure.
+
+# Instructions
+1. Read source and target in full; do not skim.
+2. Walk the Risk-focus list as a checklist; for each focus, decide
+   whether the target exhibits the failure mode.
+3. Cross-check Required and Preferred terminology coverage independently.
+4. Consult Historical patterns for project-specific failure modes.
+5. For every issue found, emit one entry with category, severity, span,
+   and a one-line note.
+6. Quality-check before emitting: every `span` substring appears in the
+   target verbatim; output is valid JSON matching the Format schema.
+
+# Examples
+**BAD** (proposes a fix; violates "flag, do not fix")
+```json
+{ "issues": [
+    { "span": "Without letting an opportunity for datotsu pass",
+      "category": "accuracy",
+      "severity": "minor",
+      "note": "should read 'Do not let an opportunity for datotsu pass'" }
+  ] }
+```
+The note proposes a replacement translation. QA must flag, not rewrite.
+
+**GOOD**
+```json
+{ "issues": [
+    { "span": "Without letting an opportunity for datotsu pass",
+      "category": "accuracy",
+      "severity": "info",
+      "note": "polarity construction is double-negative; verify against source 見逃さず" }
+  ] }
+```
+Same observation, framed as a flag for human triage. No fix proposed.
+
+# Format
+Return strictly valid JSON matching this schema:
+
+```
+{
+  "issues": [
+    {
+      "span":     string,                                  // verbatim substring of target
+      "category": "terminology" | "accuracy" | "fluency" | "consistency" | "style",
+      "severity": "major" | "minor" | "info",
+      "note":     string                                    // one-line flag; no fix proposed
+    }
+  ]
+}
+```
+
+user:
+Source: 打突の機会を見逃さず、間合いを詰める。
+Target: Without letting an opportunity for datotsu pass, close the maai.
+
+Risk focus (advisory checklist):
+  - polarity / negation (見逃さず ↔ "without ... pass")
+  - terminology consistency (datotsu, maai)
+
+Historical patterns:
+  - polarity flip on JA negation (7 historical occurrences in this project)
+
+Required terms — coverage check:
+  - 間合い → maai     ✓ present in target
+
+Preferred terms — coverage check:
+  - 打突   → datotsu  ✓ present in target
 ```
 
 The agent's response varies. Two realistic branches follow.
@@ -2394,25 +3233,27 @@ confirm here.
 `[HUMAN SEES]`
 
 ```
-┌─ QA report ─ segment 47 ────────────────── clean pass ──────┐
-│ The agent reviewed source and target and found no material  │
-│ issues.                                                     │
-│                                                             │
-│ Issue recall (self-est.):     0.90                          │
-│ False-positive rate:          n/a (no flags)                │
-│ Severity calibration:         n/a (no flags)                │
-│ Overall confidence:           0.95                          │
-│                                                             │
-│ ⓘ The agent's clean-pass is advisory. Approve this segment  │
-│   yourself if you agree.                                    │
-│                                                             │
-│ [ Approve segment ]   [ Send back to proofread ]            │
-└─────────────────────────────────────────────────────────────┘
+┌─ QA report ─ segment 47 ────────────── ✅ Clean pass ───────┐
+│ The agent reviewed source and target and found no material │
+│ issues.                                                    │
+│                                                            │
+│ Coverage: high — every risk-focus area on the checklist    │
+│ was examined. No flags raised.                             │
+│                                                            │
+│ ⓘ The agent's clean-pass is advisory. Approve this segment │
+│   yourself if you agree.                                   │
+│                                                            │
+│ [ Approve segment ]   [ Send back to proofread ]           │
+│                                                            │
+│ ▸ QA self-assessment (details)                             │
+└────────────────────────────────────────────────────────────┘
 ```
 
 The button is `[ Approve segment ]`, not `[ Accept agent verdict ]`. The
 UI deliberately frames the action as the human's own approval, with the
-agent's clean-pass as supporting evidence.
+agent's clean-pass as supporting evidence. Raw recall / FPR / calibration
+numbers live behind the **QA self-assessment** drawer for users who
+explicitly want them.
 
 ---
 
@@ -2441,7 +3282,7 @@ write — and that write was performed **by the human, not by the agent**.
 ```
 ┌─ Segment 47 ──────────────────────── status: qa_approved ───┐
 │ ✅ Approved by tanaka.                                       │
-│   Agent QA: clean pass (overall 0.95)                       │
+│   Agent QA: clean pass — high confidence                    │
 │ Activity:  🤖 3 suggestions · 🔍 1 QA pass (clean)          │
 │            ✅ approved by tanaka                             │
 └─────────────────────────────────────────────────────────────┘
@@ -2529,26 +3370,32 @@ only after the human triages.
 `[HUMAN SEES]`
 
 ```
-┌─ QA report ─ segment 47 ────────────── 1 issue to triage ───┐
-│ Issue 1 of 1                                                │
-│   type:        terminology                                  │
-│   severity:    minor                                        │
-│   location:    "close the maai"                             │
-│   description: First occurrence of 'maai' in this chapter   │
-│                is not italicised. The style guide italicises│
-│                kendo romanizations on first occurrence per  │
-│                chapter.                                     │
-│   suggestion:  Consider '*maai*' for first occurrence.      │
-│   agent confidence: 0.55                                    │
-│   ⚠ Agent could not verify 'first occurrence' without scan. │
-│                                                             │
-│   [ Confirm issue ]  [ Dismiss as false positive ]          │
-│   [ Defer (leave open) ]                                    │
-│                                                             │
-│ Overall QA: 0.85 (issues_pending_review)                    │
-│                                                             │
-│ [ Approve segment ]   [ Send back to proofread ]            │
-└─────────────────────────────────────────────────────────────┘
+┌─ QA report ─ segment 47 ────────────── 1 issue to triage ──┐
+│ Issue 1 of 1 — minor terminology flag                      │
+│                                                            │
+│ Where: "close the maai"                                    │
+│                                                            │
+│ What the agent says:                                       │
+│   First occurrence of 'maai' in this chapter may not be    │
+│   italicised. The style guide italicises kendo             │
+│   romanizations on first occurrence per chapter.           │
+│                                                            │
+│ What the agent suggests considering:                       │
+│   '*maai*' for first occurrence.                           │
+│                                                            │
+│ ⚠ The agent could not verify the 'first occurrence' claim  │
+│   without a chapter scan it did not perform — treat this   │
+│   flag as a hint, not a finding.                           │
+│                                                            │
+│ [ Confirm issue ]  [ Dismiss as false positive ]           │
+│ [ Defer (leave open) ]                                     │
+│                                                            │
+│ Overall: one minor flag pending your review                │
+│                                                            │
+│ [ Approve segment ]   [ Send back to proofread ]           │
+│                                                            │
+│ ▸ QA self-assessment (details)                             │
+└────────────────────────────────────────────────────────────┘
 ```
 
 Three triage actions per issue, in increasing weight:
@@ -2557,13 +3404,15 @@ Three triage actions per issue, in increasing weight:
   not blocked; QA-advisory does not gate approval on open issues. It
   merely records them for the document's QA log and for future retrieval.
 - **Dismiss as false positive** — records the dismissal as
-  helpful-feedback for the agent's future false-positive-rate calibration.
+  helpful-feedback for the agent's future calibration.
 - **Defer** — issue stays attached to the segment but in `open` state,
   visible to a senior reviewer or revisited later.
 
 The two segment-level actions are independent of the issue triage:
 `tanaka` can approve the segment **even with an open or confirmed
-issue** — issues are advisory, approval is the human's call.
+issue** — issues are advisory, approval is the human's call. Raw recall
+/ FPR / calibration numbers live behind the **QA self-assessment**
+drawer.
 
 ---
 
