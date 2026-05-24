@@ -59,7 +59,9 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                     <div className="flex items-center justify-between flex-wrap gap-3">
                         {/* Mode tabs */}
                         <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                            {(Object.keys(MODE_LABELS) as ReaderMode[]).map((m) => (
+                            {(Object.keys(MODE_LABELS) as ReaderMode[])
+                                .filter((m) => m !== 'aligned' || canEdit)
+                                .map((m) => (
                                 <button
                                     key={m}
                                     onClick={() => setMode(m)}
@@ -118,7 +120,7 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                             getParagraphText={getParagraphText}
                         />
                     )}
-                    {mode === 'aligned' && (
+                    {mode === 'aligned' && canEdit && (
                         <TranslatorAlignedView
                             segments={segments}
                             sourceLang={sourceLang}
