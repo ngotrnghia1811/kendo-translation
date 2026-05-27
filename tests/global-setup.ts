@@ -41,6 +41,24 @@ function authDir(): string {
     return dir
 }
 
+/**
+ * Remove any *.json files left over from a previous run. Stale auth state
+ * silently masks login failures (tests opt into a storageState path and
+ * happily reuse an old cookie set), making global-setup failures invisible.
+ * Clearing up-front means every run produces a faithful pass/fail signal.
+ */
+function clearStaleAuthState(): void {
+    const dir = authDir()
+    let cleared = 0
+    for (const entry of fs.readdirSync(dir)) {
+        if (entry.endsWith('.json')) {
+            fs.rmSync(path.join(dir, entry), { force: true })
+            cleared++
+        }
+    }
+    console.log(`[global-setup] Cleared ${cleared} stale auth state file(s) from ${dir}`)
+}
+
 async function loginAndSaveState(
     baseURL: string,
     creds: RoleCreds,
@@ -95,6 +113,8 @@ async function globalSetup(config: FullConfig): Promise<void> {
         'http://localhost:3000'
 
     console.log(`[global-setup] Authenticating test users against ${baseURL}`)
+
+    clearStaleAuthState()
 
     for (const creds of ROLES) {
         await loginAndSaveState(baseURL, creds)
