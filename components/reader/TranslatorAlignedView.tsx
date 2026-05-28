@@ -36,10 +36,10 @@ export default function TranslatorAlignedView({
                             <td className="p-2 text-xs text-gray-400 align-top">
                                 {segment.position + 1}
                             </td>
-                            <td className="p-2 text-sm leading-relaxed text-gray-800 dark:text-gray-200 align-top">
+                            <td lang={sourceLang} className="p-2 text-sm leading-relaxed text-gray-800 dark:text-gray-200 align-top">
                                 {segment.source_text}
                             </td>
-                            <td className="p-2 text-sm leading-relaxed align-top">
+                            <td lang={targetLang} className="p-2 text-sm leading-relaxed align-top">
                                 {segment.target_text ? (
                                     <span className="text-gray-800 dark:text-gray-200">{segment.target_text}</span>
                                 ) : (

@@ -17,12 +17,12 @@ export default defineConfig({
     outputDir: 'test-results/artifacts',
     webServer: {
         command: 'npm run dev',
-        url: process.env.TEST_BASE_URL || 'http://localhost:3000',
+        url: process.env.TEST_BASE_URL || 'http://localhost:3001',
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
     },
     use: {
-        baseURL: process.env.TEST_BASE_URL || 'http://localhost:3000',
+        baseURL: process.env.TEST_BASE_URL || 'http://localhost:3001',
         screenshot: 'on',
         video: 'retain-on-failure',
         trace: 'on',

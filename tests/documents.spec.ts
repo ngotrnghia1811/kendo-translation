@@ -11,7 +11,7 @@
 
 import { test, expect } from './helpers/camoufox-fixture'
 
-const BASE = process.env.TEST_BASE_URL ?? 'http://localhost:3000'
+const BASE = process.env.TEST_BASE_URL ?? 'http://localhost:3001'
 
 test.describe('Documents list', () => {
     test('Documents page loads and shows heading', async ({ page, snap }) => {

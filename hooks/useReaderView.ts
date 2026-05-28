@@ -13,8 +13,8 @@ interface Paragraph {
 export function useReaderView(segments: Segment[], settings: DocumentSettings | null) {
     const [mode, setMode] = useState<ReaderMode>('single')
     const [displayLang, setDisplayLang] = useState<'source' | 'target'>('target')
-    const [sourceLang, setSourceLang] = useState(settings?.source_lang || 'ja')
-    const [targetLang, setTargetLang] = useState(settings?.target_lang || 'en')
+    const sourceLang = settings?.source_lang || 'ja'
+    const targetLang = settings?.target_lang || 'en'
 
     // Merge segments into paragraphs using paragraph boundaries
     const paragraphs = useMemo<Paragraph[]>(() => {
@@ -55,9 +55,7 @@ export function useReaderView(segments: Segment[], settings: DocumentSettings | 
         displayLang,
         setDisplayLang,
         sourceLang,
-        setSourceLang,
         targetLang,
-        setTargetLang,
         paragraphs,
         getParagraphText,
     }
