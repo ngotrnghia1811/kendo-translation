@@ -13,7 +13,7 @@
 
 import { test, expect } from './helpers/camoufox-fixture'
 
-const BASE = process.env.TEST_BASE_URL ?? 'http://localhost:3000'
+const BASE = process.env.TEST_BASE_URL ?? 'http://localhost:3001'
 
 const MOCK_USERS = [
     { id: 'uid-001', username: 'admin_user', role: 'admin', created_at: '2025-01-10T08:00:00Z' },
