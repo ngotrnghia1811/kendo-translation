@@ -181,9 +181,9 @@ W5  doc:       prose-first [HUMAN SEES] rewrite across all 4 tasks  (TODO 3)  [D
 W6  doc:       prompt examples aligned with W1 findings             (TODO 6)
 W7  design:    write docs/MEMORY-DB-DESIGN.md                       (TODO 4)  [DONE]
 W8  doc:       integrate W2 real-segment data through all 4 walkthroughs (TODO 5)  [DONE — W8a translate, W8b edit, W8c proofread, W8d QA-advisory]
-W9  doc:       cross-task consistency pass + 4-way comparison table refresh
-W10 doc:       remove [GAP] markers that W7 will close once implemented; replace with forward-references to MEMORY-DB-DESIGN.md
-W11 doc:       remove the !TODO markers themselves; replace with a footer noting "this revision addressed TODOs 1–6"
+W9  doc:       cross-task consistency pass + 4-way comparison table refresh  [DONE]
+W10 doc:       remove [GAP] markers that W7 will close once implemented; replace with forward-references to MEMORY-DB-DESIGN.md  [DONE — 15/34 replaced, 19 preserved (3 unresolved categories + methodology notes)]
+W11 doc:       remove the !TODO markers themselves; replace with a footer noting "this revision addressed TODOs 1–6"  [DONE]
 W12 commit:    commit MAC-RAG.md v3, DEV-STATE, plan, memory-DB design, and revised MAC-RAG-EXAMPLES.md, one logical commit per concern
 ```
 

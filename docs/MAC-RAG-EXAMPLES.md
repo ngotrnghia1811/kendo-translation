@@ -1,15 +1,3 @@
-!TODO: Context building process should not be just about the current segment. It should also consider the surrounding segments, or more general context like the chapter, or the document as a whole. This is especially important for edit, where the current target may have been written with a certain style or interpretation that the agent should respect. The context builder should surface this broader context and any relevant metadata to the agent, and ideally also to the human if they want to review or edit it before generation.
-
-!TODO: The output of the context building process would be a fully composed prompt that will be fed into the LLM for generation. The HUMAN should be able to see this prompt and edit it if they want, before it goes into the LLM. This would allow them to add instructions, clarify ambiguities, or provide additional information that the agent might have missed.
-
-!TODO: HUMAN should almost always see the litreal `human readable text`, instead of data or code.
-
-!TODO: We need to develop a memory DB system for MAC-RAG. Currently our DB only consists of the segment data (either monolingual (japanense or english), or bilingual pairs)
-
-!TODO: When you write the example, use the example from our actual database
-
-!TODO: Review the prompts in _references/gemini_kendo_book_translator to understand how the LLMs will be prompted for translation 
-
 # MAC-RAG Worked Examples
 
 This document is a companion to `docs/MAC-RAG.md`. Where MAC-RAG.md describes
@@ -522,11 +510,11 @@ returns at Phase 2 with the composed prompt. The client then issues a
 second call, `POST /api/mac-rag/generate`, with the (possibly
 human-edited) prompt to trigger Phase 3.
 
-The composed prompt below matches the five-module structure used in
-Step 6 (see "Step 6 — Phase 3: Multi-Candidate Generation" for the same
-prompt as it appears at the LLM boundary). Showing the full prompt here
-is intentional: the panel's value is exact transparency, not a
-summary.
+The composed prompt below matches the five-module skeleton (Role /
+Task / Instructions / Examples / Format) used in Step 6 below (the
+same prompt as it appears at the LLM boundary). Showing the full
+prompt here is intentional: the panel's value is exact transparency,
+not a summary.
 
 `[AGENT OUT]` of the first call (`POST /api/mac-rag` for translate) —
 **system prompt** (literal):
@@ -726,10 +714,9 @@ human edit the *composed prompt as text*. A richer design would let them
 click individual TM rows or terminology entries to remove them from the
 prompt structurally. Decision deferred.
 
-`[GAP]` **Open: prompt-edit audit trail.** If the human edits the
+**Open: prompt-edit audit trail.** If the human edits the
 prompt, do we persist the edit (and its diff against the agent's
-proposal) for later audit? A `prompt_edits` table is a candidate; see
-W7 in `docs/MAC-RAG-EXAMPLES-TODO-PLAN.md`. Decision deferred.
+proposal) for later audit? (See MEMORY-DB-DESIGN.md §3.5 — prompt_edits)
 
 ---
 
@@ -784,11 +771,12 @@ Fidelity-first hard constraints:
    present; do-not-translate terms unchanged; output is valid JSON
    matching the Format schema.
 
-`[GAP]` First-occurrence annotation policy (Appendix A.2.5) requires the
-context builder to surface `terms_already_annotated_in_this_article`. That
-field is not produced today, so the translator agent currently treats
-every segment as if no prior annotation exists. Tracked in W3 / Context
-Builder follow-up.
+First-occurrence annotation policy (Appendix A.2.5) requires the
+context builder to surface `terms_already_annotated_in_this_article`. The
+per-article tracking column is defined in
+(See MEMORY-DB-DESIGN.md §3.6 — terminology.first_occurrence_per); the
+application-side `terms_already_annotated_in_this_article` state remains a
+Context Builder concern tracked in W3.
 
 # Examples
 **BAD** (violates cooperation-surface; agent commits instead of proposes)
@@ -1121,7 +1109,8 @@ this document.
 
 ### Step 13 — Phase 4b: Memory Update (currently missing)
 
-`[GAP]` In the design, after acceptance the agent would offer to:
+(See MEMORY-DB-DESIGN.md §7.1 — rpc_phase_4b_translate_save) In the
+design, after acceptance the agent would offer to:
 
 - Save `(剣道は単なる武術ではなく、精神的な修養の道でもあります。 → Kendo
   is not merely a martial art, but also a path of spiritual cultivation.)`
@@ -1478,11 +1467,11 @@ emphasises **what the agent has been told to preserve**, because the edit
 task carries the most regret risk: a poorly-guided edit can regress the
 translator's deliberate choices.
 
-The composed prompt below matches the five-module structure used in
-Step 6 (see "Step 6 — Phase 3: Multi-Candidate Generation" below for the
-same prompt as it appears at the LLM boundary). Showing the full prompt
-here is intentional: the panel's value is exact transparency, not a
-summary.
+The composed prompt below matches the five-module skeleton (Role /
+Task / Instructions / Examples / Format) used in Step 6 below (the
+same prompt as it appears at the LLM boundary). Showing the full
+prompt here is intentional: the panel's value is exact transparency,
+not a summary.
 
 `[AGENT OUT]` of the first call (`POST /api/mac-rag` for edit) —
 **system prompt** (literal):
@@ -2056,8 +2045,8 @@ Segment is now ready for the proofread phase.
 
 ### Step 13 — Phase 4b: Memory Update (edit-shaped, currently missing)
 
-`[GAP]` In the design, the edit pipeline's memory update is **different
-from translate's**:
+(See MEMORY-DB-DESIGN.md §7.2 — rpc_phase_4b_edit_save) In the design,
+the edit pipeline's memory update is **different from translate's**:
 
 - It does **not** typically write a new TM pair — the source→target
   mapping was already saved at translate time.
@@ -2163,7 +2152,7 @@ mid-sentence. The segment arrives at proofread in this damaged state.
   mid-sentence; kendo romanizations carry their dictionary diacritics
   (kendō, dō, shūyō) and are italicised on first occurrence per chapter
   only.
-  `[GAP]` — no `style_guide` table exists yet; this rule lives in
+  (See MEMORY-DB-DESIGN.md §3.1 — style_guide); today the rule lives in
   prompts.
 
 The proofread task's job is **not** to retranslate or substantially edit.
@@ -2352,9 +2341,9 @@ the flagged English common-noun forms are cased mid-sentence elsewhere.
       "kendo romanizations carry dictionary diacritics (kendō, dō, shūyō)",
       "italicise romanizations only on first occurrence per chapter"
     ],
-    "source": "[GAP] — no style_guide table; prompt-embedded"
+    "source": "(See MEMORY-DB-DESIGN.md §3.1 — style_guide); today prompt-embedded"
   },
-  "qaIssuePatterns": "[GAP] — no qa_issue_patterns view yet",
+  "qaIssuePatterns": "(See MEMORY-DB-DESIGN.md §3.2 — qa_issue_patterns)",
   "domainCorpus":    "[GAP]",
   "crossLingualKb":  "[GAP]"
 }
@@ -2363,8 +2352,9 @@ the flagged English common-noun forms are cased mid-sentence elsewhere.
 **Hierarchy mapping.**
 - **L3 (project-corpus):** `tm`, `terminology`, `documentConsistency`
   (project-scoped scan, used here in place of the degenerate L2).
-- **L4 (external):** `styleGuide` — currently prompt-embedded `[GAP]`,
-  but conceptually an L4 source.
+- **L4 (external):** `styleGuide` — currently prompt-embedded
+  (See MEMORY-DB-DESIGN.md §3.1 — style_guide), but conceptually an L4
+  source.
 - **L4 (planned):** `qaIssuePatterns`, `domainCorpus`, `crossLingualKb`
   — `[GAP]`.
 
@@ -2423,8 +2413,8 @@ notably **shorter** — proofread rests on a small number of explicit
 surface rules and decisive document-consistency evidence, so the prompt
 fits in a few lines.
 
-The composed prompt below matches the five-module structure used in
-Step 6 below.
+The composed prompt below matches the five-module skeleton (Role /
+Task / Instructions / Examples / Format) used in Step 6 below.
 
 `[AGENT OUT]` of the first call (`POST /api/mac-rag` for proofread) —
 **system prompt** (literal):
@@ -2508,8 +2498,9 @@ Style rules:
   - English common nouns lowercase mid-sentence
   - kendo romanizations carry dictionary diacritics (kendō, dō, shūyō)
   - italicise romanizations only on first occurrence per chapter
-    ([GAP] first-occurrence requires chapter scan — not determinable
-    from segment context alone)
+    (first-occurrence requires chapter scan — not determinable
+    from segment context alone; see MEMORY-DB-DESIGN.md §3.6 —
+    terminology.first_occurrence_per)
 
 Doc-wide consistency evidence (cross-document; L2 within-article degenerate):
   - martial art:          14 lowercase, 1 title-cased (this segment)
@@ -2835,9 +2826,10 @@ UPDATE segments
 WHERE id = 'd644d349-325e-4098-a7b4-0ec2fa7e4318';
 ```
 
-`[GAP]` `segment_suggestions.auto_accepted` column does not currently
-exist. The opt-in policy field `document.policy.auto_accept_threshold`
-also does not exist. Both are part of the design in MAC-RAG.md.
+The `segment_suggestions.auto_accepted` column and the opt-in policy
+field `document.policy.auto_accept_threshold` do not currently exist;
+both are part of the memory design
+(See MEMORY-DB-DESIGN.md §3.6 — column additions to existing tables).
 
 `[GAP]` In the real DB, position 0's `target_text` still holds the
 unmacroned `"Kendo is not merely a martial art, but also a path of
@@ -2937,8 +2929,9 @@ transitions are never automated.
 
 ### Step 10 — Phase 4b: Memory Update (proofread-shaped, currently missing)
 
-`[GAP]` Proofread's memory update is again different from translate and
-edit:
+(See MEMORY-DB-DESIGN.md §7.3 — rpc_phase_4b_save_style /
+rpc_phase_4b_promote_term) Proofread's memory update is again different
+from translate and edit:
 
 - It does **not** touch the TM (no source-target mapping changed beyond
   surface casing, which TM rows store case-insensitively at lookup).
@@ -3031,7 +3024,9 @@ output. So QA does almost nothing automatically.
 
   > Kendō is not merely a martial art, but also a path of spiritual cultivation.
 
-- Article is assigned for the `QA` phase to user `qa-1 [SYNTHESIZED]`.
+- Article is assigned for the `QA` phase to user `qa-1`
+  `[SYNTHESIZED — no QA-reviewer profile exists in the current DB; first
+  use marked]`.
 - No document-policy field affects QA. There is no `qa_auto_*` setting.
 
 `[GAP]` Real DB state for this segment after W8c proofread-rewrite is
@@ -3175,7 +3170,7 @@ primary **L3/L4** channel.
       "false_positive_rate_historical": 0.20,
       "example": "'spiritual cultivation' used as bare gloss; original 修養 not surfaced" }
   ],
-  "qaIssuePatterns": "[GAP] — qa_issue_patterns view does not exist; using ad-hoc query",
+  "qaIssuePatterns": "(See MEMORY-DB-DESIGN.md §3.2 — qa_issue_patterns); today using ad-hoc query",
   "terminology": [
     { "ja": "剣道", "en": "kendō (italic, first occurrence)", "type": "required",  "present": true },
     { "ja": "武術", "en": "martial art",                       "type": "preferred", "present": true },
@@ -3183,7 +3178,7 @@ primary **L3/L4** channel.
     { "ja": "修養", "en": null,                                "type": null,        "present": false,
       "note": "not in project terminology table; target uses 'spiritual cultivation' as bare gloss without surfacing 修養 / shūyō" }
   ],
-  "styleGuide":      "[GAP] — italic-on-first-occurrence rule for romanizations is enforced at proofread but not formalised in retrievable style guide",
+  "styleGuide":      "(See MEMORY-DB-DESIGN.md §3.1 — style_guide); today the italic-on-first-occurrence rule for romanizations is enforced at proofread but not formalised in a retrievable style guide",
   "documentConsistency": {
     "kendo_casing":            "K capitalised, ō macron preserved (consistent)",
     "english_common_nouns":    "lowercase mid-sentence — corpus 14:1 for 'martial art', 23:2 for 'path', 6:0 for 'spiritual cultivation'",
@@ -3196,8 +3191,9 @@ primary **L3/L4** channel.
 **Hierarchy mapping.**
 - **L3 (project-corpus):** `pastQaIssues` (project-scoped `qa_issues`
   rows), `terminology`, `documentConsistency`.
-- **L4 (external):** `qaIssuePatterns` (cross-project canonical patterns,
-  `[GAP]`), `styleGuide` (`[GAP]`).
+- **L4 (external):** `qaIssuePatterns` (cross-project canonical
+  patterns; see MEMORY-DB-DESIGN.md §3.2 — qa_issue_patterns),
+  `styleGuide` (see MEMORY-DB-DESIGN.md §3.1 — style_guide).
 - TM is explicitly **not used** — QA verifies; it does not generate.
 
 QA does not consult the TM the way translate/edit do. TM is for
@@ -3265,7 +3261,8 @@ ignore a specific known-false-positive pattern for this segment).
 
 When enabled, the panel shape is the same two-stage HTTP contract as
 the other tasks. The composed prompt below matches the five-module
-structure used in Step 6 below.
+skeleton (Role / Task / Instructions / Examples / Format) used in
+Step 6 below.
 
 `[AGENT OUT]` of the first call (only emitted when the toggle is on) —
 **system prompt** (literal):
@@ -3891,7 +3888,8 @@ VALUES
 
 ### Step 11 — Phase 4b: Memory Update (QA-shaped, currently missing)
 
-`[GAP]` QA's memory update has two distinctive shapes:
+(See MEMORY-DB-DESIGN.md §7.4 — rpc_phase_4b_qa_save) QA's memory
+update has two distinctive shapes:
 
 - On **confirmed** issues: record into `qa_issue_patterns` (the
   retrieval view used in Phase 1 of future QA runs) with severity and
@@ -3941,6 +3939,29 @@ here.
 
 ---
 
+### Four-task summary — Translate / Edit / Proofread / QA at a glance
+
+A per-task summary across the dimensions exercised by the four
+walkthroughs above. All four are grounded in the same real DB row:
+article `c914a0bb-f8d9-4b7f-9c40-fc50dd34bbbe`, segment
+`d644d349-325e-4098-a7b4-0ec2fa7e4318` (position 0).
+
+| Dimension                       | Translate                                    | Edit                                                  | Proofread                                                   | QA-advisory                                                 |
+|---------------------------------|----------------------------------------------|-------------------------------------------------------|-------------------------------------------------------------|-------------------------------------------------------------|
+| Agent role-name                 | `translator-1` (real DB user)                | `editor-1` `[SYNTHESIZED]`                            | `proofreader-1` `[SYNTHESIZED]`                             | `qa-1` `[SYNTHESIZED]`                                      |
+| Real-data anchor                | article `c914a0bb…` segment 0                | same row, post-translate                              | same row, post-edit                                         | same row, post-proofread                                    |
+| N candidates                    | N=3 (`literal / natural / formal`)           | N=3 (`light_touch / accuracy_focus / fluency_focus`)  | N=3 (`min_change / corpus_consistent / style_guide_strict`) | **N=1** (`issue_scan`)                                      |
+| Context Builder Panel default   | **on**                                       | **on**                                                | **on**                                                      | **off** (per-user opt-in)                                   |
+| Auto-accept policy              | n/a (always human-confirm)                   | n/a (always human-confirm)                            | opt-in via `auto_accept_threshold` (this doc demos it on)   | n/a (never)                                                 |
+| Status transition               | `draft → translated`                         | `translated → edited`                                 | `edited → proofread`                                        | `proofread → qa_approved` (terminal)                        |
+| Cooperation write (suggestion)  | `segment_suggestions` row                    | `segment_suggestions` row                             | `segment_suggestions` row                                   | **never writes `segment_suggestions`**                      |
+| QA-issues write                 | n/a                                          | n/a                                                   | n/a                                                         | `qa_issues` on human confirm or dismiss only                |
+| Phase 4b memory-update writes   | TM pair + terminology candidate (`修養 → spiritual cultivation`) | edit_patterns + TM target overwrite + terminology promotion candidate | `qa_issue_patterns` + corpus casing inventory (no TM write) | `qa_issue_patterns` row only (no TM, no terminology direct write); flags `修養` for curation queue |
+| Freshest detail (W8 / this pass)| TM-pair confidence tempered by human rewrite | macron edit pattern recorded                          | corpus casing inventory update (`martial art`, `path`, `spiritual cultivation`) | info-severity flag on `修養` bare-gloss              |
+
+The wider QA-vs-the-others table below preserves contrasts the per-task
+view flattens (routing bands, quality dimensions, output shape).
+
 ### QA-advisory — key differences from the other three tasks at a glance
 
 | Aspect                | Translate / Edit / Proofread             | QA-advisory                                          |
@@ -3975,3 +3996,60 @@ here.
   `auto_accept` / `light_pe` / `standard_pe` / `full_revision` / `reject`.
 - **Approach** — a task-specific generation style. For translate:
   `literal`, `natural`, `formal`.
+
+---
+
+## Revision note — TODOs 1–6
+
+An earlier revision of this document opened with six `!TODO` markers
+capturing open work directions. Those TODOs have been addressed by the
+work units enumerated in `docs/MAC-RAG-EXAMPLES-TODO-PLAN.md` and by the
+companion design `docs/MEMORY-DB-DESIGN.md`. Mapping:
+
+- **TODO 1 — Broader (hierarchical) context.** Addressed by work units
+  W3 / W3.5 / W3b: Phase 0 of every walkthrough now surfaces segment,
+  section, chapter, and document-level context, and the ContextObject
+  schema carries those levels explicitly.
+- **TODO 2 — Human-visible, human-editable composed prompt.** Addressed
+  by work unit W4 and integrated by W8 into every walkthrough as the
+  Step 5b **Context Builder Panel**: the composed prompt is rendered as
+  editable text between Phase 2 and Phase 3; default-on for translate /
+  edit / proofread, default-off for QA.
+- **TODO 3 — Human sees prose, not data.** Addressed by work unit W5:
+  every `[HUMAN SEES]` block now uses plain-English prose, routing-band
+  labels rather than raw scores, and per-segment narration; numeric
+  detail lives behind a collapsed "(details)" drawer where useful.
+- **TODO 4 — Memory DB system.** Addressed by work unit W7 in the
+  separate design document `docs/MEMORY-DB-DESIGN.md`, which inventories
+  the existing substrate (`translation_memory`, `terminology`,
+  `agent_prompts`) and proposes additive new tables, columns, views,
+  RPCs, and RLS policies. Work unit W10 has replaced the `[GAP]`
+  markers in this document with forward-references of the form
+  `(See MEMORY-DB-DESIGN.md §N — table_or_section_name)` wherever the
+  design closes them; the residual `[GAP]` markers reflect genuinely
+  unresolved work (prune-retrieval UI, L4 cross-domain enrichment, and
+  a small set of methodology / stale-text items flagged for human
+  triage).
+- **TODO 5 — Real DB examples.** Addressed by work units W2 and W8: the
+  running example is now article
+  `c914a0bb-f8d9-4b7f-9c40-fc50dd34bbbe` ("Kendo Philosophy: The Way of
+  the Sword"), segment `d644d349-325e-4098-a7b4-0ec2fa7e4318`
+  (position 0), with the real source
+  `剣道は単なる武術ではなく、精神的な修養の道でもあります。` and the
+  real accepted target
+  `Kendō is not merely a martial art, but also a path of spiritual
+  cultivation.`. Downstream states for edit / proofread / QA are
+  synthesised from this base and marked `[SYNTHESIZED]` per Appendix
+  B.5(c) of the plan.
+- **TODO 6 — Align with `_references/gemini_kendo_book_translator`.**
+  Addressed by work unit W1 (research, summarised in plan Appendix A)
+  and work unit W6: the agent prompts shown in every walkthrough now
+  follow the five-module skeleton (Role / Task / Instructions /
+  Examples / Format) adapted to MAC-RAG's segment-keyed,
+  cooperation-surface, multi-candidate pipeline, with the deliberate
+  divergences from the reference documented in plan Appendix A §A.2 and
+  §A.3.
+
+See `docs/MAC-RAG-EXAMPLES-TODO-PLAN.md` for the full work-unit
+decomposition (W1–W12) and `docs/MEMORY-DB-DESIGN.md` for the memory
+schema design.
