@@ -179,8 +179,8 @@ W3.5 doc:      integrate the hierarchical context model into Steps 1–3 of all 
 W4  doc:       Context Builder Panel as explicit pipeline step      (TODO 2)
 W5  doc:       prose-first [HUMAN SEES] rewrite across all 4 tasks  (TODO 3)  [DONE]
 W6  doc:       prompt examples aligned with W1 findings             (TODO 6)
-W7  design:    write docs/MEMORY-DB-DESIGN.md                       (TODO 4)
-W8  doc:       integrate W2 real-segment data through all 4 walkthroughs (TODO 5)
+W7  design:    write docs/MEMORY-DB-DESIGN.md                       (TODO 4)  [DONE]
+W8  doc:       integrate W2 real-segment data through all 4 walkthroughs (TODO 5)  [DONE — W8a translate, W8b edit, W8c proofread, W8d QA-advisory]
 W9  doc:       cross-task consistency pass + 4-way comparison table refresh
 W10 doc:       remove [GAP] markers that W7 will close once implemented; replace with forward-references to MEMORY-DB-DESIGN.md
 W11 doc:       remove the !TODO markers themselves; replace with a footer noting "this revision addressed TODOs 1–6"
@@ -350,7 +350,7 @@ unit's structural changes.
 - **Open questions.** Adoption level — full, partial, inspiration-only.
   See §5 decision 3.
 
-### W7 — Write `docs/MEMORY-DB-DESIGN.md` (TODO 4)
+### W7 — Write `docs/MEMORY-DB-DESIGN.md` (TODO 4) [DONE]
 
 - **Scope.** Design-only. Enumerate the memory-DB tables / views /
   triggers / RPCs needed to close the `[GAP]` markers across MAC-RAG.md
@@ -378,6 +378,25 @@ unit's structural changes.
 - **Files touched.** New file `docs/MEMORY-DB-DESIGN.md`.
 - **Estimated size.** ~400–600 lines.
 - **Open questions.** See §5 decision 1.
+- **Status.** Delivered per D6=B (extension over existing substrate).
+  Final size 1,075 lines — denser than estimated because the inventory
+  of the live substrate (translation_memory 1,264 / terminology 920 /
+  agent_prompts 1) is column-by-column and the Phase 4b RPC bodies
+  (§7) include full SQL. Section structure differs slightly from the
+  plan: §2 became "Existing Substrate (inventory)" with one subsection
+  per existing table (per D6=B); §3 covers both new tables AND column
+  additions to existing tables (kept together so the reader sees the
+  full diff against each existing table in one place); §4 has three
+  views (added `terminology_active_view` for the gap-detector); §5 RLS
+  uses the RPC-enforcement pattern to satisfy invariant I-MEM-1 ("no
+  agent identity may directly INSERT into memory tables"); §6 is a
+  single additive migration (`005_memory_db_extension.sql`), idempotent
+  and backfill-free; §7 maps each walkthrough `[GAP]` to a named RPC.
+  An Appendix lists forward-references for W10 to apply when replacing
+  `[GAP]` markers with `(See MEMORY-DB-DESIGN.md §N — table_name)`
+  forms. Three `[GAP]`s are explicitly listed as **not** closed by this
+  design (prune-retrieval UI, L4 Wikidata enrichment, phase_4b_audit
+  observability) — W10 will leave those untouched.
 
 ### W8 — Integrate real-segment data through all 4 walkthroughs (TODO 5)
 
