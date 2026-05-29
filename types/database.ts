@@ -13,7 +13,12 @@ export interface Article {
   title: string
   content_ja: string | null
   content_en: string | null
-  status: string | null
+  // NOTE: `status` was previously declared here but was never present in the
+  // live Supabase schema (verified by the backend lane via Management API on
+  // 2026-05-28; see docs/BACKEND-FOLLOWUP-FE-COORD.md, Coordination Item 1).
+  // No FE consumers exist (audited 2026-05-28). Removed to make the type
+  // match runtime. Re-add as a migration + type field if/when product needs
+  // an article-level lifecycle status.
   translation_status: string | null
   quality_score: number | null
   segmented: boolean
