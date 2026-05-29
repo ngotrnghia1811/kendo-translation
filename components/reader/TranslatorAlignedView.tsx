@@ -8,6 +8,13 @@ interface TranslatorAlignedViewProps {
     targetLang: string
 }
 
+// A segment is a heading iff its pipeline metadata marks it as such.
+// See scripts/import-trilingual-references.ts.
+function isHeadingSegment(segment: Segment): boolean {
+    const meta = segment.metadata as { kind?: string } | null
+    return meta?.kind === 'heading'
+}
+
 export default function TranslatorAlignedView({
     segments,
     sourceLang,
@@ -28,26 +35,55 @@ export default function TranslatorAlignedView({
                     </tr>
                 </thead>
                 <tbody>
-                    {segments.map((segment) => (
-                        <tr
-                            key={segment.id}
-                            className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                        >
-                            <td className="p-2 text-xs text-gray-400 align-top">
-                                {segment.position + 1}
-                            </td>
-                            <td lang={sourceLang} className="p-2 text-sm leading-relaxed text-gray-800 dark:text-gray-200 align-top">
-                                {segment.source_text}
-                            </td>
-                            <td lang={targetLang} className="p-2 text-sm leading-relaxed align-top">
-                                {segment.target_text ? (
-                                    <span className="text-gray-800 dark:text-gray-200">{segment.target_text}</span>
-                                ) : (
-                                    <span className="text-gray-400 italic">Not translated</span>
-                                )}
-                            </td>
-                        </tr>
-                    ))}
+                    {segments.map((segment) => {
+                        const isHeading = isHeadingSegment(segment)
+                        return (
+                            <tr
+                                key={segment.id}
+                                className={
+                                    isHeading
+                                        ? 'border-b border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/60'
+                                        : 'border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                                }
+                            >
+                                <td className="p-2 text-xs text-gray-400 align-top">
+                                    {segment.position + 1}
+                                </td>
+                                <td
+                                    lang={sourceLang}
+                                    className={
+                                        isHeading
+                                            ? 'p-2 text-base font-semibold leading-relaxed text-gray-900 dark:text-gray-100 align-top'
+                                            : 'p-2 text-sm leading-relaxed text-gray-800 dark:text-gray-200 align-top'
+                                    }
+                                >
+                                    {segment.source_text}
+                                </td>
+                                <td
+                                    lang={targetLang}
+                                    className={
+                                        isHeading
+                                            ? 'p-2 text-base font-semibold leading-relaxed align-top'
+                                            : 'p-2 text-sm leading-relaxed align-top'
+                                    }
+                                >
+                                    {segment.target_text ? (
+                                        <span
+                                            className={
+                                                isHeading
+                                                    ? 'text-gray-900 dark:text-gray-100'
+                                                    : 'text-gray-800 dark:text-gray-200'
+                                            }
+                                        >
+                                            {segment.target_text}
+                                        </span>
+                                    ) : (
+                                        <span className="text-gray-400 italic">Not translated</span>
+                                    )}
+                                </td>
+                            </tr>
+                        )
+                    })}
                 </tbody>
             </table>
         </div>

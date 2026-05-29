@@ -14,6 +14,14 @@ interface BilingualParagraphViewProps {
     getParagraphText: (paragraph: Paragraph, lang: 'source' | 'target') => string
 }
 
+// A paragraph is a heading iff it is a single segment whose pipeline
+// metadata marks it as a heading. See scripts/import-trilingual-references.ts.
+function isHeadingParagraph(paragraph: Paragraph): boolean {
+    if (paragraph.segments.length !== 1) return false
+    const meta = paragraph.segments[0].metadata as { kind?: string } | null
+    return meta?.kind === 'heading'
+}
+
 export default function BilingualParagraphView({
     paragraphs,
     sourceLang,
@@ -29,6 +37,31 @@ export default function BilingualParagraphView({
                 const targetText = getParagraphText(paragraph, 'target')
 
                 if (!sourceText.trim() && !targetText.trim()) return null
+
+                // Heading paragraph: render both languages as h2 with no
+                // source/target color bars; visually distinct from body paragraphs.
+                if (isHeadingParagraph(paragraph)) {
+                    return (
+                        <div key={paragraph.position} className="space-y-1 mt-10">
+                            {sourceText.trim() && (
+                                <h2
+                                    lang={sourceLang}
+                                    className="text-xl font-semibold text-gray-900 dark:text-gray-100"
+                                >
+                                    {sourceText}
+                                </h2>
+                            )}
+                            {targetText.trim() && (
+                                <h2
+                                    lang={targetLang}
+                                    className="text-lg font-semibold text-gray-700 dark:text-gray-300"
+                                >
+                                    {targetText}
+                                </h2>
+                            )}
+                        </div>
+                    )
+                }
 
                 return (
                     <div key={paragraph.position} className="space-y-1">
