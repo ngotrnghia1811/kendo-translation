@@ -1,18 +1,12 @@
 'use client'
 
 import type { Segment } from '@/types/database'
+import { isHeadingSegment } from '@/types/reader'
 
 interface TranslatorAlignedViewProps {
     segments: Segment[]
     sourceLang: string
     targetLang: string
-}
-
-// A segment is a heading iff its pipeline metadata marks it as such.
-// See scripts/import-trilingual-references.ts.
-function isHeadingSegment(segment: Segment): boolean {
-    const meta = segment.metadata as { kind?: string } | null
-    return meta?.kind === 'heading'
 }
 
 export default function TranslatorAlignedView({

@@ -1,11 +1,6 @@
 'use client'
 
-import type { Segment, DocumentSettings } from '@/types/database'
-
-interface Paragraph {
-    segments: Segment[]
-    position: number
-}
+import { type Paragraph, isHeadingParagraph } from '@/types/reader'
 
 interface SingleLanguageViewProps {
     paragraphs: Paragraph[]
@@ -13,16 +8,6 @@ interface SingleLanguageViewProps {
     sourceLang: string
     targetLang: string
     getParagraphText: (paragraph: Paragraph, lang: 'source' | 'target') => string
-}
-
-// A paragraph is a heading iff it is a single segment whose pipeline
-// metadata marks it as a heading. See scripts/import-trilingual-references.ts —
-// the upstream pipeline emits heading lines as their own segment with
-// metadata.kind = 'heading'.
-function isHeadingParagraph(paragraph: Paragraph): boolean {
-    if (paragraph.segments.length !== 1) return false
-    const meta = paragraph.segments[0].metadata as { kind?: string } | null
-    return meta?.kind === 'heading'
 }
 
 export default function SingleLanguageView({
