@@ -25,13 +25,13 @@ export default function PdfPageView({ articleId, pdfPage }: PdfPageViewProps) {
 
     return (
         <div className="w-full" style={{ height: 'calc(100vh - 120px)' }}>
+            {/* No sandbox attribute: the PDF plugin requires full browser privileges.
+                Security is enforced by the API route (auth check + path traversal guard). */}
             <iframe
                 key={src}
                 src={src}
                 title="Paired bilingual PDF"
                 className="w-full h-full border-0"
-                // Prevent the PDF from submitting forms or navigating the parent
-                sandbox="allow-same-origin allow-scripts allow-forms"
             />
         </div>
     )
