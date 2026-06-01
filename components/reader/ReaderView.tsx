@@ -31,8 +31,17 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
         sourceLang,
         targetLang,
         paragraphs,
+        pageSegments,
         getParagraphText,
+        currentPage,
+        currentPageIndex,
+        totalPages,
+        goToPage,
+        pages,
     } = useReaderView(segments, settings)
+
+    const showPager = totalPages > 1
+    const pageNoun = currentPage?.page !== null && currentPage?.page !== undefined ? 'Page' : 'Section'
 
     return (
         <main className="min-h-screen">
@@ -91,6 +100,46 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                                     </select>
                                 </div>
                             )}
+
+                            {/* Pager — only shown when the document spans more than one page */}
+                            {showPager && (
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => goToPage(currentPageIndex - 1)}
+                                        disabled={currentPageIndex === 0}
+                                        aria-label="Previous page"
+                                        className="px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 enabled:hover:bg-gray-100 dark:enabled:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        ←
+                                    </button>
+                                    <label className="flex items-center gap-1 text-xs text-gray-500">
+                                        <span>{pageNoun}</span>
+                                        <select
+                                            value={currentPageIndex}
+                                            onChange={(e) => goToPage(Number(e.target.value))}
+                                            aria-label={`${pageNoun}, ${totalPages} total`}
+                                            className="text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-1 py-1 max-w-[6rem]"
+                                        >
+                                            {pages.map((p, i) => (
+                                                <option key={i} value={i}>
+                                                    {p.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <span>of {totalPages}</span>
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={() => goToPage(currentPageIndex + 1)}
+                                        disabled={currentPageIndex >= totalPages - 1}
+                                        aria-label="Next page"
+                                        className="px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 enabled:hover:bg-gray-100 dark:enabled:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        →
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -122,7 +171,7 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                     )}
                     {mode === 'aligned' && canEdit && (
                         <TranslatorAlignedView
-                            segments={segments}
+                            segments={pageSegments}
                             sourceLang={sourceLang}
                             targetLang={targetLang}
                         />

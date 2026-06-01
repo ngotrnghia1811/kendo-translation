@@ -25,6 +25,11 @@ export default function BilingualParagraphView({
 
                 if (!sourceText.trim() && !targetText.trim()) return null
 
+                // Reader-facing view: render whichever language is present and skip
+                // an empty side silently (no "Not translated" placeholder). The
+                // translator-only TranslatorAlignedView intentionally does the
+                // opposite. See FE-READER-AUDIT 4.6 — this asymmetry is by design.
+
                 // Heading paragraph: render both languages as h2 with no
                 // source/target color bars; visually distinct from body paragraphs.
                 if (isHeadingParagraph(paragraph)) {

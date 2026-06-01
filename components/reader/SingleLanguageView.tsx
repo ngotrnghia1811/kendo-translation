@@ -22,6 +22,10 @@ export default function SingleLanguageView({
         <article lang={currentLang} className="max-w-2xl mx-auto py-8 px-4 prose dark:prose-invert">
             {paragraphs.map((paragraph) => {
                 const text = getParagraphText(paragraph, displayLang)
+                // Reader-facing view: silently skip paragraphs with no text in the
+                // displayed language. Unlike TranslatorAlignedView (a working view),
+                // readers should never see "Not translated" placeholders. See
+                // FE-READER-AUDIT 4.6 — this asymmetry is intentional.
                 if (!text.trim()) return null
 
                 if (isHeadingParagraph(paragraph)) {

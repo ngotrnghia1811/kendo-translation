@@ -17,6 +17,10 @@ export default function TranslatorAlignedView({
     return (
         <div className="max-w-5xl mx-auto py-4 px-4">
             <table className="w-full border-collapse">
+                <caption className="sr-only">
+                    Sentence-aligned view: each row pairs a {sourceLang.toUpperCase()} source
+                    segment with its {targetLang.toUpperCase()} translation, in reading order.
+                </caption>
                 <thead>
                     <tr className="border-b-2 border-gray-300 dark:border-gray-600">
                         <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wide p-2 w-10">#</th>
@@ -72,6 +76,9 @@ export default function TranslatorAlignedView({
                                             {segment.target_text}
                                         </span>
                                     ) : (
+                                        // Translator-only working view: surface untranslated
+                                        // segments explicitly. Reader-facing Single/Bilingual
+                                        // views deliberately hide these. (FE-READER-AUDIT 4.6)
                                         <span className="text-gray-400 italic">Not translated</span>
                                     )}
                                 </td>

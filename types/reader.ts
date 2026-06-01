@@ -42,3 +42,35 @@ export function isHeadingSegment(segment: Segment): boolean {
 export function isHeadingParagraph(paragraph: Paragraph): boolean {
     return paragraph.segments.length === 1 && isHeadingSegment(paragraph.segments[0])
 }
+
+/**
+ * The source-book page a segment belongs to, if known. The clean-triplet
+ * importer (`scripts/import-clean-triplets.ts`) writes an integer
+ * `metadata.page` on every imported segment. Legacy / user-uploaded
+ * segments carry no page, so this returns null and the reader falls back
+ * to fixed-size chunk paging.
+ */
+export function getSegmentPage(segment: Segment): number | null {
+    const meta = segment.metadata as { page?: number } | null
+    return typeof meta?.page === 'number' ? meta.page : null
+}
+
+/**
+ * One reader "page" — a contiguous slice of the document rendered together.
+ * For imported books this maps to a real source-book page (`label` is the
+ * page number as a string); for legacy docs without page metadata it is a
+ * fixed-size chunk (`label` is the 1-based chunk index).
+ *
+ * `segments` is the raw ordered slice (consumed by the aligned view);
+ * `paragraphs` is the same slice already merged via paragraph_boundaries
+ * (consumed by the single / bilingual views). Keeping both on the page
+ * keeps all three reader modes paginated consistently.
+ */
+export interface ReaderPage {
+    /** Source-book page number, or null for fixed-size chunk paging. */
+    page: number | null
+    /** Human-facing label for the pager (page number or chunk index). */
+    label: string
+    segments: Segment[]
+    paragraphs: Paragraph[]
+}
