@@ -117,7 +117,19 @@ export const test = base.extend<CamoufoxFixtures>({
             stepIndex.value += 1
             const filename = `${String(stepIndex.value).padStart(3, '0')}_${sanitize(label)}.png`
             const fullPath = path.join(dir, filename)
-            await page.screenshot({ path: fullPath, fullPage: true })
+            // Attempt a true full-page screenshot. Firefox enforces a hard
+            // 32 767 px physical limit; for book-sized pages (thousands of
+            // segments rendered at once) the DOM can exceed that, causing
+            // page.screenshot to throw. Fall back to a viewport-height clip
+            // so the test continues and still captures the visible state.
+            try {
+                await page.screenshot({ path: fullPath, fullPage: true })
+            } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err)
+                if (!/larger than 32767|too large|screenshot/i.test(msg)) throw err
+                console.warn(`[snap] fullPage failed for "${label}" (${msg}); falling back to viewport clip`)
+                await page.screenshot({ path: fullPath })
+            }
             // Also attach to the Playwright HTML report
             await testInfo.attach(label, { path: fullPath, contentType: 'image/png' })
         }

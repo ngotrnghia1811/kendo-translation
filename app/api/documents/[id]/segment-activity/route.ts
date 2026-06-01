@@ -13,7 +13,12 @@
  * Implementation notes:
  *  - PostgREST does not expose GROUP BY through the JS client; we run
  *    three flat SELECTs filtered by `segment_id IN (doc segments)` and
- *    tally in JS. With <100 segments this is cheap.
+ *    tally in JS.
+ *  - The `.in()` PostgREST filter serialises all IDs into a single URL
+ *    query string. Past ~200–300 UUIDs the URL length exceeds the server
+ *    limit → HTTP 500. For book-sized documents (thousands of segments)
+ *    we therefore chunk the segment ID list and fan out the queries.
+ *    CHUNK_SIZE=200 keeps each URL well under 8 KB.
  *  - 404 covers both missing document and RLS-hidden document; we never
  *    leak existence.
  */
@@ -24,11 +29,33 @@ import { createClient } from '@/lib/supabase/server';
 const UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** Max segment IDs per PostgREST .in() call to stay under URL length limits. */
+const CHUNK_SIZE = 200;
+
 interface ActivityRow {
     segment_id: string;
     pending_suggestions: number;
     unresolved_comments: number;
     recent_transitions_24h: number;
+}
+
+/**
+ * Run a SELECT … .in('segment_id', ids) query chunked across all IDs.
+ * Returns all matching rows merged into a flat array, or throws on the first
+ * Supabase error.
+ */
+async function chunkedIn<T extends { segment_id: string }>(
+    queryFn: (chunk: string[]) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+    ids: string[],
+): Promise<T[]> {
+    const results: T[] = [];
+    for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+        const chunk = ids.slice(i, i + CHUNK_SIZE);
+        const { data, error } = await queryFn(chunk);
+        if (error) throw new Error(error.message);
+        if (data) results.push(...data);
+    }
+    return results;
 }
 
 export async function GET(
@@ -78,53 +105,62 @@ export async function GET(
 
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-    const [suggestionsRes, commentsRes, transitionsRes] = await Promise.all([
-        supabase
-            .from('segment_suggestions')
-            .select('segment_id')
-            .in('segment_id', segmentIds)
-            .eq('status', 'pending'),
-        supabase
-            .from('segment_comments')
-            .select('segment_id')
-            .in('segment_id', segmentIds)
-            .eq('resolved', false),
-        supabase
-            .from('segment_phase_transitions')
-            .select('segment_id')
-            .in('segment_id', segmentIds)
-            .gte('created_at', since),
-    ]);
+    try {
+        const [suggestions, comments, transitions] = await Promise.all([
+            chunkedIn(
+                (chunk) =>
+                    supabase.from('segment_suggestions')
+                        .select('segment_id')
+                        .in('segment_id', chunk)
+                        .eq('status', 'pending'),
+                segmentIds,
+            ),
+            chunkedIn(
+                (chunk) =>
+                    supabase.from('segment_comments')
+                        .select('segment_id')
+                        .in('segment_id', chunk)
+                        .eq('resolved', false),
+                segmentIds,
+            ),
+            chunkedIn(
+                (chunk) =>
+                    supabase.from('segment_phase_transitions')
+                        .select('segment_id')
+                        .in('segment_id', chunk)
+                        .gte('created_at', since),
+                segmentIds,
+            ),
+        ]);
 
-    const firstErr =
-        suggestionsRes.error || commentsRes.error || transitionsRes.error;
-    if (firstErr) {
-        return NextResponse.json({ error: firstErr.message }, { status: 500 });
-    }
-
-    const tally = new Map<string, ActivityRow>();
-    for (const id of segmentIds) {
-        tally.set(id, {
-            segment_id: id,
-            pending_suggestions: 0,
-            unresolved_comments: 0,
-            recent_transitions_24h: 0,
-        });
-    }
-
-    const bump = (
-        rows: Array<{ segment_id: string }> | null,
-        key: keyof Omit<ActivityRow, 'segment_id'>
-    ) => {
-        for (const r of rows ?? []) {
-            const row = tally.get(r.segment_id);
-            if (row) row[key] += 1;
+        const tally = new Map<string, ActivityRow>();
+        for (const id of segmentIds) {
+            tally.set(id, {
+                segment_id: id,
+                pending_suggestions: 0,
+                unresolved_comments: 0,
+                recent_transitions_24h: 0,
+            });
         }
-    };
 
-    bump(suggestionsRes.data, 'pending_suggestions');
-    bump(commentsRes.data, 'unresolved_comments');
-    bump(transitionsRes.data, 'recent_transitions_24h');
+        const bump = (
+            rows: Array<{ segment_id: string }>,
+            key: keyof Omit<ActivityRow, 'segment_id'>
+        ) => {
+            for (const r of rows) {
+                const row = tally.get(r.segment_id);
+                if (row) row[key] += 1;
+            }
+        };
 
-    return NextResponse.json({ activity: Array.from(tally.values()) });
+        bump(suggestions, 'pending_suggestions');
+        bump(comments, 'unresolved_comments');
+        bump(transitions, 'recent_transitions_24h');
+
+        return NextResponse.json({ activity: Array.from(tally.values()) });
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ error: msg }, { status: 500 });
+    }
 }
+
