@@ -53,14 +53,21 @@ async function discoverDocumentId(
     page: import('@playwright/test').Page
 ): Promise<string> {
     const docsRes = await apiCall<
-        { documents?: Array<{ id: string }> } | Array<{ id: string }>
+        { documents?: Array<{ id: string; segment_count?: number }> } | Array<{ id: string; segment_count?: number }>
     >(page, '/api/documents')
     expect(docsRes.status).toBe(200)
     const docs = Array.isArray(docsRes.body)
         ? docsRes.body
         : (docsRes.body?.documents ?? [])
     expect(docs.length, 'expected at least one document').toBeGreaterThan(0)
-    return docs[0].id
+    // Prefer a small article (1–99 segments) so the editor loads quickly
+    // and the first segment button is unambiguous. Book-sized docs (1000+)
+    // cause timing failures because their segment lists scroll-load and
+    // the first `main button` may not be a segment row.
+    const small = docs.find(
+        (d) => typeof d.segment_count === 'number' && d.segment_count >= 1 && d.segment_count <= 99
+    )
+    return (small ?? docs[0]).id
 }
 
 test.describe('Edit page integration drawer', () => {

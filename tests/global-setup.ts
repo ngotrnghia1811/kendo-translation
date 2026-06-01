@@ -78,7 +78,7 @@ async function loginAndSaveState(
             (resp) =>
                 resp.url().includes('/auth/v1/token') &&
                 resp.request().method() === 'POST',
-            { timeout: 15_000 },
+            { timeout: 30_000 },
         )
         await page.click('button[type="submit"]')
         const tokenResp = await tokenResponsePromise
@@ -120,7 +120,7 @@ async function globalSetup(config: FullConfig): Promise<void> {
         await loginAndSaveState(baseURL, creds)
         // Brief pause between sequential logins to avoid Supabase rate-limiting
         // the /auth/v1/token endpoint (seen as 15 s timeout on the 3rd login).
-        await new Promise((r) => setTimeout(r, 2_000))
+        await new Promise((r) => setTimeout(r, 5_000))
     }
 }
 
