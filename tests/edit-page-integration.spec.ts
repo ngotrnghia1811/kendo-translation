@@ -104,17 +104,18 @@ test.describe('Edit page integration drawer', () => {
         const phaseControl = drawer.locator(
             '[data-testid="phase-advance-button"], [data-testid="phase-advance-terminal"]'
         )
-        await expect(phaseControl).toBeVisible()
+        await expect(phaseControl).toBeVisible({ timeout: 15000 })
         // PhaseTransitionHistory renders one of {history, loading, empty, error}.
+        // On cold server first renders the API call can take > 10 s.
         await expect(
             drawer.locator(
                 '[data-testid^="phase-transition-history"]'
             )
-        ).toBeVisible()
+        ).toBeVisible({ timeout: 20000 })
         // SuggestionPanel similarly renders one of {panel, loading, empty, error}.
         await expect(
             drawer.locator('[data-testid^="suggestion-panel"]')
-        ).toBeVisible()
+        ).toBeVisible({ timeout: 20000 })
         // AgentSuggestionPanel is only rendered when agentPhaseFor(status) is non-null,
         // i.e. for draft/translated/edited/proofread but NOT for qa_approved.
         // We detect which case we're in by checking which phase control variant appeared.
@@ -124,11 +125,11 @@ test.describe('Edit page integration drawer', () => {
         if (!isTerminal) {
             await expect(
                 drawer.getByTestId('agent-suggestion-panel')
-            ).toBeVisible()
+            ).toBeVisible({ timeout: 15000 })
         }
         await expect(
             drawer.locator('[data-testid^="comment-thread"]')
-        ).toBeVisible()
+        ).toBeVisible({ timeout: 20000 })
     })
 
     test('PhaseBadge in drawer matches active segment status', async ({
