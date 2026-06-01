@@ -22,10 +22,13 @@
  * is logged and surfaced as a non-fatal `memory` field on the response,
  * never rolling back the user-facing accept.
  *
- * Scope (translate-first): only segments whose status is `draft` at
- * accept time are treated as translate-phase proposals and routed to
- * `rpc_phase_4b_translate_save`. edit/proofread/qa write-backs are
- * deliberately deferred.
+ * Phase coverage:
+ *   draft      → rpc_phase_4b_translate_save  (inserts TM row)
+ *   translated → rpc_phase_4b_edit_save       (supersede-links TM + edit_patterns)
+ *   edited     → skipped; save_style requires human-supplied style fields
+ *                not available on the accept surface (deferred to Phase 3 UI)
+ *   proofread  → skipped; rpc_phase_4b_qa_save uses qa_issue_id, not suggestion
+ *   qa_approved→ terminal; no write-back needed
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -116,10 +119,14 @@ export async function PATCH(
 /**
  * Fire the matching `rpc_phase_4b_*` RPC for an accepted suggestion.
  *
- * Translate-first: routes only `draft` segments to
- * `rpc_phase_4b_translate_save`. Returns a small status object describing
- * what happened (for the `memory` response field) and NEVER throws — the
- * accept must stand even if the learning side-effect fails.
+ * Phase routing (by segment.status at accept time):
+ *   draft      → rpc_phase_4b_translate_save  (new TM row)
+ *   translated → rpc_phase_4b_edit_save       (TM supersede + edit_patterns)
+ *   edited     → skipped (save_style requires human-supplied style fields)
+ *   proofread  → skipped (qa_save uses qa_issue_id, not suggestion-based)
+ *
+ * Returns a small status object (merged into the `memory` response field) and
+ * NEVER throws — the accept must stand even if the learning side-effect fails.
  */
 async function runPhase4bWriteBack(
     supabase: Awaited<ReturnType<typeof createClient>>,
@@ -137,35 +144,59 @@ async function runPhase4bWriteBack(
         return { skipped: true, reason: 'segment lookup failed' };
     }
 
-    // Translate-first scope: only draft→translated accepts feed memory.
-    if (seg.status !== 'draft') {
-        return { skipped: true, reason: `phase not wired (status=${seg.status})` };
-    }
-
-    const payload = {
-        save_to_tm: true,
-        approach: 'human_accept',
-        promote_terms: [] as Array<{ term_id: string }>,
-        boost_tm_examples: [] as Array<{ tm_id: string }>,
-    };
-
-    const { data: rpcResult, error: rpcErr } = await supabase.rpc(
-        'rpc_phase_4b_translate_save',
-        {
-            segment_id: segmentId,
-            suggestion_id: suggestionId,
-            payload,
-        }
-    );
-
-    if (rpcErr) {
-        // Non-fatal: log server-side, report a soft failure to the client.
-        console.error(
-            `[phase-4b] translate_save failed for suggestion ${suggestionId}:`,
-            rpcErr.message
+    // Translate phase: draft segment accepted → new TM row.
+    if (seg.status === 'draft') {
+        const payload = {
+            save_to_tm: true,
+            approach: 'human_accept',
+            promote_terms: [] as Array<{ term_id: string }>,
+            boost_tm_examples: [] as Array<{ tm_id: string }>,
+        };
+        const { data: rpcResult, error: rpcErr } = await supabase.rpc(
+            'rpc_phase_4b_translate_save',
+            { segment_id: segmentId, suggestion_id: suggestionId, payload }
         );
-        return { ok: false, rpc: 'rpc_phase_4b_translate_save', error: rpcErr.message };
+        if (rpcErr) {
+            console.error(
+                `[phase-4b] translate_save failed for suggestion ${suggestionId}:`,
+                rpcErr.message
+            );
+            return { ok: false, rpc: 'rpc_phase_4b_translate_save', error: rpcErr.message };
+        }
+        return { ok: true, rpc: 'rpc_phase_4b_translate_save', result: rpcResult };
     }
 
-    return { ok: true, rpc: 'rpc_phase_4b_translate_save', result: rpcResult };
+    // Edit phase: translated segment accepted → supersede-link TM + record
+    // edit_patterns. We supply update_tm:true but omit edit_pattern (the RPC
+    // skips that block when payload.edit_pattern is null) because the accept
+    // surface doesn't yet have before/after phrase annotations.
+    if (seg.status === 'translated') {
+        const payload = {
+            update_tm: true,
+            approach: 'human_edit_accept',
+            edit_pattern: null,
+            promote_terms: [] as Array<{ term_id: string }>,
+        };
+        const { data: rpcResult, error: rpcErr } = await supabase.rpc(
+            'rpc_phase_4b_edit_save',
+            { segment_id: segmentId, suggestion_id: suggestionId, payload }
+        );
+        if (rpcErr) {
+            console.error(
+                `[phase-4b] edit_save failed for suggestion ${suggestionId}:`,
+                rpcErr.message
+            );
+            return { ok: false, rpc: 'rpc_phase_4b_edit_save', error: rpcErr.message };
+        }
+        return { ok: true, rpc: 'rpc_phase_4b_edit_save', result: rpcResult };
+    }
+
+    // Proofread phase: save_style requires rule_category/pattern/policy fields
+    // that are only available after Phase 3 Context Builder UI is built.
+    // qa_approved phase: rpc_phase_4b_qa_save is driven by qa_issue_id, not by
+    // the suggestion accept path.
+    return {
+        skipped: true,
+        reason: `no write-back for phase (status=${seg.status})`,
+    };
 }
