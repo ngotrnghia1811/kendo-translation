@@ -53,3 +53,59 @@ export type AgentPhase = 'translate' | 'edit' | 'proofread';
 export function isAgentPhase(v: unknown): v is AgentPhase {
   return v === 'translate' || v === 'edit' || v === 'proofread';
 }
+
+/**
+ * QA advisory prompt.
+ *
+ * Returns a JSON array of candidate qa_issue objects for the translator to
+ * review.  The agent never writes to qa_issues directly (cooperation
+ * invariant); these are proposals that the human triages via
+ * POST /api/segments/[id]/qa-issues.
+ *
+ * Output schema (strict JSON array, no prose):
+ *   [
+ *     {
+ *       "category": "<one of the 7 QAIssueCategory values>",
+ *       "severity": "minor" | "major" | "critical",
+ *       "body": "<1–2 sentence explanation>",
+ *       "char_start": <0-based char offset in target, or null>,
+ *       "char_end": <exclusive end offset, or null>
+ *     }
+ *   ]
+ * Return an empty array [] if no issues are found.
+ */
+export function qaPrompt(sourceText: string, targetText: string): { system: string; user: string } {
+  const CATEGORIES = [
+    'Mistranslation',
+    'Terminology',
+    'Register/Keigo',
+    'Fluency',
+    'Cultural-adaptation',
+    'Omission/Addition',
+    'Style',
+  ].join(' | ');
+
+  const system = [
+    'You are a QA reviewer for a Japanese kendo literature co-translation platform.',
+    'I propose; I never commit.  Your findings are advisory — a human translator decides which to accept.',
+    '',
+    `Review the English translation against the Japanese source and return a JSON array of qa_issue candidates.`,
+    `Each item must have: category (${CATEGORIES}), severity (minor|major|critical), body (1-2 sentence explanation), char_start (0-based index into target text or null), char_end (exclusive end index or null).`,
+    'Return ONLY valid JSON — no preamble, no markdown, no backticks. If no issues are found, return an empty array [].',
+    '',
+    'Guidelines:',
+    '- Mistranslation: meaning in target differs significantly from source.',
+    '- Terminology: kendo or martial-arts term is mistranslated or inconsistent (e.g. men/kote/dō/tsuki should stay romanised).',
+    '- Register/Keigo: register (formal/informal/honorific) does not match the source.',
+    '- Fluency: English is grammatically awkward or unnatural.',
+    '- Cultural-adaptation: cultural nuance is lost or misrepresented.',
+    '- Omission/Addition: content is missing from or added to the translation without justification.',
+    '- Style: punctuation, capitalisation, or typographic inconsistency.',
+    '',
+    'Be concise and precise. Do not invent issues. Major = changes meaning; critical = fundamentally wrong.',
+  ].join('\n');
+
+  const user = `Japanese source:\n${sourceText}\n\nEnglish translation:\n${targetText}`;
+  return { system, user };
+}
+
