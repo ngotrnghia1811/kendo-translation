@@ -25,6 +25,12 @@ export interface Article {
   segment_count: number
   created_at: string
   updated_at: string | null
+  /**
+   * Relative path (from PDF_BASE_PATH) to the paired bilingual PDF for this
+   * article. Populated by `scripts/link-paired-pdfs.ts`. Null for articles
+   * without a matched paired PDF.
+   */
+  paired_pdf_path?: string | null
 }
 
 export type SegmentStatus =

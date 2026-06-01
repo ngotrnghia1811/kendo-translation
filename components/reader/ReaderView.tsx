@@ -7,6 +7,7 @@ import LanguageSelector from '@/components/shared/LanguageSelector'
 import SingleLanguageView from './SingleLanguageView'
 import BilingualParagraphView from './BilingualParagraphView'
 import TranslatorAlignedView from './TranslatorAlignedView'
+import PdfPageView from './PdfPageView'
 
 interface ReaderViewProps {
     segments: Segment[]
@@ -14,15 +15,18 @@ interface ReaderViewProps {
     title: string
     articleId: string
     canEdit: boolean
+    /** Relative path to the paired PDF (from DB). When non-null, a "PDF" tab is shown. */
+    pairedPdfPath?: string | null
 }
 
 const MODE_LABELS: Record<ReaderMode, string> = {
     single: 'Single language',
     bilingual: 'Bilingual (paragraph)',
     aligned: 'Aligned (sentence)',
+    pdf: 'Paired PDF',
 }
 
-export default function ReaderView({ segments, settings, title, articleId, canEdit }: ReaderViewProps) {
+export default function ReaderView({ segments, settings, title, articleId, canEdit, pairedPdfPath }: ReaderViewProps) {
     const {
         mode,
         setMode,
@@ -69,7 +73,11 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                         {/* Mode tabs */}
                         <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                             {(Object.keys(MODE_LABELS) as ReaderMode[])
-                                .filter((m) => m !== 'aligned' || canEdit)
+                                .filter((m) => {
+                                    if (m === 'aligned') return canEdit
+                                    if (m === 'pdf') return !!pairedPdfPath
+                                    return true
+                                })
                                 .map((m) => (
                                 <button
                                     key={m}
@@ -174,6 +182,12 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                             segments={pageSegments}
                             sourceLang={sourceLang}
                             targetLang={targetLang}
+                        />
+                    )}
+                    {mode === 'pdf' && pairedPdfPath && (
+                        <PdfPageView
+                            articleId={articleId}
+                            pdfPage={currentPage?.page ?? null}
                         />
                     )}
                 </>

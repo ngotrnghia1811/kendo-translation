@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react'
 import type { Segment, DocumentSettings } from '@/types/database'
 import { type Paragraph, type ReaderPage, getSegmentPage } from '@/types/reader'
 
-export type ReaderMode = 'single' | 'bilingual' | 'aligned'
+export type ReaderMode = 'single' | 'bilingual' | 'aligned' | 'pdf'
 
 /** Segments-per-page when a document has no source-book page metadata. */
 const FALLBACK_CHUNK_SIZE = 50
@@ -106,10 +106,14 @@ export function useReaderView(segments: Segment[], settings: DocumentSettings | 
 
     // Get merged text for a paragraph
     const getParagraphText = (paragraph: Paragraph, lang: 'source' | 'target'): string => {
+        const langCode = lang === 'source' ? sourceLang : targetLang
+        // CJK languages (Japanese, Chinese) do not use spaces between sentences.
+        // All other languages default to a single space joiner.
+        const joiner = /^(ja|zh|ko)/.test(langCode ?? '') ? '' : ' '
         return paragraph.segments
             .map(s => lang === 'source' ? s.source_text : (s.target_text || ''))
             .filter(Boolean)
-            .join(' ')
+            .join(joiner)
     }
 
     return {

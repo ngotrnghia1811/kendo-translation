@@ -103,6 +103,7 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
           title={article.title}
           articleId={id}
           canEdit={canEdit}
+          pairedPdfPath={article.paired_pdf_path ?? null}
         />
       )}
     </div>
