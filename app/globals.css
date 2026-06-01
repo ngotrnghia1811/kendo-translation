@@ -23,69 +23,71 @@ body {
    Components inside the reader reference --rt-* variables.
    ────────────────────────────────────────────────────────────────────────── */
 
-[data-reader-theme="light"] {
-  --rt-bg:          #ffffff;
-  --rt-surface:     #f8f8f8;
-  --rt-border:      #e5e7eb;
-  --rt-text:        #1a1a1a;
-  --rt-text-muted:  #6b7280;
-  --rt-accent:      #2563eb;
-}
+@layer base {
+  [data-reader-theme="light"] {
+    --rt-bg:          #ffffff;
+    --rt-surface:     #f8f8f8;
+    --rt-border:      #e5e7eb;
+    --rt-text:        #1a1a1a;
+    --rt-text-muted:  #6b7280;
+    --rt-accent:      #2563eb;
+  }
 
-[data-reader-theme="dark"] {
-  --rt-bg:          #111827;
-  --rt-surface:     #1f2937;
-  --rt-border:      #374151;
-  --rt-text:        #f3f4f6;
-  --rt-text-muted:  #9ca3af;
-  --rt-accent:      #60a5fa;
-}
+  [data-reader-theme="dark"] {
+    --rt-bg:          #111827;
+    --rt-surface:     #1f2937;
+    --rt-border:      #374151;
+    --rt-text:        #f3f4f6;
+    --rt-text-muted:  #9ca3af;
+    --rt-accent:      #60a5fa;
+  }
 
-[data-reader-theme="solarized"] {
-  --rt-bg:          #002b36;
-  --rt-surface:     #073642;
-  --rt-border:      #586e75;
-  --rt-text:        #839496;
-  --rt-text-muted:  #657b83;
-  --rt-accent:      #268bd2;
-}
+  [data-reader-theme="solarized"] {
+    --rt-bg:          #002b36;
+    --rt-surface:     #073642;
+    --rt-border:      #586e75;
+    --rt-text:        #839496;
+    --rt-text-muted:  #657b83;
+    --rt-accent:      #268bd2;
+  }
 
-[data-reader-theme="pastel"] {
-  --rt-bg:          #fdf6ff;
-  --rt-surface:     #f3e8ff;
-  --rt-border:      #ddd6fe;
-  --rt-text:        #3b1d5a;
-  --rt-text-muted:  #7c5f9a;
-  --rt-accent:      #7c3aed;
-}
+  [data-reader-theme="pastel"] {
+    --rt-bg:          #fdf6ff;
+    --rt-surface:     #f3e8ff;
+    --rt-border:      #ddd6fe;
+    --rt-text:        #3b1d5a;
+    --rt-text-muted:  #7c5f9a;
+    --rt-accent:      #7c3aed;
+  }
 
-[data-reader-theme="sepia"] {
-  --rt-bg:          #f8f1e3;
-  --rt-surface:     #f0e8d0;
-  --rt-border:      #d4c5a0;
-  --rt-text:        #3d2b1f;
-  --rt-text-muted:  #7a6040;
-  --rt-accent:      #9a5b2a;
-}
+  [data-reader-theme="sepia"] {
+    --rt-bg:          #f8f1e3;
+    --rt-surface:     #f0e8d0;
+    --rt-border:      #d4c5a0;
+    --rt-text:        #3d2b1f;
+    --rt-text-muted:  #7a6040;
+    --rt-accent:      #9a5b2a;
+  }
 
-/* ─── Reader font family tokens ─────────────────────────────────────────── */
+  /* ─── Reader font family tokens ─────────────────────────────────────────── */
 
-[data-reader-font="sans"] {
-  --rt-font: ui-sans-serif, system-ui, sans-serif;
-}
-[data-reader-font="serif"] {
-  --rt-font: ui-serif, Georgia, "Times New Roman", serif;
-}
-[data-reader-font="mincho"] {
-  --rt-font: "Hiragino Mincho ProN", "Yu Mincho", "MS Mincho", "Noto Serif JP", serif;
-}
+  [data-reader-font="sans"] {
+    --rt-font: ui-sans-serif, system-ui, sans-serif;
+  }
+  [data-reader-font="serif"] {
+    --rt-font: ui-serif, Georgia, "Times New Roman", serif;
+  }
+  [data-reader-font="mincho"] {
+    --rt-font: "Hiragino Mincho ProN", "Yu Mincho", "MS Mincho", "Noto Serif JP", serif;
+  }
 
-/* Apply rt tokens to the reader wrapper and its children */
-[data-reader-theme] {
-  background-color: var(--rt-bg);
-  color:            var(--rt-text);
-  transition: background-color 0.2s ease, color 0.2s ease;
-}
-[data-reader-theme] [data-reader-font] {
-  font-family: var(--rt-font, inherit);
+  /* Apply rt tokens to the reader wrapper and its children */
+  [data-reader-theme] {
+    background-color: var(--rt-bg);
+    color:            var(--rt-text);
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  [data-reader-theme] [data-reader-font] {
+    font-family: var(--rt-font, inherit);
+  }
 }

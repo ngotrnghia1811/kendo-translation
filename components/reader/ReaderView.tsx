@@ -69,14 +69,26 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
             data-reader-theme={theme}
         >
             {/* Mode switcher toolbar */}
-            <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+            <div
+                className="sticky top-0 z-10 px-4 py-3"
+                style={{
+                    backgroundColor: 'var(--rt-bg)',
+                    borderBottom: '1px solid var(--rt-border)',
+                }}
+            >
                 <div className="max-w-5xl mx-auto">
                     {/* Top row: breadcrumb + Edit + Settings */}
                     <div className="flex items-center justify-between mb-3 gap-3">
                         <div className="flex items-center gap-2 min-w-0">
-                            <Link href="/documents" className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm shrink-0">← Documents</Link>
-                            <span className="text-gray-300 dark:text-gray-600 shrink-0">/</span>
-                            <h1 className="text-lg font-semibold text-gray-900 dark:text-white truncate">{title}</h1>
+                            <Link
+                                href="/documents"
+                                className="text-sm shrink-0"
+                                style={{ color: 'var(--rt-text-muted)' }}
+                            >
+                                ← Documents
+                            </Link>
+                            <span className="shrink-0" style={{ color: 'var(--rt-border)' }}>/</span>
+                            <h1 className="text-lg font-semibold truncate" style={{ color: 'var(--rt-text)' }}>{title}</h1>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                             {canEdit && (
@@ -97,8 +109,13 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                                     className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${
                                         settingsOpen
                                             ? 'bg-blue-600 border-blue-600 text-white'
-                                            : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                            : ''
                                     }`}
+                                    style={settingsOpen ? {} : {
+                                        backgroundColor: 'var(--rt-surface)',
+                                        borderColor: 'var(--rt-border)',
+                                        color: 'var(--rt-text-muted)',
+                                    }}
                                 >
                                     {/* Gear icon (SVG) */}
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
@@ -123,7 +140,10 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
 
                     <div className="flex items-center justify-between flex-wrap gap-3">
                         {/* Mode tabs */}
-                        <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                        <div
+                            className="flex rounded-lg overflow-hidden"
+                            style={{ border: '1px solid var(--rt-border)' }}
+                        >
                             {(Object.keys(MODE_LABELS) as ReaderMode[])
                                 .filter((m) => {
                                     if (m === 'aligned') return canEdit
@@ -135,10 +155,12 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                                     key={m}
                                     onClick={() => setMode(m)}
                                     className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-                                        mode === m
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                        mode === m ? 'bg-blue-600 text-white' : ''
                                     }`}
+                                    style={mode === m ? {} : {
+                                        backgroundColor: 'var(--rt-surface)',
+                                        color: 'var(--rt-text-muted)',
+                                    }}
                                 >
                                     {MODE_LABELS[m]}
                                 </button>
@@ -149,11 +171,16 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                         <div className="flex items-center gap-3">
                             {mode === 'single' && (
                                 <div className="flex items-center gap-2">
-                                    <span className="text-xs text-gray-500">Display:</span>
+                                    <span className="text-xs" style={{ color: 'var(--rt-text-muted)' }}>Display:</span>
                                     <select
                                         value={displayLang}
                                         onChange={(e) => setDisplayLang(e.target.value as 'source' | 'target')}
-                                        className="text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1"
+                                        className="text-sm rounded border px-2 py-1"
+                                        style={{
+                                            backgroundColor: 'var(--rt-surface)',
+                                            color: 'var(--rt-text)',
+                                            borderColor: 'var(--rt-border)',
+                                        }}
                                     >
                                         <option value="source">{sourceLang.toUpperCase()} (Source)</option>
                                         <option value="target">{targetLang.toUpperCase()} (Target)</option>
@@ -169,17 +196,27 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                                         onClick={() => goToPage(currentPageIndex - 1)}
                                         disabled={currentPageIndex === 0}
                                         aria-label="Previous page"
-                                        className="px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 enabled:hover:bg-gray-100 dark:enabled:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        className="px-2 py-1 text-sm rounded border disabled:opacity-40 disabled:cursor-not-allowed"
+                                        style={{
+                                            backgroundColor: 'var(--rt-surface)',
+                                            color: 'var(--rt-text)',
+                                            borderColor: 'var(--rt-border)',
+                                        }}
                                     >
                                         ←
                                     </button>
-                                    <label className="flex items-center gap-1 text-xs text-gray-500">
+                                    <label className="flex items-center gap-1 text-xs" style={{ color: 'var(--rt-text-muted)' }}>
                                         <span>{pageNoun}</span>
                                         <select
                                             value={currentPageIndex}
                                             onChange={(e) => goToPage(Number(e.target.value))}
                                             aria-label={`${pageNoun}, ${totalPages} total`}
-                                            className="text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-1 py-1 max-w-[6rem]"
+                                            className="text-sm rounded border px-1 py-1 max-w-[6rem]"
+                                            style={{
+                                                backgroundColor: 'var(--rt-surface)',
+                                                color: 'var(--rt-text)',
+                                                borderColor: 'var(--rt-border)',
+                                            }}
                                         >
                                             {pages.map((p, i) => (
                                                 <option key={i} value={i}>
@@ -194,7 +231,12 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                                         onClick={() => goToPage(currentPageIndex + 1)}
                                         disabled={currentPageIndex >= totalPages - 1}
                                         aria-label="Next page"
-                                        className="px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 enabled:hover:bg-gray-100 dark:enabled:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        className="px-2 py-1 text-sm rounded border disabled:opacity-40 disabled:cursor-not-allowed"
+                                        style={{
+                                            backgroundColor: 'var(--rt-surface)',
+                                            color: 'var(--rt-text)',
+                                            borderColor: 'var(--rt-border)',
+                                        }}
                                     >
                                         →
                                     </button>
