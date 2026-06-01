@@ -38,12 +38,30 @@ export interface SuggestionRow {
     suggester?: SuggesterRef | SuggesterRef[] | null
 }
 
+/** Optional metadata sent alongside `status: 'accepted'` to feed the
+ *  Phase-4b memory write-back (edit_patterns / style_guide). */
+export interface AcceptMetadata {
+    edit_pattern?: {
+        before_phrase: string
+        after_phrase: string
+        rationale?: string
+        approach?: string
+    } | null
+    style_rule?: {
+        scope: string
+        rule_category: string
+        pattern: string
+        policy: string
+        rationale?: string
+    }
+}
+
 export interface UseSuggestionsResult {
     suggestions: SuggestionRow[]
     loading: boolean
     error: string | null
     refresh: () => Promise<void>
-    accept: (id: string) => Promise<SuggestionRow>
+    accept: (id: string, metadata?: AcceptMetadata) => Promise<SuggestionRow>
     reject: (id: string) => Promise<SuggestionRow>
     supersede: (id: string) => Promise<SuggestionRow>
 }
@@ -105,14 +123,14 @@ export function useSuggestions(segmentId: string): UseSuggestionsResult {
         }
     }, [supabase, segmentId, refresh])
 
-    const transition = useCallback(
-        async (id: string, status: SuggestionStatus): Promise<SuggestionRow> => {
+    const patchTransition = useCallback(
+        async (id: string, body: Record<string, unknown>): Promise<SuggestionRow> => {
             const res = await fetch(
                 `/api/segments/${segmentId}/suggestions/${id}`,
                 {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status }),
+                    body: JSON.stringify(body),
                 }
             )
             if (!res.ok) {
@@ -126,15 +144,22 @@ export function useSuggestions(segmentId: string): UseSuggestionsResult {
         [segmentId, refresh]
     )
 
-    const accept = useCallback((id: string) => transition(id, 'accepted'), [
-        transition,
-    ])
-    const reject = useCallback((id: string) => transition(id, 'rejected'), [
-        transition,
-    ])
-    const supersede = useCallback((id: string) => transition(id, 'superseded'), [
-        transition,
-    ])
+    const accept = useCallback(
+        (id: string, metadata?: AcceptMetadata) => {
+            const body: Record<string, unknown> = { status: 'accepted' }
+            if (metadata) Object.assign(body, metadata)
+            return patchTransition(id, body)
+        },
+        [patchTransition]
+    )
+    const reject = useCallback(
+        (id: string) => patchTransition(id, { status: 'rejected' }),
+        [patchTransition]
+    )
+    const supersede = useCallback(
+        (id: string) => patchTransition(id, { status: 'superseded' }),
+        [patchTransition]
+    )
 
     return { suggestions, loading, error, refresh, accept, reject, supersede }
 }

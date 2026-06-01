@@ -25,8 +25,7 @@
  * Phase coverage:
  *   draft      → rpc_phase_4b_translate_save  (inserts TM row)
  *   translated → rpc_phase_4b_edit_save       (supersede-links TM + edit_patterns)
- *   edited     → skipped; save_style requires human-supplied style fields
- *                not available on the accept surface (deferred to Phase 3 UI)
+ *   edited     → rpc_phase_4b_save_style       (insert-or-increment style_guide)
  *   proofread  → skipped; rpc_phase_4b_qa_save uses qa_issue_id, not suggestion
  *   qa_approved→ terminal; no write-back needed
  */
@@ -42,6 +41,23 @@ const TERMINAL_STATUSES: ReadonlySet<SuggestionStatus> = new Set([
     'superseded',
 ]);
 
+/** Shape of edit_pattern metadata accepted from the UI. */
+interface EditPatternBody {
+    before_phrase: string;
+    after_phrase: string;
+    rationale?: string;
+    approach?: string;
+}
+
+/** Shape of style_rule metadata accepted from the UI. */
+interface StyleRuleBody {
+    scope: string;
+    rule_category: string;
+    pattern: string;
+    policy: string;
+    rationale?: string;
+}
+
 export async function PATCH(
     req: NextRequest,
     { params }: { params: Promise<{ id: string; suggestionId: string }> }
@@ -56,14 +72,18 @@ export async function PATCH(
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    let body: unknown;
+    let body: Record<string, unknown>;
     try {
-        body = await req.json();
+        body = (await req.json()) as Record<string, unknown>;
     } catch {
         return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    const { status } = (body ?? {}) as { status?: unknown };
+    const { status, edit_pattern, style_rule } = body as {
+        status?: unknown;
+        edit_pattern?: EditPatternBody | null;
+        style_rule?: StyleRuleBody;
+    };
 
     if (
         typeof status !== 'string' ||
@@ -105,12 +125,16 @@ export async function PATCH(
         );
     }
 
-    // Phase-4b memory write-back (best-effort, non-fatal). Only fires on a
-    // fresh `accepted` transition for a translate-phase proposal — i.e. the
-    // segment is still in `draft` when the suggestion is accepted.
+    // Phase-4b memory write-back (best-effort, non-fatal).
     let memory: Record<string, unknown> | undefined;
     if (newStatus === 'accepted') {
-        memory = await runPhase4bWriteBack(supabase, segmentId, suggestionId);
+        memory = await runPhase4bWriteBack(
+            supabase,
+            segmentId,
+            suggestionId,
+            edit_pattern,
+            style_rule
+        );
     }
 
     return NextResponse.json(memory ? { ...data, memory } : data);
@@ -122,7 +146,7 @@ export async function PATCH(
  * Phase routing (by segment.status at accept time):
  *   draft      → rpc_phase_4b_translate_save  (new TM row)
  *   translated → rpc_phase_4b_edit_save       (TM supersede + edit_patterns)
- *   edited     → skipped (save_style requires human-supplied style fields)
+ *   edited     → rpc_phase_4b_save_style       (insert-or-increment style_guide)
  *   proofread  → skipped (qa_save uses qa_issue_id, not suggestion-based)
  *
  * Returns a small status object (merged into the `memory` response field) and
@@ -131,7 +155,9 @@ export async function PATCH(
 async function runPhase4bWriteBack(
     supabase: Awaited<ReturnType<typeof createClient>>,
     segmentId: string,
-    suggestionId: string
+    suggestionId: string,
+    editPattern?: EditPatternBody | null,
+    styleRule?: StyleRuleBody
 ): Promise<Record<string, unknown> | undefined> {
     // Determine the phase from the segment's current lifecycle status.
     const { data: seg, error: segErr } = await supabase
@@ -167,14 +193,13 @@ async function runPhase4bWriteBack(
     }
 
     // Edit phase: translated segment accepted → supersede-link TM + record
-    // edit_patterns. We supply update_tm:true but omit edit_pattern (the RPC
-    // skips that block when payload.edit_pattern is null) because the accept
-    // surface doesn't yet have before/after phrase annotations.
+    // edit_patterns. If the caller supplied edit_pattern metadata it is
+    // forwarded; otherwise `null` (the RPC skips that block).
     if (seg.status === 'translated') {
         const payload = {
             update_tm: true,
             approach: 'human_edit_accept',
-            edit_pattern: null,
+            edit_pattern: editPattern ?? null,
             promote_terms: [] as Array<{ term_id: string }>,
         };
         const { data: rpcResult, error: rpcErr } = await supabase.rpc(
@@ -191,10 +216,47 @@ async function runPhase4bWriteBack(
         return { ok: true, rpc: 'rpc_phase_4b_edit_save', result: rpcResult };
     }
 
-    // Proofread phase: save_style requires rule_category/pattern/policy fields
-    // that are only available after Phase 3 Context Builder UI is built.
-    // qa_approved phase: rpc_phase_4b_qa_save is driven by qa_issue_id, not by
+    // Edited (proofread) phase: insert-or-increment style_guide row.
+    // Only fires when style_rule is provided with all required fields.
+    if (seg.status === 'edited') {
+        if (
+            styleRule &&
+            styleRule.scope &&
+            styleRule.rule_category &&
+            styleRule.pattern &&
+            styleRule.policy
+        ) {
+            const payload: Record<string, unknown> = {
+                scope: styleRule.scope,
+                rule_category: styleRule.rule_category,
+                pattern: styleRule.pattern,
+                policy: styleRule.policy,
+            };
+            if (styleRule.rationale) {
+                payload.rationale = styleRule.rationale;
+            }
+            const { data: rpcResult, error: rpcErr } = await supabase.rpc(
+                'rpc_phase_4b_save_style',
+                { segment_id: segmentId, suggestion_id: suggestionId, payload }
+            );
+            if (rpcErr) {
+                console.error(
+                    `[phase-4b] save_style failed for suggestion ${suggestionId}:`,
+                    rpcErr.message
+                );
+                return { ok: false, rpc: 'rpc_phase_4b_save_style', error: rpcErr.message };
+            }
+            return { ok: true, rpc: 'rpc_phase_4b_save_style', result: rpcResult };
+        }
+        return {
+            skipped: true,
+            reason: 'style_rule absent or incomplete (not an error — style annotations are optional)',
+        };
+    }
+
+    // Proofread phase: rpc_phase_4b_qa_save is driven by qa_issue_id, not by
     // the suggestion accept path.
+    // qa_approved phase: terminal; no write-back needed.
     return {
         skipped: true,
         reason: `no write-back for phase (status=${seg.status})`,
