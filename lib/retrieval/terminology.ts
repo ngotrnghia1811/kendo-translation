@@ -69,6 +69,27 @@ const KENDO_TERMINOLOGY: Omit<TermEntry, 'id'>[] = [
   { japaneseTerm: '師範', englishTerm: 'shihan', domain: 'kendo', type: 'do_not_translate', partOfSpeech: 'noun', confidence: 1.0 },
 ];
 
+/**
+ * Map a raw DB `term_type` to the TermEntry enforcement category.
+ *
+ * Live `terminology.term_type` currently holds 'preferred' and
+ * 'onomatopoeia'; the Phase-4b promotion RPC additionally sets 'required'.
+ * Known enforcement categories pass through; anything else (e.g.
+ * 'onomatopoeia') degrades to the non-enforced 'preferred' bucket so an
+ * unrecognised value can never become a hard required/forbidden rule.
+ */
+function normalizeTermType(raw?: string): TermEntry['type'] {
+  switch (raw) {
+    case 'required':
+    case 'preferred':
+    case 'do_not_translate':
+    case 'forbidden':
+      return raw;
+    default:
+      return 'preferred';
+  }
+}
+
 export async function searchTerminology(
   supabase: SupabaseClient,
   options: TermSearchOptions
@@ -77,26 +98,31 @@ export async function searchTerminology(
 
   let dbTerms: TermEntry[] = [];
   try {
-    let query = supabase.from('terminology').select('*');
+    // 005: query terminology_active_view, which exposes promotion_eligible.
+    // Column names map to the real schema (source_term/target_term/term_type);
+    // the prior code read japanese_term/english_term/type/part_of_speech/
+    // alternatives/confidence, NONE of which exist — so the DB path was dead
+    // and silently fell back to the built-in list below.
+    let query = supabase.from('terminology_active_view').select('*');
     if (domain) query = query.eq('domain', domain);
 
     const { data, error } = await query.limit(500);
 
     if (!error && data) {
       dbTerms = data.map((row: {
-        id: string; japanese_term: string; english_term: string;
-        domain?: string; type?: string; part_of_speech?: string;
-        notes?: string; alternatives?: string[]; confidence?: number;
+        id: string; source_term: string; target_term: string;
+        domain?: string; term_type?: string; reading?: string;
+        notes?: string; promotion_eligible?: boolean;
       }) => ({
         id: row.id,
-        japaneseTerm: row.japanese_term,
-        englishTerm: row.english_term,
+        japaneseTerm: row.source_term,
+        englishTerm: row.target_term,
         domain: row.domain || 'general',
-        type: (row.type as TermEntry['type']) || 'preferred',
-        partOfSpeech: row.part_of_speech as TermEntry['partOfSpeech'],
-        notes: row.notes,
-        alternatives: row.alternatives,
-        confidence: row.confidence || 0.8,
+        type: normalizeTermType(row.term_type),
+        // part_of_speech / alternatives are not in the schema; left undefined.
+        notes: row.reading ? `${row.reading}${row.notes ? ` — ${row.notes}` : ''}` : row.notes,
+        // No confidence column; promoted/eligible terms are treated as canonical.
+        confidence: row.promotion_eligible ? 1.0 : 0.8,
       }));
     }
   } catch (err) {

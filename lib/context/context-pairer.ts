@@ -52,8 +52,8 @@ function calculateTMWeight(match: TMMatch, context: ContextObject): number {
     else if (daysSince < 30) weight += 0.05;
   }
 
-  if (match.metadata?.helpfulCount && match.metadata.helpfulCount > 0) {
-    weight += Math.min(0.10, match.metadata.helpfulCount * 0.02);
+  if (match.metadata?.feedbackScore && match.metadata.feedbackScore > 0) {
+    weight += Math.min(0.10, match.metadata.feedbackScore * 0.02);
   }
 
   return Math.min(1.0, weight);

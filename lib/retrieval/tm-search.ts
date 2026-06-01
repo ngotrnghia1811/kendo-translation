@@ -13,11 +13,16 @@ export interface TMMatch {
   matchType: 'exact' | 'high' | 'fuzzy' | 'low';
   domain?: string;
   qualityScore?: number;
+  /**
+   * 005 retrieval layer discriminator from tm_search_view:
+   * 'project' (L3 — article-scoped) | 'external' (L4 — global).
+   */
+  retrievalLayer?: 'project' | 'external';
   createdAt: string;
   metadata?: {
     articleId?: string;
-    userId?: string;
-    helpfulCount?: number;
+    /** feedback_score from tm_search_view — Phase-4b boost signal. */
+    feedbackScore?: number;
   };
 }
 
@@ -117,7 +122,9 @@ export async function searchTM(
   } = options;
 
   try {
-    let query = supabase.from('translation_memory').select('*');
+    // 005: query tm_search_view, which filters superseded rows
+    // (is_current) and exposes retrieval_layer (L3 project / L4 external).
+    let query = supabase.from('tm_search_view').select('*');
     if (domain) query = query.eq('domain', domain);
     if (sourceLang) query = query.eq('source_lang', sourceLang);
 
@@ -135,8 +142,9 @@ export async function searchTM(
     const scoredMatches: TMMatch[] = data
       .map((row: {
         id: string; source_text: string; target_text: string;
-        domain?: string; quality_score?: number; created_at: string;
-        article_id?: string; user_id?: string; helpful_count?: number;
+        domain?: string; quality?: number; last_used_at: string;
+        article_id?: string; feedback_score?: number;
+        retrieval_layer?: 'project' | 'external';
       }) => {
         const score = calculateFuzzyScore(sourceText, row.source_text);
         return {
@@ -146,9 +154,10 @@ export async function searchTM(
           matchPercentage: score,
           matchType: classifyMatch(score),
           domain: row.domain,
-          qualityScore: row.quality_score,
-          createdAt: row.created_at,
-          metadata: { articleId: row.article_id, userId: row.user_id, helpfulCount: row.helpful_count },
+          qualityScore: row.quality,
+          retrievalLayer: row.retrieval_layer,
+          createdAt: row.last_used_at,
+          metadata: { articleId: row.article_id, feedbackScore: row.feedback_score },
         };
       })
       .filter((match: TMMatch) => {
