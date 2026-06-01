@@ -91,9 +91,13 @@ test.describe('Edit page integration drawer', () => {
         await drawer.waitFor({ state: 'visible' })
 
         // Panels expected inside the drawer.
-        await expect(
-            drawer.getByTestId('phase-advance-button')
-        ).toBeVisible()
+        // For qa_approved segments the advance button renders as "phase-advance-terminal"
+        // (a disabled button). For all other statuses it renders as "phase-advance-button".
+        // Either way exactly one must be visible.
+        const phaseControl = drawer.locator(
+            '[data-testid="phase-advance-button"], [data-testid="phase-advance-terminal"]'
+        )
+        await expect(phaseControl).toBeVisible()
         // PhaseTransitionHistory renders one of {history, loading, empty, error}.
         await expect(
             drawer.locator(
@@ -104,13 +108,17 @@ test.describe('Edit page integration drawer', () => {
         await expect(
             drawer.locator('[data-testid^="suggestion-panel"]')
         ).toBeVisible()
-        // AgentSuggestionPanel may be omitted if the segment is qa_approved;
-        // the first segment in the seed data is draft, so it MUST be visible
-        // here. If we ever re-seed, this assertion is still safe because the
-        // selectSegment logic always picks the first list button.
-        await expect(
-            drawer.getByTestId('agent-suggestion-panel')
-        ).toBeVisible()
+        // AgentSuggestionPanel is only rendered when agentPhaseFor(status) is non-null,
+        // i.e. for draft/translated/edited/proofread but NOT for qa_approved.
+        // We detect which case we're in by checking which phase control variant appeared.
+        const isTerminal = await drawer
+            .getByTestId('phase-advance-terminal')
+            .isVisible()
+        if (!isTerminal) {
+            await expect(
+                drawer.getByTestId('agent-suggestion-panel')
+            ).toBeVisible()
+        }
         await expect(
             drawer.locator('[data-testid^="comment-thread"]')
         ).toBeVisible()

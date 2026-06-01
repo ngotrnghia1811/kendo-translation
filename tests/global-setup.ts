@@ -118,6 +118,9 @@ async function globalSetup(config: FullConfig): Promise<void> {
 
     for (const creds of ROLES) {
         await loginAndSaveState(baseURL, creds)
+        // Brief pause between sequential logins to avoid Supabase rate-limiting
+        // the /auth/v1/token endpoint (seen as 15 s timeout on the 3rd login).
+        await new Promise((r) => setTimeout(r, 2_000))
     }
 }
 
