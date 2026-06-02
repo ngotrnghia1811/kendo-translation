@@ -36,6 +36,20 @@ export interface SuggestionRow {
     accepted_at: string | null
     created_at: string
     suggester?: SuggesterRef | SuggesterRef[] | null
+    /** Phase-4b memory write-back result attached by the PATCH route
+     *  after a successful accept.  Absent for non-accepted actions. */
+    memory?: MemoryWriteResult
+}
+
+/** Shape of the `memory` field returned by the Phase-4b write-back RPCs
+ *  attached to accepted suggestions. */
+export interface MemoryWriteResult {
+    ok?: boolean
+    skipped?: boolean
+    rpc?: string
+    result?: { wrote: string; ids: string[] }
+    error?: string
+    reason?: string
 }
 
 /** Optional metadata sent alongside `status: 'accepted'` to feed the

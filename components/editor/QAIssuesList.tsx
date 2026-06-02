@@ -10,10 +10,15 @@
 
 'use client'
 
-import { useState } from 'react'
-import { useQAIssues, type QASavePayload } from '@/lib/hooks/useQAIssues'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useQAIssues, type QASavePayload, type QAIssueResolveResponse } from '@/lib/hooks/useQAIssues'
 import { QAResolveModal, type QAResolveData } from '@/components/editor/QAResolveModal'
 import type { QAIssue } from '@/types/database'
+
+interface ResolveFeedback {
+    type: 'success' | 'warning'
+    message: string
+}
 
 interface QAIssuesListProps {
     segmentId: string
@@ -41,6 +46,41 @@ export function QAIssuesList({ segmentId }: QAIssuesListProps) {
         body: string | null
     }>(null)
 
+    /** Transient inline feedback shown on a resolved issue row after a
+     *  qa_save write-back (success or failure).  Auto-clears after 5 s. */
+    const [resolveFeedback, setResolveFeedback] = useState<
+        Record<string, ResolveFeedback>
+    >({})
+    const feedbackTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+
+    /** Store feedback for an issue and schedule auto-clear. */
+    const setFeedback = useCallback(
+        (issueId: string, fb: ResolveFeedback) => {
+            // Clear any existing timer for this issue.
+            if (feedbackTimers.current[issueId]) {
+                clearTimeout(feedbackTimers.current[issueId])
+            }
+            setResolveFeedback((prev) => ({ ...prev, [issueId]: fb }))
+            feedbackTimers.current[issueId] = setTimeout(() => {
+                setResolveFeedback((prev) => {
+                    const next = { ...prev }
+                    delete next[issueId]
+                    return next
+                })
+                delete feedbackTimers.current[issueId]
+            }, 5000)
+        },
+        []
+    )
+
+    // Cleanup timers on unmount.
+    useEffect(() => {
+        const timers = feedbackTimers.current
+        return () => {
+            Object.values(timers).forEach(clearTimeout)
+        }
+    }, [])
+
     const openIssues = issues.filter((i) => !i.resolved)
     const resolvedIssues = issues.filter((i) => i.resolved)
 
@@ -64,11 +104,25 @@ export function QAIssuesList({ segmentId }: QAIssuesListProps) {
         )
     }
 
-    function handleResolve(data: QAResolveData) {
+    /** Resolve with qa_save payload — capture Phase-4b write-back result. */
+    async function handleResolve(data: QAResolveData) {
         if (!pendingResolveIssue) return
-        // Map QAResolveData to QASavePayload (structural subset)
-        void resolve(pendingResolveIssue.id, data as QASavePayload)
+        const issueId = pendingResolveIssue.id
         setPendingResolveIssue(null)
+        const result = await resolve(issueId, data as QASavePayload)
+        showResolveFeedback(issueId, result)
+    }
+
+    /** Helper to surface qa_save_result / qa_save_warning as inline feedback. */
+    function showResolveFeedback(issueId: string, result: QAIssueResolveResponse) {
+        if (result.qa_save_result) {
+            setFeedback(issueId, { type: 'success', message: 'Pattern recorded ✓' })
+        } else if (result.qa_save_warning) {
+            setFeedback(issueId, {
+                type: 'warning',
+                message: `Pattern save failed: ${result.qa_save_warning}`,
+            })
+        }
     }
 
     function renderIssue(issue: QAIssue) {
@@ -114,6 +168,19 @@ export function QAIssuesList({ segmentId }: QAIssuesListProps) {
                                 className={`text-xs italic ${isResolved ? 'text-slate-300' : 'text-slate-400'}`}
                             >
                                 No description
+                            </p>
+                        )}
+
+                        {/* Phase-4b qa_save feedback (auto-clears after 5 s) */}
+                        {resolveFeedback[issue.id] && (
+                            <p
+                                className={`mt-1 text-[10px] font-medium ${
+                                    resolveFeedback[issue.id].type === 'success'
+                                        ? 'text-green-600'
+                                        : 'text-amber-600'
+                                }`}
+                            >
+                                {resolveFeedback[issue.id].message}
                             </p>
                         )}
 
@@ -183,9 +250,11 @@ export function QAIssuesList({ segmentId }: QAIssuesListProps) {
                 <QAResolveModal
                     issue={pendingResolveIssue}
                     onConfirm={handleResolve}
-                    onSkip={() => {
-                        void resolve(pendingResolveIssue.id)
+                    onSkip={async () => {
+                        const issueId = pendingResolveIssue.id
                         setPendingResolveIssue(null)
+                        const result = await resolve(issueId)
+                        showResolveFeedback(issueId, result)
                     }}
                     onCancel={() => setPendingResolveIssue(null)}
                 />

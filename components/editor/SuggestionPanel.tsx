@@ -21,9 +21,11 @@ import {
     useSuggestions,
     type SuggestionRow,
     type AcceptMetadata,
+    type MemoryWriteResult,
 } from '@/lib/hooks/useSuggestions'
 import { EditPatternModal, type EditPatternData } from '@/components/editor/EditPatternModal'
 import { StyleRuleModal, type StyleRuleData } from '@/components/editor/StyleRuleModal'
+import { MemoryWriteBanner } from '@/components/editor/MemoryWriteBanner'
 
 interface SuggestionPanelProps {
     segmentId: string
@@ -78,9 +80,15 @@ export function SuggestionPanel({
     const [pendingAcceptRow, setPendingAcceptRow] =
         useState<SuggestionRow | null>(null)
 
+    /** Phase-4b memory write-back result from the most recent accept.
+     *  Displayed as a banner below the suggestions list. */
+    const [lastMemory, setLastMemory] = useState<MemoryWriteResult | null>(null)
+
     /** Start accept flow: if the segment phase warrants a metadata modal,
-     *  show it; otherwise accept immediately. */
+     *  show it; otherwise accept immediately.
+     *  Clears any previous memory banner. */
     function handleAcceptClick(row: SuggestionRow) {
+        setLastMemory(null)
         if (segmentPhase === 'translated') {
             setPendingAcceptRow(row)
             return
@@ -93,9 +101,11 @@ export function SuggestionPanel({
         void doAccept(row)
     }
 
-    /** Call accept with optional metadata, then notify parent. */
+    /** Call accept with optional metadata, then notify parent and
+     *  surface any Phase-4b memory write-back result. */
     async function doAccept(row: SuggestionRow, metadata?: AcceptMetadata) {
         const updated = await accept(row.id, metadata)
+        setLastMemory(updated.memory ?? null)
         onAccepted?.(updated.proposed_text, updated)
     }
 
@@ -227,6 +237,12 @@ export function SuggestionPanel({
                     </li>
                 ))}
             </ul>
+
+            {/* Phase-4b memory write-back feedback */}
+            <MemoryWriteBanner
+                memory={lastMemory}
+                onDismiss={() => setLastMemory(null)}
+            />
 
             {/* Edit-pattern modal for translated-phase accepts */}
             {pendingAcceptRow && segmentPhase === 'translated' && (

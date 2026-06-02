@@ -26,13 +26,21 @@ export interface QASavePayload {
     agent_confidence?: number
 }
 
+/** Response from PATCH /api/segments/[id]/qa-issues/[issueId] when
+ *  resolving with qa_save.  Extra fields are only present when the
+ *  route fires the Phase-4b qa_save RPC. */
+export interface QAIssueResolveResponse extends QAIssue {
+    qa_save_result?: { wrote: string; ids: string[] }
+    qa_save_warning?: string
+}
+
 export interface UseQAIssuesResult {
     issues: QAIssue[]
     loading: boolean
     error: string | null
     refresh: () => Promise<void>
-    resolve: (id: string, qaSave?: QASavePayload) => Promise<QAIssue>
-    reopen: (id: string) => Promise<QAIssue>
+    resolve: (id: string, qaSave?: QASavePayload) => Promise<QAIssueResolveResponse>
+    reopen: (id: string) => Promise<QAIssueResolveResponse>
 }
 
 export function useQAIssues(segmentId: string): UseQAIssuesResult {
@@ -93,7 +101,7 @@ export function useQAIssues(segmentId: string): UseQAIssuesResult {
     }, [supabase, segmentId, refresh])
 
     const patchIssue = useCallback(
-        async (id: string, body: Record<string, unknown>): Promise<QAIssue> => {
+        async (id: string, body: Record<string, unknown>): Promise<QAIssueResolveResponse> => {
             const res = await fetch(
                 `/api/segments/${segmentId}/qa-issues/${id}`,
                 {
@@ -106,7 +114,7 @@ export function useQAIssues(segmentId: string): UseQAIssuesResult {
                 const txt = await res.text()
                 throw new Error(`HTTP ${res.status}: ${txt}`)
             }
-            const updated = (await res.json()) as QAIssue
+            const updated = (await res.json()) as QAIssueResolveResponse
             void refresh()
             return updated
         },
