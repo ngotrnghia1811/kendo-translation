@@ -65,9 +65,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // paragraph_boundaries: for user-segmented docs each segment is its
+  // own paragraph (same semantics as pipeline-imported articles).
+  const paragraphBoundaries = Array.from({ length: segmentRows.length }, (_, i) => i);
+
   await supabase
     .from('articles')
-    .update({ segmented: true, segment_count: segmentRows.length })
+    .update({
+      segmented: true,
+      segment_count: segmentRows.length,
+      paragraph_boundaries: paragraphBoundaries,
+    })
     .eq('id', id);
 
   return NextResponse.json({ segments: inserted, count: inserted?.length || 0 });

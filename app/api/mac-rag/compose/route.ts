@@ -172,13 +172,29 @@ export async function POST(req: NextRequest) {
   }
 
   if (tmResult.matches.length > 0) {
-    const top3 = tmResult.matches.slice(0, 3);
-    contextLines.push('## Translation Memory (top matches)');
-    for (const m of top3) {
-      contextLines.push(`- [${m.matchPercentage}%] Source: ${m.sourceText}`);
-      contextLines.push(`  Target: ${m.targetText}`);
+    // Split by retrieval_layer: L3 (in-project) and L4 (external/global).
+    const l3Matches = tmResult.matches.filter(m => m.retrievalLayer !== 'external');
+    const l4Matches = tmResult.matches.filter(m => m.retrievalLayer === 'external');
+
+    const top3L3 = l3Matches.slice(0, 3);
+    const top3L4 = l4Matches.slice(0, 3);
+
+    if (top3L3.length > 0) {
+      contextLines.push('## Translation Memory — In-Project (L3)');
+      for (const m of top3L3) {
+        contextLines.push(`- [${m.matchPercentage}%] Source: ${m.sourceText}`);
+        contextLines.push(`  Target: ${m.targetText}`);
+      }
+      contextLines.push('');
     }
-    contextLines.push('');
+    if (top3L4.length > 0) {
+      contextLines.push('## Translation Memory — External (L4)');
+      for (const m of top3L4) {
+        contextLines.push(`- [${m.matchPercentage}%] Source: ${m.sourceText}`);
+        contextLines.push(`  Target: ${m.targetText}`);
+      }
+      contextLines.push('');
+    }
   }
 
   if (termResult.constraints.requiredTerms.length > 0) {
