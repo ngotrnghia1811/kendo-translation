@@ -10,6 +10,7 @@ import PhaseBadge from '@/components/shared/PhaseBadge';
 import PhaseAdvanceButton from '@/components/editor/PhaseAdvanceButton';
 import PhaseTransitionHistory from '@/components/editor/PhaseTransitionHistory';
 import SuggestionPanel from '@/components/editor/SuggestionPanel';
+import QAIssuesList from '@/components/editor/QAIssuesList';
 import {
     AgentSuggestionPanel,
     type AgentPhase,
@@ -382,6 +383,10 @@ export default function EditPage() {
                           void refreshActivity();
                         }}
                       />
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">QA Issues</p>
+                      <QAIssuesList segmentId={seg.id} articleId={params.id} />
                     </div>
                     {agentPhaseFor(seg.status as SegmentStatus) && (
                       <div>
