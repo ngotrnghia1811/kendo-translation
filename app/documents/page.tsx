@@ -24,7 +24,16 @@ export default async function DocumentsPage() {
             <span className="text-gray-300">/</span>
             <span className="text-gray-600">Documents</span>
           </div>
-          <span className="text-sm text-gray-500">{user.email}</span>
+          <Link
+            href="/profile"
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors group"
+            title="Your profile"
+          >
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-sm shrink-0 group-hover:bg-blue-200 transition-colors">
+              {user.email?.[0]?.toUpperCase() ?? 'U'}
+            </div>
+            <span className="hidden sm:inline">{user.email?.split('@')[0]}</span>
+          </Link>
         </div>
       </header>
 

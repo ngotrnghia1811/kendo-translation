@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { SiteNav } from '@/components/shared/SiteNav';
 
 export const metadata: Metadata = {
   title: 'Kendo Translation | Collaborative Japanese-English Platform',
@@ -9,7 +10,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen bg-white text-gray-900 antialiased">{children}</body>
+      <body className="min-h-screen bg-white text-gray-900 antialiased">
+        <SiteNav />
+        {children}
+      </body>
     </html>
   );
 }
