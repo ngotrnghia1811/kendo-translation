@@ -28,7 +28,7 @@ body {
     --rt-bg:          #ffffff;
     --rt-surface:     #f8f8f8;
     --rt-border:      #e5e7eb;
-    --rt-text:        #1a1a1a;
+    --rt-text:        #000000;
     --rt-text-muted:  #6b7280;
     --rt-accent:      #2563eb;
   }

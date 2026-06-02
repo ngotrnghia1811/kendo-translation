@@ -52,8 +52,10 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
         font,
         fontSize,
         fontSizeValue,
+        fontColor,
         setTheme,
         setFont,
+        setFontColor,
         increaseFontSize,
         decreaseFontSize,
     } = useReaderTheme()
@@ -67,6 +69,7 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
         <main
             className="min-h-screen"
             data-reader-theme={theme}
+            style={fontColor ? { ['--rt-text' as string]: fontColor } : undefined}
         >
             {/* Mode switcher toolbar */}
             <div
@@ -129,8 +132,10 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                                     font={font}
                                     fontSize={fontSize}
                                     fontSizeValue={fontSizeValue}
+                                    fontColor={fontColor}
                                     onThemeChange={setTheme}
                                     onFontChange={setFont}
+                                    onFontColorChange={setFontColor}
                                     onIncreaseFontSize={increaseFontSize}
                                     onDecreaseFontSize={decreaseFontSize}
                                 />

@@ -8,9 +8,12 @@ export type ReaderTheme = 'light' | 'dark' | 'solarized' | 'pastel' | 'sepia'
 export type ReaderFont  = 'sans' | 'serif' | 'mincho'
 
 export interface ReaderThemeSettings {
-    theme:     ReaderTheme
-    font:      ReaderFont
-    fontSize:  number   // em units ×10 (e.g. 10 = 1.0em, 12 = 1.2em)
+    theme:      ReaderTheme
+    font:       ReaderFont
+    /** Font size in px (integer). */
+    fontSize:   number
+    /** Optional text-colour override. null = use theme default (--rt-text). */
+    fontColor:  string | null
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -29,16 +32,28 @@ export const FONTS: { id: ReaderFont; label: string }[] = [
     { id: 'mincho', label: 'Mincho (JP)' },
 ]
 
-export const FONT_SIZE_MIN  = 8    // 0.8em
-export const FONT_SIZE_MAX  = 20   // 2.0em
-export const FONT_SIZE_STEP = 1    // 0.1em per step
+export const FONT_SIZE_MIN  = 10   // px
+export const FONT_SIZE_MAX  = 32   // px
+export const FONT_SIZE_STEP = 1    // 1px per step
+
+/** Preset font-colour swatches shown in the settings panel. */
+export const FONT_COLORS: { label: string; value: string | null }[] = [
+    { label: 'Default',      value: null       },
+    { label: 'Black',        value: '#000000'  },
+    { label: 'Charcoal',     value: '#2d2d2d'  },
+    { label: 'Dark gray',    value: '#4b5563'  },
+    { label: 'Warm brown',   value: '#3d2b1f'  },
+    { label: 'Navy',         value: '#1e3a5f'  },
+    { label: 'White',        value: '#f9fafb'  },
+]
 
 const STORAGE_KEY = 'reader-theme-settings'
 
 const DEFAULTS: ReaderThemeSettings = {
-    theme:    'light',
-    font:     'sans',
-    fontSize: 10,   // 1.0em
+    theme:     'light',
+    font:      'sans',
+    fontSize:  16,   // px
+    fontColor: null,
 }
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
@@ -50,9 +65,10 @@ function loadFromStorage(): ReaderThemeSettings {
         if (!raw) return DEFAULTS
         const parsed = JSON.parse(raw) as Partial<ReaderThemeSettings>
         return {
-            theme:    parsed.theme    ?? DEFAULTS.theme,
-            font:     parsed.font     ?? DEFAULTS.font,
-            fontSize: parsed.fontSize ?? DEFAULTS.fontSize,
+            theme:     parsed.theme     ?? DEFAULTS.theme,
+            font:      parsed.font      ?? DEFAULTS.font,
+            fontSize:  parsed.fontSize  ?? DEFAULTS.fontSize,
+            fontColor: parsed.fontColor ?? DEFAULTS.fontColor,
         }
     } catch {
         return DEFAULTS
@@ -67,7 +83,6 @@ function saveToStorage(settings: ReaderThemeSettings): void {
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
 export function useReaderTheme() {
-    // Initialise lazily from localStorage (runs only on client)
     const [settings, setSettingsState] = useState<ReaderThemeSettings>(DEFAULTS)
 
     // Hydrate from localStorage after mount (SSR-safe)
@@ -83,18 +98,27 @@ export function useReaderTheme() {
         })
     }, [])
 
-    const setTheme    = useCallback((theme: ReaderTheme) => setSettings({ theme }),    [setSettings])
-    const setFont     = useCallback((font: ReaderFont)   => setSettings({ font }),     [setSettings])
-    const increaseFontSize = useCallback(() => setSettings({ fontSize: Math.min(FONT_SIZE_MAX, settings.fontSize + FONT_SIZE_STEP) }), [settings.fontSize, setSettings])
-    const decreaseFontSize = useCallback(() => setSettings({ fontSize: Math.max(FONT_SIZE_MIN, settings.fontSize - FONT_SIZE_STEP) }), [settings.fontSize, setSettings])
+    const setTheme     = useCallback((theme: ReaderTheme)       => setSettings({ theme }),    [setSettings])
+    const setFont      = useCallback((font: ReaderFont)         => setSettings({ font }),     [setSettings])
+    const setFontColor = useCallback((fontColor: string | null) => setSettings({ fontColor }), [setSettings])
 
-    /** CSS font-size value string, e.g. "1.0em" */
-    const fontSizeValue = `${(settings.fontSize / 10).toFixed(1)}em`
+    const increaseFontSize = useCallback(
+        () => setSettings({ fontSize: Math.min(FONT_SIZE_MAX, settings.fontSize + FONT_SIZE_STEP) }),
+        [settings.fontSize, setSettings]
+    )
+    const decreaseFontSize = useCallback(
+        () => setSettings({ fontSize: Math.max(FONT_SIZE_MIN, settings.fontSize - FONT_SIZE_STEP) }),
+        [settings.fontSize, setSettings]
+    )
+
+    /** CSS font-size value string, e.g. "16px" */
+    const fontSizeValue = `${settings.fontSize}px`
 
     return {
         ...settings,
         setTheme,
         setFont,
+        setFontColor,
         increaseFontSize,
         decreaseFontSize,
         fontSizeValue,

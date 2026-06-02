@@ -2,20 +2,22 @@
 
 import { useRef, useEffect } from 'react'
 import {
-    THEMES, FONTS,
+    THEMES, FONTS, FONT_COLORS,
     FONT_SIZE_MIN, FONT_SIZE_MAX,
     type ReaderTheme, type ReaderFont,
 } from '@/hooks/useReaderTheme'
 
 interface ReaderSettingsPanelProps {
-    open:              boolean
-    onClose:           () => void
-    theme:             ReaderTheme
-    font:              ReaderFont
-    fontSize:          number
-    fontSizeValue:     string
-    onThemeChange:     (t: ReaderTheme) => void
-    onFontChange:      (f: ReaderFont)  => void
+    open:               boolean
+    onClose:            () => void
+    theme:              ReaderTheme
+    font:               ReaderFont
+    fontSize:           number
+    fontSizeValue:      string
+    fontColor:          string | null
+    onThemeChange:      (t: ReaderTheme)       => void
+    onFontChange:       (f: ReaderFont)        => void
+    onFontColorChange:  (c: string | null)     => void
     onIncreaseFontSize: () => void
     onDecreaseFontSize: () => void
 }
@@ -36,8 +38,10 @@ export default function ReaderSettingsPanel({
     font,
     fontSize,
     fontSizeValue,
+    fontColor,
     onThemeChange,
     onFontChange,
+    onFontColorChange,
     onIncreaseFontSize,
     onDecreaseFontSize,
 }: ReaderSettingsPanelProps) {
@@ -127,6 +131,45 @@ export default function ReaderSettingsPanel({
                             {f.label}
                         </button>
                     ))}
+                </div>
+            </section>
+
+            {/* ── Text colour ───────────────────────────────────────── */}
+            <section>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                    Text colour
+                </h3>
+                <div className="flex flex-wrap items-center gap-2">
+                    {FONT_COLORS.map((c) => {
+                        const isSelected = fontColor === c.value
+                        const isDefault  = c.value === null
+                        return (
+                            <button
+                                key={c.label}
+                                title={c.label}
+                                aria-pressed={isSelected}
+                                onClick={() => onFontColorChange(c.value)}
+                                className="flex flex-col items-center gap-1 group focus:outline-none"
+                            >
+                                <span
+                                    className={`w-7 h-7 rounded-full transition-all flex items-center justify-center text-[10px] font-bold ${
+                                        isSelected
+                                            ? 'ring-2 ring-offset-1 ring-blue-500 scale-110'
+                                            : 'hover:scale-105'
+                                    } ${isDefault ? 'border border-dashed border-gray-400' : ''}`}
+                                    style={isDefault ? {} : {
+                                        backgroundColor: c.value!,
+                                        border: c.value === '#f9fafb' ? '1px solid #d1d5db' : undefined,
+                                    }}
+                                >
+                                    {isDefault && <span className="text-gray-400">A</span>}
+                                </span>
+                                <span className="text-[9px] text-gray-500 dark:text-gray-400 leading-none max-w-[3rem] text-center">
+                                    {c.label}
+                                </span>
+                            </button>
+                        )
+                    })}
                 </div>
             </section>
 
