@@ -1,42 +1,229 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import Link from 'next/link'
 
 interface UserProfile {
     id: string
-    email: string
+    email: string | null
     username: string | null
     role: 'admin' | 'translator' | 'reader'
     created_at: string
+    updated_at?: string
 }
+
+interface Assignment {
+    document_id: string
+    title: string | null
+    allowed_phases: string[]
+}
+
+interface HistoryItem {
+    item_id: string
+    item_type: string
+    item_title: string
+    visited_at: string
+}
+
+interface ProfileStats {
+    editCount: number
+    commentCount: number
+    transitionCount: number
+    assignedDocCount: number
+    assignments: Assignment[]
+    recentHistory: HistoryItem[]
+}
+
+const ROLE_BADGE: Record<string, string> = {
+    admin: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
+    translator: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+    reader: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+}
+
+const PHASE_COLORS: Record<string, string> = {
+    translate: 'bg-blue-100 text-blue-700',
+    edit: 'bg-yellow-100 text-yellow-700',
+    proofread: 'bg-green-100 text-green-700',
+    qa: 'bg-purple-100 text-purple-700',
+}
+
+function formatDate(iso: string) {
+    return new Date(iso).toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+    })
+}
+
+function formatRelative(iso: string) {
+    const diff = Date.now() - new Date(iso).getTime()
+    const days = Math.floor(diff / 86400000)
+    if (days === 0) return 'Today'
+    if (days === 1) return 'Yesterday'
+    if (days < 7) return `${days} days ago`
+    return formatDate(iso)
+}
+
+// ---------- Inline Username Editor ----------
+
+function UsernameEditor({
+    initial,
+    onSaved,
+}: {
+    initial: string | null
+    onSaved: (name: string) => void
+}) {
+    const [editing, setEditing] = useState(false)
+    const [value, setValue] = useState(initial ?? '')
+    const [saving, setSaving] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const inputRef = useRef<HTMLInputElement>(null)
+
+    useEffect(() => {
+        if (editing) inputRef.current?.focus()
+    }, [editing])
+
+    const submit = async () => {
+        if (!value.trim()) return
+        setSaving(true)
+        setError(null)
+        try {
+            const res = await fetch('/api/profile', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: value.trim() }),
+            })
+            const data = await res.json()
+            if (!res.ok) {
+                setError(data.error ?? 'Failed to update username')
+            } else {
+                onSaved(data.profile.username)
+                setEditing(false)
+            }
+        } catch {
+            setError('Network error')
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    const cancel = () => {
+        setValue(initial ?? '')
+        setEditing(false)
+        setError(null)
+    }
+
+    if (!editing) {
+        return (
+            <div className="flex items-center gap-2">
+                <span className="text-xl font-semibold text-gray-900 dark:text-white">
+                    {initial || <span className="text-gray-400 italic">No username set</span>}
+                </span>
+                <button
+                    type="button"
+                    onClick={() => setEditing(true)}
+                    className="text-xs text-blue-600 hover:underline"
+                    aria-label="Edit username"
+                >
+                    Edit
+                </button>
+            </div>
+        )
+    }
+
+    return (
+        <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+                <input
+                    ref={inputRef}
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') submit()
+                        if (e.key === 'Escape') cancel()
+                    }}
+                    className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white w-48"
+                    placeholder="username"
+                    maxLength={30}
+                    disabled={saving}
+                />
+                <button
+                    type="button"
+                    onClick={submit}
+                    disabled={saving || !value.trim()}
+                    className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                >
+                    {saving ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                    type="button"
+                    onClick={cancel}
+                    disabled={saving}
+                    className="px-3 py-1 text-xs text-gray-600 dark:text-gray-400 hover:underline"
+                >
+                    Cancel
+                </button>
+            </div>
+            {error && <p className="text-xs text-red-600">{error}</p>}
+        </div>
+    )
+}
+
+// ---------- Stat Card ----------
+
+function StatCard({ label, value, icon }: { label: string; value: number; icon: string }) {
+    return (
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center gap-3">
+            <span className="text-2xl">{icon}</span>
+            <div>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+            </div>
+        </div>
+    )
+}
+
+// ---------- Main Page ----------
 
 export default function ProfilePage() {
     const [profile, setProfile] = useState<UserProfile | null>(null)
+    const [stats, setStats] = useState<ProfileStats | null>(null)
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        const fetchProfile = async () => {
+        const load = async () => {
             try {
-                const res = await fetch('/api/auth/me')
-                if (res.ok) {
-                    const data = await res.json()
+                const [meRes, statsRes] = await Promise.all([
+                    fetch('/api/auth/me'),
+                    fetch('/api/profile/stats'),
+                ])
+                if (meRes.ok) {
+                    const data = await meRes.json()
                     setProfile(data.profile)
                 }
-            } catch (error) {
-                console.error('Error fetching profile:', error)
+                if (statsRes.ok) {
+                    setStats(await statsRes.json())
+                }
+            } catch (err) {
+                console.error('Profile load error:', err)
             } finally {
                 setLoading(false)
             }
         }
-        fetchProfile()
+        load()
     }, [])
 
     if (loading) {
         return (
-            <div className="container mx-auto px-4 py-8">
+            <div className="container mx-auto px-4 py-8 max-w-4xl">
                 <div className="animate-pulse space-y-4">
                     <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
+                    <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded" />
+                    <div className="grid grid-cols-4 gap-4">
+                        {[0, 1, 2, 3].map((i) => (
+                            <div key={i} className="h-20 bg-gray-200 dark:bg-gray-700 rounded" />
+                        ))}
+                    </div>
                 </div>
             </div>
         )
@@ -44,56 +231,150 @@ export default function ProfilePage() {
 
     if (!profile) {
         return (
-            <div className="container mx-auto px-4 py-8">
-                <p className="text-gray-500">Not logged in.</p>
+            <div className="container mx-auto px-4 py-8 max-w-4xl">
+                <p className="text-gray-500">
+                    Not logged in.{' '}
+                    <Link href="/login" className="text-blue-600 underline">
+                        Sign in
+                    </Link>
+                </p>
             </div>
         )
     }
 
-    const roleBadgeClass = {
-        admin: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
-        translator: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
-        reader: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-    }
+    const initial = (profile.username?.[0] ?? profile.email?.[0] ?? 'U').toUpperCase()
 
     return (
-        <div className="container mx-auto px-4 py-8 max-w-2xl">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Profile</h1>
+        <div className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Your Profile</h1>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">
-                <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-2xl font-bold text-blue-700 dark:text-blue-300">
-                        {profile.username?.[0]?.toUpperCase() || profile.email?.[0]?.toUpperCase() || 'U'}
+            {/* ── Profile card ── */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                <div className="flex items-start gap-5">
+                    {/* Avatar */}
+                    <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-2xl font-bold text-blue-700 dark:text-blue-300 shrink-0">
+                        {initial}
                     </div>
-                    <div>
-                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                            {profile.username || profile.email?.split('@')[0] || 'User'}
-                        </h2>
-                        <span className={`inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded-full ${roleBadgeClass[profile.role]}`}>
+
+                    {/* Details */}
+                    <div className="flex-1 space-y-2">
+                        <UsernameEditor
+                            initial={profile.username}
+                            onSaved={(name) => setProfile((p) => p ? { ...p, username: name } : p)}
+                        />
+                        <span
+                            className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${ROLE_BADGE[profile.role] ?? ROLE_BADGE.reader}`}
+                        >
                             {profile.role}
                         </span>
                     </div>
                 </div>
 
-                <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3">
+                {/* Meta row */}
+                <div className="mt-5 border-t border-gray-200 dark:border-gray-700 pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                     <div>
-                        <label className="text-sm text-gray-500">Email</label>
-                        <p className="text-gray-900 dark:text-white">{profile.email}</p>
+                        <p className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Email</p>
+                        <p className="text-gray-900 dark:text-white">{profile.email ?? '—'}</p>
                     </div>
                     <div>
-                        <label className="text-sm text-gray-500">User ID</label>
-                        <p className="text-gray-900 dark:text-white font-mono text-sm">{profile.id}</p>
+                        <p className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Member since</p>
+                        <p className="text-gray-900 dark:text-white">{formatDate(profile.created_at)}</p>
                     </div>
-                    {profile.created_at && (
-                        <div>
-                            <label className="text-sm text-gray-500">Member since</label>
-                            <p className="text-gray-900 dark:text-white">
-                                {new Date(profile.created_at).toLocaleDateString()}
-                            </p>
-                        </div>
-                    )}
+                    <div>
+                        <p className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">User ID</p>
+                        <p className="text-gray-900 dark:text-white font-mono text-xs truncate">{profile.id}</p>
+                    </div>
                 </div>
             </div>
+
+            {/* ── Stats ── */}
+            {stats && (
+                <section>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                        Activity
+                    </h2>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <StatCard label="Edits made" value={stats.editCount} icon="✏️" />
+                        <StatCard label="Comments" value={stats.commentCount} icon="💬" />
+                        <StatCard label="Phases advanced" value={stats.transitionCount} icon="🔄" />
+                        <StatCard label="Assigned docs" value={stats.assignedDocCount} icon="📄" />
+                    </div>
+                </section>
+            )}
+
+            {/* ── Assigned documents ── */}
+            {stats && stats.assignments.length > 0 && (
+                <section>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                        Assigned Documents
+                    </h2>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                        <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                            {stats.assignments.map((a) => (
+                                <li key={a.document_id} className="px-5 py-3 flex items-center justify-between gap-3">
+                                    <Link
+                                        href={`/documents/${a.document_id}/edit`}
+                                        className="text-sm font-medium text-blue-600 hover:underline truncate"
+                                    >
+                                        {a.title ?? a.document_id}
+                                    </Link>
+                                    <div className="flex gap-1 shrink-0">
+                                        {a.allowed_phases.map((ph) => (
+                                            <span
+                                                key={ph}
+                                                className={`px-2 py-0.5 text-xs rounded-full font-medium ${PHASE_COLORS[ph] ?? 'bg-gray-100 text-gray-700'}`}
+                                            >
+                                                {ph}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </section>
+            )}
+
+            {/* ── Reading history ── */}
+            {stats && stats.recentHistory.length > 0 && (
+                <section>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                        Recent Reading
+                    </h2>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                        <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                            {stats.recentHistory.map((h) => (
+                                <li key={h.item_id} className="px-5 py-3 flex items-center justify-between gap-3">
+                                    <Link
+                                        href={
+                                            h.item_type === 'article'
+                                                ? `/documents/${h.item_id}/read`
+                                                : `/videos/${h.item_id}`
+                                        }
+                                        className="text-sm font-medium text-blue-600 hover:underline truncate"
+                                    >
+                                        {h.item_title}
+                                    </Link>
+                                    <span className="text-xs text-gray-400 shrink-0">
+                                        {formatRelative(h.visited_at)}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </section>
+            )}
+
+            {/* If translator/admin, show no-assignment empty state */}
+            {stats && stats.assignments.length === 0 && (profile.role === 'translator' || profile.role === 'admin') && (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                    No document assignments yet. An admin can assign you to documents from the{' '}
+                    <Link href="/admin/documents" className="text-blue-600 hover:underline">
+                        admin panel
+                    </Link>
+                    .
+                </p>
+            )}
         </div>
     )
 }
