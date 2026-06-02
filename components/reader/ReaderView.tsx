@@ -11,6 +11,8 @@ import BilingualParagraphView from './BilingualParagraphView'
 import TranslatorAlignedView from './TranslatorAlignedView'
 import PdfPageView from './PdfPageView'
 import ReaderSettingsPanel from './ReaderSettingsPanel'
+import ReaderBookmarksPanel from './ReaderBookmarksPanel'
+import { useReaderBookmarks } from '@/hooks/useReaderBookmarks'
 
 interface ReaderViewProps {
     segments: Segment[]
@@ -61,9 +63,23 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
     } = useReaderTheme()
 
     const [settingsOpen, setSettingsOpen] = useState(false)
+    const [bookmarksOpen, setBookmarksOpen] = useState(false)
 
     const showPager = totalPages > 1
     const pageNoun = currentPage?.page !== null && currentPage?.page !== undefined ? 'Page' : 'Section'
+
+    const {
+        bookmarks,
+        isBookmarked,
+        toggleBookmark,
+        removeBookmark,
+        jumpTo,
+    } = useReaderBookmarks(
+        articleId,
+        currentPageIndex,
+        currentPage?.label ?? String(currentPageIndex + 1),
+        goToPage,
+    )
 
     return (
         <main
@@ -102,13 +118,77 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                                     Edit
                                 </Link>
                             )}
+                            {/* Bookmark toggle button */}
+                            <div className="relative">
+                                <button
+                                    type="button"
+                                    aria-label={isBookmarked ? 'Remove bookmark for this page' : 'Bookmark this page'}
+                                    onClick={() => toggleBookmark()}
+                                    title={isBookmarked ? 'Remove bookmark' : 'Bookmark this page'}
+                                    className="w-8 h-8 flex items-center justify-center rounded-lg border transition-colors"
+                                    style={{
+                                        backgroundColor: isBookmarked ? 'var(--rt-surface)' : 'var(--rt-surface)',
+                                        borderColor: isBookmarked ? '#3b82f6' : 'var(--rt-border)',
+                                        color: isBookmarked ? '#3b82f6' : 'var(--rt-text-muted)',
+                                    }}
+                                >
+                                    {/* Bookmark icon — filled when bookmarked, outline otherwise */}
+                                    {isBookmarked ? (
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                                            <path d="M3.75 3A1.75 1.75 0 0 0 2 4.75v10.5c0 .966.784 1.75 1.75 1.75h12.5A1.75 1.75 0 0 0 18 15.25V4.75A1.75 1.75 0 0 0 16.25 3H3.75ZM10 14a.75.75 0 0 1-.53-.22l-3-3a.75.75 0 1 1 1.06-1.06L10 12.19l2.47-2.47a.75.75 0 1 1 1.06 1.06l-3 3A.75.75 0 0 1 10 14Z" />
+                                        </svg>
+                                    ) : (
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
+                                        </svg>
+                                    )}
+                                </button>
+                            </div>
+
+                            {/* Bookmarks list button */}
+                            <div className="relative">
+                                <button
+                                    type="button"
+                                    aria-label="View bookmarks"
+                                    aria-expanded={bookmarksOpen}
+                                    onClick={() => { setBookmarksOpen((o) => !o); setSettingsOpen(false) }}
+                                    className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${
+                                        bookmarksOpen ? 'bg-blue-600 border-blue-600 text-white' : ''
+                                    }`}
+                                    style={bookmarksOpen ? {} : {
+                                        backgroundColor: 'var(--rt-surface)',
+                                        borderColor: 'var(--rt-border)',
+                                        color: 'var(--rt-text-muted)',
+                                    }}
+                                >
+                                    {/* List icon */}
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                                    </svg>
+                                    {bookmarks.length > 0 && (
+                                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold leading-none">
+                                            {bookmarks.length > 9 ? '9+' : bookmarks.length}
+                                        </span>
+                                    )}
+                                </button>
+                                <ReaderBookmarksPanel
+                                    open={bookmarksOpen}
+                                    onClose={() => setBookmarksOpen(false)}
+                                    bookmarks={bookmarks}
+                                    currentPageIndex={currentPageIndex}
+                                    pageNoun={pageNoun}
+                                    onJumpTo={jumpTo}
+                                    onRemove={removeBookmark}
+                                />
+                            </div>
+
                             {/* Settings button */}
                             <div className="relative">
                                 <button
                                     type="button"
                                     aria-label="Reader settings"
                                     aria-expanded={settingsOpen}
-                                    onClick={() => setSettingsOpen((o) => !o)}
+                                    onClick={() => { setSettingsOpen((o) => !o); setBookmarksOpen(false) }}
                                     className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${
                                         settingsOpen
                                             ? 'bg-blue-600 border-blue-600 text-white'
