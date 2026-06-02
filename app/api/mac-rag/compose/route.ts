@@ -12,6 +12,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { searchTM } from '@/lib/retrieval/tm-search';
 import { searchTerminology } from '@/lib/retrieval/terminology';
+import { buildArticleL2Context } from '@/lib/context/article-context';
+import type { ArticleL2Context } from '@/lib/context/article-context';
 import {
   translatePrompt,
   editPrompt,
@@ -67,7 +69,7 @@ export async function POST(req: NextRequest) {
   // ── Fetch segment ─────────────────────────────────────────────────
   const { data: segment, error: segmentErr } = await supabase
     .from('segments')
-    .select('id, source_text, target_text, status, article_id, source_lang, target_lang')
+    .select('id, source_text, target_text, status, article_id, source_lang, target_lang, position')
     .eq('id', segment_id)
     .maybeSingle();
 
@@ -83,10 +85,12 @@ export async function POST(req: NextRequest) {
     ? (segment.target_text as string)
     : null;
   const sourceLang: SourceLang = asSourceLang(segment.source_lang);
+  const segArticleId: string = segment.article_id as string;
+  const segPosition: number = segment.position as number;
 
-  // ── Parallel retrieval ────────────────────────────────────────────
+  // ── Parallel retrieval + L2 context ───────────────────────────────
   const retrievalT0 = Date.now();
-  const [tmResult, termResult] = await Promise.all([
+  const [tmResult, termResult, l2] = await Promise.all([
     searchTM(supabase, {
       sourceText,
       sourceLang,
@@ -98,6 +102,15 @@ export async function POST(req: NextRequest) {
       text: sourceText,
       sourceLang,
       domain: 'kendo',
+    }),
+    buildArticleL2Context(supabase, segment_id, segArticleId, segPosition).catch((err) => {
+      console.warn('L2 context build failed, using empty context:', err);
+      return {
+        articleId: segArticleId,
+        documentTitle: null,
+        neighbours: { prev: null, next: null },
+        termsAlreadyAnnotated: [],
+      } as ArticleL2Context;
     }),
   ]);
   const retrievalMs = Date.now() - retrievalT0;
@@ -123,6 +136,40 @@ export async function POST(req: NextRequest) {
 
   // ── Augment user message with retrieval context ──────────────────
   const contextLines: string[] = [];
+
+  // L2 (article-local) context blocks — added before TM / terminology
+  if (l2.documentTitle) {
+    contextLines.push('## Document Context');
+    contextLines.push(`- Title: ${l2.documentTitle}`);
+    contextLines.push('');
+  }
+
+  const usableNeighbours: { label: string; seg: import('@/lib/context/article-context').NeighbourSegment }[] = [];
+  if (l2.neighbours.prev?.usable) {
+    usableNeighbours.push({ label: 'Previous', seg: l2.neighbours.prev });
+  }
+  if (l2.neighbours.next?.usable) {
+    usableNeighbours.push({ label: 'Next', seg: l2.neighbours.next });
+  }
+  if (usableNeighbours.length > 0) {
+    contextLines.push('## Neighbouring Segments');
+    for (const { label, seg } of usableNeighbours) {
+      contextLines.push(`- **${label}** [${seg.status}]: ${seg.source_text}`);
+      if (seg.target_text) {
+        contextLines.push(`  Translation: ${seg.target_text}`);
+      }
+    }
+    contextLines.push('');
+  }
+
+  if (l2.termsAlreadyAnnotated.length > 0) {
+    contextLines.push('## Terms Already Annotated in This Article');
+    contextLines.push('(Do not re-annotate these terms — they have already been handled in other accepted segments.)');
+    for (const t of l2.termsAlreadyAnnotated) {
+      contextLines.push(`- ${t}`);
+    }
+    contextLines.push('');
+  }
 
   if (tmResult.matches.length > 0) {
     const top3 = tmResult.matches.slice(0, 3);
@@ -175,6 +222,11 @@ export async function POST(req: NextRequest) {
     source_text: sourceText,
     target_text: targetText,
     prompt: built,
+    l2_context: {
+      document_title: l2.documentTitle,
+      neighbours: l2.neighbours,
+      terms_already_annotated: l2.termsAlreadyAnnotated,
+    },
     tm_matches: tmResult.matches,
     terminology: {
       requiredTerms: termResult.constraints.requiredTerms,
