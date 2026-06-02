@@ -16,6 +16,13 @@ import { useState } from 'react'
 
 export interface StyleRuleData {
     scope: string
+    /**
+     * UUID of the scoped entity when scope='article' or scope='document'.
+     * Null for scope='global'. Forwarded as scope_ref in the
+     * rpc_phase_4b_save_style payload so the style_guide row is anchored
+     * to the correct article or document.
+     */
+    scope_ref: string | null
     rule_category: string
     pattern: string
     policy: string
@@ -23,6 +30,8 @@ export interface StyleRuleData {
 }
 
 interface StyleRuleModalProps {
+    /** UUID of the article currently being edited; passed as scope_ref when scope='article'. */
+    articleId?: string | null
     onConfirm: (data: StyleRuleData) => void
     onSkip: () => void
     onCancel: () => void
@@ -30,7 +39,7 @@ interface StyleRuleModalProps {
 
 const SCOPE_OPTIONS = ['global', 'article', 'document'] as const
 
-export function StyleRuleModal({ onConfirm, onSkip, onCancel }: StyleRuleModalProps) {
+export function StyleRuleModal({ articleId, onConfirm, onSkip, onCancel }: StyleRuleModalProps) {
     const [scope, setScope] = useState<string>(SCOPE_OPTIONS[0])
     const [ruleCategory, setRuleCategory] = useState('')
     const [pattern, setPattern] = useState('')
@@ -52,8 +61,15 @@ export function StyleRuleModal({ onConfirm, onSkip, onCancel }: StyleRuleModalPr
             return
         }
 
+        // Compute scope_ref: article-level scoping uses articleId; global has no ref.
+        let scopeRef: string | null = null
+        if (scope === 'article' && articleId) {
+            scopeRef = articleId
+        }
+
         onConfirm({
             scope,
+            scope_ref: scopeRef,
             rule_category: ruleCategory.trim(),
             pattern: pattern.trim(),
             policy: policy.trim(),
@@ -91,6 +107,11 @@ export function StyleRuleModal({ onConfirm, onSkip, onCancel }: StyleRuleModalPr
                                 </option>
                             ))}
                         </select>
+                        {scope === 'article' && !articleId && (
+                            <p className="mt-1 text-xs text-amber-600">
+                                Article ID not available — rule will be saved without article anchor.
+                            </p>
+                        )}
                     </div>
                     <div>
                         <label className="mb-1 block text-xs font-medium text-slate-600">

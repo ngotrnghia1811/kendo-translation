@@ -49,6 +49,7 @@ export interface AcceptMetadata {
     } | null
     style_rule?: {
         scope: string
+        scope_ref?: string | null
         rule_category: string
         pattern: string
         policy: string

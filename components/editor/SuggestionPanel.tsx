@@ -30,6 +30,11 @@ interface SuggestionPanelProps {
     /** The segment's current lifecycle status (e.g. 'translated', 'edited').
      *  Used to decide which metadata-modal (if any) to show on Accept. */
     segmentPhase?: string
+    /**
+     * UUID of the article being edited. Passed to StyleRuleModal so that
+     * when scope='article' the style_guide row is anchored via scope_ref.
+     */
+    articleId?: string | null
     onAccepted?: (proposedText: string, row: SuggestionRow) => void
 }
 
@@ -61,6 +66,7 @@ const KIND_CLASS: Record<string, string> = {
 export function SuggestionPanel({
     segmentId,
     segmentPhase,
+    articleId,
     onAccepted,
 }: SuggestionPanelProps) {
     const { suggestions, loading, error, accept, reject } = useSuggestions(
@@ -233,6 +239,7 @@ export function SuggestionPanel({
             {/* Style-rule modal for edited-phase accepts */}
             {pendingAcceptRow && segmentPhase === 'edited' && (
                 <StyleRuleModal
+                    articleId={articleId}
                     onConfirm={handleStyleRuleConfirm}
                     onSkip={handleStyleRuleSkip}
                     onCancel={handleStyleRuleCancel}

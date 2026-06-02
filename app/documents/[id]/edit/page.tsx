@@ -371,6 +371,7 @@ export default function EditPage() {
                         key={`suggestions-${seg.id}-${suggestionRefreshKey}`}
                         segmentId={seg.id}
                         segmentPhase={seg.status}
+                        articleId={params.id}
                         onAccepted={(text) => {
                           // Stamp the editor with the accepted text and save
                           // through the segment PATCH so the soft-lock contract

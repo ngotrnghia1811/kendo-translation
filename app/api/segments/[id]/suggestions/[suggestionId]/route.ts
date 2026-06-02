@@ -52,6 +52,12 @@ interface EditPatternBody {
 /** Shape of style_rule metadata accepted from the UI. */
 interface StyleRuleBody {
     scope: string;
+    /**
+     * UUID of the article or document to anchor this style rule to.
+     * Null / absent for global scope. Forwarded as `scope_ref` in the
+     * rpc_phase_4b_save_style payload.
+     */
+    scope_ref?: string | null;
     rule_category: string;
     pattern: string;
     policy: string;
@@ -232,6 +238,10 @@ async function runPhase4bWriteBack(
                 pattern: styleRule.pattern,
                 policy: styleRule.policy,
             };
+            // scope_ref anchors article/document-level rules; null for global.
+            if (styleRule.scope_ref) {
+                payload.scope_ref = styleRule.scope_ref;
+            }
             if (styleRule.rationale) {
                 payload.rationale = styleRule.rationale;
             }
