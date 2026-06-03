@@ -1,18 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import type { Segment, DocumentSettings } from '@/types/database'
 import { useReaderView, type ReaderMode } from '@/hooks/useReaderView'
 import { useReaderTheme } from '@/hooks/useReaderTheme'
-import LanguageSelector from '@/components/shared/LanguageSelector'
+import { useReaderBookmarks } from '@/hooks/useReaderBookmarks'
 import SingleLanguageView from './SingleLanguageView'
 import BilingualParagraphView from './BilingualParagraphView'
 import TranslatorAlignedView from './TranslatorAlignedView'
 import PdfPageView from './PdfPageView'
 import ReaderSettingsPanel from './ReaderSettingsPanel'
 import ReaderBookmarksPanel from './ReaderBookmarksPanel'
-import { useReaderBookmarks } from '@/hooks/useReaderBookmarks'
+import ReaderSidebar from './ReaderSidebar'
 
 interface ReaderViewProps {
     segments: Segment[]
@@ -30,6 +30,95 @@ const MODE_LABELS: Record<ReaderMode, string> = {
     aligned: 'Aligned (sentence)',
     pdf: 'Paired PDF',
 }
+
+// ---------------------------------------------------------------------------
+// Icon helpers — inline SVG for tree-shaking friendliness
+// ---------------------------------------------------------------------------
+
+function BookOpenIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+        </svg>
+    )
+}
+
+function ChevronUpIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
+        </svg>
+    )
+}
+
+function GearIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+            <path fillRule="evenodd" d="M8.34 1.804A1 1 0 0 1 9.32 1h1.36a1 1 0 0 1 .98.804l.295 1.473c.497.144.97.342 1.405.588l1.277-.743a1 1 0 0 1 1.228.15l.962.96a1 1 0 0 1 .15 1.23l-.743 1.276c.246.435.444.908.588 1.405l1.473.295a1 1 0 0 1 .804.98v1.36a1 1 0 0 1-.804.98l-1.473.295a6.97 6.97 0 0 1-.588 1.405l.743 1.277a1 1 0 0 1-.15 1.228l-.96.962a1 1 0 0 1-1.23.15l-1.276-.743a6.97 6.97 0 0 1-1.405.588l-.295 1.473A1 1 0 0 1 10.68 19H9.32a1 1 0 0 1-.98-.804l-.295-1.473a6.972 6.972 0 0 1-1.405-.588l-1.277.743a1 1 0 0 1-1.228-.15l-.962-.96a1 1 0 0 1-.15-1.23l.743-1.276a6.971 6.971 0 0 1-.588-1.405L1.804 11.32A1 1 0 0 1 1 10.34V8.98a1 1 0 0 1 .804-.98l1.473-.295a6.97 6.97 0 0 1 .588-1.405L3.122 5.023a1 1 0 0 1 .15-1.228l.96-.962a1 1 0 0 1 1.23-.15l1.276.743a6.972 6.972 0 0 1 1.405-.588L8.34 1.804ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" />
+        </svg>
+    )
+}
+
+function ListBulletIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+        </svg>
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Toolbar icon button helper
+// ---------------------------------------------------------------------------
+
+function ToolbarButton({
+    active,
+    onClick,
+    ariaLabel,
+    title,
+    children,
+    badgeCount,
+}: {
+    active?: boolean
+    onClick: () => void
+    ariaLabel: string
+    title?: string
+    children: React.ReactNode
+    badgeCount?: number
+}) {
+    return (
+        <div className="relative">
+            <button
+                type="button"
+                aria-label={ariaLabel}
+                aria-expanded={active}
+                title={title}
+                onClick={onClick}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border transition-colors"
+                style={active ? {
+                    backgroundColor: '#3b82f6',
+                    borderColor: '#3b82f6',
+                    color: '#fff',
+                } : {
+                    backgroundColor: 'var(--rt-surface)',
+                    borderColor: 'var(--rt-border)',
+                    color: 'var(--rt-text-muted)',
+                }}
+            >
+                {children}
+            </button>
+            {badgeCount !== undefined && badgeCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold leading-none pointer-events-none">
+                    {badgeCount > 9 ? '9+' : badgeCount}
+                </span>
+            )}
+        </div>
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 
 export default function ReaderView({ segments, settings, title, articleId, canEdit, pairedPdfPath }: ReaderViewProps) {
     const {
@@ -62,8 +151,12 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
         decreaseFontSize,
     } = useReaderTheme()
 
+    // Panel state — at most one can be open at a time
     const [settingsOpen, setSettingsOpen] = useState(false)
     const [bookmarksOpen, setBookmarksOpen] = useState(false)
+    const [sidebarOpen, setSidebarOpen] = useState(false)
+
+    const closeAll = () => { setSettingsOpen(false); setBookmarksOpen(false); setSidebarOpen(false) }
 
     const showPager = totalPages > 1
     const pageNoun = currentPage?.page !== null && currentPage?.page !== undefined ? 'Page' : 'Section'
@@ -81,22 +174,67 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
         goToPage,
     )
 
+    // -----------------------------------------------------------------------
+    // Progress (page-based)
+    // -----------------------------------------------------------------------
+    const progressPercent = totalPages > 1
+        ? Math.round((currentPageIndex / (totalPages - 1)) * 100)
+        : (totalPages === 1 ? 100 : 0)
+
+    // -----------------------------------------------------------------------
+    // Scroll tracking (for scroll-to-top button)
+    // -----------------------------------------------------------------------
+    const [scrolled, setScrolled] = useState(false)
+    const contentRef = useRef<HTMLDivElement | null>(null)
+
+    useEffect(() => {
+        const el = contentRef.current
+        if (!el) return
+        const handler = () => setScrolled(el.scrollTop > 300)
+        el.addEventListener('scroll', handler, { passive: true })
+        return () => el.removeEventListener('scroll', handler)
+    }, [])
+
+    const scrollToTop = useCallback(() => {
+        contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+    }, [])
+
+    // Reset scroll to top when page changes
+    useEffect(() => {
+        contentRef.current?.scrollTo({ top: 0 })
+    }, [currentPageIndex])
+
     return (
-        <main
-            className="min-h-screen"
+        <div
+            className="flex flex-col"
+            style={{ height: '100dvh', overflow: 'hidden' }}
             data-reader-theme={theme}
-            style={fontColor ? { ['--rt-text' as string]: fontColor } : undefined}
         >
-            {/* Mode switcher toolbar */}
+            {/* ----------------------------------------------------------------
+                Sidebar — rendered OUTSIDE the scrollable content area so it
+                overlays the whole page as a fixed drawer.
+            ---------------------------------------------------------------- */}
+            <ReaderSidebar
+                open={sidebarOpen}
+                onClose={() => setSidebarOpen(false)}
+                pages={pages}
+                currentPageIndex={currentPageIndex}
+                pageNoun={pageNoun}
+                onGoToPage={(i) => { goToPage(i); setSidebarOpen(false) }}
+            />
+
+            {/* ----------------------------------------------------------------
+                Sticky toolbar
+            ---------------------------------------------------------------- */}
             <div
-                className="sticky top-0 z-10 px-4 py-3"
+                className="shrink-0 z-10 px-4 py-3"
                 style={{
                     backgroundColor: 'var(--rt-bg)',
                     borderBottom: '1px solid var(--rt-border)',
                 }}
             >
                 <div className="max-w-5xl mx-auto">
-                    {/* Top row: breadcrumb + Edit + Settings */}
+                    {/* Top row: breadcrumb + action buttons */}
                     <div className="flex items-center justify-between mb-3 gap-3">
                         <div className="flex items-center gap-2 min-w-0">
                             <Link
@@ -109,6 +247,7 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                             <span className="shrink-0" style={{ color: 'var(--rt-border)' }}>/</span>
                             <h1 className="text-lg font-semibold truncate" style={{ color: 'var(--rt-text)' }}>{title}</h1>
                         </div>
+
                         <div className="flex items-center gap-2 shrink-0">
                             {canEdit && (
                                 <Link
@@ -118,7 +257,18 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                                     Edit
                                 </Link>
                             )}
-                            {/* Bookmark toggle button */}
+
+                            {/* Sidebar (Contents / Search) button */}
+                            <ToolbarButton
+                                active={sidebarOpen}
+                                onClick={() => { setSidebarOpen((o) => !o); setSettingsOpen(false); setBookmarksOpen(false) }}
+                                ariaLabel="Open document sidebar (contents and search)"
+                                title="Contents & Search"
+                            >
+                                <BookOpenIcon />
+                            </ToolbarButton>
+
+                            {/* Bookmark toggle */}
                             <div className="relative">
                                 <button
                                     type="button"
@@ -127,12 +277,11 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                                     title={isBookmarked ? 'Remove bookmark' : 'Bookmark this page'}
                                     className="w-8 h-8 flex items-center justify-center rounded-lg border transition-colors"
                                     style={{
-                                        backgroundColor: isBookmarked ? 'var(--rt-surface)' : 'var(--rt-surface)',
+                                        backgroundColor: 'var(--rt-surface)',
                                         borderColor: isBookmarked ? '#3b82f6' : 'var(--rt-border)',
                                         color: isBookmarked ? '#3b82f6' : 'var(--rt-text-muted)',
                                     }}
                                 >
-                                    {/* Bookmark icon — filled when bookmarked, outline otherwise */}
                                     {isBookmarked ? (
                                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                                             <path d="M3.75 3A1.75 1.75 0 0 0 2 4.75v10.5c0 .966.784 1.75 1.75 1.75h12.5A1.75 1.75 0 0 0 18 15.25V4.75A1.75 1.75 0 0 0 16.25 3H3.75ZM10 14a.75.75 0 0 1-.53-.22l-3-3a.75.75 0 1 1 1.06-1.06L10 12.19l2.47-2.47a.75.75 0 1 1 1.06 1.06l-3 3A.75.75 0 0 1 10 14Z" />
@@ -145,32 +294,16 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                                 </button>
                             </div>
 
-                            {/* Bookmarks list button */}
+                            {/* Bookmarks list button + dropdown panel */}
                             <div className="relative">
-                                <button
-                                    type="button"
-                                    aria-label="View bookmarks"
-                                    aria-expanded={bookmarksOpen}
-                                    onClick={() => { setBookmarksOpen((o) => !o); setSettingsOpen(false) }}
-                                    className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${
-                                        bookmarksOpen ? 'bg-blue-600 border-blue-600 text-white' : ''
-                                    }`}
-                                    style={bookmarksOpen ? {} : {
-                                        backgroundColor: 'var(--rt-surface)',
-                                        borderColor: 'var(--rt-border)',
-                                        color: 'var(--rt-text-muted)',
-                                    }}
+                                <ToolbarButton
+                                    active={bookmarksOpen}
+                                    onClick={() => { setBookmarksOpen((o) => !o); setSettingsOpen(false); setSidebarOpen(false) }}
+                                    ariaLabel="View bookmarks"
+                                    badgeCount={bookmarks.length}
                                 >
-                                    {/* List icon */}
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                                    </svg>
-                                    {bookmarks.length > 0 && (
-                                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold leading-none">
-                                            {bookmarks.length > 9 ? '9+' : bookmarks.length}
-                                        </span>
-                                    )}
-                                </button>
+                                    <ListBulletIcon />
+                                </ToolbarButton>
                                 <ReaderBookmarksPanel
                                     open={bookmarksOpen}
                                     onClose={() => setBookmarksOpen(false)}
@@ -184,27 +317,13 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
 
                             {/* Settings button */}
                             <div className="relative">
-                                <button
-                                    type="button"
-                                    aria-label="Reader settings"
-                                    aria-expanded={settingsOpen}
-                                    onClick={() => { setSettingsOpen((o) => !o); setBookmarksOpen(false) }}
-                                    className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${
-                                        settingsOpen
-                                            ? 'bg-blue-600 border-blue-600 text-white'
-                                            : ''
-                                    }`}
-                                    style={settingsOpen ? {} : {
-                                        backgroundColor: 'var(--rt-surface)',
-                                        borderColor: 'var(--rt-border)',
-                                        color: 'var(--rt-text-muted)',
-                                    }}
+                                <ToolbarButton
+                                    active={settingsOpen}
+                                    onClick={() => { setSettingsOpen((o) => !o); setBookmarksOpen(false); setSidebarOpen(false) }}
+                                    ariaLabel="Reader settings"
                                 >
-                                    {/* Gear icon (SVG) */}
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                                        <path fillRule="evenodd" d="M8.34 1.804A1 1 0 0 1 9.32 1h1.36a1 1 0 0 1 .98.804l.295 1.473c.497.144.97.342 1.405.588l1.277-.743a1 1 0 0 1 1.228.15l.962.96a1 1 0 0 1 .15 1.23l-.743 1.276c.246.435.444.908.588 1.405l1.473.295a1 1 0 0 1 .804.98v1.36a1 1 0 0 1-.804.98l-1.473.295a6.97 6.97 0 0 1-.588 1.405l.743 1.277a1 1 0 0 1-.15 1.228l-.96.962a1 1 0 0 1-1.23.15l-1.276-.743a6.97 6.97 0 0 1-1.405.588l-.295 1.473A1 1 0 0 1 10.68 19H9.32a1 1 0 0 1-.98-.804l-.295-1.473a6.972 6.972 0 0 1-1.405-.588l-1.277.743a1 1 0 0 1-1.228-.15l-.962-.96a1 1 0 0 1-.15-1.23l.743-1.276a6.971 6.971 0 0 1-.588-1.405L1.804 11.32A1 1 0 0 1 1 10.34V8.98a1 1 0 0 1 .804-.98l1.473-.295a6.97 6.97 0 0 1 .588-1.405L3.122 5.023a1 1 0 0 1 .15-1.228l.96-.962a1 1 0 0 1 1.23-.15l1.276.743a6.972 6.972 0 0 1 1.405-.588L8.34 1.804ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" />
-                                    </svg>
-                                </button>
+                                    <GearIcon />
+                                </ToolbarButton>
                                 <ReaderSettingsPanel
                                     open={settingsOpen}
                                     onClose={() => setSettingsOpen(false)}
@@ -223,8 +342,8 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                         </div>
                     </div>
 
+                    {/* Second row: mode tabs + language selector + pager */}
                     <div className="flex items-center justify-between flex-wrap gap-3">
-                        {/* Mode tabs */}
                         <div
                             className="flex rounded-lg overflow-hidden"
                             style={{ border: '1px solid var(--rt-border)' }}
@@ -236,23 +355,23 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                                     return true
                                 })
                                 .map((m) => (
-                                <button
-                                    key={m}
-                                    onClick={() => setMode(m)}
-                                    className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-                                        mode === m ? 'bg-blue-600 text-white' : ''
-                                    }`}
-                                    style={mode === m ? {} : {
-                                        backgroundColor: 'var(--rt-surface)',
-                                        color: 'var(--rt-text-muted)',
-                                    }}
-                                >
-                                    {MODE_LABELS[m]}
-                                </button>
-                            ))}
+                                    <button
+                                        key={m}
+                                        onClick={() => setMode(m)}
+                                        className={`px-3 py-1.5 text-sm font-medium transition-colors`}
+                                        style={mode === m ? {
+                                            backgroundColor: '#3b82f6',
+                                            color: '#fff',
+                                        } : {
+                                            backgroundColor: 'var(--rt-surface)',
+                                            color: 'var(--rt-text-muted)',
+                                        }}
+                                    >
+                                        {MODE_LABELS[m]}
+                                    </button>
+                                ))}
                         </div>
 
-                        {/* Language selectors */}
                         <div className="flex items-center gap-3">
                             {mode === 'single' && (
                                 <div className="flex items-center gap-2">
@@ -273,7 +392,6 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                                 </div>
                             )}
 
-                            {/* Pager — only shown when the document spans more than one page */}
                             {showPager && (
                                 <div className="flex items-center gap-1">
                                     <button
@@ -332,50 +450,102 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                 </div>
             </div>
 
-            {/* Content — font family + size applied here */}
+            {/* ----------------------------------------------------------------
+                Progress bar — only when document has multiple pages
+            ---------------------------------------------------------------- */}
+            {totalPages > 1 && (
+                <div
+                    className="shrink-0 h-1 w-full"
+                    style={{ backgroundColor: 'var(--rt-border)' }}
+                    role="progressbar"
+                    aria-valuenow={progressPercent}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label={`Reading progress: ${progressPercent}%`}
+                >
+                    <div
+                        className="h-full transition-all duration-300"
+                        style={{
+                            width: `${progressPercent}%`,
+                            backgroundColor: '#3b82f6',
+                        }}
+                    />
+                </div>
+            )}
+
+            {/* ----------------------------------------------------------------
+                Scrollable content area
+            ---------------------------------------------------------------- */}
             <div
-                data-reader-font={font}
-                style={{ fontSize: fontSizeValue }}
+                ref={contentRef}
+                className="flex-1 overflow-y-auto relative"
+                style={fontColor ? { ['--rt-text' as string]: fontColor } : undefined}
             >
-                {segments.length === 0 ? (
-                    <div className="text-center py-20 text-gray-500">
-                        No segments available for this document.
-                    </div>
-                ) : (
-                    <>
-                        {mode === 'single' && (
-                            <SingleLanguageView
-                                paragraphs={paragraphs}
-                                displayLang={displayLang}
-                                sourceLang={sourceLang}
-                                targetLang={targetLang}
-                                getParagraphText={getParagraphText}
-                            />
-                        )}
-                        {mode === 'bilingual' && (
-                            <BilingualParagraphView
-                                paragraphs={paragraphs}
-                                sourceLang={sourceLang}
-                                targetLang={targetLang}
-                                getParagraphText={getParagraphText}
-                            />
-                        )}
-                        {mode === 'aligned' && canEdit && (
-                            <TranslatorAlignedView
-                                segments={pageSegments}
-                                sourceLang={sourceLang}
-                                targetLang={targetLang}
-                            />
-                        )}
-                        {mode === 'pdf' && pairedPdfPath && (
-                            <PdfPageView
-                                articleId={articleId}
-                                pdfPage={currentPage?.page ?? null}
-                            />
-                        )}
-                    </>
+                {/* Font family + size wrapper */}
+                <div
+                    data-reader-font={font}
+                    style={{ fontSize: fontSizeValue, minHeight: '100%' }}
+                >
+                    {segments.length === 0 ? (
+                        <div className="text-center py-20 text-gray-500">
+                            No segments available for this document.
+                        </div>
+                    ) : (
+                        <>
+                            {mode === 'single' && (
+                                <SingleLanguageView
+                                    paragraphs={paragraphs}
+                                    displayLang={displayLang}
+                                    sourceLang={sourceLang}
+                                    targetLang={targetLang}
+                                    getParagraphText={getParagraphText}
+                                />
+                            )}
+                            {mode === 'bilingual' && (
+                                <BilingualParagraphView
+                                    paragraphs={paragraphs}
+                                    sourceLang={sourceLang}
+                                    targetLang={targetLang}
+                                    getParagraphText={getParagraphText}
+                                />
+                            )}
+                            {mode === 'aligned' && canEdit && (
+                                <TranslatorAlignedView
+                                    segments={pageSegments}
+                                    sourceLang={sourceLang}
+                                    targetLang={targetLang}
+                                />
+                            )}
+                            {mode === 'pdf' && pairedPdfPath && (
+                                <PdfPageView
+                                    articleId={articleId}
+                                    pdfPage={currentPage?.page ?? null}
+                                />
+                            )}
+                        </>
+                    )}
+                </div>
+
+                {/* ----------------------------------------------------------------
+                    Scroll-to-top floating button
+                ---------------------------------------------------------------- */}
+                {scrolled && (
+                    <button
+                        type="button"
+                        onClick={scrollToTop}
+                        aria-label="Scroll to top"
+                        title="Scroll to top"
+                        className="fixed bottom-6 right-6 z-30 w-10 h-10 flex items-center justify-center rounded-full shadow-lg border transition-all"
+                        style={{
+                            backgroundColor: 'var(--rt-bg)',
+                            borderColor: 'var(--rt-border)',
+                            color: 'var(--rt-text)',
+                        }}
+                    >
+                        <ChevronUpIcon />
+                    </button>
                 )}
             </div>
-        </main>
+        </div>
     )
 }
