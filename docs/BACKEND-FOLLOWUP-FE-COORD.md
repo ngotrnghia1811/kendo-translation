@@ -263,13 +263,11 @@ now proceed against real content. Notable:
 
 ## What's NOT done
 
-- **`PARA-BOUNDARIES-IMPL`** — fix
-  `app/api/documents/[id]/segmentize/route.ts` to write
-  `paragraph_boundaries` for *user-segmented* docs. Still a separate
-  backend backlog item; not touched by this work unit. The current
-  importer-written `paragraph_boundaries` exists only for
-  pipeline-imported articles; user-uploaded docs still emit `[0]`
-  default from segmentize.
+- ~~**`PARA-BOUNDARIES-IMPL`**~~ **DONE** (`76543d9`) —
+  `app/api/documents/[id]/segmentize/route.ts` now writes
+  `paragraph_boundaries = [0, 1, ..., N-1]` for user-segmented docs,
+  consistent with pipeline-imported articles. Closed in commit
+  `76543d9 feat(mac-rag): L3/L4 TM split in compose; fix para-boundaries in segmentize`.
 - Schema-extension option 3 (`extra_translations jsonb` + `target_langs
   text[]`) — discarded ZH content is gone for this round. If you ever
   want it back, additive migration + re-import.

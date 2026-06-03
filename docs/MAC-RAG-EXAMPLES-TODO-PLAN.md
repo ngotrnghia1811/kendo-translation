@@ -176,15 +176,15 @@ W2  research:  pick a real DB segment to use as running example     (TODO 5)   [
 W3  doc:       hierarchical context model — Phase 0 rewrite         (TODO 1)   [DONE — model-only first cut; W3.5 follows]
 W3b doc:       propagate hierarchical context model into MAC-RAG.md spec (Phase 0/1 + §3 task tables + §5 gap-map refresh + §6 worked-example blocks)
 W3.5 doc:      integrate the hierarchical context model into Steps 1–3 of all 4 walkthroughs
-W4  doc:       Context Builder Panel as explicit pipeline step      (TODO 2)
+W4  doc+code:  Context Builder Panel as explicit pipeline step      (TODO 2)  [DONE — POST /api/mac-rag/compose (Stage 1, no LLM) + POST /api/mac-rag/generate (Stage 2 with optional human prompt edit); useMacRagTwoStage hook; see app/api/mac-rag/]
 W5  doc:       prose-first [HUMAN SEES] rewrite across all 4 tasks  (TODO 3)  [DONE]
-W6  doc:       prompt examples aligned with W1 findings             (TODO 6)
+W6  doc+code:  prompt examples aligned with W1 findings             (TODO 6)  [DONE — translatePrompt/editPrompt/proofreadPrompt/qaPrompt in lib/agents/phase-prompts.ts; all 4 phases follow 5-module skeleton (Role/Task/Instructions/Examples/Format)]
 W7  design:    write docs/MEMORY-DB-DESIGN.md                       (TODO 4)  [DONE]
 W8  doc:       integrate W2 real-segment data through all 4 walkthroughs (TODO 5)  [DONE — W8a translate, W8b edit, W8c proofread, W8d QA-advisory]
 W9  doc:       cross-task consistency pass + 4-way comparison table refresh  [DONE]
 W10 doc:       remove [GAP] markers that W7 will close once implemented; replace with forward-references to MEMORY-DB-DESIGN.md  [DONE — 15/34 replaced, 19 preserved (3 unresolved categories + methodology notes)]
 W11 doc:       remove the !TODO markers themselves; replace with a footer noting "this revision addressed TODOs 1–6"  [DONE]
-W12 commit:    commit MAC-RAG.md v3, DEV-STATE, plan, memory-DB design, and revised MAC-RAG-EXAMPLES.md, one logical commit per concern
+W12 commit:    commit MAC-RAG.md v3, DEV-STATE, plan, memory-DB design, and revised MAC-RAG-EXAMPLES.md, one logical commit per concern  [DONE — all implementation commits shipped; both worktrees at origin/main]
 ```
 
 Critical path: **W1, W2 in parallel → W3 → W4 → W5 → W6 → W7 → W8 → W9
