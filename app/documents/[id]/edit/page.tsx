@@ -15,6 +15,10 @@ import {
     AgentSuggestionPanel,
     type AgentPhase,
 } from '@/components/editor/AgentSuggestionPanel';
+import {
+    ContextBuilderPanel,
+    type ContextBuilderPhase,
+} from '@/components/editor/ContextBuilderPanel';
 import CommentThread from '@/components/editor/CommentThread';
 
 /**
@@ -389,17 +393,30 @@ export default function EditPage() {
                       <QAIssuesList segmentId={seg.id} articleId={params.id} />
                     </div>
                     {agentPhaseFor(seg.status as SegmentStatus) && (
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Agent</p>
-                        <AgentSuggestionPanel
-                          segmentId={seg.id}
-                          phase={agentPhaseFor(seg.status as SegmentStatus)!}
-                          onCreated={() => {
-                            setSuggestionRefreshKey(k => k + 1);
-                            void refreshActivity();
-                          }}
-                        />
-                      </div>
+                      <>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Context Builder</p>
+                          <ContextBuilderPanel
+                            segmentId={seg.id}
+                            phase={agentPhaseFor(seg.status as SegmentStatus)! as ContextBuilderPhase}
+                            onSuggestionCreated={() => {
+                              setSuggestionRefreshKey(k => k + 1);
+                              void refreshActivity();
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Agent</p>
+                          <AgentSuggestionPanel
+                            segmentId={seg.id}
+                            phase={agentPhaseFor(seg.status as SegmentStatus)!}
+                            onCreated={() => {
+                              setSuggestionRefreshKey(k => k + 1);
+                              void refreshActivity();
+                            }}
+                          />
+                        </div>
+                      </>
                     )}
                     <div>
                       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Comments</p>

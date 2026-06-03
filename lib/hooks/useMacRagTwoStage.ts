@@ -75,6 +75,14 @@ export interface ComposeResult {
       notes?: string;
     }>;
   };
+  l2_context: {
+    document_title: string | null;
+    neighbours: {
+      prev: { source_text: string; usable: boolean; reasons?: string[] } | null;
+      next: { source_text: string; usable: boolean; reasons?: string[] } | null;
+    };
+    terms_already_annotated: string[];
+  };
   timings: { retrieval_ms: number; compose_ms: number };
 }
 
