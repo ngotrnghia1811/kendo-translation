@@ -41,6 +41,9 @@ next-env.d.ts
 .opencode*
 opencode-local.sh
 
+# GDrive OAuth2 token (machine-specific)
+.gdrive-token.json
+
 # local scripts (one-time / machine-specific)
 setup_git_history.sh
 
