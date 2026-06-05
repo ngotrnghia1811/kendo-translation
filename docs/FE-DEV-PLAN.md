@@ -1,5 +1,5 @@
 # Frontend Development Plan
-**Last updated:** 2026-06-04  
+**Last updated:** 2026-06-04 (mobile section added)  
 **Current HEAD:** `origin/main @ 429e679`  
 **Maintained by:** FE lane (aki-main session)
 
@@ -209,7 +209,99 @@ triggering the LLM.
 
 ---
 
-### 4.10 Publish-policy gate for reader (LOW / DEFERRED)
+### 4.10 Mobile UX — responsive design pass (HIGH)
+
+**Goal:** Make the platform usable on phones and small tablets for readers, and
+functional on tablet for editors. The reader is the highest-priority surface
+(most public-facing). The editor is secondary (used primarily on desktop).
+
+#### Current state (as of 2026-06-04)
+
+| Surface | Current mobile behaviour | Gap |
+|---|---|---|
+| `SiteNav` | Brand text hidden at `< sm`; nav links fully visible | Nav links overflow on very small screens (< 375px) |
+| Reader toolbar | Two rows of buttons; `flex-wrap` applied to second row | Toolbar buttons crowd on phones; mode tabs overflow |
+| Reader sidebar | `w-80` slide-in from left | Sidebar is 320px — clips on 375px screen |
+| Reader content | `max-w-5xl mx-auto` prose | Text fine, padding generous |
+| Documents list | Card grid; not explicitly responsive | Cards may be too wide on phones |
+| Edit page | Segment table with many columns | Unworkable on mobile by design; table layout not collapsible |
+| Admin pages | Basic lists | Not designed for mobile |
+| Profile page | Stat card grid, assignment list | Stat cards may overflow at small width |
+
+#### Reader mobile plan (HIGH priority — most impactful)
+
+**4.10.1 Toolbar — collapsible on mobile**
+
+On screens `< md` (< 768px):
+- First row: title (truncated) + hamburger/overflow menu replacing individual icon buttons.
+- Second row (mode tabs): horizontally scrollable `overflow-x-auto` strip instead of flex-wrap.
+- Pager: compact `← Page X / Y →` inline.
+
+**4.10.2 Sidebar — full-screen on mobile**
+
+On `< md`: sidebar takes full viewport width (`w-full`) instead of `w-80`,
+with a larger touch target for the close button. Backdrop colour is slightly
+opaque to indicate overlay.
+
+**4.10.3 Settings / bookmarks panels — slide-up sheet on mobile**
+
+On `< md`: convert absolute dropdown panels (Settings, Bookmarks) to a
+bottom-sheet (`fixed bottom-0 left-0 right-0`, rounded top corners, 50vh max
+height with scroll). On desktop they remain as dropdown panels.
+
+**4.10.4 Reading typography defaults on mobile**
+
+Default `fontSize` from `useReaderTheme`: on `window.innerWidth < 768`, start
+at 17px instead of 16px (more comfortable on retina screens). This is
+`localStorage`-overridable.
+
+#### Documents list mobile plan (MEDIUM)
+
+- Cards already use a sensible text layout; add `sm:grid-cols-2` / `grid-cols-1`
+  responsive grid instead of the current fixed layout.
+- Filter/search bar stacks above the grid on mobile.
+
+#### Profile page mobile plan (MEDIUM)
+
+- Stat cards: `grid-cols-2` on mobile (currently `grid-cols-4`).
+- Assignment list: horizontally scrollable on very narrow screens.
+
+#### Editor mobile plan (LOW — tablet only)
+
+The edit page is primarily a desktop surface (multi-column table, keyboard-
+intensive). A full mobile rewrite is out of scope. However:
+
+- On tablets (`>= md`): ensure the sidebar + editor layout doesn't overflow.
+- On phones: show a read-only banner "Editor not available on small screens"
+  and redirect to the reader view.
+
+#### Implementation order
+
+1. **Reader sidebar full-screen on mobile** (smallest change, biggest reader impact).
+2. **Mode tabs overflow-x-auto strip** (prevents tab overflow on 375px screens).
+3. **Settings/bookmarks as bottom sheet on mobile** (UX polish, requires detecting screen size).
+4. **SiteNav: hamburger menu on mobile** (needed if nav links continue to expand).
+5. **Documents grid responsive** (low effort, good impact for browse use-case).
+6. **Profile stat cards 2-col on mobile** (trivial class change).
+7. **Editor phone-block banner** (guard rails, not a full redesign).
+
+**Files to touch (estimate):**
+- `components/reader/ReaderView.tsx` — toolbar, mode tabs, pager layout.
+- `components/reader/ReaderSidebar.tsx` — full-screen on mobile.
+- `components/reader/ReaderSettingsPanel.tsx` — bottom-sheet on mobile.
+- `components/reader/ReaderBookmarksPanel.tsx` — bottom-sheet on mobile.
+- `hooks/useReaderTheme.ts` — mobile default font size.
+- `components/shared/SiteNav.tsx` — hamburger for mobile.
+- `app/documents/page.tsx` — responsive grid.
+- `app/profile/page.tsx` — 2-col stats.
+- `app/documents/[id]/edit/page.tsx` — phone block banner.
+
+**Testing approach:** Playwright with `viewport: { width: 390, height: 844 }` (iPhone 14
+equivalent). Screenshot-based comparison for reader, documents list, profile.
+
+---
+
+### 4.11 Publish-policy gate for reader (LOW / DEFERRED)
 
 **Goal:** The reader currently shows any segment with `target_text` populated,
 regardless of status. The doc-set claims `qa_approved` is the terminal
@@ -220,6 +312,8 @@ documents while keeping the permissive default for WIP.
 **Design:** `document_settings.publish_filter: 'any_translated' | 'qa_approved'` (default `'any_translated'`).
 
 **Files to touch:** `supabase/migrations/`, `app/documents/[id]/read/page.tsx`, `types/database.ts`
+
+---
 
 ---
 
