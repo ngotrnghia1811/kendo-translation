@@ -1,9 +1,29 @@
 'use client'
 
+import { useState } from 'react'
 import type { Segment, UserPresence } from '@/types/database'
 import SegmentEditor from './SegmentEditor'
 import SegmentToolbar from './SegmentToolbar'
 import { SegmentPresenceTag } from './PresenceIndicator'
+import { ContextBuilderPanel, type ContextBuilderPhase } from './ContextBuilderPanel'
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Map segment status → MAC-RAG phase for ContextBuilderPanel. */
+function toContextPhase(status: string): ContextBuilderPhase {
+    switch (status) {
+        case 'edited':    return 'edit'
+        case 'proofread': return 'proofread'
+        case 'qa_approved': return 'qa'
+        default:          return 'translate'
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
 
 interface SegmentRowProps {
     segment: Segment
@@ -17,6 +37,10 @@ interface SegmentRowProps {
     onSave: () => void
     onCancel: () => void
 }
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export default function SegmentRow({
     segment,
@@ -35,6 +59,9 @@ export default function SegmentRow({
         p => p.active_segment === segment.id && p.user_id !== currentUserId
     )
     const presenceColor = otherUsersOnSegment.length > 0 ? otherUsersOnSegment[0].color : null
+
+    // Context Builder panel (MAC-RAG) open state — toggled per-row
+    const [contextBuilderOpen, setContextBuilderOpen] = useState(false)
 
     const statusBadge = () => {
         switch (segment.status) {
@@ -82,7 +109,7 @@ export default function SegmentRow({
                 </div>
             </div>
 
-            {/* Target text (editable) */}
+            {/* Target text (editable) + Context Builder panel */}
             <div className="p-3">
                 <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
@@ -109,7 +136,45 @@ export default function SegmentRow({
                             onCancel={onCancel}
                             saving={saving}
                             hasChanges={editingText !== (segment.target_text || '')}
+                            onMacRag={() => setContextBuilderOpen(o => !o)}
                         />
+
+                        {/* ── Context Builder (MAC-RAG) panel — inline, below toolbar ── */}
+                        {contextBuilderOpen && (
+                            <div
+                                className="mt-3 border border-indigo-200 dark:border-indigo-800 rounded-xl bg-indigo-50/30 dark:bg-indigo-900/10 p-4"
+                                data-testid="context-builder-panel-wrapper"
+                            >
+                                {/* Panel header */}
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-400 uppercase tracking-wide">
+                                            MAC-RAG Context Builder
+                                        </span>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 font-medium">
+                                            {toContextPhase(segment.status)} mode
+                                        </span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setContextBuilderOpen(false)}
+                                        className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                        aria-label="Close context builder"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+
+                                <ContextBuilderPanel
+                                    segmentId={segment.id}
+                                    phase={toContextPhase(segment.status)}
+                                    onSuggestionCreated={() => {
+                                        // Optionally close panel after suggestion created
+                                        setContextBuilderOpen(false)
+                                    }}
+                                />
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <div
