@@ -1,10 +1,8 @@
 /**
- * /api/terminology
+ * /api/terminology/[id]
  *
- * GET  — public (auth required): list all terms
- * POST — admin only: create a new term
- *
- * /api/terminology/[id]  — see ./[id]/route.ts for PATCH + DELETE
+ * PATCH  — admin only: update an existing term
+ * DELETE — admin only: delete a term
  */
 
 import { createAdminClient, createClient } from '@/lib/supabase/server'
@@ -18,34 +16,16 @@ async function requireAdmin(supabase: Awaited<ReturnType<typeof createClient>>) 
     return { user }
 }
 
-export async function GET() {
-    try {
-        const supabase = await createClient()
-
-        const { data: terms, error } = await supabase
-            .from('terminology')
-            .select('id, source_term, target_term, reading, domain, notes')
-            .order('source_term', { ascending: true })
-            .limit(1000)
-
-        if (error) {
-            console.error('Error fetching terminology:', error)
-            return NextResponse.json({ error: error.message }, { status: 500 })
-        }
-
-        return NextResponse.json({ terms: terms || [] })
-    } catch (error) {
-        console.error('Error in terminology GET:', error)
-        return NextResponse.json({ error: 'Failed to fetch terminology' }, { status: 500 })
-    }
-}
-
-export async function POST(req: NextRequest) {
+export async function PATCH(
+    req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
     try {
         const authClient = await createClient()
         const gate = await requireAdmin(authClient)
         if ('error' in gate) return gate.error
 
+        const { id } = await params
         const body = await req.json()
         const { source_term, target_term, reading, domain, notes } = body
 
@@ -56,24 +36,57 @@ export async function POST(req: NextRequest) {
         const supabase = await createAdminClient()
         const { data, error } = await supabase
             .from('terminology')
-            .insert({
+            .update({
                 source_term: source_term.trim(),
                 target_term: target_term.trim(),
                 reading: reading?.trim() || null,
                 domain: domain?.trim() || null,
                 notes: notes?.trim() || null,
             })
+            .eq('id', id)
             .select('id, source_term, target_term, reading, domain, notes')
             .single()
 
         if (error) {
-            console.error('Error creating term:', error)
+            console.error('Error updating term:', error)
             return NextResponse.json({ error: error.message }, { status: 500 })
         }
 
-        return NextResponse.json({ term: data }, { status: 201 })
+        if (!data) {
+            return NextResponse.json({ error: 'Term not found' }, { status: 404 })
+        }
+
+        return NextResponse.json({ term: data })
     } catch (error) {
-        console.error('Error in terminology POST:', error)
-        return NextResponse.json({ error: 'Failed to create term' }, { status: 500 })
+        console.error('Error in terminology PATCH:', error)
+        return NextResponse.json({ error: 'Failed to update term' }, { status: 500 })
+    }
+}
+
+export async function DELETE(
+    _req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const authClient = await createClient()
+        const gate = await requireAdmin(authClient)
+        if ('error' in gate) return gate.error
+
+        const { id } = await params
+        const supabase = await createAdminClient()
+        const { error } = await supabase
+            .from('terminology')
+            .delete()
+            .eq('id', id)
+
+        if (error) {
+            console.error('Error deleting term:', error)
+            return NextResponse.json({ error: error.message }, { status: 500 })
+        }
+
+        return NextResponse.json({ success: true })
+    } catch (error) {
+        console.error('Error in terminology DELETE:', error)
+        return NextResponse.json({ error: 'Failed to delete term' }, { status: 500 })
     }
 }

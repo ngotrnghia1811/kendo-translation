@@ -10,7 +10,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { ReaderPage } from '@/types/reader'
-import type { Segment } from '@/types/database'
+import type { Segment, SegmentStatus } from '@/types/database'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -25,7 +25,7 @@ interface SearchResult {
     matchIn: 'source' | 'target' | 'both'
 }
 
-type SidebarTab = 'toc' | 'search'
+export type SidebarTab = 'toc' | 'search' | 'filter'
 
 interface ReaderSidebarProps {
     open: boolean
@@ -295,6 +295,190 @@ function SearchTab({
 }
 
 // ---------------------------------------------------------------------------
+// Filter tab
+// ---------------------------------------------------------------------------
+
+const STATUS_OPTIONS: SegmentStatus[] = ['draft', 'translated', 'edited', 'proofread', 'qa_approved']
+
+const STATUS_LABELS: Record<SegmentStatus, string> = {
+    draft: 'Draft',
+    translated: 'Translated',
+    edited: 'Edited',
+    proofread: 'Proofread',
+    qa_approved: 'QA Approved',
+}
+
+const STATUS_COLORS: Record<SegmentStatus, { bg: string; text: string }> = {
+    draft:       { bg: '#fee2e2', text: '#991b1b' },
+    translated:  { bg: '#dbeafe', text: '#1e40af' },
+    edited:      { bg: '#d1fae5', text: '#065f46' },
+    proofread:   { bg: '#fef3c7', text: '#92400e' },
+    qa_approved: { bg: '#ede9fe', text: '#5b21b6' },
+}
+
+interface FilterResult {
+    pageIndex: number
+    pageLabel: string
+    segment: Segment
+}
+
+function buildFilterResults(pages: ReaderPage[], statuses: Set<SegmentStatus>): FilterResult[] {
+    if (statuses.size === 0) return []
+    const results: FilterResult[] = []
+    for (let pi = 0; pi < pages.length; pi++) {
+        const page = pages[pi]
+        for (const seg of page.segments) {
+            if (statuses.has(seg.status as SegmentStatus)) {
+                results.push({ pageIndex: pi, pageLabel: page.label, segment: seg })
+                if (results.length >= 200) return results
+            }
+        }
+    }
+    return results
+}
+
+function FilterTab({
+    pages,
+    pageNoun,
+    onGoToPage,
+    onClose,
+}: {
+    pages: ReaderPage[]
+    pageNoun: string
+    onGoToPage: (i: number) => void
+    onClose: () => void
+}) {
+    const [selected, setSelected] = useState<Set<SegmentStatus>>(new Set())
+
+    const toggle = (s: SegmentStatus) => {
+        setSelected(prev => {
+            const next = new Set(prev)
+            if (next.has(s)) next.delete(s); else next.add(s)
+            return next
+        })
+    }
+
+    const results = buildFilterResults(pages, selected)
+
+    // Group by page index
+    const grouped = new Map<number, FilterResult[]>()
+    for (const r of results) {
+        if (!grouped.has(r.pageIndex)) grouped.set(r.pageIndex, [])
+        grouped.get(r.pageIndex)!.push(r)
+    }
+
+    const totalSegments = pages.reduce((acc, p) => acc + p.segments.length, 0)
+
+    return (
+        <div className="flex flex-col flex-1 min-h-0">
+            {/* Status filter buttons */}
+            <div className="p-3 shrink-0" style={{ borderBottom: '1px solid var(--rt-border)' }}>
+                <p className="text-xs mb-2" style={{ color: 'var(--rt-text-muted)' }}>
+                    Filter segments by status ({totalSegments.toLocaleString()} total)
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                    {STATUS_OPTIONS.map(s => {
+                        const active = selected.has(s)
+                        const colors = STATUS_COLORS[s]
+                        return (
+                            <button
+                                key={s}
+                                type="button"
+                                onClick={() => toggle(s)}
+                                className="text-xs px-2 py-1 rounded-full border transition-all"
+                                style={active ? {
+                                    backgroundColor: colors.bg,
+                                    color: colors.text,
+                                    borderColor: colors.text,
+                                    fontWeight: 600,
+                                } : {
+                                    backgroundColor: 'var(--rt-surface)',
+                                    color: 'var(--rt-text-muted)',
+                                    borderColor: 'var(--rt-border)',
+                                }}
+                            >
+                                {STATUS_LABELS[s]}
+                            </button>
+                        )
+                    })}
+                </div>
+                {selected.size > 0 && (
+                    <button
+                        type="button"
+                        onClick={() => setSelected(new Set())}
+                        className="text-xs mt-2"
+                        style={{ color: 'var(--rt-text-muted)' }}
+                    >
+                        Clear filters
+                    </button>
+                )}
+            </div>
+
+            {/* Results */}
+            <div className="flex-1 overflow-y-auto px-2 py-2">
+                {selected.size === 0 && (
+                    <p className="text-sm text-center py-8" style={{ color: 'var(--rt-text-muted)' }}>
+                        Select one or more statuses above to find segments
+                    </p>
+                )}
+                {selected.size > 0 && results.length === 0 && (
+                    <p className="text-sm text-center py-8" style={{ color: 'var(--rt-text-muted)' }}>
+                        No segments with the selected status
+                    </p>
+                )}
+                {results.length > 0 && (
+                    <>
+                        <p className="text-xs mb-2 px-1" style={{ color: 'var(--rt-text-muted)' }}>
+                            {results.length >= 200 ? '200+ matches' : `${results.length} match${results.length === 1 ? '' : 'es'}`}
+                        </p>
+                        {Array.from(grouped.entries()).map(([pageIndex, pageResults]) => (
+                            <div key={pageIndex} className="mb-3">
+                                <div
+                                    className="text-xs font-semibold mb-1 px-1 py-0.5 rounded"
+                                    style={{ color: 'var(--rt-text-muted)', backgroundColor: 'var(--rt-surface)' }}
+                                >
+                                    {pageNoun} {pageResults[0].pageLabel}
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    {pageResults.map((r, ri) => {
+                                        const colors = STATUS_COLORS[r.segment.status as SegmentStatus] ?? { bg: '#f3f4f6', text: '#374151' }
+                                        return (
+                                            <button
+                                                key={ri}
+                                                type="button"
+                                                onClick={() => { onGoToPage(r.pageIndex); onClose() }}
+                                                className="w-full text-left rounded-lg border px-3 py-2 text-xs transition-colors hover:border-blue-400"
+                                                style={{
+                                                    backgroundColor: 'var(--rt-surface)',
+                                                    borderColor: 'var(--rt-border)',
+                                                    color: 'var(--rt-text)',
+                                                }}
+                                            >
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span
+                                                        className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
+                                                        style={{ backgroundColor: colors.bg, color: colors.text }}
+                                                    >
+                                                        {STATUS_LABELS[r.segment.status as SegmentStatus] ?? r.segment.status}
+                                                    </span>
+                                                </div>
+                                                {r.segment.source_text && (
+                                                    <div className="line-clamp-2 opacity-80">{r.segment.source_text.slice(0, 100)}</div>
+                                                )}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        ))}
+                    </>
+                )}
+            </div>
+        </div>
+    )
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -360,34 +544,23 @@ export default function ReaderSidebar({
                     style={{ borderBottom: '1px solid var(--rt-border)' }}
                 >
                     <div className="flex gap-1">
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('toc')}
-                            className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors"
-                            style={activeTab === 'toc' ? {
-                                backgroundColor: '#3b82f6',
-                                color: '#fff',
-                            } : {
-                                backgroundColor: 'var(--rt-surface)',
-                                color: 'var(--rt-text-muted)',
-                            }}
-                        >
-                            Contents
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('search')}
-                            className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors"
-                            style={activeTab === 'search' ? {
-                                backgroundColor: '#3b82f6',
-                                color: '#fff',
-                            } : {
-                                backgroundColor: 'var(--rt-surface)',
-                                color: 'var(--rt-text-muted)',
-                            }}
-                        >
-                            Search
-                        </button>
+                        {(['toc', 'search', 'filter'] as SidebarTab[]).map((tab) => (
+                            <button
+                                key={tab}
+                                type="button"
+                                onClick={() => setActiveTab(tab)}
+                                className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors capitalize"
+                                style={activeTab === tab ? {
+                                    backgroundColor: '#3b82f6',
+                                    color: '#fff',
+                                } : {
+                                    backgroundColor: 'var(--rt-surface)',
+                                    color: 'var(--rt-text-muted)',
+                                }}
+                            >
+                                {tab === 'toc' ? 'Contents' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                            </button>
+                        ))}
                     </div>
                     <button
                         type="button"
@@ -413,6 +586,14 @@ export default function ReaderSidebar({
                     )}
                     {activeTab === 'search' && (
                         <SearchTab
+                            pages={pages}
+                            pageNoun={pageNoun}
+                            onGoToPage={onGoToPage}
+                            onClose={onClose}
+                        />
+                    )}
+                    {activeTab === 'filter' && (
+                        <FilterTab
                             pages={pages}
                             pageNoun={pageNoun}
                             onGoToPage={onGoToPage}

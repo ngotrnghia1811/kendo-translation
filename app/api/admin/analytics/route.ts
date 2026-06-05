@@ -1,0 +1,130 @@
+/**
+ * /api/admin/analytics
+ *
+ * Admin-only analytics endpoint. Returns aggregated statistics for the
+ * admin dashboard:
+ *   - phase breakdown across all segments (count per SegmentStatus)
+ *   - top translators by total edits
+ *   - recent activity (phase transitions + comments, last 30 days)
+ *   - overall counts (articles, segments, users)
+ *
+ * Auth: admin role required (same pattern as /api/admin/users).
+ */
+
+import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+
+async function requireAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+    if (profile?.role !== 'admin') return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
+    return { user }
+}
+
+export async function GET() {
+    try {
+        const authClient = await createClient()
+        const gate = await requireAdmin(authClient)
+        if ('error' in gate) return gate.error
+
+        const supabase = await createAdminClient()
+
+        // Run all queries in parallel for speed.
+        const [
+            phaseRes,
+            revisionsRes,
+            commentsRes,
+            transitionsRes,
+            usersRes,
+            articlesRes,
+        ] = await Promise.all([
+            // Phase breakdown: count segments by status
+            supabase
+                .from('segments')
+                .select('status')
+                .order('status'),
+
+            // Top translators: revisions per user (last 90 days)
+            supabase
+                .from('segment_revisions')
+                .select('edited_by, profiles:edited_by(username)')
+                .gte('created_at', new Date(Date.now() - 90 * 86400_000).toISOString()),
+
+            // Recent comments count (last 30 days)
+            supabase
+                .from('segment_comments')
+                .select('user_id', { count: 'exact', head: true })
+                .gte('created_at', new Date(Date.now() - 30 * 86400_000).toISOString()),
+
+            // Recent transitions (last 30 days) — for daily activity
+            supabase
+                .from('segment_phase_transitions')
+                .select('created_at, new_phase')
+                .gte('created_at', new Date(Date.now() - 30 * 86400_000).toISOString())
+                .order('created_at', { ascending: false }),
+
+            // User count
+            supabase.from('profiles').select('id', { count: 'exact', head: true }),
+
+            // Article count
+            supabase.from('articles').select('id', { count: 'exact', head: true }),
+        ])
+
+        // ------------------------------------------------------------------
+        // Phase breakdown
+        // ------------------------------------------------------------------
+        const phaseBreakdown: Record<string, number> = {}
+        for (const row of phaseRes.data ?? []) {
+            const s = (row as { status: string }).status
+            phaseBreakdown[s] = (phaseBreakdown[s] || 0) + 1
+        }
+
+        // ------------------------------------------------------------------
+        // Top translators (top 10 by edit count in last 90 days)
+        // ------------------------------------------------------------------
+        const editorCounts: Map<string, { username: string | null; count: number }> = new Map()
+        for (const row of revisionsRes.data ?? []) {
+            const r = row as unknown as { edited_by: string; profiles: { username: string | null } | { username: string | null }[] | null }
+            const id = r.edited_by
+            const profileObj = Array.isArray(r.profiles) ? r.profiles[0] ?? null : r.profiles
+            if (!editorCounts.has(id)) {
+                editorCounts.set(id, { username: profileObj?.username ?? null, count: 0 })
+            }
+            editorCounts.get(id)!.count++
+        }
+        const topTranslators = [...editorCounts.entries()]
+            .map(([id, v]) => ({ id, username: v.username ?? id.slice(0, 8), count: v.count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10)
+
+        // ------------------------------------------------------------------
+        // Daily activity (transitions per day, last 30 days)
+        // ------------------------------------------------------------------
+        const dailyCounts: Record<string, number> = {}
+        for (const row of transitionsRes.data ?? []) {
+            const r = row as { created_at: string; new_phase: string }
+            const day = r.created_at.slice(0, 10) // 'YYYY-MM-DD'
+            dailyCounts[day] = (dailyCounts[day] || 0) + 1
+        }
+        // Build a sorted array of the last 30 days
+        const activityTimeline = Object.entries(dailyCounts)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([date, count]) => ({ date, count }))
+
+        return NextResponse.json({
+            phaseBreakdown,
+            topTranslators,
+            activityTimeline,
+            totals: {
+                articles: articlesRes.count ?? 0,
+                users: usersRes.count ?? 0,
+                recentComments: commentsRes.count ?? 0,
+                recentTransitions: transitionsRes.data?.length ?? 0,
+            },
+        })
+    } catch (err) {
+        console.error('Error in admin/analytics GET:', err)
+        return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 })
+    }
+}

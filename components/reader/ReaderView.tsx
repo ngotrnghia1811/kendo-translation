@@ -7,6 +7,7 @@ import { useReaderView, type ReaderMode } from '@/hooks/useReaderView'
 import { useReaderTheme } from '@/hooks/useReaderTheme'
 import { useReaderBookmarks } from '@/hooks/useReaderBookmarks'
 import { useReaderKeyboard } from '@/hooks/useReaderKeyboard'
+import { useReaderProgress } from '@/hooks/useReaderProgress'
 import SingleLanguageView from './SingleLanguageView'
 import BilingualParagraphView from './BilingualParagraphView'
 import TranslatorAlignedView from './TranslatorAlignedView'
@@ -184,6 +185,37 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
         currentPage?.label ?? String(currentPageIndex + 1),
         goToPage,
     )
+
+    // -----------------------------------------------------------------------
+    // Progress persistence — auto-resume last page on load
+    // -----------------------------------------------------------------------
+    const { savedPageIndex, persistPage } = useReaderProgress(articleId)
+
+    // Once on mount (after pages are built), jump to the saved page if any.
+    const hasRestoredRef = useRef(false)
+    useEffect(() => {
+        if (hasRestoredRef.current) return
+        if (savedPageIndex !== null && savedPageIndex > 0 && totalPages > 1) {
+            const target = Math.min(savedPageIndex, totalPages - 1)
+            if (target > 0) {
+                goToPage(target)
+                hasRestoredRef.current = true
+            }
+        } else if (totalPages > 0) {
+            // Mark as resolved even with no saved page (so we don't jump on
+            // subsequent page-count changes like lazy pagination).
+            hasRestoredRef.current = true
+        }
+    // Run only when totalPages first becomes non-zero.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [totalPages])
+
+    // Persist every page navigation.
+    useEffect(() => {
+        if (totalPages <= 1) return
+        const label = currentPage?.label ?? String(currentPageIndex + 1)
+        persistPage(currentPageIndex, label)
+    }, [currentPageIndex, currentPage, totalPages, persistPage])
 
     // -----------------------------------------------------------------------
     // Progress (page-based)
