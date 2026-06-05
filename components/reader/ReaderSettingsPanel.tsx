@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import {
     THEMES, FONTS, FONT_COLORS,
     FONT_SIZE_MIN, FONT_SIZE_MAX,
@@ -46,6 +46,15 @@ export default function ReaderSettingsPanel({
     onDecreaseFontSize,
 }: ReaderSettingsPanelProps) {
     const panelRef = useRef<HTMLDivElement>(null)
+    const [isMobile, setIsMobile] = useState(false)
+
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 639px)')
+        setIsMobile(mq.matches)
+        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+        mq.addEventListener('change', handler)
+        return () => mq.removeEventListener('change', handler)
+    }, [])
 
     // Close on outside click
     useEffect(() => {
@@ -72,12 +81,31 @@ export default function ReaderSettingsPanel({
     if (!open) return null
 
     return (
+        <>
+        {/* Mobile bottom-sheet backdrop */}
+        {isMobile && (
+            <div
+                className="fixed inset-0 z-40 bg-black/40"
+                onClick={onClose}
+                aria-hidden="true"
+            />
+        )}
         <div
             ref={panelRef}
             role="dialog"
             aria-label="Reader settings"
-            className="absolute right-0 top-full mt-2 z-50 w-72 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl p-4 space-y-5"
+            className={
+                isMobile
+                    ? 'fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl border border-gray-200 bg-white shadow-2xl p-4 space-y-5 max-h-[60vh] overflow-y-auto'
+                    : 'absolute right-0 top-full mt-2 z-50 w-72 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl p-4 space-y-5'
+            }
         >
+            {/* Mobile drag handle pill */}
+            {isMobile && (
+                <div className="flex justify-center -mt-1 mb-1">
+                    <div className="w-10 h-1 rounded-full bg-gray-300" />
+                </div>
+            )}
             {/* ── Theme ─────────────────────────────────────────────── */}
             <section>
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
@@ -201,5 +229,6 @@ export default function ReaderSettingsPanel({
                 </div>
             </section>
         </div>
+        </>
     )
 }

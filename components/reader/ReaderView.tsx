@@ -235,17 +235,18 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
             >
                 <div className="max-w-5xl mx-auto">
                     {/* Top row: breadcrumb + action buttons */}
-                    <div className="flex items-center justify-between mb-3 gap-3">
-                        <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center justify-between mb-3 gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
                             <Link
                                 href="/documents"
                                 className="text-sm shrink-0"
                                 style={{ color: 'var(--rt-text-muted)' }}
                             >
-                                ← Documents
+                                <span className="hidden sm:inline">← Documents</span>
+                                <span className="sm:hidden">←</span>
                             </Link>
                             <span className="shrink-0" style={{ color: 'var(--rt-border)' }}>/</span>
-                            <h1 className="text-lg font-semibold truncate" style={{ color: 'var(--rt-text)' }}>{title}</h1>
+                            <h1 className="text-base sm:text-lg font-semibold truncate" style={{ color: 'var(--rt-text)' }}>{title}</h1>
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
@@ -344,9 +345,11 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
 
                     {/* Second row: mode tabs + language selector + pager */}
                     <div className="flex items-center justify-between flex-wrap gap-3">
+                        {/* Mode tabs — scrollable on mobile so they don't wrap/clip */}
+                        <div className="overflow-x-auto max-w-full">
                         <div
                             className="flex rounded-lg overflow-hidden"
-                            style={{ border: '1px solid var(--rt-border)' }}
+                            style={{ border: '1px solid var(--rt-border)', width: 'max-content' }}
                         >
                             {(Object.keys(MODE_LABELS) as ReaderMode[])
                                 .filter((m) => {
@@ -358,7 +361,7 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                                     <button
                                         key={m}
                                         onClick={() => setMode(m)}
-                                        className={`px-3 py-1.5 text-sm font-medium transition-colors`}
+                                        className={`px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap`}
                                         style={mode === m ? {
                                             backgroundColor: '#3b82f6',
                                             color: '#fff',
@@ -369,7 +372,8 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                                     >
                                         {MODE_LABELS[m]}
                                     </button>
-                                ))}
+                                        ))}
+                        </div>
                         </div>
 
                         <div className="flex items-center gap-3">

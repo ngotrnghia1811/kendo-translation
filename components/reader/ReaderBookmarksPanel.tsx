@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReaderBookmark } from '@/hooks/useReaderBookmarks'
 
 interface ReaderBookmarksPanelProps {
@@ -32,6 +32,15 @@ export default function ReaderBookmarksPanel({
     onRemove,
 }: ReaderBookmarksPanelProps) {
     const panelRef = useRef<HTMLDivElement>(null)
+    const [isMobile, setIsMobile] = useState(false)
+
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 639px)')
+        setIsMobile(mq.matches)
+        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+        mq.addEventListener('change', handler)
+        return () => mq.removeEventListener('change', handler)
+    }, [])
 
     // Close on Escape
     useEffect(() => {
@@ -62,17 +71,36 @@ export default function ReaderBookmarksPanel({
     if (!open) return null
 
     return (
+        <>
+        {/* Mobile bottom-sheet backdrop */}
+        {isMobile && (
+            <div
+                className="fixed inset-0 z-40 bg-black/40"
+                onClick={onClose}
+                aria-hidden="true"
+            />
+        )}
         <div
             ref={panelRef}
             role="dialog"
             aria-label="Bookmarks"
-            className="absolute right-0 top-full mt-1 z-50 w-72 rounded-xl shadow-xl overflow-hidden"
+            className={
+                isMobile
+                    ? 'fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl shadow-2xl overflow-hidden'
+                    : 'absolute right-0 top-full mt-1 z-50 w-72 rounded-xl shadow-xl overflow-hidden'
+            }
             style={{
                 backgroundColor: 'var(--rt-surface)',
                 border: '1px solid var(--rt-border)',
                 color: 'var(--rt-text)',
             }}
         >
+            {/* Mobile drag handle pill */}
+            {isMobile && (
+                <div className="flex justify-center pt-3 pb-1">
+                    <div className="w-10 h-1 rounded-full bg-gray-300" />
+                </div>
+            )}
             {/* Header */}
             <div
                 className="flex items-center justify-between px-4 py-3"
@@ -91,7 +119,7 @@ export default function ReaderBookmarksPanel({
             </div>
 
             {/* Bookmark list */}
-            <div className="max-h-80 overflow-y-auto">
+            <div className={isMobile ? 'max-h-[50vh] overflow-y-auto' : 'max-h-80 overflow-y-auto'}>
                 {bookmarks.length === 0 ? (
                     <div className="px-4 py-6 text-center text-sm" style={{ color: 'var(--rt-text-muted)' }}>
                         No bookmarks yet.
@@ -162,5 +190,6 @@ export default function ReaderBookmarksPanel({
                 )}
             </div>
         </div>
+        </>
     )
 }

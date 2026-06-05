@@ -333,10 +333,10 @@ export default function ReaderSidebar({
             role="dialog"
             aria-label="Reader sidebar"
         >
-            {/* Sidebar panel — slides in from the left */}
+            {/* Sidebar panel — slides in from the left; full-screen on mobile */}
             <div
                 ref={sidebarRef}
-                className="relative flex flex-col w-80 max-w-[90vw] shadow-2xl"
+                className="relative flex flex-col w-full sm:w-80 sm:max-w-[90vw] shadow-2xl"
                 style={{
                     backgroundColor: 'var(--rt-bg)',
                     borderRight: '1px solid var(--rt-border)',
