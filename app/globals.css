@@ -89,5 +89,10 @@ body {
   }
   [data-reader-theme] [data-reader-font] {
     font-family: var(--rt-font, inherit);
+    /* Re-evaluate --rt-text here so a fontColor override on this element
+       (set via inline style) takes effect. Without this, `color` is inherited
+       from the [data-reader-theme] root where the variable was already resolved
+       and the child-level override never changes the painted colour. */
+    color: var(--rt-text);
   }
 }
