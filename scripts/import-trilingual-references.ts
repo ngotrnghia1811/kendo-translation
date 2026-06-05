@@ -173,7 +173,16 @@ function assignLangs(runs: ScriptRun[]): Array<{ lang: 'ja' | 'en' | 'zh'; text:
       continue;
     }
     if (r.cls === 'kana') {
-      out.push({ lang: 'ja', text: r.buf });
+      // Class B fix: when sawLatin is true and kana is sandwiched between
+      // two han runs (e.g. furigana/okurigana inside a gloss in EN text),
+      // tag it as EN instead of JA.
+      const prevRun = runs[i - 1];
+      const nextRun = runs[i + 1];
+      if (sawLatin && prevRun && prevRun.cls === 'han' && nextRun && nextRun.cls === 'han') {
+        out.push({ lang: 'en', text: r.buf });
+      } else {
+        out.push({ lang: 'ja', text: r.buf });
+      }
       continue;
     }
     if (r.cls === 'han') {
@@ -242,34 +251,49 @@ function parse(content: string, sourceFile: string): ParseResult {
     const isHeading = pendingHeading;
     pendingHeading = false;
 
-    // Collect script runs across ALL lines in the buffer FIRST, then assign
-    // languages with a single JA→EN→ZH state machine. This is what makes
-    // Format A (three separate lines: JA / EN / ZH where JA and ZH may both
-    // be pure-Han) parse correctly: we only see the JA→latin→ZH transition
-    // when looking at the buffer as a whole.
-    const allRuns: ScriptRun[] = [];
-    for (const ln of buffer) {
-      const r = splitLineByScript(ln);
-      // Push a neutral run between lines as a soft separator so the
-      // language-assigner sees them as distinct "chunks" but they still
-      // merge correctly in the final pass.
-      if (allRuns.length > 0 && r.length > 0) {
-        allRuns.push({ cls: 'unknown', buf: ' ' });
-      }
-      allRuns.push(...r);
-    }
-    const chunks = assignLangs(allRuns);
+    // Class A fix: detect multi-line format blocks (≥3 non-empty,
+    // non-heading lines). In Format A (JA / EN / ZH each on their own
+    // line), merging runs and using assignLangs can leak romanised term
+    // fragments from the ZH line into EN when both EN and ZH lines start
+    // with the same romanised term (e.g. "*Ken*").  Assigning by position
+    // avoids this.
+    const nonEmpty = buffer.filter(ln => !ln.startsWith('【') && ln.trim() !== '');
 
     const jaParts: string[] = [];
     const enParts: string[] = [];
     let zhCharsThisBlock = 0;
     let zhRunsThisBlock  = 0;
-    for (const c of chunks) {
-      if (c.lang === 'ja') jaParts.push(c.text);
-      else if (c.lang === 'en') enParts.push(c.text);
-      else if (c.lang === 'zh') {
-        zhCharsThisBlock += c.text.length;
-        zhRunsThisBlock  += 1;
+
+    if (nonEmpty.length >= 3) {
+      // Multi-line format: positional assignment.
+      // Line 0 = JA, Line 1 = EN, Lines 2+ = ZH.
+      jaParts.push(nonEmpty[0]);
+      enParts.push(nonEmpty[1]);
+      for (let i = 2; i < nonEmpty.length; i++) {
+        zhCharsThisBlock += nonEmpty[i].length;
+        zhRunsThisBlock += 1;
+      }
+    } else {
+      // Original path: merge runs across all buffer lines, then assign
+      // languages with a single JA→EN→ZH state machine. This handles
+      // Format B (all three on one line) and Format C (JA+EN on one
+      // line, ZH on the next).
+      const allRuns: ScriptRun[] = [];
+      for (const ln of buffer) {
+        const r = splitLineByScript(ln);
+        if (allRuns.length > 0 && r.length > 0) {
+          allRuns.push({ cls: 'unknown', buf: ' ' });
+        }
+        allRuns.push(...r);
+      }
+      const chunks = assignLangs(allRuns);
+      for (const c of chunks) {
+        if (c.lang === 'ja') jaParts.push(c.text);
+        else if (c.lang === 'en') enParts.push(c.text);
+        else if (c.lang === 'zh') {
+          zhCharsThisBlock += c.text.length;
+          zhRunsThisBlock  += 1;
+        }
       }
     }
 
@@ -507,28 +531,15 @@ async function insertAll(
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const arg = process.argv[2];
-  if (!arg) {
-    console.error('Usage: npx tsx scripts/import-trilingual-references.ts <path-to-trilingual.md>');
+  const args = process.argv.slice(2);
+  const dryRun = args.includes('--dry-run');
+  const filePath = args.find(a => !a.startsWith('--'));
+
+  if (!filePath) {
+    console.error('Usage: npx tsx scripts/import-trilingual-references.ts [--dry-run] <path-to-trilingual.md>');
     process.exit(1);
   }
 
-  const env = await loadEnv();
-  const url = env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url) {
-    console.error('FATAL: NEXT_PUBLIC_SUPABASE_URL missing from .env.local');
-    process.exit(1);
-  }
-  if (!key) {
-    console.error('FATAL: SUPABASE_SERVICE_ROLE_KEY missing from .env.local');
-    process.exit(1);
-  }
-  const sb = createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
-  const filePath = arg;
   const sourceFile = basename(filePath);
   console.log(`[info] reading ${filePath}`);
   const content = await readFile(filePath, 'utf8');
@@ -536,21 +547,6 @@ async function main() {
 
   const title = deriveTitle(filePath);
   console.log(`[info] derived title="${title}"`);
-
-  // Idempotency check
-  const { data: existing, error: lookupErr } = await sb
-    .from('articles')
-    .select('id, title')
-    .eq('title', title)
-    .maybeSingle();
-  if (lookupErr) {
-    console.error(`FATAL: lookup of existing article failed: ${lookupErr.message}`);
-    process.exit(1);
-  }
-  if (existing) {
-    console.log(`[skip] article "${title}" already imported (id=${(existing as { id: string }).id})`);
-    process.exit(0);
-  }
 
   // Parse
   console.log(`[info] parsing...`);
@@ -574,9 +570,60 @@ async function main() {
     for (const q of parsed.quirks) console.log(`         - ${q}`);
   }
 
+  // --- dry-run mode: print all parsed blocks and exit -------------------
+  if (dryRun) {
+    console.log(`\n=== dry-run: ${parsed.blocks.length} parsed blocks ===`);
+    for (let i = 0; i < parsed.blocks.length; i++) {
+      const b = parsed.blocks[i];
+      console.log(`\npos=${i}`);
+      console.log(`  JA: ${b.ja.slice(0, 200)}${b.ja.length > 200 ? '…' : ''}`);
+      console.log(`  EN: ${b.en.slice(0, 200)}${b.en.length > 200 ? '…' : ''}`);
+      console.log(`  page=${b.page} blockIndex=${b.blockIndex} isHeading=${b.isHeading} zhDropped=${b.zhCharsDropped}`);
+    }
+    console.log(`\n=== dry-run summary ===`);
+    console.log(`pages:            ${parsed.totalPages}`);
+    console.log(`blocks_kept:      ${parsed.blocks.length}`);
+    console.log(`blocks_skipped:   ${parsed.skipped.length}`);
+    console.log(`zh_runs_dropped:  ${parsed.zhRunsDropped}`);
+    console.log(`zh_chars_dropped: ${parsed.zhCharsDropped}`);
+    process.exit(0);
+  }
+
+  // --- live import path below -------------------------------------------
+
   if (parsed.blocks.length === 0) {
     console.error('FATAL: no segments parsed; refusing to insert empty article.');
     process.exit(1);
+  }
+
+  const env = await loadEnv();
+  const url = env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url) {
+    console.error('FATAL: NEXT_PUBLIC_SUPABASE_URL missing from .env.local');
+    process.exit(1);
+  }
+  if (!key) {
+    console.error('FATAL: SUPABASE_SERVICE_ROLE_KEY missing from .env.local');
+    process.exit(1);
+  }
+  const sb = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  // Idempotency check
+  const { data: existing, error: lookupErr } = await sb
+    .from('articles')
+    .select('id, title')
+    .eq('title', title)
+    .maybeSingle();
+  if (lookupErr) {
+    console.error(`FATAL: lookup of existing article failed: ${lookupErr.message}`);
+    process.exit(1);
+  }
+  if (existing) {
+    console.log(`[skip] article "${title}" already imported (id=${(existing as { id: string }).id})`);
+    process.exit(0);
   }
 
   // Insert
