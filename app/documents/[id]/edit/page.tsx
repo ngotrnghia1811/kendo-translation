@@ -57,6 +57,7 @@ export default function EditPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [drawerTab, setDrawerTab] = useState<'history' | 'suggestions' | 'context' | 'comments'>('history');
   const [suggestionRefreshKey, setSuggestionRefreshKey] = useState(0);
   const [activity, setActivity] = useState<Map<string, ActivityRow>>(new Map());
 
@@ -341,13 +342,14 @@ export default function EditPage() {
                     {detailsOpen ? 'Hide details ▴' : 'Details ▾'}
                   </button>
                 </div>
-                {/* Cooperation drawer: phase advance + history + suggestions + agent + comments */}
+                {/* Cooperation drawer — tabbed: History / Suggestions / Context Builder / Comments */}
                 {detailsOpen && (
                   <div
                     data-testid="segment-details-drawer"
-                    className="space-y-4 border-t border-gray-200 pt-4 mt-2"
+                    className="border-t border-gray-200 pt-4 mt-2"
                   >
-                    <div className="flex items-center gap-2">
+                    {/* Always-visible: phase badge + advance button */}
+                    <div className="flex items-center gap-2 mb-3">
                       <PhaseBadge status={seg.status as SegmentStatus} />
                       <PhaseAdvanceButton
                         segmentId={seg.id}
@@ -366,62 +368,101 @@ export default function EditPage() {
                         }}
                       />
                     </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Phase History</p>
-                      <PhaseTransitionHistory segmentId={seg.id} />
+
+                    {/* Tab strip */}
+                    <div className="flex border-b border-gray-200 mb-4 gap-0" role="tablist">
+                      {(
+                        [
+                          { key: 'history',     label: 'History' },
+                          { key: 'suggestions', label: 'Suggestions' },
+                          { key: 'context',     label: 'Context Builder' },
+                          { key: 'comments',    label: 'Comments' },
+                        ] as const
+                      ).map(({ key, label }) => (
+                        <button
+                          key={key}
+                          role="tab"
+                          aria-selected={drawerTab === key}
+                          onClick={() => setDrawerTab(key)}
+                          className={`text-xs px-3 py-2 border-b-2 transition-colors whitespace-nowrap ${
+                            drawerTab === key
+                              ? 'border-indigo-500 text-indigo-700 font-semibold'
+                              : 'border-transparent text-gray-500 hover:text-gray-700'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
                     </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Suggestions</p>
-                      <SuggestionPanel
-                        key={`suggestions-${seg.id}-${suggestionRefreshKey}`}
-                        segmentId={seg.id}
-                        segmentPhase={seg.status}
-                        articleId={params.id}
-                        onAccepted={(text) => {
-                          // Stamp the editor with the accepted text and save
-                          // through the segment PATCH so the soft-lock contract
-                          // is preserved (suggestion PATCH does not touch
-                          // segments.target_text by design).
-                          setEditingText(text);
-                          void saveSegment(seg.id, text, seg.status as SegmentStatus === 'draft' ? 'translated' : seg.status as SegmentStatus);
-                          void refreshActivity();
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">QA Issues</p>
-                      <QAIssuesList segmentId={seg.id} articleId={params.id} />
-                    </div>
-                    {agentPhaseFor(seg.status as SegmentStatus) && (
-                      <>
-                        <div>
-                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Context Builder</p>
-                          <ContextBuilderPanel
-                            segmentId={seg.id}
-                            phase={agentPhaseFor(seg.status as SegmentStatus)! as ContextBuilderPhase}
-                            onSuggestionCreated={() => {
-                              setSuggestionRefreshKey(k => k + 1);
-                              void refreshActivity();
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Agent</p>
-                          <AgentSuggestionPanel
-                            segmentId={seg.id}
-                            phase={agentPhaseFor(seg.status as SegmentStatus)!}
-                            onCreated={() => {
-                              setSuggestionRefreshKey(k => k + 1);
-                              void refreshActivity();
-                            }}
-                          />
-                        </div>
-                      </>
+
+                    {/* Tab panels */}
+                    {drawerTab === 'history' && (
+                      <div role="tabpanel">
+                        <PhaseTransitionHistory segmentId={seg.id} />
+                      </div>
                     )}
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Comments</p>
-                      <CommentThread segmentId={seg.id} />
-                    </div>
+
+                    {drawerTab === 'suggestions' && (
+                      <div role="tabpanel" className="space-y-4">
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Suggestions</p>
+                          <SuggestionPanel
+                            key={`suggestions-${seg.id}-${suggestionRefreshKey}`}
+                            segmentId={seg.id}
+                            segmentPhase={seg.status}
+                            articleId={params.id}
+                            onAccepted={(text) => {
+                              setEditingText(text);
+                              void saveSegment(seg.id, text, seg.status as SegmentStatus === 'draft' ? 'translated' : seg.status as SegmentStatus);
+                              void refreshActivity();
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">QA Issues</p>
+                          <QAIssuesList segmentId={seg.id} articleId={params.id} />
+                        </div>
+                      </div>
+                    )}
+
+                    {drawerTab === 'context' && (
+                      <div role="tabpanel" className="space-y-4">
+                        {agentPhaseFor(seg.status as SegmentStatus) ? (
+                          <>
+                            <div>
+                              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">MAC-RAG Context Builder</p>
+                              <ContextBuilderPanel
+                                segmentId={seg.id}
+                                phase={agentPhaseFor(seg.status as SegmentStatus)! as ContextBuilderPhase}
+                                onSuggestionCreated={() => {
+                                  setSuggestionRefreshKey(k => k + 1);
+                                  void refreshActivity();
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Agent</p>
+                              <AgentSuggestionPanel
+                                segmentId={seg.id}
+                                phase={agentPhaseFor(seg.status as SegmentStatus)!}
+                                onCreated={() => {
+                                  setSuggestionRefreshKey(k => k + 1);
+                                  void refreshActivity();
+                                }}
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <p className="text-sm text-gray-400 italic">Context Builder is not available for QA-approved segments.</p>
+                        )}
+                      </div>
+                    )}
+
+                    {drawerTab === 'comments' && (
+                      <div role="tabpanel">
+                        <CommentThread segmentId={seg.id} />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
