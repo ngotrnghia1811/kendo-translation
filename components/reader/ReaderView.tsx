@@ -6,6 +6,7 @@ import type { Segment, DocumentSettings } from '@/types/database'
 import { useReaderView, type ReaderMode } from '@/hooks/useReaderView'
 import { useReaderTheme } from '@/hooks/useReaderTheme'
 import { useReaderBookmarks } from '@/hooks/useReaderBookmarks'
+import { useReaderKeyboard } from '@/hooks/useReaderKeyboard'
 import SingleLanguageView from './SingleLanguageView'
 import BilingualParagraphView from './BilingualParagraphView'
 import TranslatorAlignedView from './TranslatorAlignedView'
@@ -155,8 +156,18 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
     const [settingsOpen, setSettingsOpen] = useState(false)
     const [bookmarksOpen, setBookmarksOpen] = useState(false)
     const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [sidebarTab, setSidebarTab] = useState<'toc' | 'search'>('toc')
 
-    const closeAll = () => { setSettingsOpen(false); setBookmarksOpen(false); setSidebarOpen(false) }
+    const closeAll = useCallback(() => {
+        setSettingsOpen(false); setBookmarksOpen(false); setSidebarOpen(false)
+    }, [])
+
+    const openSearch = useCallback(() => {
+        setSidebarTab('search')
+        setSidebarOpen(true)
+        setSettingsOpen(false)
+        setBookmarksOpen(false)
+    }, [])
 
     const showPager = totalPages > 1
     const pageNoun = currentPage?.page !== null && currentPage?.page !== undefined ? 'Page' : 'Section'
@@ -204,6 +215,25 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
         contentRef.current?.scrollTo({ top: 0 })
     }, [currentPageIndex])
 
+    // -----------------------------------------------------------------------
+    // Keyboard shortcuts
+    // -----------------------------------------------------------------------
+    useReaderKeyboard({
+        onPrevPage: () => goToPage(currentPageIndex - 1),
+        onNextPage: () => goToPage(currentPageIndex + 1),
+        prevDisabled: currentPageIndex === 0,
+        nextDisabled: currentPageIndex >= totalPages - 1,
+        onCloseAll: closeAll,
+        anyPanelOpen: settingsOpen || bookmarksOpen || sidebarOpen,
+        onToggleBookmark: toggleBookmark,
+        onToggleSettings: () => {
+            setSettingsOpen((o) => !o)
+            setBookmarksOpen(false)
+            setSidebarOpen(false)
+        },
+        onOpenSearch: openSearch,
+    })
+
     return (
         <div
             className="flex flex-col"
@@ -221,6 +251,7 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                 currentPageIndex={currentPageIndex}
                 pageNoun={pageNoun}
                 onGoToPage={(i) => { goToPage(i); setSidebarOpen(false) }}
+                initialTab={sidebarTab}
             />
 
             {/* ----------------------------------------------------------------
@@ -262,9 +293,9 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                             {/* Sidebar (Contents / Search) button */}
                             <ToolbarButton
                                 active={sidebarOpen}
-                                onClick={() => { setSidebarOpen((o) => !o); setSettingsOpen(false); setBookmarksOpen(false) }}
+                                onClick={() => { setSidebarTab('toc'); setSidebarOpen((o) => !o); setSettingsOpen(false); setBookmarksOpen(false) }}
                                 ariaLabel="Open document sidebar (contents and search)"
-                                title="Contents & Search"
+                                title="Contents & Search (press / to search)"
                             >
                                 <BookOpenIcon />
                             </ToolbarButton>

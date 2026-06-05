@@ -25,6 +25,8 @@ interface SearchResult {
     matchIn: 'source' | 'target' | 'both'
 }
 
+type SidebarTab = 'toc' | 'search'
+
 interface ReaderSidebarProps {
     open: boolean
     onClose: () => void
@@ -33,6 +35,8 @@ interface ReaderSidebarProps {
     currentPageIndex: number
     pageNoun: string
     onGoToPage: (index: number) => void
+    /** Which tab to show when opened. Defaults to 'toc'. */
+    initialTab?: SidebarTab
 }
 
 // ---------------------------------------------------------------------------
@@ -294,8 +298,6 @@ function SearchTab({
 // Main component
 // ---------------------------------------------------------------------------
 
-type SidebarTab = 'toc' | 'search'
-
 export default function ReaderSidebar({
     open,
     onClose,
@@ -303,9 +305,16 @@ export default function ReaderSidebar({
     currentPageIndex,
     pageNoun,
     onGoToPage,
+    initialTab = 'toc',
 }: ReaderSidebarProps) {
-    const [activeTab, setActiveTab] = useState<SidebarTab>('toc')
+    const [activeTab, setActiveTab] = useState<SidebarTab>(initialTab)
     const sidebarRef = useRef<HTMLDivElement | null>(null)
+
+    // Sync active tab whenever the sidebar is newly opened with a specific initialTab
+    useEffect(() => {
+        if (open) setActiveTab(initialTab)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open])
 
     // Close on Escape
     useEffect(() => {
