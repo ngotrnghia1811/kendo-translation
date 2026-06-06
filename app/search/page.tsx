@@ -57,9 +57,23 @@ export default function SearchPage() {
     const [results, setResults] = useState<SearchResponse | null>(null)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [userRole, setUserRole] = useState<'admin' | 'translator' | 'reader' | null>(null)
 
     const inputRef = useRef<HTMLInputElement>(null)
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    // Fetch user role to show "Edit" links for translator/admin.
+    useEffect(() => {
+        fetch('/api/auth/me')
+            .then(r => r.json())
+            .then((d: { profile?: { role?: string } }) => {
+                const role = d.profile?.role
+                if (role === 'admin' || role === 'translator' || role === 'reader') {
+                    setUserRole(role)
+                }
+            })
+            .catch(() => null)
+    }, [])
 
     const doSearch = useCallback(async (q: string, sc: Scope) => {
         if (q.trim().length < 2) {
@@ -289,6 +303,18 @@ export default function SearchPage() {
                                             </p>
                                         )}
                                     </Link>
+                                    {/* Edit link for translators/admins */}
+                                    {(userRole === 'admin' || userRole === 'translator') && (
+                                        <div className="px-4 pb-3 -mt-1">
+                                            <Link
+                                                href={`/documents/${s.article_id}/edit`}
+                                                className="text-[11px] text-indigo-500 hover:text-indigo-700 hover:underline font-medium"
+                                                onClick={e => e.stopPropagation()}
+                                            >
+                                                Edit →
+                                            </Link>
+                                        </div>
+                                    )}
                                 </li>
                             ))}
                         </ul>

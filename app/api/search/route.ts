@@ -93,13 +93,36 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             return NextResponse.json({ error: aErr.message }, { status: 500 })
         }
 
-        for (const a of articles ?? []) {
-            articleHits.push({
-                id: a.id,
-                title: a.title,
-                segment_count: a.segment_count ?? 0,
-                snippet: null, // articles don't have a single text body
-            })
+        // For each matching article, grab its first translated/qa_approved segment
+        // as a snippet so users can preview the content.
+        const articleList = articles ?? []
+        if (articleList.length > 0) {
+            const articleIds = articleList.map(a => a.id)
+            // Fetch one representative target_text segment per article.
+            const { data: snippetRows } = await supabase
+                .from('segments')
+                .select('article_id, target_text')
+                .in('article_id', articleIds)
+                .in('status', ['translated', 'edited', 'proofread', 'qa_approved'])
+                .not('target_text', 'is', null)
+                .order('position', { ascending: true })
+                .limit(articleIds.length * 3) // grab a few per article, dedupe below
+
+            const snippetMap = new Map<string, string>()
+            for (const row of snippetRows ?? []) {
+                if (!snippetMap.has(row.article_id) && row.target_text) {
+                    snippetMap.set(row.article_id, row.target_text)
+                }
+            }
+
+            for (const a of articleList) {
+                articleHits.push({
+                    id: a.id,
+                    title: a.title,
+                    segment_count: a.segment_count ?? 0,
+                    snippet: truncate(snippetMap.get(a.id) ?? null),
+                })
+            }
         }
     }
 
