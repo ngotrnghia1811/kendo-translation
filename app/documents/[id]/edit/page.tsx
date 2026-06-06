@@ -411,6 +411,7 @@ export default function EditPage() {
                             segmentId={seg.id}
                             segmentPhase={seg.status}
                             articleId={params.id}
+                            segmentCurrentText={seg.target_text ?? ''}
                             onAccepted={(text) => {
                               setEditingText(text);
                               void saveSegment(seg.id, text, seg.status as SegmentStatus === 'draft' ? 'translated' : seg.status as SegmentStatus);

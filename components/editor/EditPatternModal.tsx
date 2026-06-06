@@ -22,13 +22,24 @@ export interface EditPatternData {
 interface EditPatternModalProps {
     onConfirm: (data: EditPatternData | null) => void
     onCancel: () => void
+    /** Pre-fill the before-phrase field from a client-side diff suggestion. */
+    initialBeforePhrase?: string
+    /** Pre-fill the after-phrase field from a client-side diff suggestion. */
+    initialAfterPhrase?: string
 }
 
-export function EditPatternModal({ onConfirm, onCancel }: EditPatternModalProps) {
-    const [before, setBefore] = useState('')
-    const [after, setAfter] = useState('')
+export function EditPatternModal({
+    onConfirm,
+    onCancel,
+    initialBeforePhrase,
+    initialAfterPhrase,
+}: EditPatternModalProps) {
+    const [before, setBefore] = useState(initialBeforePhrase ?? '')
+    const [after, setAfter] = useState(initialAfterPhrase ?? '')
     const [rationale, setRationale] = useState('')
     const [error, setError] = useState<string | null>(null)
+
+    const hasInitialSuggestion = !!(initialBeforePhrase && initialAfterPhrase)
 
     function handleSave() {
         const hasBefore = before.trim().length > 0
@@ -66,6 +77,12 @@ export function EditPatternModal({ onConfirm, onCancel }: EditPatternModalProps)
                     Describe what was changed so this pattern can be reused by the
                     agent in future edits.
                 </p>
+
+                {hasInitialSuggestion && (
+                    <p className="mb-3 text-xs text-indigo-600 bg-indigo-50 rounded-md px-3 py-2">
+                        Auto-suggested from text diff — edit if needed.
+                    </p>
+                )}
 
                 <div className="space-y-3">
                     <div>

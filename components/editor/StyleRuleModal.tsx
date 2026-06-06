@@ -61,9 +61,11 @@ export function StyleRuleModal({ articleId, onConfirm, onSkip, onCancel }: Style
             return
         }
 
-        // Compute scope_ref: article-level scoping uses articleId; global has no ref.
+        // Compute scope_ref: article- and document-level scoping both use
+        // articleId (documents and articles are 1:1 in this app).
+        // Global scope has no ref.
         let scopeRef: string | null = null
-        if (scope === 'article' && articleId) {
+        if ((scope === 'article' || scope === 'document') && articleId) {
             scopeRef = articleId
         }
 
@@ -107,9 +109,9 @@ export function StyleRuleModal({ articleId, onConfirm, onSkip, onCancel }: Style
                                 </option>
                             ))}
                         </select>
-                        {scope === 'article' && !articleId && (
+                        {(scope === 'article' || scope === 'document') && !articleId && (
                             <p className="mt-1 text-xs text-amber-600">
-                                Article ID not available — rule will be saved without article anchor.
+                                Article ID not available — rule will be saved without article/document anchor.
                             </p>
                         )}
                     </div>

@@ -37,6 +37,9 @@ interface SuggestionPanelProps {
      * when scope='article' the style_guide row is anchored via scope_ref.
      */
     articleId?: string | null
+    /** The segment's current target_text (before applying the suggestion).
+     *  Used to compute a before/after diff suggestion for the EditPatternModal. */
+    segmentCurrentText?: string
     onAccepted?: (proposedText: string, row: SuggestionRow) => void
 }
 
@@ -65,10 +68,50 @@ const KIND_CLASS: Record<string, string> = {
     agent: 'bg-violet-50 text-violet-700 ring-violet-200',
 }
 
+/**
+ * Compute a suggested before/after phrase pair by comparing the old and
+ * new text word-by-word. Returns null when texts are identical, the diff
+ * is too large (>20 words), or either phrase would be empty.
+ */
+function computeEditPhraseSuggestion(
+    before: string,
+    after: string
+): { beforePhrase: string; afterPhrase: string } | null {
+    const bWords = before.split(/\s+/).filter(Boolean)
+    const aWords = after.split(/\s+/).filter(Boolean)
+
+    let first = 0
+    while (
+        first < bWords.length &&
+        first < aWords.length &&
+        bWords[first] === aWords[first]
+    ) {
+        first++
+    }
+
+    if (first >= bWords.length && first >= aWords.length) return null // identical
+
+    let bLast = bWords.length - 1
+    let aLast = aWords.length - 1
+    while (bLast > first && aLast > first && bWords[bLast] === aWords[aLast]) {
+        bLast--
+        aLast--
+    }
+
+    const bPhrase = bWords.slice(first, bLast + 1).join(' ').trim()
+    const aPhrase = aWords.slice(first, aLast + 1).join(' ').trim()
+
+    if (!bPhrase || !aPhrase) return null
+    if (bWords.slice(first, bLast + 1).length > 20) return null
+
+    return { beforePhrase: bPhrase, afterPhrase: aPhrase }
+}
+
 export function SuggestionPanel({
     segmentId,
     segmentPhase,
     articleId,
+    segmentCurrentText,
     onAccepted,
 }: SuggestionPanelProps) {
     const { suggestions, loading, error, accept, reject } = useSuggestions(
@@ -84,6 +127,14 @@ export function SuggestionPanel({
      *  Displayed as a banner below the suggestions list. */
     const [lastMemory, setLastMemory] = useState<MemoryWriteResult | null>(null)
 
+    /** Client-side diff suggestion for pre-populating EditPatternModal
+     *  fields. Set when the user clicks Accept on a translated-phase
+     *  segment; cleared when the modal is dismissed. */
+    const [editPhraseSuggestion, setEditPhraseSuggestion] = useState<{
+        beforePhrase: string
+        afterPhrase: string
+    } | null>(null)
+
     /** Start accept flow: if the segment phase warrants a metadata modal,
      *  show it; otherwise accept immediately.
      *  Clears any previous memory banner. */
@@ -91,6 +142,13 @@ export function SuggestionPanel({
         setLastMemory(null)
         if (segmentPhase === 'translated') {
             setPendingAcceptRow(row)
+            // Compute before/after diff suggestion from the current segment
+            // text vs. the proposed text to pre-populate EditPatternModal.
+            const suggestion = computeEditPhraseSuggestion(
+                segmentCurrentText ?? '',
+                row.proposed_text
+            )
+            setEditPhraseSuggestion(suggestion)
             return
         }
         if (segmentPhase === 'edited') {
@@ -126,6 +184,7 @@ export function SuggestionPanel({
 
     function handleEditPatternCancel() {
         setPendingAcceptRow(null)
+        setEditPhraseSuggestion(null)
     }
 
     /** StyleRuleModal: user saved a rule. */
@@ -249,6 +308,8 @@ export function SuggestionPanel({
                 <EditPatternModal
                     onConfirm={handleEditPatternConfirm}
                     onCancel={handleEditPatternCancel}
+                    initialBeforePhrase={editPhraseSuggestion?.beforePhrase}
+                    initialAfterPhrase={editPhraseSuggestion?.afterPhrase}
                 />
             )}
 
