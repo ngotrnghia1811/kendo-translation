@@ -210,9 +210,19 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [totalPages])
 
-    // Persist every page navigation.
+    // Persist every page navigation — but skip the very first render.
+    // On first mount currentPageIndex is always 0; persisting immediately would
+    // overwrite a saved non-zero page before the restore effect can jump to it.
+    // We skip the first fire by checking whether the pager has been interacted
+    // with (totalPages was already > 1 AND we have already restored once).
+    const persistSkipFirstRef = useRef(true)
     useEffect(() => {
         if (totalPages <= 1) return
+        if (persistSkipFirstRef.current) {
+            // Skip exactly once — the initial render at page index 0.
+            persistSkipFirstRef.current = false
+            return
+        }
         const label = currentPage?.label ?? String(currentPageIndex + 1)
         persistPage(currentPageIndex, label)
     }, [currentPageIndex, currentPage, totalPages, persistPage])

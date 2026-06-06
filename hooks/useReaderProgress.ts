@@ -63,12 +63,27 @@ export function useReaderProgress(articleId: string | undefined | null): UseRead
     // We intentionally do NOT store savedPageIndex in state — callers only need
     // it once (on mount) to restore position. We use a ref so it doesn't cause
     // re-renders.
-    const savedRef = useRef<number | null>(null)
+    //
+    // IMPORTANT: We read localStorage synchronously in the ref initialiser (not
+    // in a useEffect) so that savedPageIndex is available before the first
+    // useEffect([totalPages]) fires in ReaderView. If we used useEffect here
+    // there is a race: the restore-page effect could run before this effect
+    // has had a chance to populate the ref, leaving savedPageIndex as null.
+    const savedRef = useRef<number | null>(
+        (() => {
+            if (!articleId || typeof window === 'undefined') return null
+            const record = readRecord(articleId)
+            return record && record.pageIndex > 0 ? record.pageIndex : null
+        })()
+    )
 
+    // Keep the ref in sync when articleId changes (e.g. navigating between docs).
     useEffect(() => {
-        if (!articleId) return
+        if (!articleId) {
+            savedRef.current = null
+            return
+        }
         const record = readRecord(articleId)
-        // Treat page 0 as "not interesting" — no need to ask the user to resume.
         savedRef.current = record && record.pageIndex > 0 ? record.pageIndex : null
     }, [articleId])
 

@@ -42,27 +42,61 @@ function authDir(): string {
 }
 
 /**
- * Remove any *.json files left over from a previous run. Stale auth state
- * silently masks login failures (tests opt into a storageState path and
- * happily reuse an old cookie set), making global-setup failures invisible.
- * Clearing up-front means every run produces a faithful pass/fail signal.
+ * Remove *.json auth-state files left over from a **previous** run.
+ *
+ * We keep any file created/modified within the last FRESH_WINDOW_MS so that
+ * a partially-successful setup run doesn't wipe auth files that were just
+ * written during the same run (or a run that completed only minutes ago).
+ * This prevents Supabase rate-limit cascades where only the first 1-2 logins
+ * succeed and subsequent runs can reuse those fresh tokens.
+ *
+ * Files older than FRESH_WINDOW_MS are still removed so stale cookies don't
+ * silently mask real login failures on the next full run.
  */
+const FRESH_WINDOW_MS = 10 * 60 * 1000 // 10 minutes
+
 function clearStaleAuthState(): void {
     const dir = authDir()
+    const now = Date.now()
     let cleared = 0
+    let kept = 0
     for (const entry of fs.readdirSync(dir)) {
-        if (entry.endsWith('.json')) {
-            fs.rmSync(path.join(dir, entry), { force: true })
+        if (!entry.endsWith('.json')) continue
+        const filePath = path.join(dir, entry)
+        const { mtimeMs } = fs.statSync(filePath)
+        if (now - mtimeMs > FRESH_WINDOW_MS) {
+            fs.rmSync(filePath, { force: true })
             cleared++
+        } else {
+            kept++
         }
     }
-    console.log(`[global-setup] Cleared ${cleared} stale auth state file(s) from ${dir}`)
+    if (cleared > 0 || kept > 0) {
+        console.log(
+            `[global-setup] Cleared ${cleared} stale auth state file(s) from ${dir}` +
+            (kept > 0 ? ` (kept ${kept} fresh file(s) < 10 min old)` : ''),
+        )
+    } else {
+        console.log(`[global-setup] No stale auth state files in ${dir}`)
+    }
 }
 
 async function loginAndSaveState(
     baseURL: string,
     creds: RoleCreds,
 ): Promise<boolean> {
+    // If a fresh auth file already exists for this role, reuse it.
+    const statePath = path.join(authDir(), `${creds.role}.json`)
+    if (fs.existsSync(statePath)) {
+        const { mtimeMs } = fs.statSync(statePath)
+        if (Date.now() - mtimeMs <= FRESH_WINDOW_MS) {
+            console.log(
+                `[global-setup] ↩ Reusing fresh auth state for ${creds.role} (${creds.email})`,
+            )
+            return true
+        }
+    }
+
     const browser = await firefox.launch({ headless: true })
     const context = await browser.newContext()
     const page = await context.newPage()
@@ -92,7 +126,6 @@ async function loginAndSaveState(
         // Supabase client (synchronous in current versions, but defensive).
         await page.waitForTimeout(500)
 
-        const statePath = path.join(authDir(), `${creds.role}.json`)
         await context.storageState({ path: statePath })
         console.log(`[global-setup] ✓ Saved auth state for ${creds.role} (${creds.email}) → ${statePath}`)
         return true
@@ -116,12 +149,11 @@ async function globalSetup(config: FullConfig): Promise<void> {
 
     clearStaleAuthState()
 
-    for (const creds of ROLES) {
-        await loginAndSaveState(baseURL, creds)
-        // Brief pause between sequential logins to avoid Supabase rate-limiting
-        // the /auth/v1/token endpoint (seen as 15 s timeout on the 3rd login).
-        await new Promise((r) => setTimeout(r, 5_000))
-    }
+    // Run all logins in parallel — each role gets its own browser instance.
+    // This avoids sequential Supabase rate-limiting (seen as 30s timeouts on
+    // the 3rd/4th login when run serially even with a 5s pause between them).
+    // Roles that already have a fresh auth file are skipped immediately.
+    await Promise.all(ROLES.map((creds) => loginAndSaveState(baseURL, creds)))
 }
 
 export default globalSetup
