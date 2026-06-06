@@ -68,6 +68,13 @@ export function SiteNav() {
             >
                 Terminology
             </Link>
+            <Link
+                href="/search"
+                className={`hover:text-gray-900 transition-colors ${pathname.startsWith('/search') ? 'text-gray-900 font-semibold' : 'text-gray-500'}`}
+                onClick={() => setMobileMenuOpen(false)}
+            >
+                Search
+            </Link>
             {profile?.role === 'admin' && (
                 <Link
                     href="/admin"
@@ -96,6 +103,18 @@ export function SiteNav() {
 
                 {/* Right section */}
                 <div className="flex items-center gap-3">
+                    {/* Search icon — links to /search */}
+                    <Link
+                        href="/search"
+                        className={`p-1.5 rounded-md transition-colors ${pathname.startsWith('/search') ? 'text-indigo-600 bg-indigo-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+                        title="Search"
+                        aria-label="Search"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </Link>
+
                     {/* Profile — desktop */}
                     {profile ? (
                         <Link
