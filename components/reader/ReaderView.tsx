@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import type { Segment, DocumentSettings } from '@/types/database'
-import { useReaderView, type ReaderMode } from '@/hooks/useReaderView'
+import { useReaderView, type ReaderMode, type ZhSegmentRow } from '@/hooks/useReaderView'
 import { useReaderTheme } from '@/hooks/useReaderTheme'
 import { useReaderBookmarks } from '@/hooks/useReaderBookmarks'
 import { useReaderKeyboard } from '@/hooks/useReaderKeyboard'
@@ -18,6 +18,8 @@ import ReaderSidebar from './ReaderSidebar'
 
 interface ReaderViewProps {
     segments: Segment[]
+    /** Optional ZH (Traditional Chinese) segment overlays. When present, a ZH toggle appears. */
+    zhSegments?: ZhSegmentRow[]
     settings: DocumentSettings | null
     title: string
     articleId: string
@@ -122,23 +124,27 @@ function ToolbarButton({
 // Main component
 // ---------------------------------------------------------------------------
 
-export default function ReaderView({ segments, settings, title, articleId, canEdit, pairedPdfPath }: ReaderViewProps) {
+export default function ReaderView({ segments, zhSegments, settings, title, articleId, canEdit, pairedPdfPath }: ReaderViewProps) {
     const {
         mode,
         setMode,
         displayLang,
         setDisplayLang,
+        targetLangChoice,
+        setTargetLangChoice,
+        hasZh,
         sourceLang,
         targetLang,
         paragraphs,
         pageSegments,
         getParagraphText,
+        zhByPosition,
         currentPage,
         currentPageIndex,
         totalPages,
         goToPage,
         pages,
-    } = useReaderView(segments, settings)
+    } = useReaderView(segments, settings, zhSegments)
 
     const {
         theme,
@@ -450,6 +456,33 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                         </div>
 
                         <div className="flex items-center gap-3">
+                            {/* ZH / EN toggle — shown when ZH data is available for this document */}
+                            {hasZh && mode !== 'pdf' && (
+                                <div
+                                    className="flex items-center rounded-lg overflow-hidden text-xs font-medium"
+                                    style={{ border: '1px solid var(--rt-border)' }}
+                                    title="Toggle target language between English and Traditional Chinese"
+                                >
+                                    {(['en', 'zh'] as const).map((lang) => (
+                                        <button
+                                            key={lang}
+                                            type="button"
+                                            onClick={() => setTargetLangChoice(lang)}
+                                            className="px-2.5 py-1 transition-colors"
+                                            style={targetLangChoice === lang ? {
+                                                backgroundColor: '#3b82f6',
+                                                color: '#fff',
+                                            } : {
+                                                backgroundColor: 'var(--rt-surface)',
+                                                color: 'var(--rt-text-muted)',
+                                            }}
+                                        >
+                                            {lang === 'en' ? 'EN' : '中文'}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
                             {mode === 'single' && (
                                 <div className="flex items-center gap-2">
                                     <span className="text-xs" style={{ color: 'var(--rt-text-muted)' }}>Display:</span>
@@ -464,7 +497,9 @@ export default function ReaderView({ segments, settings, title, articleId, canEd
                                         }}
                                     >
                                         <option value="source">{sourceLang.toUpperCase()} (Source)</option>
-                                        <option value="target">{targetLang.toUpperCase()} (Target)</option>
+                                        <option value="target">
+                                            {targetLangChoice === 'zh' ? 'ZH' : targetLang.toUpperCase()} (Target)
+                                        </option>
                                     </select>
                                 </div>
                             )}

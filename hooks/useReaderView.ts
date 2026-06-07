@@ -36,12 +36,36 @@ function groupParagraphs(ordered: Segment[], boundaries: Set<number>): Paragraph
     return result
 }
 
-export function useReaderView(segments: Segment[], settings: DocumentSettings | null) {
+/** Minimal shape of a ZH segment row fetched from the server. */
+export interface ZhSegmentRow {
+    id: string
+    position: number
+    target_text: string | null
+    status: string
+}
+
+export function useReaderView(
+    segments: Segment[],
+    settings: DocumentSettings | null,
+    zhSegments?: ZhSegmentRow[],
+) {
     const [mode, setMode] = useState<ReaderMode>('single')
     const [displayLang, setDisplayLang] = useState<'source' | 'target'>('target')
+    // 'zh' choice only available when zhSegments are provided
+    const [targetLangChoice, setTargetLangChoice] = useState<'en' | 'zh'>('en')
     const [currentPageIndex, setCurrentPageIndex] = useState(0)
     const sourceLang = settings?.source_lang || 'ja'
     const targetLang = settings?.target_lang || 'en'
+
+    // Build position→ZH text lookup for O(1) access per segment
+    const zhByPosition = useMemo<Map<number, string>>(() => {
+        if (!zhSegments?.length) return new Map()
+        return new Map(
+            zhSegments
+                .filter((s) => s.target_text)
+                .map((s) => [s.position, s.target_text!])
+        )
+    }, [zhSegments])
 
     // Partition the document into pages, then merge each page's segments into
     // paragraphs. Long imported books (3k–29k segments) otherwise render as a
@@ -106,26 +130,38 @@ export function useReaderView(segments: Segment[], settings: DocumentSettings | 
 
     // Get merged text for a paragraph
     const getParagraphText = (paragraph: Paragraph, lang: 'source' | 'target'): string => {
-        const langCode = lang === 'source' ? sourceLang : targetLang
+        const langCode = lang === 'source' ? sourceLang
+            : targetLangChoice === 'zh' ? 'zh'
+            : targetLang
         // CJK languages (Japanese, Chinese) do not use spaces between sentences.
         // All other languages default to a single space joiner.
         const joiner = /^(ja|zh|ko)/.test(langCode ?? '') ? '' : ' '
         return paragraph.segments
-            .map(s => lang === 'source' ? s.source_text : (s.target_text || ''))
+            .map(s => {
+                if (lang === 'source') return s.source_text
+                if (targetLangChoice === 'zh') return zhByPosition.get(s.position) ?? ''
+                return s.target_text || ''
+            })
             .filter(Boolean)
             .join(joiner)
     }
+
+    const hasZh = (zhSegments?.length ?? 0) > 0
 
     return {
         mode,
         setMode,
         displayLang,
         setDisplayLang,
+        targetLangChoice,
+        setTargetLangChoice,
+        hasZh,
         sourceLang,
         targetLang,
         paragraphs,
         pageSegments,
         getParagraphText,
+        zhByPosition,
         // Pagination
         pages,
         currentPage,

@@ -38,22 +38,24 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
   // contract in JS below: only segments that are qa_approved OR already have
   // target_text are exposed to the public reader. If we want a configurable
   // status filter later, it should live in document_settings.
-  const { data: segments } = await supabase
-    .from('segments')
-    .select('*')
-    .eq('article_id', id)
-    .order('position');
-
-  const { data: settings } = await supabase
-    .from('document_settings')
-    .select('*')
-    .eq('article_id', id)
-    .maybeSingle();
+  //
+  // We fetch EN and ZH segments in parallel. EN segments are the primary lane
+  // (target_lang = 'en'). ZH segments are fetched separately and passed as an
+  // optional overlay — the reader can toggle between EN and ZH target text.
+  const [{ data: segments }, { data: zhSegmentsRaw }, { data: settings }] = await Promise.all([
+    supabase.from('segments').select('*').eq('article_id', id).eq('target_lang', 'en').order('position'),
+    supabase.from('segments').select('id, position, target_text, status').eq('article_id', id).eq('target_lang', 'zh').order('position'),
+    supabase.from('document_settings').select('*').eq('article_id', id).maybeSingle(),
+  ]);
 
   // Readers see approved segments or any segment with a populated translation.
   const readableSegments = (segments || []).filter(
     (s) => s.status === 'qa_approved' || s.target_text
   );
+
+  // ZH segments — expose all that have target_text (status may be 'draft' for
+  // machine-translated ZH content, but we still want to show it).
+  const zhSegments = (zhSegmentsRaw || []).filter((s) => s.target_text);
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
@@ -99,6 +101,7 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
       ) : (
         <ReaderView
           segments={readableSegments}
+          zhSegments={zhSegments.length > 0 ? zhSegments : undefined}
           settings={settings ?? null}
           title={article.title}
           articleId={id}

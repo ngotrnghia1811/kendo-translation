@@ -60,6 +60,7 @@ export default function EditPage() {
   const [drawerTab, setDrawerTab] = useState<'history' | 'suggestions' | 'context' | 'comments'>('history');
   const [suggestionRefreshKey, setSuggestionRefreshKey] = useState(0);
   const [activity, setActivity] = useState<Map<string, ActivityRow>>(new Map());
+  const [targetLang, setTargetLang] = useState<'en' | 'zh'>('en');
 
   const refreshActivity = useCallback(async () => {
     try {
@@ -78,24 +79,24 @@ export default function EditPage() {
     setLoading(true);
     const [{ data: art }, { data: segs }] = await Promise.all([
       supabase.from('articles').select('id,title').eq('id', params.id).single(),
-      supabase.from('segments').select('*').eq('article_id', params.id).order('position'),
+      supabase.from('segments').select('*').eq('article_id', params.id).eq('target_lang', targetLang).order('position'),
     ]);
     if (art) setArticle(art as { id: string; title: string });
     if (segs) setSegments(segs as Segment[]);
     setLoading(false);
     void refreshActivity();
-  }, [params.id, refreshActivity]);
+  }, [params.id, refreshActivity, targetLang]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
   useEffect(() => {
     const channel = supabase
-      .channel(`segments:${params.id}`)
+      .channel(`segments:${params.id}:${targetLang}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'segments',
-        filter: `article_id=eq.${params.id}`,
+        filter: `and(article_id=eq.${params.id},target_lang=eq.${targetLang})`,
       }, (payload) => {
         if (payload.eventType === 'UPDATE') {
           setSegments(prev =>
@@ -106,7 +107,7 @@ export default function EditPage() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [params.id]);
+  }, [params.id, targetLang]);
 
   const selectSegment = async (seg: Segment) => {
     if (activeSegment && activeSegment !== seg.id) {
@@ -177,6 +178,35 @@ export default function EditPage() {
             <Link href="/documents" className="text-gray-400 hover:text-gray-600 transition-colors text-sm">← Docs</Link>
             <span className="text-gray-300">/</span>
             <span className="text-sm font-medium text-gray-900 truncate">{article?.title}</span>
+            <div className="flex items-center gap-1.5 ml-2" data-testid="lang-switcher">
+              <button
+                onClick={() => setTargetLang('en')}
+                data-testid="lang-tab-en"
+                className={`text-xs px-2 py-0.5 rounded transition-colors font-medium ${
+                  targetLang === 'en'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                EN
+              </button>
+              <button
+                onClick={() => setTargetLang('zh')}
+                data-testid="lang-tab-zh"
+                className={`text-xs px-2 py-0.5 rounded transition-colors font-medium ${
+                  targetLang === 'zh'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                ZH
+              </button>
+              {targetLang === 'zh' && (
+                <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium">
+                  ZH — draft segments
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-4 text-sm text-gray-500 shrink-0">
             <span>{stats.translated}/{stats.total} translated</span>
