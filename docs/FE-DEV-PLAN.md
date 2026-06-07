@@ -1,5 +1,5 @@
 # Frontend Development Plan
-**Last updated:** 2026-06-07 (all FE sprint items shipped; plan refreshed)  
+**Last updated:** 2026-06-07 (all FE sprint items shipped; ZH TM seeded — 198,582 JA→ZH rows)  
 **Current HEAD:** `origin/main @ a359424`  
 **Maintained by:** FE lane (aki-main session)
 
@@ -96,6 +96,7 @@ must review and accept it before text changes.
 | Supabase migration 006 (paired_pdf_path) | `ecfc927` | `articles.paired_pdf_path TEXT` |
 | Supabase migration 007 (zh_terminology) | `c08bc34` | `terminology.zh_notes TEXT`; unique(article_id, position, target_lang) |
 | Supabase migration 008 (publish_filter) | `90a23a8` | `document_settings.publish_filter TEXT DEFAULT 'any_translated'` |
+| ZH TM seeding | `eeb6b01` | 198,582 JA→ZH rows in `translation_memory`; `targetLang` filter in TM search |
 
 ---
 
@@ -112,7 +113,7 @@ These are ideas surfaced during development but not yet prioritised:
 | Item | Priority | Notes |
 |---|---|---|
 | Segment filtering in editor (URL-param synced) | MEDIUM | `?status=draft&q=kiai` filter bar in TranslationEditor; was partly done at ReaderSidebar level |
-| ZH smoke test in Playwright | LOW | Add reader screenshot test using a ZH-segmented article |
+| ZH smoke test in Playwright | LOW | Add reader screenshot test using a ZH-segmented article (ZH data now in DB) |
 | Dark-mode consistency on admin pages | LOW | Admin pages use `dark:` classes inconsistently vs `--rt-*` vars |
 | SiteNav suppress on new page types | LOW | Confirm no new routes need suppression |
 | Editor phone-block banner | LOW | Redirect to reader view on `< md` screens |
@@ -130,7 +131,7 @@ These are ideas surfaced during development but not yet prioritised:
 | Item | Priority | Notes |
 |---|---|---|
 | Playwright: global-setup rate-limit hardening | DONE ✅ | Parallel logins + fresh-file skip (commit `52f20e1`) |
-| ZH view smoke test | LOW | When a ZH doc is imported, add a reader screenshot test for it |
+| ZH TM seeding | DONE ✅ | 198,582 JA→ZH TM rows + targetLang filter (commit `eeb6b01`) |
 | `ARCHITECTURE.md` §12 debt entry | LOW | Drop the "reader may not reflect new data model" stale bullet |
 | SiteNav: suppress on more page types | LOW | Currently suppressed on `/`, `/login`, `/register`, `/documents/[id]/*`; check new routes |
 | Dark-mode on admin pages | LOW | Admin pages use Tailwind `dark:` classes inconsistently |
