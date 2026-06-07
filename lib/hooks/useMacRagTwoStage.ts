@@ -28,11 +28,18 @@ import { useState } from 'react';
 
 // ── Response types (match the API route return shapes) ────────────────
 
+export interface ComposeRequest {
+  segment_id: string;
+  phase: string;
+  target_lang?: 'en' | 'zh';
+}
+
 export interface ComposeResult {
   segment_id: string;
   phase: string;
   source_text: string;
   target_text: string | null;
+  target_lang?: string;
   prompt: { system: string; user: string };
   tm_matches: Array<{
     id: string;
@@ -118,6 +125,7 @@ export function useMacRagTwoStage() {
   async function compose(
     segmentId: string,
     phase: string,
+    targetLang?: 'en' | 'zh',
   ): Promise<ComposeResult> {
     setComposing(true);
     setError(null);
@@ -125,7 +133,7 @@ export function useMacRagTwoStage() {
       const response = await fetch('/api/mac-rag/compose', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ segment_id: segmentId, phase }),
+        body: JSON.stringify({ segment_id: segmentId, phase, target_lang: targetLang }),
       });
       if (!response.ok) {
         const body = await response.json();

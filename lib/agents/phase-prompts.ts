@@ -22,29 +22,36 @@ function joinRules(extra: string[]): string {
   return [...COMMON_RULES, ...extra].join('\n');
 }
 
-export function translatePrompt(sourceText: string): { system: string; user: string } {
+function langLabel(lang: 'en' | 'zh'): string {
+  return lang === 'zh' ? 'Chinese' : 'English';
+}
+
+export function translatePrompt(sourceText: string, targetLang?: 'en' | 'zh'): { system: string; user: string } {
+  const label = langLabel(targetLang ?? 'en');
   const system = joinRules([
-    'Task: produce an initial English translation of the Japanese source segment below.',
+    `Task: produce an initial ${label} translation of the Japanese source segment below.`,
   ]);
   const user = `Japanese source:\n${sourceText}`;
   return { system, user };
 }
 
-export function editPrompt(sourceText: string, currentTarget: string): { system: string; user: string } {
+export function editPrompt(sourceText: string, currentTarget: string, targetLang?: 'en' | 'zh'): { system: string; user: string } {
+  const label = langLabel(targetLang ?? 'en');
   const system = joinRules([
-    'Task: edit the existing English translation for accuracy and fluency against the Japanese source.',
+    `Task: edit the existing ${label} translation for accuracy and fluency against the Japanese source.`,
     'Make corrections where meaning, terminology, or grammar are off; leave well-translated portions intact.',
   ]);
-  const user = `Japanese source:\n${sourceText}\n\nCurrent English translation:\n${currentTarget}`;
+  const user = `Japanese source:\n${sourceText}\n\nCurrent ${label} translation:\n${currentTarget}`;
   return { system, user };
 }
 
-export function proofreadPrompt(sourceText: string, currentTarget: string): { system: string; user: string } {
+export function proofreadPrompt(sourceText: string, currentTarget: string, targetLang?: 'en' | 'zh'): { system: string; user: string } {
+  const label = langLabel(targetLang ?? 'en');
   const system = joinRules([
-    'Task: proofread the English translation for surface polish — punctuation, typography, capitalization, consistency, and minor stylistic issues.',
+    `Task: proofread the ${label} translation for surface polish — punctuation, typography, capitalization, consistency, and minor stylistic issues.`,
     'Preserve all meaning and word choices; do not retranslate. Only adjust surface form.',
   ]);
-  const user = `Japanese source:\n${sourceText}\n\nEnglish translation to proofread:\n${currentTarget}`;
+  const user = `Japanese source:\n${sourceText}\n\n${label} translation to proofread:\n${currentTarget}`;
   return { system, user };
 }
 
@@ -74,7 +81,8 @@ export function isAgentPhase(v: unknown): v is AgentPhase {
  *   ]
  * Return an empty array [] if no issues are found.
  */
-export function qaPrompt(sourceText: string, targetText: string): { system: string; user: string } {
+export function qaPrompt(sourceText: string, targetText: string, targetLang?: 'en' | 'zh'): { system: string; user: string } {
+  const label = langLabel(targetLang ?? 'en');
   const CATEGORIES = [
     'Mistranslation',
     'Terminology',
@@ -89,7 +97,7 @@ export function qaPrompt(sourceText: string, targetText: string): { system: stri
     'You are a QA reviewer for a Japanese kendo literature co-translation platform.',
     'I propose; I never commit.  Your findings are advisory — a human translator decides which to accept.',
     '',
-    `Review the English translation against the Japanese source and return a JSON array of qa_issue candidates.`,
+    `Review the ${label} translation against the Japanese source and return a JSON array of qa_issue candidates.`,
     `Each item must have: category (${CATEGORIES}), severity (minor|major|critical), body (1-2 sentence explanation), char_start (0-based index into target text or null), char_end (exclusive end index or null).`,
     'Return ONLY valid JSON — no preamble, no markdown, no backticks. If no issues are found, return an empty array [].',
     '',
@@ -97,7 +105,7 @@ export function qaPrompt(sourceText: string, targetText: string): { system: stri
     '- Mistranslation: meaning in target differs significantly from source.',
     '- Terminology: kendo or martial-arts term is mistranslated or inconsistent (e.g. men/kote/dō/tsuki should stay romanised).',
     '- Register/Keigo: register (formal/informal/honorific) does not match the source.',
-    '- Fluency: English is grammatically awkward or unnatural.',
+    '- Fluency: text is grammatically awkward or unnatural.',
     '- Cultural-adaptation: cultural nuance is lost or misrepresented.',
     '- Omission/Addition: content is missing from or added to the translation without justification.',
     '- Style: punctuation, capitalisation, or typographic inconsistency.',
@@ -105,7 +113,7 @@ export function qaPrompt(sourceText: string, targetText: string): { system: stri
     'Be concise and precise. Do not invent issues. Major = changes meaning; critical = fundamentally wrong.',
   ].join('\n');
 
-  const user = `Japanese source:\n${sourceText}\n\nEnglish translation:\n${targetText}`;
+  const user = `Japanese source:\n${sourceText}\n\n${label} translation:\n${targetText}`;
   return { system, user };
 }
 

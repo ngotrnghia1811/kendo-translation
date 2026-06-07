@@ -69,6 +69,7 @@ export type ContextBuilderPhase = 'translate' | 'edit' | 'proofread' | 'qa';
 interface ContextBuilderPanelProps {
   segmentId: string;
   phase: ContextBuilderPhase;
+  targetLang?: 'en' | 'zh';
   onSuggestionCreated?: () => void;
 }
 
@@ -132,6 +133,7 @@ function allTerms(data: ComposeData): TermEntry[] {
 export function ContextBuilderPanel({
   segmentId,
   phase,
+  targetLang = 'en',
   onSuggestionCreated,
 }: ContextBuilderPanelProps) {
   const { compose, generate, composing, generating, error: hookError } = useMacRagTwoStage();
@@ -171,7 +173,7 @@ export function ContextBuilderPanel({
     setSuccessMsg(null);
     setView('composing');
     try {
-      const result = (await compose(segmentId, phase)) as ComposeData;
+      const result = (await compose(segmentId, phase, targetLang)) as ComposeData;
       setComposeData(result);
       setPromptSystem(result.prompt.system);
       setPromptUser(result.prompt.user);
@@ -278,6 +280,11 @@ export function ContextBuilderPanel({
         >
           Build context
         </button>
+      )}
+      {view === 'idle' && (
+        <span className="text-[10px] text-slate-400 ml-1.5">
+          {targetLang === 'zh' ? 'ZH Context' : 'EN Context'}
+        </span>
       )}
 
       {/* ── COMPOSING ────────────────────────────────────────────── */}

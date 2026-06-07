@@ -465,6 +465,7 @@ export default function EditPage() {
                               <ContextBuilderPanel
                                 segmentId={seg.id}
                                 phase={agentPhaseFor(seg.status as SegmentStatus)! as ContextBuilderPhase}
+                                targetLang={targetLang}
                                 onSuggestionCreated={() => {
                                   setSuggestionRefreshKey(k => k + 1);
                                   void refreshActivity();

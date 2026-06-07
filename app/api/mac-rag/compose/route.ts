@@ -40,7 +40,11 @@ function asSourceLang(v: unknown): SourceLang {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { segment_id, phase } = (body ?? {}) as { segment_id?: unknown; phase?: unknown };
+  const { segment_id, phase, target_lang } = (body ?? {}) as {
+    segment_id?: unknown;
+    phase?: unknown;
+    target_lang?: unknown;
+  };
 
   if (typeof segment_id !== 'string' || !UUID_RE.test(segment_id)) {
     return NextResponse.json(
@@ -55,6 +59,9 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
+
+  const targetLang: 'en' | 'zh' =
+    target_lang === 'zh' ? 'zh' : 'en';
 
   const supabase = await createClient();
 
@@ -121,16 +128,16 @@ export async function POST(req: NextRequest) {
   let built: { system: string; user: string };
   switch (phase) {
     case 'translate':
-      built = translatePrompt(sourceText);
+      built = translatePrompt(sourceText, targetLang);
       break;
     case 'edit':
-      built = editPrompt(sourceText, targetText ?? '');
+      built = editPrompt(sourceText, targetText ?? '', targetLang);
       break;
     case 'proofread':
-      built = proofreadPrompt(sourceText, targetText ?? '');
+      built = proofreadPrompt(sourceText, targetText ?? '', targetLang);
       break;
     case 'qa':
-      built = qaPrompt(sourceText, targetText ?? '');
+      built = qaPrompt(sourceText, targetText ?? '', targetLang);
       break;
   }
 
@@ -237,6 +244,7 @@ export async function POST(req: NextRequest) {
     phase,
     source_text: sourceText,
     target_text: targetText,
+    target_lang: segment.target_lang,
     prompt: built,
     l2_context: {
       document_title: l2.documentTitle,
