@@ -48,9 +48,14 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
     supabase.from('document_settings').select('*').eq('article_id', id).maybeSingle(),
   ]);
 
-  // Readers see approved segments or any segment with a populated translation.
+  // Readers see segments according to the document's publish_filter setting:
+  //   'any_translated' (default) — any segment with a populated target_text
+  //   'qa_approved'              — only qa_approved segments
+  const publishFilter = settings?.publish_filter ?? 'any_translated'
   const readableSegments = (segments || []).filter(
-    (s) => s.status === 'qa_approved' || s.target_text
+    (s) => publishFilter === 'qa_approved'
+      ? s.status === 'qa_approved'
+      : (s.status === 'qa_approved' || s.target_text)
   );
 
   // ZH segments — expose all that have target_text (status may be 'draft' for

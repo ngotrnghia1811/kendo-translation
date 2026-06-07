@@ -69,6 +69,9 @@ export interface QualityDetail {
   style: number
 }
 
+/** Controls which translated segments are visible in the public reader. */
+export type PublishFilter = 'any_translated' | 'qa_approved'
+
 export interface DocumentSettings {
   id: string
   article_id: string
@@ -80,6 +83,12 @@ export interface DocumentSettings {
   reviewed_count: number
   approved_count: number
   assigned_translators: string[]
+  /**
+   * Reader visibility gate.
+   * 'any_translated' (default) — show any segment with non-empty target_text.
+   * 'qa_approved'              — show only qa_approved segments.
+   */
+  publish_filter?: PublishFilter
   created_at: string
   updated_at: string
 }

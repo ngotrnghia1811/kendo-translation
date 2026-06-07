@@ -19,6 +19,7 @@ interface DocInfo {
     title: string
     segmented?: boolean
     progress?: { percentage?: number }
+    publish_filter?: string
 }
 
 interface DocStats {
@@ -111,6 +112,7 @@ export default function AdminPage() {
     const [analytics, setAnalytics] = useState<Analytics | null>(null)
     const [loading, setLoading] = useState(true)
     const [analyticsLoading, setAnalyticsLoading] = useState(true)
+    const [filterSaving, setFilterSaving] = useState<string | null>(null)
 
     useEffect(() => {
         const fetchData = async () => {
@@ -159,6 +161,30 @@ export default function AdminPage() {
         fetchData()
         fetchAnalytics()
     }, [])
+
+    const handleTogglePublishFilter = async (docId: string, currentFilter: string | undefined) => {
+        const newFilter = currentFilter === 'qa_approved' ? 'any_translated' : 'qa_approved'
+        setFilterSaving(docId)
+        try {
+            const res = await fetch(`/api/documents/${docId}/settings`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ publish_filter: newFilter }),
+            })
+            if (res.ok) {
+                setDocs((prev) =>
+                    prev.map((d) => d.id === docId ? { ...d, publish_filter: newFilter } : d)
+                )
+            } else {
+                const err = await res.json()
+                console.error('Failed to update publish filter:', err)
+            }
+        } catch (err) {
+            console.error('Error updating publish filter:', err)
+        } finally {
+            setFilterSaving(null)
+        }
+    }
 
     if (loading) {
         return (
@@ -289,6 +315,7 @@ export default function AdminPage() {
                             <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Title</th>
                             <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">ID</th>
                             <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Progress</th>
+                            <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Publish Policy</th>
                             <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Actions</th>
                         </tr>
                     </thead>
@@ -298,6 +325,24 @@ export default function AdminPage() {
                                 <td className="p-3 text-sm text-gray-900 dark:text-white truncate max-w-xs">{doc.title}</td>
                                 <td className="p-3 text-sm text-gray-600 dark:text-gray-300 font-mono text-xs">{doc.id.substring(0, 8)}…</td>
                                 <td className="p-3 text-sm text-gray-600">{doc.progress?.percentage ?? 0}%</td>
+                                <td className="p-3">
+                                    <button
+                                        type="button"
+                                        disabled={filterSaving === doc.id}
+                                        onClick={() => handleTogglePublishFilter(doc.id, doc.publish_filter)}
+                                        title={doc.publish_filter === 'qa_approved'
+                                            ? 'Currently showing only QA-approved segments. Click to allow any translated.'
+                                            : 'Currently showing any translated segment. Click to restrict to QA-approved only.'
+                                        }
+                                        className={`text-xs px-2 py-1 rounded font-medium transition-colors ${
+                                            doc.publish_filter === 'qa_approved'
+                                                ? 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900 dark:text-purple-300'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400'
+                                        } ${filterSaving === doc.id ? 'opacity-50 cursor-wait' : ''}`}
+                                    >
+                                        {filterSaving === doc.id ? '…' : (doc.publish_filter === 'qa_approved' ? '🔒 QA only' : '📄 Any translated')}
+                                    </button>
+                                </td>
                                 <td className="p-3">
                                     <Link
                                         href={`/admin/documents/${doc.id}/assignments`}
