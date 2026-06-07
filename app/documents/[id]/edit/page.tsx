@@ -61,6 +61,11 @@ export default function EditPage() {
   const [suggestionRefreshKey, setSuggestionRefreshKey] = useState(0);
   const [activity, setActivity] = useState<Map<string, ActivityRow>>(new Map());
   const [targetLang, setTargetLang] = useState<'en' | 'zh'>('en');
+  const [batchMode, setBatchMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchAdvancing, setBatchAdvancing] = useState(false);
+  const [batchResult, setBatchResult] = useState<{ succeeded: number; skipped: number; failed: number } | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const refreshActivity = useCallback(async () => {
     try {
@@ -88,6 +93,19 @@ export default function EditPage() {
   }, [params.id, refreshActivity, targetLang]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Check if current user is admin (for batch ops)
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          setIsAdmin(data.role === 'admin');
+        }
+      } catch { /* non-fatal */ }
+    })();
+  }, []);
 
   useEffect(() => {
     const channel = supabase
@@ -152,6 +170,52 @@ export default function EditPage() {
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Translation failed');
+    }
+  };
+
+  const handleBatchAdvance = async (toStatus: SegmentStatus) => {
+    if (selectedIds.size === 0) return;
+    setBatchAdvancing(true);
+    setBatchResult(null);
+    try {
+      const res = await fetch(`/api/documents/${params.id}/batch-advance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ segment_ids: Array.from(selectedIds), to_status: toStatus }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const { succeeded, skipped, failed } = data as { succeeded: string[]; skipped: string[]; failed: { id: string; reason: string }[] };
+        // Update local state for succeeded segments
+        setSegments(prev =>
+          prev.map(s => succeeded.includes(s.id) ? { ...s, status: toStatus } : s)
+        );
+        setBatchResult({ succeeded: succeeded.length, skipped: skipped.length, failed: failed.length });
+        setSelectedIds(new Set());
+        void refreshActivity();
+      } else {
+        setError(data.error ?? 'Batch advance failed');
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Batch advance failed');
+    } finally {
+      setBatchAdvancing(false);
+    }
+  };
+
+  const toggleSelectSegment = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === segments.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(segments.map(s => s.id)));
     }
   };
 
@@ -234,19 +298,75 @@ export default function EditPage() {
       <main className="max-w-6xl mx-auto px-6 py-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Segment list */}
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Segments</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+              Segments {batchMode && selectedIds.size > 0 && (
+                <span className="ml-1 text-blue-600">({selectedIds.size} selected)</span>
+              )}
+            </h3>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => { setBatchMode(o => !o); setSelectedIds(new Set()); setBatchResult(null); }}
+                className={`text-xs px-2 py-1 rounded border transition-colors ${
+                  batchMode
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                }`}
+                data-testid="batch-mode-toggle"
+              >
+                {batchMode ? '✓ Batch mode' : 'Batch mode'}
+              </button>
+            )}
+          </div>
+          {batchMode && (
+            <div className="flex items-center gap-3 text-xs text-gray-500 mb-2 pb-2 border-b border-gray-200">
+              <button type="button" onClick={toggleSelectAll} className="hover:text-blue-600 transition-colors">
+                {selectedIds.size === segments.length ? 'Deselect all' : 'Select all'}
+              </button>
+              {batchResult && (
+                <span className="text-green-600 font-medium">
+                  ✓ {batchResult.succeeded} advanced{batchResult.skipped > 0 ? `, ${batchResult.skipped} skipped` : ''}{batchResult.failed > 0 ? `, ${batchResult.failed} failed` : ''}
+                </span>
+              )}
+            </div>
+          )}
           {segments.map(seg => {
             const act = activity.get(seg.id);
+            const isSelected = selectedIds.has(seg.id);
             return (
-            <button
+            <div
               key={seg.id}
-              onClick={() => selectSegment(seg)}
-              className={`w-full text-left p-4 rounded-xl border transition-all ${
-                activeSegment === seg.id
-                  ? 'border-blue-400 bg-blue-50 shadow-sm'
-                  : 'border-gray-200 bg-white hover:border-gray-300'
-              }`}
+              className={`flex items-start gap-2 ${batchMode ? '' : ''}`}
             >
+              {batchMode && (
+                <button
+                  type="button"
+                  onClick={() => toggleSelectSegment(seg.id)}
+                  className={`mt-4 ml-2 w-5 h-5 shrink-0 rounded border-2 flex items-center justify-center transition-colors ${
+                    isSelected
+                      ? 'bg-blue-600 border-blue-600 text-white'
+                      : 'bg-white border-gray-300 hover:border-blue-400'
+                  }`}
+                  aria-label={isSelected ? 'Deselect segment' : 'Select segment'}
+                >
+                  {isSelected && (
+                    <svg viewBox="0 0 10 8" fill="none" className="w-3 h-3">
+                      <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </button>
+              )}
+              <button
+                onClick={() => { if (!batchMode) selectSegment(seg); else toggleSelectSegment(seg.id); }}
+                className={`flex-1 text-left p-4 rounded-xl border transition-all ${
+                  batchMode && isSelected
+                    ? 'border-blue-400 bg-blue-50'
+                    : activeSegment === seg.id
+                    ? 'border-blue-400 bg-blue-50 shadow-sm'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-gray-800 font-medium truncate">{seg.source_text}</p>
@@ -296,8 +416,30 @@ export default function EditPage() {
                 </div>
               </div>
             </button>
+            </div>
             );
           })}
+
+          {/* Batch advance toolbar — floats at bottom when selections exist */}
+          {batchMode && selectedIds.size > 0 && (
+            <div className="sticky bottom-4 bg-white rounded-xl border border-blue-300 shadow-lg p-3 flex items-center gap-3 flex-wrap mt-2">
+              <span className="text-sm font-medium text-gray-700">{selectedIds.size} segment{selectedIds.size === 1 ? '' : 's'} selected</span>
+              <div className="flex items-center gap-2 ml-auto">
+                {(['translated', 'edited', 'proofread', 'qa_approved'] as SegmentStatus[]).map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    disabled={batchAdvancing}
+                    onClick={() => handleBatchAdvance(status)}
+                    className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 bg-gray-900 text-white hover:bg-gray-700"
+                  >
+                    → {status.replace('_', ' ')}
+                  </button>
+                ))}
+              </div>
+              {batchAdvancing && <span className="text-xs text-gray-500 w-full text-center">Advancing…</span>}
+            </div>
+          )}
         </div>
 
         {/* Editor panel */}
