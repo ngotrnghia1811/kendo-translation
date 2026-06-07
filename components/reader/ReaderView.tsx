@@ -15,6 +15,7 @@ import PdfPageView from './PdfPageView'
 import ReaderSettingsPanel from './ReaderSettingsPanel'
 import ReaderBookmarksPanel from './ReaderBookmarksPanel'
 import ReaderSidebar from './ReaderSidebar'
+import ReaderKeyboardHelpModal from './ReaderKeyboardHelpModal'
 
 interface ReaderViewProps {
     segments: Segment[]
@@ -67,6 +68,14 @@ function ListBulletIcon() {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+        </svg>
+    )
+}
+
+function QuestionMarkIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
         </svg>
     )
 }
@@ -164,9 +173,10 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
     const [bookmarksOpen, setBookmarksOpen] = useState(false)
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [sidebarTab, setSidebarTab] = useState<'toc' | 'search'>('toc')
+    const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
 
     const closeAll = useCallback(() => {
-        setSettingsOpen(false); setBookmarksOpen(false); setSidebarOpen(false)
+        setSettingsOpen(false); setBookmarksOpen(false); setSidebarOpen(false); setKeyboardHelpOpen(false)
     }, [])
 
     const openSearch = useCallback(() => {
@@ -272,7 +282,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
         prevDisabled: currentPageIndex === 0,
         nextDisabled: currentPageIndex >= totalPages - 1,
         onCloseAll: closeAll,
-        anyPanelOpen: settingsOpen || bookmarksOpen || sidebarOpen,
+        anyPanelOpen: settingsOpen || bookmarksOpen || sidebarOpen || keyboardHelpOpen,
         onToggleBookmark: toggleBookmark,
         onToggleSettings: () => {
             setSettingsOpen((o) => !o)
@@ -280,6 +290,12 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
             setSidebarOpen(false)
         },
         onOpenSearch: openSearch,
+        onToggleHelp: useCallback(() => {
+            setKeyboardHelpOpen((o) => !o)
+            setSettingsOpen(false)
+            setBookmarksOpen(false)
+            setSidebarOpen(false)
+        }, []),
     })
 
     return (
@@ -300,6 +316,12 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                 pageNoun={pageNoun}
                 onGoToPage={(i) => { goToPage(i); setSidebarOpen(false) }}
                 initialTab={sidebarTab}
+            />
+
+            {/* Keyboard shortcuts modal */}
+            <ReaderKeyboardHelpModal
+                open={keyboardHelpOpen}
+                onClose={() => setKeyboardHelpOpen(false)}
             />
 
             {/* ----------------------------------------------------------------
@@ -404,7 +426,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                                 >
                                     <GearIcon />
                                 </ToolbarButton>
-                                <ReaderSettingsPanel
+                                 <ReaderSettingsPanel
                                     open={settingsOpen}
                                     onClose={() => setSettingsOpen(false)}
                                     theme={theme}
@@ -419,6 +441,16 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                                     onDecreaseFontSize={decreaseFontSize}
                                 />
                             </div>
+
+                            {/* Keyboard shortcuts help button */}
+                            <ToolbarButton
+                                active={keyboardHelpOpen}
+                                onClick={() => { setKeyboardHelpOpen((o) => !o); setSettingsOpen(false); setBookmarksOpen(false); setSidebarOpen(false) }}
+                                ariaLabel="Keyboard shortcuts"
+                                title="Keyboard shortcuts (?)"
+                            >
+                                <QuestionMarkIcon />
+                            </ToolbarButton>
                         </div>
                     </div>
 

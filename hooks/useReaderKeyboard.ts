@@ -21,6 +21,8 @@ interface ReaderKeyboardOptions {
     onToggleSettings: () => void
     /** Open sidebar and focus search tab. */
     onOpenSearch: () => void
+    /** Toggle keyboard shortcuts help overlay. */
+    onToggleHelp?: () => void
 }
 
 /**
@@ -47,6 +49,7 @@ export function useReaderKeyboard({
     onToggleBookmark,
     onToggleSettings,
     onOpenSearch,
+    onToggleHelp,
 }: ReaderKeyboardOptions) {
     useEffect(() => {
         function isFocusedOnInput(): boolean {
@@ -105,6 +108,11 @@ export function useReaderKeyboard({
                     onOpenSearch()
                     break
 
+                case '?':
+                    e.preventDefault()
+                    onToggleHelp?.()
+                    break
+
                 default:
                     break
             }
@@ -116,6 +124,6 @@ export function useReaderKeyboard({
         onPrevPage, onNextPage,
         prevDisabled, nextDisabled,
         onCloseAll, anyPanelOpen,
-        onToggleBookmark, onToggleSettings, onOpenSearch,
+        onToggleBookmark, onToggleSettings, onOpenSearch, onToggleHelp,
     ])
 }
