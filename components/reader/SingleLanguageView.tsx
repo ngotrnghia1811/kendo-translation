@@ -8,6 +8,8 @@ interface SingleLanguageViewProps {
     sourceLang: string
     targetLang: string
     getParagraphText: (paragraph: Paragraph, lang: 'source' | 'target') => string
+    /** When ZH mode is active, pass 'zh' so the lang attr is correct. */
+    effectiveTargetLang?: string
 }
 
 export default function SingleLanguageView({
@@ -16,8 +18,10 @@ export default function SingleLanguageView({
     sourceLang,
     targetLang,
     getParagraphText,
+    effectiveTargetLang,
 }: SingleLanguageViewProps) {
-    const currentLang = displayLang === 'source' ? sourceLang : targetLang
+    const displayTargetLang = effectiveTargetLang ?? targetLang
+    const currentLang = displayLang === 'source' ? sourceLang : displayTargetLang
     return (
         <article lang={currentLang} className="max-w-2xl mx-auto py-8 px-4 prose dark:prose-invert">
             {paragraphs.map((paragraph) => {

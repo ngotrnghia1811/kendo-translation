@@ -7,6 +7,8 @@ interface BilingualParagraphViewProps {
     sourceLang: string
     targetLang: string
     getParagraphText: (paragraph: Paragraph, lang: 'source' | 'target') => string
+    /** When ZH mode is active, pass 'zh' so lang attrs and the legend are correct. */
+    effectiveTargetLang?: string
 }
 
 export default function BilingualParagraphView({
@@ -14,7 +16,9 @@ export default function BilingualParagraphView({
     sourceLang,
     targetLang,
     getParagraphText,
+    effectiveTargetLang,
 }: BilingualParagraphViewProps) {
+    const displayTargetLang = effectiveTargetLang ?? targetLang
     const hasAnySource = paragraphs.some((p) => getParagraphText(p, 'source').trim().length > 0)
     const hasAnyTarget = paragraphs.some((p) => getParagraphText(p, 'target').trim().length > 0)
     return (
@@ -45,7 +49,7 @@ export default function BilingualParagraphView({
                             )}
                             {targetText.trim() && (
                                 <h2
-                                    lang={targetLang}
+                                    lang={displayTargetLang}
                                     className="text-lg font-semibold text-gray-700 dark:text-gray-300"
                                 >
                                     {targetText}
@@ -73,7 +77,7 @@ export default function BilingualParagraphView({
 
                         {/* Target paragraph */}
                         {targetText.trim() && (
-                            <div lang={targetLang} className="border-l-4 border-blue-400 dark:border-blue-600 pl-4 py-2">
+                            <div lang={displayTargetLang} className="border-l-4 border-blue-400 dark:border-blue-600 pl-4 py-2">
                                 <p className="text-base leading-relaxed text-gray-800 dark:text-gray-200">
                                     {targetText}
                                 </p>
@@ -93,7 +97,7 @@ export default function BilingualParagraphView({
                     )}
                     {hasAnyTarget && (
                         <span className="flex items-center gap-1">
-                            <span className="w-3 h-3 border-l-4 border-blue-400 inline-block" /> {targetLang.toUpperCase()}
+                            <span className="w-3 h-3 border-l-4 border-blue-400 inline-block" /> {displayTargetLang.toUpperCase()}
                         </span>
                     )}
                 </div>

@@ -610,6 +610,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                                     displayLang={displayLang}
                                     sourceLang={sourceLang}
                                     targetLang={targetLang}
+                                    effectiveTargetLang={targetLangChoice === 'zh' ? 'zh' : undefined}
                                     getParagraphText={getParagraphText}
                                 />
                             )}
@@ -618,6 +619,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                                     paragraphs={paragraphs}
                                     sourceLang={sourceLang}
                                     targetLang={targetLang}
+                                    effectiveTargetLang={targetLangChoice === 'zh' ? 'zh' : undefined}
                                     getParagraphText={getParagraphText}
                                 />
                             )}
@@ -626,6 +628,8 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                                     segments={pageSegments}
                                     sourceLang={sourceLang}
                                     targetLang={targetLang}
+                                    zhByPosition={hasZh ? zhByPosition : undefined}
+                                    targetLangChoice={targetLangChoice}
                                 />
                             )}
                             {mode === 'pdf' && pairedPdfPath && (
