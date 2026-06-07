@@ -29,6 +29,7 @@ export interface TMMatch {
 export interface TMSearchOptions {
   sourceText: string;
   sourceLang: 'ja' | 'en';
+  targetLang?: 'en' | 'zh';
   domain?: string;
   minMatchScore?: number;
   maxResults?: number;
@@ -114,6 +115,7 @@ export async function searchTM(
   const {
     sourceText,
     sourceLang,
+    targetLang,
     domain,
     minMatchScore = 50,
     maxResults = 10,
@@ -127,6 +129,7 @@ export async function searchTM(
     let query = supabase.from('tm_search_view').select('*');
     if (domain) query = query.eq('domain', domain);
     if (sourceLang) query = query.eq('source_lang', sourceLang);
+    if (targetLang) query = query.eq('target_lang', targetLang);
 
     const { data, error } = await query.limit(200);
 

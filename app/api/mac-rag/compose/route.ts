@@ -101,6 +101,7 @@ export async function POST(req: NextRequest) {
     searchTM(supabase, {
       sourceText,
       sourceLang,
+      targetLang,
       domain: 'kendo',
       minMatchScore: 50,
       maxResults: 10,
