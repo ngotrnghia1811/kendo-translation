@@ -46,6 +46,7 @@ interface ParsedBlock {
   isHeading: boolean;
   ja: string;
   en: string;
+  zh: string;                // ZH translation text (empty when --emit-zh is off, or ZH not present)
   zhCharsDropped: number;    // for aggregate stats
 }
 
@@ -261,6 +262,7 @@ function parse(content: string, sourceFile: string): ParseResult {
 
     const jaParts: string[] = [];
     const enParts: string[] = [];
+    const zhParts: string[] = [];
     let zhCharsThisBlock = 0;
     let zhRunsThisBlock  = 0;
 
@@ -270,6 +272,7 @@ function parse(content: string, sourceFile: string): ParseResult {
       jaParts.push(nonEmpty[0]);
       enParts.push(nonEmpty[1]);
       for (let i = 2; i < nonEmpty.length; i++) {
+        zhParts.push(nonEmpty[i]);
         zhCharsThisBlock += nonEmpty[i].length;
         zhRunsThisBlock += 1;
       }
@@ -291,6 +294,7 @@ function parse(content: string, sourceFile: string): ParseResult {
         if (c.lang === 'ja') jaParts.push(c.text);
         else if (c.lang === 'en') enParts.push(c.text);
         else if (c.lang === 'zh') {
+          zhParts.push(c.text);
           zhCharsThisBlock += c.text.length;
           zhRunsThisBlock  += 1;
         }
@@ -299,6 +303,7 @@ function parse(content: string, sourceFile: string): ParseResult {
 
     const ja = normalizeWhitespace(jaParts.join(' '));
     const en = normalizeWhitespace(enParts.join(' '));
+    const zh = normalizeWhitespace(zhParts.join(' '));
 
     zhCharsDropped += zhCharsThisBlock;
     zhRunsDropped  += zhRunsThisBlock;
@@ -321,6 +326,7 @@ function parse(content: string, sourceFile: string): ParseResult {
       isHeading,
       ja,
       en,
+      zh,
       zhCharsDropped: zhCharsThisBlock,
     });
     buffer = [];
@@ -437,6 +443,7 @@ function deriveTitle(filePath: string): string {
 interface InsertResult {
   articleId: string;
   segmentsInserted: number;
+  zhSegmentsInserted: number;
 }
 
 async function insertAll(
@@ -444,6 +451,7 @@ async function insertAll(
   title: string,
   blocks: ParsedBlock[],
   sourceFile: string,
+  emitZh: boolean,
 ): Promise<InsertResult> {
   const N = blocks.length;
 
@@ -523,7 +531,41 @@ async function insertAll(
   }
   console.log(`[ok] inserted document_settings (paragraph_boundaries length=${N})`);
 
-  return { articleId, segmentsInserted: inserted };
+  // 3. ZH segments — only when --emit-zh is set
+  let zhInserted = 0;
+  if (emitZh) {
+    const zhBlocks = blocks.filter(b => b.zh.length > 0);
+    if (zhBlocks.length > 0) {
+      console.log(`[info] inserting ${zhBlocks.length} ZH segments...`);
+      for (let offset = 0; offset < zhBlocks.length; offset += BATCH) {
+        const slice = zhBlocks.slice(offset, offset + BATCH);
+        const rows = slice.map((b) => ({
+          article_id: articleId,
+          position: blocks.indexOf(b), // same position as the EN segment
+          source_text: b.ja,
+          target_text: b.zh,
+          source_lang: 'ja',
+          target_lang: 'zh',
+          status: 'draft',
+          translated_by: null,
+          reviewed_by: null,
+          metadata: {
+            imported_from_pipeline: true,
+          },
+        }));
+        const { error: segErr } = await sb
+          .from('segments')
+          .upsert(rows, { onConflict: 'article_id,position,target_lang', ignoreDuplicates: true });
+        if (segErr) {
+          throw new Error(`ZH segments insert failed at offset=${offset}: ${segErr.message}`);
+        }
+        zhInserted += rows.length;
+        console.log(`[ok] inserted ZH segments ${offset}..${offset + rows.length - 1} (running total ${zhInserted}/${zhBlocks.length})`);
+      }
+    }
+  }
+
+  return { articleId, segmentsInserted: inserted, zhSegmentsInserted: zhInserted };
 }
 
 // ---------------------------------------------------------------------------
@@ -533,6 +575,7 @@ async function insertAll(
 async function main() {
   const args = process.argv.slice(2);
   const dryRun = args.includes('--dry-run');
+  const emitZh = args.includes('--emit-zh');
   const filePath = args.find(a => !a.startsWith('--'));
 
   if (!filePath) {
@@ -555,7 +598,14 @@ async function main() {
   const t1 = Date.now();
   console.log(`[info] parse complete in ${t1 - t0}ms`);
   console.log(`[info] pages=${parsed.totalPages}, blocks_seen=${parsed.totalBlocksSeen}, blocks_kept=${parsed.blocks.length}, blocks_skipped=${parsed.skipped.length}`);
+  console.log(`[info] emit_zh=${emitZh}`);
   console.log(`[info] dropped ${parsed.zhRunsDropped} ZH runs / ${parsed.zhCharsDropped} ZH chars (option 1: bilingual import per BACKEND-HANDOFF-DATA-IMPORT.md)`);
+
+  // ZH stats when emit-zh is enabled
+  if (emitZh) {
+    const zhBlocks = parsed.blocks.filter(b => b.zh.length > 0);
+    console.log(`[info] ZH blocks with content: ${zhBlocks.length}/${parsed.blocks.length}`);
+  }
 
   if (parsed.skipped.length > 0) {
     const reasonCounts = new Map<string, number>();
@@ -573,11 +623,15 @@ async function main() {
   // --- dry-run mode: print all parsed blocks and exit -------------------
   if (dryRun) {
     console.log(`\n=== dry-run: ${parsed.blocks.length} parsed blocks ===`);
-    for (let i = 0; i < parsed.blocks.length; i++) {
+    const showN = emitZh ? parsed.blocks.length : parsed.blocks.length;
+    for (let i = 0; i < showN; i++) {
       const b = parsed.blocks[i];
       console.log(`\npos=${i}`);
       console.log(`  JA: ${b.ja.slice(0, 200)}${b.ja.length > 200 ? '…' : ''}`);
       console.log(`  EN: ${b.en.slice(0, 200)}${b.en.length > 200 ? '…' : ''}`);
+      if (emitZh && b.zh) {
+        console.log(`  ZH: ${b.zh.slice(0, 200)}${b.zh.length > 200 ? '…' : ''}`);
+      }
       console.log(`  page=${b.page} blockIndex=${b.blockIndex} isHeading=${b.isHeading} zhDropped=${b.zhCharsDropped}`);
     }
     console.log(`\n=== dry-run summary ===`);
@@ -586,6 +640,16 @@ async function main() {
     console.log(`blocks_skipped:   ${parsed.skipped.length}`);
     console.log(`zh_runs_dropped:  ${parsed.zhRunsDropped}`);
     console.log(`zh_chars_dropped: ${parsed.zhCharsDropped}`);
+    console.log(`emit_zh:          ${emitZh}`);
+    if (emitZh) {
+      const zhBlocks = parsed.blocks.filter(b => b.zh.length > 0);
+      console.log(`zh_blocks:        ${zhBlocks.length}`);
+      console.log(`\nFirst 5 ZH blocks:`);
+      for (let i = 0; i < Math.min(5, zhBlocks.length); i++) {
+        const b = zhBlocks[i];
+        console.log(`  [${i}] pos=${parsed.blocks.indexOf(b)}: ${b.zh.slice(0, 150)}${b.zh.length > 150 ? '…' : ''}`);
+      }
+    }
     process.exit(0);
   }
 
@@ -622,13 +686,51 @@ async function main() {
     process.exit(1);
   }
   if (existing) {
-    console.log(`[skip] article "${title}" already imported (id=${(existing as { id: string }).id})`);
+    const existingId = (existing as { id: string }).id;
+    if (emitZh) {
+      // When --emit-zh is set on an already-imported article, insert only the
+      // ZH segments (skip article + EN segments + document_settings).
+      console.log(`[info] article "${title}" already imported (id=${existingId}); inserting ZH segments only`);
+      const zhBlocks = parsed.blocks.filter(b => b.zh.length > 0);
+      console.log(`[info] ZH blocks to insert: ${zhBlocks.length}`);
+      let zhInserted = 0;
+      const BATCH = 500;
+      for (let offset = 0; offset < zhBlocks.length; offset += BATCH) {
+        const slice = zhBlocks.slice(offset, offset + BATCH);
+        const rows = slice.map((b) => ({
+          article_id: existingId,
+          position: parsed.blocks.indexOf(b),
+          source_text: b.ja,
+          target_text: b.zh,
+          source_lang: 'ja',
+          target_lang: 'zh',
+          status: 'draft',
+          translated_by: null,
+          reviewed_by: null,
+          metadata: { imported_from_pipeline: true },
+        }));
+        const { error: segErr } = await sb
+          .from('segments')
+          .upsert(rows, { onConflict: 'article_id,position,target_lang', ignoreDuplicates: true });
+        if (segErr) {
+          console.error(`[error] ZH segments insert failed at offset=${offset}: ${segErr.message}`);
+          process.exit(1);
+        }
+        zhInserted += rows.length;
+        console.log(`[ok] inserted ZH segments ${offset}..${offset + rows.length - 1} (running total ${zhInserted}/${zhBlocks.length})`);
+      }
+      console.log(`\n=== summary ===`);
+      console.log(`zh_segments_inserted: ${zhInserted}`);
+      console.log(`article_id:           ${existingId}`);
+    } else {
+      console.log(`[skip] article "${title}" already imported (id=${existingId})`);
+    }
     process.exit(0);
   }
 
   // Insert
   console.log(`[info] inserting into DB...`);
-  const result = await insertAll(sb, title, parsed.blocks, sourceFile);
+  const result = await insertAll(sb, title, parsed.blocks, sourceFile, emitZh);
 
   // Verification
   console.log(`\n=== verification ===`);
@@ -670,6 +772,7 @@ async function main() {
   console.log(`pages:              ${parsed.totalPages}`);
   console.log(`blocks_seen:        ${parsed.totalBlocksSeen}`);
   console.log(`segments_inserted:  ${result.segmentsInserted}`);
+  if (emitZh) console.log(`zh_segments_inserted: ${result.zhSegmentsInserted}`);
   console.log(`blocks_skipped:     ${parsed.skipped.length}`);
   console.log(`zh_runs_dropped:    ${parsed.zhRunsDropped}`);
   console.log(`zh_chars_dropped:   ${parsed.zhCharsDropped}`);

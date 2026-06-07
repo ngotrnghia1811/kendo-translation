@@ -64,6 +64,7 @@ interface Entry {
   target_term: string;
   reading: string | null;
   notes: string | null; // English explanation
+  zh_notes: string | null; // Chinese gloss/definition (populated from ZH lines)
 }
 
 interface ExistingRow {
@@ -72,6 +73,7 @@ interface ExistingRow {
   target_term: string;
   reading: string | null;
   notes: string | null;
+  zh_notes: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -95,6 +97,7 @@ async function loadEnv(): Promise<Record<string, string>> {
 const RE_CJK =
   /[\u3040-\u309F\u30A0-\u30FF\u31F0-\u31FF\u3400-\u4DBF\u4E00-\u9FFF]/;
 const RE_LATIN = /[A-Za-z]/;
+const RE_HAN = /[\u3400-\u4DBF\u4E00-\u9FFF]/;  // CJK Unified Ideographs only (no kana)
 
 function countCjk(s: string): number {
   let n = 0;
@@ -112,6 +115,14 @@ function countLatin(s: string): number {
   return n;
 }
 
+function countHan(s: string): number {
+  let n = 0;
+  for (const ch of s) {
+    if (RE_HAN.test(ch)) n++;
+  }
+  return n;
+}
+
 /**
  * Classify a line as English if it contains Latin characters and the number
  * of CJK characters does not exceed the number of Latin characters.
@@ -122,6 +133,18 @@ function isEnglishLine(line: string): boolean {
   if (latin === 0) return false;
   const cjk = countCjk(line);
   return cjk <= latin;
+}
+
+/**
+ * Classify a line as Chinese-candidate (ZH) if it has more Han characters
+ * than Latin, and is not already classified as English.
+ * Returns false for pure-kana (JA) lines.
+ */
+function isChineseLine(line: string): boolean {
+  const han = countHan(line);
+  const latin = countLatin(line);
+  // Require at least one Han char and more Han than Latin
+  return han > 0 && han > latin;
 }
 
 // ---------------------------------------------------------------------------
@@ -233,28 +256,40 @@ function parseBlock(rawBlock: string): Entry | null {
   const { source_term, reading } = parseJapaneseLine(jaLine);
   if (!source_term) return null; // cannot have entry without source term
 
-  // Remaining lines: find the English line (skip Chinese)
+  // Remaining lines: find the English line, then collect ZH lines after it
   let target_term = "";
   let notes: string | null = null;
+  let foundEn = false;
+  const zhLines: string[] = [];
 
   for (let i = 1; i < lines.length; i++) {
     const ln = lines[i];
-    if (isEnglishLine(ln)) {
+    if (!foundEn && isEnglishLine(ln)) {
       const en = parseEnglishLine(ln);
       target_term = en.target_term;
       notes = en.notes;
-      break;
+      foundEn = true;
+      continue;
     }
-    // Otherwise it's a Chinese line (or a continuation of Japanese) — skip
+    if (foundEn) {
+      // After EN line: collect ZH-candidate lines
+      if (isChineseLine(ln)) {
+        zhLines.push(ln);
+      }
+    }
+    // Before EN line: non-EN lines are skipped (could be JA continuation or ZH preceding EN)
   }
 
   if (!target_term) return null; // skip entries with no English translation
+
+  const zh_notes = zhLines.length > 0 ? zhLines.join(' ').replace(/\s+/g, ' ').trim() || null : null;
 
   return {
     source_term,
     target_term,
     reading: reading || null,
     notes,
+    zh_notes,
   };
 }
 
@@ -293,7 +328,7 @@ async function loadExistingMap(
   while (hasMore) {
     const { data, error } = await sb
       .from("terminology")
-      .select("id,source_term,target_term,reading,notes")
+      .select("id,source_term,target_term,reading,notes,zh_notes")
       .eq("domain", "kendo")
       .range(offset, offset + pageSize - 1)
       .order("source_term");
@@ -328,6 +363,7 @@ async function dbInsert(
       target_term: e.target_term,
       reading: e.reading,
       notes: e.notes,
+      zh_notes: e.zh_notes ?? null,
       domain: "kendo",
       term_type: "preferred",
     }));
@@ -346,7 +382,7 @@ async function dbInsert(
 
 async function dbUpdate(
   sb: SupabaseClient,
-  entries: { id: string; target_term: string; reading: string | null; notes: string | null }[],
+  entries: { id: string; target_term: string; reading: string | null; notes: string | null; zh_notes: string | null }[],
   dryRun: boolean,
 ): Promise<number> {
   if (dryRun || entries.length === 0) return 0;
@@ -361,6 +397,7 @@ async function dbUpdate(
         target_term: e.target_term,
         reading: e.reading,
         notes: e.notes,
+        zh_notes: e.zh_notes ?? null,
       })
       .eq("id", e.id);
 
@@ -424,7 +461,8 @@ async function main() {
       `  source_term="${e.source_term}"  ` +
         `target_term="${e.target_term}"  ` +
         `reading="${e.reading ?? ""}"  ` +
-        `notes="${(e.notes ?? "").slice(0, 60)}"`,
+        `notes="${(e.notes ?? "").slice(0, 60)}"  ` +
+        `zh_notes="${(e.zh_notes ?? "").slice(0, 40)}"`,
     );
   }
   if (entries.length > 5) console.log(`  ... and ${entries.length - 5} more.`);
@@ -456,7 +494,7 @@ async function main() {
   // 4. Classify entries: new vs existing
   // -----------------------------------------------------------------------
   const toInsert: Entry[] = [];
-  const toUpdate: { id: string; target_term: string; reading: string | null; notes: string | null }[] = [];
+  const toUpdate: { id: string; target_term: string; reading: string | null; notes: string | null; zh_notes: string | null }[] = [];
   let skipped = 0;
 
   for (const entry of entries) {
@@ -468,6 +506,7 @@ async function main() {
           target_term: entry.target_term,
           reading: entry.reading,
           notes: entry.notes,
+          zh_notes: entry.zh_notes ?? null,
         });
       } else {
         skipped++;
