@@ -10,6 +10,7 @@ import SegmentFilterBar, { ALL_STATUSES } from '@/components/editor/SegmentFilte
 import SegmentListItem from '@/components/editor/SegmentListItem';
 import SegmentEditorPanel from '@/components/editor/SegmentEditorPanel';
 import BatchAdvanceToolbar from '@/components/editor/BatchAdvanceToolbar';
+import { useEditorKeyboard } from '@/hooks/useEditorKeyboard';
 
 /**
  * Per-segment cooperation counts surfaced as badges on the segment list.
@@ -300,6 +301,58 @@ export default function EditPage() {
     translated: segments.filter(s => s.status !== 'draft').length,
     approved: segments.filter(s => s.status === 'qa_approved').length,
   };
+
+  // --- T3: Editor keyboard shortcuts ---
+  // activeIndex in the *filtered* list (may be -1 if segment was filtered out)
+  const activeIndex = activeSegment
+    ? filteredSegments.findIndex(s => s.id === activeSegment)
+    : -1;
+
+  const goToPrevSegment = useCallback(() => {
+    if (activeIndex <= 0) return;
+    void selectSegment(filteredSegments[activeIndex - 1]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex, filteredSegments]);
+
+  const goToNextSegment = useCallback(() => {
+    if (activeIndex < 0 || activeIndex >= filteredSegments.length - 1) return;
+    void selectSegment(filteredSegments[activeIndex + 1]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex, filteredSegments]);
+
+  /** Ctrl+S: save the active segment's current editing text as 'translated'. */
+  const handleKeyboardSave = useCallback(() => {
+    if (!activeSegment || !editingText) return;
+    const seg = segments.find(s => s.id === activeSegment);
+    if (!seg) return;
+    void saveSegment(activeSegment, editingText, 'translated');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSegment, editingText, segments]);
+
+  /** Ctrl+Enter: approve / advance active segment to the next phase status. */
+  const handleKeyboardApprove = useCallback(() => {
+    if (!activeSegment || !editingText) return;
+    const seg = segments.find(s => s.id === activeSegment);
+    if (!seg) return;
+    // Advance to the next logical status, capped at qa_approved
+    const ORDER: SegmentStatus[] = ['draft', 'translated', 'edited', 'proofread', 'qa_approved'];
+    const currentIdx = ORDER.indexOf(seg.status as SegmentStatus);
+    const nextStatus: SegmentStatus = currentIdx >= 0 && currentIdx < ORDER.length - 1
+      ? ORDER[currentIdx + 1]
+      : 'qa_approved';
+    void saveSegment(activeSegment, editingText, nextStatus);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSegment, editingText, segments]);
+
+  useEditorKeyboard({
+    onPrevSegment: goToPrevSegment,
+    onNextSegment: goToNextSegment,
+    prevDisabled: activeIndex <= 0,
+    nextDisabled: activeIndex < 0 || activeIndex >= filteredSegments.length - 1,
+    onSave: handleKeyboardSave,
+    onApprove: handleKeyboardApprove,
+    hasActiveSegment: !!activeSegment,
+  });
 
   if (loading) {
     return (
