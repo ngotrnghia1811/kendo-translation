@@ -1,6 +1,6 @@
 # Frontend Development Plan
-**Last updated:** 2026-06-07 (all FE sprint items shipped; ZH TM seeded — 198,582 JA→ZH rows)  
-**Current HEAD:** `origin/main @ a359424`  
+**Last updated:** 2026-06-07 (T1–T4 translator + A1–A2 admin plan shipped; T3 keyboard shortcuts; 9/9 tests green)  
+**Current HEAD:** `origin/main @ 8a82a38`  
 **Maintained by:** FE lane (aki-main session)
 
 ---
@@ -24,7 +24,7 @@ must review and accept it before text changes.
 
 ---
 
-## 2. Completed FE work (shipped as of `a359424`)
+## 2. Completed FE work (shipped as of `8a82a38`)
 
 ### 2.1 Reader view (`/documents/[id]/read`)
 
@@ -71,6 +71,12 @@ must review and accept it before text changes.
 | Tabbed segment-details drawer | `3879cd6` | History / Suggestions / Context Builder / Comments tabs |
 | ZH target_lang support in editor | `26cbd86` | [EN][ZH] pill switcher; amber ZH-draft badge |
 | Admin batch phase-advance | `a359424` | Multi-select + sticky bulk toolbar; `POST /api/documents/[id]/batch-advance` |
+| T1 Segment filter bar | `e13e8c2` | Status pills + text search + my-phase toggle; URL-param synced (`?status=&q=&myPhase=`) |
+| T2 Assignment visibility banner | `49aa13e` | Indigo banner when user has phase assignments; inline my-segments toggle |
+| T3 Editor keyboard shortcuts | `b741fcf` | `hooks/useEditorKeyboard.ts` — ↑/↓/j/k seg nav, Ctrl+S save, Ctrl+Enter approve |
+| T4 EditPage component refactor | `977f31f` | Extracted `SegmentListItem`, `SegmentEditorPanel`, `BatchAdvanceToolbar` from 816-line monolith |
+| A1 Admin role management | `ca579e2` | `PATCH /api/admin/users/[userId]` + role dropdown in users table |
+| A2 Admin per-doc detail page | `abe95d9` | `/admin/documents/[id]` — phase breakdown, assignments, 14-day sparkline |
 
 ### 2.3 Global UX
 
@@ -93,6 +99,7 @@ must review and accept it before text changes.
 | Snapshot fallback for >32767px pages | `a7b0932` | try/catch in `snap()`; falls back to viewport clip |
 | global-setup parallel logins | `52f20e1` | `Promise.all` logins + fresh-file skip; eliminates rate-limit cascade |
 | Reader features test suite | `52f20e1` | `tests/reader-features.spec.ts` — pager, filter tab, progress memory (4 tests) |
+| edit-page-integration test fix | `8a82a38` | `data-testid="segment-list-item"` on SegmentListItem; test uses it to skip filter bar buttons |
 | Supabase migration 006 (paired_pdf_path) | `ecfc927` | `articles.paired_pdf_path TEXT` |
 | Supabase migration 007 (zh_terminology) | `c08bc34` | `terminology.zh_notes TEXT`; unique(article_id, position, target_lang) |
 | Supabase migration 008 (publish_filter) | `90a23a8` | `document_settings.publish_filter TEXT DEFAULT 'any_translated'` |
@@ -112,17 +119,23 @@ These are ideas surfaced during development but not yet prioritised:
 
 | Item | Priority | Notes |
 |---|---|---|
-| Segment filtering in editor (URL-param synced) | MEDIUM | `?status=draft&q=kiai` filter bar in TranslationEditor; was partly done at ReaderSidebar level |
 | ZH smoke test in Playwright | LOW | Add reader screenshot test using a ZH-segmented article (ZH data now in DB) |
 | Dark-mode consistency on admin pages | LOW | Admin pages use `dark:` classes inconsistently vs `--rt-*` vars |
 | SiteNav suppress on new page types | LOW | Confirm no new routes need suppression |
-| Editor phone-block banner | LOW | Redirect to reader view on `< md` screens |
+| Editor phone-block banner (T6) | LOW | Redirect to reader view on `< md` screens |
 | `ARCHITECTURE.md` §12 debt entry | LOW | Drop stale "reader may not reflect new data model" bullet |
 | Playwright: reader settings spec | LOW | Theme switch, font size, color picker (coverage gap) |
 | Playwright: bookmarks spec | LOW | Add/jump/remove bookmark test |
 | Playwright: PDF view spec | LOW | PDF tab visible when `paired_pdf_path` set |
 | Playwright: profile page spec | LOW | Username edit, stats load |
 | Batch MAC-RAG suggestions | LOW | Extend batch-ops to request MAC-RAG suggestion for multiple draft segments at once |
+| A3 Docs table pagination | LOW | Client-side slice; `page` state; prev/next controls |
+| A4 QA issues summary widget | LOW | Dashboard widget; extend `/api/admin/analytics` with QA issue counts |
+| A5 Users last-activity column | LOW | `MAX(segment_revisions.created_at)` per user in admin users table |
+| A6 Admin responsive polish | LOW | `grid-cols-2` on mobile; `overflow-x-auto` on tables |
+| A7 Segmentation trigger from admin | LOW | Button on `/admin/documents/[id]` |
+| A8 Stale-segment alerting | LOW | `/api/admin/stale-segments` endpoint + dashboard widget |
+| T5 Segment editor progress memory | LOW | localStorage `editor-segment-<articleId>` |
 
 ---
 
@@ -132,6 +145,7 @@ These are ideas surfaced during development but not yet prioritised:
 |---|---|---|
 | Playwright: global-setup rate-limit hardening | DONE ✅ | Parallel logins + fresh-file skip (commit `52f20e1`) |
 | ZH TM seeding | DONE ✅ | 198,582 JA→ZH TM rows + targetLang filter (commit `eeb6b01`) |
+| edit-page test post-T4 selector fix | DONE ✅ | `segment-list-item` testid; test selector updated (commit `8a82a38`) |
 | `ARCHITECTURE.md` §12 debt entry | LOW | Drop the "reader may not reflect new data model" stale bullet |
 | SiteNav: suppress on more page types | LOW | Currently suppressed on `/`, `/login`, `/register`, `/documents/[id]/*`; check new routes |
 | Dark-mode on admin pages | LOW | Admin pages use Tailwind `dark:` classes inconsistently |

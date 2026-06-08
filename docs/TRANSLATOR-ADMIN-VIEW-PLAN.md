@@ -1,7 +1,7 @@
 # Translator View & Admin View — Full Plan
-**Written:** 2026-06-07  
+**Written:** 2026-06-07 | **Last updated:** 2026-06-07 (T1–T4 + A1–A2 shipped; 9/9 tests green)  
 **Author:** FE lane (aki-main session)  
-**HEAD at writing:** `origin/main @ 8498a4e`
+**HEAD at writing:** `origin/main @ 8498a4e` | **HEAD at last update:** `8a82a38`
 
 ---
 
@@ -55,7 +55,7 @@ Each section starts with an audit of what currently exists, then details the pla
 
 ### 1.2 Planned Improvements (priority-ordered)
 
-#### T1 — Segment filtering bar (HIGH priority)
+#### T1 — Segment filtering bar ✅ SHIPPED `e13e8c2`
 
 **Goal:** Filter the visible segment list without navigating away.
 
@@ -79,7 +79,7 @@ Each section starts with an audit of what currently exists, then details the pla
 
 ---
 
-#### T2 — Assignment visibility + my-phase indicator (HIGH priority)
+#### T2 — Assignment visibility + my-phase indicator ✅ SHIPPED `49aa13e`
 
 **Goal:** Translator should immediately see their role for this document.
 
@@ -95,7 +95,7 @@ Each section starts with an audit of what currently exists, then details the pla
 
 ---
 
-#### T3 — Keyboard shortcuts in editor (MEDIUM priority)
+#### T3 — Keyboard shortcuts in editor ✅ SHIPPED `b741fcf`
 
 **Goal:** Power translators can work keyboard-only.
 
@@ -116,7 +116,7 @@ Each section starts with an audit of what currently exists, then details the pla
 
 ---
 
-#### T4 — Refactor: extract editor into component tree (MEDIUM priority)
+#### T4 — Refactor: extract editor into component tree ✅ SHIPPED `977f31f`
 
 **Goal:** The 654-line `EditPage` monolith should be split into a maintainable component tree.
 
@@ -177,12 +177,12 @@ Detect `window.innerWidth < 768` on mount; if true, render the banner instead of
 
 A fully-realised translator view should satisfy:
 
-- [ ] Segment list is filterable by status, text, and my-phase
-- [ ] Assignment visibility: translator sees their roles at a glance
-- [ ] Keyboard shortcuts for navigation and save
-- [ ] No orphaned editor components (SegmentRow / TranslationEditor either wired or removed)
-- [ ] Mobile: phone-block banner with reader link
-- [ ] URL-param filters enable bookmarkable segment queues
+- [x] Segment list is filterable by status, text, and my-phase (T1 `e13e8c2`)
+- [x] Assignment visibility: translator sees their roles at a glance (T2 `49aa13e`)
+- [x] Keyboard shortcuts for navigation and save (T3 `b741fcf`)
+- [x] Editor refactored into component tree: SegmentListItem, SegmentEditorPanel, BatchAdvanceToolbar (T4 `977f31f`)
+- [ ] Mobile: phone-block banner with reader link (T6 — LOW, not yet implemented)
+- [x] URL-param filters enable bookmarkable segment queues (T1 `e13e8c2`)
 
 ---
 
@@ -226,7 +226,7 @@ A fully-realised translator view should satisfy:
 
 ### 2.2 Planned Improvements (priority-ordered)
 
-#### A1 — Role management for users (HIGH priority)
+#### A1 — Role management for users ✅ SHIPPED `ca579e2`
 
 **Goal:** Admin can promote/demote users between `reader`, `translator`, `admin` roles from the users table.
 
@@ -247,7 +247,7 @@ A fully-realised translator view should satisfy:
 
 ---
 
-#### A2 — Document detail / per-doc analytics (HIGH priority)
+#### A2 — Document detail / per-doc analytics ✅ SHIPPED `abe95d9`
 
 **Goal:** Click on a document in the admin table to see a per-document progress breakdown.
 
@@ -381,13 +381,13 @@ QA Issues
 
 A fully-realised admin view should satisfy:
 
-- [ ] Role management: promote/demote users from the UI
-- [ ] Per-document detail page with phase breakdown and QA summary
-- [ ] QA issues widget on dashboard
-- [ ] Docs table paginated (no 25-cap)
-- [ ] Users table shows last-activity timestamp
-- [ ] Admin pages responsive on tablet (overflow-x-auto on tables, responsive stat grid)
-- [ ] Segmentation trigger from document detail page
+- [x] Role management: promote/demote users from the UI (A1 `ca579e2`)
+- [x] Per-document detail page with phase breakdown (A2 `abe95d9`)
+- [ ] QA issues widget on dashboard (A4 — not yet)
+- [ ] Docs table paginated (no 25-cap) (A3 — not yet)
+- [ ] Users table shows last-activity timestamp (A5 — not yet)
+- [ ] Admin pages responsive on tablet (A6 — not yet)
+- [ ] Segmentation trigger from document detail page (A7 — not yet)
 
 ---
 
@@ -395,22 +395,22 @@ A fully-realised admin view should satisfy:
 
 Recommended implementation order balancing impact vs. effort:
 
-| Priority | Item | Surface | Effort | Impact |
-|---|---|---|---|---|
-| 1 | T1 Segment filtering bar | Translator | M | HIGH — translators need this daily |
-| 2 | T2 Assignment visibility banner | Translator | S | HIGH — orientation for new translators |
-| 3 | A1 Role management | Admin | S | HIGH — currently requires DB access |
-| 4 | A2 Per-document detail page | Admin | L | HIGH — replaces ad-hoc analytics queries |
-| 5 | T3 Editor keyboard shortcuts | Translator | M | MEDIUM — power-user quality-of-life |
-| 6 | A4 QA issues widget | Admin | M | MEDIUM — surfaces translation health |
-| 7 | A3 Docs table pagination | Admin | S | MEDIUM — 26+ docs need to be visible |
-| 8 | A5 Users last-activity | Admin | S | LOW — useful but not critical |
-| 9 | T4 Editor refactor | Translator | L | LOW — code quality; no user-visible change |
-| 10 | A6 Admin responsive polish | Admin | S | LOW — desktop-first usage |
-| 11 | T5 Segment progress memory | Translator | S | LOW — nice-to-have |
-| 12 | T6 Phone-block banner | Translator | S | LOW — guard rails |
-| 13 | A7 Segmentation trigger | Admin | M | LOW — dev convenience |
-| 14 | A8 Stale-segment alerting | Admin | L | LOW — future analytics |
+| Priority | Item | Surface | Effort | Impact | Status |
+|---|---|---|---|---|---|
+| 1 | T1 Segment filtering bar | Translator | M | HIGH — translators need this daily | ✅ `e13e8c2` |
+| 2 | T2 Assignment visibility banner | Translator | S | HIGH — orientation for new translators | ✅ `49aa13e` |
+| 3 | A1 Role management | Admin | S | HIGH — currently requires DB access | ✅ `ca579e2` |
+| 4 | A2 Per-document detail page | Admin | L | HIGH — replaces ad-hoc analytics queries | ✅ `abe95d9` |
+| 5 | T3 Editor keyboard shortcuts | Translator | M | MEDIUM — power-user quality-of-life | ✅ `b741fcf` |
+| 6 | T4 Editor refactor | Translator | L | LOW — code quality | ✅ `977f31f` |
+| 7 | A4 QA issues widget | Admin | M | MEDIUM — surfaces translation health | pending |
+| 8 | A3 Docs table pagination | Admin | S | MEDIUM — 26+ docs need to be visible | pending |
+| 9 | A5 Users last-activity | Admin | S | LOW — useful but not critical | pending |
+| 10 | A6 Admin responsive polish | Admin | S | LOW — desktop-first usage | pending |
+| 11 | T5 Segment progress memory | Translator | S | LOW — nice-to-have | pending |
+| 12 | T6 Phone-block banner | Translator | S | LOW — guard rails | pending |
+| 13 | A7 Segmentation trigger | Admin | M | LOW — dev convenience | pending |
+| 14 | A8 Stale-segment alerting | Admin | L | LOW — future analytics | pending |
 
 Effort: S = <1h, M = 1-3h, L = 3-8h
 
