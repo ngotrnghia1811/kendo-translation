@@ -29,10 +29,20 @@ interface DocStats {
     fullyTranslated: number
 }
 
+interface QADocIssues {
+    id: string
+    title: string
+    minor: number
+    major: number
+    critical: number
+    total: number
+}
+
 interface Analytics {
     phaseBreakdown: Record<string, number>
     topTranslators: { id: string; username: string; count: number }[]
     activityTimeline: { date: string; count: number }[]
+    qaIssues: QADocIssues[]
     totals: {
         articles: number
         users: number
@@ -347,6 +357,88 @@ export default function AdminPage() {
                     </div>
                 </div>
             ) : null}
+
+            {/* ----------------------------------------------------------------
+                QA Issues widget
+            ---------------------------------------------------------------- */}
+            {!analyticsLoading && analytics && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5 mb-8">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
+                            Open QA Issues
+                        </h2>
+                        {analytics.qaIssues.length > 0 && (
+                            <span className="text-xs text-gray-400 dark:text-gray-500">
+                                {analytics.qaIssues.reduce((s, d) => s + d.total, 0).toLocaleString()} issues across {analytics.qaIssues.length} document{analytics.qaIssues.length !== 1 ? 's' : ''}
+                            </span>
+                        )}
+                    </div>
+                    {analytics.qaIssues.length === 0 ? (
+                        <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
+                            🎉 No open QA issues
+                        </p>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b border-gray-100 dark:border-gray-700">
+                                        <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 pr-4">Document</th>
+                                        <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 px-2">
+                                            <span className="text-red-500">●</span> Critical
+                                        </th>
+                                        <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 px-2">
+                                            <span className="text-orange-400">●</span> Major
+                                        </th>
+                                        <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 px-2">
+                                            <span className="text-yellow-400">●</span> Minor
+                                        </th>
+                                        <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 pl-2">Total</th>
+                                        <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 pl-4">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {analytics.qaIssues.map((doc) => (
+                                        <tr key={doc.id} className="border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                                            <td className="py-2 pr-4 text-gray-900 dark:text-white font-medium truncate max-w-[240px]" title={doc.title}>
+                                                {doc.title}
+                                            </td>
+                                            <td className="py-2 px-2 text-right font-mono text-xs">
+                                                {doc.critical > 0
+                                                    ? <span className="text-red-600 dark:text-red-400 font-semibold">{doc.critical}</span>
+                                                    : <span className="text-gray-300 dark:text-gray-600">—</span>
+                                                }
+                                            </td>
+                                            <td className="py-2 px-2 text-right font-mono text-xs">
+                                                {doc.major > 0
+                                                    ? <span className="text-orange-500 dark:text-orange-400 font-semibold">{doc.major}</span>
+                                                    : <span className="text-gray-300 dark:text-gray-600">—</span>
+                                                }
+                                            </td>
+                                            <td className="py-2 px-2 text-right font-mono text-xs">
+                                                {doc.minor > 0
+                                                    ? <span className="text-yellow-600 dark:text-yellow-400">{doc.minor}</span>
+                                                    : <span className="text-gray-300 dark:text-gray-600">—</span>
+                                                }
+                                            </td>
+                                            <td className="py-2 pl-2 text-right font-mono text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                                {doc.total}
+                                            </td>
+                                            <td className="py-2 pl-4">
+                                                <Link
+                                                    href={`/documents/${doc.id}/edit`}
+                                                    className="text-xs px-2 py-0.5 rounded bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/40 dark:text-red-300 whitespace-nowrap"
+                                                >
+                                                    Review →
+                                                </Link>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* ----------------------------------------------------------------
                 Documents table

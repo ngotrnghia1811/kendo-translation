@@ -38,6 +38,7 @@ export async function GET() {
             transitionsRes,
             usersRes,
             articlesRes,
+            qaIssuesRes,
         ] = await Promise.all([
             // Phase breakdown: count segments by status
             supabase
@@ -69,6 +70,12 @@ export async function GET() {
 
             // Article count
             supabase.from('articles').select('id', { count: 'exact', head: true }),
+
+            // Open QA issues: join through segments to get article_id + title
+            supabase
+                .from('qa_issues')
+                .select('severity, segments!inner(article_id, articles!inner(id, title))')
+                .eq('resolved', false),
         ])
 
         // ------------------------------------------------------------------
@@ -112,10 +119,45 @@ export async function GET() {
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([date, count]) => ({ date, count }))
 
+        // ------------------------------------------------------------------
+        // Open QA issues per article (top 15 by open count)
+        // ------------------------------------------------------------------
+        type QARow = {
+            severity: string
+            segments: {
+                article_id: string
+                articles: { id: string; title: string } | { id: string; title: string }[]
+            } | {
+                article_id: string
+                articles: { id: string; title: string } | { id: string; title: string }[]
+            }[]
+        }
+        const articleQaMap: Map<string, { title: string; minor: number; major: number; critical: number; total: number }> = new Map()
+        for (const row of (qaIssuesRes.data ?? []) as unknown as QARow[]) {
+            const seg = Array.isArray(row.segments) ? row.segments[0] : row.segments
+            if (!seg) continue
+            const articleId = seg.article_id
+            const art = Array.isArray(seg.articles) ? seg.articles[0] : seg.articles
+            if (!art) continue
+            if (!articleQaMap.has(articleId)) {
+                articleQaMap.set(articleId, { title: art.title, minor: 0, major: 0, critical: 0, total: 0 })
+            }
+            const entry = articleQaMap.get(articleId)!
+            entry.total++
+            if (row.severity === 'minor') entry.minor++
+            else if (row.severity === 'major') entry.major++
+            else if (row.severity === 'critical') entry.critical++
+        }
+        const qaIssues = [...articleQaMap.entries()]
+            .map(([id, v]) => ({ id, ...v }))
+            .sort((a, b) => b.total - a.total)
+            .slice(0, 15)
+
         return NextResponse.json({
             phaseBreakdown,
             topTranslators,
             activityTimeline,
+            qaIssues,
             totals: {
                 articles: articlesRes.count ?? 0,
                 users: usersRes.count ?? 0,
