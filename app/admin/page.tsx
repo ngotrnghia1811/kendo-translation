@@ -368,13 +368,22 @@ export default function AdminPage() {
                                     </button>
                                 </td>
                                 <td className="p-3">
-                                    <Link
-                                        href={`/admin/documents/${doc.id}/assignments`}
-                                        className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-300"
-                                        data-testid="admin-document-assignments-link"
-                                    >
-                                        Assignments
-                                    </Link>
+                                    <div className="flex items-center gap-2">
+                                        <Link
+                                            href={`/admin/documents/${doc.id}`}
+                                            className="text-xs px-2 py-1 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900 dark:text-indigo-300"
+                                            data-testid="admin-document-detail-link"
+                                        >
+                                            Details
+                                        </Link>
+                                        <Link
+                                            href={`/admin/documents/${doc.id}/assignments`}
+                                            className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-300"
+                                            data-testid="admin-document-assignments-link"
+                                        >
+                                            Assignments
+                                        </Link>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
