@@ -50,7 +50,7 @@ export default function AdminAssignmentsPage() {
                 }
 
                 // Document title.
-                const docRes = await fetch('/api/documents')
+                const docRes = await fetch('/api/documents?all=1')
                 if (docRes.ok) {
                     const data = (await docRes.json()) as {
                         documents?: DocSummary[]

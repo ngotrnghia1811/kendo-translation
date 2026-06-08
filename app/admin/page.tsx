@@ -120,7 +120,7 @@ export default function AdminPage() {
             try {
                 const [usersRes, docsRes] = await Promise.all([
                     fetch('/api/admin/users'),
-                    fetch('/api/documents'),
+                    fetch('/api/documents?all=1'),
                 ])
 
                 if (usersRes.ok) {

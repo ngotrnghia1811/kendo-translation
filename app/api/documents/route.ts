@@ -7,12 +7,23 @@ export async function GET(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  // ?all=1 returns every article row (admin use: counts, assignment management).
+  // Default: only articles where segmented=true so readers/translators see
+  // articles that actually have segment data to work with.
+  const includeAll = req.nextUrl.searchParams.get('all') === '1';
+
   // Fetch articles with their document_settings (for publish_filter and progress fields).
   // We do a left-join style: select articles + embedded document_settings row.
-  const { data, error } = await supabase
+  let query = supabase
     .from('articles')
     .select('*, document_settings(publish_filter, total_segments, translated_count, approved_count)')
     .order('created_at', { ascending: false });
+
+  if (!includeAll) {
+    query = query.eq('segmented', true);
+  }
+
+  const { data, error } = await query;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
