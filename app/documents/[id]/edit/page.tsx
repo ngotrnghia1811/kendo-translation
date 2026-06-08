@@ -11,6 +11,7 @@ import SegmentListItem from '@/components/editor/SegmentListItem';
 import SegmentEditorPanel from '@/components/editor/SegmentEditorPanel';
 import BatchAdvanceToolbar from '@/components/editor/BatchAdvanceToolbar';
 import { useEditorKeyboard } from '@/hooks/useEditorKeyboard';
+import { useEditorProgress } from '@/hooks/useEditorProgress';
 
 /**
  * Per-segment cooperation counts surfaced as badges on the segment list.
@@ -52,6 +53,10 @@ export default function EditPage() {
   const [batchAdvancing, setBatchAdvancing] = useState(false);
   const [batchResult, setBatchResult] = useState<{ succeeded: number; skipped: number; failed: number } | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  // --- T5: segment progress memory ---
+  const { savedSegmentId, persistSegment } = useEditorProgress(params.id);
+  const progressRestoredRef = useRef(false);
 
   // --- Filter state (T1) ---
   // Initialise from URL params so filters survive navigation / bookmarks.
@@ -172,6 +177,27 @@ export default function EditPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // --- T5: restore saved segment once segments are loaded ---
+  useEffect(() => {
+    if (progressRestoredRef.current) return;
+    if (segments.length === 0) return;
+    if (!savedSegmentId) return;
+    const saved = segments.find(s => s.id === savedSegmentId);
+    if (saved) {
+      progressRestoredRef.current = true;
+      // selectSegment is async but we don't await here to avoid blocking render
+      void selectSegment(saved);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [segments]);
+
+  // --- T5: scroll active segment into view on restore ---
+  useEffect(() => {
+    if (!activeSegment) return;
+    const el = document.querySelector<HTMLElement>(`[data-testid="segment-list-item"][data-segment-id="${activeSegment}"]`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [activeSegment]);
+
   // Check if current user is admin (for batch ops)
   useEffect(() => {
     (async () => {
@@ -212,6 +238,7 @@ export default function EditPage() {
 
     setActiveSegment(seg.id);
     setEditingText(seg.target_text || '');
+    persistSegment(seg.id);  // T5: remember last-active segment
 
     await fetch(`/api/segments/${seg.id}/lock`, { method: 'POST' });
   };

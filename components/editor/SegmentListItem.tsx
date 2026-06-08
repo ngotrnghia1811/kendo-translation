@@ -57,6 +57,7 @@ export default function SegmentListItem({
             )}
             <button
                 data-testid="segment-list-item"
+                data-segment-id={seg.id}
                 onClick={() => {
                     if (!batchMode) onSelect(seg);
                     else onToggleSelect(seg.id);
