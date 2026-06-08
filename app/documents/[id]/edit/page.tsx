@@ -87,6 +87,7 @@ export default function EditPage() {
   const [filterQuery, setFilterQuery] = useState<string>(() => searchParams.get('q') ?? '');
   const [showMyPhase, setShowMyPhase] = useState<boolean>(() => searchParams.get('myPhase') === '1');
   const [userPhases, setUserPhases] = useState<WorkflowPhase[]>([]);
+  const [userName, setUserName] = useState<string | null>(null);
   // Track if we've already synced URL to avoid double-push on initial mount
   const filterInitRef = useRef(true);
 
@@ -106,19 +107,23 @@ export default function EditPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterStatuses, filterQuery, showMyPhase]);
 
-  // --- Fetch user's phase assignments for this document (T1) ---
+  // --- Fetch user's phase assignments for this document (T1/T2) ---
   useEffect(() => {
     (async () => {
       try {
-        // Get current user id
+        // Get current user id + profile (T2 banner needs username)
         const meRes = await fetch('/api/auth/me');
         if (!meRes.ok) return;
-        const me = await meRes.json() as { id: string; role: string };
+        const meData = await meRes.json() as { user?: { id: string }; profile?: { id: string; username?: string; role?: string } };
+        const userId = meData.user?.id ?? meData.profile?.id;
+        if (!userId) return;
+        const name = meData.profile?.username ?? null;
+        setUserName(name);
 
         const assnRes = await fetch(`/api/documents/${params.id}/assignments`);
         if (!assnRes.ok) return;
         const data = await assnRes.json() as { assignments?: Array<{ user_id: string; allowed_phases: WorkflowPhase[] }> };
-        const mine = (data.assignments ?? []).find(a => a.user_id === me.id);
+        const mine = (data.assignments ?? []).find(a => a.user_id === userId);
         if (mine) setUserPhases(mine.allowed_phases);
       } catch { /* non-fatal */ }
     })();
@@ -423,6 +428,43 @@ export default function EditPage() {
               </button>
             )}
           </div>
+
+          {/* Assignment visibility banner (T2) */}
+          {userPhases.length > 0 && (
+            <div
+              data-testid="assignment-banner"
+              className="flex items-start gap-2 px-3 py-2.5 rounded-lg border border-indigo-200 bg-indigo-50 text-sm mb-2"
+            >
+              {/* Assignment icon */}
+              <svg className="w-4 h-4 mt-0.5 text-indigo-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+              </svg>
+              <div className="flex-1 min-w-0">
+                <span className="font-medium text-indigo-800">
+                  {userName ? `${userName} — ` : ''}Assigned phases:
+                </span>{' '}
+                <span className="inline-flex flex-wrap gap-1 ml-0.5">
+                  {userPhases.map(phase => (
+                    <span
+                      key={phase}
+                      className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200"
+                    >
+                      {phase}
+                    </span>
+                  ))}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowMyPhase(o => !o)}
+                  className={`ml-3 text-xs underline-offset-2 underline transition-colors ${
+                    showMyPhase ? 'text-indigo-700 font-semibold' : 'text-indigo-500 hover:text-indigo-700'
+                  }`}
+                >
+                  {showMyPhase ? '✓ Showing my segments' : 'Show my segments'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Segment filter bar (T1) */}
           <SegmentFilterBar
