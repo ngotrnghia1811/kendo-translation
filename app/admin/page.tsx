@@ -113,6 +113,7 @@ export default function AdminPage() {
     const [loading, setLoading] = useState(true)
     const [analyticsLoading, setAnalyticsLoading] = useState(true)
     const [filterSaving, setFilterSaving] = useState<string | null>(null)
+    const [roleSaving, setRoleSaving] = useState<string | null>(null)
 
     useEffect(() => {
         const fetchData = async () => {
@@ -183,6 +184,29 @@ export default function AdminPage() {
             console.error('Error updating publish filter:', err)
         } finally {
             setFilterSaving(null)
+        }
+    }
+
+    const handleRoleChange = async (userId: string, newRole: string) => {
+        setRoleSaving(userId)
+        try {
+            const res = await fetch(`/api/admin/users/${userId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role: newRole }),
+            })
+            if (res.ok) {
+                setUsers((prev) =>
+                    prev.map((u) => u.id === userId ? { ...u, role: newRole } : u)
+                )
+            } else {
+                const err = await res.json()
+                console.error('Failed to update role:', err)
+            }
+        } catch (err) {
+            console.error('Error updating role:', err)
+        } finally {
+            setRoleSaving(null)
         }
     }
 
@@ -385,13 +409,26 @@ export default function AdminPage() {
                                 </td>
                                 <td className="p-3 text-sm text-gray-600 dark:text-gray-300 font-mono text-xs">{user.id.substring(0, 8)}…</td>
                                 <td className="p-3">
-                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                        user.role === 'admin' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' :
-                                        user.role === 'translator' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
-                                        'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                                    }`}>
-                                        {user.role}
-                                    </span>
+                                    <select
+                                        value={user.role}
+                                        disabled={roleSaving === user.id}
+                                        onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                                        data-testid="admin-user-role-select"
+                                        title={`Change role for ${user.username ?? user.id}`}
+                                        className={`text-xs px-2 py-1 rounded border font-medium transition-colors cursor-pointer
+                                            ${user.role === 'admin'
+                                                ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900 dark:text-purple-300 dark:border-purple-700'
+                                                : user.role === 'translator'
+                                                    ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:border-blue-700'
+                                                    : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600'
+                                            }
+                                            ${roleSaving === user.id ? 'opacity-50 cursor-wait' : 'hover:opacity-80'}
+                                        `}
+                                    >
+                                        <option value="reader">reader</option>
+                                        <option value="translator">translator</option>
+                                        <option value="admin">admin</option>
+                                    </select>
                                 </td>
                                 <td className="p-3">
                                     <Link
