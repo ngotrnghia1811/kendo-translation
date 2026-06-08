@@ -114,6 +114,9 @@ export default function AdminPage() {
     const [analyticsLoading, setAnalyticsLoading] = useState(true)
     const [filterSaving, setFilterSaving] = useState<string | null>(null)
     const [roleSaving, setRoleSaving] = useState<string | null>(null)
+    const [docsPage, setDocsPage] = useState(0)
+
+    const PAGE_SIZE = 25
 
     useEffect(() => {
         const fetchData = async () => {
@@ -344,7 +347,7 @@ export default function AdminPage() {
                         </tr>
                     </thead>
                     <tbody>
-                        {docs.slice(0, 25).map((doc) => (
+                        {docs.slice(docsPage * PAGE_SIZE, (docsPage + 1) * PAGE_SIZE).map((doc) => (
                             <tr key={doc.id} className="border-b border-gray-200 dark:border-gray-700" data-testid="admin-document-row" data-doc-id={doc.id}>
                                 <td className="p-3 text-sm text-gray-900 dark:text-white truncate max-w-xs">{doc.title}</td>
                                 <td className="p-3 text-sm text-gray-600 dark:text-gray-300 font-mono text-xs">{doc.id.substring(0, 8)}…</td>
@@ -389,9 +392,28 @@ export default function AdminPage() {
                         ))}
                     </tbody>
                 </table>
-                {docs.length > 25 && (
-                    <div className="p-3 text-xs text-gray-500 border-t border-gray-200 dark:border-gray-700">
-                        Showing first 25 of {docs.length} documents.
+                {/* Pagination controls */}
+                {docs.length > PAGE_SIZE && (
+                    <div className="flex items-center justify-between px-3 py-2 border-t border-gray-200 dark:border-gray-700">
+                        <button
+                            type="button"
+                            onClick={() => setDocsPage(p => Math.max(0, p - 1))}
+                            disabled={docsPage === 0}
+                            className="text-xs px-3 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            ← Previous
+                        </button>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                            Page {docsPage + 1} of {Math.ceil(docs.length / PAGE_SIZE)} &middot; {docs.length} documents total
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setDocsPage(p => Math.min(Math.ceil(docs.length / PAGE_SIZE) - 1, p + 1))}
+                            disabled={docsPage >= Math.ceil(docs.length / PAGE_SIZE) - 1}
+                            className="text-xs px-3 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            Next →
+                        </button>
                     </div>
                 )}
             </div>
