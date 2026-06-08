@@ -86,9 +86,9 @@ test.describe('Edit page integration drawer', () => {
         })()
 
         await page.goto(`${BASE}/documents/${documentId}/edit`)
-        // Wait for the segment list to render; the first list button is
-        // the segment we'll select.
-        const firstSegmentButton = page.locator('main button').first()
+        // Wait for the segment list to render; use the specific testid so we
+        // don't accidentally click a SegmentFilterBar button first.
+        const firstSegmentButton = page.getByTestId('segment-list-item').first()
         await firstSegmentButton.waitFor({ state: 'visible', timeout: 15000 })
         await firstSegmentButton.click()
         await snap('edit_integration_segment_selected')
@@ -146,7 +146,7 @@ test.describe('Edit page integration drawer', () => {
         const documentId = await discoverDocumentId(page)
 
         await page.goto(`${BASE}/documents/${documentId}/edit`)
-        const firstSegmentButton = page.locator('main button').first()
+        const firstSegmentButton = page.getByTestId('segment-list-item').first()
         await firstSegmentButton.waitFor({ state: 'visible', timeout: 15000 })
         await firstSegmentButton.click()
         await page.getByTestId('segment-details-toggle').click()
