@@ -12,6 +12,7 @@ interface UserInfo {
     email?: string
     username: string | null
     role: string
+    last_active_at: string | null
 }
 
 interface DocInfo {
@@ -58,6 +59,22 @@ const PHASE_COLORS: Record<string, string> = {
     edited: '#10b981',
     proofread: '#f59e0b',
     qa_approved: '#8b5cf6',
+}
+
+function relativeTime(isoString: string | null): string {
+    if (!isoString) return 'Never'
+    const now = Date.now()
+    const then = new Date(isoString).getTime()
+    const diffMs = now - then
+    const diffMin = Math.floor(diffMs / 60_000)
+    if (diffMin < 1) return 'Just now'
+    if (diffMin < 60) return `${diffMin}m ago`
+    const diffHr = Math.floor(diffMin / 60)
+    if (diffHr < 24) return `${diffHr}h ago`
+    const diffDays = Math.floor(diffHr / 24)
+    if (diffDays < 30) return `${diffDays}d ago`
+    const diffMo = Math.floor(diffDays / 30)
+    return `${diffMo}mo ago`
 }
 
 function PhaseBar({ phase, count, total }: { phase: string; count: number; total: number }) {
@@ -428,6 +445,7 @@ export default function AdminPage() {
                         <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                             <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">User</th>
                             <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">ID</th>
+                            <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Last Active</th>
                             <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Role</th>
                             <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Actions</th>
                         </tr>
@@ -439,6 +457,12 @@ export default function AdminPage() {
                                     {user.username || 'No username'}
                                 </td>
                                 <td className="p-3 text-sm text-gray-600 dark:text-gray-300 font-mono text-xs">{user.id.substring(0, 8)}…</td>
+                                <td
+                                    className="p-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap"
+                                    title={user.last_active_at ?? 'No edits yet'}
+                                >
+                                    {relativeTime(user.last_active_at)}
+                                </td>
                                 <td className="p-3">
                                     <select
                                         value={user.role}

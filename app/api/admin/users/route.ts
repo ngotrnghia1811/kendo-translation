@@ -48,17 +48,42 @@ export async function GET() {
         if ('error' in gate) return gate.error;
 
         const supabase = await createAdminClient();
-        const { data: users, error } = await supabase
-            .from('profiles')
-            .select('id, username, role, created_at')
-            .order('created_at', { ascending: false });
 
-        if (error) {
-            console.error('Error fetching users:', error);
-            return NextResponse.json({ error: error.message }, { status: 500 });
+        // Fetch profiles and last-edit timestamps in parallel.
+        // segment_revisions doesn't have a direct group-by aggregation in the
+        // JS client, so we fetch all edited_by + created_at rows and aggregate
+        // in JS. This is acceptable at current user count (<100).
+        const [{ data: profiles, error: profilesError }, { data: revisions }] =
+            await Promise.all([
+                supabase
+                    .from('profiles')
+                    .select('id, username, role, created_at')
+                    .order('created_at', { ascending: false }),
+                supabase
+                    .from('segment_revisions')
+                    .select('edited_by, created_at')
+                    .order('created_at', { ascending: false }),
+            ]);
+
+        if (profilesError) {
+            console.error('Error fetching users:', profilesError);
+            return NextResponse.json({ error: profilesError.message }, { status: 500 });
         }
 
-        return NextResponse.json({ users: users || [] });
+        // Build a map: userId → most recent revision timestamp
+        const lastActiveMap = new Map<string, string>();
+        for (const rev of revisions ?? []) {
+            if (rev.edited_by && !lastActiveMap.has(rev.edited_by)) {
+                lastActiveMap.set(rev.edited_by, rev.created_at as string);
+            }
+        }
+
+        const users = (profiles ?? []).map(u => ({
+            ...u,
+            last_active_at: lastActiveMap.get(u.id) ?? null,
+        }));
+
+        return NextResponse.json({ users });
     } catch (error) {
         console.error('Error in admin/users GET:', error);
         return NextResponse.json(
