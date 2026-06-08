@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useMacRag } from '@/lib/hooks/useMacRag';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import type { Segment, SegmentStatus } from '@/types/database';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
+import type { Segment, SegmentStatus, WorkflowPhase } from '@/types/database';
+import SegmentFilterBar, { ALL_STATUSES } from '@/components/editor/SegmentFilterBar';
 import PhaseBadge from '@/components/shared/PhaseBadge';
 import PhaseAdvanceButton from '@/components/editor/PhaseAdvanceButton';
 import PhaseTransitionHistory from '@/components/editor/PhaseTransitionHistory';
@@ -37,6 +38,14 @@ interface ActivityRow {
  * run *next*: draft → translate, translated → edit, everything else
  * → proofread. qa_approved short-circuits in the UI.
  */
+/** Maps document_assignments.allowed_phases → segment statuses the user works on. */
+const PHASE_STATUS_MAP: Record<WorkflowPhase, SegmentStatus[]> = {
+    translate: ['draft'],
+    edit:      ['translated'],
+    proofread: ['edited'],
+    qa:        ['proofread'],
+};
+
 function agentPhaseFor(status: SegmentStatus): AgentPhase | null {
     if (status === 'qa_approved') return null;
     if (status === 'draft') return 'translate';
@@ -46,6 +55,8 @@ function agentPhaseFor(status: SegmentStatus): AgentPhase | null {
 
 export default function EditPage() {
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const supabase = createClient();
   const macRag = useMacRag();
 
@@ -66,6 +77,93 @@ export default function EditPage() {
   const [batchAdvancing, setBatchAdvancing] = useState(false);
   const [batchResult, setBatchResult] = useState<{ succeeded: number; skipped: number; failed: number } | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  // --- Filter state (T1) ---
+  // Initialise from URL params so filters survive navigation / bookmarks.
+  const [filterStatuses, setFilterStatuses] = useState<SegmentStatus[]>(() => {
+    const raw = searchParams.get('status') ?? '';
+    return raw ? (raw.split(',').filter(s => (ALL_STATUSES as string[]).includes(s)) as SegmentStatus[]) : [];
+  });
+  const [filterQuery, setFilterQuery] = useState<string>(() => searchParams.get('q') ?? '');
+  const [showMyPhase, setShowMyPhase] = useState<boolean>(() => searchParams.get('myPhase') === '1');
+  const [userPhases, setUserPhases] = useState<WorkflowPhase[]>([]);
+  // Track if we've already synced URL to avoid double-push on initial mount
+  const filterInitRef = useRef(true);
+
+  // --- Sync filter state → URL params (T1) ---
+  useEffect(() => {
+    // Skip the very first effect call (initial mount from URL read)
+    if (filterInitRef.current) {
+      filterInitRef.current = false;
+      return;
+    }
+    const urlParams = new URLSearchParams();
+    if (filterStatuses.length > 0) urlParams.set('status', filterStatuses.join(','));
+    if (filterQuery.trim()) urlParams.set('q', filterQuery.trim());
+    if (showMyPhase) urlParams.set('myPhase', '1');
+    const search = urlParams.toString();
+    router.replace(search ? `?${search}` : '?', { scroll: false });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterStatuses, filterQuery, showMyPhase]);
+
+  // --- Fetch user's phase assignments for this document (T1) ---
+  useEffect(() => {
+    (async () => {
+      try {
+        // Get current user id
+        const meRes = await fetch('/api/auth/me');
+        if (!meRes.ok) return;
+        const me = await meRes.json() as { id: string; role: string };
+
+        const assnRes = await fetch(`/api/documents/${params.id}/assignments`);
+        if (!assnRes.ok) return;
+        const data = await assnRes.json() as { assignments?: Array<{ user_id: string; allowed_phases: WorkflowPhase[] }> };
+        const mine = (data.assignments ?? []).find(a => a.user_id === me.id);
+        if (mine) setUserPhases(mine.allowed_phases);
+      } catch { /* non-fatal */ }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.id]);
+
+  // --- Computed: filteredSegments (T1) ---
+  const filteredSegments = useMemo(() => {
+    let list = segments;
+
+    // My phase filter
+    if (showMyPhase && userPhases.length > 0) {
+      const myStatuses = userPhases.flatMap(p => PHASE_STATUS_MAP[p] ?? []);
+      list = list.filter(s => myStatuses.includes(s.status as SegmentStatus));
+    }
+
+    // Status filter (additive)
+    if (filterStatuses.length > 0) {
+      list = list.filter(s => filterStatuses.includes(s.status as SegmentStatus));
+    }
+
+    // Text search
+    const q = filterQuery.trim().toLowerCase();
+    if (q) {
+      list = list.filter(s =>
+        s.source_text.toLowerCase().includes(q) ||
+        (s.target_text ?? '').toLowerCase().includes(q)
+      );
+    }
+
+    return list;
+  }, [segments, filterStatuses, filterQuery, showMyPhase, userPhases]);
+
+  // --- Computed: statusCounts (T1) — counts BEFORE status filter but AFTER lang/myPhase/text filters ---
+  const statusCounts = useMemo(() => {
+    const base = showMyPhase && userPhases.length > 0
+      ? segments.filter(s => userPhases.flatMap(p => PHASE_STATUS_MAP[p] ?? []).includes(s.status as SegmentStatus))
+      : segments;
+    const q = filterQuery.trim().toLowerCase();
+    const searched = q ? base.filter(s => s.source_text.toLowerCase().includes(q) || (s.target_text ?? '').toLowerCase().includes(q)) : base;
+    return ALL_STATUSES.reduce<Record<SegmentStatus, number>>((acc, status) => {
+      acc[status] = searched.filter(s => s.status === status).length;
+      return acc;
+    }, {} as Record<SegmentStatus, number>);
+  }, [segments, showMyPhase, userPhases, filterQuery]);
 
   const refreshActivity = useCallback(async () => {
     try {
@@ -212,10 +310,10 @@ export default function EditPage() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === segments.length) {
+    if (selectedIds.size === filteredSegments.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(segments.map(s => s.id)));
+      setSelectedIds(new Set(filteredSegments.map(s => s.id)));
     }
   };
 
@@ -300,7 +398,13 @@ export default function EditPage() {
         <div className="space-y-2">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">
-              Segments {batchMode && selectedIds.size > 0 && (
+              Segments
+              {filteredSegments.length !== segments.length && (
+                <span className="ml-1 text-indigo-600 normal-case font-normal">
+                  {filteredSegments.length} / {segments.length}
+                </span>
+              )}
+              {batchMode && selectedIds.size > 0 && (
                 <span className="ml-1 text-blue-600">({selectedIds.size} selected)</span>
               )}
             </h3>
@@ -319,10 +423,26 @@ export default function EditPage() {
               </button>
             )}
           </div>
+
+          {/* Segment filter bar (T1) */}
+          <SegmentFilterBar
+            statusCounts={statusCounts}
+            activeStatuses={filterStatuses}
+            query={filterQuery}
+            showMyPhase={showMyPhase}
+            userPhases={userPhases}
+            onToggleStatus={(s) => setFilterStatuses(prev =>
+              prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]
+            )}
+            onClearStatuses={() => setFilterStatuses([])}
+            onQueryChange={setFilterQuery}
+            onToggleMyPhase={() => setShowMyPhase(o => !o)}
+          />
+
           {batchMode && (
             <div className="flex items-center gap-3 text-xs text-gray-500 mb-2 pb-2 border-b border-gray-200">
               <button type="button" onClick={toggleSelectAll} className="hover:text-blue-600 transition-colors">
-                {selectedIds.size === segments.length ? 'Deselect all' : 'Select all'}
+                {selectedIds.size === filteredSegments.length ? 'Deselect all' : 'Select all'}
               </button>
               {batchResult && (
                 <span className="text-green-600 font-medium">
@@ -331,7 +451,7 @@ export default function EditPage() {
               )}
             </div>
           )}
-          {segments.map(seg => {
+          {filteredSegments.map(seg => {
             const act = activity.get(seg.id);
             const isSelected = selectedIds.has(seg.id);
             return (
