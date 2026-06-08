@@ -7,20 +7,9 @@ import Link from 'next/link';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import type { Segment, SegmentStatus, WorkflowPhase } from '@/types/database';
 import SegmentFilterBar, { ALL_STATUSES } from '@/components/editor/SegmentFilterBar';
-import PhaseBadge from '@/components/shared/PhaseBadge';
-import PhaseAdvanceButton from '@/components/editor/PhaseAdvanceButton';
-import PhaseTransitionHistory from '@/components/editor/PhaseTransitionHistory';
-import SuggestionPanel from '@/components/editor/SuggestionPanel';
-import QAIssuesList from '@/components/editor/QAIssuesList';
-import {
-    AgentSuggestionPanel,
-    type AgentPhase,
-} from '@/components/editor/AgentSuggestionPanel';
-import {
-    ContextBuilderPanel,
-    type ContextBuilderPhase,
-} from '@/components/editor/ContextBuilderPanel';
-import CommentThread from '@/components/editor/CommentThread';
+import SegmentListItem from '@/components/editor/SegmentListItem';
+import SegmentEditorPanel from '@/components/editor/SegmentEditorPanel';
+import BatchAdvanceToolbar from '@/components/editor/BatchAdvanceToolbar';
 
 /**
  * Per-segment cooperation counts surfaced as badges on the segment list.
@@ -33,11 +22,6 @@ interface ActivityRow {
     recent_transitions_24h: number;
 }
 
-/**
- * Map a segment's current status to the LLM agent phase that should
- * run *next*: draft → translate, translated → edit, everything else
- * → proofread. qa_approved short-circuits in the UI.
- */
 /** Maps document_assignments.allowed_phases → segment statuses the user works on. */
 const PHASE_STATUS_MAP: Record<WorkflowPhase, SegmentStatus[]> = {
     translate: ['draft'],
@@ -45,13 +29,6 @@ const PHASE_STATUS_MAP: Record<WorkflowPhase, SegmentStatus[]> = {
     proofread: ['edited'],
     qa:        ['proofread'],
 };
-
-function agentPhaseFor(status: SegmentStatus): AgentPhase | null {
-    if (status === 'qa_approved') return null;
-    if (status === 'draft') return 'translate';
-    if (status === 'translated') return 'edit';
-    return 'proofread';
-}
 
 export default function EditPage() {
   const params = useParams<{ id: string }>();
@@ -67,9 +44,6 @@ export default function EditPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [drawerTab, setDrawerTab] = useState<'history' | 'suggestions' | 'context' | 'comments'>('history');
-  const [suggestionRefreshKey, setSuggestionRefreshKey] = useState(0);
   const [activity, setActivity] = useState<Map<string, ActivityRow>>(new Map());
   const [targetLang, setTargetLang] = useState<'en' | 'zh'>('en');
   const [batchMode, setBatchMode] = useState(false);
@@ -237,7 +211,6 @@ export default function EditPage() {
 
     setActiveSegment(seg.id);
     setEditingText(seg.target_text || '');
-    setDetailsOpen(false);
 
     await fetch(`/api/segments/${seg.id}/lock`, { method: 'POST' });
   };
@@ -493,115 +466,25 @@ export default function EditPage() {
               )}
             </div>
           )}
-          {filteredSegments.map(seg => {
-            const act = activity.get(seg.id);
-            const isSelected = selectedIds.has(seg.id);
-            return (
-            <div
+          {filteredSegments.map(seg => (
+            <SegmentListItem
               key={seg.id}
-              className={`flex items-start gap-2 ${batchMode ? '' : ''}`}
-            >
-              {batchMode && (
-                <button
-                  type="button"
-                  onClick={() => toggleSelectSegment(seg.id)}
-                  className={`mt-4 ml-2 w-5 h-5 shrink-0 rounded border-2 flex items-center justify-center transition-colors ${
-                    isSelected
-                      ? 'bg-blue-600 border-blue-600 text-white'
-                      : 'bg-white border-gray-300 hover:border-blue-400'
-                  }`}
-                  aria-label={isSelected ? 'Deselect segment' : 'Select segment'}
-                >
-                  {isSelected && (
-                    <svg viewBox="0 0 10 8" fill="none" className="w-3 h-3">
-                      <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </button>
-              )}
-              <button
-                onClick={() => { if (!batchMode) selectSegment(seg); else toggleSelectSegment(seg.id); }}
-                className={`flex-1 text-left p-4 rounded-xl border transition-all ${
-                  batchMode && isSelected
-                    ? 'border-blue-400 bg-blue-50'
-                    : activeSegment === seg.id
-                    ? 'border-blue-400 bg-blue-50 shadow-sm'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
-              >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-800 font-medium truncate">{seg.source_text}</p>
-                  {seg.target_text && (
-                    <p className="text-xs text-gray-500 mt-1 truncate">{seg.target_text}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {act && (act.pending_suggestions > 0 || act.unresolved_comments > 0 || act.recent_transitions_24h > 0) && (
-                    <span
-                      data-testid="segment-activity-badges"
-                      className="flex items-center gap-1"
-                    >
-                      {act.pending_suggestions > 0 && (
-                        <span
-                          data-testid="segment-activity-suggestions"
-                          data-count={act.pending_suggestions}
-                          title={`${act.pending_suggestions} pending suggestion${act.pending_suggestions === 1 ? '' : 's'}`}
-                          className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800"
-                        >
-                          {act.pending_suggestions}·✎
-                        </span>
-                      )}
-                      {act.unresolved_comments > 0 && (
-                        <span
-                          data-testid="segment-activity-comments"
-                          data-count={act.unresolved_comments}
-                          title={`${act.unresolved_comments} unresolved comment${act.unresolved_comments === 1 ? '' : 's'}`}
-                          className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-800"
-                        >
-                          {act.unresolved_comments}·💬
-                        </span>
-                      )}
-                      {act.recent_transitions_24h > 0 && (
-                        <span
-                          data-testid="segment-activity-transitions"
-                          data-count={act.recent_transitions_24h}
-                          title={`${act.recent_transitions_24h} transition${act.recent_transitions_24h === 1 ? '' : 's'} in the last 24h`}
-                          className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-800"
-                        >
-                          {act.recent_transitions_24h}·⇺
-                        </span>
-                      )}
-                    </span>
-                  )}
-                  <PhaseBadge status={seg.status as SegmentStatus} size="sm" />
-                </div>
-              </div>
-            </button>
-            </div>
-            );
-          })}
+              segment={seg}
+              isActive={activeSegment === seg.id}
+              batchMode={batchMode}
+              isSelected={selectedIds.has(seg.id)}
+              activity={activity.get(seg.id)}
+              onSelect={selectSegment}
+              onToggleSelect={toggleSelectSegment}
+            />
+          ))}
 
           {/* Batch advance toolbar — floats at bottom when selections exist */}
-          {batchMode && selectedIds.size > 0 && (
-            <div className="sticky bottom-4 bg-white rounded-xl border border-blue-300 shadow-lg p-3 flex items-center gap-3 flex-wrap mt-2">
-              <span className="text-sm font-medium text-gray-700">{selectedIds.size} segment{selectedIds.size === 1 ? '' : 's'} selected</span>
-              <div className="flex items-center gap-2 ml-auto">
-                {(['translated', 'edited', 'proofread', 'qa_approved'] as SegmentStatus[]).map((status) => (
-                  <button
-                    key={status}
-                    type="button"
-                    disabled={batchAdvancing}
-                    onClick={() => handleBatchAdvance(status)}
-                    className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 bg-gray-900 text-white hover:bg-gray-700"
-                  >
-                    → {status.replace('_', ' ')}
-                  </button>
-                ))}
-              </div>
-              {batchAdvancing && <span className="text-xs text-gray-500 w-full text-center">Advancing…</span>}
-            </div>
-          )}
+          <BatchAdvanceToolbar
+            selectedCount={batchMode ? selectedIds.size : 0}
+            advancing={batchAdvancing}
+            onAdvance={handleBatchAdvance}
+          />
         </div>
 
         {/* Editor panel */}
@@ -609,199 +492,29 @@ export default function EditPage() {
           {activeSegment ? (() => {
             const seg = segments.find(s => s.id === activeSegment);
             return seg ? (
-              <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Source</label>
-                  <p className="text-gray-900 text-sm leading-relaxed bg-gray-50 rounded-lg p-3">{seg.source_text}</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Translation</label>
-                  <textarea
-                    value={editingText}
-                    onChange={e => setEditingText(e.target.value)}
-                    rows={4}
-                    className="w-full text-sm border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                    placeholder="Enter translation…"
-                  />
-                </div>
-                {/* MAC-RAG candidates */}
-                {macRag.candidates.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">AI Suggestions</p>
-                    {macRag.candidates.map((c, i) => (
-                      <button
-                        key={c.id}
-                        onClick={() => setEditingText(c.text)}
-                        className={`w-full text-left text-xs p-3 rounded-lg border transition-all ${
-                          i === macRag.recommendedIndex
-                            ? 'border-blue-300 bg-blue-50'
-                            : 'border-gray-200 hover:bg-gray-50'
-                        }`}
-                      >
-                        <span className="font-medium capitalize text-gray-600">{c.approach}</span>
-                        <span className="ml-2 text-gray-400">{Math.round(c.confidence * 100)}%</span>
-                        <p className="mt-1 text-gray-700">{c.text}</p>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <div className="flex gap-2 flex-wrap">
-                  <button
-                    onClick={() => handleAITranslate(seg)}
-                    disabled={macRag.isLoading}
-                    className="text-xs px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    {macRag.isLoading ? 'Translating…' : '✨ AI Translate'}
-                  </button>
-                  <button
-                    onClick={() => saveSegment(seg.id, editingText, 'translated')}
-                    disabled={saving || !editingText.trim()}
-                    className="text-xs px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
-                  >
-                    {saving ? 'Saving…' : 'Save'}
-                  </button>
-                  <button
-                    onClick={() => saveSegment(seg.id, editingText, 'qa_approved')}
-                    disabled={saving || !editingText.trim()}
-                    className="text-xs px-4 py-2 border border-green-400 text-green-700 rounded-lg hover:bg-green-50 transition-colors disabled:opacity-50"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    onClick={() => setDetailsOpen(o => !o)}
-                    className="text-xs px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors ml-auto"
-                    data-testid="segment-details-toggle"
-                    data-open={detailsOpen}
-                  >
-                    {detailsOpen ? 'Hide details ▴' : 'Details ▾'}
-                  </button>
-                </div>
-                {/* Cooperation drawer — tabbed: History / Suggestions / Context Builder / Comments */}
-                {detailsOpen && (
-                  <div
-                    data-testid="segment-details-drawer"
-                    className="border-t border-gray-200 pt-4 mt-2"
-                  >
-                    {/* Always-visible: phase badge + advance button */}
-                    <div className="flex items-center gap-2 mb-3">
-                      <PhaseBadge status={seg.status as SegmentStatus} />
-                      <PhaseAdvanceButton
-                        segmentId={seg.id}
-                        currentStatus={seg.status as SegmentStatus}
-                        onAdvanced={(next) => {
-                          setSegments(prev =>
-                            prev.map(s => s.id === seg.id ? { ...s, status: next } : s)
-                          );
-                          void refreshActivity();
-                        }}
-                        onStaleStatus={(actual) => {
-                          setSegments(prev =>
-                            prev.map(s => s.id === seg.id ? { ...s, status: actual } : s)
-                          );
-                          void refreshActivity();
-                        }}
-                      />
-                    </div>
-
-                    {/* Tab strip */}
-                    <div className="flex border-b border-gray-200 mb-4 gap-0" role="tablist">
-                      {(
-                        [
-                          { key: 'history',     label: 'History' },
-                          { key: 'suggestions', label: 'Suggestions' },
-                          { key: 'context',     label: 'Context Builder' },
-                          { key: 'comments',    label: 'Comments' },
-                        ] as const
-                      ).map(({ key, label }) => (
-                        <button
-                          key={key}
-                          role="tab"
-                          aria-selected={drawerTab === key}
-                          onClick={() => setDrawerTab(key)}
-                          className={`text-xs px-3 py-2 border-b-2 transition-colors whitespace-nowrap ${
-                            drawerTab === key
-                              ? 'border-indigo-500 text-indigo-700 font-semibold'
-                              : 'border-transparent text-gray-500 hover:text-gray-700'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Tab panels */}
-                    {drawerTab === 'history' && (
-                      <div role="tabpanel">
-                        <PhaseTransitionHistory segmentId={seg.id} />
-                      </div>
-                    )}
-
-                    {drawerTab === 'suggestions' && (
-                      <div role="tabpanel" className="space-y-4">
-                        <div>
-                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Suggestions</p>
-                          <SuggestionPanel
-                            key={`suggestions-${seg.id}-${suggestionRefreshKey}`}
-                            segmentId={seg.id}
-                            segmentPhase={seg.status}
-                            articleId={params.id}
-                            segmentCurrentText={seg.target_text ?? ''}
-                            onAccepted={(text) => {
-                              setEditingText(text);
-                              void saveSegment(seg.id, text, seg.status as SegmentStatus === 'draft' ? 'translated' : seg.status as SegmentStatus);
-                              void refreshActivity();
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">QA Issues</p>
-                          <QAIssuesList segmentId={seg.id} articleId={params.id} />
-                        </div>
-                      </div>
-                    )}
-
-                    {drawerTab === 'context' && (
-                      <div role="tabpanel" className="space-y-4">
-                        {agentPhaseFor(seg.status as SegmentStatus) ? (
-                          <>
-                            <div>
-                              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">MAC-RAG Context Builder</p>
-                              <ContextBuilderPanel
-                                segmentId={seg.id}
-                                phase={agentPhaseFor(seg.status as SegmentStatus)! as ContextBuilderPhase}
-                                targetLang={targetLang}
-                                onSuggestionCreated={() => {
-                                  setSuggestionRefreshKey(k => k + 1);
-                                  void refreshActivity();
-                                }}
-                              />
-                            </div>
-                            <div>
-                              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Agent</p>
-                              <AgentSuggestionPanel
-                                segmentId={seg.id}
-                                phase={agentPhaseFor(seg.status as SegmentStatus)!}
-                                onCreated={() => {
-                                  setSuggestionRefreshKey(k => k + 1);
-                                  void refreshActivity();
-                                }}
-                              />
-                            </div>
-                          </>
-                        ) : (
-                          <p className="text-sm text-gray-400 italic">Context Builder is not available for QA-approved segments.</p>
-                        )}
-                      </div>
-                    )}
-
-                    {drawerTab === 'comments' && (
-                      <div role="tabpanel">
-                        <CommentThread segmentId={seg.id} />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              <SegmentEditorPanel
+                segment={seg}
+                articleId={params.id}
+                editingText={editingText}
+                saving={saving}
+                macRag={{
+                  candidates: macRag.candidates,
+                  recommendedIndex: macRag.recommendedIndex,
+                  isLoading: macRag.isLoading,
+                }}
+                targetLang={targetLang}
+                onEditingTextChange={setEditingText}
+                onSave={saveSegment}
+                onAITranslate={() => handleAITranslate(seg)}
+                onCandidateSelect={(text) => setEditingText(text)}
+                onSegmentStatusChange={(segId, newStatus) => {
+                  setSegments(prev =>
+                    prev.map(s => s.id === segId ? { ...s, status: newStatus } : s)
+                  );
+                }}
+                onActivityRefresh={refreshActivity}
+                onSuggestionRefresh={() => { /* state is internal to SegmentEditorPanel */ }}
+              />
             ) : null;
           })() : (
             <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400">
