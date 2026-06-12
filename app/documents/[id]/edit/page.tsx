@@ -391,6 +391,25 @@ export default function EditPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Mobile phone-block banner — editor requires desktop (T6) */}
+      <div className="md:hidden fixed inset-0 z-50 flex flex-col items-center justify-center bg-white px-6 text-center">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-indigo-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+        <h2 className="text-lg font-semibold text-gray-900 mb-2">Editor requires a desktop</h2>
+        <p className="text-sm text-gray-500 mb-6">
+          The translation editor is designed for laptop and desktop use.
+          On small screens, use the reader view instead.
+        </p>
+        <Link
+          href={`/documents/${params.id}/read`}
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"
+          data-testid="mobile-editor-reader-link"
+        >
+          Go to Reader View →
+        </Link>
+      </div>
+
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
