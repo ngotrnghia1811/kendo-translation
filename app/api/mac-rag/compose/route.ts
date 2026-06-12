@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { searchTM } from '@/lib/retrieval/tm-search';
 import { searchTerminology } from '@/lib/retrieval/terminology';
-import { buildArticleL2Context } from '@/lib/context/article-context';
+import { buildArticleL2Context, KENDO_AUDIENCE_PROFILE } from '@/lib/context/article-context';
 import type { ArticleL2Context } from '@/lib/context/article-context';
 import {
   translatePrompt,
@@ -179,6 +179,14 @@ export async function POST(req: NextRequest) {
     contextLines.push('');
   }
 
+  // ── Audience profile (static kendo-domain default) ────────────
+  contextLines.push('## Audience Profile');
+  contextLines.push(`- Domain: ${KENDO_AUDIENCE_PROFILE.domain}`);
+  contextLines.push(`- Register: ${KENDO_AUDIENCE_PROFILE.register}`);
+  contextLines.push(`- Expected technical terms: ${KENDO_AUDIENCE_PROFILE.expectedTerms.join(', ')}`);
+  contextLines.push(`- Note: ${KENDO_AUDIENCE_PROFILE.note}`);
+  contextLines.push('');
+
   if (tmResult.matches.length > 0) {
     // Split by retrieval_layer: L3 (in-project) and L4 (external/global).
     const l3Matches = tmResult.matches.filter(m => m.retrievalLayer !== 'external');
@@ -247,6 +255,7 @@ export async function POST(req: NextRequest) {
     target_text: targetText,
     target_lang: segment.target_lang,
     prompt: built,
+    audience_profile: KENDO_AUDIENCE_PROFILE,
     l2_context: {
       document_title: l2.documentTitle,
       neighbours: l2.neighbours,

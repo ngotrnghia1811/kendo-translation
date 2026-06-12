@@ -91,6 +91,12 @@ export interface ComposeResult {
     terms_already_annotated: string[];
   };
   timings: { retrieval_ms: number; compose_ms: number };
+  audience_profile?: {
+    domain: string;
+    register: string;
+    expectedTerms: string[];
+    note: string;
+  };
 }
 
 export interface GenerateResult {

@@ -20,6 +20,15 @@ export interface NeighbourSegment {
   reason?: string;
 }
 
+export const KENDO_AUDIENCE_PROFILE = {
+  domain: 'kendo',
+  register: 'formal-literary',
+  expectedTerms: ['men', 'kote', 'dō', 'tsuki', 'kiai', 'kamae', 'seme', 'zanshin'],
+  note: 'Audience: kendo practitioners and enthusiasts. Preserve Japanese technical terms in romanised form with brief parenthetical glosses on first use.',
+} as const;
+
+export type AudienceProfile = typeof KENDO_AUDIENCE_PROFILE;
+
 export interface ArticleL2Context {
   articleId: string;
   documentTitle: string | null;
