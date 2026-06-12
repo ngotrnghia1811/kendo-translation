@@ -15,6 +15,7 @@ import {
     ContextBuilderPanel,
     type ContextBuilderPhase,
 } from '@/components/editor/ContextBuilderPanel';
+import { ContextBuilderModal } from '@/components/editor/ContextBuilderModal';
 import CommentThread from '@/components/editor/CommentThread';
 
 // ---------------------------------------------------------------------------
@@ -91,6 +92,7 @@ export default function SegmentEditorPanel({
     const [detailsOpen, setDetailsOpen] = useState(false);
     const [drawerTab, setDrawerTab] = useState<DrawerTab>('history');
     const [suggestionRefreshKey, setSuggestionRefreshKey] = useState(0);
+    const [contextBuilderExpanded, setContextBuilderExpanded] = useState(false);
 
     const handleSuggestionAccepted = (text: string) => {
         onEditingTextChange(text);
@@ -106,6 +108,7 @@ export default function SegmentEditorPanel({
     };
 
     return (
+        <>
         <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
             {/* Source */}
             <div>
@@ -261,9 +264,21 @@ export default function SegmentEditorPanel({
                             {agentPhaseFor(seg.status as SegmentStatus) ? (
                                 <>
                                     <div>
-                                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                                            MAC-RAG Context Builder
-                                        </p>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                                MAC-RAG Context Builder
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={() => setContextBuilderExpanded(true)}
+                                                data-testid="context-builder-expand-btn"
+                                                className="text-gray-400 hover:text-gray-600 text-sm leading-none p-0.5 rounded hover:bg-gray-100 transition-colors"
+                                                aria-label="Expand context builder"
+                                                title="Expand"
+                                            >
+                                                ⤢
+                                            </button>
+                                        </div>
                                         <ContextBuilderPanel
                                             segmentId={seg.id}
                                             phase={agentPhaseFor(seg.status as SegmentStatus)! as ContextBuilderPhase}
@@ -298,5 +313,17 @@ export default function SegmentEditorPanel({
                 </div>
             )}
         </div>
+
+        {/* Full-screen context builder modal */}
+        {contextBuilderExpanded && (
+            <ContextBuilderModal
+                segmentId={seg.id}
+                phase={agentPhaseFor(seg.status as SegmentStatus)! as ContextBuilderPhase}
+                targetLang={targetLang}
+                onSuggestionCreated={handleContextSuggestionCreated}
+                onClose={() => setContextBuilderExpanded(false)}
+            />
+        )}
+        </>
     );
 }

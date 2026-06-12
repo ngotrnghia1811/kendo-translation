@@ -20,7 +20,7 @@ import {
 
 // ── Rendering types (match actual API shapes at runtime) ──────────────
 
-interface TmMatch {
+export interface TmMatch {
   id: string;
   sourceText: string;
   targetText: string;
@@ -30,7 +30,7 @@ interface TmMatch {
   retrievalLayer?: 'project' | 'external';
 }
 
-interface TermEntry {
+export interface TermEntry {
   id: string;
   japaneseTerm: string;
   englishTerm: string;
@@ -40,7 +40,7 @@ interface TermEntry {
   notes?: string;
 }
 
-interface NeighbourSeg {
+export interface NeighbourSeg {
   source_text: string;
   target_text: string | null;
   status: string;
@@ -48,7 +48,7 @@ interface NeighbourSeg {
   reason?: string;
 }
 
-interface L2Context {
+export interface L2Context {
   document_title: string | null;
   neighbours: {
     prev: NeighbourSeg | null;
@@ -58,7 +58,7 @@ interface L2Context {
 }
 
 /** Runtime shape of the compose response (includes l2_context not in the hook type). */
-interface ComposeData extends ComposeResult {
+export interface ComposeData extends ComposeResult {
   l2_context: L2Context;
 }
 
@@ -70,26 +70,28 @@ interface ContextBuilderPanelProps {
   segmentId: string;
   phase: ContextBuilderPhase;
   targetLang?: 'en' | 'zh';
+  expanded?: boolean;
   onSuggestionCreated?: () => void;
+  onComposeData?: (data: ComposeData) => void;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function qualityLabel(score: number | undefined): string {
+export function qualityLabel(score: number | undefined): string {
   if (score === undefined) return '—';
   if (score >= 90) return 'High';
   if (score >= 70) return 'Med';
   return 'Low';
 }
 
-function qualityColor(score: number | undefined): string {
+export function qualityColor(score: number | undefined): string {
   if (score === undefined) return 'bg-slate-100 text-slate-600';
   if (score >= 90) return 'bg-emerald-100 text-emerald-700';
   if (score >= 70) return 'bg-amber-100 text-amber-700';
   return 'bg-red-100 text-red-700';
 }
 
-function termTypeLabel(t: string): string {
+export function termTypeLabel(t: string): string {
   switch (t) {
     case 'required':
       return 'required';
@@ -104,7 +106,7 @@ function termTypeLabel(t: string): string {
   }
 }
 
-function termTypeColor(t: string): string {
+export function termTypeColor(t: string): string {
   switch (t) {
     case 'required':
       return 'bg-sky-100 text-sky-700';
@@ -119,7 +121,7 @@ function termTypeColor(t: string): string {
   }
 }
 
-function allTerms(data: ComposeData): TermEntry[] {
+export function allTerms(data: ComposeData): TermEntry[] {
   const t = data.terminology;
   return [
     ...(t.requiredTerms ?? []).map((e: TermEntry) => ({ ...e, type: 'required' })),
@@ -134,7 +136,9 @@ export function ContextBuilderPanel({
   segmentId,
   phase,
   targetLang = 'en',
+  expanded = false,
   onSuggestionCreated,
+  onComposeData,
 }: ContextBuilderPanelProps) {
   const { compose, generate, composing, generating, error: hookError } = useMacRagTwoStage();
 
@@ -182,6 +186,7 @@ export function ContextBuilderPanel({
       setContextOpen(false);
       setExpandedSections({ tm: false, terminology: false, article: false });
       setView('composed');
+      onComposeData?.(result);
     } catch {
       setView('idle');
     }
@@ -461,7 +466,7 @@ export function ContextBuilderPanel({
                 value={promptSystem}
                 onChange={(e) => setPromptSystem(e.target.value)}
                 disabled={view === 'generating'}
-                rows={6}
+                rows={expanded ? 10 : 6}
                 data-testid="context-builder-system-prompt"
                 className="w-full text-xs border border-slate-200 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y font-mono bg-white disabled:opacity-50"
               />
@@ -474,7 +479,7 @@ export function ContextBuilderPanel({
                 value={promptUser}
                 onChange={(e) => setPromptUser(e.target.value)}
                 disabled={view === 'generating'}
-                rows={10}
+                rows={expanded ? 18 : 10}
                 data-testid="context-builder-user-prompt"
                 className="w-full text-xs border border-slate-200 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y font-mono bg-white disabled:opacity-50"
               />
