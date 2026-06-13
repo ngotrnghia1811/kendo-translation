@@ -6,10 +6,10 @@ const nextConfig: NextConfig = {
 };
 
 export default withSentryConfig(nextConfig, {
-  silent: true,
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
+  org: 'nghia-ngo',
+  project: 'kendo-translation',
   authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
   widenClientFileUpload: true,
   disableLogger: true,
 });
