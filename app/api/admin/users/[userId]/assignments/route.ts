@@ -19,34 +19,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { requireAdmin } from '@/lib/auth/requireAdmin';
 
 const UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-async function requireAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-        return {
-            error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
-        };
-    }
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
-    if (profile?.role !== 'admin') {
-        return {
-            error: NextResponse.json(
-                { error: 'Forbidden: admin role required' },
-                { status: 403 }
-            ),
-        };
-    }
-    return { user };
-}
 
 export async function GET(
     _req: NextRequest,
@@ -62,7 +38,7 @@ export async function GET(
 
     const supabase = await createClient();
     const guard = await requireAdmin(supabase);
-    if (guard.error) return guard.error;
+    if (guard instanceof NextResponse) return guard;
 
     const { data, error } = await supabase
         .from('document_assignments')
