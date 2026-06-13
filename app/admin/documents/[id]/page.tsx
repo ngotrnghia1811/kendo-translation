@@ -33,6 +33,64 @@ interface DocDetail {
 }
 
 // ---------------------------------------------------------------------------
+// Segmentize button
+// ---------------------------------------------------------------------------
+
+function SegmentizeButton({ docId }: { docId: string }) {
+    const [segmentizing, setSegmentizing] = useState(false);
+    const [segmentizeMsg, setSegmentizeMsg] = useState<string | null>(null);
+
+    async function handleSegmentize() {
+        setSegmentizing(true);
+        setSegmentizeMsg(null);
+        try {
+            const res = await fetch(`/api/documents/${docId}/segmentize`, { method: 'POST' });
+            const body = await res.json();
+            if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+            setSegmentizeMsg(`Segmentization complete — ${body.count ?? body.segment_count ?? '?'} segments created.`);
+        } catch (err) {
+            setSegmentizeMsg(`Error: ${err instanceof Error ? err.message : String(err)}`);
+        } finally {
+            setSegmentizing(false);
+        }
+    }
+
+    return (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between gap-4">
+                <div>
+                    <h3 className="text-sm font-semibold text-amber-800">Segmentize Document</h3>
+                    <p className="text-xs text-amber-600 mt-0.5">
+                        This will re-segment the document. Existing segments will be replaced.
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    onClick={handleSegmentize}
+                    disabled={segmentizing}
+                    data-testid="admin-segmentize-btn"
+                    className="text-xs px-4 py-2 rounded font-medium border border-amber-400 bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                >
+                    {segmentizing ? 'Segmentizing…' : 'Segmentize'}
+                </button>
+            </div>
+            {segmentizeMsg && (
+                <p
+                    data-testid="admin-segmentize-msg"
+                    className={`mt-3 text-sm px-3 py-2 rounded border ${
+                        segmentizeMsg.startsWith('Error:')
+                            ? 'bg-red-50 border-red-200 text-red-700'
+                            : 'bg-green-50 border-green-200 text-green-700'
+                    }`}
+                >
+                    {segmentizeMsg}
+                </p>
+            )}
+        </div>
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -203,6 +261,9 @@ export default function AdminDocDetailPage() {
                     </Link>
                 </div>
             </div>
+
+            {/* Segmentize action */}
+            <SegmentizeButton docId={article.id} />
 
             {/* Stat cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
