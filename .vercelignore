@@ -1,0 +1,28 @@
+# Files to exclude from Vercel deployment upload
+# These are already in .gitignore but we list them explicitly
+# to guard against CLI behavior differences.
+
+# Build cache and output
+.next/
+.vercel/
+
+# Dependencies (installed by Vercel build step)
+node_modules/
+
+# Test artifacts
+test-results/
+playwright-report/
+
+# Dev tooling
+.tmp/
+.vscode/
+.opencode/
+.opencode-workspace/
+.opencode-store/
+
+# Local secrets
+.env.local
+.env*.local
+
+# GDrive oauth token cache
+.gdrive-token.json
