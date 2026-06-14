@@ -445,6 +445,7 @@ export default function AdminPage() {
             ---------------------------------------------------------------- */}
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Documents</h2>
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden mb-8" data-testid="admin-documents-table">
+                <div className="overflow-x-auto">
                 <table className="w-full">
                     <thead>
                         <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
@@ -501,6 +502,7 @@ export default function AdminPage() {
                         ))}
                     </tbody>
                 </table>
+                </div>
                 {/* Pagination controls */}
                 {docs.length > PAGE_SIZE && (
                     <div className="flex items-center justify-between px-3 py-2 border-t border-gray-200 dark:border-gray-700">
@@ -532,6 +534,7 @@ export default function AdminPage() {
             ---------------------------------------------------------------- */}
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Users</h2>
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="w-full">
                     <thead>
                         <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
@@ -590,6 +593,7 @@ export default function AdminPage() {
                         ))}
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
     )

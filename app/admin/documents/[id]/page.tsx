@@ -324,6 +324,7 @@ export default function AdminDocDetailPage() {
                 {assignments.length === 0 ? (
                     <p className="text-xs text-gray-400 px-5 py-4">No users assigned yet.</p>
                 ) : (
+                    <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
                             <tr className="border-b border-gray-100 bg-gray-50">
@@ -362,6 +363,7 @@ export default function AdminDocDetailPage() {
                             ))}
                         </tbody>
                     </table>
+                    </div>
                 )}
             </div>
         </div>
