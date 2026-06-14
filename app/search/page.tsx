@@ -7,9 +7,12 @@
  * Accessible at /search. Authentication is required — unauthenticated
  * users are redirected server-side; this page relies on the middleware
  * for that (or alternatively the API returning 401).
+ *
+ * Note: useSearchParams() is wrapped in <Suspense> (via SearchPageInner)
+ * to satisfy Next.js App Router static generation requirements.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { ArticleHit, SearchResponse, SegmentHit } from '@/app/api/search/route'
@@ -45,7 +48,7 @@ function Highlighted({ text, query }: { text: string; query: string }) {
     )
 }
 
-export default function SearchPage() {
+function SearchPageInner() {
     const router = useRouter()
     const searchParams = useSearchParams()
 
@@ -329,5 +332,17 @@ export default function SearchPage() {
                 )}
             </main>
         </div>
+    )
+}
+
+export default function SearchPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-sm text-gray-500">Loading search…</div>
+            </div>
+        }>
+            <SearchPageInner />
+        </Suspense>
     )
 }
