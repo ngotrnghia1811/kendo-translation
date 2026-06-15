@@ -12,6 +12,7 @@ import SegmentEditorPanel from '@/components/editor/SegmentEditorPanel';
 import BatchAdvanceToolbar from '@/components/editor/BatchAdvanceToolbar';
 import { useEditorKeyboard } from '@/hooks/useEditorKeyboard';
 import { useEditorProgress } from '@/hooks/useEditorProgress';
+import { fetchAllSegments } from '@/lib/supabase/fetch-all-segments';
 
 /**
  * Per-segment cooperation counts surfaced as badges on the segment list.
@@ -165,12 +166,12 @@ export default function EditPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [{ data: art }, { data: segs }] = await Promise.all([
+    const [{ data: art }, segs] = await Promise.all([
       supabase.from('articles').select('id,title').eq('id', params.id).single(),
-      supabase.from('segments').select('*').eq('article_id', params.id).eq('target_lang', targetLang).order('position'),
+      fetchAllSegments<Segment>(supabase, params.id, targetLang),
     ]);
     if (art) setArticle(art as { id: string; title: string });
-    if (segs) setSegments(segs as Segment[]);
+    setSegments(segs);
     setLoading(false);
     void refreshActivity();
   }, [params.id, refreshActivity, targetLang]);

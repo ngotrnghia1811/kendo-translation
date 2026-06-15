@@ -2,6 +2,8 @@ import { createAdminClient, createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import ReaderView from '@/components/reader/ReaderView';
+import type { Segment } from '@/types/database';
+import { fetchAllSegments } from '@/lib/supabase/fetch-all-segments';
 
 export default async function ReadPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -36,15 +38,15 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
   // Fetch ALL segments (no DB-side status filter) so ReaderView's paragraph
   // merging sees the full ordered sequence. We then apply the reader-visibility
   // contract in JS below: only segments that are qa_approved OR already have
-  // target_text are exposed to the public reader. If we want a configurable
-  // status filter later, it should live in document_settings.
+  // target_text are exposed to the public reader.
   //
-  // We fetch EN and ZH segments in parallel. EN segments are the primary lane
-  // (target_lang = 'en'). ZH segments are fetched separately and passed as an
-  // optional overlay — the reader can toggle between EN and ZH target text.
-  const [{ data: segments }, { data: zhSegmentsRaw }, { data: settings }] = await Promise.all([
-    supabase.from('segments').select('*').eq('article_id', id).eq('target_lang', 'en').order('position'),
-    supabase.from('segments').select('id, position, target_text, status').eq('article_id', id).eq('target_lang', 'zh').order('position'),
+  // fetchAllSegments paginates past PostgREST's 1,000-row default cap.
+  // EN segments are the primary lane; ZH segments are an optional overlay.
+  const [segments, zhSegmentsRaw, { data: settings }] = await Promise.all([
+    fetchAllSegments<Segment>(supabase, id, 'en'),
+    fetchAllSegments<{ id: string; position: number; target_text: string | null; status: string }>(
+      supabase, id, 'zh', 'id, position, target_text, status',
+    ),
     supabase.from('document_settings').select('*').eq('article_id', id).maybeSingle(),
   ]);
 
