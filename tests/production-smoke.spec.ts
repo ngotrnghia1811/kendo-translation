@@ -209,23 +209,30 @@ test.describe('Production Smoke Tests @smoke', () => {
         await injectSession(context, accessToken, refreshToken)
         await page.goto(`${PROD}/admin`)
         await page.waitForLoadState('domcontentloaded')
-        await snap(page, 'admin_dashboard')
         expect(page.url()).not.toContain('/login')
-        // The page rendered the admin dashboard — check URL only.
-        // (The raw body textContent includes the Next.js RSC bundle which
-        // embeds the 404 fallback template as escaped JSON; that text is NOT
-        // visible to the user and must not be matched against.)
         expect(page.url()).toContain('/admin')
+        // Wait for the stat cards to hydrate with real data before snapping.
+        // The admin dashboard is a client component; cards load after hydration.
+        await expect(page.locator('h1, h2').filter({ hasText: /Admin|Dashboard/ }).first()).toBeVisible({ timeout: 10000 })
+        const statCards = page.locator('[data-testid="stat-card"], .stat-card, [class*="stat"]').first()
+        const cardOrNumber = page.locator('text=/\\d+ (Documents|Users|Segments|Approved)/, [data-testid="stat-card"]').first()
+        // Try to see loaded content; fall back gracefully if skeleton takes too long
+        try { await expect(cardOrNumber).toBeVisible({ timeout: 8000 }) } catch { /* skeleton ok */ }
+        await snap(page, 'admin_dashboard')
     })
 
     test('5. /admin — users table section renders', async ({ page, context }) => {
         await injectSession(context, accessToken, refreshToken)
         await page.goto(`${PROD}/admin`)
         await page.waitForLoadState('domcontentloaded')
-        await snap(page, 'admin_users')
-        // Users table is embedded in /admin — check URL only.
         expect(page.url()).toContain('/admin')
         expect(page.url()).not.toContain('/login')
+        // Wait for user data to load before snapping
+        await expect(page.locator('h1, h2').filter({ hasText: /Admin|Dashboard/ }).first()).toBeVisible({ timeout: 10000 })
+        try {
+            await expect(page.locator('table, [role="table"], [data-testid="users-table"]').first()).toBeVisible({ timeout: 8000 })
+        } catch { /* table may not be rendered if no users */ }
+        await snap(page, 'admin_users')
     })
 
     test('6. Reader view loads for first document', async ({ page, context }) => {
@@ -288,11 +295,12 @@ test.describe('Production Smoke Tests @smoke', () => {
 
         await page.goto(`${PROD}/documents/${docId}/edit`)
         await page.waitForLoadState('domcontentloaded')
-        await snap(page, 'editor_view')
         expect(page.url()).not.toContain('/login')
         await expect(page.locator('main, [role="main"]')).toBeVisible({ timeout: 10000 })
         const segmentEl = page.locator('[data-testid="segment-list-item"], [data-testid="segment-row"], [data-testid="segment-editor-panel"]').first()
         await expect(segmentEl).toBeVisible({ timeout: 20000 })
+        // Snap only after segments are visible — not while the editor shows "Loading editor..."
+        await snap(page, 'editor_view')
     })
 
     test('10. PDF API — /api/pdfs/[articleId] streams PDF (cookie auth)', async ({ page, context }) => {
@@ -337,28 +345,38 @@ test.describe('Production Smoke Tests @smoke', () => {
         }
         expect(pdfResult.status).toBe(200)
         expect(pdfResult.contentType).toContain('application/pdf')
-        await snap(page, 'pdf_api_check')
+        // PDF is a binary API response — no meaningful page snap possible
+        // (the visible page is still the PROD homepage from the goto above)
     })
 
     test('11. Terminology page renders', async ({ page, context }) => {
         await injectSession(context, accessToken, refreshToken)
         await page.goto(`${PROD}/terminology`)
         await page.waitForLoadState('domcontentloaded')
-        await snap(page, 'terminology_page')
         expect(page.url()).not.toContain('/login')
-        await expect(page.locator('h1, h2').first()).toContainText(/Terminology|Term/)
+        // Wait for terminology content to hydrate before snapping
+        await expect(page.locator('h1, h2').first()).toContainText(/Terminology|Term/, { timeout: 10000 })
+        // Wait for at least one term row to appear (terminology list loads client-side)
+        try {
+            await expect(page.locator('table tbody tr, [data-testid="term-row"], [class*="term"]').first()).toBeVisible({ timeout: 8000 })
+        } catch { /* empty state or different structure is ok */ }
+        await snap(page, 'terminology_page')
     })
 
     test('12. Profile page renders with stats', async ({ page, context }) => {
         await injectSession(context, accessToken, refreshToken)
         await page.goto(`${PROD}/profile`)
         await page.waitForLoadState('domcontentloaded')
-        await snap(page, 'profile_page')
         expect(page.url()).not.toContain('/login')
         // Wait for the profile card to be visible; the email is rendered by
         // client-side React after hydration so we check for a visible element
         // rather than raw bodyText (which may contain RSC JSON instead).
         await expect(page.locator('main, [role="main"], .profile-card, h1, h2').first()).toBeVisible({ timeout: 10000 })
+        // Wait for profile data to load (username, stats — all client-side)
+        try {
+            await expect(page.locator('[class*="username"], [data-testid="username"], h1, h2').first()).toBeVisible({ timeout: 8000 })
+        } catch { /* ok if not found */ }
+        await snap(page, 'profile_page')
     })
 
     test('13. Reader ZH toggle shows Chinese content', async ({ page, context }) => {
@@ -424,7 +442,7 @@ test.describe('Production Smoke Tests @smoke', () => {
         expect(body.prompt).toBeDefined()
         expect(body.prompt!.system).toBeDefined()
         expect(body.prompt!.user).toBeDefined()
-        await snap(page, 'mac_rag_compose')
+        // MAC-RAG compose is a JSON API — the visible page is PROD root; no snap needed
     })
 
     test('15. QA issues list endpoint (GET /api/segments/[id]/qa-issues)', async ({ page, context }) => {
