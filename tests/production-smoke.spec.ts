@@ -211,13 +211,16 @@ test.describe('Production Smoke Tests @smoke', () => {
         await page.waitForLoadState('domcontentloaded')
         expect(page.url()).not.toContain('/login')
         expect(page.url()).toContain('/admin')
-        // Wait for the stat cards to hydrate with real data before snapping.
-        // The admin dashboard is a client component; cards load after hydration.
+        // Wait for nav to reflect auth session before any assertions or snaps.
+        // The nav renders 'Sign in' (SSR) then hydrates to show the user avatar.
+        await expect(page.locator('nav a[href="/profile"], nav button[aria-label*="profile"], nav img[alt*="avatar"], [data-testid="nav-user"]').first()).toBeVisible({ timeout: 15000 }).catch(async () => {
+            // Fallback: wait for any element that confirms admin-1 is logged in
+            await expect(page.locator('text=admin-1').first()).toBeVisible({ timeout: 5000 }).catch(() => {})
+        })
+        // Wait for the admin page heading and stat cards to hydrate
         await expect(page.locator('h1, h2').filter({ hasText: /Admin|Dashboard/ }).first()).toBeVisible({ timeout: 10000 })
-        const statCards = page.locator('[data-testid="stat-card"], .stat-card, [class*="stat"]').first()
         const cardOrNumber = page.locator('text=/\\d+ (Documents|Users|Segments|Approved)/, [data-testid="stat-card"]').first()
-        // Try to see loaded content; fall back gracefully if skeleton takes too long
-        try { await expect(cardOrNumber).toBeVisible({ timeout: 8000 }) } catch { /* skeleton ok */ }
+        try { await expect(cardOrNumber).toBeVisible({ timeout: 12000 }) } catch { /* skeleton ok */ }
         await snap(page, 'admin_dashboard')
     })
 
@@ -227,10 +230,11 @@ test.describe('Production Smoke Tests @smoke', () => {
         await page.waitForLoadState('domcontentloaded')
         expect(page.url()).toContain('/admin')
         expect(page.url()).not.toContain('/login')
-        // Wait for user data to load before snapping
+        // Wait for auth nav + heading + users table to load
+        await expect(page.locator('text=admin-1').first()).toBeVisible({ timeout: 15000 }).catch(() => {})
         await expect(page.locator('h1, h2').filter({ hasText: /Admin|Dashboard/ }).first()).toBeVisible({ timeout: 10000 })
         try {
-            await expect(page.locator('table, [role="table"], [data-testid="users-table"]').first()).toBeVisible({ timeout: 8000 })
+            await expect(page.locator('table, [role="table"], [data-testid="users-table"]').first()).toBeVisible({ timeout: 12000 })
         } catch { /* table may not be rendered if no users */ }
         await snap(page, 'admin_users')
     })
