@@ -62,7 +62,10 @@ export async function GET(
     // ─── GDrive branch ────────────────────────────────────────────────
     if (relPath.startsWith('gdrive:')) {
         const fileId = relPath.slice('gdrive:'.length)
-        const gdriveUrl = `https://drive.google.com/uc?id=${encodeURIComponent(fileId)}&export=download`
+        // Use drive.usercontent.google.com with confirm=t to bypass GDrive's
+        // large-file HTML confirmation page (which /uc?export=download returns
+        // for files >~25 MB instead of streaming the PDF directly).
+        const gdriveUrl = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(fileId)}&export=download&confirm=t`
 
         let gdriveRes: Response
         try {
