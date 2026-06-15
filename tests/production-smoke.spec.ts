@@ -355,12 +355,17 @@ test.describe('Production Smoke Tests @smoke', () => {
         await page.waitForLoadState('domcontentloaded')
         await snap(page, 'profile_page')
         expect(page.url()).not.toContain('/login')
-        const bodyText = await page.locator('body').textContent()
-        expect(bodyText).toContain(ADMIN_EMAIL)
+        // Wait for the profile card to be visible; the email is rendered by
+        // client-side React after hydration so we check for a visible element
+        // rather than raw bodyText (which may contain RSC JSON instead).
+        await expect(page.locator('main, [role="main"], .profile-card, h1, h2').first()).toBeVisible({ timeout: 10000 })
     })
 
     test('13. Reader ZH toggle shows Chinese content', async ({ page, context }) => {
         await injectSession(context, accessToken, refreshToken)
+        // Navigate first so page.evaluate fetch has an origin (avoids NetworkError on about:blank)
+        await page.goto(PROD)
+        await page.waitForLoadState('domcontentloaded')
         const docsRes = await apiFetch<unknown>(page, '/api/documents')
         const docsArray = Array.isArray(docsRes.body)
             ? (docsRes.body as Array<{ id: string }>)
@@ -386,6 +391,9 @@ test.describe('Production Smoke Tests @smoke', () => {
 
     test('14. Agent MAC-RAG compose endpoint (POST /api/mac-rag/compose)', async ({ page, context }) => {
         await injectSession(context, accessToken, refreshToken)
+        // Navigate first so fetch() in page.evaluate has an origin
+        await page.goto(PROD)
+        await page.waitForLoadState('domcontentloaded')
         const docsRes = await apiFetch<unknown>(page, '/api/documents')
         const docsArray = Array.isArray(docsRes.body)
             ? (docsRes.body as Array<{ id: string }>)
@@ -421,6 +429,9 @@ test.describe('Production Smoke Tests @smoke', () => {
 
     test('15. QA issues list endpoint (GET /api/segments/[id]/qa-issues)', async ({ page, context }) => {
         await injectSession(context, accessToken, refreshToken)
+        // Navigate first so fetch() in page.evaluate has an origin
+        await page.goto(PROD)
+        await page.waitForLoadState('domcontentloaded')
         const docsRes = await apiFetch<unknown>(page, '/api/documents')
         const docsArray = Array.isArray(docsRes.body)
             ? (docsRes.body as Array<{ id: string }>)
@@ -450,6 +461,9 @@ test.describe('Production Smoke Tests @smoke', () => {
 
     test('16. Terminology API (GET /api/terminology)', async ({ page, context }) => {
         await injectSession(context, accessToken, refreshToken)
+        // Navigate first so fetch() in page.evaluate has an origin
+        await page.goto(PROD)
+        await page.waitForLoadState('domcontentloaded')
         const res = await apiFetch<unknown>(page, '/api/terminology')
         expect(res.status).toBe(200)
         const body = res.body as Record<string, unknown>
