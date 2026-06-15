@@ -12,15 +12,18 @@
  */
 
 import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { unstable_cache } from 'next/cache'
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth/requireAdmin'
 
-export async function GET() {
-    try {
-        const authClient = await createClient()
-        const gate = await requireAdmin(authClient)
-        if (gate instanceof NextResponse) return gate
-
+/**
+ * Fetch all analytics data from Supabase.
+ * Wrapped with unstable_cache (60s TTL, 'admin-analytics' tag) so
+ * the heavy COUNT queries on 396k+ segments are served from cache on
+ * subsequent calls — eliminating the cold-start skeleton delay.
+ */
+const fetchAnalytics = unstable_cache(
+    async () => {
         const supabase = await createAdminClient()
 
         // Run all queries in parallel for speed.
@@ -154,7 +157,7 @@ export async function GET() {
             .sort((a, b) => b.total - a.total)
             .slice(0, 15)
 
-        return NextResponse.json({
+        return {
             phaseBreakdown,
             topTranslators,
             activityTimeline,
@@ -165,7 +168,20 @@ export async function GET() {
                 recentComments: commentsRes.count ?? 0,
                 recentTransitions: transitionsRes.data?.length ?? 0,
             },
-        })
+        }
+    },
+    ['admin-analytics'],
+    { revalidate: 60, tags: ['admin-analytics'] }
+)
+
+export async function GET() {
+    try {
+        const authClient = await createClient()
+        const gate = await requireAdmin(authClient)
+        if (gate instanceof NextResponse) return gate
+
+        const data = await fetchAnalytics()
+        return NextResponse.json(data)
     } catch (err) {
         console.error('Error in admin/analytics GET:', err)
         return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 })
