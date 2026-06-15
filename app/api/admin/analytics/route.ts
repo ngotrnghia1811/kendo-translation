@@ -33,11 +33,18 @@ export async function GET() {
             articlesRes,
             qaIssuesRes,
         ] = await Promise.all([
-            // Phase breakdown: count segments by status
-            supabase
-                .from('segments')
-                .select('status')
-                .order('status'),
+            // Phase breakdown: one COUNT query per status so we never hit
+            // the PostgREST 1 000-row default limit on a table with 300k+ rows.
+            Promise.all(
+                (['draft', 'translated', 'edited', 'proofread', 'qa_approved'] as const).map(
+                    (status) =>
+                        supabase
+                            .from('segments')
+                            .select('status', { count: 'exact', head: true })
+                            .eq('status', status)
+                            .then(({ count }) => ({ status, count: count ?? 0 }))
+                )
+            ),
 
             // Top translators: revisions per user (last 90 days)
             supabase
@@ -73,11 +80,12 @@ export async function GET() {
 
         // ------------------------------------------------------------------
         // Phase breakdown
+        // phaseRes is now Array<{ status: string; count: number }> from the
+        // parallel per-status COUNT queries above.
         // ------------------------------------------------------------------
         const phaseBreakdown: Record<string, number> = {}
-        for (const row of phaseRes.data ?? []) {
-            const s = (row as { status: string }).status
-            phaseBreakdown[s] = (phaseBreakdown[s] || 0) + 1
+        for (const { status, count } of phaseRes as unknown as Array<{ status: string; count: number }>) {
+            if (count > 0) phaseBreakdown[status] = count
         }
 
         // ------------------------------------------------------------------

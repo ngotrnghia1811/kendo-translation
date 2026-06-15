@@ -108,12 +108,16 @@ test.describe('Production Smoke Test', () => {
         expect(body).toBeTruthy()
     })
 
-    test('5. /admin/users — user table renders', async ({ page, snap }) => {
+    test('5. /admin — users table section renders (users live on admin dashboard, not /admin/users)', async ({ page, snap }) => {
         await loginProd(page)
-        await page.goto(`${PROD}/admin/users`)
+        await page.goto(`${PROD}/admin`)
         await page.waitForLoadState('networkidle')
         await snap('admin_users')
         expect(page.url()).not.toContain('/login')
+        // The admin dashboard embeds the users table — verify it is visible.
+        const body = await page.locator('body').textContent()
+        expect(body).not.toContain('This page could not be found')
+        expect(body).toBeTruthy()
     })
 
     test('6. Reader view loads for first document', async ({ page, snap }) => {
