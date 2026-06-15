@@ -11,7 +11,8 @@
  * Auth: admin role required (same pattern as /api/admin/users).
  */
 
-import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { unstable_cache } from 'next/cache'
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth/requireAdmin'
@@ -21,10 +22,18 @@ import { requireAdmin } from '@/lib/auth/requireAdmin'
  * Wrapped with unstable_cache (60s TTL, 'admin-analytics' tag) so
  * the heavy COUNT queries on 396k+ segments are served from cache on
  * subsequent calls — eliminating the cold-start skeleton delay.
+ *
+ * IMPORTANT: We use createSupabaseClient() directly here (not
+ * createAdminClient) because unstable_cache runs outside of a
+ * Next.js request context, so cookies() is unavailable. The service-
+ * role key gives full DB access without cookies.
  */
 const fetchAnalytics = unstable_cache(
     async () => {
-        const supabase = await createAdminClient()
+        const supabase = createSupabaseClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+        )
 
         // Run all queries in parallel for speed.
         const [
