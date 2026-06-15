@@ -219,9 +219,11 @@ test.describe('Production Smoke Tests @smoke', () => {
         })
         // Wait for the admin page heading and stat cards to hydrate
         await expect(page.locator('h1, h2').filter({ hasText: /Admin|Dashboard/ }).first()).toBeVisible({ timeout: 10000 })
-        // Wait up to 25s for stat numbers to load (cold-start analytics API can be slow).
-        const cardOrNumber = page.locator('text=/\\d+ (Documents|Users|Segments|Approved)/, [data-testid="stat-card"]').first()
-        try { await expect(cardOrNumber).toBeVisible({ timeout: 25000 }) } catch { /* skeleton ok */ }
+        // Wait up to 45s for stat numbers to load (cold-start analytics API + unstable_cache miss can be slow).
+        // Poll until stat cards hydrate so the screenshot is always meaningful.
+        // Stat cards render as div.text-3xl (blue/green/purple/orange) when data loads.
+        const cardOrNumber = page.locator('div.text-3xl').first()
+        await expect(cardOrNumber).toBeVisible({ timeout: 45000 })
         await snap(page, 'admin_dashboard')
     })
 
