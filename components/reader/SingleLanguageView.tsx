@@ -23,7 +23,7 @@ export default function SingleLanguageView({
     const displayTargetLang = effectiveTargetLang ?? targetLang
     const currentLang = displayLang === 'source' ? sourceLang : displayTargetLang
     return (
-        <article lang={currentLang} className="max-w-2xl mx-auto py-8 px-4 prose dark:prose-invert">
+        <article lang={currentLang} className="max-w-2xl mx-auto py-8 px-4">
             {paragraphs.map((paragraph) => {
                 const text = getParagraphText(paragraph, displayLang)
                 // Reader-facing view: silently skip paragraphs with no text in the
@@ -36,7 +36,7 @@ export default function SingleLanguageView({
                     return (
                         <h2
                             key={paragraph.position}
-                            className="text-xl font-semibold mt-10 mb-4 text-gray-900 dark:text-gray-100"
+                            className="text-xl font-semibold mt-10 mb-4"
                         >
                             {text}
                         </h2>
@@ -44,7 +44,7 @@ export default function SingleLanguageView({
                 }
 
                 return (
-                    <p key={paragraph.position} className="text-base leading-relaxed mb-6 text-gray-800 dark:text-gray-200">
+                    <p key={paragraph.position} className="text-base leading-relaxed mb-6">
                         {text}
                     </p>
                 )

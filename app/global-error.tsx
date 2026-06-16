@@ -21,7 +21,7 @@ export default function GlobalError({
           <h1 className="text-2xl font-bold text-red-600 mb-4">
             Something went wrong
           </h1>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-800 mb-6">
             The error has been reported. Please try again.
           </p>
           <button

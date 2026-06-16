@@ -42,7 +42,7 @@ export default function BilingualParagraphView({
                             {sourceText.trim() && (
                                 <h2
                                     lang={sourceLang}
-                                    className="text-xl font-semibold text-gray-900 dark:text-gray-100"
+                                    className="text-xl font-semibold"
                                 >
                                     {sourceText}
                                 </h2>
@@ -50,7 +50,7 @@ export default function BilingualParagraphView({
                             {targetText.trim() && (
                                 <h2
                                     lang={displayTargetLang}
-                                    className="text-lg font-semibold text-gray-700 dark:text-gray-300"
+                                    className="text-lg font-semibold"
                                 >
                                     {targetText}
                                 </h2>
@@ -64,7 +64,7 @@ export default function BilingualParagraphView({
                         {/* Source paragraph */}
                         {sourceText.trim() && (
                             <div lang={sourceLang} className="border-l-4 border-red-400 dark:border-red-600 pl-4 py-2">
-                                <p className="text-base leading-relaxed text-gray-800 dark:text-gray-200">
+                                <p className="text-base leading-relaxed">
                                     {sourceText}
                                 </p>
                             </div>
@@ -78,7 +78,7 @@ export default function BilingualParagraphView({
                         {/* Target paragraph */}
                         {targetText.trim() && (
                             <div lang={displayTargetLang} className="border-l-4 border-blue-400 dark:border-blue-600 pl-4 py-2">
-                                <p className="text-base leading-relaxed text-gray-800 dark:text-gray-200">
+                                <p className="text-base leading-relaxed">
                                     {targetText}
                                 </p>
                             </div>

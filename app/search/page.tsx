@@ -16,6 +16,110 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { ArticleHit, SearchResponse, SegmentHit } from '@/app/api/search/route'
+import { createClient } from '@/lib/supabase/client'
+
+/** A raw segment row fetched for context display. */
+interface ContextSegment {
+    id: string
+    position: number
+    source_text: string
+}
+
+/** Lazy-fetched context preview panel for a segment hit.
+ *  On first open, fetches 3 segments (prev, current, next) from Supabase
+ *  and renders them with the current segment highlighted. */
+function SegmentContextPanel({
+    articleId,
+    position,
+    query,
+    sourceSnippet,
+}: {
+    articleId: string
+    position: number
+    query: string
+    sourceSnippet: string | null
+}) {
+    const [open, setOpen] = useState(false)
+    const [context, setContext] = useState<ContextSegment[] | null>(null)
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+
+    const loadContext = useCallback(async () => {
+        if (context || loading) return
+        setLoading(true)
+        setError(null)
+        try {
+            const supabase = createClient()
+            const { data, error: se } = await supabase
+                .from('segments')
+                .select('id, position, source_text')
+                .eq('article_id', articleId)
+                .in('position', [position - 1, position, position + 1])
+                .order('position', { ascending: true })
+            if (se) throw new Error(se.message)
+            setContext((data ?? []) as ContextSegment[])
+        } catch (e) {
+            setError(e instanceof Error ? e.message : String(e))
+        } finally {
+            setLoading(false)
+        }
+    }, [articleId, position, context, loading])
+
+    const toggle = useCallback(() => {
+        setOpen((o) => {
+            if (!o) loadContext()
+            return !o
+        })
+    }, [loadContext])
+
+    const current = context?.find((s) => s.position === position)
+
+    return (
+        <div className="mt-2">
+            <button
+                type="button"
+                data-testid="search-context-toggle"
+                onClick={toggle}
+                className="text-xs text-indigo-500 hover:text-indigo-700 hover:underline font-medium"
+            >
+                {open ? 'Context ▾' : 'Context ▸'}
+            </button>
+            {open && (
+                <div className="mt-2 text-xs space-y-1.5 border-l-2 border-indigo-200 pl-3">
+                    {loading && (
+                        <p className="text-gray-400 italic">Loading context…</p>
+                    )}
+                    {error && (
+                        <p className="text-red-500">Failed to load context: {error}</p>
+                    )}
+                    {context && !loading && !error && (
+                        <>
+                            {context
+                                .filter((s) => s.position < position)
+                                .map((s) => (
+                                    <p key={s.id} className="text-gray-500 line-clamp-2">
+                                        <Highlighted text={s.source_text} query={query} />
+                                    </p>
+                                ))}
+                            {current && (
+                                <p className="text-gray-800 font-medium bg-yellow-50/50 rounded px-1 -mx-1">
+                                    <Highlighted text={current.source_text} query={query} />
+                                </p>
+                            )}
+                            {context
+                                .filter((s) => s.position > position)
+                                .map((s) => (
+                                    <p key={s.id} className="text-gray-500 line-clamp-2">
+                                        <Highlighted text={s.source_text} query={query} />
+                                    </p>
+                                ))}
+                        </>
+                    )}
+                </div>
+            )}
+        </div>
+    )
+}
 
 type Scope = 'both' | 'articles' | 'segments'
 
@@ -306,6 +410,15 @@ function SearchPageInner() {
                                             </p>
                                         )}
                                     </Link>
+                                    {/* Context preview */}
+                                    <div className="px-4 pb-2 -mt-1">
+                                        <SegmentContextPanel
+                                            articleId={s.article_id}
+                                            position={s.position}
+                                            query={query}
+                                            sourceSnippet={s.source_snippet}
+                                        />
+                                    </div>
                                     {/* Edit link for translators/admins */}
                                     {(userRole === 'admin' || userRole === 'translator') && (
                                         <div className="px-4 pb-3 -mt-1">

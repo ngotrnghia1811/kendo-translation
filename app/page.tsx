@@ -26,7 +26,7 @@ export default function HomePage() {
         <h2 className="text-5xl font-bold text-gray-900 mb-6 leading-tight">
           Collaborative Japanese–English<br />Translation for Kendo
         </h2>
-        <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
+        <p className="text-xl text-gray-800 mb-10 max-w-2xl mx-auto">
           A segment-based collaborative editor with AI assistance. Translate kendo texts with
           terminology enforcement, translation memory, and real-time multi-user editing.
         </p>
@@ -55,7 +55,7 @@ export default function HomePage() {
             <div key={f.title} className="bg-gray-50 rounded-xl p-6">
               <div className="text-3xl mb-4">{f.icon}</div>
               <h4 className="font-semibold text-gray-900 mb-2">{f.title}</h4>
-              <p className="text-sm text-gray-600">{f.desc}</p>
+              <p className="text-sm text-gray-800">{f.desc}</p>
             </div>
           ))}
         </div>
@@ -65,7 +65,7 @@ export default function HomePage() {
       <section className="bg-gray-50 py-16">
         <div className="max-w-4xl mx-auto px-6 text-center">
           <h3 className="text-2xl font-bold text-gray-900 mb-4">MAC-RAG Translation Pipeline</h3>
-          <p className="text-gray-600 mb-10">Three-phase pipeline: context retrieval, multi-candidate generation, and quality scoring.</p>
+          <p className="text-gray-800 mb-10">Three-phase pipeline: context retrieval, multi-candidate generation, and quality scoring.</p>
           <div className="flex items-center justify-center gap-4 flex-wrap">
             {[
               { phase: '1', label: 'Context', detail: 'Domain, style, entities, TM, terminology' },

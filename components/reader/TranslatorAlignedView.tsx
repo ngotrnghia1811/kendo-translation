@@ -57,8 +57,8 @@ export default function TranslatorAlignedView({
                                     lang={sourceLang}
                                     className={
                                         isHeading
-                                            ? 'p-2 text-base font-semibold leading-relaxed text-gray-900 dark:text-gray-100 align-top'
-                                            : 'p-2 text-sm leading-relaxed text-gray-800 dark:text-gray-200 align-top'
+                                            ? 'p-2 text-base font-semibold leading-relaxed align-top'
+                                            : 'p-2 text-sm leading-relaxed align-top'
                                     }
                                 >
                                     {segment.source_text}
@@ -76,15 +76,7 @@ export default function TranslatorAlignedView({
                                             ? (zhByPosition?.get(segment.position) ?? '')
                                             : (segment.target_text ?? '')
                                         return text ? (
-                                            <span
-                                                className={
-                                                    isHeading
-                                                        ? 'text-gray-900 dark:text-gray-100'
-                                                        : 'text-gray-800 dark:text-gray-200'
-                                                }
-                                            >
-                                                {text}
-                                            </span>
+                                            <span>{text}</span>
                                         ) : (
                                             // Translator-only working view: surface untranslated
                                             // segments explicitly. Reader-facing Single/Bilingual

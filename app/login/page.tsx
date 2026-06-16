@@ -35,7 +35,7 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <span className="text-4xl">⚔️</span>
           <h1 className="text-2xl font-bold text-gray-900 mt-3">Kendo Translation</h1>
-          <p className="text-gray-600 mt-1">Sign in to your account</p>
+          <p className="text-gray-800 mt-1">Sign in to your account</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
