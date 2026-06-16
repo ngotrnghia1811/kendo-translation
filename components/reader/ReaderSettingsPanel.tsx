@@ -24,11 +24,13 @@ interface ReaderSettingsPanelProps {
 
 /** Swatch border colour for light themes that need contrast against white toolbar */
 const SWATCH_BORDERS: Record<ReaderTheme, string> = {
-    light:     '#d1d5db',
-    dark:      'transparent',
-    solarized: 'transparent',
-    pastel:    '#ddd6fe',
-    sepia:     '#d4c5a0',
+    light:         '#d1d5db',
+    dark:          'transparent',
+    solarized:     'transparent',
+    pastel:        '#ddd6fe',
+    sepia:         '#d4c5a0',
+    'high-contrast': 'transparent',
+    'night-warm':  'transparent',
 }
 
 export default function ReaderSettingsPanel({

@@ -69,6 +69,24 @@ body {
     --rt-accent:      #9a5b2a;
   }
 
+  [data-reader-theme="high-contrast"] {
+    --rt-bg:          #000000;
+    --rt-surface:     #1a1a1a;
+    --rt-border:      #444444;
+    --rt-text:        #ffffff;
+    --rt-text-muted:  #aaaaaa;
+    --rt-accent:      #ffff00;
+  }
+
+  [data-reader-theme="night-warm"] {
+    --rt-bg:          #1a1410;
+    --rt-surface:     #2a2218;
+    --rt-border:      #4a3f30;
+    --rt-text:        #e8d8c0;
+    --rt-text-muted:  #a08e7a;
+    --rt-accent:      #d4a853;
+  }
+
   /* ─── Reader font family tokens ─────────────────────────────────────────── */
 
   [data-reader-font="sans"] {

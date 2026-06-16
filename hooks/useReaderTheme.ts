@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type ReaderTheme = 'light' | 'dark' | 'solarized' | 'pastel' | 'sepia'
+export type ReaderTheme = 'light' | 'dark' | 'solarized' | 'pastel' | 'sepia' | 'high-contrast' | 'night-warm'
 export type ReaderFont  = 'sans' | 'serif' | 'mincho'
 
 export interface ReaderThemeSettings {
@@ -23,7 +23,9 @@ export const THEMES: { id: ReaderTheme; label: string; swatch: string }[] = [
     { id: 'dark',      label: 'Dark',      swatch: '#111827' },
     { id: 'solarized', label: 'Solarized', swatch: '#002b36' },
     { id: 'pastel',    label: 'Pastel',    swatch: '#fdf6ff' },
-    { id: 'sepia',     label: 'Sepia',     swatch: '#f8f1e3' },
+    { id: 'sepia',          label: 'Sepia',          swatch: '#f8f1e3' },
+    { id: 'high-contrast',  label: 'High Contrast',   swatch: '#000000' },
+    { id: 'night-warm',     label: 'Night (Warm)',     swatch: '#1a1410' },
 ]
 
 export const FONTS: { id: ReaderFont; label: string }[] = [

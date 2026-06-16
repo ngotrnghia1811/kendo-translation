@@ -212,6 +212,13 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
     )
 
     // -----------------------------------------------------------------------
+    // View tracking — fire-and-forget POST to /api/documents/[id]/view
+    // -----------------------------------------------------------------------
+    useEffect(() => {
+        fetch(`/api/documents/${articleId}/view`, { method: 'POST' }).catch(() => {})
+    }, [articleId])
+
+    // -----------------------------------------------------------------------
     // Progress persistence — auto-resume last page on load
     // -----------------------------------------------------------------------
     const { savedPageIndex, persistPage } = useReaderProgress(articleId)

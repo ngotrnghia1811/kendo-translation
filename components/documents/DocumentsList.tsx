@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import type { Article } from '@/types/database'
+import { createClient } from '@/lib/supabase/client'
 
-type SortKey = 'name_asc' | 'name_desc' | 'length_desc' | 'length_asc' | 'progress_desc' | 'progress_asc'
+type SortKey = 'name_asc' | 'name_desc' | 'length_desc' | 'length_asc' | 'progress_desc' | 'progress_asc' | 'recently-viewed'
 type StatusFilter = 'all' | 'in_progress' | 'complete'
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
@@ -14,6 +15,7 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'length_asc',    label: 'Shortest first' },
   { value: 'progress_desc', label: 'Most translated' },
   { value: 'progress_asc',  label: 'Least translated' },
+  { value: 'recently-viewed', label: 'Recently Viewed' },
 ]
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
@@ -31,7 +33,7 @@ function statusOrdinal(status: string | null): number {
   }
 }
 
-function sortArticles(articles: Article[], key: SortKey): Article[] {
+function sortArticles(articles: Article[], key: SortKey, viewMap?: Map<string, string>): Article[] {
   const sorted = [...articles]
   switch (key) {
     case 'name_asc':
@@ -46,6 +48,15 @@ function sortArticles(articles: Article[], key: SortKey): Article[] {
       return sorted.sort((a, b) => statusOrdinal(b.translation_status) - statusOrdinal(a.translation_status))
     case 'progress_asc':
       return sorted.sort((a, b) => statusOrdinal(a.translation_status) - statusOrdinal(b.translation_status))
+    case 'recently-viewed':
+      return sorted.sort((a, b) => {
+        const aTime = viewMap?.get(a.id) ?? ''
+        const bTime = viewMap?.get(b.id) ?? ''
+        if (aTime === bTime) return 0
+        if (!aTime) return 1    // no view record → sort last
+        if (!bTime) return -1
+        return bTime.localeCompare(aTime) // desc by updated_at
+      })
   }
 }
 
@@ -62,9 +73,31 @@ interface DocumentsListProps {
 export default function DocumentsList({ articles, userEmail }: DocumentsListProps) {
   const [sortKey, setSortKey] = useState<SortKey>('name_asc')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [viewMap, setViewMap] = useState<Map<string, string>>(new Map())
+
+  // Fetch reading_progress on mount for recently-viewed sort
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      supabase
+        .from('reading_progress')
+        .select('content_id, updated_at')
+        .eq('content_type', 'article')
+        .eq('user_id', user.id)
+        .then(({ data, error }) => {
+          if (error || !data) return
+          const map = new Map<string, string>()
+          for (const row of data as { content_id: string; updated_at: string }[]) {
+            map.set(row.content_id, row.updated_at)
+          }
+          setViewMap(map)
+        })
+    })
+  }, [])
 
   const filtered = useMemo(() => filterByStatus(articles, statusFilter), [articles, statusFilter])
-  const sorted = useMemo(() => sortArticles(filtered, sortKey), [filtered, sortKey])
+  const sorted = useMemo(() => sortArticles(filtered, sortKey, viewMap), [filtered, sortKey, viewMap])
 
   return (
     <div className="min-h-screen bg-gray-50">
