@@ -25,6 +25,31 @@
 
 import { test, expect } from './helpers/camoufox-fixture'
 import { type Page, type BrowserContext } from '@playwright/test'
+import fs from 'fs'
+import path from 'path'
+
+// ---------------------------------------------------------------------------
+// Load .env.local so Supabase keys are available in Playwright's Node process
+// (Playwright does NOT auto-load .env.local; only the Next.js dev server does).
+// ---------------------------------------------------------------------------
+
+function loadEnvLocal(): void {
+  const envPath = path.resolve(__dirname, '..', '.env.local')
+  if (!fs.existsSync(envPath)) return
+  const lines = fs.readFileSync(envPath, 'utf-8').split('\n')
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) continue
+    const eqIdx = trimmed.indexOf('=')
+    if (eqIdx < 0) continue
+    const key = trimmed.slice(0, eqIdx).trim()
+    const val = trimmed.slice(eqIdx + 1).trim()
+    if (key && !(key in process.env)) {
+      process.env[key] = val
+    }
+  }
+}
+loadEnvLocal()
 
 // ---------------------------------------------------------------------------
 // Constants
