@@ -264,8 +264,18 @@ test.describe('Real User Flows @userflow', () => {
     })
 
     // Step 7 — phase advance button
+    // Note: if the active segment is already qa_approved (terminal), the button
+    // renders as data-testid="phase-advance-terminal" (no further advance).
+    // The smallest doc ("Kendo Philosophy") is a protected article whose segments
+    // stay qa_approved — so this step will annotate as skipped on that doc.
     const phaseAdvanceBtn = page.locator('[data-testid="phase-advance-button"]')
-    if (!(await phaseAdvanceBtn.isVisible().catch(() => false))) {
+    const terminalNote = await page.locator('[data-testid="phase-advance-terminal"]').isVisible().catch(() => false)
+    if (terminalNote) {
+      test.info().annotations.push({
+        type: 'info',
+        description: 'phase-advance-terminal shown (segment already at final phase qa_approved) — phase advance step N/A',
+      })
+    } else if (!(await phaseAdvanceBtn.isVisible().catch(() => false))) {
       test.info().annotations.push({
         type: 'skip',
         description: 'phase-advance-button not visible — skipping phase advance',
@@ -290,10 +300,15 @@ test.describe('Real User Flows @userflow', () => {
       })
     }
 
-    // Step 9 — History tab
-    const historyTab = page.locator('button:has-text("History"), [role="tab"]:has-text("History")')
-    if ((await historyTab.count()) > 0) {
-      await historyTab.first().click()
+    // Step 9 — History tab (inside segment-details-drawer)
+    // The drawer tabs are rendered when a segment is active. Look inside the drawer.
+    const drawer = page.locator('[data-testid="segment-details-drawer"]')
+    const historyTab = drawer.locator('button:has-text("History")').first()
+    const historyTabFallback = page.locator('button:has-text("History"), [role="tab"]:has-text("History")').first()
+    const drawerVisible = await drawer.isVisible().catch(() => false)
+    const historyLocator = drawerVisible ? historyTab : historyTabFallback
+    if (await historyLocator.isVisible().catch(() => false)) {
+      await historyLocator.click()
       await expect(page.locator('[data-testid="phase-transition-history"]')).toBeVisible({
         timeout: 10000,
       })
@@ -301,7 +316,7 @@ test.describe('Real User Flows @userflow', () => {
     } else {
       test.info().annotations.push({
         type: 'skip',
-        description: 'History tab not found — skipping step 9',
+        description: 'History tab not found in segment-details-drawer — segment may not be selected or drawer not rendered',
       })
     }
   })
@@ -642,7 +657,7 @@ test.describe('Real User Flows @userflow', () => {
       { id: 'pastel', name: 'Pastel' },
       { id: 'sepia', name: 'Sepia' },
       { id: 'high-contrast', name: 'High Contrast' },
-      { id: 'night-warm', name: 'Night Warm' },
+      { id: 'night-warm', name: 'Night (Warm)' },
     ]
 
     for (const theme of themes) {
