@@ -4,8 +4,9 @@ import { useState, useCallback, useEffect } from 'react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type ReaderTheme = 'light' | 'dark' | 'solarized' | 'pastel' | 'sepia' | 'high-contrast' | 'night-warm'
-export type ReaderFont  = 'sans' | 'serif' | 'mincho'
+export type ReaderTheme     = 'light' | 'dark' | 'solarized' | 'pastel' | 'sepia' | 'high-contrast' | 'night-warm'
+export type ReaderFont      = 'sans' | 'serif' | 'mincho'
+export type LayoutWidth     = 'narrow' | 'full' | 'two-column'
 
 export interface ReaderThemeSettings {
     theme:      ReaderTheme
@@ -14,6 +15,8 @@ export interface ReaderThemeSettings {
     fontSize:   number
     /** Optional text-colour override. null = use theme default (--rt-text). */
     fontColor:  string | null
+    /** Layout width for reader/editor pages. ('two-column' is reader-only; editor treats it as 'full'). */
+    layoutWidth: LayoutWidth
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -49,13 +52,21 @@ export const FONT_COLORS: { label: string; value: string | null }[] = [
     { label: 'White',        value: '#f9fafb'  },
 ]
 
+/** Layout-width options shown in the settings panel. */
+export const LAYOUT_WIDTHS: { id: LayoutWidth; label: string }[] = [
+    { id: 'narrow',     label: 'Narrow' },
+    { id: 'full',       label: 'Full' },
+    { id: 'two-column', label: 'Two-col' },
+]
+
 const STORAGE_KEY = 'reader-theme-settings'
 
 const DEFAULTS: ReaderThemeSettings = {
-    theme:     'light',
-    font:      'sans',
-    fontSize:  16,   // px
-    fontColor: null,
+    theme:       'light',
+    font:        'sans',
+    fontSize:    16,   // px
+    fontColor:   null,
+    layoutWidth: 'narrow',
 }
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
@@ -67,10 +78,11 @@ function loadFromStorage(): ReaderThemeSettings {
         if (!raw) return DEFAULTS
         const parsed = JSON.parse(raw) as Partial<ReaderThemeSettings>
         return {
-            theme:     parsed.theme     ?? DEFAULTS.theme,
-            font:      parsed.font      ?? DEFAULTS.font,
-            fontSize:  parsed.fontSize  ?? DEFAULTS.fontSize,
-            fontColor: parsed.fontColor ?? DEFAULTS.fontColor,
+            theme:       parsed.theme       ?? DEFAULTS.theme,
+            font:        parsed.font        ?? DEFAULTS.font,
+            fontSize:    parsed.fontSize    ?? DEFAULTS.fontSize,
+            fontColor:   parsed.fontColor   ?? DEFAULTS.fontColor,
+            layoutWidth: parsed.layoutWidth ?? DEFAULTS.layoutWidth,
         }
     } catch {
         return DEFAULTS
@@ -100,9 +112,10 @@ export function useReaderTheme() {
         })
     }, [])
 
-    const setTheme     = useCallback((theme: ReaderTheme)       => setSettings({ theme }),    [setSettings])
-    const setFont      = useCallback((font: ReaderFont)         => setSettings({ font }),     [setSettings])
-    const setFontColor = useCallback((fontColor: string | null) => setSettings({ fontColor }), [setSettings])
+    const setTheme       = useCallback((theme: ReaderTheme)         => setSettings({ theme }),       [setSettings])
+    const setFont        = useCallback((font: ReaderFont)           => setSettings({ font }),        [setSettings])
+    const setFontColor   = useCallback((fontColor: string | null)   => setSettings({ fontColor }),   [setSettings])
+    const setLayoutWidth = useCallback((layoutWidth: LayoutWidth)   => setSettings({ layoutWidth }), [setSettings])
 
     const increaseFontSize = useCallback(
         () => setSettings({ fontSize: Math.min(FONT_SIZE_MAX, settings.fontSize + FONT_SIZE_STEP) }),
@@ -121,6 +134,7 @@ export function useReaderTheme() {
         setTheme,
         setFont,
         setFontColor,
+        setLayoutWidth,
         increaseFontSize,
         decreaseFontSize,
         fontSizeValue,

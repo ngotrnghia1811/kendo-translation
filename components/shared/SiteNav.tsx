@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useThemeContext } from '@/components/shared/ThemeProvider'
+import ReaderSettingsPanel from '@/components/reader/ReaderSettingsPanel'
 
 interface UserProfile {
     id: string
@@ -25,6 +27,9 @@ export function SiteNav() {
     const pathname = usePathname()
     const [profile, setProfile] = useState<UserProfile | null>(null)
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+    const [settingsOpen, setSettingsOpen] = useState(false)
+
+    const themeCtx = useThemeContext()
 
     // Suppress on pages with their own header
     const suppress =
@@ -103,6 +108,38 @@ export function SiteNav() {
 
                 {/* Right section */}
                 <div className="flex items-center gap-3">
+                    {/* Global theme settings trigger */}
+                    <div className="relative">
+                        <button
+                            type="button"
+                            data-testid="global-theme-trigger"
+                            aria-label="Theme settings"
+                            title="Theme settings"
+                            onClick={() => setSettingsOpen((o) => !o)}
+                            className="p-1.5 rounded-md transition-colors text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                                <path fillRule="evenodd" d="M8.34 1.804A1 1 0 0 1 9.32 1h1.36a1 1 0 0 1 .98.804l.295 1.473c.497.144.97.342 1.405.588l1.277-.743a1 1 0 0 1 1.228.15l.962.96a1 1 0 0 1 .15 1.23l-.743 1.276c.246.435.444.908.588 1.405l1.473.295a1 1 0 0 1 .804.98v1.36a1 1 0 0 1-.804.98l-1.473.295a6.97 6.97 0 0 1-.588 1.405l.743 1.277a1 1 0 0 1-.15 1.228l-.96.962a1 1 0 0 1-1.23.15l-1.276-.743a6.97 6.97 0 0 1-1.405.588l-.295 1.473A1 1 0 0 1 10.68 19H9.32a1 1 0 0 1-.98-.804l-.295-1.473a6.972 6.972 0 0 1-1.405-.588l-1.277.743a1 1 0 0 1-1.228-.15l-.962-.96a1 1 0 0 1-.15-1.23l.743-1.276a6.971 6.971 0 0 1-.588-1.405L1.804 11.32A1 1 0 0 1 1 10.34V8.98a1 1 0 0 1 .804-.98l1.473-.295a6.97 6.97 0 0 1 .588-1.405L3.122 5.023a1 1 0 0 1 .15-1.228l.96-.962a1 1 0 0 1 1.23-.15l1.276.743a6.972 6.972 0 0 1 1.405-.588L8.34 1.804ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" />
+                            </svg>
+                        </button>
+                        <ReaderSettingsPanel
+                            open={settingsOpen}
+                            onClose={() => setSettingsOpen(false)}
+                            theme={themeCtx.theme}
+                            font={themeCtx.font}
+                            fontSize={themeCtx.fontSize}
+                            fontSizeValue={themeCtx.fontSizeValue}
+                            fontColor={themeCtx.fontColor}
+                            layoutWidth={themeCtx.layoutWidth}
+                            onThemeChange={themeCtx.setTheme}
+                            onFontChange={themeCtx.setFont}
+                            onFontColorChange={themeCtx.setFontColor}
+                            onLayoutWidthChange={themeCtx.setLayoutWidth}
+                            onIncreaseFontSize={themeCtx.increaseFontSize}
+                            onDecreaseFontSize={themeCtx.decreaseFontSize}
+                        />
+                    </div>
+
                     {/* Search icon — links to /search */}
                     <Link
                         href="/search"

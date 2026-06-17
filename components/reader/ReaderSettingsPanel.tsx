@@ -2,9 +2,9 @@
 
 import { useRef, useEffect, useState } from 'react'
 import {
-    THEMES, FONTS, FONT_COLORS,
+    THEMES, FONTS, FONT_COLORS, LAYOUT_WIDTHS,
     FONT_SIZE_MIN, FONT_SIZE_MAX,
-    type ReaderTheme, type ReaderFont,
+    type ReaderTheme, type ReaderFont, type LayoutWidth,
 } from '@/hooks/useReaderTheme'
 
 interface ReaderSettingsPanelProps {
@@ -15,9 +15,11 @@ interface ReaderSettingsPanelProps {
     fontSize:           number
     fontSizeValue:      string
     fontColor:          string | null
+    layoutWidth:        LayoutWidth
     onThemeChange:      (t: ReaderTheme)       => void
     onFontChange:       (f: ReaderFont)        => void
     onFontColorChange:  (c: string | null)     => void
+    onLayoutWidthChange:(w: LayoutWidth)       => void
     onIncreaseFontSize: () => void
     onDecreaseFontSize: () => void
 }
@@ -41,9 +43,11 @@ export default function ReaderSettingsPanel({
     fontSize,
     fontSizeValue,
     fontColor,
+    layoutWidth,
     onThemeChange,
     onFontChange,
     onFontColorChange,
+    onLayoutWidthChange,
     onIncreaseFontSize,
     onDecreaseFontSize,
 }: ReaderSettingsPanelProps) {
@@ -228,6 +232,29 @@ export default function ReaderSettingsPanel({
                     >
                         +
                     </button>
+                </div>
+            </section>
+
+            {/* ── Layout width ───────────────────────────────────────── */}
+            <section data-testid="layout-width-control">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                    Width
+                </h3>
+                <div className="flex gap-2 flex-wrap">
+                    {LAYOUT_WIDTHS.map((w) => (
+                        <button
+                            key={w.id}
+                            aria-pressed={layoutWidth === w.id}
+                            onClick={() => onLayoutWidthChange(w.id)}
+                            className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                                layoutWidth === w.id
+                                    ? 'bg-blue-600 text-white border-blue-600'
+                                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`}
+                        >
+                            {w.label}
+                        </button>
+                    ))}
                 </div>
             </section>
         </div>

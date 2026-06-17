@@ -1,5 +1,6 @@
 'use client'
 
+import type { LayoutWidth } from '@/hooks/useReaderTheme'
 import { type Paragraph, isHeadingParagraph } from '@/types/reader'
 
 interface BilingualParagraphViewProps {
@@ -9,6 +10,8 @@ interface BilingualParagraphViewProps {
     getParagraphText: (paragraph: Paragraph, lang: 'source' | 'target') => string
     /** When ZH mode is active, pass 'zh' so lang attrs and the legend are correct. */
     effectiveTargetLang?: string
+    /** Layout width from shared theme context. */
+    layoutWidth?: LayoutWidth
 }
 
 export default function BilingualParagraphView({
@@ -17,12 +20,19 @@ export default function BilingualParagraphView({
     targetLang,
     getParagraphText,
     effectiveTargetLang,
+    layoutWidth = 'narrow',
 }: BilingualParagraphViewProps) {
     const displayTargetLang = effectiveTargetLang ?? targetLang
     const hasAnySource = paragraphs.some((p) => getParagraphText(p, 'source').trim().length > 0)
     const hasAnyTarget = paragraphs.some((p) => getParagraphText(p, 'target').trim().length > 0)
+
+    const widthClass =
+        layoutWidth === 'full'       ? 'max-w-full' :
+        layoutWidth === 'two-column' ? 'columns-2 gap-8 max-w-full' :
+        'max-w-3xl' // narrow — current default
+
     return (
-        <div className="max-w-3xl mx-auto py-8 px-4 space-y-8">
+        <div className={`${widthClass} mx-auto py-8 px-4 space-y-8`}>
             {paragraphs.map((paragraph) => {
                 const sourceText = getParagraphText(paragraph, 'source')
                 const targetText = getParagraphText(paragraph, 'target')

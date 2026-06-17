@@ -13,10 +13,14 @@
  * stay at page 1.
  */
 
+import type { LayoutWidth } from '@/hooks/useReaderTheme'
+
 interface PdfPageViewProps {
     articleId: string
     /** Current 1-based PDF page number to jump to, or null to stay at page 1. */
     pdfPage: number | null
+    /** Layout width from shared theme context. (PDF is always full-width; prop accepted for interface consistency.) */
+    layoutWidth?: LayoutWidth
 }
 
 export default function PdfPageView({ articleId, pdfPage }: PdfPageViewProps) {

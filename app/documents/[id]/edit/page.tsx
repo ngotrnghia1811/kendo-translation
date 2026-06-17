@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useMacRag } from '@/lib/hooks/useMacRag';
 import Link from 'next/link';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
+import { useThemeContext } from '@/components/shared/ThemeProvider';
 import type { Segment, SegmentStatus, WorkflowPhase } from '@/types/database';
 import SegmentFilterBar, { ALL_STATUSES } from '@/components/editor/SegmentFilterBar';
 import SegmentListItem from '@/components/editor/SegmentListItem';
@@ -39,6 +40,12 @@ export default function EditPage() {
   const router = useRouter();
   const supabase = createClient();
   const macRag = useMacRag();
+
+  // Shared theme context for layout width.
+  // ('two-column' is N/A for the editor's 2-column grid → treated as 'full'.)
+  const { layoutWidth } = useThemeContext();
+  const editorWidthClass =
+    layoutWidth === 'full' || layoutWidth === 'two-column' ? 'max-w-full' : 'max-w-6xl';
 
   const [article, setArticle] = useState<{ id: string; title: string } | null>(null);
   const [segments, setSegments] = useState<Segment[]>([]);
@@ -471,7 +478,7 @@ export default function EditPage() {
         </div>
       )}
 
-      <main className="max-w-6xl mx-auto px-6 py-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <main className={`${editorWidthClass} mx-auto px-6 py-6 grid grid-cols-1 lg:grid-cols-2 gap-6`}>
         {/* Segment list */}
         <div className="space-y-2">
           <div className="flex items-center justify-between mb-3">

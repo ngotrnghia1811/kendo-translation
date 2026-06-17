@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import type { Segment, DocumentSettings } from '@/types/database'
 import { useReaderView, type ReaderMode, type ZhSegmentRow } from '@/hooks/useReaderView'
-import { useReaderTheme } from '@/hooks/useReaderTheme'
+import { useThemeContext } from '@/components/shared/ThemeProvider'
 import { useReaderBookmarks } from '@/hooks/useReaderBookmarks'
 import { useReaderKeyboard } from '@/hooks/useReaderKeyboard'
 import { useReaderProgress } from '@/hooks/useReaderProgress'
@@ -169,12 +169,14 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
         fontSize,
         fontSizeValue,
         fontColor,
+        layoutWidth,
         setTheme,
         setFont,
         setFontColor,
+        setLayoutWidth,
         increaseFontSize,
         decreaseFontSize,
-    } = useReaderTheme()
+    } = useThemeContext()
 
     // Panel state — at most one can be open at a time
     const [settingsOpen, setSettingsOpen] = useState(false)
@@ -450,9 +452,11 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                                     fontSize={fontSize}
                                     fontSizeValue={fontSizeValue}
                                     fontColor={fontColor}
+                                    layoutWidth={layoutWidth}
                                     onThemeChange={setTheme}
                                     onFontChange={setFont}
                                     onFontColorChange={setFontColor}
+                                    onLayoutWidthChange={setLayoutWidth}
                                     onIncreaseFontSize={increaseFontSize}
                                     onDecreaseFontSize={decreaseFontSize}
                                 />
@@ -709,6 +713,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                                     targetLang={targetLang}
                                     effectiveTargetLang={targetLangChoice === 'zh' ? 'zh' : undefined}
                                     getParagraphText={getParagraphText}
+                                    layoutWidth={layoutWidth}
                                 />
                             )}
                             {mode === 'bilingual' && (
@@ -718,6 +723,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                                     targetLang={targetLang}
                                     effectiveTargetLang={targetLangChoice === 'zh' ? 'zh' : undefined}
                                     getParagraphText={getParagraphText}
+                                    layoutWidth={layoutWidth}
                                 />
                             )}
                             {mode === 'aligned' && canEdit && (
@@ -727,12 +733,14 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                                     targetLang={targetLang}
                                     zhByPosition={hasZh ? zhByPosition : undefined}
                                     targetLangChoice={targetLangChoice}
+                                    layoutWidth={layoutWidth}
                                 />
                             )}
                             {mode === 'pdf' && pairedPdfPath && (
                                 <PdfPageView
                                     articleId={articleId}
                                     pdfPage={currentPage?.page ?? null}
+                                    layoutWidth={layoutWidth}
                                 />
                             )}
                         </>

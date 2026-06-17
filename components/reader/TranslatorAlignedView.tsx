@@ -1,6 +1,7 @@
 'use client'
 
 import type { Segment } from '@/types/database'
+import type { LayoutWidth } from '@/hooks/useReaderTheme'
 import { isHeadingSegment } from '@/types/reader'
 
 interface TranslatorAlignedViewProps {
@@ -10,6 +11,8 @@ interface TranslatorAlignedViewProps {
     /** When provided, the target column shows ZH text instead of EN. */
     zhByPosition?: Map<number, string>
     targetLangChoice?: 'en' | 'zh'
+    /** Layout width from shared theme context. ('two-column' is N/A for table view → treated as 'full'). */
+    layoutWidth?: LayoutWidth
 }
 
 export default function TranslatorAlignedView({
@@ -18,10 +21,16 @@ export default function TranslatorAlignedView({
     targetLang,
     zhByPosition,
     targetLangChoice = 'en',
+    layoutWidth = 'narrow',
 }: TranslatorAlignedViewProps) {
     const effectiveLang = targetLangChoice === 'zh' ? 'zh' : targetLang
+
+    // 'two-column' doesn't make sense for a table view → treat as 'full'.
+    const resolvedWidth = layoutWidth === 'two-column' ? 'full' : layoutWidth
+    const widthClass = resolvedWidth === 'full' ? 'max-w-full' : 'max-w-5xl'
+
     return (
-        <div className="max-w-5xl mx-auto py-4 px-4">
+        <div className={`${widthClass} mx-auto py-4 px-4`}>
             <table className="w-full border-collapse">
                 <caption className="sr-only">
                     Sentence-aligned view: each row pairs a {sourceLang.toUpperCase()} source
