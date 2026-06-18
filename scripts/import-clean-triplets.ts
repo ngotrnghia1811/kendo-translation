@@ -83,6 +83,8 @@ const ARTICLE_MAP: Record<string, { id: string; title: string }> = {
   'kendojidai_2013':      { id: '563b88bb-ed67-4f68-abfe-22068c1cf08c', title: 'Kendojidai 2013' },
   // kendojidai 2014-2018: run scripts/create-kendojidai-articles.ts first
   // then replace TODO-RUN-CREATE-SCRIPT with the actual UUIDs
+  // ZH-source book (Chinese → JA/EN). Triplet reordered to JA/EN/ZH before import.
+  'Chinese Translation Sword Theory Part 1': { id: '8dda4689-a92b-4a4c-94ad-93cce4c9b1df', title: 'Chinese Translation Sword Theory Part 1' },
   'kendojidai_2014':      { id: 'f8eb8778-b83b-4556-86f7-aaa4092d16d6', title: 'Kendojidai 2014' },
   'kendojidai_2015':      { id: '4541dd08-3773-4b5d-9f8c-81efc75831ea', title: 'Kendojidai 2015' },
   'kendojidai_2016':      { id: '057c1970-5c75-47f0-85e7-b3a949766148', title: 'Kendojidai 2016' },
