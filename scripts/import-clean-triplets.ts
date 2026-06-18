@@ -30,7 +30,7 @@
  * Usage:
  *   npx tsx scripts/import-clean-triplets.ts <dir-name>     # one book
  *   npx tsx scripts/import-clean-triplets.ts <dir-name> --dry-run
- *   npx tsx scripts/import-clean-triplets.ts --all          # gated bulk (18)
+ *   npx tsx scripts/import-clean-triplets.ts --all          # gated bulk (27)
  */
 
 import { readFile, readdir } from 'node:fs/promises';
@@ -42,7 +42,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 // ---------------------------------------------------------------------------
 
 const ENV_PATH = '.env.local';
-const CLEAN_ROOT = '/Users/nghiango-mbp/git_repo/universal-agent_v2/book-postprocessing';
+const CLEAN_ROOT = '/Users/nghiango-mbp/git_repo/universal-agents_v2/book-postprocessing';
 
 /** dir-name -> { id, title }. PRESERVE these article rows; never recreate. */
 const ARTICLE_MAP: Record<string, { id: string; title: string }> = {
@@ -64,6 +64,30 @@ const ARTICLE_MAP: Record<string, { id: string; title: string }> = {
   'Tani ss full':         { id: 'f43c7bb9-6f4c-4c5d-abcb-bbf8317fa356', title: 'Tani Ss Full' },
   'baba 1 clean':         { id: '86adf815-b0ca-46eb-bab7-b6fb040b845c', title: 'Baba 1 Clean' },
   'baba 2 clean':         { id: 'ab187703-3a17-46ae-bca5-f30b9cd916a4', title: 'Baba 2 Clean' },
+  // -------------------------------------------------------------------------
+  // Remaining 9 books — added 2026-06-18 (P1-DATA-01).
+  // These were in book-postprocessing but not in the 2026-05-30 clean re-import.
+  // Article rows already exist in DB (preserved). Segments need to be imported.
+  // -------------------------------------------------------------------------
+  // NOTE: 'Day breath clean' UUID must be confirmed from DB before running.
+  //   Run: SELECT id FROM articles WHERE title ILIKE '%breath%' OR title ILIKE '%day%';
+  //   Then replace 'TODO-CONFIRM-UUID' with the actual UUID.
+  'Day breath clean':     { id: 'TODO-CONFIRM-UUID',                    title: 'Day Breath Clean' },
+  'kata full':            { id: '91ed41bf-90d4-4ef3-88af-5f68d5ff41b1', title: 'Kata Full' },
+  'Ki breath Full Clean': { id: '7a593e30-cb52-4695-9a7e-a80ba3cf2f19', title: 'Ki Breath Full Clean' },
+  'Mental 2 clean':       { id: 'b6b281bc-384e-4f7e-9698-e5ff811ad639', title: 'Mental 2 Clean' },
+  'Zen living full':      { id: '662f0994-87df-4b27-9597-a4bf91346f23', title: 'Zen Living Full' },
+  'kendojidai_2010':      { id: '38221898-d3e4-4012-8a23-4a71c6f3a4ee', title: 'Kendojidai 2010' },
+  'kendojidai_2011':      { id: '84f5be1e-6cbf-4753-9fe3-f3146769c1eb', title: 'Kendojidai 2011' },
+  'kendojidai_2012':      { id: '4143b5fb-74df-414f-8ea3-fccc1a2b3b1b', title: 'Kendojidai 2012' },
+  'kendojidai_2013':      { id: '563b88bb-ed67-4f68-abfe-22068c1cf08c', title: 'Kendojidai 2013' },
+  // kendojidai 2014-2018: run scripts/create-kendojidai-articles.ts first
+  // then replace TODO-RUN-CREATE-SCRIPT with the actual UUIDs
+  'kendojidai_2014':      { id: 'TODO-RUN-CREATE-SCRIPT', title: 'Kendojidai 2014' },
+  'kendojidai_2015':      { id: 'TODO-RUN-CREATE-SCRIPT', title: 'Kendojidai 2015' },
+  'kendojidai_2016':      { id: 'TODO-RUN-CREATE-SCRIPT', title: 'Kendojidai 2016' },
+  'kendojidai_2017':      { id: 'TODO-RUN-CREATE-SCRIPT', title: 'Kendojidai 2017' },
+  'kendojidai_2018':      { id: 'TODO-RUN-CREATE-SCRIPT', title: 'Kendojidai 2018' },
 };
 
 async function loadEnv(): Promise<Record<string, string>> {
