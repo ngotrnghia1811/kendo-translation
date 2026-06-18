@@ -72,7 +72,7 @@ const ARTICLE_MAP: Record<string, { id: string; title: string }> = {
   // NOTE: 'Day breath clean' UUID must be confirmed from DB before running.
   //   Run: SELECT id FROM articles WHERE title ILIKE '%breath%' OR title ILIKE '%day%';
   //   Then replace 'TODO-CONFIRM-UUID' with the actual UUID.
-  'Day breath clean':     { id: 'TODO-CONFIRM-UUID',                    title: 'Day Breath Clean' },
+  'Day breath clean':     { id: '3785cd55-421e-4daf-b1ba-546e3a09fdbe', title: 'Day Breath Clean' },
   'kata full':            { id: '91ed41bf-90d4-4ef3-88af-5f68d5ff41b1', title: 'Kata Full' },
   'Ki breath Full Clean': { id: '7a593e30-cb52-4695-9a7e-a80ba3cf2f19', title: 'Ki Breath Full Clean' },
   'Mental 2 clean':       { id: 'b6b281bc-384e-4f7e-9698-e5ff811ad639', title: 'Mental 2 Clean' },
@@ -83,11 +83,11 @@ const ARTICLE_MAP: Record<string, { id: string; title: string }> = {
   'kendojidai_2013':      { id: '563b88bb-ed67-4f68-abfe-22068c1cf08c', title: 'Kendojidai 2013' },
   // kendojidai 2014-2018: run scripts/create-kendojidai-articles.ts first
   // then replace TODO-RUN-CREATE-SCRIPT with the actual UUIDs
-  'kendojidai_2014':      { id: 'TODO-RUN-CREATE-SCRIPT', title: 'Kendojidai 2014' },
-  'kendojidai_2015':      { id: 'TODO-RUN-CREATE-SCRIPT', title: 'Kendojidai 2015' },
-  'kendojidai_2016':      { id: 'TODO-RUN-CREATE-SCRIPT', title: 'Kendojidai 2016' },
-  'kendojidai_2017':      { id: 'TODO-RUN-CREATE-SCRIPT', title: 'Kendojidai 2017' },
-  'kendojidai_2018':      { id: 'TODO-RUN-CREATE-SCRIPT', title: 'Kendojidai 2018' },
+  'kendojidai_2014':      { id: 'f8eb8778-b83b-4556-86f7-aaa4092d16d6', title: 'Kendojidai 2014' },
+  'kendojidai_2015':      { id: '4541dd08-3773-4b5d-9f8c-81efc75831ea', title: 'Kendojidai 2015' },
+  'kendojidai_2016':      { id: '057c1970-5c75-47f0-85e7-b3a949766148', title: 'Kendojidai 2016' },
+  'kendojidai_2017':      { id: 'c602f1e2-95df-4da9-a3cf-3a389efdce92', title: 'Kendojidai 2017' },
+  'kendojidai_2018':      { id: 'e9cfbf9f-5be9-4a1f-b5c9-5a52270a6d8c', title: 'Kendojidai 2018' },
 };
 
 async function loadEnv(): Promise<Record<string, string>> {

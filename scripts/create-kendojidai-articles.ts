@@ -63,17 +63,16 @@ async function main() {
 
   const rows = KENDOJIDAI_NEW.map((entry) => ({
     title: entry.title,
-    language: 'ja',
     segmented: false,
     segment_count: 0,
     translation_status: 'draft',
-    metadata: { source: 'kendojidai_magazine', year: entry.year },
+    tags: ['kendojidai', String(entry.year)],
   }));
 
   if (dryRun) {
     console.log('[dry-run] Would upsert the following rows:');
     for (const r of rows) {
-      console.log(`  ${r.title}  language=${r.language}  segmented=${r.segmented}  status=${r.translation_status}  metadata=${JSON.stringify(r.metadata)}`);
+      console.log(`  ${r.title}  segmented=${r.segmented}  segment_count=${r.segment_count}  status=${r.translation_status}  tags=${JSON.stringify(r.tags)}`);
     }
     console.log('\n[dry-run] No DB writes performed.');
     return;

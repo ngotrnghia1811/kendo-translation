@@ -159,3 +159,51 @@ Until the friction justifies the cost, the discipline in §§1–5 is the defaul
 
 Stop and ask the human. The cost of a clarifying question is always lower
 than the cost of overwriting another agent's uncommitted work.
+
+---
+
+## 9. Screenshot review and visual analysis: use the `vision` subagent
+
+When any agent needs to interpret a screenshot, mockup, Playwright failure
+capture, or other image file, it must **delegate to the `vision` subagent**
+rather than attempting visual analysis inline.
+
+### When to delegate
+
+- Playwright test failures where a screenshot exists under `test-results/`.
+- Verifying that a UI change rendered correctly (take/read a screenshot, hand
+  to `vision`).
+- Comparing a running-app capture against a Figma or design-comp export.
+- Reading architecture or flow diagrams under `docs/`.
+- Any rendered-page capture or browser-console overlay that contains visual
+  information the executing agent cannot parse from source alone.
+
+### How to dispatch
+
+```
+@vision <path-to-image-or-directory>
+```
+
+Or via the `task` tool with `subagent_type: "vision"` and a prompt that
+includes the image path(s) and the specific question(s) to answer.
+
+### What `vision` returns
+
+A structured five-part report:
+1. What the image shows
+2. Salient UI / diagram elements (with JA/EN text noted)
+3. Discrepancies vs expected (if a reference was provided)
+4. Dev-actionable observations
+5. Confidence level and unknowns
+
+The executing agent reads this report and acts on it; `vision` itself makes
+no code changes.
+
+### Capability boundary
+
+`vision` is **read-only**: it can read files and run shell commands to list
+directories, but cannot edit or write files. Do not ask `vision` to implement
+fixes — hand findings back to the executing agent (or to `@aki-execute`) for
+implementation.
+
+See `.opencode/agent/vision.md` for the full agent definition.
