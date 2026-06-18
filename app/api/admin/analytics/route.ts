@@ -62,7 +62,8 @@ const fetchAnalytics = unstable_cache(
             supabase
                 .from('segment_revisions')
                 .select('edited_by, profiles:edited_by(username)')
-                .gte('created_at', new Date(Date.now() - 90 * 86400_000).toISOString()),
+                .gte('created_at', new Date(Date.now() - 90 * 86400_000).toISOString())
+                .limit(2000),
 
             // Recent comments count (last 30 days)
             supabase
@@ -180,7 +181,7 @@ const fetchAnalytics = unstable_cache(
         }
     },
     ['admin-analytics'],
-    { revalidate: 60, tags: ['admin-analytics'] }
+    { revalidate: 300, tags: ['admin-analytics'] }
 )
 
 export async function GET() {
