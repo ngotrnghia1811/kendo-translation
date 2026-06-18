@@ -588,12 +588,22 @@ test.describe('Real User Flows @userflow', () => {
       const el = document.querySelector('div.text-3xl')
       if (!el) return null
       const style = window.getComputedStyle(el)
-      // Walk up to find a card-like background
-      const card = el.closest('[class*="card"], [class*="stat"], [class*="KPI"]')
-      const cardStyle = card ? window.getComputedStyle(card) : null
+
+      // Walk up ancestors to find nearest non-transparent background
+      function getEffectiveBg(node: Element | null): string {
+        while (node && node !== document.documentElement) {
+          const bg = window.getComputedStyle(node).backgroundColor
+          if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+            return bg
+          }
+          node = node.parentElement
+        }
+        return 'rgb(255, 255, 255)' // default white fallback
+      }
+
       return {
         color: style.color,
-        bg: cardStyle?.backgroundColor ?? style.backgroundColor,
+        bg: getEffectiveBg(el.parentElement),
       }
     })
     if (statContrast) {
@@ -703,7 +713,19 @@ test.describe('Real User Flows @userflow', () => {
         const el = document.querySelector('[data-reader-theme]')
         if (!el) return null
         const style = window.getComputedStyle(el)
-        return { color: style.color, bg: style.backgroundColor }
+
+        function getEffectiveBg(node: Element | null): string {
+          while (node && node !== document.documentElement) {
+            const bg = window.getComputedStyle(node).backgroundColor
+            if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+              return bg
+            }
+            node = node.parentElement
+          }
+          return 'rgb(255, 255, 255)' // default white fallback
+        }
+
+        return { color: style.color, bg: getEffectiveBg(el) }
       })
 
       if (themeInfo) {
