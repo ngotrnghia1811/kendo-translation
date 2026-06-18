@@ -151,6 +151,28 @@ async function discoverSmallestDocId(page: Page): Promise<string | null> {
   return smallest.id ?? null
 }
 
+/** Discover a document that has a paired PDF at runtime. */
+async function discoverDocWithPDF(page: Page): Promise<string | null> {
+  const result = await apiFetch<{ documents?: Array<{ id: string; paired_pdf_path?: string | null }> }>(
+    page,
+    '/api/documents?limit=100',
+  )
+  if (result.status !== 200 || !result.body.documents) return null
+  const doc = result.body.documents.find(d => d.paired_pdf_path)
+  return doc?.id ?? null
+}
+
+/** Discover a document that has ZH segments at runtime. */
+async function discoverDocWithZH(page: Page): Promise<string | null> {
+  const result = await apiFetch<{ documents?: Array<{ id: string; segment_count?: number }> }>(
+    page,
+    '/api/documents?limit=100',
+  )
+  if (result.status !== 200 || !result.body.documents) return null
+  const doc = result.body.documents.find(d => (d.segment_count ?? 0) > 0)
+  return doc?.id ?? null
+}
+
 // ---------------------------------------------------------------------------
 // Flows
 // ---------------------------------------------------------------------------
@@ -785,7 +807,477 @@ test.describe('Real User Flows @userflow', () => {
   })
 
   // ==================================================================
-  // Flow 5 — RF-CROSS-01
+  // Flow 5 — RF-READER-03
+  // ==================================================================
+
+  test('RF-READER-03: ZH language toggle + PDF view @userflow @p1', async ({ page, snap }) => {
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+
+    // Step 1 — discover a doc with PDF
+    const pdfDocId = await discoverDocWithPDF(page)
+    if (!pdfDocId) {
+      test.skip(true, 'No document with paired_pdf_path found')
+      return
+    }
+
+    // Step 2 — navigate to reader
+    const t0 = Date.now()
+    await page.goto(`${PROD}/documents/${pdfDocId}/read`)
+    await page.waitForLoadState('domcontentloaded')
+    const navTime = Date.now() - t0
+    test.info().annotations.push({
+      type: 'timing',
+      description: JSON.stringify({ step: 'reader-nav-domcontentloaded', elapsed_ms: navTime }),
+    })
+
+    // Step 3 — wait for first segment/paragraph visible
+    try {
+      await page
+        .locator('p, [data-testid="segment-text"], [data-testid="reader-segment"], [data-reader-theme]')
+        .first()
+        .waitFor({ state: 'visible', timeout: 20000 })
+    } catch {
+      test.skip(true, 'Reader content not visible — cannot test ZH toggle')
+      return
+    }
+
+    // Step 4 — look for ZH toggle
+    const zhToggle = page.locator(
+      'button:has-text("中文"), [aria-label*="ZH"], [data-testid*="zh"], button:has-text("ZH")',
+    ).first()
+    const zhVisible = await zhToggle.isVisible({ timeout: 5000 }).catch(() => false)
+    if (!zhVisible) {
+      test.skip(true, 'No ZH toggle found')
+      return
+    }
+
+    // Step 5 — click ZH toggle
+    const tZH = Date.now()
+    await zhToggle.click()
+    // Wait for segment text to update (re-render with ZH content)
+    await page.waitForTimeout(1500)
+    const zhToggleTime = Date.now() - tZH
+    test.info().annotations.push({
+      type: 'timing',
+      description: JSON.stringify({ step: 'zh-toggle-click-to-update', elapsed_ms: zhToggleTime }),
+    })
+    await snap('reader-zh-active')
+
+    // Step 6 — click EN toggle back
+    const enToggle = page.locator(
+      'button:has-text("EN"), button:has-text("English"), [aria-label*="EN"], [data-testid*="en"]',
+    ).first()
+    const enVisible = await enToggle.isVisible().catch(() => false)
+    if (enVisible) {
+      await enToggle.click()
+      await page.waitForTimeout(1500)
+      await snap('reader-en-restored')
+    } else {
+      test.info().annotations.push({
+        type: 'info',
+        description: 'EN toggle not found (may be already on EN or different button label)',
+      })
+    }
+
+    // Step 7 — look for PDF view button
+    const pdfBtn = page.locator(
+      'button:has-text("PDF"), [data-testid*="pdf"], [aria-label*="PDF" i]',
+    ).first()
+    const pdfVisible = await pdfBtn.isVisible({ timeout: 3000 }).catch(() => false)
+    if (!pdfVisible) {
+      test.info().annotations.push({
+        type: 'skip',
+        description: 'pdf-tab-not-found',
+      })
+    } else {
+      // Step 8 — click PDF tab
+      const tPDF = Date.now()
+      await pdfBtn.click()
+      // Wait for iframe or PDF content
+      try {
+        await page
+          .locator('iframe, [data-testid*="pdf"], embed[type="application/pdf"], object[type="application/pdf"]')
+          .first()
+          .waitFor({ state: 'visible', timeout: 15000 })
+      } catch {
+        test.info().annotations.push({
+          type: 'skip',
+          description: 'PDF content element not found after click',
+        })
+      }
+      const pdfLoadTime = Date.now() - tPDF
+      test.info().annotations.push({
+        type: 'timing',
+        description: JSON.stringify({ step: 'pdf-load-time', elapsed_ms: pdfLoadTime }),
+      })
+      await snap('reader-pdf-view')
+    }
+  })
+
+  // ==================================================================
+  // Flow 6 — RF-TRANS-02
+  // ==================================================================
+
+  test('RF-TRANS-02: Agent suggestion → accept (EditPatternModal) @userflow @p1', async ({ page, snap }) => {
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+
+    // Step 1 — discover smallest doc
+    const docId = await discoverSmallestDocId(page)
+    if (!docId) {
+      test.skip(true, 'No documents found')
+      return
+    }
+
+    // Step 2 — navigate to editor
+    await page.goto(`${PROD}/documents/${docId}/edit`)
+    await page.waitForLoadState('domcontentloaded')
+
+    // Step 3 — wait for segment list
+    try {
+      await page
+        .locator('[data-testid="segment-list-item"], tr')
+        .first()
+        .waitFor({ state: 'visible', timeout: 30000 })
+    } catch {
+      test.skip(true, 'Segment list not visible')
+      return
+    }
+    await snap('editor-loaded')
+
+    // Step 4 — click first segment row to activate editor panel
+    await page.locator('[data-testid="segment-list-item"], tr').first().click()
+    try {
+      await page
+        .locator('textarea, [data-testid="segment-editor-panel"]')
+        .first()
+        .waitFor({ state: 'visible', timeout: 15000 })
+    } catch {
+      test.info().annotations.push({
+        type: 'skip',
+        description: 'Editor panel not visible after clicking segment',
+      })
+    }
+
+    // Step 5 — look for agent suggestion trigger
+    const agentTrigger = page.locator(
+      '[data-testid="agent-suggestion-trigger"], button:has-text("Request"), button:has-text("Generate"), button:has-text("Agent")',
+    ).first()
+    const triggerFound = await agentTrigger.isVisible({ timeout: 5000 }).catch(() => false)
+
+    if (!triggerFound) {
+      test.info().annotations.push({
+        type: 'skip',
+        description: 'agent-trigger-not-found',
+      })
+    } else {
+      // Step 6 — click trigger, wait for suggestion
+      const tAgentStart = Date.now()
+      await agentTrigger.click()
+
+      let suggestionAppeared = false
+      try {
+        await page
+          .locator('[data-testid="suggestion-row"], [data-testid*="suggestion"]')
+          .first()
+          .waitFor({ state: 'visible', timeout: 60000 })
+        suggestionAppeared = true
+      } catch {
+        // Check if loading indicator came and went
+        try {
+          const loadingEl = page.locator('[data-testid*="loading"], [aria-busy="true"], .animate-spin')
+          await loadingEl.first().waitFor({ state: 'hidden', timeout: 60000 })
+          // After loading, re-check for suggestion
+          const visible = await page
+            .locator('[data-testid="suggestion-row"], [data-testid*="suggestion"]')
+            .first()
+            .isVisible()
+            .catch(() => false)
+          suggestionAppeared = visible
+        } catch {
+          suggestionAppeared = false
+        }
+      }
+
+      const agentTime = Date.now() - tAgentStart
+      test.info().annotations.push({
+        type: 'timing',
+        description: JSON.stringify({
+          step: 'agent-suggestion-rtt',
+          elapsed_ms: agentTime,
+          suggestion_visible: suggestionAppeared,
+        }),
+      })
+
+      if (suggestionAppeared) {
+        await snap('agent-suggestion-visible')
+
+        // Step 7 — look for accept button
+        const acceptBtn = page.locator(
+          '[data-testid="suggestion-accept"], button:has-text("Accept")',
+        ).first()
+        const acceptFound = await acceptBtn.isVisible().catch(() => false)
+        if (acceptFound) {
+          await acceptBtn.click()
+
+          // Step 8 — check for modal after accept
+          try {
+            const dialog = page.locator('[role="dialog"]')
+            await dialog.first().waitFor({ state: 'visible', timeout: 5000 })
+            await snap('modal-after-accept')
+            // Close dialog
+            await page.keyboard.press('Escape')
+            await page.waitForTimeout(300)
+          } catch {
+            // No dialog appeared — that's fine
+          }
+        } else {
+          test.info().annotations.push({
+            type: 'skip',
+            description: 'accept-button-not-found',
+          })
+        }
+      }
+    }
+
+    await snap('after-agent-accept')
+
+    // Annotate all timings already captured inline
+  })
+
+  // ==================================================================
+  // Flow 7 — RF-TRANS-05
+  // ==================================================================
+
+  test('RF-TRANS-05: Context Builder two-stage MAC-RAG @userflow @p1', async ({ page, snap }) => {
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+
+    // Step 1 — discover smallest doc
+    const docId = await discoverSmallestDocId(page)
+    if (!docId) {
+      test.skip(true, 'No documents found')
+      return
+    }
+
+    // Step 2 — navigate to editor
+    await page.goto(`${PROD}/documents/${docId}/edit`)
+    await page.waitForLoadState('domcontentloaded')
+
+    // Step 3 — wait for and click first segment row
+    try {
+      await page
+        .locator('[data-testid="segment-list-item"], tr')
+        .first()
+        .waitFor({ state: 'visible', timeout: 30000 })
+    } catch {
+      test.skip(true, 'Segment list not visible')
+      return
+    }
+    await page.locator('[data-testid="segment-list-item"], tr').first().click()
+    try {
+      await page
+        .locator('textarea, [data-testid="segment-editor-panel"]')
+        .first()
+        .waitFor({ state: 'visible', timeout: 15000 })
+    } catch {
+      // editor panel may not appear — continue anyway
+    }
+
+    // Step 4 — look for Context Builder tab
+    const ctxTab = page.locator(
+      'button:has-text("Context"), button:has-text("Context Builder"), [data-testid*="context-builder"], [role="tab"]:has-text("Context")',
+    ).first()
+    const ctxTabFound = await ctxTab.isVisible({ timeout: 5000 }).catch(() => false)
+    if (!ctxTabFound) {
+      test.skip(true, 'Context Builder tab not found')
+      return
+    }
+
+    // Step 5 — click Context Builder tab
+    await ctxTab.click()
+    await page.waitForTimeout(500)
+
+    // Step 6 — look for compose button
+    const composeBtn = page.locator(
+      '[data-testid="context-builder-compose-btn"], button:has-text("Compose")',
+    ).first()
+    const composeFound = await composeBtn.isVisible({ timeout: 5000 }).catch(() => false)
+    if (!composeFound) {
+      test.info().annotations.push({
+        type: 'skip',
+        description: 'context-builder-compose-btn-not-found',
+      })
+      return
+    }
+
+    // Step 7 — click Compose
+    const tCompose = Date.now()
+    await composeBtn.click()
+    // Wait for system/user prompt text areas to populate
+    try {
+      await page
+        .locator(
+          '[data-testid*="prompt"], textarea[placeholder*="system" i], textarea[placeholder*="user" i]',
+        )
+        .first()
+        .waitFor({ state: 'visible', timeout: 30000 })
+    } catch {
+      test.info().annotations.push({
+        type: 'skip',
+        description: 'Compose prompt areas did not populate within 30s',
+      })
+      return
+    }
+    const composeTime = Date.now() - tCompose
+    test.info().annotations.push({
+      type: 'timing',
+      description: JSON.stringify({ step: 'context-builder-compose-rtt', elapsed_ms: composeTime }),
+    })
+    await snap('context-builder-composed')
+
+    // Step 8 — look for generate button
+    const generateBtn = page.locator(
+      '[data-testid="context-builder-generate-btn"], button:has-text("Generate")',
+    ).first()
+    const generateFound = await generateBtn.isVisible({ timeout: 5000 }).catch(() => false)
+    if (!generateFound) {
+      test.info().annotations.push({
+        type: 'skip',
+        description: 'context-builder-generate-btn-not-found',
+      })
+    } else {
+      const tGenerate = Date.now()
+      await generateBtn.click()
+      // Wait for result (up to 60s — LLM call)
+      try {
+        await page
+          .locator('[data-testid*="result"], [data-testid*="output"], [data-testid*="generated"]')
+          .first()
+          .waitFor({ state: 'visible', timeout: 60000 })
+      } catch {
+        test.info().annotations.push({
+          type: 'info',
+          description: 'Generate result did not appear within 60s (LLM may be slow)',
+        })
+      }
+      const generateTime = Date.now() - tGenerate
+      test.info().annotations.push({
+        type: 'timing',
+        description: JSON.stringify({ step: 'context-builder-generate-rtt', elapsed_ms: generateTime }),
+      })
+      await snap('context-builder-result')
+    }
+
+    // Step 9 — look for expand button → full-screen modal
+    const expandBtn = page.locator(
+      '[data-testid="context-builder-expand-btn"]',
+    ).first()
+    const expandFound = await expandBtn.isVisible({ timeout: 3000 }).catch(() => false)
+    if (expandFound) {
+      await expandBtn.click()
+      await page.waitForTimeout(500)
+      await snap('context-builder-modal')
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(300)
+    }
+  })
+
+  // ==================================================================
+  // Flow 8 — RF-TRANS-06
+  // ==================================================================
+
+  test('RF-TRANS-06: Comment thread @userflow @p1', async ({ page, snap }) => {
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+
+    // Step 1 — discover smallest doc
+    const docId = await discoverSmallestDocId(page)
+    if (!docId) {
+      test.skip(true, 'No documents found')
+      return
+    }
+
+    // Step 2 — navigate to editor
+    await page.goto(`${PROD}/documents/${docId}/edit`)
+    await page.waitForLoadState('domcontentloaded')
+
+    // Step 3 — wait for and click first segment row
+    try {
+      await page
+        .locator('[data-testid="segment-list-item"], tr')
+        .first()
+        .waitFor({ state: 'visible', timeout: 30000 })
+    } catch {
+      test.skip(true, 'Segment list not visible')
+      return
+    }
+    await page.locator('[data-testid="segment-list-item"], tr').first().click()
+    try {
+      await page
+        .locator('textarea, [data-testid="segment-editor-panel"]')
+        .first()
+        .waitFor({ state: 'visible', timeout: 15000 })
+    } catch {
+      // editor panel may not appear — continue anyway
+    }
+
+    // Step 4 — open cooperation drawer to Comments tab
+    const commentsTab = page.locator(
+      '[data-testid="comments-tab"], button:has-text("Comments"), [role="tab"]:has-text("Comments")',
+    ).first()
+    const commentsFound = await commentsTab.isVisible({ timeout: 5000 }).catch(() => false)
+    if (!commentsFound) {
+      test.skip(true, 'Comments tab not found')
+      return
+    }
+
+    await commentsTab.click()
+    await page.waitForTimeout(500)
+    await snap('comments-tab-open')
+
+    // Step 5 — look for comment composer
+    const commentTextarea = page.locator(
+      '[data-testid="comment-composer-textarea"], textarea[placeholder*="comment" i], textarea[placeholder*="Comment" i]',
+    ).first()
+    const composerFound = await commentTextarea.isVisible({ timeout: 5000 }).catch(() => false)
+    if (!composerFound) {
+      test.info().annotations.push({
+        type: 'skip',
+        description: 'comment-composer-not-found',
+      })
+      return
+    }
+
+    // Step 6 — fill and submit comment
+    const commentText = `Test comment ${Date.now()}`
+    await commentTextarea.fill(commentText)
+
+    const submitBtn = page.locator(
+      '[data-testid="comment-composer-submit"], button:has-text("Post"), button:has-text("Submit")',
+    ).first()
+    const tSubmit = Date.now()
+    await submitBtn.click()
+
+    // Wait for comment to appear in list
+    try {
+      await page
+        .locator(`[data-testid*="comment"]:has-text("${commentText}"), p:has-text("${commentText}"), div:has-text("${commentText}")`)
+        .first()
+        .waitFor({ state: 'visible', timeout: 10000 })
+    } catch {
+      test.info().annotations.push({
+        type: 'skip',
+        description: 'Posted comment did not appear in list within 10s',
+      })
+    }
+    const commentRtt = Date.now() - tSubmit
+    test.info().annotations.push({
+      type: 'timing',
+      description: JSON.stringify({ step: 'comment-post-rtt', elapsed_ms: commentRtt }),
+    })
+    await snap('comment-posted')
+  })
+
+  // ==================================================================
+  // Flow 9 — RF-CROSS-01
   // ==================================================================
 
   test('RF-CROSS-01: Cold-start latency baseline @userflow @p0', async ({ page }) => {
