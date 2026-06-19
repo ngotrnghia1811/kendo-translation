@@ -1595,6 +1595,9 @@ test.describe('Real User Flows @userflow', () => {
       return
     }
 
+    // Capture baseline editor state before optional StyleRuleModal flow
+    await snap('editor-baseline')
+
     // Look for a segment in "edited" status
     const editedBadge = page.locator(
       'span:has-text("edited"), [data-testid*="phase-badge"]:has-text("edited"), [class*="edited"]',
@@ -1678,6 +1681,9 @@ test.describe('Real User Flows @userflow', () => {
       test.skip(true, 'Segment list not visible')
       return
     }
+
+    // Capture baseline before optional MemoryWriteBanner flow
+    await snap('editor-before-advance')
 
     await page.locator('[data-testid="segment-list-item"], tr').first().click()
     try {
@@ -1833,6 +1839,9 @@ test.describe('Real User Flows @userflow', () => {
       test.skip(true, 'Segment list not visible')
       return
     }
+
+    // Capture baseline editor before batch toggle check
+    await snap('editor-before-batch')
 
     // Look for batch mode toggle
     const batchToggle = page.locator('[data-testid="batch-mode-toggle"]')
@@ -2064,6 +2073,9 @@ test.describe('Real User Flows @userflow', () => {
       type: 'timing',
       description: JSON.stringify({ step: 'mobile-editor-nav', elapsed_ms: mobileNavTime }),
     })
+
+    // Capture mobile editor state (whether banner is shown or full editor)
+    await snap('mobile-editor-loaded')
 
     // Step 2 — verify phone-block banner
     const mobileBanner = page.locator('[data-testid="mobile-editor-reader-link"]')
@@ -2463,7 +2475,20 @@ test.describe('Real User Flows @userflow', () => {
 
       const tSegmentize = Date.now()
       await segBtnRetry.click()
-      await page.waitForTimeout(3000)
+      // Wait for segmentize result to render (success message, segment count, or error)
+      await page.waitForFunction(
+        () => {
+          const text = document.body.innerText
+          return (
+            text.includes('Segmentized') ||
+            text.includes('segments') ||
+            text.includes('Error') ||
+            text.includes('success') ||
+            document.querySelector('[data-testid="segmentize-result"], .text-green-600, .text-red-600') !== null
+          )
+        },
+        { timeout: 10000 },
+      ).catch(() => page.waitForTimeout(4000))
       const segTime = Date.now() - tSegmentize
       test.info().annotations.push({
         type: 'timing',
