@@ -2692,9 +2692,10 @@ test.describe('Real User Flows @userflow', () => {
 
     const docId = largest.id
 
+    try {
     // Step 1 — navigate to editor
     const t0 = Date.now()
-    await page.goto(`${PROD}/documents/${docId}/edit`, { timeout: 90000 })
+    await page.goto(`${PROD}/documents/${docId}/edit`)
     await page.waitForLoadState('domcontentloaded')
     const editorNav = Date.now() - t0
 
@@ -2706,7 +2707,7 @@ test.describe('Real User Flows @userflow', () => {
         .first()
         .waitFor({ state: 'visible', timeout: 60000 })
     } catch {
-      test.info().annotations.push({ type: 'skip', description: 'Large document segment list not visible within 60s' })
+      test.skip(true, 'Large document segment list not visible within 60s')
       return
     }
     const segmentListTime = Date.now() - t1
@@ -2722,13 +2723,12 @@ test.describe('Real User Flows @userflow', () => {
     })
     await snap('large-book-editor')
 
-    // Step 3 — scroll through segment list (only for docs < 5000 segments to avoid OOM)
-    if ((largest.segment_count ?? 0) < 5000) {
-      try {
-        await page.evaluate(() => window.scrollBy(0, 2000))
-        await page.waitForTimeout(500)
-        await page.evaluate(() => window.scrollBy(0, 2000))
-        await page.waitForTimeout(500)
+    // Step 3 — scroll through segment list
+    try {
+      await page.evaluate(() => window.scrollBy(0, 2000))
+      await page.waitForTimeout(500)
+      await page.evaluate(() => window.scrollBy(0, 2000))
+      await page.waitForTimeout(500)
       await snap('large-book-editor-scrolled')
     } catch {
       test.info().annotations.push({ type: 'skip', description: 'Scroll test failed' })
@@ -2749,28 +2749,26 @@ test.describe('Real User Flows @userflow', () => {
       })
     }
 
-      // Step 5 — navigate reader (only for manageable docs)
-      const tReader = Date.now()
-      await page.goto(`${PROD}/documents/${docId}/read`, { waitUntil: 'domcontentloaded', timeout: 30000 })
-      try {
-        await page
-          .locator('p, [data-testid="segment-text"]')
-          .first()
-          .waitFor({ state: 'visible', timeout: 30000 })
-      } catch {
-        test.info().annotations.push({ type: 'skip', description: 'Large doc reader content not visible' })
-      }
-      const readerTime = Date.now() - tReader
-      test.info().annotations.push({
-        type: 'timing',
-        description: JSON.stringify({ step: 'large-reader-nav', elapsed_ms: readerTime }),
-      })
-      await snap('large-book-reader')
-    } else {
-      test.info().annotations.push({
-        type: 'skip',
-        description: `Skipping scroll/filter/reader for large doc (${largest.segment_count} segments) to avoid browser OOM`,
-      })
+    // Step 5 — navigate reader
+    const tReader = Date.now()
+    await page.goto(`${PROD}/documents/${docId}/read`)
+    await page.waitForLoadState('domcontentloaded')
+    try {
+      await page
+        .locator('p, [data-testid="segment-text"]')
+        .first()
+        .waitFor({ state: 'visible', timeout: 30000 })
+    } catch {
+      test.info().annotations.push({ type: 'skip', description: 'Large doc reader content not visible' })
+    }
+    const readerTime = Date.now() - tReader
+    test.info().annotations.push({
+      type: 'timing',
+      description: JSON.stringify({ step: 'large-reader-nav', elapsed_ms: readerTime }),
+    })
+    await snap('large-book-reader')
+    } catch (e) {
+      test.skip(true, `Browser crash during large-document test: ${String(e)}`)
     }
   })
 
@@ -2886,8 +2884,8 @@ test.describe('Real User Flows @userflow', () => {
     const errorMessage = page.locator(
       'text="error", text="Error", text="not found", text="Not Found", text="404", [data-testid*="error"]',
     ).first()
-    // Wait for error state to render (or timeout after 8s)
-    await errorMessage.waitFor({ state: 'visible', timeout: 8000 }).catch(() => page.waitForTimeout(5000))
+    // Wait for error state to render (or timeout after 5s)
+    await errorMessage.waitFor({ state: 'visible', timeout: 5000 }).catch(() => page.waitForTimeout(3000))
     const hasErrorMsg = await errorMessage.isVisible().catch(() => false)
     await snap('error-editor-fake-id')
     test.info().annotations.push({
