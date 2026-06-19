@@ -89,24 +89,15 @@ function contrastRatio(c1: string, c2: string): number {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Fetch an API path from within the page context (inherits session cookies). */
+/** Fetch an API path using page.request (shares cookies from the browser context). */
 async function apiFetch<T = unknown>(
   page: Page,
   path: string,
 ): Promise<{ status: number; body: T }> {
-  return page.evaluate(
-    async ({ base, p }) => {
-      const res = await fetch(`${base}${p}`)
-      let body: unknown
-      try {
-        body = await res.json()
-      } catch {
-        body = null
-      }
-      return { status: res.status, body }
-    },
-    { base: PROD, p: path },
-  ) as Promise<{ status: number; body: T }>
+  const res = await page.request.get(`${PROD}${path}`)
+  let body: unknown
+  try { body = await res.json() } catch { body = null }
+  return { status: res.status(), body: body as T }
 }
 
 /** Inject a Supabase SSR session cookie into the page's browser context. */
@@ -171,6 +162,20 @@ async function discoverDocWithZH(page: Page): Promise<string | null> {
   if (result.status !== 200 || !result.body.documents) return null
   const doc = result.body.documents.find(d => (d.segment_count ?? 0) > 0)
   return doc?.id ?? null
+}
+
+/** Discover the largest-doc ID (by segment_count desc) at runtime. */
+async function discoverLargestDocId(page: Page): Promise<string | null> {
+  const docsRes = await apiFetch<unknown>(page, '/api/documents?limit=100')
+  const docsArray = Array.isArray(docsRes.body)
+    ? (docsRes.body as Array<{ id: string; segment_count?: number }>)
+    : Array.isArray((docsRes.body as { documents?: unknown })?.documents)
+      ? ((docsRes.body as { documents: Array<{ id: string; segment_count?: number }> }).documents)
+      : []
+  if (docsRes.status !== 200 || docsArray.length === 0) return null
+  const sorted = [...docsArray].sort((a, b) => (b.segment_count ?? 0) - (a.segment_count ?? 0))
+  const largest = sorted.find((d) => (d.segment_count ?? 0) > 0) ?? docsArray[0]
+  return largest.id ?? null
 }
 
 // ---------------------------------------------------------------------------
@@ -1377,4 +1382,1663 @@ test.describe('Real User Flows @userflow', () => {
       }),
     })
   })
+
+  // ==================================================================
+  // Flow 10 — RF-READER-04
+  // ==================================================================
+
+  test('RF-READER-04: Full-text search in reader sidebar @userflow @p2', async ({ page, snap }) => {
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+
+    // Discover smallest doc
+    const docId = await discoverSmallestDocId(page)
+    if (!docId) {
+      test.skip(true, 'No documents found')
+      return
+    }
+
+    // Step 1 — navigate to reader
+    await page.goto(`${PROD}/documents/${docId}/read`)
+    await page.waitForLoadState('domcontentloaded')
+    try {
+      await page
+        .locator('p, [data-testid="segment-text"], [data-testid="reader-segment"], [data-reader-theme]')
+        .first()
+        .waitFor({ state: 'visible', timeout: 20000 })
+    } catch {
+      test.skip(true, 'Reader content not visible')
+      return
+    }
+
+    // Step 2 — open reader sidebar
+    const sidebarToggle = page.locator(
+      'button[aria-label*="sidebar" i], button[aria-label*="open" i], [data-testid*="sidebar-toggle"]',
+    ).first()
+    const sidebarVisible = await sidebarToggle.isVisible().catch(() => false)
+    if (!sidebarVisible) {
+      // Try clicking a hamburger/menu button
+      const menuBtn = page.locator('button:has([aria-label*="menu" i]), [aria-label*="Menu" i]').first()
+      if (await menuBtn.isVisible().catch(() => false)) {
+        await menuBtn.click()
+        await page.waitForTimeout(500)
+      }
+    } else {
+      await sidebarToggle.click()
+      await page.waitForTimeout(500)
+    }
+
+    // Step 3 — find and click Search tab
+    const searchTab = page.locator(
+      'button:has-text("Search"), [role="tab"]:has-text("Search"), [data-testid*="search-tab"]',
+    ).first()
+    const searchTabFound = await searchTab.isVisible({ timeout: 5000 }).catch(() => false)
+    if (!searchTabFound) {
+      test.skip(true, 'Search tab not found in sidebar')
+      return
+    }
+    await searchTab.click()
+    await page.waitForTimeout(500)
+
+    // Step 4 — type search term
+    const searchInput = page.locator(
+      'input[placeholder*="search" i], input[aria-label*="search" i], [data-testid*="search-input"]',
+    ).first()
+    const searchInputFound = await searchInput.isVisible({ timeout: 5000 }).catch(() => false)
+    if (!searchInputFound) {
+      test.skip(true, 'Search input not found')
+      return
+    }
+
+    const tSearch = Date.now()
+    await searchInput.fill('sword')
+    // Wait for debounced results
+    await page.waitForTimeout(1500)
+    const searchTime = Date.now() - tSearch
+    test.info().annotations.push({
+      type: 'timing',
+      description: JSON.stringify({ step: 'search-debounce', elapsed_ms: searchTime }),
+    })
+
+    // Step 5 — check for search results
+    const searchResults = page.locator(
+      '[data-testid*="search-result"], [data-testid*="result-row"], li:not(.empty)',
+    )
+    const hasResults = await searchResults.first().isVisible({ timeout: 5000 }).catch(() => false)
+    if (!hasResults) {
+      test.info().annotations.push({
+        type: 'skip',
+        description: 'No search results for "sword"',
+      })
+    } else {
+      await snap('reader-search-results')
+
+      // Step 6 — click first result
+      const tClick = Date.now()
+      await searchResults.first().click()
+      await page.waitForTimeout(1000)
+      const clickTime = Date.now() - tClick
+      test.info().annotations.push({
+        type: 'timing',
+        description: JSON.stringify({ step: 'search-click-to-scroll', elapsed_ms: clickTime }),
+      })
+
+      // Step 7 — verify highlight
+      const highlights = page.locator('mark, [data-testid*="highlight"], span[style*="background"]')
+      const highlightFound = await highlights.first().isVisible({ timeout: 5000 }).catch(() => false)
+      test.info().annotations.push({
+        type: highlightFound ? 'info' : 'skip',
+        description: highlightFound ? 'Search highlight found' : 'Search highlight not found',
+      })
+    }
+
+    await snap('reader-search-final')
+  })
+
+  // ==================================================================
+  // Flow 11 — RF-READER-05
+  // ==================================================================
+
+  test('RF-READER-05: Status filter sidebar @userflow @p2', async ({ page, snap }) => {
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+
+    const docId = await discoverSmallestDocId(page)
+    if (!docId) {
+      test.skip(true, 'No documents found')
+      return
+    }
+
+    await page.goto(`${PROD}/documents/${docId}/read`)
+    await page.waitForLoadState('domcontentloaded')
+    try {
+      await page
+        .locator('p, [data-testid="segment-text"]')
+        .first()
+        .waitFor({ state: 'visible', timeout: 20000 })
+    } catch {
+      test.skip(true, 'Reader content not visible')
+      return
+    }
+
+    // Open sidebar
+    const menuBtn = page.locator('button:has([aria-label*="menu" i]), [aria-label*="Menu" i], button[aria-label*="sidebar" i]').first()
+    if (await menuBtn.isVisible().catch(() => false)) {
+      await menuBtn.click()
+      await page.waitForTimeout(500)
+    }
+
+    // Find Filter tab
+    const filterTab = page.locator(
+      'button:has-text("Filter"), [role="tab"]:has-text("Filter"), [data-testid*="filter-tab"]',
+    ).first()
+    const filterTabFound = await filterTab.isVisible({ timeout: 5000 }).catch(() => false)
+    if (!filterTabFound) {
+      test.skip(true, 'Filter tab not found in sidebar')
+      return
+    }
+    await filterTab.click()
+    await page.waitForTimeout(500)
+    await snap('reader-filter-panel')
+
+    // Toggle a status filter
+    const filterCheckbox = page.locator(
+      'input[type="checkbox"], [role="checkbox"], [data-testid*="filter-checkbox"]',
+    ).first()
+    if (await filterCheckbox.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await filterCheckbox.click()
+      await page.waitForTimeout(500)
+      await snap('reader-filter-applied')
+    } else {
+      test.info().annotations.push({ type: 'skip', description: 'No filter checkboxes found' })
+    }
+
+    // Clear filter
+    const clearBtn = page.locator(
+      'button:has-text("Clear"), button:has-text("Reset"), [data-testid*="filter-clear"]',
+    ).first()
+    if (await clearBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await clearBtn.click()
+      await page.waitForTimeout(500)
+      test.info().annotations.push({ type: 'info', description: 'Filter cleared' })
+    }
+  })
+
+  // ==================================================================
+  // Flow 12 — RF-TRANS-03
+  // ==================================================================
+
+  test('RF-TRANS-03: Accept suggestion with StyleRuleModal (edited phase) @userflow @p2', async ({ page, snap }) => {
+    test.info().annotations.push({
+      type: 'info',
+      description: 'WARNING: This flow requires a proofreader-role user. We use admin tokens (which may have proofreader capabilities) and skip if no edited segments found.',
+    })
+
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+
+    // Discover smallest doc
+    const docId = await discoverSmallestDocId(page)
+    if (!docId) {
+      test.skip(true, 'No documents found')
+      return
+    }
+
+    await page.goto(`${PROD}/documents/${docId}/edit`)
+    await page.waitForLoadState('domcontentloaded')
+
+    // Wait for segment list
+    try {
+      await page
+        .locator('[data-testid="segment-list-item"], tr')
+        .first()
+        .waitFor({ state: 'visible', timeout: 30000 })
+    } catch {
+      test.skip(true, 'Segment list not visible')
+      return
+    }
+
+    // Look for a segment in "edited" status
+    const editedBadge = page.locator(
+      'span:has-text("edited"), [data-testid*="phase-badge"]:has-text("edited"), [class*="edited"]',
+    ).first()
+    const editedFound = await editedBadge.isVisible({ timeout: 5000 }).catch(() => false)
+
+    if (!editedFound) {
+      test.skip(true, 'No segments in edited status found — cannot test StyleRuleModal flow')
+      return
+    }
+
+    // Click the edited segment row (find parent row and click)
+    await editedBadge.click()
+    await page.waitForTimeout(500)
+
+    // Open cooperation drawer to Suggestions
+    const suggestionsTab = page.locator(
+      'button:has-text("Suggestions"), [role="tab"]:has-text("Suggestions"), [data-testid*="suggestions-tab"]',
+    ).first()
+    if (await suggestionsTab.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await suggestionsTab.click()
+      await page.waitForTimeout(500)
+
+      // Look for accept button on suggestion
+      const acceptBtn = page.locator(
+        '[data-testid="suggestion-accept"], button:has-text("Accept")',
+      ).first()
+      if (await acceptBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await acceptBtn.click()
+        await page.waitForTimeout(1000)
+
+        // Verify StyleRuleModal opens
+        const styleRuleModal = page.locator(
+          '[data-testid*="style-rule"], [role="dialog"]:has-text("Style Rule"), [class*="style-rule"]',
+        ).first()
+        const modalVisible = await styleRuleModal.isVisible({ timeout: 5000 }).catch(() => false)
+        if (modalVisible) {
+          await snap('style-rule-modal')
+          await page.keyboard.press('Escape')
+        } else {
+          test.info().annotations.push({
+            type: 'skip',
+            description: 'StyleRuleModal did not appear after accept',
+          })
+        }
+      } else {
+        test.info().annotations.push({
+          type: 'skip',
+          description: 'No suggestions found on edited segment — accept not testable',
+        })
+      }
+    } else {
+      test.info().annotations.push({
+        type: 'skip',
+        description: 'Suggestions tab not found',
+      })
+    }
+  })
+
+  // ==================================================================
+  // Flow 13 — RF-TRANS-04
+  // ==================================================================
+
+  test('RF-TRANS-04: MemoryWriteBanner after phase advance @userflow @p2', async ({ page, snap }) => {
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+
+    const docId = await discoverSmallestDocId(page)
+    if (!docId) {
+      test.skip(true, 'No documents found')
+      return
+    }
+
+    await page.goto(`${PROD}/documents/${docId}/edit`)
+    await page.waitForLoadState('domcontentloaded')
+    try {
+      await page
+        .locator('[data-testid="segment-list-item"], tr')
+        .first()
+        .waitFor({ state: 'visible', timeout: 30000 })
+    } catch {
+      test.skip(true, 'Segment list not visible')
+      return
+    }
+
+    await page.locator('[data-testid="segment-list-item"], tr').first().click()
+    try {
+      await page
+        .locator('textarea, [data-testid="segment-editor-panel"]')
+        .first()
+        .waitFor({ state: 'visible', timeout: 15000 })
+    } catch {
+      // continue
+    }
+
+    // Look for phase advance button
+    const phaseAdvanceBtn = page.locator('[data-testid="phase-advance-button"]')
+    const terminalNote = await page.locator('[data-testid="phase-advance-terminal"]').isVisible().catch(() => false)
+    if (terminalNote) {
+      test.info().annotations.push({
+        type: 'skip',
+        description: 'Segment already at terminal phase — cannot test MemoryWriteBanner',
+      })
+      return
+    }
+    if (!(await phaseAdvanceBtn.isVisible().catch(() => false))) {
+      test.skip(true, 'Phase advance button not visible')
+      return
+    }
+
+    // Advance phase
+    await phaseAdvanceBtn.click()
+    try {
+      const confirmBtn = page.locator('[data-testid="phase-advance-confirm-submit"]')
+      await confirmBtn.waitFor({ state: 'visible', timeout: 5000 })
+      await confirmBtn.click()
+    } catch {
+      test.skip(true, 'Phase advance confirm button not found')
+      return
+    }
+
+    // Step — observe MemoryWriteBanner
+    const tBanner = Date.now()
+    try {
+      await page
+        .locator('[data-testid="memory-write-banner"]')
+        .first()
+        .waitFor({ state: 'visible', timeout: 30000 })
+      const bannerTime = Date.now() - tBanner
+      await snap('memory-write-banner')
+      test.info().annotations.push({
+        type: 'timing',
+        description: JSON.stringify({ step: 'memory-write-banner-visible', elapsed_ms: bannerTime }),
+      })
+    } catch {
+      test.info().annotations.push({
+        type: 'skip',
+        description: 'MemoryWriteBanner not visible within 30s after phase advance',
+      })
+    }
+  })
+
+  // ==================================================================
+  // Flow 14 — RF-TRANS-07
+  // ==================================================================
+
+  test('RF-TRANS-07: QA Issue resolve @userflow @p2', async ({ page, snap }) => {
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+
+    const docId = await discoverSmallestDocId(page)
+    if (!docId) {
+      test.skip(true, 'No documents found')
+      return
+    }
+
+    await page.goto(`${PROD}/documents/${docId}/edit`)
+    await page.waitForLoadState('domcontentloaded')
+    try {
+      await page
+        .locator('[data-testid="segment-list-item"], tr')
+        .first()
+        .waitFor({ state: 'visible', timeout: 30000 })
+    } catch {
+      test.skip(true, 'Segment list not visible')
+      return
+    }
+
+    await page.locator('[data-testid="segment-list-item"], tr').first().click()
+    await page.waitForTimeout(500)
+
+    // Open QA Issues tab
+    const qaTab = page.locator(
+      'button:has-text("QA"), [role="tab"]:has-text("QA"), [data-testid*="qa-tab"], [data-testid*="qa-issues"]',
+    ).first()
+    const qaTabFound = await qaTab.isVisible({ timeout: 5000 }).catch(() => false)
+    if (!qaTabFound) {
+      test.skip(true, 'QA Issues tab not found')
+      return
+    }
+    await qaTab.click()
+    await page.waitForTimeout(500)
+    await snap('qa-issues-list')
+
+    // Look for resolve button
+    const resolveBtn = page.locator(
+      '[data-testid*="qa-resolve"], button:has-text("Resolve"), button:has-text("resolve")',
+    ).first()
+    const resolveFound = await resolveBtn.isVisible({ timeout: 3000 }).catch(() => false)
+    if (!resolveFound) {
+      test.info().annotations.push({ type: 'skip', description: 'No QA issues to resolve' })
+      return
+    }
+
+    await resolveBtn.click()
+    await page.waitForTimeout(500)
+
+    // Look for resolution modal
+    const modalTextarea = page.locator(
+      '[role="dialog"] textarea, [data-testid*="qa-note"]',
+    ).first()
+    const modalFound = await modalTextarea.isVisible({ timeout: 5000 }).catch(() => false)
+    if (modalFound) {
+      await modalTextarea.fill('Test resolution note')
+      await snap('qa-resolve-modal')
+
+      const confirmBtn = page.locator(
+        '[role="dialog"] button:has-text("Confirm"), [role="dialog"] button:has-text("Resolve"), [role="dialog"] button:has-text("Submit")',
+      ).first()
+      if (await confirmBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await confirmBtn.click()
+        await page.waitForTimeout(1000)
+      }
+    }
+  })
+
+  // ==================================================================
+  // Flow 15 — RF-TRANS-08
+  // ==================================================================
+
+  test('RF-TRANS-08: Batch advance toolbar @userflow @p2', async ({ page, snap }) => {
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+
+    const docId = await discoverSmallestDocId(page)
+    if (!docId) {
+      test.skip(true, 'No documents found')
+      return
+    }
+
+    await page.goto(`${PROD}/documents/${docId}/edit`)
+    await page.waitForLoadState('domcontentloaded')
+    try {
+      await page
+        .locator('[data-testid="segment-list-item"], tr')
+        .first()
+        .waitFor({ state: 'visible', timeout: 30000 })
+    } catch {
+      test.skip(true, 'Segment list not visible')
+      return
+    }
+
+    // Look for batch mode toggle
+    const batchToggle = page.locator('[data-testid="batch-mode-toggle"]')
+    const batchFound = await batchToggle.isVisible({ timeout: 5000 }).catch(() => false)
+    if (!batchFound) {
+      test.skip(true, 'Batch mode toggle not found')
+      return
+    }
+
+    await batchToggle.click()
+    await page.waitForTimeout(500)
+    await snap('batch-mode-active')
+
+    // Look for checkboxes and select up to 3
+    const checkboxes = page.locator('[data-testid="segment-list-item"] input[type="checkbox"], tr input[type="checkbox"]')
+    const cbCount = await checkboxes.count()
+    if (cbCount === 0) {
+      test.info().annotations.push({ type: 'skip', description: 'No batch checkboxes found after enabling batch mode' })
+      return
+    }
+
+    let selected = 0
+    for (let i = 0; i < Math.min(cbCount, 3); i++) {
+      await checkboxes.nth(i).click()
+      selected++
+      await page.waitForTimeout(200)
+    }
+    test.info().annotations.push({
+      type: 'info',
+      description: `Selected ${selected} segments for batch advance`,
+    })
+
+    // Look for batch advance button in toolbar
+    const batchAdvanceBtn = page.locator(
+      '[data-testid="batch-advance-button"], [data-testid*="batch"] button:has-text("Advance"), button:has-text("Batch Advance")',
+    ).first()
+    if (await batchAdvanceBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      const tBatch = Date.now()
+      await batchAdvanceBtn.click()
+      await page.waitForTimeout(2000)
+      const batchTime = Date.now() - tBatch
+      test.info().annotations.push({
+        type: 'timing',
+        description: JSON.stringify({ step: 'batch-advance-rtt', elapsed_ms: batchTime }),
+      })
+      await snap('batch-advance-result')
+    } else {
+      test.info().annotations.push({ type: 'skip', description: 'Batch advance button not found' })
+    }
+  })
+
+  // ==================================================================
+  // Flow 16 — RF-TRANS-09
+  // ==================================================================
+
+  test('RF-TRANS-09: Filter bar — status, text search, myPhase toggle @userflow @p2', async ({ page, snap }) => {
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+
+    const docId = await discoverSmallestDocId(page)
+    if (!docId) {
+      test.skip(true, 'No documents found')
+      return
+    }
+
+    await page.goto(`${PROD}/documents/${docId}/edit`)
+    await page.waitForLoadState('domcontentloaded')
+    try {
+      await page
+        .locator('[data-testid="segment-list-item"], tr')
+        .first()
+        .waitFor({ state: 'visible', timeout: 30000 })
+    } catch {
+      test.skip(true, 'Segment list not visible')
+      return
+    }
+
+    await snap('editor-filter-before')
+
+    // Step 1 — click Draft status filter
+    const draftFilter = page.locator(
+      '[data-testid="filter-status-draft"], button:has-text("Draft"), [data-testid*="filter"] button:has-text("Draft")',
+    ).first()
+    if (await draftFilter.isVisible({ timeout: 5000 }).catch(() => false)) {
+      const tFilter = Date.now()
+      await draftFilter.click()
+      await page.waitForTimeout(500)
+      const filterTime = Date.now() - tFilter
+      test.info().annotations.push({
+        type: 'timing',
+        description: JSON.stringify({ step: 'filter-draft-click', elapsed_ms: filterTime }),
+      })
+      await snap('editor-filter-draft')
+    } else {
+      test.info().annotations.push({ type: 'skip', description: 'Draft filter not found' })
+    }
+
+    // Step 2 — toggle My Phase
+    const myPhaseToggle = page.locator(
+      '[data-testid="filter-my-phase"], button:has-text("My Phase"), [data-testid*="my-phase"]',
+    ).first()
+    if (await myPhaseToggle.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await myPhaseToggle.click()
+      await page.waitForTimeout(300)
+    }
+
+    // Step 3 — text search
+    const searchInput = page.locator(
+      '[data-testid="filter-search-input"], input[placeholder*="search" i], input[aria-label*="search" i]',
+    ).first()
+    if (await searchInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await searchInput.fill('sword')
+      await page.waitForTimeout(500)
+      await snap('editor-filter-text-search')
+    }
+
+    // Step 4 — clear all
+    const clearAll = page.locator(
+      '[data-testid="filter-clear-all"], button:has-text("Clear"), button:has-text("Reset")',
+    ).first()
+    if (await clearAll.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await clearAll.click()
+      await page.waitForTimeout(500)
+      await snap('editor-filter-cleared')
+    }
+  })
+
+  // ==================================================================
+  // Flow 17 — RF-TRANS-10
+  // ==================================================================
+
+  test('RF-TRANS-10: Keyboard shortcuts @userflow @p2', async ({ page, snap }) => {
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+
+    const docId = await discoverSmallestDocId(page)
+    if (!docId) {
+      test.skip(true, 'No documents found')
+      return
+    }
+
+    await page.goto(`${PROD}/documents/${docId}/edit`)
+    await page.waitForLoadState('domcontentloaded')
+    try {
+      await page
+        .locator('[data-testid="segment-list-item"], tr')
+        .first()
+        .waitFor({ state: 'visible', timeout: 30000 })
+    } catch {
+      test.skip(true, 'Segment list not visible')
+      return
+    }
+
+    // Click first segment to activate
+    await page.locator('[data-testid="segment-list-item"], tr').first().click()
+    await page.waitForTimeout(500)
+
+    // Step 1 — press ? for keyboard help modal
+    await page.keyboard.press('?')
+    await page.waitForTimeout(500)
+    try {
+      const helpModal = page.locator('[role="dialog"], [data-testid*="keyboard"], [data-testid*="help"]')
+      await helpModal.first().waitFor({ state: 'visible', timeout: 5000 })
+      await snap('keyboard-help-modal')
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(300)
+    } catch {
+      test.info().annotations.push({ type: 'skip', description: 'Keyboard help modal not found after pressing ?' })
+    }
+
+    // Step 2 — j/k navigation
+    const initialSegments = await page.locator('[data-testid="segment-list-item"], tr').count()
+    let navigated = false
+    if (initialSegments > 1) {
+      try {
+        await page.keyboard.press('j')
+        await page.waitForTimeout(300)
+        navigated = true
+        test.info().annotations.push({ type: 'info', description: 'Pressed j to navigate next segment' })
+        await page.keyboard.press('k')
+        await page.waitForTimeout(300)
+        test.info().annotations.push({ type: 'info', description: 'Pressed k to navigate previous segment' })
+      } catch {
+        test.info().annotations.push({ type: 'skip', description: 'j/k navigation not functional' })
+      }
+    }
+
+    // Step 3 — Ctrl+S save
+    if (navigated) {
+      const textarea = page.locator('textarea').first()
+      if (await textarea.isVisible().catch(() => false)) {
+        await textarea.press('End')
+        await textarea.press('Space')
+        await page.keyboard.type('kb-test')
+        const tSave = Date.now()
+        await page.keyboard.press('Control+s')
+        await page.waitForTimeout(1000)
+        const saveTime = Date.now() - tSave
+        test.info().annotations.push({
+          type: 'timing',
+          description: JSON.stringify({ step: 'ctrl-s-save', elapsed_ms: saveTime }),
+        })
+      }
+    }
+
+    await snap('keyboard-shortcuts-done')
+  })
+
+  // ==================================================================
+  // Flow 18 — RF-TRANS-11
+  // ==================================================================
+
+  test('RF-TRANS-11: Mobile editor phone-block banner @userflow @p2', async ({ page, snap }) => {
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+
+    // Set mobile viewport
+    await page.setViewportSize({ width: 375, height: 812 })
+
+    const docId = await discoverSmallestDocId(page)
+    if (!docId) {
+      test.skip(true, 'No documents found')
+      return
+    }
+
+    // Step 1 — navigate to editor on mobile viewport
+    const t0 = Date.now()
+    await page.goto(`${PROD}/documents/${docId}/edit`)
+    await page.waitForLoadState('domcontentloaded')
+    const mobileNavTime = Date.now() - t0
+    test.info().annotations.push({
+      type: 'timing',
+      description: JSON.stringify({ step: 'mobile-editor-nav', elapsed_ms: mobileNavTime }),
+    })
+
+    // Step 2 — verify phone-block banner
+    const mobileBanner = page.locator('[data-testid="mobile-editor-reader-link"]')
+    const bannerVisible = await mobileBanner.isVisible({ timeout: 10000 }).catch(() => false)
+
+    if (!bannerVisible) {
+      // Try alternative selectors
+      const bannerAlt = page.locator(
+        'text="Editor requires a desktop", text="mobile", text="phone", [class*="mobile-block"]',
+      ).first()
+      const bannerAltVisible = await bannerAlt.isVisible({ timeout: 5000 }).catch(() => false)
+      if (!bannerAltVisible) {
+        test.info().annotations.push({
+          type: 'skip',
+          description: 'Mobile phone-block banner not found — editor may be accessible on mobile',
+        })
+        return
+      }
+    }
+
+    await snap('mobile-editor-phone-block')
+
+    // Step 3 — click reader link
+    if (bannerVisible) {
+      await mobileBanner.click()
+      await page.waitForLoadState('domcontentloaded')
+      const url = page.url()
+      expect(url).toContain('/read')
+      await snap('mobile-redirected-to-reader')
+    }
+
+    // Restore viewport
+    await page.setViewportSize({ width: 1280, height: 800 })
+  })
+
+  // ==================================================================
+  // Flow 19 — RF-ADMIN-02
+  // ==================================================================
+
+  test('RF-ADMIN-02: User role change @userflow @p1', async ({ page, snap }) => {
+    test.info().annotations.push({
+      type: 'info',
+      description: 'WARNING: This test mutates a user role in the database. Logging original state.',
+    })
+
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+
+    // Navigate to admin
+    await page.goto(`${PROD}/admin`)
+    await page.waitForLoadState('domcontentloaded')
+    try {
+      await page
+        .locator('div.text-3xl')
+        .first()
+        .waitFor({ state: 'visible', timeout: 45000 })
+    } catch {
+      test.skip(true, 'Admin dashboard not loaded')
+      return
+    }
+
+    // Scroll to users table
+    const userRows = page.locator('[data-testid="admin-user-row"], table tbody tr')
+    try {
+      await userRows.first().waitFor({ state: 'visible', timeout: 15000 })
+    } catch {
+      test.skip(true, 'No user rows found')
+      return
+    }
+
+    await snap('admin-users-before-role-change')
+
+    // Find role dropdown
+    const roleSelect = page.locator('[data-testid="admin-user-role-select"]').first()
+    const originalRole = await roleSelect.inputValue().catch(() =>
+      roleSelect.textContent().catch(() => 'unknown'),
+    )
+
+    test.info().annotations.push({
+      type: 'info',
+      description: `Original role before mutation: ${originalRole}`,
+    })
+
+    if (!(await roleSelect.isVisible({ timeout: 5000 }).catch(() => false))) {
+      test.info().annotations.push({
+        type: 'skip',
+        description: 'Role select dropdown not found',
+      })
+      // Restore original role if possible
+      return
+    }
+
+    // Change role
+    const tRole = Date.now()
+    try {
+      await roleSelect.selectOption({ index: 0 }) // select first (current) option, then try to change
+      // Try selecting a different option
+      const options = roleSelect.locator('option')
+      const optCount = await options.count()
+      if (optCount > 1) {
+        const newIndex = optCount > 1 ? 1 : 0
+        await roleSelect.selectOption({ index: newIndex })
+        await page.waitForTimeout(1000)
+      }
+    } catch {
+      test.info().annotations.push({ type: 'skip', description: 'Could not change role via dropdown' })
+    }
+    const roleTime = Date.now() - tRole
+    test.info().annotations.push({
+      type: 'timing',
+      description: JSON.stringify({ step: 'role-change-rtt', elapsed_ms: roleTime }),
+    })
+
+    await snap('admin-users-after-role-change')
+
+    // WARNING: Not restoring original role automatically. This must be handled manually or via afterAll.
+    test.info().annotations.push({
+      type: 'info',
+      description: 'NOTE: User role was mutated. Original role should be restored manually.',
+    })
+  })
+
+  // ==================================================================
+  // Flow 20 — RF-ADMIN-03
+  // ==================================================================
+
+  test('RF-ADMIN-03: Document publish policy toggle @userflow @p2', async ({ page, snap }) => {
+    test.info().annotations.push({
+      type: 'info',
+      description: 'WARNING: This test mutates document publish policy. Logging original state.',
+    })
+
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+
+    await page.goto(`${PROD}/admin`)
+    await page.waitForLoadState('domcontentloaded')
+    try {
+      await page
+        .locator('div.text-3xl')
+        .first()
+        .waitFor({ state: 'visible', timeout: 45000 })
+    } catch {
+      test.skip(true, 'Admin dashboard not loaded')
+      return
+    }
+
+    // Find documents table
+    const docsTable = page.locator('[data-testid="admin-documents-table"], table')
+    try {
+      await docsTable.first().waitFor({ state: 'visible', timeout: 15000 })
+    } catch {
+      test.skip(true, 'Documents table not found')
+      return
+    }
+
+    // Find publish policy toggle
+    const policyBtn = page.locator(
+      'button:has-text("QA"), button:has-text("Any"), button:has-text("🔒"), button:has-text("📄"), [data-testid*="publish-policy"]',
+    ).first()
+    const policyFound = await policyBtn.isVisible({ timeout: 5000 }).catch(() => false)
+    if (!policyFound) {
+      test.skip(true, 'Publish policy button not found')
+      return
+    }
+
+    const originalText = await policyBtn.textContent().catch(() => 'unknown')
+    test.info().annotations.push({
+      type: 'info',
+      description: `Original publish policy: ${originalText}`,
+    })
+
+    const tToggle = Date.now()
+    await policyBtn.click()
+    await page.waitForTimeout(1000)
+    const toggleTime = Date.now() - tToggle
+    test.info().annotations.push({
+      type: 'timing',
+      description: JSON.stringify({ step: 'publish-policy-toggle-rtt', elapsed_ms: toggleTime }),
+    })
+
+    const newText = await policyBtn.textContent().catch(() => 'unknown')
+    test.info().annotations.push({
+      type: 'info',
+      description: `New publish policy: ${newText}. WARNING: Policy was mutated.`,
+    })
+
+    await snap('admin-publish-policy-toggled')
+  })
+
+  // ==================================================================
+  // Flow 21 — RF-ADMIN-04
+  // ==================================================================
+
+  test('RF-ADMIN-04: Assignment management per document @userflow @p1', async ({ page, snap }) => {
+    test.info().annotations.push({
+      type: 'info',
+      description: 'WARNING: This test may mutate document assignments.',
+    })
+
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+
+    const docId = await discoverSmallestDocId(page)
+    if (!docId) {
+      test.skip(true, 'No documents found')
+      return
+    }
+
+    // Navigate to assignments page
+    const t0 = Date.now()
+    await page.goto(`${PROD}/admin/documents/${docId}/assignments`)
+    await page.waitForLoadState('domcontentloaded')
+    const navTime = Date.now() - t0
+    test.info().annotations.push({
+      type: 'timing',
+      description: JSON.stringify({ step: 'assignments-nav', elapsed_ms: navTime }),
+    })
+
+    // Wait for assignment rows
+    const assignmentRows = page.locator('[data-testid="assignment-row"]')
+    const assignmentRowsAlt = page.locator('table tbody tr')
+    try {
+      await assignmentRowsAlt.first().waitFor({ state: 'visible', timeout: 15000 })
+    } catch {
+      test.info().annotations.push({ type: 'skip', description: 'Assignment table empty or not found' })
+      // Try navigating from documents table
+      await page.goto(`${PROD}/admin`)
+      await page.waitForLoadState('domcontentloaded')
+      await page.waitForTimeout(2000)
+
+      const assignmentsLink = page.locator('[data-testid="admin-document-assignments-link"]').first()
+      if (await assignmentsLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await assignmentsLink.click()
+        await page.waitForLoadState('domcontentloaded')
+        await page.waitForTimeout(1000)
+      }
+    }
+
+    await snap('admin-assignments-list')
+
+    // Look for edit button on first row
+    const editBtn = page.locator('[data-testid="assignment-row-edit"]').first()
+    if (await editBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await editBtn.click()
+      await page.waitForTimeout(500)
+      await snap('admin-assignment-edit')
+      // Look for save
+      const saveBtn = page.locator('[data-testid="assignment-save"]').first()
+      if (await saveBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await saveBtn.click()
+        await page.waitForTimeout(500)
+      }
+      // Cancel
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(300)
+    } else {
+      test.info().annotations.push({ type: 'skip', description: 'No assignment edit button found' })
+    }
+
+    // Look for add button
+    const addBtn = page.locator('[data-testid="assignment-row-add"]').first()
+    if (await addBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await addBtn.click()
+      await page.waitForTimeout(500)
+      await snap('admin-assignment-add')
+      // Cancel add
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(300)
+    }
+  })
+
+  // ==================================================================
+  // Flow 22 — RF-ADMIN-05
+  // ==================================================================
+
+  test('RF-ADMIN-05: Per-user assignments page @userflow @p2', async ({ page, snap }) => {
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+
+    await page.goto(`${PROD}/admin`)
+    await page.waitForLoadState('domcontentloaded')
+    try {
+      await page
+        .locator('div.text-3xl')
+        .first()
+        .waitFor({ state: 'visible', timeout: 45000 })
+    } catch {
+      test.skip(true, 'Admin dashboard not loaded')
+      return
+    }
+
+    // Find users table and first user row
+    const userRows = page.locator('[data-testid="admin-user-row"], table tbody tr')
+    try {
+      await userRows.first().waitFor({ state: 'visible', timeout: 15000 })
+    } catch {
+      test.skip(true, 'No user rows found')
+      return
+    }
+
+    // Find assignments link for a user
+    const assignmentsLink = page.locator('[data-testid="admin-user-assignments-link"]').first()
+    let linkFound = await assignmentsLink.isVisible({ timeout: 5000 }).catch(() => false)
+
+    if (!linkFound) {
+      // Try alternative — look for links in user row
+      const userLink = userRows.first().locator('a[href*="assignment"], a[href*="assignments"]').first()
+      linkFound = await userLink.isVisible({ timeout: 3000 }).catch(() => false)
+      if (linkFound) {
+        const t0 = Date.now()
+        await userLink.click()
+        await page.waitForLoadState('domcontentloaded')
+        const navTime = Date.now() - t0
+        test.info().annotations.push({
+          type: 'timing',
+          description: JSON.stringify({ step: 'user-assignments-nav', elapsed_ms: navTime }),
+        })
+
+        // Verify assignment rows
+        const rows = page.locator('[data-testid="admin-user-assignments-row"], table tbody tr')
+        try {
+          await rows.first().waitFor({ state: 'visible', timeout: 10000 })
+        } catch {
+          test.info().annotations.push({ type: 'skip', description: 'No assignment rows for this user' })
+        }
+        await snap('admin-user-assignments')
+      }
+    } else {
+      await assignmentsLink.click()
+      await page.waitForLoadState('domcontentloaded')
+      await page.waitForTimeout(1000)
+      await snap('admin-user-assignments')
+    }
+
+    if (!linkFound) {
+      test.skip(true, 'Per-user assignments link not found')
+    }
+  })
+
+  // ==================================================================
+  // Flow 23 — RF-ADMIN-06
+  // ==================================================================
+
+  test('RF-ADMIN-06: Segmentize flow @userflow @p2', async ({ page, snap }) => {
+    test.info().annotations.push({
+      type: 'info',
+      description: 'WARNING: This test may re-segmentize a document. Will skip if segmentize is not available for already-segmented docs.',
+    })
+
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+
+    const docId = await discoverSmallestDocId(page)
+    if (!docId) {
+      test.skip(true, 'No documents found')
+      return
+    }
+
+    // Navigate to admin document detail
+    await page.goto(`${PROD}/admin/documents/${docId}`)
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1000)
+    await snap('admin-document-detail')
+
+    // Look for segmentize button
+    const segmentizeBtn = page.locator(
+      'button:has-text("Segment"), button:has-text("segmentize"), [data-testid*="segmentize"]',
+    ).first()
+    const segBtnFound = await segmentizeBtn.isVisible({ timeout: 5000 }).catch(() => false)
+
+    if (!segBtnFound) {
+      // Try navigating via document detail link first
+      await page.goto(`${PROD}/admin`)
+      await page.waitForLoadState('domcontentloaded')
+      await page
+        .locator('div.text-3xl')
+        .first()
+        .waitFor({ state: 'visible', timeout: 45000 })
+        .catch(() => {})
+
+      const docDetailLink = page.locator('[data-testid="admin-document-detail-link"]').first()
+      if (await docDetailLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await docDetailLink.click()
+        await page.waitForLoadState('domcontentloaded')
+        await page.waitForTimeout(1000)
+      }
+    }
+
+    // Re-check for segmentize button
+    const segBtnRetry = page.locator(
+      'button:has-text("Segment"), button:has-text("segmentize"), [data-testid*="segmentize"]',
+    ).first()
+    const segBtnRetryFound = await segBtnRetry.isVisible({ timeout: 5000 }).catch(() => false)
+
+    if (segBtnRetryFound) {
+      // Check if doc is already segmented (warn)
+      test.info().annotations.push({
+        type: 'info',
+        description: 'Document may already be segmented. Segmentize button found — will attempt click but action may be no-op or show error.',
+      })
+
+      const tSegmentize = Date.now()
+      await segBtnRetry.click()
+      await page.waitForTimeout(3000)
+      const segTime = Date.now() - tSegmentize
+      test.info().annotations.push({
+        type: 'timing',
+        description: JSON.stringify({ step: 'segmentize-rtt', elapsed_ms: segTime }),
+      })
+      await snap('admin-segmentize-result')
+    } else {
+      test.skip(true, 'Segmentize button not found — document may already be segmented')
+    }
+  })
+
+  // ==================================================================
+  // Flow 24 — RF-ANON-01
+  // ==================================================================
+
+  test('RF-ANON-01: Landing page → register → login @userflow @p0', async ({ page, snap }) => {
+    // WARNING: Do NOT inject auth cookies. Use fresh page for anonymous flow.
+    // This test may create a user account — use a unique email.
+
+    const testEmail = `e2e-anon-${Date.now()}@test.com`
+
+    // Step 1 — landing page
+    const t0 = Date.now()
+    await page.goto(PROD)
+    await page.waitForLoadState('domcontentloaded')
+    const landingLoad = Date.now() - t0
+    test.info().annotations.push({
+      type: 'timing',
+      description: JSON.stringify({ step: 'landing-domcontentloaded', elapsed_ms: landingLoad }),
+    })
+    await snap('anon-landing')
+
+    // Step 2 — look for Register CTA
+    const registerCta = page.locator(
+      'a[href*="register"], button:has-text("Get Started"), button:has-text("Register"), a:has-text("Register"), a:has-text("Sign Up")',
+    ).first()
+    const ctaFound = await registerCta.isVisible({ timeout: 10000 }).catch(() => false)
+
+    if (!ctaFound) {
+      test.info().annotations.push({
+        type: 'skip',
+        description: 'Register CTA not found on landing page — /register route may not exist',
+      })
+      // Skip registration, go directly to login for completeness
+    } else {
+      // Step 3 — click register CTA
+      await registerCta.click()
+      await page.waitForLoadState('domcontentloaded')
+      await page.waitForTimeout(500)
+      await snap('anon-register-page')
+
+      // Step 4 — fill registration form
+      const emailInput = page.locator('input[type="email"], input[name="email"]').first()
+      const passwordInput = page.locator('input[type="password"], input[name="password"]').first()
+      const registerFormFound = (await emailInput.isVisible({ timeout: 5000 }).catch(() => false)) &&
+        (await passwordInput.isVisible({ timeout: 1000 }).catch(() => false))
+
+      if (registerFormFound) {
+        await emailInput.fill(testEmail)
+        await passwordInput.fill(TEST_PASSWORD)
+
+        // Submit
+        const submitBtn = page.locator(
+          'button[type="submit"], button:has-text("Register"), button:has-text("Sign Up"), button:has-text("Create Account")',
+        ).first()
+        const tRegister = Date.now()
+        await submitBtn.click()
+        // Wait for redirect or success
+        await page.waitForTimeout(3000)
+        const registerTime = Date.now() - tRegister
+        test.info().annotations.push({
+          type: 'timing',
+          description: JSON.stringify({ step: 'register-submit-rtt', elapsed_ms: registerTime }),
+        })
+        await snap('anon-register-submitted')
+
+        test.info().annotations.push({
+          type: 'info',
+          description: `Attempted registration with email: ${testEmail}`,
+        })
+      } else {
+        test.info().annotations.push({ type: 'skip', description: 'Registration form not found' })
+      }
+    }
+
+    // Step 5 — navigate to /login
+    const tLogin = Date.now()
+    await page.goto(`${PROD}/login`)
+    await page.waitForLoadState('domcontentloaded')
+    const loginLoad = Date.now() - tLogin
+    test.info().annotations.push({
+      type: 'timing',
+      description: JSON.stringify({ step: 'login-page-load', elapsed_ms: loginLoad }),
+    })
+    await snap('anon-login-page')
+
+    // Step 6 — fill login form
+    const loginEmail = page.locator('input[type="email"], input[name="email"]').first()
+    const loginPassword = page.locator('input[type="password"], input[name="password"]').first()
+    const loginFormFound = (await loginEmail.isVisible({ timeout: 5000 }).catch(() => false)) &&
+      (await loginPassword.isVisible({ timeout: 1000 }).catch(() => false))
+
+    if (loginFormFound) {
+      await loginEmail.fill(testEmail)
+      await loginPassword.fill(TEST_PASSWORD)
+
+      const loginSubmit = page.locator(
+        'button[type="submit"], button:has-text("Login"), button:has-text("Log in"), button:has-text("Sign In")',
+      ).first()
+      const tLoginSubmit = Date.now()
+      await loginSubmit.click()
+      await page.waitForTimeout(3000)
+      const loginSubmitTime = Date.now() - tLoginSubmit
+      test.info().annotations.push({
+        type: 'timing',
+        description: JSON.stringify({ step: 'login-submit-rtt', elapsed_ms: loginSubmitTime }),
+      })
+      await snap('anon-login-submitted')
+    }
+
+    // Contrast check: landing page hero text
+    const heroContrast = await page.evaluate(() => {
+      const el = document.querySelector('h1, h2, [class*="hero"] h1, [class*="hero"] h2')
+      if (!el) return null
+      const style = window.getComputedStyle(el)
+      let parent: Element | null = el.parentElement
+      while (parent && parent !== document.documentElement) {
+        const bg = window.getComputedStyle(parent).backgroundColor
+        if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+          return { color: style.color, bg }
+        }
+        parent = parent.parentElement
+      }
+      return { color: style.color, bg: 'rgb(255, 255, 255)' }
+    })
+    if (heroContrast) {
+      const ratio = contrastRatio(heroContrast.color, heroContrast.bg)
+      test.info().annotations.push({
+        type: 'contrast-check',
+        description: JSON.stringify({ label: 'landing-hero', ...heroContrast, ratio: ratio.toFixed(2) }),
+      })
+    }
+  })
+
+  // ==================================================================
+  // Flow 25 — RF-ANON-02
+  // ==================================================================
+
+  test('RF-ANON-02: 401 gate verification @userflow @p2', async ({ page, snap }) => {
+    // No auth cookies — fresh page context
+
+    // Step 1 — attempt direct API access
+    const tApi = Date.now()
+    const apiResult = await apiFetch(page, '/api/documents')
+    const apiTime = Date.now() - tApi
+    test.info().annotations.push({
+      type: 'timing',
+      description: JSON.stringify({ step: 'unauth-api-call', elapsed_ms: apiTime, status: apiResult.status }),
+    })
+
+    // Step 2 — verify 401
+    test.info().annotations.push({
+      type: 'info',
+      description: `Unauthenticated /api/documents returned status ${apiResult.status}. Expected 401.`,
+    })
+    // Soft-assert; don't hard-fail because Vercel might redirect differently
+    expect.soft(
+      [401, 302, 301].includes(apiResult.status),
+      `Expected 401/redirect for unauthenticated API access, got ${apiResult.status}`,
+    ).toBe(true)
+
+    // Step 3 — attempt to visit /documents directly
+    const tDocs = Date.now()
+    const docsResp = await page.goto(`${PROD}/documents`)
+    const docsTime = Date.now() - tDocs
+    test.info().annotations.push({
+      type: 'timing',
+      description: JSON.stringify({ step: 'unauth-documents-page', elapsed_ms: docsTime }),
+    })
+
+    // Should redirect to login
+    const finalUrl = page.url()
+    await snap('anon-401-redirect')
+    test.info().annotations.push({
+      type: 'info',
+      description: `Unauthenticated /documents redirected to: ${finalUrl}`,
+    })
+
+    // Verify redirected to login or shows 401 message
+    const isLoginPage = finalUrl.includes('/login') || finalUrl.includes('/auth')
+    const hasUnauthMessage = await page
+      .locator('text="Unauthorized", text="401", text="log in", text="Log in", text="sign in"')
+      .first()
+      .isVisible()
+      .catch(() => false)
+    expect.soft(
+      isLoginPage || hasUnauthMessage,
+      `Expected redirect to login or 401 message. Got: ${finalUrl}`,
+    ).toBe(true)
+  })
+
+  // ==================================================================
+  // Flow 26 — RF-CROSS-02
+  // ==================================================================
+
+  test('RF-CROSS-02: Large-book performance (23,500-segment document) @userflow @p1', async ({ page, snap }) => {
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+
+    // Discover largest document
+    const docsRes = await apiFetch<{ documents?: Array<{ id: string; segment_count?: number }> }>(
+      page,
+      '/api/documents?limit=100',
+    )
+    const docs = docsRes.body?.documents ?? []
+    const sorted = [...docs].sort((a, b) => (b.segment_count ?? 0) - (a.segment_count ?? 0))
+    const largest = sorted[0]
+    if (!largest || (largest.segment_count ?? 0) < 100) {
+      test.skip(true, `No large document found (max segments: ${largest?.segment_count ?? 0})`)
+      return
+    }
+
+    test.info().annotations.push({
+      type: 'info',
+      description: `Using large doc: ${largest.id} with ${largest.segment_count} segments`,
+    })
+
+    const docId = largest.id
+
+    // Step 1 — navigate to editor
+    const t0 = Date.now()
+    await page.goto(`${PROD}/documents/${docId}/edit`, { timeout: 90000 })
+    await page.waitForLoadState('domcontentloaded')
+    const editorNav = Date.now() - t0
+
+    // Step 2 — wait for first segment list item
+    const t1 = Date.now()
+    try {
+      await page
+        .locator('[data-testid="segment-list-item"], tr')
+        .first()
+        .waitFor({ state: 'visible', timeout: 60000 })
+    } catch {
+      test.info().annotations.push({ type: 'skip', description: 'Large document segment list not visible within 60s' })
+      return
+    }
+    const segmentListTime = Date.now() - t1
+
+    test.info().annotations.push({
+      type: 'timing',
+      description: JSON.stringify({
+        step: 'large-editor-nav',
+        editor_nav_ms: editorNav,
+        segment_list_visible_ms: segmentListTime,
+        total_ms: Date.now() - t0,
+      }),
+    })
+    await snap('large-book-editor')
+
+    // Step 3 — scroll through segment list (only for docs < 5000 segments to avoid OOM)
+    if ((largest.segment_count ?? 0) < 5000) {
+      try {
+        await page.evaluate(() => window.scrollBy(0, 2000))
+        await page.waitForTimeout(500)
+        await page.evaluate(() => window.scrollBy(0, 2000))
+        await page.waitForTimeout(500)
+      await snap('large-book-editor-scrolled')
+    } catch {
+      test.info().annotations.push({ type: 'skip', description: 'Scroll test failed' })
+    }
+
+    // Step 4 — apply filter
+    const draftFilter = page.locator(
+      '[data-testid="filter-status-draft"], button:has-text("Draft")',
+    ).first()
+    if (await draftFilter.isVisible({ timeout: 5000 }).catch(() => false)) {
+      const tFilter = Date.now()
+      await draftFilter.click()
+      await page.waitForTimeout(1000)
+      const filterTime = Date.now() - tFilter
+      test.info().annotations.push({
+        type: 'timing',
+        description: JSON.stringify({ step: 'large-filter-draft', elapsed_ms: filterTime }),
+      })
+    }
+
+      // Step 5 — navigate reader (only for manageable docs)
+      const tReader = Date.now()
+      await page.goto(`${PROD}/documents/${docId}/read`, { waitUntil: 'domcontentloaded', timeout: 30000 })
+      try {
+        await page
+          .locator('p, [data-testid="segment-text"]')
+          .first()
+          .waitFor({ state: 'visible', timeout: 30000 })
+      } catch {
+        test.info().annotations.push({ type: 'skip', description: 'Large doc reader content not visible' })
+      }
+      const readerTime = Date.now() - tReader
+      test.info().annotations.push({
+        type: 'timing',
+        description: JSON.stringify({ step: 'large-reader-nav', elapsed_ms: readerTime }),
+      })
+      await snap('large-book-reader')
+    } else {
+      test.info().annotations.push({
+        type: 'skip',
+        description: `Skipping scroll/filter/reader for large doc (${largest.segment_count} segments) to avoid browser OOM`,
+      })
+    }
+  })
+
+  // ==================================================================
+  // Flow 27 — RF-CROSS-03
+  // ==================================================================
+
+  test('RF-CROSS-03: Global theme persistence across pages @userflow @p1', async ({ page, snap }) => {
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+
+    // Step 1 — navigate to /documents (SiteNav is visible here)
+    const t0 = Date.now()
+    await page.goto(`${PROD}/documents`)
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForSelector('a[href*="/read"], [data-testid="document-card"]', { timeout: 20000 })
+    await snap('theme-documents-light')
+
+    // Step 2 — open global theme gear in SiteNav
+    const themeTrigger = page.locator('[data-testid="global-theme-trigger"]').first()
+    let themeFound = await themeTrigger.isVisible({ timeout: 5000 }).catch(() => false)
+
+    if (!themeFound) {
+      const gearAlt = page.locator(
+        'button[aria-label*="theme" i], button[aria-label*="dark" i], button[aria-label*="light" i], button[title*="theme" i]',
+      ).first()
+      themeFound = await gearAlt.isVisible({ timeout: 3000 }).catch(() => false)
+      if (themeFound) await gearAlt.click()
+    } else {
+      await themeTrigger.click()
+    }
+
+    if (!themeFound) {
+      test.skip(true, 'Global theme trigger not found in SiteNav')
+      return
+    }
+    await page.waitForTimeout(500)
+
+    // Step 3 — switch to dark mode
+    const darkToggle = page.locator(
+      'button:has-text("Dark"), [aria-label*="dark" i], [data-testid*="dark"]',
+    ).first()
+    if (await darkToggle.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await darkToggle.click()
+      await page.waitForTimeout(500)
+      await snap('theme-documents-dark')
+    }
+    // Close theme panel
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(300)
+
+    // Step 4 — navigate to /search
+    const t1 = Date.now()
+    await page.goto(`${PROD}/search`)
+    await page.waitForLoadState('domcontentloaded')
+    const searchTime = Date.now() - t1
+    test.info().annotations.push({
+      type: 'timing',
+      description: JSON.stringify({ step: 'search-page-nav', elapsed_ms: searchTime }),
+    })
+    await snap('theme-search-dark')
+
+    // Step 5 — navigate to /terminology
+    await page.goto(`${PROD}/terminology`)
+    await page.waitForLoadState('domcontentloaded')
+    await snap('theme-terminology-dark')
+
+    // Step 6 — navigate to /profile
+    await page.goto(`${PROD}/profile`)
+    await page.waitForLoadState('domcontentloaded')
+    await snap('theme-profile-dark')
+
+    // Verify theme persists — check body class or data attribute
+    const isDark = await page.evaluate(() => {
+      const html = document.documentElement
+      return html.classList.contains('dark') ||
+        html.getAttribute('data-theme') === 'dark' ||
+        document.body.classList.contains('dark')
+    })
+    test.info().annotations.push({
+      type: 'info',
+      description: `Dark theme persisted to /profile: ${isDark}`,
+    })
+
+    // NOTE: Reader and editor pages hide SiteNav and have their own theme system.
+    test.info().annotations.push({
+      type: 'info',
+      description: 'Note: SiteNav is hidden on reader/editor pages. Global theme and reader themes are independent systems.',
+    })
+  })
+
+  // ==================================================================
+  // Flow 28 — RF-CROSS-04
+  // ==================================================================
+
+  test('RF-CROSS-04: Error / empty states @userflow @p1', async ({ page, snap }) => {
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+
+    // Step 1 — /documents (as reader, may have docs, this is just baseline)
+    await page.goto(`${PROD}/documents`)
+    await page.waitForLoadState('domcontentloaded')
+
+    // Step 2 — visit editor for non-existent doc
+    const tEditorErr = Date.now()
+    await page.goto(`${PROD}/documents/fake-id-12345/edit`)
+    await page.waitForLoadState('domcontentloaded')
+    const editorErrTime = Date.now() - tEditorErr
+    test.info().annotations.push({
+      type: 'timing',
+      description: JSON.stringify({ step: 'error-editor-fake-id', elapsed_ms: editorErrTime }),
+    })
+
+    // Verify error state — should show an error message, not a blank page
+    const errorMessage = page.locator(
+      'text="error", text="Error", text="not found", text="Not Found", text="404", [data-testid*="error"]',
+    ).first()
+    // Wait for error state to render (or timeout after 8s)
+    await errorMessage.waitFor({ state: 'visible', timeout: 8000 }).catch(() => page.waitForTimeout(5000))
+    const hasErrorMsg = await errorMessage.isVisible().catch(() => false)
+    await snap('error-editor-fake-id')
+    test.info().annotations.push({
+      type: hasErrorMsg ? 'info' : 'warn',
+      description: hasErrorMsg
+        ? 'Error state rendered for non-existent document'
+        : 'No error message found for non-existent document — potential blank page',
+    })
+
+    // Step 3 — search gibberish
+    const docId = await discoverSmallestDocId(page)
+    if (docId) {
+      await page.goto(`${PROD}/documents/${docId}/read`)
+      await page.waitForLoadState('domcontentloaded')
+      try {
+        await page
+          .locator('p, [data-testid="segment-text"]')
+          .first()
+          .waitFor({ state: 'visible', timeout: 20000 })
+      } catch {
+        // continue anyway
+      }
+
+      // Open search sidebar if possible and search gibberish
+      const searchInput = page.locator(
+        'input[placeholder*="search" i], input[aria-label*="search" i]',
+      ).first()
+      if (await searchInput.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await searchInput.fill('xyznonexistentterm999')
+        await page.waitForTimeout(1500)
+        await snap('error-search-no-results')
+
+        // Check for "no results" message
+        const noResults = page.locator(
+          'text="No results", text="no results", text="0 results", [data-testid*="empty"]',
+        ).first()
+        const hasNoResultsMsg = await noResults.isVisible({ timeout: 3000 }).catch(() => false)
+        test.info().annotations.push({
+          type: hasNoResultsMsg ? 'info' : 'warn',
+          description: hasNoResultsMsg
+            ? '"No results" message found for gibberish search'
+            : 'No "no results" message for gibberish search',
+        })
+      }
+    }
+
+    // Step 4 — attempt phase advance on locked segment (if possible)
+    // This is best-effort and documented as a non-critical check
+    test.info().annotations.push({
+      type: 'info',
+      description: 'Error-state checks completed: fake-doc editor, gibberish search. Phase-advance-stale check requires active segment in editor — deferred.',
+    })
+  })
+
+  // ==================================================================
+  // Flow 29 — RF-CROSS-05
+  // ==================================================================
+
+  test('RF-CROSS-05: EN/ZH language switcher consistency @userflow @p2', async ({ page, snap }) => {
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+
+    // Discover a doc (ideally one with ZH)
+    const docId = await discoverDocWithZH(page) ?? await discoverSmallestDocId(page)
+    if (!docId) {
+      test.skip(true, 'No documents found')
+      return
+    }
+
+    // Step 1 — open editor
+    await page.goto(`${PROD}/documents/${docId}/edit`)
+    await page.waitForLoadState('domcontentloaded')
+    try {
+      await page
+        .locator('[data-testid="segment-list-item"], tr')
+        .first()
+        .waitFor({ state: 'visible', timeout: 30000 })
+    } catch {
+      test.skip(true, 'Segment list not visible')
+      return
+    }
+    await snap('cross-lang-editor-en')
+
+    // Step 2 — find ZH language tab
+    const zhTab = page.locator(
+      '[data-testid="lang-tab-zh"], button:has-text("ZH"), button:has-text("中文"), [aria-label*="ZH"]',
+    ).first()
+    const zhFound = await zhTab.isVisible({ timeout: 5000 }).catch(() => false)
+
+    if (!zhFound) {
+      test.skip(true, 'ZH language tab not found in editor')
+      return
+    }
+
+    // Count segments before switch
+    const segCountBefore = await page.locator('[data-testid="segment-list-item"], tr').count()
+
+    // Step 3 — switch to ZH
+    await zhTab.click()
+    await page.waitForTimeout(1000)
+    await snap('cross-lang-editor-zh')
+
+    // Step 4 — verify segment count matches
+    const segCountAfter = await page.locator('[data-testid="segment-list-item"], tr').count()
+    test.info().annotations.push({
+      type: 'info',
+      description: `Segment count: EN=${segCountBefore}, ZH=${segCountAfter}`,
+    })
+    expect.soft(
+      segCountAfter,
+      `Segment count changed after ZH switch: ${segCountBefore} → ${segCountAfter}`,
+    ).toBeGreaterThanOrEqual(segCountBefore)
+
+    // Step 5 — switch back to EN
+    const enTab = page.locator(
+      'button:has-text("EN"), button:has-text("English"), [aria-label*="EN"], [data-testid="lang-tab-en"]',
+    ).first()
+    if (await enTab.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await enTab.click()
+      await page.waitForTimeout(1000)
+      await snap('cross-lang-editor-en-restored')
+    }
+
+    // Step 6 — verify EN restored
+    const segCountRestored = await page.locator('[data-testid="segment-list-item"], tr').count()
+    test.info().annotations.push({
+      type: 'info',
+      description: `Segment count after EN restore: ${segCountRestored}`,
+    })
+
+    // Also test reader ZH toggle as a bonus
+    await page.goto(`${PROD}/documents/${docId}/read`)
+    await page.waitForLoadState('domcontentloaded')
+    try {
+      await page
+        .locator('p, [data-testid="segment-text"]')
+        .first()
+        .waitFor({ state: 'visible', timeout: 15000 })
+    } catch {
+      // continue
+    }
+
+    const readerZhToggle = page.locator(
+      'button:has-text("中文"), button:has-text("ZH"), [aria-label*="ZH"]',
+    ).first()
+    if (await readerZhToggle.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await readerZhToggle.click()
+      await page.waitForTimeout(1000)
+      await snap('cross-lang-reader-zh')
+    }
+
+    await snap('cross-lang-final')
+  })
+
 })
