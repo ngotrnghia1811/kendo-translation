@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
     return {
       ...rest,
       publish_filter: (settings?.publish_filter ?? 'any_translated') as string,
+      segment_count: totalSegs,
       progress: {
         percentage: totalSegs > 0 ? Math.round((progressCount / totalSegs) * 100) : 0,
       },
