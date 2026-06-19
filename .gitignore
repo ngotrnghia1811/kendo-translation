@@ -28,6 +28,10 @@ yarn-error.log*
 # local env files
 .env
 .env*.local
+
+# dev/IDE
+.vscode/
+.tmp/
 .env.local
 
 # vercel
@@ -49,6 +53,11 @@ setup_git_history.sh
 
 # playwright auth state (populated by tests/global-setup.ts)
 tests/.auth/
+
+# vision-qa scripts (one-off exploration scripts, not part of test suite)
+scripts/vision-qa*.mjs
+scripts/_dbping.ts
+scripts/check_db.ts
 
 # supabase dashboard recon (archived; contains real session cookie)
 # Allowlist the .ts helpers; keep screenshots/JSON/TXT (which may carry
