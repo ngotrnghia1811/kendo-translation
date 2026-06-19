@@ -65,7 +65,7 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
   const zhSegments = (zhSegmentsRaw || []).filter((s) => s.target_text);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900">
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--rt-bg, #ffffff)' }}>
       {readableSegments.length === 0 ? (
         <>
           <header className="border-b border-gray-200 dark:border-gray-700">
