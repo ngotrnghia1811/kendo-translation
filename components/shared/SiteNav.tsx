@@ -61,21 +61,24 @@ export function SiteNav() {
         <>
             <Link
                 href="/documents"
-                className={`hover:text-gray-900 transition-colors ${pathname === '/documents' ? 'text-gray-900 font-semibold' : 'text-gray-500'}`}
+                className={`transition-opacity hover:opacity-80 ${pathname === '/documents' ? 'font-semibold' : ''}`}
+                style={{ color: pathname === '/documents' ? 'var(--rt-text)' : 'var(--rt-text-muted)' }}
                 onClick={() => setMobileMenuOpen(false)}
             >
                 Documents
             </Link>
             <Link
                 href="/terminology"
-                className={`hover:text-gray-900 transition-colors ${pathname === '/terminology' ? 'text-gray-900 font-semibold' : 'text-gray-500'}`}
+                className={`transition-opacity hover:opacity-80 ${pathname === '/terminology' ? 'font-semibold' : ''}`}
+                style={{ color: pathname === '/terminology' ? 'var(--rt-text)' : 'var(--rt-text-muted)' }}
                 onClick={() => setMobileMenuOpen(false)}
             >
                 Terminology
             </Link>
             <Link
                 href="/search"
-                className={`hover:text-gray-900 transition-colors ${pathname.startsWith('/search') ? 'text-gray-900 font-semibold' : 'text-gray-500'}`}
+                className={`transition-opacity hover:opacity-80 ${pathname.startsWith('/search') ? 'font-semibold' : ''}`}
+                style={{ color: pathname.startsWith('/search') ? 'var(--rt-text)' : 'var(--rt-text-muted)' }}
                 onClick={() => setMobileMenuOpen(false)}
             >
                 Search
@@ -83,7 +86,8 @@ export function SiteNav() {
             {profile?.role === 'admin' && (
                 <Link
                     href="/admin"
-                    className={`hover:text-gray-900 transition-colors ${pathname.startsWith('/admin') ? 'text-gray-900 font-semibold' : 'text-gray-500'}`}
+                    className={`transition-opacity hover:opacity-80 ${pathname.startsWith('/admin') ? 'font-semibold' : ''}`}
+                    style={{ color: pathname.startsWith('/admin') ? 'var(--rt-text)' : 'var(--rt-text-muted)' }}
                     onClick={() => setMobileMenuOpen(false)}
                 >
                     Admin
@@ -93,10 +97,16 @@ export function SiteNav() {
     )
 
     return (
-        <nav className="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <nav
+            className="sticky top-0 z-40"
+            style={{
+                backgroundColor: 'var(--rt-bg)',
+                borderBottom: '1px solid var(--rt-border)',
+            }}
+        >
             <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
                 {/* Brand */}
-                <Link href="/" className="flex items-center gap-2 font-bold text-gray-900 shrink-0">
+                <Link href="/" className="flex items-center gap-2 font-bold shrink-0" style={{ color: 'var(--rt-text)' }}>
                     <span>⚔️</span>
                     <span className="hidden sm:inline">Kendo Translation</span>
                 </Link>
@@ -116,7 +126,8 @@ export function SiteNav() {
                             aria-label="Theme settings"
                             title="Theme settings"
                             onClick={() => setSettingsOpen((o) => !o)}
-                            className="p-1.5 rounded-md transition-colors text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                            className="p-1.5 rounded-md transition-opacity hover:opacity-80"
+                            style={{ color: 'var(--rt-text-muted)' }}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                                 <path fillRule="evenodd" d="M8.34 1.804A1 1 0 0 1 9.32 1h1.36a1 1 0 0 1 .98.804l.295 1.473c.497.144.97.342 1.405.588l1.277-.743a1 1 0 0 1 1.228.15l.962.96a1 1 0 0 1 .15 1.23l-.743 1.276c.246.435.444.908.588 1.405l1.473.295a1 1 0 0 1 .804.98v1.36a1 1 0 0 1-.804.98l-1.473.295a6.97 6.97 0 0 1-.588 1.405l.743 1.277a1 1 0 0 1-.15 1.228l-.96.962a1 1 0 0 1-1.23.15l-1.276-.743a6.97 6.97 0 0 1-1.405.588l-.295 1.473A1 1 0 0 1 10.68 19H9.32a1 1 0 0 1-.98-.804l-.295-1.473a6.972 6.972 0 0 1-1.405-.588l-1.277.743a1 1 0 0 1-1.228-.15l-.962-.96a1 1 0 0 1-.15-1.23l.743-1.276a6.971 6.971 0 0 1-.588-1.405L1.804 11.32A1 1 0 0 1 1 10.34V8.98a1 1 0 0 1 .804-.98l1.473-.295a6.97 6.97 0 0 1 .588-1.405L3.122 5.023a1 1 0 0 1 .15-1.228l.96-.962a1 1 0 0 1 1.23-.15l1.276.743a6.972 6.972 0 0 1 1.405-.588L8.34 1.804ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" />
@@ -143,7 +154,8 @@ export function SiteNav() {
                     {/* Search icon — links to /search */}
                     <Link
                         href="/search"
-                        className={`p-1.5 rounded-md transition-colors ${pathname.startsWith('/search') ? 'text-indigo-600 bg-indigo-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+                        className={`p-1.5 rounded-md transition-opacity hover:opacity-80 ${pathname.startsWith('/search') ? 'bg-indigo-50' : ''}`}
+                        style={{ color: pathname.startsWith('/search') ? 'var(--rt-text)' : 'var(--rt-text-muted)' }}
                         title="Search"
                         aria-label="Search"
                     >
@@ -156,7 +168,8 @@ export function SiteNav() {
                     {profile ? (
                         <Link
                             href="/profile"
-                            className="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 transition-colors shrink-0"
+                            className="flex items-center gap-2 text-sm transition-opacity hover:opacity-80 shrink-0"
+                            style={{ color: 'var(--rt-text)' }}
                             title="Your profile"
                         >
                             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-sm">
@@ -195,13 +208,20 @@ export function SiteNav() {
 
             {/* Mobile dropdown menu */}
             {mobileMenuOpen && (
-                <div className="sm:hidden border-t border-gray-100 bg-white px-4 py-3 flex flex-col gap-3 text-sm">
+                <div
+                    className="sm:hidden px-4 py-3 flex flex-col gap-3 text-sm"
+                    style={{
+                        borderTop: '1px solid var(--rt-border)',
+                        backgroundColor: 'var(--rt-surface)',
+                    }}
+                >
                     {navLinks}
                     {/* Profile link in mobile menu */}
                     {profile ? (
                         <Link
                             href="/profile"
-                            className="flex items-center gap-2 text-gray-700 hover:text-gray-900 transition-colors pt-1 border-t border-gray-100"
+                            className="flex items-center gap-2 transition-opacity hover:opacity-80 pt-1"
+                            style={{ color: 'var(--rt-text)', borderTop: '1px solid var(--rt-border)' }}
                             onClick={() => setMobileMenuOpen(false)}
                         >
                             <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-xs">
@@ -212,7 +232,8 @@ export function SiteNav() {
                     ) : (
                         <Link
                             href="/login"
-                            className="text-blue-600 hover:underline pt-1 border-t border-gray-100"
+                            className="text-blue-600 hover:underline pt-1"
+                            style={{ borderTop: '1px solid var(--rt-border)' }}
                             onClick={() => setMobileMenuOpen(false)}
                         >
                             Sign in
