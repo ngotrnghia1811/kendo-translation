@@ -34,7 +34,7 @@ export default function HomePage() {
           <Link href="/documents" className="bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-700 transition-colors">
             View Documents
           </Link>
-          <Link href="/login" className="border border-gray-300 text-gray-700 px-8 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors">
+          <Link href="/login" className="border border-[var(--rt-border)] text-[var(--rt-text)] px-8 py-3 rounded-lg font-medium hover:bg-[var(--rt-surface)] transition-colors">
             Start Translating
           </Link>
         </div>
@@ -52,7 +52,7 @@ export default function HomePage() {
             { icon: '📚', title: 'Translation Memory', desc: 'Fuzzy search across previous translations with Levenshtein, Jaccard, and n-gram similarity scoring.' },
             { icon: '📖', title: 'Multiple Reader Views', desc: 'Single language, bilingual paragraph, and sentence-aligned views for different reading needs.' },
           ].map(f => (
-            <div key={f.title} className="bg-gray-50 rounded-xl p-6">
+            <div key={f.title} className="rounded-xl p-6 bg-[var(--rt-surface)]">
               <div className="text-3xl mb-4">{f.icon}</div>
               <h4 className="font-semibold text-gray-900 mb-2">{f.title}</h4>
               <p className="text-sm text-gray-800">{f.desc}</p>
@@ -62,7 +62,7 @@ export default function HomePage() {
       </section>
 
       {/* Pipeline diagram */}
-      <section className="bg-gray-50 py-16">
+      <section className="py-16 bg-[var(--rt-surface)]">
         <div className="max-w-4xl mx-auto px-6 text-center">
           <h3 className="text-2xl font-bold text-gray-900 mb-4">MAC-RAG Translation Pipeline</h3>
           <p className="text-gray-800 mb-10">Three-phase pipeline: context retrieval, multi-candidate generation, and quality scoring.</p>
@@ -73,7 +73,7 @@ export default function HomePage() {
               { phase: '3', label: 'Score', detail: 'Fluency, adequacy, terminology, style' },
             ].map((p, i) => (
               <div key={p.phase} className="flex items-center gap-4">
-                <div className="bg-white rounded-xl p-5 shadow-sm text-center w-40">
+                <div className="rounded-xl p-5 shadow-sm text-center w-40 bg-[var(--rt-surface)]">
                   <div className="text-blue-600 font-bold text-lg mb-1">Phase {p.phase}</div>
                   <div className="font-semibold text-gray-900 mb-1">{p.label}</div>
                   <div className="text-xs text-gray-500">{p.detail}</div>

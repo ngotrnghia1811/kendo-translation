@@ -129,14 +129,14 @@ function PhaseBar({ phase, count, total }: { phase: string; count: number; total
     const color = PHASE_COLORS[phase] ?? '#6b7280';
     return (
         <div className="flex items-center gap-3">
-            <span className="w-28 text-xs text-gray-600 shrink-0">{PHASE_LABELS[phase] ?? phase}</span>
+            <span className="w-28 text-xs text-[var(--rt-text-muted)] shrink-0">{PHASE_LABELS[phase] ?? phase}</span>
             <div className="flex-1 h-3 rounded-full bg-gray-100 overflow-hidden">
                 <div
                     className="h-3 rounded-full transition-all duration-500"
                     style={{ width: `${pct}%`, backgroundColor: color }}
                 />
             </div>
-            <span className="w-24 text-right text-xs text-gray-500 font-mono shrink-0">
+            <span className="w-24 text-right text-xs text-[var(--rt-text-muted)] font-mono shrink-0">
                 {count.toLocaleString()} ({pct.toFixed(1)}%)
             </span>
         </div>
@@ -268,23 +268,23 @@ export default function AdminDocDetailPage() {
             {/* Stat cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
                 {[
-                    { label: 'Total segments', value: totalSegments.toLocaleString(), color: 'text-gray-900' },
+                    { label: 'Total segments', value: totalSegments.toLocaleString(), color: 'text-[var(--rt-text)]' },
                     { label: 'Translation progress', value: `${progressPct}%`, color: 'text-blue-600' },
                     { label: 'QA approved', value: `${approvedPct}%`, color: 'text-violet-600' },
                     { label: 'Assigned users', value: assignments.length, color: 'text-indigo-600' },
                 ].map(({ label, value, color }) => (
-                    <div key={label} className="bg-white border border-gray-200 rounded-lg p-4">
-                        <p className="text-xs text-gray-500 mb-1">{label}</p>
+                    <div key={label} className="rounded-lg p-4 bg-[var(--rt-surface)] border border-[var(--rt-border)]">
+                        <p className="text-xs text-[var(--rt-text-muted)] mb-1">{label}</p>
                         <p className={`text-xl font-bold ${color}`}>{value}</p>
                     </div>
                 ))}
             </div>
 
             {/* Phase breakdown */}
-            <div className="bg-white border border-gray-200 rounded-lg p-5 mb-4">
-                <h2 className="text-sm font-semibold text-gray-700 mb-4">Phase Breakdown</h2>
+            <div className="rounded-lg p-5 mb-4 bg-[var(--rt-surface)] border border-[var(--rt-border)]">
+                <h2 className="text-sm font-semibold text-[var(--rt-text)] mb-4">Phase Breakdown</h2>
                 {totalSegments === 0 ? (
-                    <p className="text-xs text-gray-400">No EN segments yet.</p>
+                    <p className="text-xs text-[var(--rt-text-muted)]">No EN segments yet.</p>
                 ) : (
                     <div className="space-y-2.5">
                         {PHASE_ORDER.map((phase) => (
@@ -300,20 +300,20 @@ export default function AdminDocDetailPage() {
             </div>
 
             {/* 14-day activity */}
-            <div className="bg-white border border-gray-200 rounded-lg p-5 mb-4">
-                <h2 className="text-sm font-semibold text-gray-700 mb-1">Activity (last 14 days)</h2>
-                <p className="text-xs text-gray-400 mb-2">Daily phase transitions</p>
+            <div className="rounded-lg p-5 mb-4 bg-[var(--rt-surface)] border border-[var(--rt-border)]">
+                <h2 className="text-sm font-semibold text-[var(--rt-text)] mb-1">Activity (last 14 days)</h2>
+                <p className="text-xs text-[var(--rt-text-muted)] mb-2">Daily phase transitions</p>
                 <ActivitySparkline activity={recentActivity} />
-                <div className="flex justify-between text-xs text-gray-400 mt-1">
+                <div className="flex justify-between text-xs text-[var(--rt-text-muted)] mt-1">
                     <span>{recentActivity[0]?.date}</span>
                     <span>{recentActivity[recentActivity.length - 1]?.date}</span>
                 </div>
             </div>
 
             {/* Assignments */}
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-4">
-                <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-                    <h2 className="text-sm font-semibold text-gray-700">Assignments ({assignments.length})</h2>
+            <div className="rounded-lg overflow-hidden mb-4 bg-[var(--rt-surface)] border border-[var(--rt-border)]">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--rt-border)]">
+                    <h2 className="text-sm font-semibold text-[var(--rt-text)]">Assignments ({assignments.length})</h2>
                     <Link
                         href={`/admin/documents/${article.id}/assignments`}
                         className="text-xs text-indigo-600 hover:text-indigo-800 transition-colors"
@@ -322,23 +322,23 @@ export default function AdminDocDetailPage() {
                     </Link>
                 </div>
                 {assignments.length === 0 ? (
-                    <p className="text-xs text-gray-400 px-5 py-4">No users assigned yet.</p>
+                    <p className="text-xs text-[var(--rt-text-muted)] px-5 py-4">No users assigned yet.</p>
                 ) : (
                     <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="border-b border-gray-100 bg-gray-50">
-                                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-2">User</th>
-                                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-2">Role</th>
-                                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-2">Assigned Phases</th>
+                            <tr className="border-b bg-[var(--rt-surface)] border-[var(--rt-border)]">
+                                <th className="text-left text-xs font-medium text-[var(--rt-text-muted)] uppercase px-5 py-2">User</th>
+                                <th className="text-left text-xs font-medium text-[var(--rt-text-muted)] uppercase px-5 py-2">Role</th>
+                                <th className="text-left text-xs font-medium text-[var(--rt-text-muted)] uppercase px-5 py-2">Assigned Phases</th>
                             </tr>
                         </thead>
                         <tbody>
                             {assignments.map((a) => (
-                                <tr key={a.user_id} className="border-b border-gray-50">
-                                    <td className="px-5 py-2.5 text-sm text-gray-900">
-                                        {a.username ?? <span className="text-gray-400 italic">no username</span>}
-                                        <span className="text-xs text-gray-400 font-mono ml-2">{a.user_id.slice(0, 8)}…</span>
+                                <tr key={a.user_id} className="border-b border-[var(--rt-border)]">
+                                    <td className="px-5 py-2.5 text-sm text-[var(--rt-text)]">
+                                        {a.username ?? <span className="text-[var(--rt-text-muted)] italic">no username</span>}
+                                        <span className="text-xs text-[var(--rt-text-muted)] font-mono ml-2">{a.user_id.slice(0, 8)}…</span>
                                     </td>
                                     <td className="px-5 py-2.5">
                                         {a.role && (
