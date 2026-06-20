@@ -217,11 +217,11 @@ export default function ProfilePage() {
         return (
             <div className="container mx-auto px-4 py-8 max-w-4xl">
                 <div className="animate-pulse space-y-4">
-                    <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-                    <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded" />
+                    <div className="h-8 bg-[var(--rt-border)] rounded w-1/3" />
+                    <div className="h-32 bg-[var(--rt-border)] rounded" />
                     <div className="grid grid-cols-4 gap-4">
                         {[0, 1, 2, 3].map((i) => (
-                            <div key={i} className="h-20 bg-gray-200 dark:bg-gray-700 rounded" />
+                            <div key={i} className="h-20 bg-[var(--rt-border)] rounded" />
                         ))}
                     </div>
                 </div>
@@ -309,7 +309,7 @@ export default function ProfilePage() {
                         Assigned Documents
                     </h2>
                     <div className="rounded-xl border overflow-hidden bg-[var(--rt-surface)] border-[var(--rt-border)]">
-                        <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                        <ul className="divide-y divide-[var(--rt-border)]">
                             {stats.assignments.map((a) => (
                                 <li key={a.document_id} className="px-5 py-3 flex items-center justify-between gap-3">
                                     <Link
@@ -342,7 +342,7 @@ export default function ProfilePage() {
                         Recent Reading
                     </h2>
                     <div className="rounded-xl border overflow-hidden bg-[var(--rt-surface)] border-[var(--rt-border)]">
-                        <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                        <ul className="divide-y divide-[var(--rt-border)]">
                             {stats.recentHistory.map((h) => (
                                 <li key={h.item_id} className="px-5 py-3 flex items-center justify-between gap-3">
                                     <Link

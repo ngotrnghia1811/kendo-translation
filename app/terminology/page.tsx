@@ -303,7 +303,7 @@ export default function TerminologyPage() {
                 <h1 className="text-2xl font-bold text-[var(--rt-text)] mb-6">Terminology</h1>
                 <div className="animate-pulse space-y-2">
                     {[1, 2, 3, 4, 5].map(i => (
-                        <div key={i} className="h-10 bg-gray-200 dark:bg-gray-700 rounded" />
+                        <div key={i} className="h-10 bg-[var(--rt-border)] rounded" />
                     ))}
                 </div>
             </div>

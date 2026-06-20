@@ -93,7 +93,7 @@ function PhaseBar({ phase, count, total }: { phase: string; count: number; total
     return (
         <div className="mb-2">
             <div className="flex items-center justify-between text-xs mb-0.5">
-                <span className="text-gray-700 dark:text-gray-300">{PHASE_LABELS[phase] ?? phase}</span>
+                <span className="text-[var(--rt-text)]">{PHASE_LABELS[phase] ?? phase}</span>
                 <span className="text-[var(--rt-text-muted)] font-mono">{count.toLocaleString()} ({pct.toFixed(1)}%)</span>
             </div>
             <div className="w-full h-2 rounded-full bg-gray-100 dark:bg-gray-700">
@@ -247,7 +247,7 @@ export default function AdminPage() {
                 <div className="animate-pulse space-y-4">
                     <div className="grid md:grid-cols-4 gap-4">
                         {[1, 2, 3, 4].map(i => (
-                            <div key={i} className="h-24 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+                            <div key={i} className="h-24 bg-[var(--rt-border)] rounded-lg" />
                         ))}
                     </div>
                 </div>
@@ -293,14 +293,14 @@ export default function AdminPage() {
             {analyticsLoading ? (
                 <div className="grid md:grid-cols-3 gap-4 mb-8">
                     {[1, 2, 3].map(i => (
-                        <div key={i} className="h-48 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />
+                        <div key={i} className="h-48 bg-[var(--rt-border)] rounded-lg animate-pulse" />
                     ))}
                 </div>
             ) : analytics ? (
                 <div className="grid md:grid-cols-3 gap-4 mb-8">
                     {/* Phase breakdown */}
                     <div className="rounded-lg p-5 border bg-[var(--rt-surface)] border-[var(--rt-border)]">
-                        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4 uppercase tracking-wide">
+                        <h2 className="text-sm font-semibold text-[var(--rt-text)] mb-4 uppercase tracking-wide">
                             Segment Status Breakdown
                         </h2>
                         {Object.entries(analytics.phaseBreakdown)
@@ -318,38 +318,38 @@ export default function AdminPage() {
 
                     {/* Activity timeline */}
                     <div className="rounded-lg p-5 border bg-[var(--rt-surface)] border-[var(--rt-border)]">
-                        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1 uppercase tracking-wide">
+                        <h2 className="text-sm font-semibold text-[var(--rt-text)] mb-1 uppercase tracking-wide">
                             Activity (Last 30 Days)
                         </h2>
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+                        <p className="text-xs text-[var(--rt-text-muted)] mb-4">
                             {analytics.totals.recentTransitions.toLocaleString()} phase transitions ·{' '}
                             {analytics.totals.recentComments.toLocaleString()} comments
                         </p>
                         <ActivitySparkline timeline={analytics.activityTimeline} />
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center">
+                        <p className="text-xs text-[var(--rt-text-muted)] mt-2 text-center">
                             Daily phase transitions
                         </p>
                     </div>
 
                     {/* Top translators */}
                     <div className="rounded-lg p-5 border bg-[var(--rt-surface)] border-[var(--rt-border)]">
-                        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4 uppercase tracking-wide">
+                        <h2 className="text-sm font-semibold text-[var(--rt-text)] mb-4 uppercase tracking-wide">
                             Top Editors (90 Days)
                         </h2>
                         {analytics.topTranslators.length === 0 && (
-                            <p className="text-xs text-gray-400 text-center py-4">No edit data</p>
+                            <p className="text-xs text-[var(--rt-text-muted)] text-center py-4">No edit data</p>
                         )}
                         <div className="space-y-2">
                             {analytics.topTranslators.map((t, i) => (
                                 <div key={t.id} className="flex items-center gap-3">
-                                    <span className="text-xs font-bold text-gray-400 w-4 text-right">{i + 1}</span>
+                                    <span className="text-xs font-bold text-[var(--rt-text-muted)] w-4 text-right">{i + 1}</span>
                                     <div
                                         className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
                                         style={{ backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][i % 5] }}
                                     >
                                         {t.username.charAt(0).toUpperCase()}
                                     </div>
-                                    <span className="text-sm text-gray-700 dark:text-gray-200 flex-1 truncate">{t.username}</span>
+                                    <span className="text-sm text-[var(--rt-text)] flex-1 truncate">{t.username}</span>
                                     <span className="text-xs font-mono text-[var(--rt-text-muted)]">{t.count} edits</span>
                                 </div>
                             ))}
@@ -364,17 +364,17 @@ export default function AdminPage() {
             {!analyticsLoading && analytics && (
                 <div className="rounded-lg border p-5 bg-[var(--rt-surface)] border-[var(--rt-border)] mb-8">
                     <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
+                        <h2 className="text-sm font-semibold text-[var(--rt-text)] uppercase tracking-wide">
                             Open QA Issues
                         </h2>
                         {analytics.qaIssues.length > 0 && (
-                            <span className="text-xs text-gray-400 dark:text-gray-500">
+                            <span className="text-xs text-[var(--rt-text-muted)]">
                                 {analytics.qaIssues.reduce((s, d) => s + d.total, 0).toLocaleString()} issues across {analytics.qaIssues.length} document{analytics.qaIssues.length !== 1 ? 's' : ''}
                             </span>
                         )}
                     </div>
                     {analytics.qaIssues.length === 0 ? (
-                        <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
+                        <p className="text-sm text-[var(--rt-text-muted)] text-center py-4">
                             🎉 No open QA issues
                         </p>
                     ) : (
@@ -382,18 +382,18 @@ export default function AdminPage() {
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="border-b border-[var(--rt-border)]">
-                                        <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 pr-4">Document</th>
-                                        <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 px-2">
+                                        <th className="text-left text-xs font-medium text-[var(--rt-text-muted)] uppercase pb-2 pr-4">Document</th>
+                                        <th className="text-right text-xs font-medium text-[var(--rt-text-muted)] uppercase pb-2 px-2">
                                             <span className="text-red-500">●</span> Critical
                                         </th>
-                                        <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 px-2">
+                                        <th className="text-right text-xs font-medium text-[var(--rt-text-muted)] uppercase pb-2 px-2">
                                             <span className="text-orange-400">●</span> Major
                                         </th>
-                                        <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 px-2">
+                                        <th className="text-right text-xs font-medium text-[var(--rt-text-muted)] uppercase pb-2 px-2">
                                             <span className="text-yellow-400">●</span> Minor
                                         </th>
-                                        <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 pl-2">Total</th>
-                                        <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 pl-4">Action</th>
+                                        <th className="text-right text-xs font-medium text-[var(--rt-text-muted)] uppercase pb-2 pl-2">Total</th>
+                                        <th className="text-left text-xs font-medium text-[var(--rt-text-muted)] uppercase pb-2 pl-4">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
