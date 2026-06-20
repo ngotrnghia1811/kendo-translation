@@ -116,7 +116,7 @@ function UsernameEditor({
     if (!editing) {
         return (
             <div className="flex items-center gap-2">
-                <span className="text-xl font-semibold text-gray-900 dark:text-white">
+                <span className="text-xl font-semibold text-[var(--rt-text)]">
                     {initial || <span className="text-gray-400 italic">No username set</span>}
                 </span>
                 <button
@@ -173,11 +173,11 @@ function UsernameEditor({
 
 function StatCard({ label, value, icon }: { label: string; value: number; icon: string }) {
     return (
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center gap-3">
+        <div className="border rounded-lg p-4 flex items-center gap-3 bg-[var(--rt-surface)] border-[var(--rt-border)]">
             <span className="text-2xl">{icon}</span>
             <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+                <p className="text-2xl font-bold text-[var(--rt-text)]">{value}</p>
+                <p className="text-xs text-[var(--rt-text-muted)]">{label}</p>
             </div>
         </div>
     )
@@ -246,10 +246,10 @@ export default function ProfilePage() {
 
     return (
         <div className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Your Profile</h1>
+            <h1 className="text-2xl font-bold text-[var(--rt-text)]">Your Profile</h1>
 
             {/* ── Profile card ── */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <div className="rounded-xl shadow-sm border p-6 bg-[var(--rt-surface)] border-[var(--rt-border)]">
                 <div className="flex items-start gap-5">
                     {/* Avatar */}
                     <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-2xl font-bold text-blue-700 dark:text-blue-300 shrink-0">
@@ -271,18 +271,18 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Meta row */}
-                <div className="mt-5 border-t border-gray-200 dark:border-gray-700 pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                <div className="mt-5 border-t border-[var(--rt-border)] pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                     <div>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Email</p>
-                        <p className="text-gray-900 dark:text-white">{profile.email ?? '—'}</p>
+                        <p className="text-[var(--rt-text-muted)] text-xs mb-0.5">Email</p>
+                        <p className="text-[var(--rt-text)]">{profile.email ?? '—'}</p>
                     </div>
                     <div>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Member since</p>
-                        <p className="text-gray-900 dark:text-white">{formatDate(profile.created_at)}</p>
+                        <p className="text-[var(--rt-text-muted)] text-xs mb-0.5">Member since</p>
+                        <p className="text-[var(--rt-text)]">{formatDate(profile.created_at)}</p>
                     </div>
                     <div>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">User ID</p>
-                        <p className="text-gray-900 dark:text-white font-mono text-xs truncate">{profile.id}</p>
+                        <p className="text-[var(--rt-text-muted)] text-xs mb-0.5">User ID</p>
+                        <p className="text-[var(--rt-text)] font-mono text-xs truncate">{profile.id}</p>
                     </div>
                 </div>
             </div>
@@ -290,7 +290,7 @@ export default function ProfilePage() {
             {/* ── Stats ── */}
             {stats && (
                 <section>
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                    <h2 className="text-lg font-semibold text-[var(--rt-text)] mb-3">
                         Activity
                     </h2>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -305,10 +305,10 @@ export default function ProfilePage() {
             {/* ── Assigned documents ── */}
             {stats && stats.assignments.length > 0 && (
                 <section>
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                    <h2 className="text-lg font-semibold text-[var(--rt-text)] mb-3">
                         Assigned Documents
                     </h2>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div className="rounded-xl border overflow-hidden bg-[var(--rt-surface)] border-[var(--rt-border)]">
                         <ul className="divide-y divide-gray-200 dark:divide-gray-700">
                             {stats.assignments.map((a) => (
                                 <li key={a.document_id} className="px-5 py-3 flex items-center justify-between gap-3">
@@ -338,10 +338,10 @@ export default function ProfilePage() {
             {/* ── Reading history ── */}
             {stats && stats.recentHistory.length > 0 && (
                 <section>
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                    <h2 className="text-lg font-semibold text-[var(--rt-text)] mb-3">
                         Recent Reading
                     </h2>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div className="rounded-xl border overflow-hidden bg-[var(--rt-surface)] border-[var(--rt-border)]">
                         <ul className="divide-y divide-gray-200 dark:divide-gray-700">
                             {stats.recentHistory.map((h) => (
                                 <li key={h.item_id} className="px-5 py-3 flex items-center justify-between gap-3">
@@ -367,7 +367,7 @@ export default function ProfilePage() {
 
             {/* If translator/admin, show no-assignment empty state */}
             {stats && stats.assignments.length === 0 && (profile.role === 'translator' || profile.role === 'admin') && (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-[var(--rt-text-muted)]">
                     No document assignments yet. An admin can assign you to documents from the{' '}
                     <Link href="/admin/documents" className="text-blue-600 hover:underline">
                         admin panel

@@ -300,7 +300,7 @@ export default function TerminologyPage() {
     if (loading) {
         return (
             <div className="container mx-auto px-4 py-8">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Terminology</h1>
+                <h1 className="text-2xl font-bold text-[var(--rt-text)] mb-6">Terminology</h1>
                 <div className="animate-pulse space-y-2">
                     {[1, 2, 3, 4, 5].map(i => (
                         <div key={i} className="h-10 bg-gray-200 dark:bg-gray-700 rounded" />
@@ -370,8 +370,8 @@ export default function TerminologyPage() {
             <div className="container mx-auto px-4 py-8">
                 <div className="flex items-center justify-between mb-6">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Terminology</h1>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                        <h1 className="text-2xl font-bold text-[var(--rt-text)]">Terminology</h1>
+                        <p className="text-sm text-[var(--rt-text-muted)] mt-0.5">
                             {filtered.length} of {terms.length} terms
                         </p>
                     </div>
@@ -398,25 +398,25 @@ export default function TerminologyPage() {
                 </div>
 
                 {/* Terms table */}
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div className="rounded-lg border overflow-hidden bg-[var(--rt-surface)] border-[var(--rt-border)]">
                     <table className="w-full">
                         <thead>
-                            <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                                <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Japanese</th>
-                                <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Reading</th>
-                                <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">English</th>
-                                <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Domain</th>
+                            <tr className="border-b border-[var(--rt-border)] bg-[var(--rt-surface)]">
+                                <th className="text-left text-xs font-medium text-[var(--rt-text-muted)] uppercase p-3">Japanese</th>
+                                <th className="text-left text-xs font-medium text-[var(--rt-text-muted)] uppercase p-3">Reading</th>
+                                <th className="text-left text-xs font-medium text-[var(--rt-text-muted)] uppercase p-3">English</th>
+                                <th className="text-left text-xs font-medium text-[var(--rt-text-muted)] uppercase p-3">Domain</th>
                                 {isAdmin && (
-                                    <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Actions</th>
+                                    <th className="text-left text-xs font-medium text-[var(--rt-text-muted)] uppercase p-3">Actions</th>
                                 )}
                             </tr>
                         </thead>
                         <tbody>
                             {filtered.slice(0, 100).map((term) => (
-                                <tr key={term.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                    <td className="p-3 text-sm font-medium text-gray-900 dark:text-white">{term.source_term}</td>
-                                    <td className="p-3 text-sm text-gray-500 dark:text-gray-400">{term.reading || '—'}</td>
-                                    <td className="p-3 text-sm text-gray-900 dark:text-white">{term.target_term}</td>
+                                <tr key={term.id} className="border-b border-[var(--rt-border)] hover:bg-[var(--rt-border)]/10">
+                                    <td className="p-3 text-sm font-medium text-[var(--rt-text)]">{term.source_term}</td>
+                                    <td className="p-3 text-sm text-[var(--rt-text-muted)]">{term.reading || '—'}</td>
+                                    <td className="p-3 text-sm text-[var(--rt-text)]">{term.target_term}</td>
                                     <td className="p-3 text-xs text-gray-400">{term.domain || '—'}</td>
                                     {isAdmin && (
                                         <td className="p-3">
@@ -443,7 +443,7 @@ export default function TerminologyPage() {
                         </tbody>
                     </table>
                     {filtered.length > 100 && (
-                        <div className="p-3 text-center text-sm text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
+                        <div className="p-3 text-center text-sm text-[var(--rt-text-muted)] border-t border-[var(--rt-border)]">
                             Showing 100 of {filtered.length} terms. Use search to narrow results.
                         </div>
                     )}

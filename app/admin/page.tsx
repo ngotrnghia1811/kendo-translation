@@ -94,7 +94,7 @@ function PhaseBar({ phase, count, total }: { phase: string; count: number; total
         <div className="mb-2">
             <div className="flex items-center justify-between text-xs mb-0.5">
                 <span className="text-gray-700 dark:text-gray-300">{PHASE_LABELS[phase] ?? phase}</span>
-                <span className="text-gray-500 dark:text-gray-400 font-mono">{count.toLocaleString()} ({pct.toFixed(1)}%)</span>
+                <span className="text-[var(--rt-text-muted)] font-mono">{count.toLocaleString()} ({pct.toFixed(1)}%)</span>
             </div>
             <div className="w-full h-2 rounded-full bg-gray-100 dark:bg-gray-700">
                 <div
@@ -243,7 +243,7 @@ export default function AdminPage() {
     if (loading) {
         return (
             <div className="container mx-auto px-4 py-8">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Admin Dashboard</h1>
+                <h1 className="text-2xl font-bold text-[var(--rt-text)] mb-6">Admin Dashboard</h1>
                 <div className="animate-pulse space-y-4">
                     <div className="grid md:grid-cols-4 gap-4">
                         {[1, 2, 3, 4].map(i => (
@@ -261,25 +261,25 @@ export default function AdminPage() {
 
     return (
         <div className="container mx-auto px-4 py-8 max-w-6xl">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Admin Dashboard</h1>
+            <h1 className="text-2xl font-bold text-[var(--rt-text)] mb-6">Admin Dashboard</h1>
 
             {/* ----------------------------------------------------------------
                 Top stat cards
             ---------------------------------------------------------------- */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <div className="rounded-lg p-4 border bg-[var(--rt-surface)] border-[var(--rt-border)]">
                     <div className="text-3xl font-bold text-blue-600">{docStats.total}</div>
                     <div className="text-sm text-gray-500">Documents</div>
                 </div>
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <div className="rounded-lg p-4 border bg-[var(--rt-surface)] border-[var(--rt-border)]">
                     <div className="text-3xl font-bold text-green-600">{docStats.segmented}</div>
                     <div className="text-sm text-gray-500">Segmented</div>
                 </div>
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <div className="rounded-lg p-4 border bg-[var(--rt-surface)] border-[var(--rt-border)]">
                     <div className="text-3xl font-bold text-purple-600">{users.length}</div>
                     <div className="text-sm text-gray-500">Users</div>
                 </div>
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <div className="rounded-lg p-4 border bg-[var(--rt-surface)] border-[var(--rt-border)]">
                     <div className="text-3xl font-bold text-orange-600">
                         {analyticsLoading ? '…' : totalSegments.toLocaleString()}
                     </div>
@@ -299,7 +299,7 @@ export default function AdminPage() {
             ) : analytics ? (
                 <div className="grid md:grid-cols-3 gap-4 mb-8">
                     {/* Phase breakdown */}
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+                    <div className="rounded-lg p-5 border bg-[var(--rt-surface)] border-[var(--rt-border)]">
                         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4 uppercase tracking-wide">
                             Segment Status Breakdown
                         </h2>
@@ -317,7 +317,7 @@ export default function AdminPage() {
                     </div>
 
                     {/* Activity timeline */}
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+                    <div className="rounded-lg p-5 border bg-[var(--rt-surface)] border-[var(--rt-border)]">
                         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1 uppercase tracking-wide">
                             Activity (Last 30 Days)
                         </h2>
@@ -332,7 +332,7 @@ export default function AdminPage() {
                     </div>
 
                     {/* Top translators */}
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+                    <div className="rounded-lg p-5 border bg-[var(--rt-surface)] border-[var(--rt-border)]">
                         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4 uppercase tracking-wide">
                             Top Editors (90 Days)
                         </h2>
@@ -350,7 +350,7 @@ export default function AdminPage() {
                                         {t.username.charAt(0).toUpperCase()}
                                     </div>
                                     <span className="text-sm text-gray-700 dark:text-gray-200 flex-1 truncate">{t.username}</span>
-                                    <span className="text-xs font-mono text-gray-500 dark:text-gray-400">{t.count} edits</span>
+                                    <span className="text-xs font-mono text-[var(--rt-text-muted)]">{t.count} edits</span>
                                 </div>
                             ))}
                         </div>
@@ -362,7 +362,7 @@ export default function AdminPage() {
                 QA Issues widget
             ---------------------------------------------------------------- */}
             {!analyticsLoading && analytics && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5 mb-8">
+                <div className="rounded-lg border p-5 bg-[var(--rt-surface)] border-[var(--rt-border)] mb-8">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
                             Open QA Issues
@@ -381,7 +381,7 @@ export default function AdminPage() {
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="border-b border-gray-100 dark:border-gray-700">
+                                    <tr className="border-b border-[var(--rt-border)]">
                                         <th className="text-left text-xs font-medium text-gray-500 uppercase pb-2 pr-4">Document</th>
                                         <th className="text-right text-xs font-medium text-gray-500 uppercase pb-2 px-2">
                                             <span className="text-red-500">●</span> Critical
@@ -398,8 +398,8 @@ export default function AdminPage() {
                                 </thead>
                                 <tbody>
                                     {analytics.qaIssues.map((doc) => (
-                                        <tr key={doc.id} className="border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                                            <td className="py-2 pr-4 text-gray-900 dark:text-white font-medium truncate max-w-[240px]" title={doc.title}>
+                                        <tr key={doc.id} className="border-b border-[var(--rt-border)] hover:bg-[var(--rt-border)]/10 transition-colors">
+                                            <td className="py-2 pr-4 text-[var(--rt-text)] font-medium truncate max-w-[240px]" title={doc.title}>
                                                 {doc.title}
                                             </td>
                                             <td className="py-2 px-2 text-right font-mono text-xs">
@@ -443,12 +443,12 @@ export default function AdminPage() {
             {/* ----------------------------------------------------------------
                 Documents table
             ---------------------------------------------------------------- */}
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Documents</h2>
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden mb-8" data-testid="admin-documents-table">
+            <h2 className="text-lg font-semibold text-[var(--rt-text)] mb-3">Documents</h2>
+            <div className="rounded-lg border overflow-hidden bg-[var(--rt-surface)] border-[var(--rt-border)] mb-8" data-testid="admin-documents-table">
                 <div className="overflow-x-auto">
                 <table className="w-full">
                     <thead>
-                        <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                        <tr className="border-b border-[var(--rt-border)] bg-[var(--rt-surface)]">
                             <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Title</th>
                             <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">ID</th>
                             <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Progress</th>
@@ -458,9 +458,9 @@ export default function AdminPage() {
                     </thead>
                     <tbody>
                         {docs.slice(docsPage * PAGE_SIZE, (docsPage + 1) * PAGE_SIZE).map((doc) => (
-                            <tr key={doc.id} className="border-b border-gray-200 dark:border-gray-700" data-testid="admin-document-row" data-doc-id={doc.id}>
-                                <td className="p-3 text-sm text-gray-900 dark:text-white truncate max-w-xs">{doc.title}</td>
-                                <td className="p-3 text-sm text-gray-600 dark:text-gray-300 font-mono text-xs">{doc.id.substring(0, 8)}…</td>
+                            <tr key={doc.id} className="border-b border-[var(--rt-border)]" data-testid="admin-document-row" data-doc-id={doc.id}>
+                                <td className="p-3 text-sm text-[var(--rt-text)] truncate max-w-xs">{doc.title}</td>
+                                <td className="p-3 text-sm text-[var(--rt-text-muted)] font-mono text-xs">{doc.id.substring(0, 8)}…</td>
                                 <td className="p-3 text-sm text-gray-600">{doc.progress?.percentage ?? 0}%</td>
                                 <td className="p-3">
                                     <button
@@ -505,7 +505,7 @@ export default function AdminPage() {
                 </div>
                 {/* Pagination controls */}
                 {docs.length > PAGE_SIZE && (
-                    <div className="flex items-center justify-between px-3 py-2 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between px-3 py-2 border-t border-[var(--rt-border)]">
                         <button
                             type="button"
                             onClick={() => setDocsPage(p => Math.max(0, p - 1))}
@@ -514,7 +514,7 @@ export default function AdminPage() {
                         >
                             ← Previous
                         </button>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                        <span className="text-xs text-[var(--rt-text-muted)]">
                             Page {docsPage + 1} of {Math.ceil(docs.length / PAGE_SIZE)} &middot; {docs.length} documents total
                         </span>
                         <button
@@ -532,12 +532,12 @@ export default function AdminPage() {
             {/* ----------------------------------------------------------------
                 Users table
             ---------------------------------------------------------------- */}
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Users</h2>
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <h2 className="text-lg font-semibold text-[var(--rt-text)] mb-3">Users</h2>
+            <div className="rounded-lg border overflow-hidden bg-[var(--rt-surface)] border-[var(--rt-border)]">
                 <div className="overflow-x-auto">
                 <table className="w-full">
                     <thead>
-                        <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                        <tr className="border-b border-[var(--rt-border)] bg-[var(--rt-surface)]">
                             <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">User</th>
                             <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">ID</th>
                             <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Last Active</th>
@@ -547,13 +547,13 @@ export default function AdminPage() {
                     </thead>
                     <tbody>
                         {users.map((user) => (
-                            <tr key={user.id} className="border-b border-gray-200 dark:border-gray-700" data-testid="admin-user-row" data-user-id={user.id}>
-                                <td className="p-3 text-sm text-gray-900 dark:text-white">
+                            <tr key={user.id} className="border-b border-[var(--rt-border)]" data-testid="admin-user-row" data-user-id={user.id}>
+                                <td className="p-3 text-sm text-[var(--rt-text)]">
                                     {user.username || 'No username'}
                                 </td>
-                                <td className="p-3 text-sm text-gray-600 dark:text-gray-300 font-mono text-xs">{user.id.substring(0, 8)}…</td>
+                                <td className="p-3 text-sm text-[var(--rt-text-muted)] font-mono text-xs">{user.id.substring(0, 8)}…</td>
                                 <td
-                                    className="p-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap"
+                                    className="p-3 text-xs text-[var(--rt-text-muted)] whitespace-nowrap"
                                     title={user.last_active_at ?? 'No edits yet'}
                                 >
                                     {relativeTime(user.last_active_at)}
