@@ -449,11 +449,11 @@ export default function AdminPage() {
                 <table className="w-full">
                     <thead>
                         <tr className="border-b border-[var(--rt-border)] bg-[var(--rt-surface)]">
-                            <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Title</th>
-                            <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">ID</th>
-                            <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Progress</th>
-                            <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Publish Policy</th>
-                            <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Actions</th>
+                            <th className="text-left text-xs font-medium text-[var(--rt-text-muted)] uppercase p-3">Title</th>
+                            <th className="text-left text-xs font-medium text-[var(--rt-text-muted)] uppercase p-3">ID</th>
+                            <th className="text-left text-xs font-medium text-[var(--rt-text-muted)] uppercase p-3">Progress</th>
+                            <th className="text-left text-xs font-medium text-[var(--rt-text-muted)] uppercase p-3">Publish Policy</th>
+                            <th className="text-left text-xs font-medium text-[var(--rt-text-muted)] uppercase p-3">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -461,7 +461,7 @@ export default function AdminPage() {
                             <tr key={doc.id} className="border-b border-[var(--rt-border)]" data-testid="admin-document-row" data-doc-id={doc.id}>
                                 <td className="p-3 text-sm text-[var(--rt-text)] truncate max-w-xs">{doc.title}</td>
                                 <td className="p-3 text-sm text-[var(--rt-text-muted)] font-mono text-xs">{doc.id.substring(0, 8)}…</td>
-                                <td className="p-3 text-sm text-gray-600">{doc.progress?.percentage ?? 0}%</td>
+                                <td className="p-3 text-sm text-[var(--rt-text-muted)]">{doc.progress?.percentage ?? 0}%</td>
                                 <td className="p-3">
                                     <button
                                         type="button"
@@ -510,7 +510,7 @@ export default function AdminPage() {
                             type="button"
                             onClick={() => setDocsPage(p => Math.max(0, p - 1))}
                             disabled={docsPage === 0}
-                            className="text-xs px-3 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            className="text-xs px-3 py-1 rounded border border-[var(--rt-border)] text-[var(--rt-text-muted)] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--rt-surface)] transition-colors"
                         >
                             ← Previous
                         </button>
@@ -521,7 +521,7 @@ export default function AdminPage() {
                             type="button"
                             onClick={() => setDocsPage(p => Math.min(Math.ceil(docs.length / PAGE_SIZE) - 1, p + 1))}
                             disabled={docsPage >= Math.ceil(docs.length / PAGE_SIZE) - 1}
-                            className="text-xs px-3 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            className="text-xs px-3 py-1 rounded border border-[var(--rt-border)] text-[var(--rt-text-muted)] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--rt-surface)] transition-colors"
                         >
                             Next →
                         </button>
@@ -538,11 +538,11 @@ export default function AdminPage() {
                 <table className="w-full">
                     <thead>
                         <tr className="border-b border-[var(--rt-border)] bg-[var(--rt-surface)]">
-                            <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">User</th>
-                            <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">ID</th>
-                            <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Last Active</th>
-                            <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Role</th>
-                            <th className="text-left text-xs font-medium text-gray-500 uppercase p-3">Actions</th>
+                            <th className="text-left text-xs font-medium text-[var(--rt-text-muted)] uppercase p-3">User</th>
+                            <th className="text-left text-xs font-medium text-[var(--rt-text-muted)] uppercase p-3">ID</th>
+                            <th className="text-left text-xs font-medium text-[var(--rt-text-muted)] uppercase p-3">Last Active</th>
+                            <th className="text-left text-xs font-medium text-[var(--rt-text-muted)] uppercase p-3">Role</th>
+                            <th className="text-left text-xs font-medium text-[var(--rt-text-muted)] uppercase p-3">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
