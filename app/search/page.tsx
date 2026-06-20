@@ -236,7 +236,7 @@ function SearchPageInner() {
     const totalHits = (results?.articles.length ?? 0) + (results?.segments.length ?? 0)
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen">
             {/* Header */}
             <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
                 <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
@@ -451,7 +451,7 @@ function SearchPageInner() {
 export default function SearchPage() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="min-h-screen flex items-center justify-center">
                 <div className="text-sm text-gray-500">Loading search…</div>
             </div>
         }>
