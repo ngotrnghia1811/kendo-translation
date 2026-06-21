@@ -336,8 +336,11 @@ function splitJpSentences(para: string): string[] {
  *  merging short fragments. Avoids splitting abbreviations. */
 function splitEnSentences(para: string): string[] {
   // Split: period + whitespace + uppercase letter or quote-start + uppercase
+  // Negative lookbehind prevents splitting on known abbreviations (Mr., Dr., etc.)
+  // Lookbehind checks that the word ending in "." immediately before the split
+  // point is NOT one of the known abbreviations.
   const raw = para
-    .split(/(?<=[a-zA-Z0-9"')])\.\s+(?=[A-Z"'(])/)
+    .split(/(?<=[a-zA-Z0-9"')])\.(?<!(?:Mr|Mrs|Ms|Dr|Prof|St|etc)\.)\s+(?=[A-Z"'(])/)
     .map((s) => s.trim())
     .filter(Boolean);
 
@@ -353,6 +356,76 @@ function splitEnSentences(para: string): string[] {
 }
 
 // ---------------------------------------------------------------------------
+// Proportional sentence zip (eliminates null-target from count mismatch)
+// ---------------------------------------------------------------------------
+
+/**
+ * Distribute `items` into `bucketCount` buckets as evenly as possible.
+ * First (remainder) buckets get one extra item.
+ * Returns an array of arrays (each bucket is a group of items).
+ *
+ * Example: distributeIntoBuckets(["a","b","c","d","e"], 2) → [["a","b","c"],["d","e"]]
+ */
+function distributeIntoBuckets<T>(items: T[], bucketCount: number): T[][] {
+  if (bucketCount <= 0) return [];
+  if (items.length === 0) return Array.from({ length: bucketCount }, () => []);
+  const baseSize = Math.floor(items.length / bucketCount);
+  const remainder = items.length % bucketCount;
+  const buckets: T[][] = [];
+  let offset = 0;
+  for (let b = 0; b < bucketCount; b++) {
+    const size = baseSize + (b < remainder ? 1 : 0);
+    buckets.push(items.slice(offset, offset + size));
+    offset += size;
+  }
+  return buckets;
+}
+
+/**
+ * Proportionally zip JP and EN sentences within a single paragraph pair.
+ *
+ * Strategy:
+ *  - If JP == EN count → 1:1 zip (no merging needed).
+ *  - If JP > EN → distribute JP sentences into EN-count buckets (merge consecutive
+ *    JP sentences), then 1:1 zip.  Every bucket gets a non-null EN.
+ *  - If EN > JP → distribute EN sentences into JP-count buckets, then 1:1 zip.
+ *    Every JP sentence gets a non-null EN (merged from proportional EN group).
+ *  - If either side is empty → the other side is returned with null on the empty side.
+ *
+ * Returns pairs of [jpText, enText|null] where jpText is never null and every pair
+ * has a non-null target except when EN was empty to begin with.
+ */
+function proportionalZip(
+  jpSents: string[],
+  enSents: string[],
+): Array<[string, string | null]> {
+  // Empty EN: every JP sentence gets null target (cannot fabricate translations)
+  if (enSents.length === 0) {
+    return jpSents.map((jp) => [jp, null] as [string, null]);
+  }
+
+  // Empty JP: should not happen in practice (paragraph pairs have JP by construction)
+  if (jpSents.length === 0) {
+    return [];
+  }
+
+  // Equal counts: simple 1:1 zip
+  if (jpSents.length === enSents.length) {
+    return jpSents.map((jp, i) => [jp, enSents[i]] as [string, string]);
+  }
+
+  // JP has more sentences than EN: merge JP into EN-count groups
+  if (jpSents.length > enSents.length) {
+    const jpBuckets = distributeIntoBuckets(jpSents, enSents.length);
+    return jpBuckets.map((bucket, i) => [bucket.join(" "), enSents[i]] as [string, string]);
+  }
+
+  // EN has more sentences than JP: merge EN into JP-count groups
+  const enBuckets = distributeIntoBuckets(enSents, jpSents.length);
+  return jpSents.map((jp, i) => [jp, enBuckets[i].join(" ")] as [string, string]);
+}
+
+// ---------------------------------------------------------------------------
 // Core hierarchical resegmentation
 // ---------------------------------------------------------------------------
 
@@ -365,11 +438,12 @@ interface SegmentWithMeta {
 
 /**
  * Hierarchical algorithm:
- *   1. Paragraph-level alignment (junk strip + merge + zip)
- *   2. Within each paragraph pair: split sentences → 1:1 zip
+ *   1. Paragraph-level alignment (junk strip + pattern-aware preprocess + merge + zip)
+ *   2. Within each paragraph pair: split sentences → proportional zip
  *   3. Flatten: each (jpSent, enSent) becomes one DB segment
  *
- * Returns all segments with para/sent metadata, skipping pairs with empty JP.
+ * Returns all segments with para/sent metadata.  Proportional zipping eliminates
+ * null EN segments from count mismatch within a paragraph pair.
  */
 function resegmentHierarchical(
   content_en: string,
@@ -390,10 +464,10 @@ function resegmentHierarchical(
   const enParas = stripJunk(enParasRaw, "en");
   const jpParas = stripJunk(jpParasRaw, "ja");
 
-  // 2. Align paragraphs (merge + zip)
+  // 2. Align paragraphs (pattern-aware + merge + zip)
   const { pairs: paraPairs, jpMerged, enMerged } = alignParagraphs(jpParas, enParas);
 
-  // 3. Within each paragraph pair: split sentences + 1:1 zip
+  // 3. Within each paragraph pair: split sentences + proportional zip
   const segments: SegmentWithMeta[] = [];
   let totalJpSents = 0;
   let totalEnSents = 0;
@@ -406,13 +480,12 @@ function resegmentHierarchical(
     totalJpSents += jpSents.length;
     totalEnSents += enSents.length;
 
-    const maxSent = Math.max(jpSents.length, enSents.length);
-    for (let sentIdx = 0; sentIdx < maxSent; sentIdx++) {
-      const jpSent = jpSents[sentIdx] ?? "";
-      if (!jpSent) continue; // skip pairs with empty JP (cannot have segment without source_text)
+    const zipped = proportionalZip(jpSents, enSents);
+    for (let sentIdx = 0; sentIdx < zipped.length; sentIdx++) {
+      const [jpSent, enSent] = zipped[sentIdx];
       segments.push({
         source_text: jpSent,
-        target_text: enSents[sentIdx] ?? null,
+        target_text: enSent,
         para_index: paraIdx,
         sent_index: sentIdx,
       });
