@@ -176,13 +176,13 @@ export default function DocumentsList({ articles, userEmail }: DocumentsListProp
                     <h3 className="font-semibold text-[var(--rt-text)] truncate">{doc.title}</h3>
                     <div className="flex flex-wrap items-center gap-2 mt-2">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        doc.translation_status === 'complete'
+                        doc.translation_status === 'complete' || doc.translation_status === 'qa_approved'
                           ? 'bg-green-100 text-green-700'
-                          : doc.translation_status === 'in_progress'
+                          : doc.translation_status === 'in_progress' || doc.translation_status === 'translated'
                           ? 'bg-blue-100 text-blue-700'
                           : 'bg-gray-100 text-gray-600'
                       }`}>
-                        {doc.translation_status || 'pending'}
+                        {doc.translation_status === 'qa_approved' ? 'complete' : doc.translation_status || 'pending'}
                       </span>
                       {(doc.segment_count ?? 0) > 0 && (
                         <span className="text-xs text-[var(--rt-text-muted)]">{doc.segment_count} segments</span>

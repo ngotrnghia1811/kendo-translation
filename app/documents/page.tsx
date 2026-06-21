@@ -11,6 +11,7 @@ export default async function DocumentsPage() {
   const { data: articles } = await supabase
     .from('articles')
     .select('*')
+    .eq('segmented', true)
     .order('created_at', { ascending: false });
 
   return (
