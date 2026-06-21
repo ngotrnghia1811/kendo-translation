@@ -52,6 +52,7 @@ const EN_JUNK: RegExp[] = [
   /^Translation\s*[：=:]/i,
   /^\*Unauthorized\s+reproduction/i,
   /^\*?\s*The\s+images?\s+(featured|in|appearing)\s+in\s+this\s+article/i,
+  /^https?:\/\//,
   /^\s*$/,
 ];
 
@@ -61,18 +62,24 @@ const JP_JUNK: RegExp[] = [
   /^FREE\s+ARTICLE$/i,
   /^無料記事$/i,
   /^\d{4}\.\d{1,2}[　\s]*KENDOJIDAI/,
-  /^撮影[＝=：:]/i,
-  /^写真[＝=]/,
-  /^構成[＝=]/,
-  /^取材[＝=：:]/i,
-  /^文[＝=：:]/i,
-  /^翻訳[＝=：:]/i,
-  /^司会[＝=：:]/i,
+  /^(写真)?撮影\s*[＝=：:]/i,
+  /^写真\s*[＝=：:]/,
+  /^構成\s*[＝=：:]/,
+  /^取材\s*[＝=：:]/i,
+  /^文\s*[＝=：:]/i,
+  /^翻訳\s*[＝=：:]/i,
+  /^司会\s*[＝=：:]/i,
+  /^協力\s*[＝=：:]/,
   /^※こ(の記事|のインタビュー|の連載)は/,
+  /^\*この記事は/,
   /^\*本記事に掲載された画像の無断転載/,
   /^剣道時代.*号[　\s]*[』」].*掲載/,
   /^[『「]剣道時代.*号[』」]/,
   /^\*本記事に掲載.+を固く禁じます/,
+  /^関連$/,
+  /^第[一二三四五六七八九十百千0-9]+回[はへ]こちら$/,
+  /^第[一二三四五六七八九十百千0-9]+回[にへ]続く$/,
+  /^https?:\/\//,
   /^[　\s]*$/,
 ];
 
@@ -296,6 +303,14 @@ function alignParagraphs(
     enWork = mergeShortForward(enWork, EN_MERGE_THRESHOLD);
   } else if (jpWork.length > enWork.length) {
     jpWork = mergeShortForward(jpWork, JP_MERGE_THRESHOLD);
+
+    // H5: second pass with higher threshold (120) when JP still has
+    // significantly more paragraphs (diff > 2).  Catches standalone
+    // photo captions / section headings (25–90 chars) that survived the
+    // 40-char pass because they sit between long body paragraphs.
+    if (jpWork.length > enWork.length + 2) {
+      jpWork = mergeShortForward(jpWork, 120);
+    }
   }
 
   const maxLen = Math.max(jpWork.length, enWork.length);
