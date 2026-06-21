@@ -20,6 +20,7 @@
  *   npx tsx scripts/resegment-hierarchical.ts --article-id UUID
  *   npx tsx scripts/resegment-hierarchical.ts --limit 10
  *   npx tsx scripts/resegment-hierarchical.ts --max-diff 8 --max-null-rate 0.25
+ *   npx tsx scripts/resegment-hierarchical.ts --only-tagged
  *   npx tsx scripts/resegment-hierarchical.ts
  */
 
@@ -153,6 +154,98 @@ function stripJunk(paras: string[], lang: "en" | "ja"): string[] {
 }
 
 // ---------------------------------------------------------------------------
+// JP paragraph pre-processing (pattern-aware merge before generic merge)
+// ---------------------------------------------------------------------------
+
+/** Pattern A1: Detect JP "name-only" paragraph lines. */
+function isJpNameLine(para: string): boolean {
+  const t = para.trim();
+  if (t.length > 30) return false;
+  if (!/[\u4e00-\u9fff\u3400-\u4dbf]/.test(t)) return false;
+  if (t.endsWith('。')) return false;
+  if (/^[ーー－\-「『]/.test(t)) return false;
+  if (/^[★☆◆◇■□●○]/.test(t)) return false;
+  return true;
+}
+
+/** Pattern E1: Detect JP event metadata paragraphs (dates, event names, credit lines). */
+function isJpEventMeta(para: string): boolean {
+  const t = para.trim();
+  if (t.length > 40) return false;
+  if (/[㈰㈪㈫㈬㈭㈮㈯]/.test(t)) return true;
+  if (/^第[０-９0-9]+回/.test(t)) return true;
+  if (/^\d{4}年\d{1,2}月/.test(t)) return true;
+  return false;
+}
+
+/** Pattern E2: Detect opening quote without closing quote (split across paragraphs). */
+function isOpenQuote(para: string): boolean {
+  return para.trim().startsWith('「') && !para.includes('」');
+}
+
+/**
+ * Pre-process JP paragraphs before generic mergeShortForward.
+ * Applies pattern-aware merges for known editorial conventions:
+ *   A1: name-only line → merge with following bio paragraph
+ *   E1: event metadata / credit line → merge with following content
+ *   E2: split quote (opening 「 only) → merge with closing paragraph
+ */
+function preprocessJpParagraphs(paras: string[]): string[] {
+  let result = [...paras];
+
+  // --- Pass 1: A1 - merge name-only lines with following bios ---
+  let changed = true;
+  let iter = 0;
+  while (changed && iter < 10) {
+    changed = false;
+    iter++;
+    const next: string[] = [];
+    let i = 0;
+    while (i < result.length) {
+      if (isJpNameLine(result[i]) && i + 1 < result.length) {
+        next.push(result[i] + " " + result[i + 1]);
+        i += 2;
+        changed = true;
+      } else {
+        next.push(result[i]);
+        i += 1;
+      }
+    }
+    result = next;
+  }
+
+  // --- Pass 2: E1 - merge event metadata / credit lines forward ---
+  const afterE1: string[] = [];
+  let j = 0;
+  while (j < result.length) {
+    if (isJpEventMeta(result[j]) && j + 1 < result.length) {
+      afterE1.push(result[j] + " " + result[j + 1]);
+      j += 2;
+    } else {
+      afterE1.push(result[j]);
+      j += 1;
+    }
+  }
+  result = afterE1;
+
+  // --- Pass 3: E2 - merge split quotes ---
+  const afterE2: string[] = [];
+  let k = 0;
+  while (k < result.length) {
+    if (isOpenQuote(result[k]) && k + 1 < result.length && result[k + 1].includes('」')) {
+      afterE2.push(result[k] + result[k + 1]);
+      k += 2;
+    } else {
+      afterE2.push(result[k]);
+      k += 1;
+    }
+  }
+  result = afterE2;
+
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // Paragraph alignment (merge short paragraphs, from realign-mismatch-articles.ts)
 // ---------------------------------------------------------------------------
 
@@ -196,13 +289,13 @@ function alignParagraphs(
   jpParas: string[],
   enParas: string[],
 ): { pairs: Array<[string, string | null]>; jpMerged: number; enMerged: number } {
-  let jpWork = [...jpParas];
+  let jpWork = preprocessJpParagraphs(jpParas);
   let enWork = [...enParas];
 
-  if (enParas.length > jpParas.length) {
-    enWork = mergeShortForward(enParas, EN_MERGE_THRESHOLD);
-  } else if (jpParas.length > enParas.length) {
-    jpWork = mergeShortForward(jpParas, JP_MERGE_THRESHOLD);
+  if (enWork.length > jpWork.length) {
+    enWork = mergeShortForward(enWork, EN_MERGE_THRESHOLD);
+  } else if (jpWork.length > enWork.length) {
+    jpWork = mergeShortForward(jpWork, JP_MERGE_THRESHOLD);
   }
 
   const maxLen = Math.max(jpWork.length, enWork.length);
@@ -378,6 +471,24 @@ async function markNeedsReview(
   }
 }
 
+async function clearNeedsReview(
+  sb: SupabaseClient,
+  articleId: string,
+  existingTags: string[] | null,
+): Promise<void> {
+  const tag = "needs_manual_review";
+  const tags = existingTags ?? [];
+  if (!tags.includes(tag)) return; // not tagged
+  const newTags = tags.filter(t => t !== tag);
+  const { error } = await sb
+    .from("articles")
+    .update({ tags: newTags.length > 0 ? newTags : null })
+    .eq("id", articleId);
+  if (error) {
+    console.error(`  ⚠ Failed to clear needs_manual_review for ${articleId}: ${error.message}`);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // importResegmented — delete-then-insert + update articles + upsert doc_settings
 // ---------------------------------------------------------------------------
@@ -480,6 +591,7 @@ async function main() {
   const args = process.argv.slice(2);
   const dryRun = args.includes("--dry-run");
   const skipAlreadyDone = args.includes("--skip-already-done");
+  const onlyTagged = args.includes("--only-tagged");
 
   // Parse --limit N
   let limit: number | null = null;
@@ -548,7 +660,7 @@ async function main() {
   // -----------------------------------------------------------------------
   // Fetch articles to process
   // -----------------------------------------------------------------------
-  const modeLabel = `${dryRun ? "DRY-RUN " : ""}${limit ? `LIMIT=${limit} ` : ""}${articleId ? `ARTICLE=${articleId} ` : ""}${skipAlreadyDone ? "SKIP-DONE " : ""}`;
+  const modeLabel = `${dryRun ? "DRY-RUN " : ""}${limit ? `LIMIT=${limit} ` : ""}${articleId ? `ARTICLE=${articleId} ` : ""}${onlyTagged ? "TAGGED-ONLY " : ""}${skipAlreadyDone ? "SKIP-DONE " : ""}`;
   console.log(`[info] ${modeLabel}— smart classifier (maxDiff=${maxDiff}, maxNullRate=${maxNullRate.toFixed(2)})`);
   console.log(`[info] Hard case: para_diff > ${maxDiff} OR null_EN_rate > ${(maxNullRate * 100).toFixed(0)}%`);
 
@@ -570,6 +682,22 @@ async function main() {
     }
     articles = [data as ArticleRow];
     console.log(`Found: 1 specific article — "${(data as ArticleRow).title}"`);
+  } else if (onlyTagged) {
+    const { data, error } = await sb
+      .from("articles")
+      .select("id, title, content_en, content_ja, segment_count, tags")
+      .not("content_en", "is", null)
+      .not("content_ja", "is", null)
+      .eq("segmented", true)
+      .contains("tags", ["needs_manual_review"])
+      .order("created_at", { ascending: true });
+    if (error) {
+      console.error(`FATAL: tagged articles query failed: ${error.message}`);
+      process.exit(1);
+    }
+    articles = (data as ArticleRow[]) ?? [];
+    if (limit) articles = articles.slice(0, limit);
+    console.log(`Found: ${articles.length} articles tagged needs_manual_review.`);
   } else {
     articles = [];
     let page = 0;
@@ -747,6 +875,7 @@ async function main() {
             await markNeedsReview(sb, article.id, article.tags ?? null);
             console.log(`  ✓ DB updated (paragraphs) + tagged needs_manual_review.`);
           } else {
+            await clearNeedsReview(sb, article.id, article.tags ?? null);
             console.log(`  ✓ DB updated (hierarchical sentences).`);
           }
         }
