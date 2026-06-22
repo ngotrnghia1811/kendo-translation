@@ -1,4 +1,26 @@
 /**
+ * @deprecated Since Phase 1.2 (2026-06-22).  For new code, use the server-side
+ *   RPC function `get_article_bilingual_v2(article_id, target_lang)` instead.
+ *   It returns all segments for one target language in a single round-trip
+ *   without client-side pagination concatenation.
+ *
+ *   Migration: supabase/migrations/010_phase1_data_layer.sql
+ *
+ *   Usage (replacement):
+ *     const { data } = await supabase.rpc('get_article_bilingual_v2', {
+ *       p_article_id: articleId,
+ *       p_target_lang: 'en',
+ *     });
+ *
+ * Legacy callers (update when in scope):
+ *   - app/documents/[id]/edit/page.tsx:178         (editor segment load)
+ *   - app/api/documents/[id]/segments/route.ts:17  (segments API endpoint)
+ *
+ * This shim is preserved so those callers don't break.  When they are migrated,
+ * this file can be deleted.
+ *
+ * --- Original documentation below ---
+ *
  * fetchAllSegments — paginate past PostgREST's default 1,000-row cap.
  *
  * Supabase/PostgREST returns at most 1,000 rows per request by default.

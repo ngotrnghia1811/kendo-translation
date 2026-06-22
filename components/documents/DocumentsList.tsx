@@ -68,9 +68,11 @@ function filterByStatus(articles: Article[], status: StatusFilter): Article[] {
 interface DocumentsListProps {
   articles: Article[]
   userEmail: string
+  /** Phase 1.2g: keyset pagination cursor for "Load more" link */
+  nextCursor?: string | null
 }
 
-export default function DocumentsList({ articles, userEmail }: DocumentsListProps) {
+export default function DocumentsList({ articles, userEmail, nextCursor }: DocumentsListProps) {
   const [sortKey, setSortKey] = useState<SortKey>('name_asc')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [viewMap, setViewMap] = useState<Map<string, string>>(new Map())
@@ -168,45 +170,59 @@ export default function DocumentsList({ articles, userEmail }: DocumentsListProp
             <p className="text-sm">Documents will appear here once they are added.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4">
-            {sorted.map((doc) => (
-              <div key={doc.id} className="rounded-xl border p-4 sm:p-5 bg-[var(--rt-surface)] border-[var(--rt-border)] hover:border-[var(--rt-text-muted)] transition-colors">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-[var(--rt-text)] truncate">{doc.title}</h3>
-                    <div className="flex flex-wrap items-center gap-2 mt-2">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        doc.translation_status === 'complete' || doc.translation_status === 'qa_approved'
-                          ? 'bg-green-100 text-green-700'
-                          : doc.translation_status === 'in_progress' || doc.translation_status === 'translated'
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        {doc.translation_status === 'qa_approved' ? 'complete' : doc.translation_status || 'pending'}
-                      </span>
-                      {(doc.segment_count ?? 0) > 0 && (
-                        <span className="text-xs text-[var(--rt-text-muted)]">{doc.segment_count} segments</span>
-                      )}
+          <>
+            <div className="grid grid-cols-1 gap-4">
+              {sorted.map((doc) => (
+                <div key={doc.id} className="rounded-xl border p-4 sm:p-5 bg-[var(--rt-surface)] border-[var(--rt-border)] hover:border-[var(--rt-text-muted)] transition-colors">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-[var(--rt-text)] truncate">{doc.title}</h3>
+                      <div className="flex flex-wrap items-center gap-2 mt-2">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          doc.translation_status === 'complete' || doc.translation_status === 'qa_approved'
+                            ? 'bg-green-100 text-green-700'
+                            : doc.translation_status === 'in_progress' || doc.translation_status === 'translated'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {doc.translation_status === 'qa_approved' ? 'complete' : doc.translation_status || 'pending'}
+                        </span>
+                        {(doc.segment_count ?? 0) > 0 && (
+                          <span className="text-xs text-[var(--rt-text-muted)]">{doc.segment_count} segments</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Link
+                        href={`/documents/${doc.id}/read`}
+                        className="text-xs px-3 py-1.5 border rounded-lg border-[var(--rt-border)] hover:bg-[var(--rt-surface)] transition-colors text-[var(--rt-text-muted)]"
+                      >
+                        Read
+                      </Link>
+                      <Link
+                        href={`/documents/${doc.id}/edit`}
+                        className="text-xs px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                      >
+                        Edit
+                      </Link>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Link
-                      href={`/documents/${doc.id}/read`}
-                      className="text-xs px-3 py-1.5 border rounded-lg border-[var(--rt-border)] hover:bg-[var(--rt-surface)] transition-colors text-[var(--rt-text-muted)]"
-                    >
-                      Read
-                    </Link>
-                    <Link
-                      href={`/documents/${doc.id}/edit`}
-                      className="text-xs px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                    >
-                      Edit
-                    </Link>
-                  </div>
                 </div>
+              ))}
+            </div>
+
+            {/* Phase 1.2g: keyset pagination "Load more" */}
+            {nextCursor && (
+              <div className="mt-6 text-center">
+                <Link
+                  href={`/documents?cursor=${encodeURIComponent(nextCursor)}`}
+                  className="inline-block px-6 py-2 text-sm font-medium rounded-lg border border-[var(--rt-border)] hover:bg-[var(--rt-surface)] transition-colors text-[var(--rt-text-muted)]"
+                >
+                  Load more documents →
+                </Link>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     </div>

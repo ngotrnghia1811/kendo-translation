@@ -19,8 +19,8 @@
  * ArticleHit: { id, title, segment_count, snippet: string | null }
  * SegmentHit: { id, article_id, article_title, position, source_snippet, target_snippet, status }
  *
- * Uses PostgREST `.ilike()` for case-insensitive substring search.
- * Segment search queries both source_text and target_text and merges results.
+ * Phase 1.2f: Segment search now uses the search_segments RPC (GIN trigram index)
+ * instead of PostgREST .ilike('%term%') full-table scans.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -50,11 +50,6 @@ export interface SearchResponse {
     segments: SegmentHit[]
 }
 
-function truncate(text: string | null | undefined, max = 200): string | null {
-    if (!text) return null
-    return text.length > max ? text.slice(0, max) + '…' : text
-}
-
 export async function GET(req: NextRequest): Promise<NextResponse> {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -80,7 +75,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const segmentHits: SegmentHit[] = []
 
     // -------------------------------------------------------------------------
-    // Articles — search by title
+    // Articles — search by title (ilike is fine for ~993 articles)
     // -------------------------------------------------------------------------
     if (scope === 'articles' || scope === 'both') {
         const { data: articles, error: aErr } = await supabase
@@ -120,70 +115,36 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
                     id: a.id,
                     title: a.title,
                     segment_count: a.segment_count ?? 0,
-                    snippet: truncate(snippetMap.get(a.id) ?? null),
+                    snippet: snippetMap.get(a.id) ?? null,
                 })
             }
         }
     }
 
     // -------------------------------------------------------------------------
-    // Segments — search source_text and target_text, join article title
+    // Segments — search via search_segments RPC (GIN trigram index)
     // -------------------------------------------------------------------------
     if (scope === 'segments' || scope === 'both') {
-        // Build a map of article id→title so we can label hits.
-        // We query both source and target in parallel and merge.
-        const perField = Math.ceil(limit / 2)
+        const { data: segData, error: segErr } = await supabase.rpc(
+            'search_segments',
+            { p_query: q, p_limit: limit },
+        )
 
-        const [sourceRes, targetRes] = await Promise.all([
-            supabase
-                .from('segments')
-                .select('id, article_id, position, source_text, target_text, status')
-                .ilike('source_text', pattern)
-                .limit(perField),
-            supabase
-                .from('segments')
-                .select('id, article_id, position, source_text, target_text, status')
-                .ilike('target_text', pattern)
-                .limit(perField),
-        ])
-
-        if (sourceRes.error) {
-            return NextResponse.json({ error: sourceRes.error.message }, { status: 500 })
-        }
-        if (targetRes.error) {
-            return NextResponse.json({ error: targetRes.error.message }, { status: 500 })
+        if (segErr) {
+            return NextResponse.json({ error: segErr.message }, { status: 500 })
         }
 
-        // Deduplicate by segment id, source hits first.
-        const seen = new Set<string>()
-        const merged = [...(sourceRes.data ?? []), ...(targetRes.data ?? [])].filter(s => {
-            if (seen.has(s.id)) return false
-            seen.add(s.id)
-            return true
-        }).slice(0, limit)
-
-        if (merged.length > 0) {
-            // Fetch article titles for the matched article IDs.
-            const articleIds = [...new Set(merged.map(s => s.article_id))]
-            const { data: titleRows } = await supabase
-                .from('articles')
-                .select('id, title')
-                .in('id', articleIds)
-            const titleMap = new Map<string, string>(
-                (titleRows ?? []).map(r => [r.id, r.title])
-            )
-
-            for (const s of merged) {
-                segmentHits.push({
-                    id: s.id,
-                    article_id: s.article_id,
-                    article_title: titleMap.get(s.article_id) ?? s.article_id,
-                    position: s.position,
-                    source_snippet: truncate(s.source_text),
-                    target_snippet: truncate(s.target_text),
-                    status: s.status,
-                })
-            }
+        const rows = segData ?? []
+        for (const s of rows) {
+            segmentHits.push({
+                id: s.id,
+                article_id: s.article_id,
+                article_title: s.article_title,
+                position: s.position,
+                source_snippet: s.source_snippet,
+                target_snippet: s.target_snippet,
+                status: s.status,
+            })
         }
     }
 

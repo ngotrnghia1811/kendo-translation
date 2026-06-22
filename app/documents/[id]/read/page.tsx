@@ -1,10 +1,9 @@
 import type { Metadata } from 'next';
-import { createAdminClient, createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import ReaderView from '@/components/reader/ReaderView';
 import type { Segment } from '@/types/database';
-import { fetchAllSegments } from '@/lib/supabase/fetch-all-segments';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -34,21 +33,17 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
   if (!article) notFound();
 
   // Determine whether the current viewer should see editor affordances.
-  // Mirrors the role check in app/api/auth/me/route.ts: look up the
-  // profiles row by user id via the admin client and allow translator/admin.
-  // Defaults to false for unauthenticated users and on any lookup failure.
+  // Phase 1.2i: role is read from the JWT app_metadata claim (synced by the
+  // DB trigger sync_profile_role_trigger in migration 010).  Eliminates the
+  // per-request profiles table query.
   const {
     data: { user },
   } = await supabase.auth.getUser();
   let canEdit = false;
   if (user) {
-    const adminSupabase = await createAdminClient();
-    const { data: profile } = await adminSupabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-    canEdit = profile?.role === 'translator' || profile?.role === 'admin';
+    const role = (user.app_metadata as Record<string, unknown> | undefined)
+      ?.role as string | undefined;
+    canEdit = role === 'translator' || role === 'admin';
   }
 
   // Fetch ALL segments (no DB-side status filter) so ReaderView's paragraph
@@ -56,29 +51,53 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
   // contract in JS below: only segments that are qa_approved OR already have
   // target_text are exposed to the public reader.
   //
-  // fetchAllSegments paginates past PostgREST's 1,000-row default cap.
-  // EN segments are the primary lane; ZH segments are an optional overlay.
-  const [segments, zhSegmentsRaw, { data: settings }] = await Promise.all([
-    fetchAllSegments<Segment>(supabase, id, 'en'),
-    fetchAllSegments<{ id: string; position: number; target_text: string | null; status: string }>(
-      supabase, id, 'zh', 'id, position, target_text, status',
-    ),
+  // Phase 1.2e: get_article_bilingual_v2 RPC replaces fetchAllSegments.
+  // One target_lang per call — EN is the primary lane.
+  // Phase 1.2h: ZH segments only fetched when the article actually has ZH content.
+  const [enResult, zhCheck, { data: settings }] = await Promise.all([
+    supabase.rpc('get_article_bilingual_v2', {
+      p_article_id: id,
+      p_target_lang: 'en',
+    }),
+    supabase
+      .from('segments')
+      .select('id', { count: 'exact', head: true })
+      .eq('article_id', id)
+      .eq('target_lang', 'zh')
+      .limit(1),
     supabase.from('document_settings').select('*').eq('article_id', id).maybeSingle(),
   ]);
+
+  if (enResult.error) {
+    throw new Error(`Failed to fetch EN segments: ${enResult.error.message}`);
+  }
+
+  const segments = (enResult.data ?? []) as Segment[];
+
+  // Phase 1.2h: conditionally fetch ZH segments
+  const needsZh = (zhCheck.count ?? 0) > 0;
+  let zhSegmentsRaw: Segment[] = [];
+  if (needsZh) {
+    const { data: zhData } = await supabase.rpc('get_article_bilingual_v2', {
+      p_article_id: id,
+      p_target_lang: 'zh',
+    });
+    zhSegmentsRaw = (zhData ?? []) as Segment[];
+  }
 
   // Readers see segments according to the document's publish_filter setting:
   //   'any_translated' (default) — any segment with a populated target_text
   //   'qa_approved'              — only qa_approved segments
-  const publishFilter = settings?.publish_filter ?? 'any_translated'
-  const readableSegments = (segments || []).filter(
-    (s) => publishFilter === 'qa_approved'
+  const publishFilter = settings?.publish_filter ?? 'any_translated';
+  const readableSegments = (segments || []).filter((s) =>
+    publishFilter === 'qa_approved'
       ? s.status === 'qa_approved'
-      : (s.status === 'qa_approved' || s.target_text)
+      : s.status === 'qa_approved' || s.target_text,
   );
 
   // ZH segments — expose all that have target_text (status may be 'draft' for
   // machine-translated ZH content, but we still want to show it).
-  const zhSegments = (zhSegmentsRaw || []).filter((s) => s.target_text);
+  const zhSegments = zhSegmentsRaw.filter((s) => s.target_text);
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--rt-bg, #ffffff)' }}>

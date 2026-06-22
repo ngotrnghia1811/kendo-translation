@@ -39,13 +39,14 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && ADMIN_PATHS.some(p => path.startsWith(p))) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+    // Phase 1.2i: read admin role from JWT app_metadata claim.
+    // Eliminates the per-request profiles table query.
+    // The role is synced to auth.users.raw_app_meta_data by the
+    // sync_profile_role_trigger (migration 010).
+    const role = (user.app_metadata as Record<string, unknown> | undefined)
+      ?.role as string | undefined;
 
-    if (profile?.role !== 'admin') {
+    if (role !== 'admin') {
       const homeUrl = request.nextUrl.clone();
       homeUrl.pathname = '/';
       return NextResponse.redirect(homeUrl);
