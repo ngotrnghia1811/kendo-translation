@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   // We do a left-join style: select articles + embedded document_settings row.
   let query = supabase
     .from('articles')
-    .select('*, document_settings(publish_filter, total_segments, translated_count, approved_count)')
+    .select('id, title, translation_status, segment_count, created_at, updated_at, segmented, paired_pdf_path, document_settings(publish_filter, total_segments, translated_count, approved_count)')
     .order('created_at', { ascending: false });
 
   if (!includeAll) {

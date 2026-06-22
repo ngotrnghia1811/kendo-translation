@@ -1,9 +1,25 @@
+import type { Metadata } from 'next';
 import { createAdminClient, createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import ReaderView from '@/components/reader/ReaderView';
 import type { Segment } from '@/types/database';
 import { fetchAllSegments } from '@/lib/supabase/fetch-all-segments';
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data: article } = await supabase
+    .from('articles')
+    .select('title')
+    .eq('id', id)
+    .single();
+
+  return {
+    title: article?.title ?? 'Read Article',
+    description: article?.title ? `Read "${article.title}" on Kendo Translation` : 'Read article on Kendo Translation',
+  };
+}
 
 export default async function ReadPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

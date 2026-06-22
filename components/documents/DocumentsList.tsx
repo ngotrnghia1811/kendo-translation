@@ -124,7 +124,7 @@ export default function DocumentsList({ articles, userEmail }: DocumentsListProp
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <h2 className="text-xl font-bold text-gray-900">All Documents</h2>
 
@@ -208,7 +208,7 @@ export default function DocumentsList({ articles, userEmail }: DocumentsListProp
             ))}
           </div>
         )}
-      </main>
+      </div>
     </div>
   )
 }
