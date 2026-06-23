@@ -6,8 +6,9 @@ import { type Paragraph, type ReaderPage, getSegmentPage } from '@/types/reader'
 
 export type ReaderMode = 'single' | 'bilingual' | 'aligned' | 'pdf'
 
-/** Segments-per-page when a document has no source-book page metadata. */
-const FALLBACK_CHUNK_SIZE = 50
+/** Segments-per-page when a document has no source-book page metadata.
+ *  Exported so server-side page fetch can align on the same chunk size. */
+export const FALLBACK_CHUNK_SIZE = 50
 
 /**
  * Group an ordered run of segments into paragraphs using the
@@ -48,6 +49,12 @@ export function useReaderView(
     segments: Segment[],
     settings: DocumentSettings | null,
     zhSegments?: ZhSegmentRow[],
+    /** When provided (lazy-load mode), totalPages uses this instead of pages.length.
+     *  Enables the pager to show the correct total before all pages are loaded. */
+    totalSegmentsHint?: number,
+    /** Sorted list of source-book page numbers (null for fallback-chunk docs).
+     *  When provided with totalSegmentsHint, placeholder pages get correct labels. */
+    pageMetadataHint?: number[],
 ) {
     const [mode, setMode] = useState<ReaderMode>('single')
     const [displayLang, setDisplayLang] = useState<'source' | 'target'>('target')
@@ -71,7 +78,22 @@ export function useReaderView(
     // paragraphs. Long imported books (3k–29k segments) otherwise render as a
     // single 80k–160k px DOM; paging keeps each rendered slice small.
     const pages = useMemo<ReaderPage[]>(() => {
-        if (!segments.length) return []
+        if (!segments.length) {
+            // In lazy-load mode, we may have zero loaded segments but know the
+            // page count. Return placeholder pages so the pager works.
+            if (totalSegmentsHint && totalSegmentsHint > 0) {
+                const hintTotal = pageMetadataHint
+                    ? pageMetadataHint.length
+                    : Math.ceil(totalSegmentsHint / FALLBACK_CHUNK_SIZE)
+                return Array.from({ length: hintTotal }, (_, i) => ({
+                    page: pageMetadataHint?.[i] ?? null,
+                    label: pageMetadataHint ? String(pageMetadataHint[i]) : String(i + 1),
+                    segments: [] as Segment[],
+                    paragraphs: [] as Paragraph[],
+                }))
+            }
+            return []
+        }
 
         // Defensive: the paragraph-grouping loop relies on `position` being
         // non-decreasing. Supabase queries that omit an explicit
@@ -83,7 +105,8 @@ export function useReaderView(
         // Prefer real source-book pages (metadata.page, written by the
         // clean-triplet importer). Fall back to fixed-size chunks for legacy
         // / user-uploaded docs that carry no page metadata.
-        const hasPageMeta = ordered.some((s) => getSegmentPage(s) !== null)
+        const hasPageMeta = ordered.some((s) => getSegmentPage(s) !== null) ||
+            (pageMetadataHint && pageMetadataHint.length > 0)
 
         const buckets: { page: number | null; segments: Segment[] }[] = []
         if (hasPageMeta) {
@@ -96,21 +119,60 @@ export function useReaderView(
                 }
                 current.segments.push(seg)
             }
+            // Pad with placeholder pages for page-metadata docs that haven't
+            // been fully loaded yet.
+            if (pageMetadataHint && buckets.length < pageMetadataHint.length) {
+                const loadedPages = new Set(buckets.map(b => b.page))
+                for (const pn of pageMetadataHint) {
+                    if (!loadedPages.has(pn)) {
+                        buckets.push({ page: pn, segments: [] })
+                    }
+                }
+                // Re-sort by page number so pages appear in order
+                buckets.sort((a, b) => (a.page ?? 0) - (b.page ?? 0))
+            }
         } else {
-            for (let i = 0; i < ordered.length; i += FALLBACK_CHUNK_SIZE) {
-                buckets.push({ page: null, segments: ordered.slice(i, i + FALLBACK_CHUNK_SIZE) })
+            // Fallback mode: chunk by FALLBACK_CHUNK_SIZE segments.
+            // In lazy-load mode segments may have position gaps (some pages
+            // not yet loaded), so we bucket by position range rather than
+            // array index to keep pages aligned with their eventual positions.
+            if (totalSegmentsHint) {
+                const hintTotal = Math.ceil(totalSegmentsHint / FALLBACK_CHUNK_SIZE)
+                for (let p = 0; p < hintTotal; p++) {
+                    const lo = p * FALLBACK_CHUNK_SIZE
+                    const hi = lo + FALLBACK_CHUNK_SIZE
+                    const bucketSegs = ordered.filter(
+                        (s) => s.position >= lo && s.position < hi
+                    )
+                    buckets.push({ page: null, segments: bucketSegs })
+                }
+            } else {
+                for (let i = 0; i < ordered.length; i += FALLBACK_CHUNK_SIZE) {
+                    buckets.push({ page: null, segments: ordered.slice(i, i + FALLBACK_CHUNK_SIZE) })
+                }
             }
         }
 
         return buckets.map((bucket, i) => ({
             page: bucket.page,
-            label: bucket.page !== null ? String(bucket.page) : String(i + 1),
+            label: bucket.page !== null
+                ? String(bucket.page)
+                : pageMetadataHint?.[i] !== undefined
+                    ? String(pageMetadataHint[i])
+                    : String(i + 1),
             segments: bucket.segments,
-            paragraphs: groupParagraphs(bucket.segments, boundaries),
+            paragraphs: bucket.segments.length > 0
+                ? groupParagraphs(bucket.segments, boundaries)
+                : [],
         }))
-    }, [segments, settings?.paragraph_boundaries])
+    }, [segments, settings?.paragraph_boundaries, totalSegmentsHint, pageMetadataHint])
 
-    const totalPages = pages.length
+    const hintedTotal = pageMetadataHint
+        ? pageMetadataHint.length
+        : totalSegmentsHint
+            ? Math.ceil(totalSegmentsHint / FALLBACK_CHUNK_SIZE)
+            : 0
+    const totalPages = Math.max(pages.length, hintedTotal)
 
     // Clamp the page index whenever the document (and thus page count) changes
     // — e.g. navigating to a different article reuses this hook instance.

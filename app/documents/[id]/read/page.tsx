@@ -48,65 +48,116 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
     canEdit = role === 'translator' || role === 'admin';
   }
 
-  // Fetch ALL segments (no DB-side status filter) so ReaderView's paragraph
-  // merging sees the full ordered sequence. We then apply the reader-visibility
-  // contract in JS below: only segments that are qa_approved OR already have
-  // target_text are exposed to the public reader.
+  // ── SEO bot detection (Phase 2.3) ──────────────────────────────────────
+  // Crawlers receive the full article as static server-rendered HTML so they
+  // can index every paragraph. Humans get the virtualized ReaderView.
+  // Must run BEFORE data fetching so we can branch on bot vs human.
+  const headersList = await headers();
+  const userAgent = headersList.get('user-agent') ?? '';
+  const isBot = /bot|crawler|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandex/i.test(userAgent);
+
+  // Fetch document settings (needed for publish_filter + paragraph_boundaries)
+  const { data: settings } = await supabase
+    .from('document_settings')
+    .select('*')
+    .eq('article_id', id)
+    .maybeSingle();
+
+  const publishFilter = settings?.publish_filter ?? 'any_translated';
+
+  // ── Data fetching — branch: bots get full content, humans get page 1 only ──
+  // Phase 2 LCP gap closure: for human users, critical-path = page 1 only.
+  // The bulk of the article is fetched on demand / background-prefetched by
+  // ReaderView. Total segment count and page metadata are passed as hints so
+  // the pager shows the correct total from the start.
   //
-  // Phase 1.2e: get_article_bilingual_v2 RPC replaces fetchAllSegments.
-  // One target_lang per call — EN is the primary lane.
   // Phase 1.2h: ZH segments only fetched when the article actually has ZH content.
-  const [enResult, zhCheck, { data: settings }] = await Promise.all([
-    supabase.rpc('get_article_bilingual_v2', {
+
+  const FALLBACK_CHUNK_SIZE = 50; // must match hooks/useReaderView.ts
+
+  // Lightweight page info for lazy-pager hints (humans only)
+  let totalSegmentsHint: number | undefined;
+  let pageMetadataHint: number[] | null | undefined;
+  let zhCountHint: number | undefined;
+  if (!isBot) {
+    const { data: pageInfo } = await supabase.rpc('get_article_page_info', {
       p_article_id: id,
       p_target_lang: 'en',
-    }),
-    supabase
-      .from('segments')
-      .select('id', { count: 'exact', head: true })
-      .eq('article_id', id)
-      .eq('target_lang', 'zh')
-      .limit(1),
-    supabase.from('document_settings').select('*').eq('article_id', id).maybeSingle(),
-  ]);
-
-  if (enResult.error) {
-    throw new Error(`Failed to fetch EN segments: ${enResult.error.message}`);
-  }
-
-  const segments = (enResult.data ?? []) as Segment[];
-
-  // Phase 1.2h: conditionally fetch ZH segments
-  const needsZh = (zhCheck.count ?? 0) > 0;
-  let zhSegmentsRaw: Segment[] = [];
-  if (needsZh) {
-    const { data: zhData } = await supabase.rpc('get_article_bilingual_v2', {
-      p_article_id: id,
-      p_target_lang: 'zh',
+      p_publish_filter: publishFilter,
     });
-    zhSegmentsRaw = (zhData ?? []) as Segment[];
+    const info = (pageInfo as any)?.[0];
+    totalSegmentsHint = info?.total_count ? Number(info.total_count) : undefined;
+    pageMetadataHint = info?.has_page_metadata && info?.distinct_pages
+      ? (info.distinct_pages as number[])
+      : null;
   }
 
-  // Readers see segments according to the document's publish_filter setting:
-  //   'any_translated' (default) — any segment with a populated target_text
-  //   'qa_approved'              — only qa_approved segments
-  const publishFilter = settings?.publish_filter ?? 'any_translated';
-  const readableSegments = (segments || []).filter((s) =>
+  // Fetch EN segments — full for bots, page 1 only for humans
+  let enSegmentsRaw: Segment[];
+  if (isBot) {
+    const { data, error } = await supabase.rpc('get_article_bilingual_v2', {
+      p_article_id: id,
+      p_target_lang: 'en',
+    });
+    if (error) throw new Error(`Failed to fetch EN segments: ${error.message}`);
+    enSegmentsRaw = (data ?? []) as Segment[];
+  } else {
+    const page0PageNum: number | undefined = pageMetadataHint
+      ? pageMetadataHint[0]
+      : undefined;
+    const { data, error } = await supabase.rpc('get_article_bilingual_window', {
+      p_article_id: id,
+      p_target_lang: 'en',
+      p_offset: page0PageNum !== undefined ? 0 : 0,
+      p_limit: page0PageNum !== undefined ? 0 : FALLBACK_CHUNK_SIZE,
+      p_page: page0PageNum ?? undefined,
+    });
+    if (error) throw new Error(`Failed to fetch EN page 1: ${error.message}`);
+    enSegmentsRaw = (data ?? []) as Segment[];
+  }
+
+  // Apply reader-visibility filter (both branches)
+  const readableSegments = enSegmentsRaw.filter((s) =>
     publishFilter === 'qa_approved'
       ? s.status === 'qa_approved'
       : s.status === 'qa_approved' || s.target_text,
   );
 
-  // ZH segments — expose all that have target_text (status may be 'draft' for
-  // machine-translated ZH content, but we still want to show it).
-  const zhSegments = zhSegmentsRaw.filter((s) => s.target_text);
+  // ZH segments — conditionally fetched
+  // Phase 1.2h: only when the article actually has ZH content.
+  let zhSegments: Segment[] = [];
+  const { count: zhCount } = await supabase
+    .from('segments')
+    .select('id', { count: 'exact', head: true })
+    .eq('article_id', id)
+    .eq('target_lang', 'zh')
+    .limit(1);
+  const needsZh = (zhCount ?? 0) > 0;
 
-  // ── SEO bot detection (Phase 2.3) ──────────────────────────────────────
-  // Crawlers receive the full article as static server-rendered HTML so they
-  // can index every paragraph. Humans get the virtualized ReaderView.
-  const headersList = await headers();
-  const userAgent = headersList.get('user-agent') ?? '';
-  const isBot = /bot|crawler|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandex/i.test(userAgent);
+  if (needsZh) {
+    zhCountHint = zhCount ?? 0;
+    if (isBot) {
+      // Bot: full ZH fetch
+      const { data: zhData } = await supabase.rpc('get_article_bilingual_v2', {
+        p_article_id: id,
+        p_target_lang: 'zh',
+      });
+      zhSegments = ((zhData ?? []) as Segment[]).filter((s) => s.target_text);
+    } else {
+      // Human: page 1 ZH only (rest fetched lazily by ReaderView)
+      const page0PageNum: number | undefined = pageMetadataHint
+        ? pageMetadataHint[0]
+        : undefined;
+      const { data: zhData } = await supabase.rpc('get_article_bilingual_window', {
+        p_article_id: id,
+        p_target_lang: 'zh',
+        p_offset: page0PageNum !== undefined ? 0 : 0,
+        p_limit: page0PageNum !== undefined ? 0 : FALLBACK_CHUNK_SIZE,
+        p_page: page0PageNum ?? undefined,
+      });
+      zhSegments = ((zhData ?? []) as Segment[]).filter((s) => s.target_text);
+    }
+  }
 
   if (isBot) {
     // Group segments into paragraphs using the same semantics as useReaderView
@@ -240,6 +291,9 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
           articleId={id}
           canEdit={canEdit}
           pairedPdfPath={article.paired_pdf_path ?? null}
+          totalSegmentsHint={totalSegmentsHint}
+          pageMetadataHint={pageMetadataHint}
+          zhCountHint={zhCountHint}
         />
       )}
     </div>

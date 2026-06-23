@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import type { Segment, DocumentSettings } from '@/types/database'
-import { useReaderView, type ReaderMode, type ZhSegmentRow } from '@/hooks/useReaderView'
+import { useReaderView, type ReaderMode, type ZhSegmentRow, FALLBACK_CHUNK_SIZE } from '@/hooks/useReaderView'
 import { useThemeContext } from '@/components/shared/ThemeProvider'
 import { useReaderBookmarks } from '@/hooks/useReaderBookmarks'
 import { useReaderKeyboard } from '@/hooks/useReaderKeyboard'
 import { useReaderProgress } from '@/hooks/useReaderProgress'
+import { createClient } from '@/lib/supabase/client'
 import VirtualizedReader from './VirtualizedReader'
 import { isHeadingParagraph, type Paragraph } from '@/types/reader'
 import TranslatorAlignedView from './TranslatorAlignedView'
@@ -27,6 +28,12 @@ interface ReaderViewProps {
     canEdit: boolean
     /** Relative path to the paired PDF (from DB). When non-null, a "PDF" tab is shown. */
     pairedPdfPath?: string | null
+    /** Total number of readable EN segments (for lazy pager before all pages loaded). */
+    totalSegmentsHint?: number
+    /** Sorted list of source-book page numbers; null for fallback-chunk docs. */
+    pageMetadataHint?: number[] | null
+    /** Total ZH segment count hint (>0 means ZH is available; used for lazy ZH load). */
+    zhCountHint?: number
 }
 
 const MODE_LABELS: Record<ReaderMode, string> = {
@@ -141,7 +148,175 @@ function ToolbarButton({
 // Main component
 // ---------------------------------------------------------------------------
 
-export default function ReaderView({ segments, zhSegments, settings, title, articleId, canEdit, pairedPdfPath }: ReaderViewProps) {
+export default function ReaderView({ segments, zhSegments, settings, title, articleId, canEdit, pairedPdfPath, totalSegmentsHint, pageMetadataHint, zhCountHint }: ReaderViewProps) {
+    // ── Lazy page cache ─────────────────────────────────────────────────
+    // In lazy mode (totalSegmentsHint provided), the server only sends page 1.
+    // We maintain a cache of loaded segments that grows as pages are fetched
+    // on demand or via background prefetch.
+    const isLazyMode = totalSegmentsHint !== undefined && totalSegmentsHint > 0
+
+    // EN segment cache — indexed by normalized page index (0-based).
+    const enPageCacheRef = useRef<Map<number, Segment[]>>(new Map())
+    const [enCacheVersion, setEnCacheVersion] = useState(0) // bump to re-render
+    const [pageFetching, setPageFetching] = useState<Set<number>>(new Set()) // pages being fetched now
+
+    // ZH segment cache (mirrors EN paging)
+    const zhPageCacheRef = useRef<Map<number, Segment[]>>(new Map())
+    const [zhCacheVersion, setZhCacheVersion] = useState(0)
+
+    // Initialize cache with SSR-provided page 0
+    const initializedRef = useRef(false)
+    if (!initializedRef.current && isLazyMode) {
+        enPageCacheRef.current.set(0, segments)
+        if (zhSegments && zhSegments.length > 0) {
+            // Seed ZH cache with page-0 data. ZhSegmentRow is a subset of Segment
+            // fields; the runtime shape is compatible.
+            zhPageCacheRef.current.set(0, zhSegments as unknown as Segment[])
+        }
+        initializedRef.current = true
+    }
+    if (!initializedRef.current && !isLazyMode) {
+        initializedRef.current = true
+    }
+
+    // Derived: all loaded EN segments in position order
+    const allEnSegments = useMemo<Segment[]>(() => {
+        if (!isLazyMode) return segments
+        const result: Segment[] = []
+        const totalPages = pageMetadataHint
+            ? pageMetadataHint.length
+            : Math.ceil(totalSegmentsHint! / FALLBACK_CHUNK_SIZE)
+        for (let i = 0; i < totalPages; i++) {
+            const pageSegs = enPageCacheRef.current.get(i)
+            if (pageSegs) result.push(...pageSegs)
+        }
+        return result
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [segments, enCacheVersion, isLazyMode, totalSegmentsHint, pageMetadataHint])
+
+    // Derived: all loaded ZH segments
+    const allZhSegments = useMemo<Segment[]>(() => {
+        if (!isLazyMode) return (zhSegments as Segment[]) ?? []
+        const result: Segment[] = []
+        const totalPages = pageMetadataHint
+            ? pageMetadataHint.length
+            : Math.ceil((zhCountHint ?? totalSegmentsHint ?? 0) / FALLBACK_CHUNK_SIZE)
+        for (let i = 0; i < totalPages; i++) {
+            const pageSegs = zhPageCacheRef.current.get(i)
+            if (pageSegs) result.push(...pageSegs)
+        }
+        return result
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [zhSegments, zhCacheVersion, isLazyMode, totalSegmentsHint, pageMetadataHint, zhCountHint])
+
+    // Fetch a single page by index (EN, and ZH if available)
+    const fetchPage = useCallback(async (pageIndex: number) => {
+        if (pageFetching.has(pageIndex)) return
+        if (enPageCacheRef.current.has(pageIndex)) return // already loaded
+
+        setPageFetching(prev => new Set(prev).add(pageIndex))
+
+        const supabase = createClient()
+        try {
+            const pageNum = pageMetadataHint?.[pageIndex] ?? null
+            const offset = pageNum === null && pageMetadataHint === null
+                ? pageIndex * FALLBACK_CHUNK_SIZE
+                : 0
+            const limit = pageNum === null && pageMetadataHint === null
+                ? Math.min(FALLBACK_CHUNK_SIZE, totalSegmentsHint! - pageIndex * FALLBACK_CHUNK_SIZE)
+                : 0
+
+            const { data: enData, error: enErr } = await supabase.rpc(
+                'get_article_bilingual_window',
+                {
+                    p_article_id: articleId,
+                    p_target_lang: 'en',
+                    p_offset: offset,
+                    p_limit: limit,
+                    p_page: pageNum,
+                }
+            )
+            if (!enErr && enData) {
+                enPageCacheRef.current.set(pageIndex, enData as Segment[])
+                setEnCacheVersion(v => v + 1)
+            }
+
+            // Also fetch ZH for this page if ZH exists
+            if (zhCountHint && zhCountHint > 0) {
+                const { data: zhData, error: zhErr } = await supabase.rpc(
+                    'get_article_bilingual_window',
+                    {
+                        p_article_id: articleId,
+                        p_target_lang: 'zh',
+                        p_offset: offset,
+                        p_limit: limit,
+                        p_page: pageNum,
+                    }
+                )
+                if (!zhErr && zhData) {
+                    zhPageCacheRef.current.set(pageIndex, zhData as Segment[])
+                    setZhCacheVersion(v => v + 1)
+                }
+            }
+        } finally {
+            setPageFetching(prev => {
+                const next = new Set(prev)
+                next.delete(pageIndex)
+                return next
+            })
+        }
+    }, [articleId, pageMetadataHint, totalSegmentsHint, zhCountHint, pageFetching])
+
+    // Track background fill progress
+    const bgFillDoneRef = useRef(false)
+    const bgFillActiveRef = useRef(false)
+
+    // Background prefetch all remaining pages after first paint
+    useEffect(() => {
+        if (!isLazyMode || bgFillDoneRef.current || bgFillActiveRef.current) return
+
+        const totalPages = pageMetadataHint
+            ? pageMetadataHint.length
+            : Math.ceil(totalSegmentsHint! / FALLBACK_CHUNK_SIZE)
+
+        if (totalPages <= 1) { bgFillDoneRef.current = true; return }
+
+        bgFillActiveRef.current = true
+
+        const runFill = async () => {
+            // Start from page 1 (page 0 already loaded)
+            for (let i = 1; i < totalPages; i++) {
+                if (enPageCacheRef.current.has(i)) continue
+                try {
+                    await fetchPage(i)
+                } catch {
+                    // Silently continue — page loads will be retried on demand
+                }
+                // Small pause between batches to avoid DB overload
+                if (i % 5 === 0) {
+                    await new Promise(r => setTimeout(r, 0))
+                }
+            }
+            bgFillDoneRef.current = true
+        }
+
+        // Use a brief delay to let the first paint complete
+        const timer = setTimeout(runFill, 200)
+        return () => { clearTimeout(timer); bgFillActiveRef.current = false }
+    }, [isLazyMode, totalSegmentsHint, pageMetadataHint, fetchPage])
+
+    // Derive a stable ZhSegmentRow array reference for useReaderView's useMemo
+    // so the zhByPosition map doesn't rebuild on every render.
+    const stableZhSegments = useMemo<ZhSegmentRow[] | undefined>(() => {
+        if (allZhSegments.length === 0) return undefined
+        return allZhSegments.map(s => ({
+            id: s.id,
+            position: s.position,
+            target_text: s.target_text,
+            status: s.status,
+        }))
+    }, [allZhSegments])
+
     const {
         mode,
         setMode,
@@ -159,9 +334,34 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
         currentPage,
         currentPageIndex,
         totalPages,
-        goToPage,
+        goToPage: _goToPage,
         pages,
-    } = useReaderView(segments, settings, zhSegments)
+    } = useReaderView(
+        allEnSegments,
+        settings,
+        stableZhSegments,
+        totalSegmentsHint,
+        pageMetadataHint ?? undefined,
+    )
+
+    // ── Lazy page loading: wrap goToPage to trigger fetch for unloaded pages ──
+    const goToPage = useCallback((i: number) => {
+        const targetIdx = Math.max(0, Math.min(i, totalPages - 1))
+        _goToPage(targetIdx)
+
+        // In lazy mode, trigger on-demand fetch for the target page if not cached
+        if (isLazyMode && !enPageCacheRef.current.has(targetIdx)) {
+            fetchPage(targetIdx)
+        }
+    }, [_goToPage, totalPages, isLazyMode, fetchPage])
+
+    // True when the current page exists in the page list but has no loaded
+    // segments yet — i.e., it's being fetched now or hasn't been requested.
+    const currentPageLoading = isLazyMode &&
+        currentPage !== null &&
+        currentPage.segments.length === 0 &&
+        paragraphs.length === 0 &&
+        totalPages > 0
 
     const {
         theme,
@@ -782,7 +982,19 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                     data-reader-font={font}
                     style={{ fontSize: fontSizeValue, minHeight: '100%' }}
                 >
-                    {segments.length === 0 ? (
+                    {segments.length === 0 && !isLazyMode ? (
+                        <div className="text-center py-20 text-gray-500">
+                            No segments available for this document.
+                        </div>
+                    ) : currentPageLoading ? (
+                        <div className="flex items-center justify-center py-20">
+                            <div className="text-center" style={{ color: 'var(--rt-text-muted)' }}>
+                                <div className="animate-spin rounded-full h-8 w-8 border-2 border-b-transparent mx-auto mb-3"
+                                    style={{ borderColor: 'var(--rt-border)', borderBottomColor: '#3b82f6' }} />
+                                <p className="text-sm">Loading page…</p>
+                            </div>
+                        </div>
+                    ) : allEnSegments.length === 0 && isLazyMode ? (
                         <div className="text-center py-20 text-gray-500">
                             No segments available for this document.
                         </div>
