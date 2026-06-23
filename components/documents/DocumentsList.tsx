@@ -106,16 +106,16 @@ export default function DocumentsList({ articles, userEmail, nextCursor }: Docum
       <header className="border-b bg-[var(--rt-surface)] border-[var(--rt-border)]">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <Link href="/" className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2 shrink-0">
+            <Link href="/" className="text-lg sm:text-xl font-bold text-[var(--color-text)] flex items-center gap-2 shrink-0">
               <span>⚔️</span>
               <span className="hidden sm:inline">Kendo Translation</span>
             </Link>
-            <span className="text-gray-300">/</span>
-            <span className="text-gray-800 truncate">Documents</span>
+            <span className="text-[var(--color-text-muted)]/40">/</span>
+            <span className="text-[var(--color-text)] truncate">Documents</span>
           </div>
           <Link
             href="/profile"
-            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors group"
+            className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors group"
             title="Your profile"
           >
             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-sm shrink-0 group-hover:bg-blue-200 transition-colors">
@@ -128,7 +128,7 @@ export default function DocumentsList({ articles, userEmail, nextCursor }: Docum
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-          <h2 className="text-xl font-bold text-gray-900">All Documents</h2>
+          <h2 className="text-xl font-bold text-[var(--color-text)]">All Documents</h2>
 
           {/* Sort + filter controls */}
           <div className="flex items-center gap-2 flex-wrap">
@@ -154,7 +154,7 @@ export default function DocumentsList({ articles, userEmail, nextCursor }: Docum
               data-testid="documents-sort"
               value={sortKey}
               onChange={(e) => setSortKey(e.target.value as SortKey)}
-              className="text-sm rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="text-sm rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               {SORT_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -164,9 +164,9 @@ export default function DocumentsList({ articles, userEmail, nextCursor }: Docum
         </div>
 
         {sorted.length === 0 ? (
-          <div className="text-center py-24 text-gray-500">
+          <div className="text-center py-24 text-[var(--color-text-muted)]">
             <span className="text-5xl block mb-4">📄</span>
-            <p className="text-lg font-medium text-gray-900 mb-2">No documents yet</p>
+            <p className="text-lg font-medium text-[var(--color-text)] mb-2">No documents yet</p>
             <p className="text-sm">Documents will appear here once they are added.</p>
           </div>
         ) : (

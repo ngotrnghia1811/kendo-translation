@@ -71,7 +71,7 @@ export default function AdminAssignmentsPage() {
 
     if (loading) {
         return (
-            <div className="container mx-auto px-4 py-8 text-gray-500">
+            <div className="container mx-auto px-4 py-8 text-[var(--color-text-muted)]">
                 Loading…
             </div>
         )
@@ -83,10 +83,10 @@ export default function AdminAssignmentsPage() {
                 className="container mx-auto px-4 py-8"
                 data-testid="admin-assignments-forbidden"
             >
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                <h1 className="text-2xl font-bold text-[var(--color-text)] mb-2">
                     Forbidden
                 </h1>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-[var(--color-text-muted)]">
                     You must be an admin to manage document assignments.
                 </p>
                 <Link
@@ -104,17 +104,17 @@ export default function AdminAssignmentsPage() {
             <div className="mb-6 flex items-center gap-2 text-sm">
                 <Link
                     href="/admin"
-                    className="text-gray-500 hover:text-gray-700"
+                    className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
                 >
                     ← Admin
                 </Link>
-                <span className="text-gray-300">/</span>
-                <span className="text-gray-900 dark:text-white font-medium">
+                <span className="text-[var(--color-text-muted)]/40">/</span>
+                <span className="text-[var(--color-text)] font-medium">
                     Assignments
                 </span>
-                <span className="text-gray-300">/</span>
+                <span className="text-[var(--color-text-muted)]/40">/</span>
                 <span
-                    className="text-gray-600 truncate"
+                    className="text-[var(--color-text-muted)] truncate"
                     data-testid="admin-assignments-doc-title"
                 >
                     {doc?.title ?? documentId}
@@ -127,10 +127,10 @@ export default function AdminAssignmentsPage() {
                 </div>
             )}
 
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            <h1 className="text-2xl font-bold text-[var(--color-text)] mb-2">
                 Manage assignments
             </h1>
-            <p className="text-sm text-gray-500 mb-6">
+            <p className="text-sm text-[var(--color-text-muted)] mb-6">
                 Grant per-document phase capabilities (translate, edit,
                 proofread, qa) to specific users.
             </p>

@@ -391,7 +391,7 @@ export default function EditPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-gray-500">
+      <div className="min-h-screen flex items-center justify-center text-[var(--color-text-muted)]">
         <span>Loading editor…</span>
       </div>
     );
@@ -400,12 +400,12 @@ export default function EditPage() {
   return (
     <div className="min-h-screen">
       {/* Mobile phone-block banner — editor requires desktop (T6) */}
-      <div className="md:hidden fixed inset-0 z-50 flex flex-col items-center justify-center bg-white px-6 text-center">
+      <div className="md:hidden fixed inset-0 z-50 flex flex-col items-center justify-center bg-[var(--color-surface)] px-6 text-center">
         <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-indigo-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
         </svg>
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">Editor requires a desktop</h2>
-        <p className="text-sm text-gray-500 mb-6">
+        <h2 className="text-lg font-semibold text-[var(--color-text)] mb-2">Editor requires a desktop</h2>
+        <p className="text-sm text-[var(--color-text-muted)] mb-6">
           The translation editor is designed for laptop and desktop use.
           On small screens, use the reader view instead.
         </p>
@@ -419,12 +419,12 @@ export default function EditPage() {
       </div>
 
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-[var(--color-surface)] border-b border-[var(--color-border)] sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
-            <Link href="/documents" className="text-gray-400 hover:text-gray-600 transition-colors text-sm">← Docs</Link>
-            <span className="text-gray-300">/</span>
-            <span className="text-sm font-medium text-gray-900 truncate">{article?.title}</span>
+            <Link href="/documents" className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors text-sm">← Docs</Link>
+            <span className="text-[var(--color-text-muted)]/40">/</span>
+            <span className="text-sm font-medium text-[var(--color-text)] truncate">{article?.title}</span>
             <div className="flex items-center gap-1.5 ml-2" data-testid="lang-switcher">
               <button
                 onClick={() => setTargetLang('en')}
@@ -432,7 +432,7 @@ export default function EditPage() {
                 className={`text-xs px-2 py-0.5 rounded transition-colors font-medium ${
                   targetLang === 'en'
                     ? 'bg-indigo-600 text-white'
-                    : 'text-gray-500 hover:bg-gray-100'
+                    : 'text-[var(--color-text-muted)] hover:bg-[var(--color-bg)]'
                 }`}
               >
                 EN
@@ -443,7 +443,7 @@ export default function EditPage() {
                 className={`text-xs px-2 py-0.5 rounded transition-colors font-medium ${
                   targetLang === 'zh'
                     ? 'bg-indigo-600 text-white'
-                    : 'text-gray-500 hover:bg-gray-100'
+                    : 'text-[var(--color-text-muted)] hover:bg-[var(--color-bg)]'
                 }`}
               >
                 ZH
@@ -455,13 +455,13 @@ export default function EditPage() {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-4 text-sm text-gray-500 shrink-0">
+          <div className="flex items-center gap-4 text-sm text-[var(--color-text-muted)] shrink-0">
             <span>{stats.translated}/{stats.total} translated</span>
             <span className="text-green-600">{stats.approved} approved</span>
           </div>
         </div>
         {stats.total > 0 && (
-          <div className="h-1 bg-gray-100">
+          <div className="h-1 bg-[var(--color-bg)]">
             <div
               className="h-full bg-blue-500 transition-all"
               style={{ width: `${(stats.translated / stats.total) * 100}%` }}
@@ -478,11 +478,11 @@ export default function EditPage() {
         </div>
       )}
 
-      <main className={`${editorWidthClass} mx-auto px-6 py-6 grid grid-cols-1 lg:grid-cols-2 gap-6`}>
+      <div className={`${editorWidthClass} mx-auto px-6 py-6 grid grid-cols-1 lg:grid-cols-2 gap-6`}>
         {/* Segment list */}
         <div className="space-y-2">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+            <h3 className="text-sm font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
               Segments
               {filteredSegments.length !== segments.length && (
                 <span className="ml-1 text-indigo-600 normal-case font-normal">
@@ -500,7 +500,7 @@ export default function EditPage() {
                 className={`text-xs px-2 py-1 rounded border transition-colors ${
                   batchMode
                     ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                    : 'bg-[var(--color-surface)] text-[var(--color-text-muted)] border-[var(--color-border)] hover:bg-[var(--color-bg)]'
                 }`}
                 data-testid="batch-mode-toggle"
               >
@@ -562,7 +562,7 @@ export default function EditPage() {
           />
 
           {batchMode && (
-            <div className="flex items-center gap-3 text-xs text-gray-500 mb-2 pb-2 border-b border-gray-200">
+            <div className="flex items-center gap-3 text-xs text-[var(--color-text-muted)] mb-2 pb-2 border-b border-[var(--color-border)]">
               <button type="button" onClick={toggleSelectAll} className="hover:text-blue-600 transition-colors">
                 {selectedIds.size === filteredSegments.length ? 'Deselect all' : 'Select all'}
               </button>
@@ -624,13 +624,13 @@ export default function EditPage() {
               />
             ) : null;
           })() : (
-            <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400">
+            <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-12 text-center text-[var(--color-text-muted)]">
               <p className="text-4xl mb-3">👆</p>
               <p className="text-sm">Select a segment to start editing</p>
             </div>
           )}
         </div>
-      </main>
+      </div>
     </div>
   );
 }

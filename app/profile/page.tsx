@@ -37,7 +37,7 @@ interface ProfileStats {
 const ROLE_BADGE: Record<string, string> = {
     admin: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
     translator: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
-    reader: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+    reader: 'bg-[var(--color-bg)] text-[var(--color-text-muted)] dark:bg-gray-800 dark:text-gray-300',
 }
 
 const PHASE_COLORS: Record<string, string> = {
@@ -116,8 +116,8 @@ function UsernameEditor({
     if (!editing) {
         return (
             <div className="flex items-center gap-2">
-                <span className="text-xl font-semibold text-[var(--rt-text)]">
-                    {initial || <span className="text-gray-400 italic">No username set</span>}
+                <span className="text-xl font-semibold text-[var(--color-text)]">
+                    {initial || <span className="text-[var(--color-text-muted)] italic">No username set</span>}
                 </span>
                 <button
                     type="button"
@@ -142,7 +142,7 @@ function UsernameEditor({
                         if (e.key === 'Enter') submit()
                         if (e.key === 'Escape') cancel()
                     }}
-                    className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white w-48"
+                    className="border border-[var(--color-border)] rounded px-2 py-1 text-sm bg-[var(--color-surface)] text-[var(--color-text)] w-48"
                     placeholder="username"
                     maxLength={30}
                     disabled={saving}
@@ -159,7 +159,7 @@ function UsernameEditor({
                     type="button"
                     onClick={cancel}
                     disabled={saving}
-                    className="px-3 py-1 text-xs text-gray-600 dark:text-gray-400 hover:underline"
+                    className="px-3 py-1 text-xs text-[var(--color-text-muted)] hover:underline"
                 >
                     Cancel
                 </button>
@@ -173,11 +173,11 @@ function UsernameEditor({
 
 function StatCard({ label, value, icon }: { label: string; value: number; icon: string }) {
     return (
-        <div className="border rounded-lg p-4 flex items-center gap-3 bg-[var(--rt-surface)] border-[var(--rt-border)]">
+        <div className="border rounded-lg p-4 flex items-center gap-3 bg-[var(--color-surface)] border-[var(--color-border)]">
             <span className="text-2xl">{icon}</span>
             <div>
-                <p className="text-2xl font-bold text-[var(--rt-text)]">{value}</p>
-                <p className="text-xs text-[var(--rt-text-muted)]">{label}</p>
+                <p className="text-2xl font-bold text-[var(--color-text)]">{value}</p>
+                <p className="text-xs text-[var(--color-text-muted)]">{label}</p>
             </div>
         </div>
     )
@@ -217,11 +217,11 @@ export default function ProfilePage() {
         return (
             <div className="container mx-auto px-4 py-8 max-w-4xl">
                 <div className="animate-pulse space-y-4">
-                    <div className="h-8 bg-[var(--rt-border)] rounded w-1/3" />
-                    <div className="h-32 bg-[var(--rt-border)] rounded" />
+                    <div className="h-8 bg-[var(--color-border)] rounded w-1/3" />
+                    <div className="h-32 bg-[var(--color-border)] rounded" />
                     <div className="grid grid-cols-4 gap-4">
                         {[0, 1, 2, 3].map((i) => (
-                            <div key={i} className="h-20 bg-[var(--rt-border)] rounded" />
+                            <div key={i} className="h-20 bg-[var(--color-border)] rounded" />
                         ))}
                     </div>
                 </div>
@@ -232,7 +232,7 @@ export default function ProfilePage() {
     if (!profile) {
         return (
             <div className="container mx-auto px-4 py-8 max-w-4xl">
-                <p className="text-gray-500">
+                <p className="text-[var(--color-text-muted)]">
                     Not logged in.{' '}
                     <Link href="/login" className="text-blue-600 underline">
                         Sign in
@@ -246,10 +246,10 @@ export default function ProfilePage() {
 
     return (
         <div className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
-            <h1 className="text-2xl font-bold text-[var(--rt-text)]">Your Profile</h1>
+            <h1 className="text-2xl font-bold text-[var(--color-text)]">Your Profile</h1>
 
             {/* ── Profile card ── */}
-            <div className="rounded-xl shadow-sm border p-6 bg-[var(--rt-surface)] border-[var(--rt-border)]">
+            <div className="rounded-xl shadow-sm border p-6 bg-[var(--color-surface)] border-[var(--color-border)]">
                 <div className="flex items-start gap-5">
                     {/* Avatar */}
                     <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-2xl font-bold text-blue-700 dark:text-blue-300 shrink-0">
@@ -271,18 +271,18 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Meta row */}
-                <div className="mt-5 border-t border-[var(--rt-border)] pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                <div className="mt-5 border-t border-[var(--color-border)] pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                     <div>
-                        <p className="text-[var(--rt-text-muted)] text-xs mb-0.5">Email</p>
-                        <p className="text-[var(--rt-text)]">{profile.email ?? '—'}</p>
+                        <p className="text-[var(--color-text-muted)] text-xs mb-0.5">Email</p>
+                        <p className="text-[var(--color-text)]">{profile.email ?? '—'}</p>
                     </div>
                     <div>
-                        <p className="text-[var(--rt-text-muted)] text-xs mb-0.5">Member since</p>
-                        <p className="text-[var(--rt-text)]">{formatDate(profile.created_at)}</p>
+                        <p className="text-[var(--color-text-muted)] text-xs mb-0.5">Member since</p>
+                        <p className="text-[var(--color-text)]">{formatDate(profile.created_at)}</p>
                     </div>
                     <div>
-                        <p className="text-[var(--rt-text-muted)] text-xs mb-0.5">User ID</p>
-                        <p className="text-[var(--rt-text)] font-mono text-xs truncate">{profile.id}</p>
+                        <p className="text-[var(--color-text-muted)] text-xs mb-0.5">User ID</p>
+                        <p className="text-[var(--color-text)] font-mono text-xs truncate">{profile.id}</p>
                     </div>
                 </div>
             </div>
@@ -290,7 +290,7 @@ export default function ProfilePage() {
             {/* ── Stats ── */}
             {stats && (
                 <section>
-                    <h2 className="text-lg font-semibold text-[var(--rt-text)] mb-3">
+                    <h2 className="text-lg font-semibold text-[var(--color-text)] mb-3">
                         Activity
                     </h2>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -305,11 +305,11 @@ export default function ProfilePage() {
             {/* ── Assigned documents ── */}
             {stats && stats.assignments.length > 0 && (
                 <section>
-                    <h2 className="text-lg font-semibold text-[var(--rt-text)] mb-3">
+                    <h2 className="text-lg font-semibold text-[var(--color-text)] mb-3">
                         Assigned Documents
                     </h2>
-                    <div className="rounded-xl border overflow-hidden bg-[var(--rt-surface)] border-[var(--rt-border)]">
-                        <ul className="divide-y divide-[var(--rt-border)]">
+                    <div className="rounded-xl border overflow-hidden bg-[var(--color-surface)] border-[var(--color-border)]">
+                        <ul className="divide-y divide-[var(--color-border)]">
                             {stats.assignments.map((a) => (
                                 <li key={a.document_id} className="px-5 py-3 flex items-center justify-between gap-3">
                                     <Link
@@ -322,7 +322,7 @@ export default function ProfilePage() {
                                         {a.allowed_phases.map((ph) => (
                                             <span
                                                 key={ph}
-                                                className={`px-2 py-0.5 text-xs rounded-full font-medium ${PHASE_COLORS[ph] ?? 'bg-gray-100 text-gray-700'}`}
+                                                className={`px-2 py-0.5 text-xs rounded-full font-medium ${PHASE_COLORS[ph] ?? 'bg-[var(--color-bg)] text-[var(--color-text-muted)]'}`}
                                             >
                                                 {ph}
                                             </span>
@@ -338,11 +338,11 @@ export default function ProfilePage() {
             {/* ── Reading history ── */}
             {stats && stats.recentHistory.length > 0 && (
                 <section>
-                    <h2 className="text-lg font-semibold text-[var(--rt-text)] mb-3">
+                    <h2 className="text-lg font-semibold text-[var(--color-text)] mb-3">
                         Recent Reading
                     </h2>
-                    <div className="rounded-xl border overflow-hidden bg-[var(--rt-surface)] border-[var(--rt-border)]">
-                        <ul className="divide-y divide-[var(--rt-border)]">
+                    <div className="rounded-xl border overflow-hidden bg-[var(--color-surface)] border-[var(--color-border)]">
+                        <ul className="divide-y divide-[var(--color-border)]">
                             {stats.recentHistory.map((h) => (
                                 <li key={h.item_id} className="px-5 py-3 flex items-center justify-between gap-3">
                                     <Link
@@ -355,7 +355,7 @@ export default function ProfilePage() {
                                     >
                                         {h.item_title}
                                     </Link>
-                                    <span className="text-xs text-gray-400 shrink-0">
+                                    <span className="text-xs text-[var(--color-text-muted)] shrink-0">
                                         {formatRelative(h.visited_at)}
                                     </span>
                                 </li>
@@ -367,7 +367,7 @@ export default function ProfilePage() {
 
             {/* If translator/admin, show no-assignment empty state */}
             {stats && stats.assignments.length === 0 && (profile.role === 'translator' || profile.role === 'admin') && (
-                <p className="text-sm text-[var(--rt-text-muted)]">
+                <p className="text-sm text-[var(--color-text-muted)]">
                     No document assignments yet. An admin can assign you to documents from the{' '}
                     <Link href="/admin/documents" className="text-blue-600 hover:underline">
                         admin panel

@@ -1,25 +1,88 @@
 @import "tailwindcss";
 
+/* ─── Raw palette tokens (Tailwind v4 @theme) ──────────────────────────────── */
+@theme {
+  /* Stone palette (neutral, oklch) */
+  --color-stone-50:  oklch(0.985 0.001 106.423);
+  --color-stone-100: oklch(0.970 0.001 106.424);
+  --color-stone-200: oklch(0.923 0.003 48.717);
+  --color-stone-300: oklch(0.869 0.005 56.366);
+  --color-stone-400: oklch(0.709 0.010 56.259);
+  --color-stone-500: oklch(0.553 0.013 58.071);
+  --color-stone-600: oklch(0.444 0.011 73.639);
+  --color-stone-700: oklch(0.374 0.010 67.558);
+  --color-stone-800: oklch(0.268 0.007 34.298);
+  --color-stone-900: oklch(0.216 0.006 56.043);
+  --color-stone-950: oklch(0.147 0.004 49.250);
+
+  /* Blue palette (accent, oklch) */
+  --color-blue-50:  oklch(0.970 0.014 254.604);
+  --color-blue-100: oklch(0.932 0.032 255.585);
+  --color-blue-200: oklch(0.882 0.059 254.128);
+  --color-blue-300: oklch(0.809 0.105 251.813);
+  --color-blue-400: oklch(0.707 0.165 254.624);
+  --color-blue-500: oklch(0.623 0.214 259.815);
+  --color-blue-600: oklch(0.546 0.245 262.881);
+  --color-blue-700: oklch(0.488 0.243 264.376);
+  --color-blue-800: oklch(0.424 0.199 265.638);
+  --color-blue-900: oklch(0.379 0.146 265.522);
+  --color-blue-950: oklch(0.282 0.091 267.935);
+
+  /* Typography */
+  --font-body: ui-sans-serif, system-ui, sans-serif;
+  --font-jp: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic",
+             "Noto Sans JP", Arial, Helvetica, sans-serif;
+
+  /* Reading scale */
+  --text-reading:    1rem;
+  --text-reading-lg: 1.125rem;
+}
+
+/* ─── Semantic design tokens ──────────────────────────────────────────────────
+   Light mode (default) via :root.
+   Dark mode overrides via [data-theme="dark"].
+   Components reference these via Tailwind arbitrary value syntax:
+     bg-[var(--color-surface)]
+     text-[var(--color-text)]
+     border-[var(--color-border)]
+   ────────────────────────────────────────────────────────────────────────── */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-bg:        var(--color-stone-50);
+  --color-surface:   #ffffff;
+  --color-text:      var(--color-stone-900);
+  --color-text-muted: var(--color-stone-500);
+  --color-border:    var(--color-stone-200);
+  --color-link:      var(--color-blue-600);
+  --color-accent:    var(--color-blue-600);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+[data-theme="dark"] {
+  --color-bg:        var(--color-stone-950);
+  --color-surface:   var(--color-stone-900);
+  --color-text:      var(--color-stone-100);
+  --color-text-muted: var(--color-stone-400);
+  --color-border:    var(--color-stone-700);
+  --color-link:      var(--color-blue-400);
+  --color-accent:    var(--color-blue-400);
 }
 
+/* ─── Body defaults (apply semantic tokens) ─────────────────────────────────── */
 body {
-  background: transparent;
-  font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Noto Sans JP", Arial, Helvetica, sans-serif;
+  background-color: var(--color-bg);
+  color:            var(--color-text);
+  font-family:      var(--font-jp);
+  transition:       background-color 0.2s ease, color 0.2s ease;
 }
 
-/* ─── Reader theme tokens ──────────────────────────────────────────────────
+/* ─── Reader theme tokens ─────────────────────────────────────────────────────
    Applied via data-reader-theme="<name>" on the reader wrapper.
    Components inside the reader reference --rt-* variables.
+   PRESERVED intact — the 7-theme system is a documented strength.
+
+   Each theme block ALSO sets the semantic --color-* tokens so shared
+   components (SiteNav, etc.) rendered inside the reader subtree match
+   the reader theme palette.
    ────────────────────────────────────────────────────────────────────────── */
 
 @layer base {
@@ -30,6 +93,14 @@ body {
     --rt-text:        #000000;
     --rt-text-muted:  #6b7280;
     --rt-accent:      #2563eb;
+    /* map to semantic tokens */
+    --color-bg:        #ffffff;
+    --color-surface:   #f8f8f8;
+    --color-text:      #000000;
+    --color-text-muted: #6b7280;
+    --color-border:    #e5e7eb;
+    --color-link:      #2563eb;
+    --color-accent:    #2563eb;
   }
 
   [data-reader-theme="dark"] {
@@ -39,6 +110,14 @@ body {
     --rt-text:        #f3f4f6;
     --rt-text-muted:  #9ca3af;
     --rt-accent:      #60a5fa;
+    /* map to semantic tokens */
+    --color-bg:        #111827;
+    --color-surface:   #1f2937;
+    --color-text:      #f3f4f6;
+    --color-text-muted: #9ca3af;
+    --color-border:    #374151;
+    --color-link:      #60a5fa;
+    --color-accent:    #60a5fa;
   }
 
   [data-reader-theme="solarized"] {
@@ -48,6 +127,13 @@ body {
     --rt-text:        #839496;
     --rt-text-muted:  #657b83;
     --rt-accent:      #268bd2;
+    --color-bg:        #002b36;
+    --color-surface:   #073642;
+    --color-text:      #839496;
+    --color-text-muted: #657b83;
+    --color-border:    #586e75;
+    --color-link:      #268bd2;
+    --color-accent:    #268bd2;
   }
 
   [data-reader-theme="pastel"] {
@@ -57,6 +143,13 @@ body {
     --rt-text:        #3b1d5a;
     --rt-text-muted:  #7c5f9a;
     --rt-accent:      #7c3aed;
+    --color-bg:        #fdf6ff;
+    --color-surface:   #f3e8ff;
+    --color-text:      #3b1d5a;
+    --color-text-muted: #7c5f9a;
+    --color-border:    #ddd6fe;
+    --color-link:      #7c3aed;
+    --color-accent:    #7c3aed;
   }
 
   [data-reader-theme="sepia"] {
@@ -66,6 +159,13 @@ body {
     --rt-text:        #3d2b1f;
     --rt-text-muted:  #7a6040;
     --rt-accent:      #9a5b2a;
+    --color-bg:        #f8f1e3;
+    --color-surface:   #f0e8d0;
+    --color-text:      #3d2b1f;
+    --color-text-muted: #7a6040;
+    --color-border:    #d4c5a0;
+    --color-link:      #9a5b2a;
+    --color-accent:    #9a5b2a;
   }
 
   [data-reader-theme="high-contrast"] {
@@ -75,6 +175,13 @@ body {
     --rt-text:        #ffffff;
     --rt-text-muted:  #aaaaaa;
     --rt-accent:      #ffff00;
+    --color-bg:        #000000;
+    --color-surface:   #1a1a1a;
+    --color-text:      #ffffff;
+    --color-text-muted: #aaaaaa;
+    --color-border:    #444444;
+    --color-link:      #ffff00;
+    --color-accent:    #ffff00;
   }
 
   [data-reader-theme="night-warm"] {
@@ -84,6 +191,13 @@ body {
     --rt-text:        #e8d8c0;
     --rt-text-muted:  #a08e7a;
     --rt-accent:      #d4a853;
+    --color-bg:        #1a1410;
+    --color-surface:   #2a2218;
+    --color-text:      #e8d8c0;
+    --color-text-muted: #a08e7a;
+    --color-border:    #4a3f30;
+    --color-link:      #d4a853;
+    --color-accent:    #d4a853;
   }
 
   /* ─── Reader font family tokens ─────────────────────────────────────────── */

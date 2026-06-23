@@ -96,7 +96,7 @@ function PhaseBar({ phase, count, total }: { phase: string; count: number; total
                 <span className="text-[var(--rt-text)]">{PHASE_LABELS[phase] ?? phase}</span>
                 <span className="text-[var(--rt-text-muted)] font-mono">{count.toLocaleString()} ({pct.toFixed(1)}%)</span>
             </div>
-            <div className="w-full h-2 rounded-full bg-gray-100 dark:bg-gray-700">
+            <div className="w-full h-2 rounded-full bg-[var(--color-bg)]">
                 <div
                     className="h-2 rounded-full transition-all duration-500"
                     style={{ width: `${pct}%`, backgroundColor: color }}
@@ -108,7 +108,7 @@ function PhaseBar({ phase, count, total }: { phase: string; count: number; total
 
 function ActivitySparkline({ timeline }: { timeline: { date: string; count: number }[] }) {
     if (timeline.length === 0) {
-        return <p className="text-xs text-gray-400 dark:text-gray-500 py-4 text-center">No activity in the last 30 days</p>
+        return <p className="text-xs text-[var(--color-text-muted)] py-4 text-center">No activity in the last 30 days</p>
     }
     const max = Math.max(...timeline.map(t => t.count), 1)
     return (
@@ -269,21 +269,21 @@ export default function AdminPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                 <div className="rounded-lg p-4 border bg-[var(--rt-surface)] border-[var(--rt-border)]">
                     <div className="text-3xl font-bold text-blue-600">{docStats.total}</div>
-                    <div className="text-sm text-gray-500">Documents</div>
+                    <div className="text-sm text-[var(--color-text-muted)]">Documents</div>
                 </div>
                 <div className="rounded-lg p-4 border bg-[var(--rt-surface)] border-[var(--rt-border)]">
                     <div className="text-3xl font-bold text-green-600">{docStats.segmented}</div>
-                    <div className="text-sm text-gray-500">Segmented</div>
+                    <div className="text-sm text-[var(--color-text-muted)]">Segmented</div>
                 </div>
                 <div className="rounded-lg p-4 border bg-[var(--rt-surface)] border-[var(--rt-border)]">
                     <div className="text-3xl font-bold text-purple-600">{users.length}</div>
-                    <div className="text-sm text-gray-500">Users</div>
+                    <div className="text-sm text-[var(--color-text-muted)]">Users</div>
                 </div>
                 <div className="rounded-lg p-4 border bg-[var(--rt-surface)] border-[var(--rt-border)]">
                     <div className="text-3xl font-bold text-orange-600">
                         {analyticsLoading ? '…' : totalSegments.toLocaleString()}
                     </div>
-                    <div className="text-sm text-gray-500">Total Segments</div>
+                    <div className="text-sm text-[var(--color-text-muted)]">Total Segments</div>
                 </div>
             </div>
 
@@ -312,7 +312,7 @@ export default function AdminPage() {
                                 <PhaseBar key={phase} phase={phase} count={count} total={totalSegments} />
                             ))}
                         {Object.keys(analytics.phaseBreakdown).length === 0 && (
-                            <p className="text-xs text-gray-400 text-center py-4">No segment data</p>
+                            <p className="text-xs text-[var(--color-text-muted)] text-center py-4">No segment data</p>
                         )}
                     </div>
 
@@ -350,7 +350,7 @@ export default function AdminPage() {
                                         {t.username.charAt(0).toUpperCase()}
                                     </div>
                                     <span className="text-sm text-[var(--rt-text)] flex-1 truncate">{t.username}</span>
-                                    <span className="text-xs font-mono text-[var(--rt-text-muted)]">{t.count} edits</span>
+                                    <span className="text-xs font-mono text-[var(--color-text-muted)]">{t.count} edits</span>
                                 </div>
                             ))}
                         </div>
@@ -474,7 +474,7 @@ export default function AdminPage() {
                                         className={`text-xs px-2 py-1 rounded font-medium transition-colors ${
                                             doc.publish_filter === 'qa_approved'
                                                 ? 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900 dark:text-purple-300'
-                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400'
+                                                    : 'bg-[var(--color-bg)] text-[var(--color-text-muted)] hover:bg-[var(--color-border)]'
                                         } ${filterSaving === doc.id ? 'opacity-50 cursor-wait' : ''}`}
                                     >
                                         {filterSaving === doc.id ? '…' : (doc.publish_filter === 'qa_approved' ? '🔒 QA only' : '📄 Any translated')}
@@ -510,18 +510,18 @@ export default function AdminPage() {
                             type="button"
                             onClick={() => setDocsPage(p => Math.max(0, p - 1))}
                             disabled={docsPage === 0}
-                            className="text-xs px-3 py-1 rounded border border-[var(--rt-border)] text-[var(--rt-text-muted)] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--rt-surface)] transition-colors"
+                                className="text-xs px-3 py-1 rounded border border-[var(--color-border)] text-[var(--color-text-muted)] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--color-surface)] transition-colors"
                         >
                             ← Previous
                         </button>
-                        <span className="text-xs text-[var(--rt-text-muted)]">
+                        <span className="text-xs text-[var(--color-text-muted)]">
                             Page {docsPage + 1} of {Math.ceil(docs.length / PAGE_SIZE)} &middot; {docs.length} documents total
                         </span>
                         <button
                             type="button"
                             onClick={() => setDocsPage(p => Math.min(Math.ceil(docs.length / PAGE_SIZE) - 1, p + 1))}
                             disabled={docsPage >= Math.ceil(docs.length / PAGE_SIZE) - 1}
-                            className="text-xs px-3 py-1 rounded border border-[var(--rt-border)] text-[var(--rt-text-muted)] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--rt-surface)] transition-colors"
+                            className="text-xs px-3 py-1 rounded border border-[var(--color-border)] text-[var(--color-text-muted)] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--color-surface)] transition-colors"
                         >
                             Next →
                         </button>
@@ -570,7 +570,7 @@ export default function AdminPage() {
                                                 ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900 dark:text-purple-300 dark:border-purple-700'
                                                 : user.role === 'translator'
                                                     ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:border-blue-700'
-                                                    : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600'
+                                                    : 'bg-[var(--color-bg)] text-[var(--color-text-muted)] border-[var(--color-border)]'
                                             }
                                             ${roleSaving === user.id ? 'opacity-50 cursor-wait' : 'hover:opacity-80'}
                                         `}

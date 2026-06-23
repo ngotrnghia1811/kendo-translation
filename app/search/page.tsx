@@ -87,7 +87,7 @@ function SegmentContextPanel({
             {open && (
                 <div className="mt-2 text-xs space-y-1.5 border-l-2 border-indigo-200 pl-3">
                     {loading && (
-                        <p className="text-gray-400 italic">Loading context…</p>
+                        <p className="text-[var(--color-text-muted)] italic">Loading context…</p>
                     )}
                     {error && (
                         <p className="text-red-500">Failed to load context: {error}</p>
@@ -97,19 +97,19 @@ function SegmentContextPanel({
                             {context
                                 .filter((s) => s.position < position)
                                 .map((s) => (
-                                    <p key={s.id} className="text-gray-500 line-clamp-2">
+                                    <p key={s.id} className="text-[var(--color-text-muted)] line-clamp-2">
                                         <Highlighted text={s.source_text} query={query} />
                                     </p>
                                 ))}
                             {current && (
-                                <p className="text-gray-800 font-medium bg-yellow-50/50 rounded px-1 -mx-1">
+                                <p className="text-[var(--color-text)] font-medium bg-yellow-50/50 rounded px-1 -mx-1">
                                     <Highlighted text={current.source_text} query={query} />
                                 </p>
                             )}
                             {context
                                 .filter((s) => s.position > position)
                                 .map((s) => (
-                                    <p key={s.id} className="text-gray-500 line-clamp-2">
+                                    <p key={s.id} className="text-[var(--color-text-muted)] line-clamp-2">
                                         <Highlighted text={s.source_text} query={query} />
                                     </p>
                                 ))}
@@ -238,9 +238,9 @@ function SearchPageInner() {
     return (
         <div className="min-h-screen">
             {/* Header */}
-            <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+            <header className="bg-[var(--color-surface)] border-b border-[var(--color-border)] sticky top-0 z-10">
                 <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
-                    <Link href="/documents" className="shrink-0 text-gray-400 hover:text-gray-600 transition-colors">
+                    <Link href="/documents" className="shrink-0 text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors">
                         {/* Back arrow */}
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -248,7 +248,7 @@ function SearchPageInner() {
                     </Link>
                     <div className="relative flex-1">
                         <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 text-[var(--color-text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
                         </div>
@@ -258,7 +258,7 @@ function SearchPageInner() {
                             value={query}
                             onChange={e => setQuery(e.target.value)}
                             placeholder="Search articles and segments…"
-                            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            className="w-full pl-9 pr-4 py-2 text-sm border border-[var(--color-border)] rounded-lg bg-[var(--color-bg)] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-[var(--color-text)]"
                             aria-label="Search query"
                         />
                     </div>
@@ -271,7 +271,7 @@ function SearchPageInner() {
                                 className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                                     scope === s
                                         ? 'bg-indigo-100 text-indigo-700'
-                                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                                        : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)]'
                                 }`}
                             >
                                 {SCOPE_LABELS[s]}
@@ -288,7 +288,7 @@ function SearchPageInner() {
                             className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
                                 scope === s
                                     ? 'bg-indigo-100 text-indigo-700 border-indigo-200'
-                                    : 'text-gray-500 border-gray-200 hover:bg-gray-50'
+                                    : 'text-[var(--color-text-muted)] border-[var(--color-border)] hover:bg-[var(--color-bg)]'
                             }`}
                         >
                             {SCOPE_LABELS[s]}
@@ -297,12 +297,12 @@ function SearchPageInner() {
                 </div>
             </header>
 
-            {/* Results */}
-            <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+            {/* Results — semantic <div> instead of <main> to avoid nesting with layout <main> */}
+            <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
                 {/* Loading */}
                 {loading && (
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
                         <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
@@ -322,7 +322,7 @@ function SearchPageInner() {
                 {!loading && !error && !results && query.trim().length < 2 && (
                     <div className="text-center py-16">
                         <div className="text-4xl mb-3">🔍</div>
-                        <p className="text-gray-500 text-sm">
+                        <p className="text-[var(--color-text-muted)] text-sm">
                             Type at least 2 characters to search across all kendo articles and segment translations.
                         </p>
                     </div>
@@ -332,15 +332,15 @@ function SearchPageInner() {
                 {!loading && !error && results && totalHits === 0 && (
                     <div className="text-center py-16">
                         <div className="text-4xl mb-3">🤷</div>
-                        <p className="text-gray-700 font-medium">No results for &ldquo;{results.query}&rdquo;</p>
-                        <p className="text-gray-500 text-sm mt-1">Try different keywords or broaden the scope.</p>
+                        <p className="text-[var(--color-text)] font-medium">No results for &ldquo;{results.query}&rdquo;</p>
+                        <p className="text-[var(--color-text-muted)] text-sm mt-1">Try different keywords or broaden the scope.</p>
                     </div>
                 )}
 
                 {/* Article hits */}
                 {!loading && results && results.articles.length > 0 && (
                     <section>
-                        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                        <h2 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide mb-3">
                             Articles ({results.articles.length})
                         </h2>
                         <ul className="space-y-2">
@@ -348,20 +348,20 @@ function SearchPageInner() {
                                 <li key={a.id}>
                                     <Link
                                         href={`/documents/${a.id}/read`}
-                                        className="block bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors group"
+                                        className="block bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-4 py-3 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors group"
                                     >
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0">
-                                                <p className="text-sm font-medium text-gray-900 group-hover:text-indigo-700 truncate">
+                                                <p className="text-sm font-medium text-[var(--color-text)] group-hover:text-indigo-700 truncate">
                                                     <Highlighted text={a.title} query={query} />
                                                 </p>
                                                 {a.segment_count > 0 && (
-                                                    <p className="text-xs text-gray-400 mt-0.5">
+                                                    <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
                                                         {a.segment_count.toLocaleString()} segments
                                                     </p>
                                                 )}
                                             </div>
-                                            <svg className="w-4 h-4 text-gray-300 group-hover:text-indigo-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg className="w-4 h-4 text-[var(--color-text-muted)]/40 group-hover:text-indigo-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                             </svg>
                                         </div>
@@ -375,7 +375,7 @@ function SearchPageInner() {
                 {/* Segment hits */}
                 {!loading && results && results.segments.length > 0 && (
                     <section>
-                        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                        <h2 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide mb-3">
                             Segments ({results.segments.length})
                         </h2>
                         <ul className="space-y-2">
@@ -383,7 +383,7 @@ function SearchPageInner() {
                                 <li key={s.id}>
                                     <Link
                                         href={`/documents/${s.article_id}/read`}
-                                        className="block bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors group"
+                                        className="block bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-4 py-3 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors group"
                                     >
                                         {/* Article name + position */}
                                         <div className="flex items-center justify-between gap-2 mb-2">
@@ -391,7 +391,7 @@ function SearchPageInner() {
                                                 {s.article_title}
                                             </span>
                                             <div className="flex items-center gap-2 shrink-0">
-                                                <span className="text-xs text-gray-400">§{s.position}</span>
+                                                <span className="text-xs text-[var(--color-text-muted)]">§{s.position}</span>
                                                 <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${STATUS_COLORS[s.status] ?? 'bg-gray-100 text-gray-700'}`}>
                                                     {s.status.replace('_', ' ')}
                                                 </span>
@@ -399,13 +399,13 @@ function SearchPageInner() {
                                         </div>
                                         {/* Source text */}
                                         {s.source_snippet && (
-                                            <p className="text-sm text-gray-700 line-clamp-2 mb-1">
+                                            <p className="text-sm text-[var(--color-text)] line-clamp-2 mb-1">
                                                 <Highlighted text={s.source_snippet} query={query} />
                                             </p>
                                         )}
                                         {/* Target text */}
                                         {s.target_snippet && (
-                                            <p className="text-xs text-gray-500 line-clamp-2 italic">
+                                            <p className="text-xs text-[var(--color-text-muted)] line-clamp-2 italic">
                                                 <Highlighted text={s.target_snippet} query={query} />
                                             </p>
                                         )}
@@ -439,11 +439,11 @@ function SearchPageInner() {
 
                 {/* Summary footer */}
                 {!loading && results && totalHits > 0 && (
-                    <p className="text-center text-xs text-gray-400 pt-2">
+                    <p className="text-center text-xs text-[var(--color-text-muted)] pt-2">
                         Showing up to 20 results per category for &ldquo;{results.query}&rdquo;
                     </p>
                 )}
-            </main>
+            </div>
         </div>
     )
 }
@@ -452,7 +452,7 @@ export default function SearchPage() {
     return (
         <Suspense fallback={
             <div className="min-h-screen flex items-center justify-center">
-                <div className="text-sm text-gray-500">Loading search…</div>
+                <div className="text-sm text-[var(--color-text-muted)]">Loading search…</div>
             </div>
         }>
             <SearchPageInner />

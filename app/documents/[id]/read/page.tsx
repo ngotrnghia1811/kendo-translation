@@ -103,17 +103,17 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
     <div className="min-h-screen" style={{ backgroundColor: 'var(--rt-bg, #ffffff)' }}>
       {readableSegments.length === 0 ? (
         <>
-          <header className="border-b border-gray-200 dark:border-gray-700">
+          <header className="border-b border-[var(--color-border)]">
             <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Link href="/documents" className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm">← Documents</Link>
-                <span className="text-gray-300 dark:text-gray-600">/</span>
-                <h1 className="text-sm font-medium text-gray-900 dark:text-gray-100">{article.title}</h1>
+                <Link href="/documents" className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-sm">← Documents</Link>
+                <span className="text-[var(--color-text-muted)]/40">/</span>
+                <h1 className="text-sm font-medium text-[var(--color-text)]">{article.title}</h1>
               </div>
               {canEdit && (
                 <Link
                   href={`/documents/${id}/edit`}
-                  className="text-xs px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  className="text-xs px-3 py-1.5 bg-[var(--color-text)] text-[var(--color-surface)] rounded-lg hover:opacity-80 transition-opacity"
                 >
                   Edit
                 </Link>
@@ -121,7 +121,7 @@ export default async function ReadPage({ params }: { params: Promise<{ id: strin
             </div>
           </header>
           <main className="max-w-4xl mx-auto px-6 py-10">
-            <div className="text-center py-20 text-gray-400 dark:text-gray-500">
+            <div className="text-center py-20 text-[var(--color-text-muted)]">
               <p className="text-4xl mb-4">📝</p>
               {canEdit ? (
                 <>

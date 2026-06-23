@@ -34,31 +34,31 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <span className="text-4xl">⚔️</span>
-          <h1 className="text-2xl font-bold text-gray-900 mt-3">Kendo Translation</h1>
-          <p className="text-gray-800 mt-1">Sign in to your account</p>
+          <h1 className="text-2xl font-bold text-[var(--color-text)] mt-3">Kendo Translation</h1>
+          <p className="text-[var(--color-text-muted)] mt-1">Sign in to your account</p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+        <div className="bg-[var(--color-surface)] rounded-xl shadow-sm border border-[var(--color-border)] p-8">
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+              <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-[var(--color-surface)] text-[var(--color-text)]"
                 placeholder="you@example.com"
                 required
                 autoFocus
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
+              <label className="block text-sm font-medium text-[var(--color-text)] mb-1.5">Password</label>
               <input
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-[var(--color-surface)] text-[var(--color-text)]"
                 placeholder="••••••••"
                 required
               />
@@ -73,15 +73,15 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gray-900 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-[var(--color-text)] text-[var(--color-surface)] py-2.5 rounded-lg text-sm font-medium hover:opacity-80 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Signing in…' : 'Sign In'}
             </button>
           </form>
         </div>
 
-        <p className="text-center text-sm text-gray-500 mt-4">
-          <Link href="/" className="hover:text-gray-700 transition-colors">← Back to home</Link>
+        <p className="text-center text-sm text-[var(--color-text-muted)] mt-4">
+          <Link href="/" className="hover:text-[var(--color-text)] transition-colors">← Back to home</Link>
         </p>
       </div>
     </div>

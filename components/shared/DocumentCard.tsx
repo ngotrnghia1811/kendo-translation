@@ -29,21 +29,21 @@ export default function DocumentCard({
     updatedAt,
 }: DocumentCardProps) {
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
+        <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-4 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between gap-3 mb-3">
                 <div>
                     <Link
                         href={`/documents/${id}`}
-                        className="text-base font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 line-clamp-2"
+                        className="text-base font-semibold text-[var(--color-text)] hover:text-blue-600 line-clamp-2"
                     >
                         {title}
                     </Link>
                     <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                        <span className="text-xs text-[var(--color-text-muted)]">
                             {sourceLang.toUpperCase()} → {targetLang.toUpperCase()}
                         </span>
                         {status && (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-[var(--color-bg)] text-[var(--color-text-muted)]">
                                 {status}
                             </span>
                         )}
@@ -65,7 +65,7 @@ export default function DocumentCard({
             />
 
             {updatedAt && (
-                <div className="mt-2 text-xs text-gray-400">
+                <div className="mt-2 text-xs text-[var(--color-text-muted)]">
                     Updated {new Date(updatedAt).toLocaleDateString()}
                 </div>
             )}

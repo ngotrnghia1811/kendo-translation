@@ -138,7 +138,7 @@ function AssignmentRow({ row, onSaved, onRemoved }: RowProps) {
         <tr
             data-testid="admin-user-assignments-row"
             data-doc-id={row.document_id}
-            className="border-b border-gray-100 last:border-0"
+            className="border-b border-[var(--color-border)] last:border-0"
         >
             <td className="py-2 pr-4">
                 <Link
@@ -148,7 +148,7 @@ function AssignmentRow({ row, onSaved, onRemoved }: RowProps) {
                 >
                     {docTitle}
                 </Link>
-                <div className="text-xs text-gray-400 mt-0.5 font-mono">
+                <div className="text-xs text-[var(--color-text-muted)] mt-0.5 font-mono">
                     {row.document_id.slice(0, 8)}…
                 </div>
             </td>
@@ -173,12 +173,12 @@ function AssignmentRow({ row, onSaved, onRemoved }: RowProps) {
                 ) : (
                     <div className="flex flex-wrap gap-1">
                         {row.allowed_phases.length === 0 ? (
-                            <span className="text-xs text-gray-400">—</span>
+                            <span className="text-xs text-[var(--color-text-muted)]">—</span>
                         ) : (
                             row.allowed_phases.map((p) => (
                                 <span
                                     key={p}
-                                    className="inline-block rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-700"
+                                    className="inline-block rounded bg-[var(--color-bg)] px-2 py-0.5 text-xs text-[var(--color-text)]"
                                 >
                                     {p}
                                 </span>
@@ -190,10 +190,10 @@ function AssignmentRow({ row, onSaved, onRemoved }: RowProps) {
                     <div className="text-xs text-red-600 mt-1">{error}</div>
                 )}
             </td>
-            <td className="py-2 pr-4 text-xs text-gray-500">
+            <td className="py-2 pr-4 text-xs text-[var(--color-text-muted)]">
                 {formatTime(row.created_at)}
             </td>
-            <td className="py-2 pr-4 text-xs text-gray-500">
+            <td className="py-2 pr-4 text-xs text-[var(--color-text-muted)]">
                 {formatTime(row.updated_at)}
             </td>
             <td className="py-2 text-right">
@@ -217,7 +217,7 @@ function AssignmentRow({ row, onSaved, onRemoved }: RowProps) {
                                 setEditing(false)
                             }}
                             data-testid="admin-user-assignments-cancel"
-                            className="text-xs rounded border border-gray-300 px-2 py-1 hover:bg-gray-50 disabled:opacity-50"
+                            className="text-xs rounded border border-[var(--color-border)] px-2 py-1 hover:bg-[var(--color-bg)] disabled:opacity-50"
                         >
                             Cancel
                         </button>
@@ -229,7 +229,7 @@ function AssignmentRow({ row, onSaved, onRemoved }: RowProps) {
                             disabled={busy}
                             onClick={() => setEditing(true)}
                             data-testid="admin-user-assignments-edit"
-                            className="text-xs rounded border border-gray-300 px-2 py-1 hover:bg-gray-50 disabled:opacity-50"
+                            className="text-xs rounded border border-[var(--color-border)] px-2 py-1 hover:bg-[var(--color-bg)] disabled:opacity-50"
                         >
                             Edit
                         </button>
@@ -302,7 +302,7 @@ export default function AdminUserAssignmentsPage() {
 
     if (isAdmin === null) {
         return (
-            <div className="container mx-auto px-4 py-8 text-gray-500">
+            <div className="container mx-auto px-4 py-8 text-[var(--color-text-muted)]">
                 Loading…
             </div>
         )
@@ -314,10 +314,10 @@ export default function AdminUserAssignmentsPage() {
                 className="container mx-auto px-4 py-8"
                 data-testid="admin-user-assignments-forbidden"
             >
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                <h1 className="text-2xl font-bold text-[var(--color-text)] mb-2">
                     Forbidden
                 </h1>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-[var(--color-text-muted)]">
                     You must be an admin to view per-user assignments.
                 </p>
                 <Link
@@ -338,17 +338,17 @@ export default function AdminUserAssignmentsPage() {
             <div className="mb-6 flex items-center gap-2 text-sm">
                 <Link
                     href="/admin"
-                    className="text-gray-500 hover:text-gray-700"
+                    className="text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
                 >
                     ← Admin
                 </Link>
-                <span className="text-gray-300">/</span>
-                <span className="text-gray-900 dark:text-white font-medium">
+                <span className="text-[var(--color-text-muted)]/40">/</span>
+                <span className="text-[var(--color-text)] font-medium">
                     User assignments
                 </span>
-                <span className="text-gray-300">/</span>
+                <span className="text-[var(--color-text-muted)]/40">/</span>
                 <span
-                    className="text-gray-600 truncate"
+                    className="text-[var(--color-text-muted)] truncate"
                     data-testid="admin-user-assignments-username"
                 >
                     {user?.username ?? userId}
@@ -361,20 +361,20 @@ export default function AdminUserAssignmentsPage() {
                 </div>
             )}
 
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            <h1 className="text-2xl font-bold text-[var(--color-text)] mb-2">
                 Assignments for {user?.username ?? 'this user'}
             </h1>
-            <p className="text-sm text-gray-500 mb-6">
+            <p className="text-sm text-[var(--color-text-muted)] mb-6">
                 All documents this user is assigned to, with editable
                 phase capabilities.
             </p>
 
             {rows === null ? (
-                <div className="text-sm text-gray-500">Loading…</div>
+                <div className="text-sm text-[var(--color-text-muted)]">Loading…</div>
             ) : sortedRows.length === 0 ? (
                 <div
                     data-testid="admin-user-assignments-empty"
-                    className="text-sm text-gray-500 border border-dashed border-gray-200 rounded px-4 py-6 text-center"
+                    className="text-sm text-[var(--color-text-muted)] border border-dashed border-[var(--color-border)] rounded px-4 py-6 text-center"
                 >
                     No assignments yet.
                 </div>
@@ -384,7 +384,7 @@ export default function AdminUserAssignmentsPage() {
                     className="w-full text-sm"
                 >
                     <thead>
-                        <tr className="text-left text-xs uppercase tracking-wide text-gray-500 border-b border-gray-200">
+                        <tr className="text-left text-xs uppercase tracking-wide text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
                             <th className="py-2 pr-4 font-medium">Document</th>
                             <th className="py-2 pr-4 font-medium">Phases</th>
                             <th className="py-2 pr-4 font-medium">Created</th>
