@@ -40,7 +40,7 @@ CREATE OR REPLACE FUNCTION get_article_bilingual_v2(
 RETURNS TABLE(
   id uuid,
   article_id uuid,
-  position int,
+  "position" int,
   source_text text,
   target_text text,
   source_lang text,
@@ -96,7 +96,7 @@ RETURNS TABLE(
   id uuid,
   article_id uuid,
   article_title text,
-  position int,
+  "position" int,
   source_snippet text,
   target_snippet text,
   status text,
