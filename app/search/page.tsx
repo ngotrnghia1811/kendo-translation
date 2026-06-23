@@ -239,14 +239,14 @@ function SearchPageInner() {
         <div className="min-h-screen">
             {/* Header */}
             <header className="bg-[var(--color-surface)] border-b border-[var(--color-border)] sticky top-0 z-10">
-                <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
+                <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3 flex-wrap">
                     <Link href="/documents" className="shrink-0 text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors">
                         {/* Back arrow */}
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                         </svg>
                     </Link>
-                    <div className="relative flex-1">
+                    <div className="relative flex-1 min-w-[12rem]">
                         <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                             <svg className="w-4 h-4 text-[var(--color-text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -262,8 +262,8 @@ function SearchPageInner() {
                             aria-label="Search query"
                         />
                     </div>
-                    {/* Scope tabs */}
-                    <div className="hidden sm:flex gap-1 shrink-0">
+                    {/* Scope tabs — single responsive row (Phase 2.6: collapsed duplicate desktop/mobile rows) */}
+                    <div className="flex gap-1 shrink-0">
                         {(Object.keys(SCOPE_LABELS) as Scope[]).map(s => (
                             <button
                                 key={s}
@@ -278,22 +278,6 @@ function SearchPageInner() {
                             </button>
                         ))}
                     </div>
-                </div>
-                {/* Mobile scope row */}
-                <div className="sm:hidden flex gap-1 px-4 pb-3">
-                    {(Object.keys(SCOPE_LABELS) as Scope[]).map(s => (
-                        <button
-                            key={s}
-                            onClick={() => setScope(s)}
-                            className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
-                                scope === s
-                                    ? 'bg-indigo-100 text-indigo-700 border-indigo-200'
-                                    : 'text-[var(--color-text-muted)] border-[var(--color-border)] hover:bg-[var(--color-bg)]'
-                            }`}
-                        >
-                            {SCOPE_LABELS[s]}
-                        </button>
-                    ))}
                 </div>
             </header>
 

@@ -8,8 +8,8 @@ import { useThemeContext } from '@/components/shared/ThemeProvider'
 import { useReaderBookmarks } from '@/hooks/useReaderBookmarks'
 import { useReaderKeyboard } from '@/hooks/useReaderKeyboard'
 import { useReaderProgress } from '@/hooks/useReaderProgress'
-import SingleLanguageView from './SingleLanguageView'
-import BilingualParagraphView from './BilingualParagraphView'
+import VirtualizedReader from './VirtualizedReader'
+import { isHeadingParagraph, type Paragraph } from '@/types/reader'
 import TranslatorAlignedView from './TranslatorAlignedView'
 import PdfPageView from './PdfPageView'
 import ReaderSettingsPanel from './ReaderSettingsPanel'
@@ -273,10 +273,14 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
     // -----------------------------------------------------------------------
     const [scrolled, setScrolled] = useState(false)
     const contentRef = useRef<HTMLDivElement | null>(null)
+    // Capture the scroll element in state so VirtualizedReader can use it as
+    // customScrollParent (refs don't trigger re-renders on their own).
+    const [scrollParent, setScrollParent] = useState<HTMLElement | null>(null)
 
     useEffect(() => {
         const el = contentRef.current
         if (!el) return
+        setScrollParent(el)
         const handler = () => setScrolled(el.scrollTop > 300)
         el.addEventListener('scroll', handler, { passive: true })
         return () => el.removeEventListener('scroll', handler)
@@ -315,6 +319,85 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
             setSidebarOpen(false)
         }, []),
     })
+
+    // ── Virtualized paragraph renderers ────────────────────────────────────
+    // These produce the EXACT same DOM output as SingleLanguageView and
+    // BilingualParagraphView did per-paragraph, but are called one-at-a-time
+    // by VirtualizedReader.itemContent so only visible paragraphs mount.
+    const effectiveTargetLang = targetLangChoice === 'zh' ? 'zh' : targetLang
+
+    const readerWidthClass =
+        layoutWidth === 'full'       ? 'max-w-full' :
+        layoutWidth === 'two-column' ? 'columns-2 gap-8 max-w-full' :
+        mode === 'bilingual'         ? 'max-w-3xl' :
+        'max-w-2xl' // narrow — single-mode default
+
+    const hasAnySource = paragraphs.some((p: Paragraph) => getParagraphText(p, 'source').trim().length > 0)
+    const hasAnyTarget = paragraphs.some((p: Paragraph) => getParagraphText(p, 'target').trim().length > 0)
+
+    function renderParagraphItem(index: number): React.ReactNode {
+        const paragraph = paragraphs[index]
+        if (!paragraph) return null
+
+        if (mode === 'single') {
+            const text = getParagraphText(paragraph, displayLang)
+            if (!text.trim()) return null  // silently skip empty (FE-READER-AUDIT 4.6)
+
+            if (isHeadingParagraph(paragraph)) {
+                return (
+                    <h2 className="text-xl font-semibold mt-10 mb-4">
+                        {text}
+                    </h2>
+                )
+            }
+            return (
+                <p className="text-base leading-relaxed mb-6">
+                    {text}
+                </p>
+            )
+        }
+
+        // bilingual mode
+        const sourceText = getParagraphText(paragraph, 'source')
+        const targetText = getParagraphText(paragraph, 'target')
+        if (!sourceText.trim() && !targetText.trim()) return null
+
+        if (isHeadingParagraph(paragraph)) {
+            return (
+                <div className="space-y-1 mt-10">
+                    {sourceText.trim() && (
+                        <h2 lang={sourceLang} className="text-xl font-semibold">{sourceText}</h2>
+                    )}
+                    {targetText.trim() && (
+                        <h2 lang={effectiveTargetLang} className="text-lg font-semibold">{targetText}</h2>
+                    )}
+                </div>
+            )
+        }
+
+        return (
+            <div className="space-y-1">
+                {/* Source paragraph */}
+                {sourceText.trim() && (
+                    <div lang={sourceLang} className="border-l-4 border-red-400 dark:border-red-500/70 pl-4 py-2">
+                        <p className="text-base leading-relaxed">{sourceText}</p>
+                    </div>
+                )}
+
+                {/* Separator */}
+                {sourceText.trim() && targetText.trim() && (
+                    <div className="border-b border-dashed border-gray-300 dark:border-[var(--rt-border)] mx-4" />
+                )}
+
+                {/* Target paragraph */}
+                {targetText.trim() && (
+                    <div lang={effectiveTargetLang} className="border-l-4 border-blue-400 dark:border-blue-500/70 pl-4 py-2">
+                        <p className="text-base leading-relaxed">{targetText}</p>
+                    </div>
+                )}
+            </div>
+        )
+    }
 
     return (
         <div
@@ -703,47 +786,49 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                         <div className="text-center py-20 text-gray-500">
                             No segments available for this document.
                         </div>
+                    ) : mode === 'aligned' && canEdit ? (
+                        <TranslatorAlignedView
+                            segments={pageSegments}
+                            sourceLang={sourceLang}
+                            targetLang={targetLang}
+                            zhByPosition={hasZh ? zhByPosition : undefined}
+                            targetLangChoice={targetLangChoice}
+                            layoutWidth={layoutWidth}
+                        />
+                    ) : mode === 'pdf' && pairedPdfPath ? (
+                        <PdfPageView
+                            articleId={articleId}
+                            pdfPage={currentPage?.page ?? null}
+                            layoutWidth={layoutWidth}
+                        />
                     ) : (
-                        <>
-                            {mode === 'single' && (
-                                <SingleLanguageView
-                                    paragraphs={paragraphs}
-                                    displayLang={displayLang}
-                                    sourceLang={sourceLang}
-                                    targetLang={targetLang}
-                                    effectiveTargetLang={targetLangChoice === 'zh' ? 'zh' : undefined}
-                                    getParagraphText={getParagraphText}
-                                    layoutWidth={layoutWidth}
-                                />
+                        <div
+                            lang={mode === 'single' ? (displayLang === 'source' ? sourceLang : effectiveTargetLang) : undefined}
+                            className={`${readerWidthClass} mx-auto py-8 px-4 ${mode === 'bilingual' ? 'space-y-8' : ''}`}
+                        >
+                            <VirtualizedReader
+                                totalCount={paragraphs.length}
+                                itemContent={renderParagraphItem}
+                                computeItemKey={(i: number) => `p-${paragraphs[i].position}`}
+                                customScrollParent={scrollParent}
+                            />
+
+                            {/* Legend — bilingual mode only; rendered outside the virtualized list */}
+                            {mode === 'bilingual' && (hasAnySource || hasAnyTarget) && (
+                                <div className="flex gap-4 text-xs text-gray-400 pt-4 border-t border-gray-200 dark:border-[var(--rt-border)]">
+                                    {hasAnySource && (
+                                        <span className="flex items-center gap-1">
+                                            <span className="w-3 h-3 border-l-4 border-red-400 inline-block" /> {sourceLang.toUpperCase()}
+                                        </span>
+                                    )}
+                                    {hasAnyTarget && (
+                                        <span className="flex items-center gap-1">
+                                            <span className="w-3 h-3 border-l-4 border-blue-400 inline-block" /> {effectiveTargetLang.toUpperCase()}
+                                        </span>
+                                    )}
+                                </div>
                             )}
-                            {mode === 'bilingual' && (
-                                <BilingualParagraphView
-                                    paragraphs={paragraphs}
-                                    sourceLang={sourceLang}
-                                    targetLang={targetLang}
-                                    effectiveTargetLang={targetLangChoice === 'zh' ? 'zh' : undefined}
-                                    getParagraphText={getParagraphText}
-                                    layoutWidth={layoutWidth}
-                                />
-                            )}
-                            {mode === 'aligned' && canEdit && (
-                                <TranslatorAlignedView
-                                    segments={pageSegments}
-                                    sourceLang={sourceLang}
-                                    targetLang={targetLang}
-                                    zhByPosition={hasZh ? zhByPosition : undefined}
-                                    targetLangChoice={targetLangChoice}
-                                    layoutWidth={layoutWidth}
-                                />
-                            )}
-                            {mode === 'pdf' && pairedPdfPath && (
-                                <PdfPageView
-                                    articleId={articleId}
-                                    pdfPage={currentPage?.page ?? null}
-                                    layoutWidth={layoutWidth}
-                                />
-                            )}
-                        </>
+                        </div>
                     )}
                 </div>
 
