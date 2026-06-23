@@ -529,7 +529,7 @@ export default function ReaderSidebar({
             {/* Sidebar panel — slides in from the left; full-screen on mobile */}
             <div
                 ref={sidebarRef}
-                className="relative flex flex-col w-full sm:w-80 sm:max-w-[90vw] shadow-2xl"
+                className="relative flex flex-col w-[min(85vw,400px)] sm:w-80 sm:max-w-[90vw] shadow-2xl"
                 style={{
                     backgroundColor: 'var(--rt-bg)',
                     borderRight: '1px solid var(--rt-border)',

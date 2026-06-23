@@ -61,6 +61,7 @@ export default function EditPage() {
   const [batchAdvancing, setBatchAdvancing] = useState(false);
   const [batchResult, setBatchResult] = useState<{ succeeded: number; skipped: number; failed: number } | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [mobileBannerDismissed, setMobileBannerDismissed] = useState(false);
 
   // --- T5: segment progress memory ---
   const { savedSegmentId, persistSegment } = useEditorProgress(params.id);
@@ -399,24 +400,37 @@ export default function EditPage() {
 
   return (
     <div className="min-h-screen">
-      {/* Mobile phone-block banner — editor requires desktop (T6) */}
-      <div className="md:hidden fixed inset-0 z-50 flex flex-col items-center justify-center bg-[var(--color-surface)] px-6 text-center">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-indigo-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-        </svg>
-        <h2 className="text-lg font-semibold text-[var(--color-text)] mb-2">Editor requires a desktop</h2>
-        <p className="text-sm text-[var(--color-text-muted)] mb-6">
-          The translation editor is designed for laptop and desktop use.
-          On small screens, use the reader view instead.
-        </p>
-        <Link
-          href={`/documents/${params.id}/read`}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"
-          data-testid="mobile-editor-reader-link"
-        >
-          Go to Reader View →
-        </Link>
-      </div>
+      {/* Mobile editor banner — dismissible top banner replacing the old full-viewport block (Phase 3.5).
+           On mobile (<768px) the editor panel is hidden and segments are scrollable/read-only.
+           At ≥768px (tablet+), normal editing is available. */}
+      {!mobileBannerDismissed && (
+        <div className="md:hidden sticky top-0 z-10 flex items-start gap-3 px-4 py-3 bg-amber-50 border-b border-amber-200 text-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 shrink-0 text-amber-600 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className="text-amber-800 font-medium mb-0.5">Editor works best on desktop</p>
+            <p className="text-amber-700">
+              <Link
+                href={`/documents/${params.id}/read`}
+                className="underline font-semibold hover:text-amber-900"
+                data-testid="mobile-editor-reader-link"
+              >
+                Switch to Reader View
+              </Link>
+              {' '}or continue on tablet/desktop for full editing.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMobileBannerDismissed(true)}
+            aria-label="Dismiss editor mobile notice"
+            className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-amber-600 hover:text-amber-900 hover:bg-amber-100 transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Header */}
       <header className="bg-[var(--color-surface)] border-b border-[var(--color-border)] sticky top-0 z-10">
@@ -594,8 +608,8 @@ export default function EditPage() {
           />
         </div>
 
-        {/* Editor panel */}
-        <div className="lg:sticky lg:top-20 lg:self-start">
+        {/* Editor panel — hidden on mobile (<768px), visible on tablet+ (Phase 3.5) */}
+        <div className="hidden md:block lg:sticky lg:top-20 lg:self-start">
           {activeSegment ? (() => {
             const seg = segments.find(s => s.id === activeSegment);
             return seg ? (

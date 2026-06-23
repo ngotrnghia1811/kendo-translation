@@ -75,6 +75,28 @@ body {
   transition:       background-color 0.2s ease, color 0.2s ease;
 }
 
+/* ─── Per-script typography (Phase 3.3) ───────────────────────────────────────
+   Phase 0 set the system JP font stack; here we add script-appropriate
+   line-height, sizing, and italic discipline.
+   ────────────────────────────────────────────────────────────────────────── */
+:lang(ja) {
+  line-height: 1.7;
+}
+:lang(en) {
+  line-height: 1.6;
+  font-size: 105%;
+}
+/* Faux-italic (CSS font-style: italic) is ONLY appropriate for Latin scripts.
+   Japanese text should never be italicized — emphasis should use font-weight
+   or brackets instead. (Plan §4: "Faux-italic on Japanese text" risk.) */
+:lang(ja) i,
+:lang(ja) em,
+:lang(ja) .italic,
+:lang(ja) [style*="font-style:italic"],
+:lang(ja) [style*="font-style: italic"] {
+  font-style: normal;
+}
+
 /* ─── Reader theme tokens ─────────────────────────────────────────────────────
    Applied via data-reader-theme="<name>" on the reader wrapper.
    Components inside the reader reference --rt-* variables.

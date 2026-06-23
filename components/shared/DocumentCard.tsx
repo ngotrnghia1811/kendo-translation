@@ -31,10 +31,10 @@ export default function DocumentCard({
     return (
         <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-4 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between gap-3 mb-3">
-                <div>
+                <div className="min-w-0">
                     <Link
                         href={`/documents/${id}`}
-                        className="text-base font-semibold text-[var(--color-text)] hover:text-blue-600 line-clamp-2"
+                        className="text-base font-semibold text-[var(--color-text)] hover:text-blue-600 line-clamp-2 break-words"
                     >
                         {title}
                     </Link>

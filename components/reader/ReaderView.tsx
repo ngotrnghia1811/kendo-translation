@@ -11,12 +11,14 @@ import { useReaderProgress } from '@/hooks/useReaderProgress'
 import { createClient } from '@/lib/supabase/client'
 import VirtualizedReader from './VirtualizedReader'
 import { isHeadingParagraph, type Paragraph } from '@/types/reader'
+import type { VirtuosoHandle } from 'react-virtuoso'
 import TranslatorAlignedView from './TranslatorAlignedView'
 import PdfPageView from './PdfPageView'
 import ReaderSettingsPanel from './ReaderSettingsPanel'
 import ReaderBookmarksPanel from './ReaderBookmarksPanel'
 import ReaderSidebar from './ReaderSidebar'
 import ReaderKeyboardHelpModal from './ReaderKeyboardHelpModal'
+import MobileBottomBar, { type ThreeWayLang } from './MobileBottomBar'
 
 interface ReaderViewProps {
     segments: Segment[]
@@ -34,6 +36,10 @@ interface ReaderViewProps {
     pageMetadataHint?: number[] | null
     /** Total ZH segment count hint (>0 means ZH is available; used for lazy ZH load). */
     zhCountHint?: number
+    /** Previous article href for mobile bottom-bar navigation. */
+    prevArticleHref?: string | null
+    /** Next article href for mobile bottom-bar navigation. */
+    nextArticleHref?: string | null
 }
 
 const MODE_LABELS: Record<ReaderMode, string> = {
@@ -148,7 +154,7 @@ function ToolbarButton({
 // Main component
 // ---------------------------------------------------------------------------
 
-export default function ReaderView({ segments, zhSegments, settings, title, articleId, canEdit, pairedPdfPath, totalSegmentsHint, pageMetadataHint, zhCountHint }: ReaderViewProps) {
+export default function ReaderView({ segments, zhSegments, settings, title, articleId, canEdit, pairedPdfPath, totalSegmentsHint, pageMetadataHint, zhCountHint, prevArticleHref, nextArticleHref }: ReaderViewProps) {
     // ── Lazy page cache ─────────────────────────────────────────────────
     // In lazy mode (totalSegmentsHint provided), the server only sends page 1.
     // We maintain a cache of loaded segments that grows as pages are fetched
@@ -386,6 +392,48 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
     const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
     const [downloadOpen, setDownloadOpen] = useState(false)
 
+    // ── Three-way language toggle (Phase 3.2) ────────────────────────────
+    // Maps mode+displayLang → three-way selection for the UI toggle and
+    // the mobile bottom bar.
+    const threeWayLang: ThreeWayLang =
+        mode === 'bilingual' ? 'bilingual'
+            : mode === 'single' && displayLang === 'source' ? 'jp'
+            : 'en' // single + target (respects targetLangChoice via displayLang)
+
+    const targetToggleLabel = targetLangChoice === 'zh' ? '中文' : 'EN'
+
+    /** Toggle the three-way language mode, preserving Virtuoso scroll position. */
+    const handleThreeWayToggle = useCallback((sel: ThreeWayLang) => {
+        // Snapshot scroll position BEFORE state change triggers re-render.
+        scrollRestoreRef.current = contentRef.current?.scrollTop ?? null
+
+        if (sel === 'jp') {
+            setMode('single')
+            setDisplayLang('source')
+        } else if (sel === 'bilingual') {
+            setMode('bilingual')
+        } else {
+            // sel === 'en'
+            setMode('single')
+            setDisplayLang('target')
+        }
+    }, [setMode, setDisplayLang])
+
+    // After mode/displayLang change re-renders, restore scroll position.
+    useEffect(() => {
+        if (scrollRestoreRef.current !== null) {
+            const saved = scrollRestoreRef.current
+            scrollRestoreRef.current = null
+            // Use requestAnimationFrame to wait for the Virtuoso to finish
+            // re-rendering with the new item set.
+            requestAnimationFrame(() => {
+                if (contentRef.current) {
+                    contentRef.current.scrollTop = saved
+                }
+            })
+        }
+    }, [mode, displayLang])
+
     const closeAll = useCallback(() => {
         setSettingsOpen(false); setBookmarksOpen(false); setSidebarOpen(false); setKeyboardHelpOpen(false); setDownloadOpen(false)
     }, [])
@@ -477,6 +525,12 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
     // customScrollParent (refs don't trigger re-renders on their own).
     const [scrollParent, setScrollParent] = useState<HTMLElement | null>(null)
 
+    // ── Three-way language toggle scroll preservation (Phase 3.2) ─────────
+    // Before toggling JP/Bilingual/EN, we snapshot the Virtuoso scroll position
+    // so we can restore it after the new mode re-renders.
+    const virtuosoRef = useRef<VirtuosoHandle | null>(null)
+    const scrollRestoreRef = useRef<number | null>(null)
+
     useEffect(() => {
         const el = contentRef.current
         if (!el) return
@@ -528,7 +582,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
 
     const readerWidthClass =
         layoutWidth === 'full'       ? 'max-w-full' :
-        layoutWidth === 'two-column' ? 'columns-2 gap-8 max-w-full' :
+        layoutWidth === 'two-column' ? 'md:columns-2 gap-8 max-w-full' :
         mode === 'bilingual'         ? 'max-w-3xl' :
         'max-w-2xl' // narrow — single-mode default
 
@@ -557,7 +611,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
             )
         }
 
-        // bilingual mode
+        // bilingual mode — responsive grid: side-by-side at ≥768px, stacked on mobile
         const sourceText = getParagraphText(paragraph, 'source')
         const targetText = getParagraphText(paragraph, 'target')
         if (!sourceText.trim() && !targetText.trim()) return null
@@ -576,7 +630,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
         }
 
         return (
-            <div className="space-y-1">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-x-4 gap-y-1">
                 {/* Source paragraph */}
                 {sourceText.trim() && (
                     <div lang={sourceLang} className="border-l-4 border-red-400 dark:border-red-500/70 pl-4 py-2">
@@ -584,9 +638,9 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                     </div>
                 )}
 
-                {/* Separator */}
+                {/* Separator — only visible on mobile when both texts present */}
                 {sourceText.trim() && targetText.trim() && (
-                    <div className="border-b border-dashed border-gray-300 dark:border-[var(--rt-border)] mx-4" />
+                    <div className="md:hidden border-b border-dashed border-gray-300 dark:border-[var(--rt-border)] mx-4 col-span-full" />
                 )}
 
                 {/* Target paragraph */}
@@ -840,6 +894,35 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                         </div>
 
                         <div className="flex items-center gap-3">
+                            {/* ── Three-way language toggle (Phase 3.2) ──────────────────── */}
+                            <div
+                                className="flex items-center rounded-lg overflow-hidden text-xs font-medium"
+                                style={{ border: '1px solid var(--rt-border)' }}
+                                title="Switch between Japanese, Bilingual, and English reading modes"
+                            >
+                                {([
+                                    { key: 'jp' as ThreeWayLang, label: 'JP' },
+                                    { key: 'bilingual' as ThreeWayLang, label: 'JP↔EN' },
+                                    { key: 'en' as ThreeWayLang, label: targetToggleLabel },
+                                ]).map(({ key, label }) => (
+                                    <button
+                                        key={key}
+                                        type="button"
+                                        onClick={() => handleThreeWayToggle(key)}
+                                        className="px-2.5 py-1 transition-colors whitespace-nowrap"
+                                        style={threeWayLang === key ? {
+                                            backgroundColor: '#3b82f6',
+                                            color: '#fff',
+                                        } : {
+                                            backgroundColor: 'var(--rt-surface)',
+                                            color: 'var(--rt-text-muted)',
+                                        }}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+
                             {/* ZH / EN toggle — shown when ZH data is available for this document */}
                             {hasZh && mode !== 'pdf' && (
                                 <div
@@ -1019,6 +1102,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                             className={`${readerWidthClass} mx-auto py-8 px-4 ${mode === 'bilingual' ? 'space-y-8' : ''}`}
                         >
                             <VirtualizedReader
+                                ref={virtuosoRef}
                                 totalCount={paragraphs.length}
                                 itemContent={renderParagraphItem}
                                 computeItemKey={(i: number) => `p-${paragraphs[i].position}`}
@@ -1046,6 +1130,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
 
                 {/* ----------------------------------------------------------------
                     Scroll-to-top floating button
+                    On mobile, sits above the bottom bar (Phase 3.4).
                 ---------------------------------------------------------------- */}
                 {scrolled && (
                     <button
@@ -1053,7 +1138,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                         onClick={scrollToTop}
                         aria-label="Scroll to top"
                         title="Scroll to top"
-                        className="fixed bottom-6 right-6 z-30 w-10 h-10 flex items-center justify-center rounded-full shadow-lg border transition-all"
+                        className="fixed bottom-20 md:bottom-6 right-6 z-30 w-10 h-10 flex items-center justify-center rounded-full shadow-lg border transition-all"
                         style={{
                             backgroundColor: 'var(--rt-bg)',
                             borderColor: 'var(--rt-border)',
@@ -1063,6 +1148,20 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                         <ChevronUpIcon />
                     </button>
                 )}
+
+                {/* ── Mobile bottom reading bar (Phase 3.4) ──────────────────────── */}
+                <MobileBottomBar
+                    langSelection={threeWayLang}
+                    onLangChange={handleThreeWayToggle}
+                    targetLabel={targetToggleLabel}
+                    fontSize={fontSize}
+                    onIncreaseFontSize={increaseFontSize}
+                    onDecreaseFontSize={decreaseFontSize}
+                    onOpenToc={() => { setSidebarTab('toc'); setSidebarOpen(true) }}
+                    prevArticleHref={prevArticleHref}
+                    nextArticleHref={nextArticleHref}
+                    scrollParent={scrollParent}
+                />
             </div>
         </div>
     )
