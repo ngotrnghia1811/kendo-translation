@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { revalidateTag } from 'next/cache';
+import { revalidateTag, revalidatePath } from 'next/cache';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -24,7 +24,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { data: segment } = await supabase
     .from('segments')
-    .select('locked_by')
+    .select('locked_by, article_id')
     .eq('id', id)
     .single();
 
@@ -63,6 +63,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   // Phase 4.4: invalidate cached article data so readers see the update
+  const articleId = data.article_id;
+  if (articleId) {
+    revalidateTag(`article-${articleId}`, 'max');
+    revalidatePath(`/documents/${articleId}/read`);
+  }
   revalidateTag('articles', 'max');
 
   return NextResponse.json(data);

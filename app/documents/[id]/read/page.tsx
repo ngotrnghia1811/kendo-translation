@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
-import { createAdminClient, createClient } from '@/lib/supabase/server';
+import { createAdminClient, createCacheSafeAdminClient, createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
@@ -33,83 +33,113 @@ interface FetchedArticleData {
 
 const FALLBACK_CHUNK_SIZE = 50; // must match hooks/useReaderView.ts
 
-const fetchArticleSegmentData = unstable_cache(
-  async (
-    articleId: string,
-    publishFilter: string,
-  ): Promise<FetchedArticleData> => {
-    const supabase = await createAdminClient();
+/**
+ * Per-article unstable_cache factory.
+ *
+ * We cannot use `cacheTag()` inside an `unstable_cache`-wrapped function
+ * without enabling `cacheComponents: true` (PPR).  Because PPR is
+ * incompatible with the app's pervasive `cookies()` usage (see Rev 3 in
+ * the plan), we instead bake the per-article tag into the `unstable_cache`
+ * options at factory-build time.  The outer factory returns a cached
+ * fetcher whose cache entries are tagged with BOTH a per-article tag
+ * (`article-${articleId}`) AND the coarse `articles` tag for bulk
+ * invalidation.
+ */
+const cacheFactoryMap = new Map<
+  string,
+  ReturnType<typeof unstable_cache<typeof fetchArticleDataImpl>>
+>();
 
-    // ── Page info hints (for lazy-pager human view) ──────────────────────
-    let totalSegmentsHint: number | undefined;
-    let pageMetadataHint: number[] | null | undefined;
-    const { data: pageInfo } = await supabase.rpc('get_article_page_info', {
-      p_article_id: articleId,
-      p_target_lang: 'en',
-      p_publish_filter: publishFilter,
-    });
-    const info = (pageInfo as any)?.[0];
-    totalSegmentsHint = info?.total_count ? Number(info.total_count) : undefined;
-    pageMetadataHint = info?.has_page_metadata && info?.distinct_pages
-      ? (info.distinct_pages as number[])
-      : null;
+function fetchArticleDataImpl(
+  articleId: string,
+  publishFilter: string,
+): Promise<FetchedArticleData> {
+  return getCachedFetcher(articleId)(articleId, publishFilter);
+}
 
-    // ── Fetch EN segments (page 1 for human, full for bot) ──────────────
-    const page0PageNum: number | undefined = pageMetadataHint
-      ? pageMetadataHint[0]
-      : undefined;
-    const { data: enData, error: enErr } = await supabase.rpc(
-      'get_article_bilingual_window',
-      {
-        p_article_id: articleId,
+function getCachedFetcher(articleId: string) {
+  const existing = cacheFactoryMap.get(articleId);
+  if (existing) return existing;
+
+  const fetcher = unstable_cache(
+    async (
+      id: string,
+      publishFilter: string,
+    ): Promise<FetchedArticleData> => {
+      const supabase = createCacheSafeAdminClient();
+
+      // ── Page info hints (for lazy-pager human view) ──────────────────────
+      let totalSegmentsHint: number | undefined;
+      let pageMetadataHint: number[] | null | undefined;
+      const { data: pageInfo } = await supabase.rpc('get_article_page_info', {
+        p_article_id: id,
         p_target_lang: 'en',
-        p_offset: page0PageNum !== undefined ? 0 : 0,
-        p_limit: page0PageNum !== undefined ? 0 : FALLBACK_CHUNK_SIZE,
-        p_page: page0PageNum ?? undefined,
-      },
-    );
-    if (enErr) throw new Error(`Failed to fetch EN page 1: ${enErr.message}`);
-    const enSegmentsRaw = (enData ?? []) as Segment[];
-
-    const readableSegments = enSegmentsRaw.filter((s) =>
-      publishFilter === 'qa_approved'
-        ? s.status === 'qa_approved'
-        : s.status === 'qa_approved' || s.target_text,
-    );
-
-    // ── ZH segments (conditional) ────────────────────────────────────────
-    let zhSegments: Segment[] = [];
-    let zhCountHint: number | undefined;
-    const { count: zhCount } = await supabase
-      .from('segments')
-      .select('id', { count: 'exact', head: true })
-      .eq('article_id', articleId)
-      .eq('target_lang', 'zh')
-      .limit(1);
-    const needsZh = (zhCount ?? 0) > 0;
-
-    if (needsZh) {
-      zhCountHint = zhCount ?? 0;
-      const { data: zhData } = await supabase.rpc('get_article_bilingual_window', {
-        p_article_id: articleId,
-        p_target_lang: 'zh',
-        p_offset: page0PageNum !== undefined ? 0 : 0,
-        p_limit: page0PageNum !== undefined ? 0 : FALLBACK_CHUNK_SIZE,
-        p_page: page0PageNum ?? undefined,
+        p_publish_filter: publishFilter,
       });
-      zhSegments = ((zhData ?? []) as Segment[]).filter((s) => s.target_text);
-    }
+      const info = (pageInfo as any)?.[0];
+      totalSegmentsHint = info?.total_count ? Number(info.total_count) : undefined;
+      pageMetadataHint = info?.has_page_metadata && info?.distinct_pages
+        ? (info.distinct_pages as number[])
+        : null;
 
-    return { readableSegments, zhSegments, totalSegmentsHint, pageMetadataHint, zhCountHint };
-  },
-  ['article-segment-data'],
-  {
-    // Cache indefinitely; invalidated explicitly via revalidateTag('articles')
-    // when segments are edited, translated, or QA-approved (Phase 4.4).
-    revalidate: false,
-    tags: ['articles'],
-  },
-);
+      // ── Fetch EN segments (page 1 for human, full for bot) ──────────────
+      const page0PageNum: number | undefined = pageMetadataHint
+        ? pageMetadataHint[0]
+        : undefined;
+      const { data: enData, error: enErr } = await supabase.rpc(
+        'get_article_bilingual_window',
+        {
+          p_article_id: id,
+          p_target_lang: 'en',
+          p_offset: page0PageNum !== undefined ? 0 : 0,
+          p_limit: page0PageNum !== undefined ? 0 : FALLBACK_CHUNK_SIZE,
+          p_page: page0PageNum ?? undefined,
+        },
+      );
+      if (enErr) throw new Error(`Failed to fetch EN page 1: ${enErr.message}`);
+      const enSegmentsRaw = (enData ?? []) as Segment[];
+
+      const readableSegments = enSegmentsRaw.filter((s) =>
+        publishFilter === 'qa_approved'
+          ? s.status === 'qa_approved'
+          : s.status === 'qa_approved' || s.target_text,
+      );
+
+      // ── ZH segments (conditional) ────────────────────────────────────────
+      let zhSegments: Segment[] = [];
+      let zhCountHint: number | undefined;
+      const { count: zhCount } = await supabase
+        .from('segments')
+        .select('id', { count: 'exact', head: true })
+        .eq('article_id', id)
+        .eq('target_lang', 'zh')
+        .limit(1);
+      const needsZh = (zhCount ?? 0) > 0;
+
+      if (needsZh) {
+        zhCountHint = zhCount ?? 0;
+        const { data: zhData } = await supabase.rpc('get_article_bilingual_window', {
+          p_article_id: id,
+          p_target_lang: 'zh',
+          p_offset: page0PageNum !== undefined ? 0 : 0,
+          p_limit: page0PageNum !== undefined ? 0 : FALLBACK_CHUNK_SIZE,
+          p_page: page0PageNum ?? undefined,
+        });
+        zhSegments = ((zhData ?? []) as Segment[]).filter((s) => s.target_text);
+      }
+
+      return { readableSegments, zhSegments, totalSegmentsHint, pageMetadataHint, zhCountHint };
+    },
+    ['article-segment-data', articleId],
+    {
+      revalidate: false,
+      tags: ['articles', `article-${articleId}`],
+    },
+  );
+
+  cacheFactoryMap.set(articleId, fetcher);
+  return fetcher;
+}
 
 // ── Bot: full static HTML render ────────────────────────────────────────
 
@@ -220,7 +250,7 @@ async function CachedArticleContent({
     totalSegmentsHint,
     pageMetadataHint,
     zhCountHint,
-  } = await fetchArticleSegmentData(articleId, publishFilter);
+  } = await fetchArticleDataImpl(articleId, publishFilter);
 
   // Bot: render static SEO HTML
   if (isBot) {

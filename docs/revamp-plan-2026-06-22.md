@@ -3,6 +3,7 @@
 **Date:** 2026-06-22  
 **Status:** Proposal (awaiting review before any implementation)  
 **Rev 2 (2026-06-22):** Corrected data-layer SQL to actual single-table `segments` schema; verified Next.js caching APIs against installed version (16.2.4 — `updateTag` and `cacheComponents` are valid); removed duplicate index proposal; fixed minor task-level issues.  
+**Rev 3 (2026-06-24):** Phase 4 hardening — aki-judge verdict I-4.1: `cacheComponents:true` (PPR) found **incompatible** with the app's pervasive `cookies()` (Supabase SSR `createClient`) usage and per-route `dynamic='force-dynamic'`/`revalidate=0` segment configs (global enablement caused prerender rejections). The accepted approach is **`unstable_cache`** (stable Data Cache) scoped to the reader page, with `revalidateTag(tag,'max')` on write paths. PPR is recorded as a deferred future option (isolate auth-gated routes into a separate layout group). Per-article cache tags (`article-${id}`) and `revalidatePath()` for CDN/edge added to the 5 write paths. `updateTag` removed from plan prescriptions — it is Server-Action-only; Route Handlers use the 2-arg `revalidateTag`.  
 **Stack:** Next.js 16 (App Router, RSC), React 19, Tailwind CSS 4, Supabase SSR, Vercel  
 **Scale:** ~993 articles, ~134,000 bilingual JP↔EN segments  
 **Inputs:** aki-inspector audit (24 findings), aki-research report (3-domain best-practices + comparable products)
@@ -395,10 +396,18 @@ export default async function ReadPage({ params }) {
 | 4.8 | Fix `useDocument` hook unpaginated (P12) | P12 | `hooks/useDocument.ts` | S (30m) | None |
 | 4.9 | Core Web Vitals validation: Lighthouse + Playwright lab test | P7, P8 | All routes | M (2h) | 4.1–4.8 |
 
-**Acceptance criteria:**
+> **Rev 3 (2026-06-24) — caching approach pivot.** `cacheComponents:true` (task 4.1) and `"use cache"` (task 4.2) were found incompatible with the app's pervasive `cookies()` calls (Supabase SSR `createClient`) used in API routes, middleware, and per-route `dynamic='force-dynamic'`/`revalidate=0` segment configs. Global PPR enablement caused prerender rejections at build time. The **accepted approach** replaces the original PPR plan with:
+> - **`unstable_cache`** (stable Next.js Data Cache) scoped to the reader page's article segment fetch, wrapped in `<Suspense>` for streaming.
+> - **Tag-based invalidation:** all write paths call `revalidateTag('articles','max')` for bulk + `revalidateTag(\`article-${articleId}\`,'max')` for per-article granularity + `revalidatePath(\`/documents/${articleId}/read\`)` for CDN/edge.
+> - **`revalidateTag(tag,'max')`** (2-arg form) is the correct API for Route Handlers in Next.js 16.2.4. `updateTag` is Server-Action-only and is NOT used.
+> - PPR enablement is recorded as a **deferred future option** — isolate auth-gated routes into a separate layout group, then enable `cacheComponents` for the reader segment only.
+>
+> The task table above is preserved as the original plan; tasks 4.1–4.2 are implemented via the `unstable_cache` approach. Tasks 4.3–4.9 are implemented as planned.
+
+**Acceptance criteria (Rev 3 amended):**
 - Article page LCP <2.0s on 4G throttling (Lighthouse).
 - Second navigation to same article is instant (static shell cached).
-- `updateTag('articles')` called from editor server actions after publish; article updates within seconds. (Note: `updateTag` is the Next.js 16.2.4 Server-Action tag-invalidation API; `revalidateTag` remains available for Route Handler contexts.)
+- ~~`updateTag('articles')` called from editor server actions after publish; article updates within seconds.~~ → **Replaced:** `revalidateTag('articles','max')` + `revalidateTag(\`article-${articleId}\`,'max')` + `revalidatePath(\`/documents/${articleId}/read\`)` called from all 5 write Route Handlers after mutation; article updates within seconds. (See Rev 3 note above — `updateTag` is Server-Action-only; Route Handlers use the 2-arg `revalidateTag`.)
 - No `Uncached data was accessed outside of <Suspense>` build errors.
 - All routes have meaningful skeleton loading states (no blank white flashes).
 
@@ -547,6 +556,8 @@ async function CachedArticleContent({ params }) {
 **Dependencies:** Phase 2 (RPC functions provide the data-fetching surface to cache).  
 **Risk:** Medium — cache invalidation bugs are easy to create. Build a checklist: every write path → matching `updateTag()`. Test with Playwright: edit article → verify reader updates within 5s.
 
+> **Rev 3 (2026-06-24) — §3.5 approach superseded.** The `cacheComponents:true` / `"use cache"` / `updateTag` approach prescribed above was found incompatible with the app's pervasive `cookies()` calls across API routes, middleware, and `force-dynamic` routes (see Rev 3 note in Phase 4 task table). **Accepted replacement:** `unstable_cache` (Data Cache) scoped to the reader page with `revalidateTag(tag,'max')` on write Route Handlers (NOT `updateTag`, which is Server-Action-only). The Suspense isolation and runtime-data-as-props patterns (points 3, 5, 6) are preserved unchanged. PPR is deferred — isolate auth-gated routes into a separate layout group before retrying `cacheComponents`.
+
 ---
 
 ## 4. Risks & Mitigations
@@ -595,10 +606,11 @@ async function CachedArticleContent({ params }) {
 - `:lang(ja)` renders with correct font stack (inspect computed styles).
 - Editor on iPad (768px): loads, segments visible, forms usable.
 
-**Phase 4:**
+**Phase 4 (Rev 3 amended):**
 - Lighthouse: LCP <2.0s, INP <150ms, CLS <0.05 on article pages (4G throttling).
-- Build passes with `cacheComponents: true`, no `Uncached data` errors.
-- Playwright: edit article → publish → read article verifies content updates within 5s.
+- ~~Build passes with `cacheComponents: true`, no `Uncached data` errors.~~ **SUPERSEDED** — `cacheComponents` is not enabled globally (see Rev 3 note). Build passes with `ignoreBuildErrors: false` (27 static pages). PPR deferred.
+- Build passes with `unstable_cache`-based Data Cache on the reader page; tag invalidation verified (per-article + coarse + revalidatePath).
+- Playwright: edit article → publish → read article verifies content updates within 5s (`tests/cache-invalidation.spec.ts`).
 - `loading.tsx` skeletons visible during navigation (simulated via network throttle).
 
 **Phase 5:**

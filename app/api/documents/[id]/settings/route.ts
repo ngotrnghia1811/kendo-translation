@@ -15,7 +15,7 @@
 
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { revalidateTag } from 'next/cache'
+import { revalidateTag, revalidatePath } from 'next/cache'
 import type { PublishFilter } from '@/types/database'
 
 const VALID_PUBLISH_FILTERS: PublishFilter[] = ['any_translated', 'qa_approved']
@@ -88,6 +88,8 @@ export async function PATCH(
 
         // Phase 4.4: changing publish_filter affects what readers see —
         // invalidate the cached article data.
+        revalidateTag(`article-${articleId}`, 'max');
+        revalidatePath(`/documents/${articleId}/read`);
         revalidateTag('articles', 'max');
 
         return NextResponse.json({ settings: data })

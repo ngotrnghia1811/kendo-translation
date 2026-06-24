@@ -19,7 +19,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { revalidateTag } from 'next/cache';
+import { revalidateTag, revalidatePath } from 'next/cache';
 
 type SegmentStatus =
     | 'draft'
@@ -110,7 +110,7 @@ export async function POST(
     // non-empty target_text guard, (c) surface current_status on 409.
     const { data: segment, error: segmentErr } = await supabase
         .from('segments')
-        .select('id, status, target_text')
+        .select('id, status, target_text, article_id')
         .eq('id', segmentId)
         .maybeSingle();
 
@@ -204,6 +204,11 @@ export async function POST(
     }
 
     // Phase 4.4: invalidate cached article data so readers see the new status
+    const articleId = segment.article_id;
+    if (articleId) {
+      revalidateTag(`article-${articleId}`, 'max');
+      revalidatePath(`/documents/${articleId}/read`);
+    }
     revalidateTag('articles', 'max');
 
     return NextResponse.json({ segment: updated, transition });

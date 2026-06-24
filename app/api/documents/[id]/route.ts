@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { revalidateTag } from 'next/cache'
+import { revalidateTag, revalidatePath } from 'next/cache'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -70,6 +70,8 @@ export async function PUT(request: Request, { params }: RouteParams) {
         }
 
         // Phase 4.4: invalidate cached article data after document update
+        revalidateTag(`article-${id}`, 'max');
+        revalidatePath(`/documents/${id}/read`);
         revalidateTag('articles', 'max');
 
         return NextResponse.json({ document: article })
