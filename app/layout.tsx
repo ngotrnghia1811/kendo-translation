@@ -3,16 +3,30 @@ import './globals.css';
 import { SiteNav } from '@/components/shared/SiteNav';
 import { ThemeProvider } from '@/components/shared/ThemeProvider';
 import { AuthProvider } from '@/components/shared/AuthProvider';
+import { PwaRegistration } from '@/components/shared/PwaRegistration';
 
 export const metadata: Metadata = {
   title: 'Kendo Translation | Collaborative Japanese-English Platform',
   description: 'Collaborative translation platform for Japanese kendo content featuring MAC-RAG AI assistance and real-time editing.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Kendo TL',
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
+  },
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#1e3a5f' },
+    { media: '(prefers-color-scheme: dark)', color: '#0f1f33' },
+  ],
 };
 
 /** Inline script that sets `data-theme` on <html> before first paint to
@@ -40,6 +54,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body className="min-h-screen antialiased">
         <AuthProvider>
@@ -48,6 +63,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <main>{children}</main>
           </ThemeProvider>
         </AuthProvider>
+        <PwaRegistration />
       </body>
     </html>
   );

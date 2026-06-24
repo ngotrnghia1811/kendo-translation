@@ -9,6 +9,7 @@ import { useReaderBookmarks } from '@/hooks/useReaderBookmarks'
 import { useReaderKeyboard } from '@/hooks/useReaderKeyboard'
 import { useReaderProgress } from '@/hooks/useReaderProgress'
 import { createClient } from '@/lib/supabase/client'
+import { recordArticleAccess } from '@/lib/pwa/storage'
 import VirtualizedReader from './VirtualizedReader'
 import { isHeadingParagraph, type Paragraph } from '@/types/reader'
 import type { VirtuosoHandle } from 'react-virtuoso'
@@ -469,6 +470,16 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
     }, [articleId])
 
     // -----------------------------------------------------------------------
+    // Offline article tracking (Phase 5.2) — record access in IndexedDB
+    // so the SW knows which articles to keep in cache for offline reading.
+    // -----------------------------------------------------------------------
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            recordArticleAccess(articleId, window.location.href, title).catch(() => {})
+        }
+    }, [articleId, title])
+
+    // -----------------------------------------------------------------------
     // Progress persistence — auto-resume last page on load
     // -----------------------------------------------------------------------
     const { savedPageIndex, persistPage } = useReaderProgress(articleId)
@@ -492,16 +503,22 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [totalPages])
 
-    // Persist every page navigation — but skip the very first render.
-    // On first mount currentPageIndex is always 0; persisting immediately would
-    // overwrite a saved non-zero page before the restore effect can jump to it.
-    // We skip the first fire by checking whether the pager has been interacted
-    // with (totalPages was already > 1 AND we have already restored once).
+    // Persist every page navigation — but never persist page 0 (it's the default).
+    // We also skip the very first effect fire when currentPageIndex is 0, because
+    // state changes during lazy loading can cause multiple renders at page 0
+    // before the user interacts; persisting 0 would overwrite any saved position.
     const persistSkipFirstRef = useRef(true)
     useEffect(() => {
         if (totalPages <= 1) return
+        // Never persist page 0 — it's the default and persisting it would
+        // overwrite a previously saved position on every mount.
+        if (currentPageIndex === 0) {
+            persistSkipFirstRef.current = false
+            return
+        }
+        // Skip the very first non-zero navigation after mount, because the
+        // restore effect may have just set currentPageIndex to a saved value.
         if (persistSkipFirstRef.current) {
-            // Skip exactly once — the initial render at page index 0.
             persistSkipFirstRef.current = false
             return
         }
