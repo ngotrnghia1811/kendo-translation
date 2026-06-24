@@ -2,20 +2,20 @@
  * tests/furigana.spec.ts
  *
  * Phase 5.5 — Playwright verification for the RubyText component, furigana
- * toggle, and JLPT-level filter.
+ * toggle, JLPT-level filter, and romaji rendering mode (Phase 5.4.5).
  *
- * Since the live DB hasn't had the migration 013 applied yet (and the
- * precompute hasn't run), this spec loads a storybook-style fixture page
- * that renders RubyText with sample data. The live reader integration
- * degrades gracefully (no ruby_data → plain text) so main reader tests
- * remain unaffected.
+ * Since the live DB precompute hasn't run for all segments, this spec
+ * injects fixture data into the DOM. The live reader integration degrades
+ * gracefully (no ruby_data → plain text).
  *
  * Coverage:
  *  1. RubyText renders <ruby>/<rt> elements from a fixture
- *  2. Toggle "Show furigana" hides/shows ruby annotations
+ *  2. Toggle "off" hides furigana (plain text)
  *  3. JLPT filter changes which kanji are annotated
  *  4. No-annotations fixture renders plain text (graceful degradation)
- *  5. Virtualization + furigana: DOM size stable, no layout shift
+ *  5. Romaji mode renders romaji in <rt> (新 Phase 5.4.5)
+ *  6. No-romaji fixture degrades gracefully in romaji mode (plain text)
+ *  7. Virtualization + furigana: DOM size stable, no layout shift
  */
 
 import { test, expect } from './helpers/camoufox-fixture'
@@ -23,51 +23,64 @@ import { test, expect } from './helpers/camoufox-fixture'
 const BASE = process.env.TEST_BASE_URL ?? 'http://localhost:3001'
 
 // ---------------------------------------------------------------------------
-// In-browser fixture page that mounts RubyText for visual verification.
-// We use page.evaluate to inject a minimal React root so we don't need
-// a dedicated test route.
+// In-browser fixture helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Inject RubyText component into the current page.
- * Returns after the component is mounted in a test container.
- */
 async function injectRubyTextFixture(
     page: import('@playwright/test').Page,
     options?: {
-        showFurigana?: boolean
+        furiganaMode?: 'off' | 'furigana' | 'romaji'
         furiganaJlptMinLevel?: string | null
+        /** Use NO_ROMAJI fixture (old spans without romaji) */
+        useNoRomaji?: boolean
     },
 ) {
-    // Navigate to any page that loads React (use the documents listing).
     await page.goto(`${BASE}/documents`, { waitUntil: 'domcontentloaded' })
     await page.waitForTimeout(2000)
 
-    // Inject a test container and render RubyText with fixture data
     await page.evaluate((opts) => {
-        const show = opts?.showFurigana ?? true
+        const mode = opts?.furiganaMode ?? 'furigana'
         const minLevel = opts?.furiganaJlptMinLevel ?? null
+        const showAnnotations = mode !== 'off'
+        const showRomaji = mode === 'romaji'
 
-        // Create test container
         const container = document.createElement('div')
         container.id = 'furigana-test-container'
         container.style.cssText = 'position:fixed;top:10px;left:10px;z-index:99999;background:#fff;padding:20px;border:2px solid #333;max-width:600px;font-size:16px;'
         document.body.appendChild(container)
 
-        // Build spans fixture inline (same data as furigana-fixture.ts)
-        const fixtureSpans: Array<{type:string;base?:string;reading?:string;jlptLevel?:string|null;text?:string}> = [
+        // Use romaji-free fixture for graceful degradation test
+        const noRomaji = opts?.useNoRomaji === true
+
+        interface FixtureSpan {
+            type: string
+            base?: string
+            reading?: string
+            romaji?: string
+            jlptLevel?: string | null
+            text?: string
+        }
+
+        const fixtureSpans: FixtureSpan[] = noRomaji ? [
+            // FIXTURE_NO_ROMAJI — old spans without romaji field
             { type: 'kanji', base: '剣', reading: 'けん', jlptLevel: 'N1' },
             { type: 'kanji', base: '道', reading: 'どう', jlptLevel: 'N5' },
+            { type: 'text', text: 'と' },
+            { type: 'kanji', base: '居', reading: 'い', jlptLevel: 'N2' },
+            { type: 'kanji', base: '合', reading: 'あい', jlptLevel: 'N4' },
+        ] : [
+            // FIXTURE_ANNOTATION — has romaji on all kanji
+            { type: 'kanji', base: '剣', reading: 'けん', romaji: 'ken', jlptLevel: 'N1' },
+            { type: 'kanji', base: '道', reading: 'どう', romaji: 'dou', jlptLevel: 'N5' },
             { type: 'text', text: 'の' },
-            { type: 'kanji', base: '稽', reading: 'けい', jlptLevel: 'N1' },
-            { type: 'kanji', base: '古', reading: 'こ', jlptLevel: 'N5' },
+            { type: 'kanji', base: '稽', reading: 'けい', romaji: 'kei', jlptLevel: 'N1' },
+            { type: 'kanji', base: '古', reading: 'こ', romaji: 'ko', jlptLevel: 'N5' },
             { type: 'text', text: 'では、' },
-            { type: 'kanji', base: '面', reading: 'めん', jlptLevel: 'N4' },
-            { type: 'kanji', base: '打', reading: 'う', jlptLevel: 'N3' },
+            { type: 'kanji', base: '面', reading: 'めん', romaji: 'men', jlptLevel: 'N4' },
+            { type: 'kanji', base: '打', reading: 'う', romaji: 'u', jlptLevel: 'N3' },
             { type: 'text', text: 'ち' },
         ]
 
-        // Map JLPT levels: N5=0, N4=1, N3=2, N2=3, N1=4
         const order: Record<string,number> = { N5:0, N4:1, N3:2, N2:3, N1:4 }
 
         function passesFilter(kanjiLevel: string|null, min: string|null): boolean {
@@ -76,17 +89,22 @@ async function injectRubyTextFixture(
             return (order[kanjiLevel] ?? -1) >= (order[min] ?? -1)
         }
 
-        // Build HTML
         let html = ''
         for (const span of fixtureSpans) {
             if (span.type === 'text') {
                 html += `<span>${span.text}</span>`
             } else if (span.type === 'kanji') {
-                const shouldAnnotate = show &&
-                    span.reading && span.reading !== span.base &&
+                const hasAnnotation = showRomaji
+                    ? !!span.romaji
+                    : span.reading && span.reading !== span.base
+
+                const shouldAnnotate = showAnnotations &&
+                    hasAnnotation &&
                     passesFilter(span.jlptLevel ?? null, minLevel)
+
                 if (shouldAnnotate) {
-                    html += `<ruby>${span.base}<rp>(</rp><rt>${span.reading}</rt><rp>)</rp></ruby>`
+                    const annotation = showRomaji && span.romaji ? span.romaji : span.reading
+                    html += `<ruby data-mode="${mode}">${span.base}<rp>(</rp><rt>${annotation}</rt><rp>)</rp></ruby>`
                 } else {
                     html += `<span class="kanji-plain">${span.base}</span>`
                 }
@@ -95,10 +113,9 @@ async function injectRubyTextFixture(
 
         container.innerHTML = html
 
-        // Also add status text for assertions
         const status = document.createElement('div')
         status.id = 'furigana-status'
-        status.textContent = `show=${show} minLevel=${minLevel ?? 'none'}`
+        status.textContent = `mode=${mode} minLevel=${minLevel ?? 'none'}`
         container.appendChild(status)
     }, options)
 
@@ -110,70 +127,58 @@ async function injectRubyTextFixture(
 // ---------------------------------------------------------------------------
 
 test.describe('Furigana / RubyText', () => {
-    // Use existing auth state (wenqian has reader access).
-    // The reader.json state doesn't exist yet in this environment.
     test.use({ storageState: 'tests/.auth/wenqian.json' })
 
     test('ruby elements render from fixture data', async ({ page, snap }) => {
-        await injectRubyTextFixture(page, { showFurigana: true, furiganaJlptMinLevel: null })
+        await injectRubyTextFixture(page, { furiganaMode: 'furigana', furiganaJlptMinLevel: null })
         await snap('furigana_ruby_rendered')
 
-        // Verify <ruby> elements exist
         const rubyElements = page.locator('#furigana-test-container ruby')
         const count = await rubyElements.count()
         expect(count, 'expected at least one <ruby> element').toBeGreaterThan(0)
 
-        // Verify <rt> elements contain readings
         const rtElements = page.locator('#furigana-test-container rt')
         const rtCount = await rtElements.count()
         expect(rtCount, 'expected <rt> reading elements').toBeGreaterThan(0)
 
-        // Spot-check: the first ruby should be for 剣 with reading けん
         const firstRt = page.locator('#furigana-test-container rt').first()
         await expect(firstRt).toHaveText('けん')
     })
 
-    test('toggle hides furigana when showFurigana=false', async ({ page, snap }) => {
-        await injectRubyTextFixture(page, { showFurigana: false, furiganaJlptMinLevel: null })
+    test('toggle off hides furigana when furiganaMode=off', async ({ page, snap }) => {
+        await injectRubyTextFixture(page, { furiganaMode: 'off', furiganaJlptMinLevel: null })
         await snap('furigana_toggle_off')
 
-        // With furigana off, no <ruby> elements should exist
         const rubyElements = page.locator('#furigana-test-container ruby')
         await expect(rubyElements).toHaveCount(0)
 
-        // Kanji should render as plain text spans
         const plainSpans = page.locator('#furigana-test-container .kanji-plain')
         const plainCount = await plainSpans.count()
         expect(plainCount, 'expected kanji rendered as plain spans when furigana off').toBeGreaterThan(0)
     })
 
     test('JLPT filter shows only kanji at/above selected level', async ({ page, snap }) => {
-        // Filter at N3: should show N3, N2, N1 (hide N5, N4)
-        await injectRubyTextFixture(page, { showFurigana: true, furiganaJlptMinLevel: 'N3' })
+        await injectRubyTextFixture(page, { furiganaMode: 'furigana', furiganaJlptMinLevel: 'N3' })
         await snap('furigana_jlpt_filter_n3')
 
         const rubyElements = page.locator('#furigana-test-container ruby')
         const count = await rubyElements.count()
 
         // Fixture: 剣(N1), 道(N5), 稽(N1), 古(N5), 面(N4), 打(N3)
-        // At N3 threshold: should show 剣(N1), 稽(N1), 打(N3) = 3 ruby tags
-        // Hide: 道(N5), 古(N5), 面(N4) = 3 plain
+        // At N3 threshold: should show 剣(N1), 稽(N1), 打(N3) = 3
         expect(count).toBe(3)
 
-        // Verify hidden kanji are rendered as plain spans
         const plainSpans = page.locator('#furigana-test-container .kanji-plain')
         const plainCount = await plainSpans.count()
         expect(plainCount).toBe(3)
 
-        await snap('furigana_jlpt_filter_n1')
         // Filter at N1: only N1 kanji should have ruby
-        await injectRubyTextFixture(page, { showFurigana: true, furiganaJlptMinLevel: 'N1' })
+        await injectRubyTextFixture(page, { furiganaMode: 'furigana', furiganaJlptMinLevel: 'N1' })
         const n1RubyCount = await page.locator('#furigana-test-container ruby').count()
         expect(n1RubyCount).toBe(2) // 剣(N1), 稽(N1)
     })
 
     test('no-kanji fixture renders plain text (graceful degradation)', async ({ page, snap }) => {
-        // Inject a fixture with only kana — no ruby should be generated
         await page.goto(`${BASE}/documents`, { waitUntil: 'domcontentloaded' })
         await page.waitForTimeout(2000)
 
@@ -183,7 +188,6 @@ test.describe('Furigana / RubyText', () => {
             container.style.cssText = 'position:fixed;top:10px;left:10px;z-index:99999;background:#fff;padding:20px;border:2px solid #333;'
             document.body.appendChild(container)
 
-            // All-text spans — no kanji
             const spans = [{ type: 'text', text: 'こんにちは、ありがとうございます。' }]
             let html = ''
             for (const span of spans as Array<{type:string;text?:string}>) {
@@ -197,31 +201,82 @@ test.describe('Furigana / RubyText', () => {
         const rubyElements = page.locator('#furigana-test-container ruby')
         await expect(rubyElements).toHaveCount(0)
 
-        // Plain text should be visible
         const container = page.locator('#furigana-test-container')
         await expect(container).toContainText('こんにちは')
     })
 
+    // ── Romaji tests (Phase 5.4.5) ────────────────────────────────────
+
+    test('romaji mode renders romaji in <rt>', async ({ page, snap }) => {
+        await injectRubyTextFixture(page, { furiganaMode: 'romaji', furiganaJlptMinLevel: null })
+        await snap('furigana_romaji_rendered')
+
+        const rubyElements = page.locator('#furigana-test-container ruby')
+        const count = await rubyElements.count()
+        expect(count, 'expected <ruby> elements in romaji mode').toBeGreaterThan(0)
+
+        // First ruby should have romaji reading (剣 → ken)
+        const firstRt = page.locator('#furigana-test-container rt').first()
+        await expect(firstRt).toHaveText('ken')
+
+        // All ruby elements should have data-mode="romaji"
+        const romajiRuby = page.locator('#furigana-test-container ruby[data-mode="romaji"]')
+        await expect(romajiRuby).toHaveCount(count)
+    })
+
+    test('romaji mode with JLPT filter respects level threshold', async ({ page, snap }) => {
+        await injectRubyTextFixture(page, { furiganaMode: 'romaji', furiganaJlptMinLevel: 'N2' })
+        await snap('furigana_romaji_jlpt_n2')
+
+        // Fixture: 剣(N1) 稽(N1) should show, 道(N5) 古(N5) 面(N4) 打(N3) hidden
+        // N2 threshold means only N2 and N1 — so only 剣 and 稽
+        const rubyElements = page.locator('#furigana-test-container ruby')
+        const count = await rubyElements.count()
+        expect(count).toBe(2)
+
+        // Hidden kanji should be plain
+        const plainSpans = page.locator('#furigana-test-container .kanji-plain')
+        await expect(plainSpans).toHaveCount(4)
+
+        // Remaining romaji: first should be 'ken' (剣)
+        const firstRt = page.locator('#furigana-test-container rt').first()
+        await expect(firstRt).toHaveText('ken')
+    })
+
+    test('old spans without romaji degrade gracefully in romaji mode', async ({ page, snap }) => {
+        await injectRubyTextFixture(page, {
+            furiganaMode: 'romaji',
+            furiganaJlptMinLevel: null,
+            useNoRomaji: true,
+        })
+        await snap('furigana_romaji_no_romaji_fallback')
+
+        // Old spans have no romaji field → should render plain text in romaji mode
+        const rubyElements = page.locator('#furigana-test-container ruby')
+        await expect(rubyElements).toHaveCount(0)
+
+        // All kanji should be plain (4 kanji spans, no romaji field)
+        const plainSpans = page.locator('#furigana-test-container .kanji-plain')
+        const plainCount = await plainSpans.count()
+        expect(plainCount, 'old spans without romaji should render plain text').toBe(4)
+    })
+
     test('reader loads with furigana settings persisted (integration)', async ({ page }) => {
-        // Set reader-theme-settings with furigana prefs, then navigate to
-        // a reader page and verify the settings panel reflects them.
         await page.goto(`${BASE}/documents`, { waitUntil: 'domcontentloaded' })
         await page.waitForTimeout(1000)
 
-        // Set localStorage with furigana prefs
+        // Set localStorage with furiganaMode prefs
         await page.evaluate(() => {
             const settings = JSON.parse(localStorage.getItem('reader-theme-settings') || '{}')
-            settings.showFurigana = false
+            settings.furiganaMode = 'romaji'
             settings.furiganaJlptMinLevel = 'N2'
             localStorage.setItem('reader-theme-settings', JSON.stringify(settings))
         })
 
-        // Also set dark mode key for completeness (dark mode in tests needs both)
         await page.evaluate(() => {
             localStorage.setItem('kt-theme', 'light')
         })
 
-        // Navigate to a reader page
         const docsRes = await page.evaluate(async (base) => {
             const res = await fetch(`${base}/api/documents`)
             const json = await res.json()
@@ -239,11 +294,38 @@ test.describe('Furigana / RubyText', () => {
             await settingsBtn.click()
             await page.waitForTimeout(400)
 
-            // Verify the furigana checkbox is unchecked
-            const checkbox = page.locator('input[type="checkbox"]').first()
-            // The furigana checkbox should be unchecked (since we set showFurigana=false)
-            const isChecked = await checkbox.isChecked()
-            expect(isChecked, 'furigana checkbox should be unchecked (showFurigana=false persisted)').toBe(false)
+            // Verify the Romaji button is selected (data-mode=furigana or visually active)
+            const romajiBtn = page.locator('button[aria-pressed="true"]').filter({ hasText: 'Rōmaji' })
+            const count = await romajiBtn.count()
+            expect(count, 'Romaji button should be active when furiganaMode=romaji persisted').toBe(1)
         }
+    })
+
+    // ── Backward compatibility: old showFurigana auto-migrated ──────────
+
+    test('old showFurigana boolean migrates to furiganaMode=off', async ({ page }) => {
+        await page.goto(`${BASE}/documents`, { waitUntil: 'domcontentloaded' })
+        await page.waitForTimeout(1000)
+
+        // Set old-style showFurigana=false
+        await page.evaluate(() => {
+            localStorage.setItem('reader-theme-settings', JSON.stringify({
+                showFurigana: false,
+                furiganaJlptMinLevel: null,
+            }))
+        })
+
+        // Reload to trigger migration
+        await page.reload()
+        await page.waitForTimeout(2000)
+
+        // Read localStorage — should now have furiganaMode:'off' and no showFurigana
+        const settings = await page.evaluate(() => {
+            return JSON.parse(localStorage.getItem('reader-theme-settings') || '{}')
+        })
+
+        expect(settings.furiganaMode,
+            'old showFurigana:false should migrate to furiganaMode:off'
+        ).toBe('off')
     })
 })

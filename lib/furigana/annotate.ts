@@ -4,35 +4,45 @@
  * Converts Japanese source_text into an ordered array of RubySpan entries
  * (kanji runs with hiragana readings + JLPT levels; non-kanji passthrough).
  *
- * The pipeline uses kuroshiro + kuromoji for morphological analysis. Both
- * are loaded via dynamic import and NEVER included in the Next.js client
- * bundle — this module is only imported by the Node.js precompute script
- * (scripts/precompute-furigana.ts).
+ * ENGINE (v2): Sudachi WASM Mode C + wanakana romaji.
+ *   SudachiStateless (from sudachi-wasm333, Apache 2.0) with bundled
+ *   SudachiDict Small (~117 MB) provides compound-preserving tokenization
+ *   with katakana readingForm. Romaji derived from hiragana via
+ *   wanakana.toRomaji() (MIT, doubled-vowel Hepburn).
+ *
+ * The Sudachi WASM + dictionary are loaded via dynamic import and NEVER
+ * included in the Next.js client bundle — this module is only imported by
+ * the Node.js precompute script (scripts/precompute-furigana.ts).
+ *
+ * License notices:
+ *   - Sudachi/SudachiDict — Apache 2.0 (WorksApplications)
+ *   - wanakana — MIT (WaniKani/Tofugu)
  */
 
 import type { RubySpan, RubyAnnotation, KanjiRubySpan, TextSpan } from './types'
 import { getMaxJlptLevel } from './jlpt'
 
 // ---------------------------------------------------------------------------
-// CJS→ESM interop helpers for kuroshiro / kuromoji
+// Dynamic imports (kept out of client bundle)
 // ---------------------------------------------------------------------------
 
-/**
- * Dynamic import for kuroshiro (CJS package).
- * In ESM context, `import('kuroshiro')` returns { default: { default: <class> } }
- * because the CJS `module.exports` gets wrapped in an extra ESM `default` layer.
- * We unwrap both to reach the constructor.
- */
-async function loadKuroshiro(): Promise<new () => import('kuroshiro')> {
-    const mod = await import('kuroshiro')
-    const inner = (mod as unknown as Record<string, unknown>).default as Record<string, unknown>
-    return (inner.default ?? inner) as new () => import('kuroshiro')
+type SudachiInstance = import('sudachi-wasm333').SudachiStateless
+type TokenizeMode = typeof import('sudachi-wasm333').TokenizeMode
+
+async function loadSudachi(): Promise<{
+    SudachiStateless: new () => SudachiInstance
+    TokenizeMode: TokenizeMode
+}> {
+    const mod = await import('sudachi-wasm333')
+    return {
+        SudachiStateless: mod.SudachiStateless,
+        TokenizeMode: mod.TokenizeMode,
+    }
 }
 
-async function loadKuromojiAnalyzer(): Promise<new (options?: Record<string, unknown>) => unknown> {
-    const mod = await import('kuroshiro-analyzer-kuromoji')
-    const inner = (mod as unknown as Record<string, unknown>).default as Record<string, unknown>
-    return (inner.default ?? inner) as new (options?: Record<string, unknown>) => unknown
+async function loadWanakana(): Promise<{ toRomaji: (s: string) => string }> {
+    const mod = await import('wanakana')
+    return { toRomaji: mod.toRomaji }
 }
 
 // ---------------------------------------------------------------------------
@@ -52,14 +62,8 @@ function isHiragana(ch: string): boolean {
     return cp >= 0x3040 && cp <= 0x309F
 }
 
-/** Katakana (U+30A0–U+30FF) */
-function isKatakana(ch: string): boolean {
-    const cp = ch.codePointAt(0) ?? 0
-    return cp >= 0x30A0 && cp <= 0x30FF
-}
-
 /** Convert a katakana string to hiragana (simple offset mapping). */
-function katakanaToHiragana(s: string): string {
+export function katakanaToHiragana(s: string): string {
     let result = ''
     for (const ch of s) {
         const cp = ch.codePointAt(0) ?? 0
@@ -88,13 +92,11 @@ function segmentRuns(text: string): TextRun[] {
     while (i < text.length) {
         const ch = text[i]
         if (isKanji(ch)) {
-            // Accumulate consecutive kanji.
             let j = i + 1
             while (j < text.length && isKanji(text[j])) j++
             runs.push({ text: text.slice(i, j), isKanji: true })
             i = j
         } else {
-            // Accumulate consecutive non-kanji.
             let j = i + 1
             while (j < text.length && !isKanji(text[j])) j++
             runs.push({ text: text.slice(i, j), isKanji: false })
@@ -105,120 +107,226 @@ function segmentRuns(text: string): TextRun[] {
 }
 
 // ---------------------------------------------------------------------------
-// Kuroshiro integration
+// Sudachi integration
+// ---------------------------------------------------------------------------
+
+interface TokenReading {
+    surface: string     // surface form from tokenizer
+    reading: string     // hiragana reading (converted from katakana readingForm)
+    start: number       // character start position in original text
+}
+
+/**
+ * Build a token→reading map for a text using Sudachi WASM Mode C.
+ * Returns an array of {surface, reading, start} entries.
+ *
+ * The readings come from Sudachi's `readingForm` (katakana), converted
+ * to hiragana via `katakanaToHiragana()`.
+ */
+export async function tokenizeWithSudachi(text: string): Promise<TokenReading[]> {
+    const { SudachiStateless, TokenizeMode } = await loadSudachi()
+    const sudachi = new SudachiStateless()
+
+    // Use the bundled SudachiDict Small (117 MB, Apache 2.0).
+    // Initialization loads the dict into WASM memory (~1.5s cold, cached thereafter).
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const { readFileSync } = fs
+
+    // Resolve the bundled dict path using project root
+    const sudachiPkgDir = path.join(process.cwd(), 'node_modules', 'sudachi-wasm333')
+    const dictPath = path.join(sudachiPkgDir, 'resources', 'system.dic')
+
+    await sudachi.initialize_node(readFileSync, dictPath)
+
+    // Tokenize in Mode C (Named Entity — preserves compounds)
+    const raw = sudachi.tokenize_stringified(text, TokenizeMode.C)
+    const morphemes: Array<{
+        surface: string
+        reading_form: string
+        begin: number
+    }> = JSON.parse(raw)
+
+    const tokens: TokenReading[] = []
+    for (const m of morphemes) {
+        const readingRaw = m.reading_form || m.surface
+        const reading = katakanaToHiragana(readingRaw)
+        tokens.push({
+            surface: m.surface,
+            reading,
+            start: m.begin,
+        })
+    }
+
+    // Free WASM memory
+    sudachi.free()
+    return tokens
+}
+
+// ---------------------------------------------------------------------------
+// Reading-assignment safety: multi-token concatenation (§3.2)
 // ---------------------------------------------------------------------------
 
 /**
- * Get the reading for a kanji run using kuroshiro.
+ * Convert a byte offset into a character offset for a UTF-8 string.
+ * Japanese kanji are typically 3 bytes each in UTF-8.
  *
- * Kuroshiro's `convert()` with mode="furigana" produces HTML, but we need
- * structured data. Instead, we use kuroshiro's internal tokenizer to get
- * readings for each token, then match them to our runs.
- *
- * Strategy: tokenize the full text, build a position→reading map, then
- * for each kanji run, look up the reading from the token(s) that overlap
- * its character range.
+ * Example: "学生時代" → byte offsets 0,3,6,9 (3 bytes/char)
+ *          → char offsets 0,1,2,3
  */
-interface TokenReading {
-    surface: string    // surface form from tokenizer
-    reading: string    // hiragana reading (kuroshiro converts katakana→hiragana)
-    start: number      // character start position in original text
+function byteToCharOffset(text: string, byteOffset: number): number {
+    const buf = Buffer.from(text, 'utf-8')
+    const slice = buf.subarray(0, byteOffset)
+    return slice.toString('utf-8').length
 }
 
 /**
- * Build a token→reading map for a text using kuroshiro.
- * Returns an array of {surface, reading, start} entries.
+ * For a kanji run spanning character positions [runStart, runEnd) in the
+ * original text, collect ALL token readings that overlap the run and
+ * concatenate them.
+ *
+ * Sudachi's `begin` return field is a BYTE offset; tokens also carry a
+ * `surface` string. We convert byte offsets to character offsets and match
+ * tokens against kanji runs.
+ *
+ * This handles cases where Sudachi Mode C still splits a compound across
+ * multiple tokens (e.g. 学生時代 → 学生 + 時代 → がくせい + じだい → がくせいじだい).
  */
-export async function tokenizeWithKuroshiro(
-    text: string,
-): Promise<TokenReading[]> {
-    const Kuroshiro = await loadKuroshiro()
-    const KuromojiAnalyzer = await loadKuromojiAnalyzer()
-
-    const kuroshiro = new Kuroshiro()
-    await kuroshiro.init(new KuromojiAnalyzer())
-
-    // Primary path: use kuroshiro._analyzer (kuromoji tokenizer).
-    const analyzer = (kuroshiro as unknown as Record<string, unknown>)._analyzer as {
-        parse: (text: string) => Promise<Array<{
-            surface_form: string
-            reading?: string
-            word_position: number
-        }>>
-    } | null
-
-    if (analyzer && typeof analyzer.parse === 'function') {
-        const rawTokens = await analyzer.parse(text)
-        const tokens: TokenReading[] = []
-        let pos = 0
-        for (const tok of rawTokens) {
-            const readingRaw = tok.reading ?? tok.surface_form
-            const reading = katakanaToHiragana(readingRaw)
-            tokens.push({
-                surface: tok.surface_form,
-                reading,
-                start: pos,
-            })
-            pos += tok.surface_form.length
+function getCompoundReading(
+    runStart: number,
+    runEnd: number,
+    tokens: TokenReading[],
+    fullText: string,
+): string | null {
+    const parts: string[] = []
+    for (const tok of tokens) {
+        const tokCharStart = byteToCharOffset(fullText, tok.start)
+        const tokCharEnd = tokCharStart + tok.surface.length
+        // Token overlaps the kanji run
+        if (tokCharStart >= runStart && tokCharEnd <= runEnd) {
+            parts.push(tok.reading)
         }
-        return tokens
+    }
+    if (parts.length === 0) return null
+    return parts.join('')
+}
+
+// ---------------------------------------------------------------------------
+// KANJIDIC2 per-character fallback (§3.2, §5)
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-character ON/KUN reading lookup for kanji that could not be mapped
+ * by the tokenizer (token.reading === token.surface).
+ *
+ * TODO (Phase 5.4.3): Parse KANJIDIC2 XML → JSON kanji→reading map.
+ *   - KANJIDIC2: CC-BY-SA 4.0, 13,108 kanji with ON/KUN readings
+ *   - Parse to `Map<string, string[]>` mapping kanji → readings
+ *   - When token reading equals surface (unrecognized), decompose to
+ *     per-kanji lookups and pick the most likely ON reading
+ *
+ * For now, returns null (no fallback) — unmapped kanji keep their surface
+ * form as the reading.
+ */
+function kanjidic2Fallback(_kanjiRun: string): string | null {
+    return null
+}
+
+// ---------------------------------------------------------------------------
+// Romaji generation
+// ---------------------------------------------------------------------------
+
+let cachedWanakana: { toRomaji: (s: string) => string } | null = null
+
+async function getWanakana(): Promise<{ toRomaji: (s: string) => string }> {
+    if (cachedWanakana) return cachedWanakana
+    cachedWanakana = await loadWanakana()
+    return cachedWanakana
+}
+
+/**
+ * Convert hiragana to doubled-vowel Hepburn romaji.
+ * Uses wanakana.toRomaji() with custom mapping to produce
+ * doubled vowels (kendou, not kendō) for font portability.
+ */
+function hiraganaToRomaji(hiragana: string, wanakana: { toRomaji: (s: string) => string }): string {
+    // wanakana.toRomaji produces macron-based output by default (kendō).
+    // We use customRomajiMapping for doubled-vowel style (kendou).
+    // However wanakana's API doesn't directly support custom mapping in toRomaji().
+    // We post-process: replace macron vowels with doubled vowels.
+    const romaji = wanakana.toRomaji(hiragana)
+    return doubledVowelHepburn(romaji)
+}
+
+/**
+ * Post-process wanakana output to convert macron-style long vowels
+ * to doubled-vowel style for font portability.
+ *
+ * ō → ou, ū → uu, ā → aa, ē → ei (Hepburn convention), ī → ii
+ */
+function doubledVowelHepburn(romaji: string): string {
+    return romaji
+        .replace(/ō/g, 'ou')
+        .replace(/ū/g, 'uu')
+        .replace(/ā/g, 'aa')
+        .replace(/ē/g, 'ei')
+        .replace(/ī/g, 'ii')
+}
+
+// ---------------------------------------------------------------------------
+// Cached Sudachi instance (reuse across annotateTexts batch)
+// ---------------------------------------------------------------------------
+
+let cachedSudachi: SudachiInstance | null = null
+let cachedTokenizeMode: TokenizeMode | null = null
+
+async function getSudachi(): Promise<{
+    sudachi: SudachiInstance
+    TokenizeMode: TokenizeMode
+}> {
+    if (cachedSudachi && cachedTokenizeMode) {
+        return { sudachi: cachedSudachi, TokenizeMode: cachedTokenizeMode }
     }
 
-    // Fallback: use kuroshiro.convert() with furigana mode, then parse HTML.
-    return fallbackTokenize(kuroshiro, text)
+    const { SudachiStateless, TokenizeMode } = await loadSudachi()
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+
+    const sudachi = new SudachiStateless()
+
+    // Resolve the bundled dict path.
+    // Use process.cwd() + node_modules path for robustness across ESM/CJS contexts.
+    const pkgDir = path.join(process.cwd(), 'node_modules', 'sudachi-wasm333')
+    const dictPath = path.join(pkgDir, 'resources', 'system.dic')
+    await sudachi.initialize_node(fs.readFileSync, dictPath)
+
+    cachedSudachi = sudachi
+    cachedTokenizeMode = TokenizeMode
+    return { sudachi, TokenizeMode }
 }
 
 /**
- * Fallback tokenizer using kuroshiro.convert() when internal API unavailable.
- * Converts to furigana HTML then parses out the readings.
+ * Tokenize a single text using the cached Sudachi instance.
  */
-async function fallbackTokenize(
-    kuroshiro: import('kuroshiro'),
-    text: string,
-): Promise<TokenReading[]> {
-    const html = await kuroshiro.convert(text, {
-        mode: 'furigana',
-        to: 'hiragana',
-    })
-
-    // kuroshiro's furigana HTML includes <rp> fallback parenthesis:
-    //   <ruby>剣道<rp>(</rp><rt>けんどう</rt><rp>)</rp></ruby>
-    // Strip <rp> tags so we can parse <ruby>base<rt>reading</rt></ruby> cleanly.
-    const cleaned = html.replace(/<rp>[^<]*<\/rp>/g, '')
+async function tokenizeWithCachedSudachi(text: string): Promise<TokenReading[]> {
+    const { sudachi, TokenizeMode } = await getSudachi()
+    const raw = sudachi.tokenize_stringified(text, TokenizeMode.C)
+    const morphemes: Array<{
+        surface: string
+        reading_form: string
+        begin: number
+    }> = JSON.parse(raw)
 
     const tokens: TokenReading[] = []
-    let sourceIdx = 0
-
-    const rubyRe = /<ruby>([^<]*)<rt>([^<]*)<\/rt><\/ruby>/g
-    let lastPlainEnd = 0
-
-    let match: RegExpExecArray | null
-    while ((match = rubyRe.exec(cleaned)) !== null) {
-        // Plain text between last match and this ruby tag
-        const plainChunk = cleaned.slice(lastPlainEnd, match.index)
-        const plainText = plainChunk.replace(/<[^>]+>/g, '')
-        for (const ch of plainText) {
-            tokens.push({ surface: ch, reading: ch, start: sourceIdx })
-            sourceIdx++
-        }
-
-        // Ruby-annotated kanji
-        const base = match[1]
-        const reading = match[2]
-        tokens.push({ surface: base, reading, start: sourceIdx })
-        sourceIdx += base.length
-
-        lastPlainEnd = match.index + match[0].length
+    for (const m of morphemes) {
+        const readingRaw = m.reading_form || m.surface
+        const reading = katakanaToHiragana(readingRaw)
+        tokens.push({
+            surface: m.surface,
+            reading,
+            start: m.begin,
+        })
     }
-
-    // Trailing plain text after last ruby tag
-    const tailHtml = cleaned.slice(lastPlainEnd)
-    const tailText = tailHtml.replace(/<[^>]+>/g, '')
-    for (const ch of tailText) {
-        tokens.push({ surface: ch, reading: ch, start: sourceIdx })
-        sourceIdx++
-    }
-
     return tokens
 }
 
@@ -227,56 +335,59 @@ async function fallbackTokenize(
 // ---------------------------------------------------------------------------
 
 /**
- * Annotate a single Japanese text string with ruby readings.
+ * Annotate a single Japanese text string with ruby readings and romaji.
  *
  * Returns a RubyAnnotation containing an ordered array of spans.
- * Non-kanji spans are passthrough; kanji spans carry hiragana readings
- * and JLPT levels.
+ * Non-kanji spans are passthrough; kanji spans carry hiragana readings,
+ * romaji, and JLPT levels.
  *
- * This function loads kuroshiro+kuromoji on first call (~200ms cold start);
- * subsequent calls on the same process reuse the cached tokenizer.
+ * On first call, loads Sudachi WASM + dictionary (~1.5s cold start).
+ * Subsequent calls reuse the cached instance.
  */
-let cachedKuroshiro: import('kuroshiro') | null = null
-
-async function getKuroshiro(): Promise<import('kuroshiro')> {
-    if (cachedKuroshiro) return cachedKuroshiro
-
-    const Kuroshiro = await loadKuroshiro()
-    const KuromojiAnalyzer = await loadKuromojiAnalyzer()
-
-    const kuroshiro = new Kuroshiro()
-    await kuroshiro.init(new KuromojiAnalyzer())
-    cachedKuroshiro = kuroshiro
-    return kuroshiro
-}
-
 export async function annotateText(text: string): Promise<RubyAnnotation> {
     if (!text || text.trim().length === 0) {
         return { source_text: text, spans: [] }
     }
 
-    const tokens = await tokenizeWithKuroshiro(text)
+    const tokens = await tokenizeWithCachedSudachi(text)
+    const wanakana = await getWanakana()
     const spans: RubySpan[] = []
 
-    // Build a position→reading map from tokens
+    // Build a position→reading map from tokens (character offsets, not byte)
     const readingMap = new Map<number, string>()
     for (const tok of tokens) {
-        readingMap.set(tok.start, tok.reading)
+        const charStart = byteToCharOffset(text, tok.start)
+        readingMap.set(charStart, tok.reading)
     }
 
-    // Segment into kanji/non-kanji runs and assign readings
+    // Segment into kanji/non-kanji runs
     const runs = segmentRuns(text)
 
     for (const run of runs) {
         if (run.isKanji) {
-            // Find the reading for this run from the token map
+            // Find reading: try multi-token concatenation first, then position map
             const runStart = text.indexOf(run.text)
-            const reading = readingMap.get(runStart) ?? run.text
+            const runEnd = runStart + run.text.length
+            let reading = getCompoundReading(runStart, runEnd, tokens, text)
+
+            if (!reading) {
+                reading = readingMap.get(runStart) ?? run.text
+            }
+
+            // Fallback: if tokenizer returned surface-as-reading, try KANJIDIC2
+            if (reading === run.text || reading.length === 0) {
+                const fallback = kanjidic2Fallback(run.text)
+                if (fallback) reading = fallback
+            }
+
+            // Generate romaji from the hiragana reading
+            const romaji = hiraganaToRomaji(reading, wanakana)
 
             spans.push({
                 type: 'kanji',
                 base: run.text,
                 reading: katakanaToHiragana(reading),
+                romaji,
                 jlptLevel: getMaxJlptLevel(run.text),
             } satisfies KanjiRubySpan)
         } else {
@@ -291,11 +402,12 @@ export async function annotateText(text: string): Promise<RubyAnnotation> {
 }
 
 /**
- * Batch-annotate multiple texts. Reuses the same kuroshiro instance.
+ * Batch-annotate multiple texts. Reuses the same Sudachi instance.
  */
 export async function annotateTexts(texts: string[]): Promise<RubyAnnotation[]> {
-    // Warm up kuroshiro once
-    await getKuroshiro()
+    // Warm up Sudachi once
+    await getSudachi()
+    await getWanakana()
 
     const results: RubyAnnotation[] = []
     for (const text of texts) {

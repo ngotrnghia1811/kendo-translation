@@ -15,11 +15,20 @@ export interface KanjiRubySpan {
     type: 'kanji'
     /** The kanji run as it appears in the source text. */
     base: string
-    /** Hiragana reading (kuroshiro converts katakana → hiragana automatically). */
+    /** Hiragana reading (Sudachi readingForm katakana → hiragana via katakanaToHiragana). */
     reading: string
+    /**
+     * Romaji reading derived from `reading` via wanakana.toRomaji().
+     * Doubled-vowel Hepburn (kendou, not kendō) for font portability.
+     * Absent on spans precomputed before the romaji feature was added (v1→v2).
+     */
+    romaji?: string
     /** JLPT level of the kanji, or null when the kanji is unmapped. */
     jlptLevel: JlptLevel | null
 }
+
+/** Display mode for the furigana/ruby toggle in reader settings. */
+export type FuriganaMode = 'off' | 'furigana' | 'romaji'
 
 /** A span of non-kanji text (kana, punctuation, digits, Latin, spaces). */
 export interface TextSpan {

@@ -1,6 +1,6 @@
 'use client'
 
-import type { RubySpan, JlptLevel } from '@/lib/furigana/types'
+import type { RubySpan, JlptLevel, FuriganaMode } from '@/lib/furigana/types'
 import { passesJlptFilter } from '@/lib/furigana/jlpt'
 
 // ---------------------------------------------------------------------------
@@ -10,8 +10,13 @@ import { passesJlptFilter } from '@/lib/furigana/jlpt'
 export interface RubyTextProps {
     /** Ordered array of spans from a RubyAnnotation. */
     spans: RubySpan[]
-    /** When false, render plain text only (no ruby annotations). */
-    showFurigana?: boolean
+    /**
+     * Furigana display mode:
+     *   'off'      — plain text only (no ruby annotations)
+     *   'furigana' — <ruby>/<rt> with hiragana readings
+     *   'romaji'   — <ruby>/<rt> with romaji readings
+     */
+    furiganaMode?: FuriganaMode
     /**
      * Minimum JLPT difficulty for which furigana is shown.
      * e.g. N3 → show furigana for N3, N2, N1 (hide for N5, N4).
@@ -27,14 +32,16 @@ export interface RubyTextProps {
 // ---------------------------------------------------------------------------
 
 /**
- * RubyText — renders Japanese text with optional furigana annotations.
+ * RubyText — renders Japanese text with optional furigana/romaji annotations.
  *
- * When `showFurigana` is true, kanji spans are rendered as semantic
- * `<ruby>kanji<rt>reading</rt></ruby>` elements. Non-kanji spans pass
- * through as plain text. The JLPT filter hides ruby for kanji below
- * the selected difficulty threshold.
+ * Furigana mode: kanji spans are rendered as semantic
+ * `<ruby>kanji<rt>reading</rt></ruby>` elements with hiragana.
  *
- * When `showFurigana` is false, ALL spans render as plain text (the
+ * Romaji mode: same `<ruby>/<rt>` structure but with `span.romaji` as the
+ * annotation text. Spans without a `romaji` field (pre-v2 data) render no
+ * annotation in romaji mode — they fall through to plain kanji text.
+ *
+ * When `furiganaMode` is 'off', ALL spans render as plain text (the
  * concatenation of span.base/text). This preserves line-breaking and
  * spacing identical to the annotated mode — no layout shift on toggle.
  *
@@ -42,11 +49,14 @@ export interface RubyTextProps {
  */
 export default function RubyText({
     spans,
-    showFurigana = true,
+    furiganaMode = 'furigana',
     furiganaJlptMinLevel = null,
     className,
 }: RubyTextProps) {
     if (!spans || spans.length === 0) return null
+
+    const showAnnotations = furiganaMode !== 'off'
+    const showRomaji = furiganaMode === 'romaji'
 
     return (
         <span className={className}>
@@ -56,18 +66,25 @@ export default function RubyText({
                 }
 
                 // kanji span
+                const hasAnnotationText = showRomaji
+                    ? !!span.romaji
+                    : span.reading && span.reading !== span.base
+
                 const shouldAnnotate =
-                    showFurigana &&
-                    span.reading &&
-                    span.reading !== span.base &&
+                    showAnnotations &&
+                    hasAnnotationText &&
                     passesJlptFilter(span.jlptLevel, furiganaJlptMinLevel)
 
                 if (shouldAnnotate) {
+                    const annotationText = showRomaji && span.romaji
+                        ? span.romaji
+                        : span.reading
+
                     return (
                         <ruby key={i}>
                             {span.base}
                             <rp>(</rp>
-                            <rt>{span.reading}</rt>
+                            <rt>{annotationText}</rt>
                             <rp>)</rp>
                         </ruby>
                     )

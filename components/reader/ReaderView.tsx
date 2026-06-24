@@ -385,8 +385,8 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
         setLayoutWidth,
         increaseFontSize,
         decreaseFontSize,
-        showFurigana,
-        setShowFurigana,
+        furiganaMode,
+        setFuriganaMode,
         furiganaJlptMinLevel,
         setFuriganaJlptMinLevel,
     } = useThemeContext()
@@ -642,7 +642,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                         <h2 className="text-xl font-semibold mt-10 mb-4">
                             <RubyText
                                 spans={rubySpans}
-                                showFurigana={showFurigana}
+                                furiganaMode={furiganaMode}
                                 furiganaJlptMinLevel={furiganaJlptMinLevel}
                             />
                         </h2>
@@ -662,7 +662,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                     <p className="text-base leading-relaxed mb-6">
                         <RubyText
                             spans={rubySpans}
-                            showFurigana={showFurigana}
+                            furiganaMode={furiganaMode}
                             furiganaJlptMinLevel={furiganaJlptMinLevel}
                         />
                     </p>
@@ -688,7 +688,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                             {sourceLang === 'ja' ? (
                                 <RubyText
                                     spans={getParagraphRubySpans(paragraph)}
-                                    showFurigana={showFurigana}
+                                    furiganaMode={furiganaMode}
                                     furiganaJlptMinLevel={furiganaJlptMinLevel}
                                 />
                             ) : sourceText}
@@ -710,7 +710,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                             {sourceLang === 'ja' ? (
                                 <RubyText
                                     spans={getParagraphRubySpans(paragraph)}
-                                    showFurigana={showFurigana}
+                                    furiganaMode={furiganaMode}
                                     furiganaJlptMinLevel={furiganaJlptMinLevel}
                                 />
                             ) : sourceText}
@@ -876,8 +876,8 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                                     onLayoutWidthChange={setLayoutWidth}
                                     onIncreaseFontSize={increaseFontSize}
                                     onDecreaseFontSize={decreaseFontSize}
-                                    showFurigana={showFurigana}
-                                    onShowFuriganaChange={setShowFurigana}
+                                    furiganaMode={furiganaMode}
+                                    onFuriganaModeChange={setFuriganaMode}
                                     furiganaJlptMinLevel={furiganaJlptMinLevel}
                                     onFuriganaJlptMinLevelChange={setFuriganaJlptMinLevel}
                                 />

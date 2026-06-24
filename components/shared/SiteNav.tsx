@@ -138,8 +138,8 @@ export function SiteNav() {
                             onLayoutWidthChange={themeCtx.setLayoutWidth}
                             onIncreaseFontSize={themeCtx.increaseFontSize}
                             onDecreaseFontSize={themeCtx.decreaseFontSize}
-                            showFurigana={themeCtx.showFurigana}
-                            onShowFuriganaChange={themeCtx.setShowFurigana}
+                            furiganaMode={themeCtx.furiganaMode}
+                            onFuriganaModeChange={themeCtx.setFuriganaMode}
                             furiganaJlptMinLevel={themeCtx.furiganaJlptMinLevel}
                             onFuriganaJlptMinLevelChange={themeCtx.setFuriganaJlptMinLevel}
                         />

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import type { JlptLevel } from '@/lib/furigana/types'
+import type { JlptLevel, FuriganaMode } from '@/lib/furigana/types'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -18,10 +18,15 @@ export interface ReaderThemeSettings {
     fontColor:  string | null
     /** Layout width for reader/editor pages. ('two-column' is reader-only; editor treats it as 'full'). */
     layoutWidth: LayoutWidth
-    /** Phase 5.5 — Show furigana annotations on Japanese text. */
-    showFurigana: boolean
     /**
-     * Phase 5.5 — Minimum JLPT difficulty for furigana display.
+     * Phase 5.5 — Furigana display mode.
+     *   'off'      — plain Japanese, no ruby annotations
+     *   'furigana' — <ruby> with hiragana <rt> above kanji (+ JLPT filter)
+     *   'romaji'   — <ruby> with romaji <rt> above kanji (+ JLPT filter)
+     */
+    furiganaMode: FuriganaMode
+    /**
+     * Phase 5.5 — Minimum JLPT difficulty for furigana/romaji display.
      * e.g. N3 → show furigana for N3, N2, N1 (hide for N5, N4).
      * null → show furigana for all kanji (no filter).
      */
@@ -76,7 +81,7 @@ const DEFAULTS: ReaderThemeSettings = {
     fontSize:             16,   // px
     fontColor:            null,
     layoutWidth:          'narrow',
-    showFurigana:         true,
+    furiganaMode:         'furigana',
     furiganaJlptMinLevel: null,
 }
 
@@ -87,14 +92,25 @@ function loadFromStorage(): ReaderThemeSettings {
     try {
         const raw = localStorage.getItem(STORAGE_KEY)
         if (!raw) return DEFAULTS
-        const parsed = JSON.parse(raw) as Partial<ReaderThemeSettings>
+        const parsed = JSON.parse(raw) as Partial<ReaderThemeSettings & { showFurigana?: boolean }>
+
+        // Backward compatibility: migrate old showFurigana boolean → furiganaMode
+        let furiganaMode = parsed.furiganaMode ?? DEFAULTS.furiganaMode
+        if (parsed.furiganaMode === undefined && parsed.showFurigana !== undefined) {
+            furiganaMode = parsed.showFurigana ? 'furigana' : 'off'
+            // Persist the migration so localStorage reflects new structure
+            delete (parsed as Record<string, unknown>).showFurigana
+            parsed.furiganaMode = furiganaMode
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed))
+        }
+
         return {
             theme:                parsed.theme                ?? DEFAULTS.theme,
             font:                 parsed.font                 ?? DEFAULTS.font,
             fontSize:             parsed.fontSize             ?? DEFAULTS.fontSize,
             fontColor:            parsed.fontColor            ?? DEFAULTS.fontColor,
             layoutWidth:          parsed.layoutWidth          ?? DEFAULTS.layoutWidth,
-            showFurigana:         parsed.showFurigana         ?? DEFAULTS.showFurigana,
+            furiganaMode,
             furiganaJlptMinLevel: parsed.furiganaJlptMinLevel ?? DEFAULTS.furiganaJlptMinLevel,
         }
     } catch {
@@ -129,7 +145,7 @@ export function useReaderTheme() {
     const setFont               = useCallback((font: ReaderFont)                 => setSettings({ font }),                 [setSettings])
     const setFontColor          = useCallback((fontColor: string | null)         => setSettings({ fontColor }),            [setSettings])
     const setLayoutWidth        = useCallback((layoutWidth: LayoutWidth)         => setSettings({ layoutWidth }),          [setSettings])
-    const setShowFurigana       = useCallback((showFurigana: boolean)            => setSettings({ showFurigana }),         [setSettings])
+    const setFuriganaMode       = useCallback((furiganaMode: FuriganaMode)       => setSettings({ furiganaMode }),         [setSettings])
     const setFuriganaJlptMinLevel = useCallback((furiganaJlptMinLevel: JlptLevel | null) => setSettings({ furiganaJlptMinLevel }), [setSettings])
 
     const increaseFontSize = useCallback(
@@ -150,7 +166,7 @@ export function useReaderTheme() {
         setFont,
         setFontColor,
         setLayoutWidth,
-        setShowFurigana,
+        setFuriganaMode,
         setFuriganaJlptMinLevel,
         increaseFontSize,
         decreaseFontSize,

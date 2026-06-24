@@ -17,4 +17,5 @@ export type {
     RubySpan,
     RubyAnnotation,
     RubyData,
+    FuriganaMode,
 } from './types'

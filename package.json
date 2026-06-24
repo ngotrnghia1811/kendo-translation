@@ -35,7 +35,9 @@
     "kuroshiro": "^1.2.0",
     "kuroshiro-analyzer-kuromoji": "^1.1.0",
     "pg": "^8.20.0",
+    "sudachi-wasm333": "^1.0.4",
     "tailwindcss": "^4.0.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wanakana": "^5.3.1"
   }
 }

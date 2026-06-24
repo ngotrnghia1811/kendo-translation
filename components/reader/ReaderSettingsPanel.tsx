@@ -6,7 +6,7 @@ import {
     FONT_SIZE_MIN, FONT_SIZE_MAX,
     type ReaderTheme, type ReaderFont, type LayoutWidth,
 } from '@/hooks/useReaderTheme'
-import type { JlptLevel } from '@/lib/furigana/types'
+import type { JlptLevel, FuriganaMode } from '@/lib/furigana/types'
 
 interface ReaderSettingsPanelProps {
     open:               boolean
@@ -23,9 +23,9 @@ interface ReaderSettingsPanelProps {
     onLayoutWidthChange:(w: LayoutWidth)       => void
     onIncreaseFontSize: () => void
     onDecreaseFontSize: () => void
-    /** Phase 5.5 — furigana display toggle */
-    showFurigana:         boolean
-    onShowFuriganaChange: (v: boolean) => void
+    /** Phase 5.5 — furigana display mode (off / furigana / romaji) */
+    furiganaMode:         FuriganaMode
+    onFuriganaModeChange: (v: FuriganaMode) => void
     furiganaJlptMinLevel: JlptLevel | null
     onFuriganaJlptMinLevelChange: (v: JlptLevel | null) => void
 }
@@ -66,8 +66,8 @@ export default function ReaderSettingsPanel({
     onLayoutWidthChange,
     onIncreaseFontSize,
     onDecreaseFontSize,
-    showFurigana,
-    onShowFuriganaChange,
+    furiganaMode,
+    onFuriganaModeChange,
     furiganaJlptMinLevel,
     onFuriganaJlptMinLevelChange,
 }: ReaderSettingsPanelProps) {
@@ -283,20 +283,36 @@ export default function ReaderSettingsPanel({
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
                     Furigana
                 </h3>
-                {/* Show furigana toggle */}
-                <label className="flex items-center gap-2 mb-3 cursor-pointer select-none">
-                    <input
-                        type="checkbox"
-                        checked={showFurigana}
-                        onChange={(e) => onShowFuriganaChange(e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-200">
-                        Show furigana
-                    </span>
-                </label>
-                {/* JLPT minimum level filter — only relevant when furigana is on */}
-                {showFurigana && (
+                {/* 3-state toggle: [ 日本語 ] [ ふりがな ] [ Rōmaji ] */}
+                <div
+                    className="flex items-center rounded-lg overflow-hidden text-xs font-medium mb-3"
+                    style={{ border: '1px solid var(--rt-border, #d1d5db)', width: 'max-content' }}
+                >
+                    {([
+                        { mode: 'off' as FuriganaMode, label: '日本語' },
+                        { mode: 'furigana' as FuriganaMode, label: 'ふりがな' },
+                        { mode: 'romaji' as FuriganaMode, label: 'Rōmaji' },
+                    ]).map(({ mode, label }) => (
+                        <button
+                            key={mode}
+                            type="button"
+                            aria-pressed={furiganaMode === mode}
+                            onClick={() => onFuriganaModeChange(mode)}
+                            className="px-2.5 py-1 transition-colors whitespace-nowrap"
+                            style={furiganaMode === mode ? {
+                                backgroundColor: '#3b82f6',
+                                color: '#fff',
+                            } : {
+                                backgroundColor: 'transparent',
+                                color: '#6b7280',
+                            }}
+                        >
+                            {label}
+                        </button>
+                    ))}
+                </div>
+                {/* JLPT minimum level filter — only relevant when annotations are on */}
+                {furiganaMode !== 'off' && (
                     <div className="ml-1">
                         <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">
                             Show readings for
