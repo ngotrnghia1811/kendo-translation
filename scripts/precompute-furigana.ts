@@ -130,29 +130,34 @@ async function main() {
         return
     }
 
-    // ── Batch update ───────────────────────────────────────────────────
+    // ── Update per segment (upsert requires all NOT NULL columns) ──────
     console.log(`\nWriting ruby_data to ${segments.length} segments…`)
-    const BATCH = 200
     let written = 0
+    let errors = 0
 
-    for (let i = 0; i < segments.length; i += BATCH) {
-        const batch = segments.slice(i, i + BATCH)
-        const updates = batch.map((seg, j) => ({
-            id: seg.id,
-            ruby_data: annotations[i + j] as unknown as Record<string, unknown> | null,
-        }))
-
-        const { error: upsertError } = await supabase
+    for (let i = 0; i < segments.length; i++) {
+        const seg = segments[i]
+        const { error: updateError } = await supabase
             .from('segments')
-            .upsert(updates, { onConflict: 'id' })
+            .update({
+                ruby_data: annotations[i] as unknown as Record<string, unknown> | null,
+            })
+            .eq('id', seg.id)
 
-        if (upsertError) {
-            console.error(`Batch ${i / BATCH + 1} failed:`, upsertError)
-            process.exit(1)
+        if (updateError) {
+            console.error(`  Segment ${seg.id.slice(0, 8)}… failed:`, updateError.message)
+            errors++
+            if (errors > 5) {
+                console.error('Too many errors, aborting.')
+                process.exit(1)
+            }
+            continue
         }
 
-        written += batch.length
-        console.log(`  Wrote ${written}/${segments.length} segments…`)
+        written++
+        if (written % 20 === 0 || written === segments.length) {
+            console.log(`  Wrote ${written}/${segments.length} segments…`)
+        }
     }
 
     console.log(`\nDone. ${written} segments annotated.`)
