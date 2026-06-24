@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
+import type { JlptLevel } from '@/lib/furigana/types'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -17,6 +18,14 @@ export interface ReaderThemeSettings {
     fontColor:  string | null
     /** Layout width for reader/editor pages. ('two-column' is reader-only; editor treats it as 'full'). */
     layoutWidth: LayoutWidth
+    /** Phase 5.5 — Show furigana annotations on Japanese text. */
+    showFurigana: boolean
+    /**
+     * Phase 5.5 — Minimum JLPT difficulty for furigana display.
+     * e.g. N3 → show furigana for N3, N2, N1 (hide for N5, N4).
+     * null → show furigana for all kanji (no filter).
+     */
+    furiganaJlptMinLevel: JlptLevel | null
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -62,11 +71,13 @@ export const LAYOUT_WIDTHS: { id: LayoutWidth; label: string }[] = [
 const STORAGE_KEY = 'reader-theme-settings'
 
 const DEFAULTS: ReaderThemeSettings = {
-    theme:       'light',
-    font:        'sans',
-    fontSize:    16,   // px
-    fontColor:   null,
-    layoutWidth: 'narrow',
+    theme:                'light',
+    font:                 'sans',
+    fontSize:             16,   // px
+    fontColor:            null,
+    layoutWidth:          'narrow',
+    showFurigana:         true,
+    furiganaJlptMinLevel: null,
 }
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
@@ -78,11 +89,13 @@ function loadFromStorage(): ReaderThemeSettings {
         if (!raw) return DEFAULTS
         const parsed = JSON.parse(raw) as Partial<ReaderThemeSettings>
         return {
-            theme:       parsed.theme       ?? DEFAULTS.theme,
-            font:        parsed.font        ?? DEFAULTS.font,
-            fontSize:    parsed.fontSize    ?? DEFAULTS.fontSize,
-            fontColor:   parsed.fontColor   ?? DEFAULTS.fontColor,
-            layoutWidth: parsed.layoutWidth ?? DEFAULTS.layoutWidth,
+            theme:                parsed.theme                ?? DEFAULTS.theme,
+            font:                 parsed.font                 ?? DEFAULTS.font,
+            fontSize:             parsed.fontSize             ?? DEFAULTS.fontSize,
+            fontColor:            parsed.fontColor            ?? DEFAULTS.fontColor,
+            layoutWidth:          parsed.layoutWidth          ?? DEFAULTS.layoutWidth,
+            showFurigana:         parsed.showFurigana         ?? DEFAULTS.showFurigana,
+            furiganaJlptMinLevel: parsed.furiganaJlptMinLevel ?? DEFAULTS.furiganaJlptMinLevel,
         }
     } catch {
         return DEFAULTS
@@ -112,10 +125,12 @@ export function useReaderTheme() {
         })
     }, [])
 
-    const setTheme       = useCallback((theme: ReaderTheme)         => setSettings({ theme }),       [setSettings])
-    const setFont        = useCallback((font: ReaderFont)           => setSettings({ font }),        [setSettings])
-    const setFontColor   = useCallback((fontColor: string | null)   => setSettings({ fontColor }),   [setSettings])
-    const setLayoutWidth = useCallback((layoutWidth: LayoutWidth)   => setSettings({ layoutWidth }), [setSettings])
+    const setTheme              = useCallback((theme: ReaderTheme)               => setSettings({ theme }),                [setSettings])
+    const setFont               = useCallback((font: ReaderFont)                 => setSettings({ font }),                 [setSettings])
+    const setFontColor          = useCallback((fontColor: string | null)         => setSettings({ fontColor }),            [setSettings])
+    const setLayoutWidth        = useCallback((layoutWidth: LayoutWidth)         => setSettings({ layoutWidth }),          [setSettings])
+    const setShowFurigana       = useCallback((showFurigana: boolean)            => setSettings({ showFurigana }),         [setSettings])
+    const setFuriganaJlptMinLevel = useCallback((furiganaJlptMinLevel: JlptLevel | null) => setSettings({ furiganaJlptMinLevel }), [setSettings])
 
     const increaseFontSize = useCallback(
         () => setSettings({ fontSize: Math.min(FONT_SIZE_MAX, settings.fontSize + FONT_SIZE_STEP) }),
@@ -135,6 +150,8 @@ export function useReaderTheme() {
         setFont,
         setFontColor,
         setLayoutWidth,
+        setShowFurigana,
+        setFuriganaJlptMinLevel,
         increaseFontSize,
         decreaseFontSize,
         fontSizeValue,

@@ -11,6 +11,8 @@ import { useReaderProgress } from '@/hooks/useReaderProgress'
 import { createClient } from '@/lib/supabase/client'
 import { recordArticleAccess } from '@/lib/pwa/storage'
 import VirtualizedReader from './VirtualizedReader'
+import RubyText from './RubyText'
+import type { RubySpan } from '@/lib/furigana/types'
 import { isHeadingParagraph, type Paragraph } from '@/types/reader'
 import type { VirtuosoHandle } from 'react-virtuoso'
 import TranslatorAlignedView from './TranslatorAlignedView'
@@ -383,6 +385,10 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
         setLayoutWidth,
         increaseFontSize,
         decreaseFontSize,
+        showFurigana,
+        setShowFurigana,
+        furiganaJlptMinLevel,
+        setFuriganaJlptMinLevel,
     } = useThemeContext()
 
     // Panel state — at most one can be open at a time
@@ -606,6 +612,20 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
     const hasAnySource = paragraphs.some((p: Paragraph) => getParagraphText(p, 'source').trim().length > 0)
     const hasAnyTarget = paragraphs.some((p: Paragraph) => getParagraphText(p, 'target').trim().length > 0)
 
+    /** Build concatenated RubySpan[] from a Paragraph for furigana rendering. */
+    function getParagraphRubySpans(paragraph: Paragraph): RubySpan[] {
+        const spans: RubySpan[] = []
+        for (const seg of paragraph.segments) {
+            if (seg.ruby_data?.spans && seg.ruby_data.spans.length > 0) {
+                spans.push(...seg.ruby_data.spans)
+            } else {
+                // Graceful degradation: no ruby data → plain text span
+                spans.push({ type: 'text', text: seg.source_text })
+            }
+        }
+        return spans
+    }
+
     function renderParagraphItem(index: number): React.ReactNode {
         const paragraph = paragraphs[index]
         if (!paragraph) return null
@@ -615,10 +635,37 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
             if (!text.trim()) return null  // silently skip empty (FE-READER-AUDIT 4.6)
 
             if (isHeadingParagraph(paragraph)) {
+                // Use RubyText for JP headings when furigana is on
+                if (displayLang === 'source' && sourceLang === 'ja') {
+                    const rubySpans = getParagraphRubySpans(paragraph)
+                    return (
+                        <h2 className="text-xl font-semibold mt-10 mb-4">
+                            <RubyText
+                                spans={rubySpans}
+                                showFurigana={showFurigana}
+                                furiganaJlptMinLevel={furiganaJlptMinLevel}
+                            />
+                        </h2>
+                    )
+                }
                 return (
                     <h2 className="text-xl font-semibold mt-10 mb-4">
                         {text}
                     </h2>
+                )
+            }
+
+            // Use RubyText for JP body paragraphs when furigana is on
+            if (displayLang === 'source' && sourceLang === 'ja') {
+                const rubySpans = getParagraphRubySpans(paragraph)
+                return (
+                    <p className="text-base leading-relaxed mb-6">
+                        <RubyText
+                            spans={rubySpans}
+                            showFurigana={showFurigana}
+                            furiganaJlptMinLevel={furiganaJlptMinLevel}
+                        />
+                    </p>
                 )
             }
             return (
@@ -637,7 +684,15 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
             return (
                 <div className="space-y-1 mt-10">
                     {sourceText.trim() && (
-                        <h2 lang={sourceLang} className="text-xl font-semibold">{sourceText}</h2>
+                        <h2 lang={sourceLang} className="text-xl font-semibold">
+                            {sourceLang === 'ja' ? (
+                                <RubyText
+                                    spans={getParagraphRubySpans(paragraph)}
+                                    showFurigana={showFurigana}
+                                    furiganaJlptMinLevel={furiganaJlptMinLevel}
+                                />
+                            ) : sourceText}
+                        </h2>
                     )}
                     {targetText.trim() && (
                         <h2 lang={effectiveTargetLang} className="text-lg font-semibold">{targetText}</h2>
@@ -651,7 +706,15 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                 {/* Source paragraph */}
                 {sourceText.trim() && (
                     <div lang={sourceLang} className="border-l-4 border-red-400 dark:border-red-500/70 pl-4 py-2">
-                        <p className="text-base leading-relaxed">{sourceText}</p>
+                        <p className="text-base leading-relaxed">
+                            {sourceLang === 'ja' ? (
+                                <RubyText
+                                    spans={getParagraphRubySpans(paragraph)}
+                                    showFurigana={showFurigana}
+                                    furiganaJlptMinLevel={furiganaJlptMinLevel}
+                                />
+                            ) : sourceText}
+                        </p>
                     </div>
                 )}
 
@@ -813,6 +876,10 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                                     onLayoutWidthChange={setLayoutWidth}
                                     onIncreaseFontSize={increaseFontSize}
                                     onDecreaseFontSize={decreaseFontSize}
+                                    showFurigana={showFurigana}
+                                    onShowFuriganaChange={setShowFurigana}
+                                    furiganaJlptMinLevel={furiganaJlptMinLevel}
+                                    onFuriganaJlptMinLevelChange={setFuriganaJlptMinLevel}
                                 />
                             </div>
 

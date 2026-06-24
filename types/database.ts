@@ -1,5 +1,7 @@
 // === Core domain types matching the Supabase schema ===
 
+import type { RubyAnnotation } from '@/lib/furigana/types'
+
 export interface Profile {
   id: string
   username: string | null
@@ -58,6 +60,10 @@ export interface Segment {
   reviewed_by: string | null
   quality_detail: QualityDetail | null
   metadata: Record<string, unknown> | null
+  /** Phase 5.4 — precomputed furigana annotation for this segment's source_text.
+   *  Null until the precompute pipeline is authorized and run against the live DB.
+   *  See lib/furigana/types.ts for the RubyAnnotation shape. */
+  ruby_data: RubyAnnotation | null
   created_at: string
   updated_at: string
 }

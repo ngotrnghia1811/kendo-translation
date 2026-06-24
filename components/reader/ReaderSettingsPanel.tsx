@@ -6,6 +6,7 @@ import {
     FONT_SIZE_MIN, FONT_SIZE_MAX,
     type ReaderTheme, type ReaderFont, type LayoutWidth,
 } from '@/hooks/useReaderTheme'
+import type { JlptLevel } from '@/lib/furigana/types'
 
 interface ReaderSettingsPanelProps {
     open:               boolean
@@ -22,7 +23,22 @@ interface ReaderSettingsPanelProps {
     onLayoutWidthChange:(w: LayoutWidth)       => void
     onIncreaseFontSize: () => void
     onDecreaseFontSize: () => void
+    /** Phase 5.5 — furigana display toggle */
+    showFurigana:         boolean
+    onShowFuriganaChange: (v: boolean) => void
+    furiganaJlptMinLevel: JlptLevel | null
+    onFuriganaJlptMinLevelChange: (v: JlptLevel | null) => void
 }
+
+/** JLPT level options for the furigana filter dropdown. */
+const JLPT_OPTIONS: { value: JlptLevel | null; label: string }[] = [
+    { value: null, label: 'All kanji' },
+    { value: 'N5', label: 'N5 and above' },
+    { value: 'N4', label: 'N4 and above' },
+    { value: 'N3', label: 'N3 and above' },
+    { value: 'N2', label: 'N2 and above' },
+    { value: 'N1', label: 'N1 only' },
+]
 
 /** Swatch border colour for light themes that need contrast against white toolbar */
 const SWATCH_BORDERS: Record<ReaderTheme, string> = {
@@ -50,6 +66,10 @@ export default function ReaderSettingsPanel({
     onLayoutWidthChange,
     onIncreaseFontSize,
     onDecreaseFontSize,
+    showFurigana,
+    onShowFuriganaChange,
+    furiganaJlptMinLevel,
+    onFuriganaJlptMinLevelChange,
 }: ReaderSettingsPanelProps) {
     const panelRef = useRef<HTMLDivElement>(null)
     const [isMobile, setIsMobile] = useState(false)
@@ -256,6 +276,49 @@ export default function ReaderSettingsPanel({
                         </button>
                     ))}
                 </div>
+            </section>
+
+            {/* ── Furigana ──────────────────────────────────────────────── */}
+            <section>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                    Furigana
+                </h3>
+                {/* Show furigana toggle */}
+                <label className="flex items-center gap-2 mb-3 cursor-pointer select-none">
+                    <input
+                        type="checkbox"
+                        checked={showFurigana}
+                        onChange={(e) => onShowFuriganaChange(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-200">
+                        Show furigana
+                    </span>
+                </label>
+                {/* JLPT minimum level filter — only relevant when furigana is on */}
+                {showFurigana && (
+                    <div className="ml-1">
+                        <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1.5">
+                            Show readings for
+                        </label>
+                        <div className="flex gap-1 flex-wrap">
+                            {JLPT_OPTIONS.map((opt) => (
+                                <button
+                                    key={opt.value ?? 'all'}
+                                    aria-pressed={furiganaJlptMinLevel === opt.value}
+                                    onClick={() => onFuriganaJlptMinLevelChange(opt.value)}
+                                    className={`px-2 py-1 text-xs rounded-lg border transition-colors ${
+                                        furiganaJlptMinLevel === opt.value
+                                            ? 'bg-blue-600 text-white border-blue-600'
+                                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }`}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </section>
         </div>
         </>
