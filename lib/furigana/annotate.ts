@@ -360,14 +360,20 @@ export async function annotateText(text: string): Promise<RubyAnnotation> {
         readingMap.set(charStart, tok.reading)
     }
 
-    // Segment into kanji/non-kanji runs
+    // Segment into kanji/non-kanji runs (sequential, covering text without gaps)
     const runs = segmentRuns(text)
 
+    // Cursor tracks character position across sequential runs.
+    // Avoids text.indexOf(run.text) which returns the FIRST occurrence —
+    // incorrect when the same kanji/run appears multiple times in the text.
+    let cursor = 0
+
     for (const run of runs) {
+        const runStart = cursor
+        const runEnd = runStart + run.text.length
+
         if (run.isKanji) {
             // Find reading: try multi-token concatenation first, then position map
-            const runStart = text.indexOf(run.text)
-            const runEnd = runStart + run.text.length
             let reading = getCompoundReading(runStart, runEnd, tokens, text)
 
             if (!reading) {
@@ -386,7 +392,7 @@ export async function annotateText(text: string): Promise<RubyAnnotation> {
             spans.push({
                 type: 'kanji',
                 base: run.text,
-                reading: katakanaToHiragana(reading),
+                reading, // already hiragana (converted once in tokenizeWithCachedSudachi)
                 romaji,
                 jlptLevel: getMaxJlptLevel(run.text),
             } satisfies KanjiRubySpan)
@@ -396,6 +402,9 @@ export async function annotateText(text: string): Promise<RubyAnnotation> {
                 text: run.text,
             } satisfies TextSpan)
         }
+
+        // Advance cursor past this run regardless of type
+        cursor += run.text.length
     }
 
     return { source_text: text, spans }
