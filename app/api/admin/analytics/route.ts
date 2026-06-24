@@ -8,13 +8,12 @@
  *   - recent activity (phase transitions + comments, last 30 days)
  *   - overall counts (articles, segments, users)
  *
- * Auth: admin role required (same pattern as /api/admin/users).
  */
 
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { unstable_cache } from 'next/cache'
-import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth/requireAdmin'
 
 /**

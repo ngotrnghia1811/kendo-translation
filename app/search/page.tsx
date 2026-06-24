@@ -17,6 +17,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { ArticleHit, SearchResponse, SegmentHit } from '@/app/api/search/route'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/components/shared/AuthProvider'
 
 /** A raw segment row fetched for context display. */
 interface ContextSegment {
@@ -164,23 +165,13 @@ function SearchPageInner() {
     const [results, setResults] = useState<SearchResponse | null>(null)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [userRole, setUserRole] = useState<'admin' | 'translator' | 'reader' | null>(null)
+
+    // Phase 4.7: use shared auth context instead of duplicating /api/auth/me fetch
+    const { profile } = useAuth()
+    const userRole = profile?.role ?? null
 
     const inputRef = useRef<HTMLInputElement>(null)
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-    // Fetch user role to show "Edit" links for translator/admin.
-    useEffect(() => {
-        fetch('/api/auth/me')
-            .then(r => r.json())
-            .then((d: { profile?: { role?: string } }) => {
-                const role = d.profile?.role
-                if (role === 'admin' || role === 'translator' || role === 'reader') {
-                    setUserRole(role)
-                }
-            })
-            .catch(() => null)
-    }, [])
 
     const doSearch = useCallback(async (q: string, sc: Scope) => {
         if (q.trim().length < 2) {

@@ -37,12 +37,13 @@ export function useDocument(articleId: string) {
 
             if (docError) throw new Error(docError.message)
 
-            // Fetch segments
+            // Fetch segments — Phase 4.8: bounded fetch to prevent unbounded load
             const { data: segmentsData, error: segError } = await supabase
                 .from('segments')
                 .select('*')
                 .eq('article_id', articleId)
                 .order('position', { ascending: true })
+                .limit(10000)
 
             if (segError) throw new Error(segError.message)
 

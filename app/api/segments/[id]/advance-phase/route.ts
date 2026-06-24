@@ -19,6 +19,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { revalidateTag } from 'next/cache';
 
 type SegmentStatus =
     | 'draft'
@@ -201,6 +202,9 @@ export async function POST(
             { status: 500 }
         );
     }
+
+    // Phase 4.4: invalidate cached article data so readers see the new status
+    revalidateTag('articles', 'max');
 
     return NextResponse.json({ segment: updated, transition });
 }

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { SiteNav } from '@/components/shared/SiteNav';
 import { ThemeProvider } from '@/components/shared/ThemeProvider';
+import { AuthProvider } from '@/components/shared/AuthProvider';
 
 export const metadata: Metadata = {
   title: 'Kendo Translation | Collaborative Japanese-English Platform',
@@ -41,10 +42,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="min-h-screen antialiased">
-        <ThemeProvider>
-          <SiteNav />
-          <main>{children}</main>
-        </ThemeProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            <SiteNav />
+            <main>{children}</main>
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   );

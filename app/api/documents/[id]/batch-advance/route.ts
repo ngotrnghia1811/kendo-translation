@@ -25,6 +25,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { revalidateTag } from 'next/cache'
 
 type SegmentStatus =
     | 'draft'
@@ -193,6 +194,9 @@ export async function POST(
 
             succeeded.push(segId)
         }
+
+        // Phase 4.4: invalidate cached article data after batch advance
+        revalidateTag('articles', 'max');
 
         return NextResponse.json({ succeeded, skipped, failed })
     } catch (err) {

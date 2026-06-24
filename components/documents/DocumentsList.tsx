@@ -195,12 +195,14 @@ export default function DocumentsList({ articles, userEmail, nextCursor }: Docum
                     <div className="flex items-center gap-2 shrink-0">
                       <Link
                         href={`/documents/${doc.id}/read`}
+                        prefetch
                         className="text-xs px-3 py-1.5 border rounded-lg border-[var(--rt-border)] hover:bg-[var(--rt-surface)] transition-colors text-[var(--rt-text-muted)]"
                       >
                         Read
                       </Link>
                       <Link
                         href={`/documents/${doc.id}/edit`}
+                        prefetch
                         className="text-xs px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition-colors"
                       >
                         Edit

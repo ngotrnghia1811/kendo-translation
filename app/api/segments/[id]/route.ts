@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { revalidateTag } from 'next/cache';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -60,6 +61,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       edited_by: user.id,
     });
   }
+
+  // Phase 4.4: invalidate cached article data so readers see the update
+  revalidateTag('articles', 'max');
 
   return NextResponse.json(data);
 }

@@ -4,14 +4,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useThemeContext } from '@/components/shared/ThemeProvider'
+import { useAuth } from '@/components/shared/AuthProvider'
 import ReaderSettingsPanel from '@/components/reader/ReaderSettingsPanel'
-
-interface UserProfile {
-    id: string
-    email: string | null
-    username: string | null
-    role: 'admin' | 'translator' | 'reader'
-}
 
 /** Pages that have their own full-screen header — SiteNav is hidden there. */
 const PAGES_WITH_OWN_HEADER = [
@@ -25,7 +19,7 @@ const isDocumentSubpage = (pathname: string) =>
 
 export function SiteNav() {
     const pathname = usePathname()
-    const [profile, setProfile] = useState<UserProfile | null>(null)
+    const { profile } = useAuth()
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
     const [settingsOpen, setSettingsOpen] = useState(false)
 
@@ -35,14 +29,6 @@ export function SiteNav() {
     const suppress =
         PAGES_WITH_OWN_HEADER.includes(pathname) ||
         isDocumentSubpage(pathname)
-
-    useEffect(() => {
-        if (suppress) return
-        fetch('/api/auth/me')
-            .then((r) => r.json())
-            .then((data) => setProfile(data.profile ?? null))
-            .catch(() => null)
-    }, [suppress])
 
     // Close mobile menu when route changes
     useEffect(() => {
@@ -61,6 +47,7 @@ export function SiteNav() {
         <>
             <Link
                 href="/documents"
+                prefetch
                 className={`transition-opacity hover:opacity-80 ${pathname === '/documents' ? 'font-semibold' : ''}`}
                 style={{ color: pathname === '/documents' ? 'var(--color-text)' : 'var(--color-text-muted)' }}
                 onClick={() => setMobileMenuOpen(false)}
@@ -69,6 +56,7 @@ export function SiteNav() {
             </Link>
             <Link
                 href="/terminology"
+                prefetch
                 className={`transition-opacity hover:opacity-80 ${pathname === '/terminology' ? 'font-semibold' : ''}`}
                 style={{ color: pathname === '/terminology' ? 'var(--color-text)' : 'var(--color-text-muted)' }}
                 onClick={() => setMobileMenuOpen(false)}
@@ -77,6 +65,7 @@ export function SiteNav() {
             </Link>
             <Link
                 href="/search"
+                prefetch
                 className={`transition-opacity hover:opacity-80 ${pathname.startsWith('/search') ? 'font-semibold' : ''}`}
                 style={{ color: pathname.startsWith('/search') ? 'var(--color-text)' : 'var(--color-text-muted)' }}
                 onClick={() => setMobileMenuOpen(false)}
@@ -86,6 +75,7 @@ export function SiteNav() {
             {profile?.role === 'admin' && (
                 <Link
                     href="/admin"
+                    prefetch
                     className={`transition-opacity hover:opacity-80 ${pathname.startsWith('/admin') ? 'font-semibold' : ''}`}
                     style={{ color: pathname.startsWith('/admin') ? 'var(--color-text)' : 'var(--color-text-muted)' }}
                     onClick={() => setMobileMenuOpen(false)}
@@ -106,7 +96,7 @@ export function SiteNav() {
         >
             <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
                 {/* Brand */}
-                <Link href="/" className="flex items-center gap-2 font-bold shrink-0" style={{ color: 'var(--color-text)' }}>
+                <Link href="/" prefetch className="flex items-center gap-2 font-bold shrink-0" style={{ color: 'var(--color-text)' }}>
                     <span>⚔️</span>
                     <span className="hidden sm:inline">Kendo Translation</span>
                 </Link>

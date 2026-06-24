@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -67,6 +68,9 @@ export async function PUT(request: Request, { params }: RouteParams) {
         if (error) {
             return NextResponse.json({ error: error.message }, { status: 500 })
         }
+
+        // Phase 4.4: invalidate cached article data after document update
+        revalidateTag('articles', 'max');
 
         return NextResponse.json({ document: article })
     } catch (error) {
