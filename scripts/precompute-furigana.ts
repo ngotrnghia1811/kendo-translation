@@ -45,14 +45,14 @@ function getArg(name: string): string | undefined {
 
 const ARTICLE_ID = getArg('--article-id') ?? null
 const LIMIT = getArg('--limit') ? parseInt(getArg('--limit')!, 10) : null
-const BATCH_SIZE = 200
+const BATCH_SIZE = getArg('--batch-size') ? parseInt(getArg('--batch-size')!, 10) : 50
 
 // Cooldown: pause every N batches to let free-tier DB vacuum/checkpoint
-// (Relaxed for set-based RPC — 1 statement/batch vs old per-row loop)
-const COOLDOWN_INTERVAL = 50
-const COOLDOWN_MS = 10000
-const LONG_REST_INTERVAL = 200
-const LONG_REST_MS = 30000
+// (Tightened for free-tier I/O budget — frequent short pauses)
+const COOLDOWN_INTERVAL = 20
+const COOLDOWN_MS = 15000
+const LONG_REST_INTERVAL = 100
+const LONG_REST_MS = 60000
 
 // ---------------------------------------------------------------------------
 // Env
@@ -265,7 +265,7 @@ async function main() {
             console.log(`  ── Pausing ${COOLDOWN_MS / 1000}s (cooldown) ──`)
             await new Promise(r => setTimeout(r, COOLDOWN_MS))
         } else {
-            await new Promise(r => setTimeout(r, 300))
+            await new Promise(r => setTimeout(r, 1000))
         }
     }
 
