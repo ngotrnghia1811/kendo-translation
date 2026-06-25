@@ -26,7 +26,6 @@
  */
 
 import { readFile } from 'node:fs/promises'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { annotateTexts } from '../lib/furigana/index.js'
 
 // ---------------------------------------------------------------------------
@@ -81,19 +80,6 @@ async function getEnv(): Promise<Env> {
 }
 
 // ---------------------------------------------------------------------------
-// Clients
-// ---------------------------------------------------------------------------
-
-let _supabase: SupabaseClient | null = null
-
-async function getSupabase(): Promise<SupabaseClient> {
-    if (_supabase) return _supabase
-    const env = await getEnv()
-    _supabase = createClient(env.supabaseUrl, env.serviceRoleKey, { db: { schema: 'public' } })
-    return _supabase
-}
-
-// ---------------------------------------------------------------------------
 // SQL literal helpers
 // ---------------------------------------------------------------------------
 
@@ -111,6 +97,30 @@ function jsonbLiteral(obj: unknown): string {
         return `$${fallback}$${json}$${fallback}$::jsonb`
     }
     return `${dq}${json}${dq}::jsonb`
+}
+
+// ---------------------------------------------------------------------------
+// Management API query (bypasses PostgREST timeout)
+// ---------------------------------------------------------------------------
+
+async function mgmtQuery(sql: string): Promise<any[]> {
+    const env = await getEnv()
+    const endpoint = `https://api.supabase.com/v1/projects/${env.projectRef}/database/query`
+
+    const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${env.mgmtToken}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: sql }),
+    })
+
+    if (!res.ok) {
+        const text = await res.text()
+        throw new Error(`Mgmt API returned ${res.status}: ${text.slice(0, 200)}`)
+    }
+    return res.json()
 }
 
 // ---------------------------------------------------------------------------
@@ -167,8 +177,7 @@ interface SegmentRow {
 // ---------------------------------------------------------------------------
 
 async function main() {
-    const supabase = await getSupabase()
-    console.log('Connected to Supabase.')
+    console.log('Connected to Supabase (Management API).')
 
     // ── Warmup: load Sudachi once ──
     console.log('Loading Sudachi WASM + SudachiDict Small (~117 MB, one-time)…')
@@ -183,26 +192,33 @@ async function main() {
 
     // ── Pagination loop ───────────────────────────────────────────────────
     while (true) {
-        let query = supabase
-            .from('segments')
-            .select('id, article_id, source_text, ruby_data')
-            .eq('source_lang', 'ja')
-            .order('id')
-            .limit(BATCH_SIZE)
+        // Build SQL for fetch via Management API (bypasses PostgREST timeout)
+        let sql = `SELECT id, article_id, source_text, ruby_data FROM segments WHERE source_lang='ja'`
+        if (!FORCE) sql += ` AND ruby_data IS NULL`
+        if (ARTICLE_ID) sql += ` AND article_id='${ARTICLE_ID}'`
+        if (cursor) sql += ` AND id > '${cursor}'`
+        sql += ` ORDER BY id LIMIT ${BATCH_SIZE}`
 
-        if (!FORCE) query = query.is('ruby_data', null)
-        if (ARTICLE_ID) query = query.eq('article_id', ARTICLE_ID)
-        if (cursor) query = query.gt('id', cursor)
-
-        const { data: segments, error } = await query.returns<SegmentRow[]>()
-        if (error) {
-            console.error('Fetch failed:', error.message ?? error)
+        let rows: any[]
+        try {
+            rows = await mgmtQuery(sql)
+        } catch (fetchErr) {
+            const msg = (fetchErr as Error).message ?? String(fetchErr)
+            // If fetch itself times out, DB is exhausted — pause and retry
+            if (msg.includes('timeout') || msg.includes('canceling') || msg.includes('544') || msg.includes('503')) {
+                console.error(`  Fetch timeout/pause — waiting 30s (${msg.slice(0,80)})`)
+                await new Promise(r => setTimeout(r, 30000))
+                continue
+            }
+            console.error('Fetch failed:', msg)
             process.exit(1)
         }
-        if (!segments || segments.length === 0) {
+        if (!rows || rows.length === 0) {
             console.log('No more segments to process.')
             break
         }
+
+        const segments = rows as SegmentRow[]
 
         // Annotate
         const annotStart = Date.now()
@@ -273,16 +289,14 @@ async function main() {
     const totalS = ((Date.now() - wallStart) / 1000).toFixed(1)
     console.log(`\nDone. ${totalWritten} rows written in ${totalS}s wall time.`)
 
-    // Quick NULL-count check
+    // Quick NULL-count check via Management API
     if (!DRY_RUN) {
         try {
-            const { count, error: cntErr } = await supabase
-                .from('segments')
-                .select('*', { count: 'exact', head: true })
-                .eq('source_lang', 'ja')
-                .is('ruby_data', null)
-            if (!cntErr && count !== null) {
-                console.log(`Remaining NULL ruby_data (source_lang='ja'): ${count}`)
+            const result = await mgmtQuery(
+                `SELECT count(*) AS cnt FROM segments WHERE source_lang='ja' AND ruby_data IS NULL`
+            )
+            if (result && result.length > 0 && typeof result[0].cnt === 'number') {
+                console.log(`Remaining NULL ruby_data (source_lang='ja'): ${result[0].cnt}`)
             }
         } catch {
             // count may time out under load — ignore
