@@ -45,13 +45,14 @@ function getArg(name: string): string | undefined {
 
 const ARTICLE_ID = getArg('--article-id') ?? null
 const LIMIT = getArg('--limit') ? parseInt(getArg('--limit')!, 10) : null
-const BATCH_SIZE = 50
+const BATCH_SIZE = 200
 
 // Cooldown: pause every N batches to let free-tier DB vacuum/checkpoint
-const COOLDOWN_INTERVAL = 10
-const COOLDOWN_MS = 15000
-const LONG_REST_INTERVAL = 100
-const LONG_REST_MS = 60000
+// (Relaxed for set-based RPC — 1 statement/batch vs old per-row loop)
+const COOLDOWN_INTERVAL = 50
+const COOLDOWN_MS = 10000
+const LONG_REST_INTERVAL = 200
+const LONG_REST_MS = 30000
 
 // ---------------------------------------------------------------------------
 // Env
