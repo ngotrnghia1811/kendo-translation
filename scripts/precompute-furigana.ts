@@ -210,13 +210,32 @@ async function main() {
         const annotations = await annotateTexts(texts)
         const annotMs = Date.now() - annotStart
 
-        // Write via Management API
+        // Write via Management API (with retry for transient DB errors)
         let writtenThisBatch = 0
         if (!DRY_RUN) {
-            writtenThisBatch = await bulkWriteRubyDataMgmt(
-                segments.map(s => s.id),
-                annotations,
-            )
+            const MAX_RETRIES = 3
+            for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+                try {
+                    writtenThisBatch = await bulkWriteRubyDataMgmt(
+                        segments.map(s => s.id),
+                        annotations,
+                    )
+                    break // success
+                } catch (writeErr) {
+                    const msg = (writeErr as Error).message ?? String(writeErr)
+                    if (attempt < MAX_RETRIES && (
+                        msg.includes('timeout') || msg.includes('canceling') ||
+                        msg.includes('503') || msg.includes('502') || msg.includes('429') ||
+                        msg.includes('exhausted') || msg.includes('connection')
+                    )) {
+                        const wait = attempt * 5000
+                        console.error(`  ── Write retry ${attempt}/${MAX_RETRIES} after ${wait/1000}s (${msg.slice(0,80)})`)
+                        await new Promise(r => setTimeout(r, wait))
+                        continue
+                    }
+                    throw writeErr // non-retryable or exhausted retries
+                }
+            }
         } else {
             writtenThisBatch = segments.length
         }
