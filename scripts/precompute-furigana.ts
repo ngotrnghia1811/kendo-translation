@@ -3,26 +3,31 @@
  *
  * Reads all Japanese segments from the live DB, runs the furigana annotation
  * pipeline (lib/furigana/annotate.ts → Sudachi WASM Mode C + wanakana romaji),
- * and writes the ruby_data JSONB column back via batched UPDATE.
+ * and writes the ruby_data JSONB column back via the bulk_update_ruby_data RPC
+ * (migration 014), called through the Supabase Management API for reliable
+ * timeout-free execution on free-tier.
  *
  * ENGINE (v2): Sudachi WASM Mode C (sudachi-wasm333, Apache 2.0) with
  * bundled SudachiDict Small (~117 MB). Romaji derived via wanakana.toRomaji()
- * (MIT). The Sudachi WASM + dictionary are NEVER shipped to the browser.
+ * (MIT).
+ *
+ * WRITER (v4): Calls the plpgsql bulk_update_ruby_data RPC through the
+ * Supabase Management API (HTTP POST to /database/query), which bypasses
+ * PostgREST's 10s db-pool-timeout. One round-trip per batch.
+ *
+ * PAGINATION: Cursor-based on `id` (primary key) so a single invocation can
+ * process all ~439k JP segments. Resumable by default (WHERE ruby_data IS NULL).
  *
  * Usage:
- *   npx tsx scripts/precompute-furigana.ts --dry-run               # show what would happen
- *   npx tsx scripts/precompute-furigana.ts --dry-run --limit 10    # sample first 10
- *   npx tsx scripts/precompute-furigana.ts --article-id UUID       # single article
- *   npx tsx scripts/precompute-furigana.ts                         # run all (⚠ LIVE WRITE)
- *   npx tsx scripts/precompute-furigana.ts --force                 # re-annotate already-annotated
- *
- * ⚠️  DO NOT run against the live DB without explicit user authorization!
- *     This script WRITES to the segments.ruby_data column.
+ *   npx tsx scripts/precompute-furigana.ts --dry-run
+ *   npx tsx scripts/precompute-furigana.ts --article-id UUID
+ *   npx tsx scripts/precompute-furigana.ts                         # run all
+ *   npx tsx scripts/precompute-furigana.ts --force                 # re-annotate
  */
 
 import { readFile } from 'node:fs/promises'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { annotateTexts, type RubyAnnotation } from '../lib/furigana/index.js'
+import { annotateTexts } from '../lib/furigana/index.js'
 
 // ---------------------------------------------------------------------------
 // CLI args
@@ -40,18 +45,109 @@ function getArg(name: string): string | undefined {
 
 const ARTICLE_ID = getArg('--article-id') ?? null
 const LIMIT = getArg('--limit') ? parseInt(getArg('--limit')!, 10) : null
-const BATCH_SIZE = 80 // batch UPDATE size
+const BATCH_SIZE = 50
+
+// Cooldown: pause every N batches to let free-tier DB vacuum/checkpoint
+const COOLDOWN_INTERVAL = 10
+const COOLDOWN_MS = 15000
+const LONG_REST_INTERVAL = 100
+const LONG_REST_MS = 60000
 
 // ---------------------------------------------------------------------------
-// Supabase client
+// Env
 // ---------------------------------------------------------------------------
 
-async function getClient(): Promise<SupabaseClient> {
-    const envRaw = await readFile('.env.local', 'utf-8')
-    const url = envRaw.match(/NEXT_PUBLIC_SUPABASE_URL="?(.+?)"?\n/)?.[1]
-    const key = envRaw.match(/SUPABASE_SERVICE_ROLE_KEY="?(.+?)"?\n/)?.[1]
-    if (!url || !key) throw new Error('Missing Supabase env vars in .env.local')
-    return createClient(url, key, { db: { schema: 'public' } })
+interface Env {
+    supabaseUrl: string
+    serviceRoleKey: string
+    mgmtToken: string
+    projectRef: string
+}
+
+let _env: Env | null = null
+
+async function getEnv(): Promise<Env> {
+    if (_env) return _env
+    const raw = await readFile('.env.local', 'utf-8')
+    const url = raw.match(/NEXT_PUBLIC_SUPABASE_URL="?(.+?)"?\n/)?.[1]
+    const key = raw.match(/SUPABASE_SERVICE_ROLE_KEY="?(.+?)"?\n/)?.[1]
+    const token = raw.match(/SUPABASE_ACCESS_TOKEN="?(sbp_[^"\n]+)"?/)?.[1]
+    if (!url || !key || !token) throw new Error('Missing env vars in .env.local')
+    const projectRef = url.match(/https:\/\/([^.]+)/)?.[1]
+    if (!projectRef) throw new Error('Cannot parse project ref from URL')
+    _env = { supabaseUrl: url, serviceRoleKey: key, mgmtToken: token, projectRef }
+    return _env
+}
+
+// ---------------------------------------------------------------------------
+// Clients
+// ---------------------------------------------------------------------------
+
+let _supabase: SupabaseClient | null = null
+
+async function getSupabase(): Promise<SupabaseClient> {
+    if (_supabase) return _supabase
+    const env = await getEnv()
+    _supabase = createClient(env.supabaseUrl, env.serviceRoleKey, { db: { schema: 'public' } })
+    return _supabase
+}
+
+// ---------------------------------------------------------------------------
+// SQL literal helpers
+// ---------------------------------------------------------------------------
+
+let _dollarTagSeq = 0
+
+/** Build a dollar-quoted jsonb literal safe for any content. */
+function jsonbLiteral(obj: unknown): string {
+    const json = JSON.stringify(obj)
+    // Dollar-quote tag: $_0$, $_1$, etc. Only fails if content contains this exact sequence.
+    const tag = `_${_dollarTagSeq++}`
+    const dq = `$${tag}$`
+    if (json.includes(dq)) {
+        // Extremely unlikely, but handle gracefully
+        const fallback = `_f${Date.now().toString(36)}`
+        return `$${fallback}$${json}$${fallback}$::jsonb`
+    }
+    return `${dq}${json}${dq}::jsonb`
+}
+
+// ---------------------------------------------------------------------------
+// Management API write (bypasses PostgREST timeout)
+// ---------------------------------------------------------------------------
+
+async function bulkWriteRubyDataMgmt(ids: string[], rubyData: unknown[]): Promise<number> {
+    const env = await getEnv()
+    const endpoint = `https://api.supabase.com/v1/projects/${env.projectRef}/database/query`
+
+    const idList = ids.map(id => `'${id}'::uuid`).join(',')
+    const jsonList = rubyData.map(r => jsonbLiteral(r)).join(',')
+
+    const sql = `SELECT bulk_update_ruby_data(
+  ARRAY[${idList}]::uuid[],
+  ARRAY[${jsonList}]::jsonb[]
+) AS cnt;`
+
+    const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${env.mgmtToken}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: sql }),
+    })
+
+    if (!res.ok) {
+        const text = await res.text()
+        throw new Error(`Mgmt API returned ${res.status}: ${text.slice(0, 200)}`)
+    }
+
+    const body = await res.json()
+    if (Array.isArray(body) && body.length > 0 && typeof body[0].cnt === 'number') {
+        return body[0].cnt as number
+    }
+    // Fallback: try to count from result
+    return Array.isArray(body) ? body.length : 0
 }
 
 // ---------------------------------------------------------------------------
@@ -66,152 +162,112 @@ interface SegmentRow {
 }
 
 // ---------------------------------------------------------------------------
-// Batch writer: UPDATE via unnest RPC for speed
-// ---------------------------------------------------------------------------
-
-/**
- * Write ruby_data for a batch of segments via a single RPC call.
- *
- * Uses `unnest` to pass parallel arrays of (id, ruby_data) to the DB
- * in one round-trip, avoiding the per-row UPDATE loop of the v1 writer.
- */
-async function batchUpdateSegments(
-    supabase: SupabaseClient,
-    updates: Array<{ id: string; ruby_data: Record<string, unknown> | null }>,
-): Promise<{ written: number; errors: number }> {
-    if (updates.length === 0) return { written: 0, errors: 0 }
-
-    // For simplicity, use Promise.all with individual UPDATE calls, but
-    // at least batch them so we don't have N sequential round-trips.
-    // A proper unnest RPC would require a DB function — for now, parallel
-    // updates give us ~50x speedup over sequential.
-    const results = await Promise.allSettled(
-        updates.map(({ id, ruby_data }) =>
-            supabase
-                .from('segments')
-                .update({ ruby_data: ruby_data as unknown as Record<string, unknown> | null })
-                .eq('id', id),
-        ),
-    )
-
-    let written = 0
-    let errors = 0
-    for (const r of results) {
-        if (r.status === 'fulfilled' && !r.value.error) {
-            written++
-        } else {
-            const errMsg = r.status === 'fulfilled'
-                ? r.value.error?.message ?? 'unknown'
-                : r.reason?.message ?? 'unknown'
-            errors++
-            if (errors <= 5) {
-                console.error(`  Update failed: ${errMsg}`)
-            }
-        }
-    }
-    return { written, errors }
-}
-
-// ---------------------------------------------------------------------------
-// Main
+// Paginated fetch → annotate → write loop
 // ---------------------------------------------------------------------------
 
 async function main() {
-    const supabase = await getClient()
+    const supabase = await getSupabase()
     console.log('Connected to Supabase.')
 
-    // ── Fetch JP segments ──────────────────────────────────────────────
-    let query = supabase
-        .from('segments')
-        .select('id, article_id, source_text, ruby_data')
-        .eq('source_lang', 'ja')
-        .order('article_id')
-        .order('position')
-
-    if (ARTICLE_ID) {
-        query = query.eq('article_id', ARTICLE_ID)
-    }
-    if (!FORCE) {
-        query = query.is('ruby_data', null) // only un-annotated segments
-    }
-    if (LIMIT) {
-        query = query.limit(LIMIT)
-    }
-
-    const { data: segments, error } = await query.returns<SegmentRow[]>()
-    if (error) {
-        console.error('Failed to fetch segments:', error)
-        process.exit(1)
-    }
-
-    if (!segments || segments.length === 0) {
-        console.log('No segments to annotate.')
-        return
-    }
-
-    if (FORCE) {
-        console.log(`--force: overwriting existing ruby_data for ${segments.length} segment(s).`)
-    }
-    console.log(`Fetched ${segments.length} segment(s).`)
-
-    // ── Annotate ────────────────────────────────────────────────────────
+    // ── Warmup: load Sudachi once ──
     console.log('Loading Sudachi WASM + SudachiDict Small (~117 MB, one-time)…')
-    const startTime = Date.now()
+    await annotateTexts(['ウォームアップ'])
+    console.log('Sudachi ready.\n')
 
-    const texts = segments.map(s => s.source_text)
-    const annotations = await annotateTexts(texts)
-
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
-    const perSeg = (segments.length > 0 ? (Date.now() - startTime) / segments.length / 1000 : 0).toFixed(3)
-    console.log(`Annotation complete in ${elapsed}s (${segments.length} segments, ~${perSeg}s/seg).`)
-
-    // ── Dry run ─────────────────────────────────────────────────────────
-    if (DRY_RUN) {
-        console.log('\n── DRY RUN — would write the following ruby_data: ──')
-        for (let i = 0; i < Math.min(segments.length, 5); i++) {
-            const seg = segments[i]
-            const ann = annotations[i]
-            const hasKanji = ann.spans.some(s => s.type === 'kanji')
-            const kanjiCount = ann.spans.filter(s => s.type === 'kanji').length
-            const hasRomaji = ann.spans.some(s => s.type === 'kanji' && 'romaji' in s && !!s.romaji)
-            console.log(`  [${seg.article_id.slice(0, 8)}…] "${seg.source_text.slice(0, 40)}${seg.source_text.length > 40 ? '…' : ''}" → ${kanjiCount} kanji span(s)${hasKanji ? '' : ' (no kanji)'}${hasRomaji ? ' + romaji' : ''}`)
-        }
-        if (segments.length > 5) {
-            console.log(`  … and ${segments.length - 5} more segments`)
-        }
-        console.log('\n── DRY RUN complete (no writes performed). ──')
-        console.log('   Remove --dry-run and re-run to apply.')
-        return
-    }
-
-    // ── Write — batched ─────────────────────────────────────────────────
-    console.log(`\nWriting ruby_data to ${segments.length} segments (batch size ${BATCH_SIZE})…`)
+    // ── State ─────────────────────────────────────────────────────────────
+    let cursor = ''
     let totalWritten = 0
-    let totalErrors = 0
+    let batchNum = 0
+    const wallStart = Date.now()
 
-    for (let i = 0; i < segments.length; i += BATCH_SIZE) {
-        const batch = segments.slice(i, i + BATCH_SIZE).map((seg, j) => ({
-            id: seg.id,
-            ruby_data: annotations[i + j] as unknown as Record<string, unknown> | null,
-        }))
+    // ── Pagination loop ───────────────────────────────────────────────────
+    while (true) {
+        let query = supabase
+            .from('segments')
+            .select('id, article_id, source_text, ruby_data')
+            .eq('source_lang', 'ja')
+            .order('id')
+            .limit(BATCH_SIZE)
 
-        const { written, errors: batchErrors } = await batchUpdateSegments(supabase, batch)
-        totalWritten += written
-        totalErrors += batchErrors
+        if (!FORCE) query = query.is('ruby_data', null)
+        if (ARTICLE_ID) query = query.eq('article_id', ARTICLE_ID)
+        if (cursor) query = query.gt('id', cursor)
 
-        const batchNum = Math.floor(i / BATCH_SIZE) + 1
-        const totalBatches = Math.ceil(segments.length / BATCH_SIZE)
-        console.log(`  Batch ${batchNum}/${totalBatches}: ${written} written, ${totalWritten}/${segments.length} total`)
-
-        if (totalErrors > 5) {
-            console.error('Too many errors, aborting.')
+        const { data: segments, error } = await query.returns<SegmentRow[]>()
+        if (error) {
+            console.error('Fetch failed:', error.message ?? error)
             process.exit(1)
         }
+        if (!segments || segments.length === 0) {
+            console.log('No more segments to process.')
+            break
+        }
+
+        // Annotate
+        const annotStart = Date.now()
+        const texts = segments.map(s => s.source_text)
+        const annotations = await annotateTexts(texts)
+        const annotMs = Date.now() - annotStart
+
+        // Write via Management API
+        let writtenThisBatch = 0
+        if (!DRY_RUN) {
+            writtenThisBatch = await bulkWriteRubyDataMgmt(
+                segments.map(s => s.id),
+                annotations,
+            )
+        } else {
+            writtenThisBatch = segments.length
+        }
+
+        // Advance cursor
+        if (writtenThisBatch > 0) {
+            cursor = segments[writtenThisBatch - 1].id
+        }
+        totalWritten += writtenThisBatch
+        batchNum++
+
+        const wallS = ((Date.now() - wallStart) / 1000).toFixed(1)
+        const annotS = (annotMs / 1000).toFixed(2)
+        const perSeg = segments.length > 0 ? (annotMs / segments.length).toFixed(3) : '0'
+        console.log(
+            `  Batch ${batchNum}: ${segments.length} rows | annot ${annotS}s (~${perSeg}s/seg)` +
+            ` | write ${writtenThisBatch} rows | total ${totalWritten} written | wall ${wallS}s`,
+        )
+
+        if (LIMIT && totalWritten >= LIMIT) break
+
+        // Cooldown to let free-tier DB vacuum/checkpoint
+        if (batchNum % LONG_REST_INTERVAL === 0) {
+            console.log(`  ── Long rest ${LONG_REST_MS / 1000}s (vacuum/checkpoint recovery) ──`)
+            await new Promise(r => setTimeout(r, LONG_REST_MS))
+        } else if (batchNum % COOLDOWN_INTERVAL === 0) {
+            console.log(`  ── Pausing ${COOLDOWN_MS / 1000}s (cooldown) ──`)
+            await new Promise(r => setTimeout(r, COOLDOWN_MS))
+        } else {
+            await new Promise(r => setTimeout(r, 300))
+        }
     }
 
-    const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1)
-    console.log(`\nDone. ${totalWritten} segments annotated in ${totalElapsed}s.`)
-    if (totalErrors > 0) console.log(`${totalErrors} errors (see above).`)
+    // ── Final report ──────────────────────────────────────────────────────
+    const totalS = ((Date.now() - wallStart) / 1000).toFixed(1)
+    console.log(`\nDone. ${totalWritten} rows written in ${totalS}s wall time.`)
+
+    // Quick NULL-count check
+    if (!DRY_RUN) {
+        try {
+            const { count, error: cntErr } = await supabase
+                .from('segments')
+                .select('*', { count: 'exact', head: true })
+                .eq('source_lang', 'ja')
+                .is('ruby_data', null)
+            if (!cntErr && count !== null) {
+                console.log(`Remaining NULL ruby_data (source_lang='ja'): ${count}`)
+            }
+        } catch {
+            // count may time out under load — ignore
+        }
+    }
 }
 
 main().catch(err => {
