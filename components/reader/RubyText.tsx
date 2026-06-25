@@ -81,7 +81,14 @@ export default function RubyText({
                         : span.reading
 
                     return (
-                        <ruby key={i}>
+                        <ruby
+                            key={i}
+                            data-span-type="kanji"
+                            data-span-base={span.base}
+                            data-span-reading={span.reading}
+                            data-span-romaji={span.romaji ?? ''}
+                            data-span-jlpt={span.jlptLevel ?? ''}
+                        >
                             {span.base}
                             <rp>(</rp>
                             <rt>{annotationText}</rt>
@@ -91,7 +98,18 @@ export default function RubyText({
                 }
 
                 // Plain kanji text (furigana hidden or JLPT-filtered out)
-                return <span key={i}>{span.base}</span>
+                return (
+                    <span
+                        key={i}
+                        data-span-type="kanji"
+                        data-span-base={span.base}
+                        data-span-reading={span.reading}
+                        data-span-romaji={span.romaji ?? ''}
+                        data-span-jlpt={span.jlptLevel ?? ''}
+                    >
+                        {span.base}
+                    </span>
+                )
             })}
         </span>
     )

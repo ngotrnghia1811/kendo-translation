@@ -12,7 +12,7 @@ import { createClient } from '@/lib/supabase/client'
 import { recordArticleAccess } from '@/lib/pwa/storage'
 import VirtualizedReader from './VirtualizedReader'
 import RubyText from './RubyText'
-import type { RubySpan } from '@/lib/furigana/types'
+import type { RubySpan, JlptLevel } from '@/lib/furigana/types'
 import { isHeadingParagraph, type Paragraph } from '@/types/reader'
 import type { VirtuosoHandle } from 'react-virtuoso'
 import TranslatorAlignedView from './TranslatorAlignedView'
@@ -22,6 +22,7 @@ import ReaderBookmarksPanel from './ReaderBookmarksPanel'
 import ReaderSidebar from './ReaderSidebar'
 import ReaderKeyboardHelpModal from './ReaderKeyboardHelpModal'
 import MobileBottomBar, { type ThreeWayLang } from './MobileBottomBar'
+import WordPopup, { type WordPopupData } from './WordPopup'
 
 interface ReaderViewProps {
     segments: Segment[]
@@ -389,6 +390,8 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
         setFuriganaMode,
         furiganaJlptMinLevel,
         setFuriganaJlptMinLevel,
+        tapRevealEnabled,
+        setTapRevealEnabled,
     } = useThemeContext()
 
     // Panel state — at most one can be open at a time
@@ -398,6 +401,12 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
     const [sidebarTab, setSidebarTab] = useState<'toc' | 'search'>('toc')
     const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
     const [downloadOpen, setDownloadOpen] = useState(false)
+
+    // ── Phase 5.6: Tap-to-reveal popup state ────────────────────────────
+    const [popupData, setPopupData] = useState<WordPopupData | null>(null)
+
+    // ── Phase 5.7: Focus mode (transient, defaults OFF) ─────────────────
+    const [focusMode, setFocusMode] = useState(false)
 
     // ── Three-way language toggle (Phase 3.2) ────────────────────────────
     // Maps mode+displayLang → three-way selection for the UI toggle and
@@ -567,6 +576,71 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
         contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
     }, [])
 
+    // ── Tap-to-reveal: click handler on the content area ─────────────────
+    const handleContentClick = useCallback((e: React.MouseEvent) => {
+        if (!tapRevealEnabled) return
+
+        // 1) Check if user tapped a kanji span
+        const kanjiEl = (e.target as HTMLElement).closest('[data-span-type="kanji"]')
+        if (kanjiEl instanceof HTMLElement) {
+            const base = kanjiEl.getAttribute('data-span-base')
+            const reading = kanjiEl.getAttribute('data-span-reading')
+            const romaji = kanjiEl.getAttribute('data-span-romaji')
+            const jlpt = kanjiEl.getAttribute('data-span-jlpt')
+            if (base && reading) {
+                setPopupData({
+                    anchorRect: kanjiEl.getBoundingClientRect(),
+                    base,
+                    reading,
+                    romaji: romaji || null,
+                    jlptLevel: (jlpt || null) as JlptLevel | null,
+                    translation: null,
+                    noTranslation: false,
+                })
+                return
+            }
+        }
+
+        // 2) Check if user tapped a paragraph in JP-only mode
+        if (mode === 'single' && displayLang === 'source') {
+            const paraEl = (e.target as HTMLElement).closest('[data-paragraph-index]')
+            if (paraEl instanceof HTMLElement) {
+                const idxStr = paraEl.getAttribute('data-paragraph-index')
+                const idx = idxStr ? parseInt(idxStr, 10) : -1
+                if (idx >= 0 && idx < paragraphs.length) {
+                    const targetText = getParagraphText(paragraphs[idx], 'target')
+                    const noTranslation = !targetText || targetText.trim().length === 0
+                    setPopupData({
+                        anchorRect: paraEl.getBoundingClientRect(),
+                        base: null,
+                        reading: null,
+                        romaji: null,
+                        jlptLevel: null,
+                        translation: noTranslation ? null : targetText,
+                        noTranslation,
+                    })
+                    return
+                }
+            }
+        }
+
+        // 3) Otherwise close any open popup
+        setPopupData(null)
+    }, [tapRevealEnabled, mode, displayLang, paragraphs, getParagraphText])
+
+    // ── Focus mode: Esc key handler ──────────────────────────────────────
+    useEffect(() => {
+        if (!focusMode) return
+        const handleKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setFocusMode(false)
+                setPopupData(null)
+            }
+        }
+        document.addEventListener('keydown', handleKey)
+        return () => document.removeEventListener('keydown', handleKey)
+    }, [focusMode])
+
     // Reset scroll to top when page changes
     useEffect(() => {
         contentRef.current?.scrollTo({ top: 0 })
@@ -639,7 +713,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                 if (displayLang === 'source' && sourceLang === 'ja') {
                     const rubySpans = getParagraphRubySpans(paragraph)
                     return (
-                        <h2 className="text-xl font-semibold mt-10 mb-4">
+                        <h2 className="text-xl font-semibold mt-10 mb-4" data-paragraph-index={index}>
                             <RubyText
                                 spans={rubySpans}
                                 furiganaMode={furiganaMode}
@@ -649,7 +723,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                     )
                 }
                 return (
-                    <h2 className="text-xl font-semibold mt-10 mb-4">
+                    <h2 className="text-xl font-semibold mt-10 mb-4" data-paragraph-index={index}>
                         {text}
                     </h2>
                 )
@@ -659,7 +733,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
             if (displayLang === 'source' && sourceLang === 'ja') {
                 const rubySpans = getParagraphRubySpans(paragraph)
                 return (
-                    <p className="text-base leading-relaxed mb-6">
+                    <p className="text-base leading-relaxed mb-6" data-paragraph-index={index}>
                         <RubyText
                             spans={rubySpans}
                             furiganaMode={furiganaMode}
@@ -669,7 +743,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                 )
             }
             return (
-                <p className="text-base leading-relaxed mb-6">
+                <p className="text-base leading-relaxed mb-6" data-paragraph-index={index}>
                     {text}
                 </p>
             )
@@ -682,7 +756,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
 
         if (isHeadingParagraph(paragraph)) {
             return (
-                <div className="space-y-1 mt-10">
+                <div className="space-y-1 mt-10" data-paragraph-index={index}>
                     {sourceText.trim() && (
                         <h2 lang={sourceLang} className="text-xl font-semibold">
                             {sourceLang === 'ja' ? (
@@ -702,7 +776,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
         }
 
         return (
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-x-4 gap-y-1">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-x-4 gap-y-1" data-paragraph-index={index}>
                 {/* Source paragraph */}
                 {sourceText.trim() && (
                     <div lang={sourceLang} className="border-l-4 border-red-400 dark:border-red-500/70 pl-4 py-2">
@@ -760,8 +834,9 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
             />
 
             {/* ----------------------------------------------------------------
-                Sticky toolbar
+                Sticky toolbar — hidden in focus mode (Phase 5.7)
             ---------------------------------------------------------------- */}
+            {!focusMode && (
             <div
                 className="shrink-0 z-10 px-4 py-3"
                 style={{
@@ -880,6 +955,10 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                                     onFuriganaModeChange={setFuriganaMode}
                                     furiganaJlptMinLevel={furiganaJlptMinLevel}
                                     onFuriganaJlptMinLevelChange={setFuriganaJlptMinLevel}
+                                    tapRevealEnabled={tapRevealEnabled}
+                                    onTapRevealEnabledChange={setTapRevealEnabled}
+                                    focusMode={focusMode}
+                                    onFocusModeToggle={() => { setFocusMode((f) => !f); setSettingsOpen(false) }}
                                 />
                             </div>
 
@@ -1112,11 +1191,13 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                     </div>
                 </div>
             </div>
+            )}
 
             {/* ----------------------------------------------------------------
                 Progress bar — only when document has multiple pages
+                Hidden in focus mode (Phase 5.7)
             ---------------------------------------------------------------- */}
-            {totalPages > 1 && (
+            {!focusMode && totalPages > 1 && (
                 <div
                     className="shrink-0 h-1 w-full"
                     style={{ backgroundColor: 'var(--rt-border)' }}
@@ -1143,6 +1224,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                 ref={contentRef}
                 className="flex-1 overflow-y-auto relative"
                 style={fontColor ? { ['--rt-text' as string]: fontColor } : undefined}
+                onClick={handleContentClick}
             >
                 {/* Font family + size wrapper */}
                 <div
@@ -1183,7 +1265,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                     ) : (
                         <div
                             lang={mode === 'single' ? (displayLang === 'source' ? sourceLang : effectiveTargetLang) : undefined}
-                            className={`${readerWidthClass} mx-auto py-8 px-4 ${mode === 'bilingual' ? 'space-y-8' : ''}`}
+                            className={focusMode ? 'max-w-[72ch] mx-auto py-8 px-4' : `${readerWidthClass} mx-auto py-8 px-4 ${mode === 'bilingual' ? 'space-y-8' : ''}`}
                         >
                             <VirtualizedReader
                                 ref={virtuosoRef}
@@ -1245,6 +1327,33 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                     prevArticleHref={prevArticleHref}
                     nextArticleHref={nextArticleHref}
                     scrollParent={scrollParent}
+                />
+
+                {/* ── Focus mode exit button (Phase 5.7) ──────────────────────────── */}
+                {focusMode && (
+                    <button
+                        type="button"
+                        onClick={() => setFocusMode(false)}
+                        aria-label="Exit focus mode"
+                        title="Exit focus mode (Esc)"
+                        className="fixed top-3 right-3 z-40 w-11 h-11 flex items-center justify-center rounded-full shadow-lg border transition-all hover:scale-105"
+                        style={{
+                            backgroundColor: 'var(--rt-bg)',
+                            borderColor: 'var(--rt-border)',
+                            color: 'var(--rt-text)',
+                        }}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                )}
+
+                {/* ── Tap-to-reveal popup (Phase 5.6) ─────────────────────────────── */}
+                <WordPopup
+                    data={popupData}
+                    onClose={() => setPopupData(null)}
+                    scrollContainer={scrollParent}
                 />
             </div>
         </div>

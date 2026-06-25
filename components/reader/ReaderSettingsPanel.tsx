@@ -28,6 +28,12 @@ interface ReaderSettingsPanelProps {
     onFuriganaModeChange: (v: FuriganaMode) => void
     furiganaJlptMinLevel: JlptLevel | null
     onFuriganaJlptMinLevelChange: (v: JlptLevel | null) => void
+    /** Phase 5.6 — tap-to-reveal toggle */
+    tapRevealEnabled:         boolean
+    onTapRevealEnabledChange: (v: boolean) => void
+    /** Phase 5.7 — focus mode entry */
+    focusMode:           boolean
+    onFocusModeToggle:   () => void
 }
 
 /** JLPT level options for the furigana filter dropdown. */
@@ -70,6 +76,10 @@ export default function ReaderSettingsPanel({
     onFuriganaModeChange,
     furiganaJlptMinLevel,
     onFuriganaJlptMinLevelChange,
+    tapRevealEnabled,
+    onTapRevealEnabledChange,
+    focusMode,
+    onFocusModeToggle,
 }: ReaderSettingsPanelProps) {
     const panelRef = useRef<HTMLDivElement>(null)
     const [isMobile, setIsMobile] = useState(false)
@@ -335,6 +345,58 @@ export default function ReaderSettingsPanel({
                         </div>
                     </div>
                 )}
+            </section>
+
+            {/* ── Tap-to-reveal (Phase 5.6) ──────────────────────────────────── */}
+            <section>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                    Tap to reveal
+                </h3>
+                <label className="flex items-center gap-3 cursor-pointer">
+                    <button
+                        type="button"
+                        role="switch"
+                        aria-checked={tapRevealEnabled}
+                        aria-label="Toggle tap-to-reveal"
+                        onClick={() => onTapRevealEnabledChange(!tapRevealEnabled)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            tapRevealEnabled ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                        }`}
+                    >
+                        <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                tapRevealEnabled ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                        />
+                    </button>
+                    <span className="text-sm text-gray-700 dark:text-gray-200">
+                        {tapRevealEnabled ? 'Tap words to see readings' : 'Disabled'}
+                    </span>
+                </label>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 ml-12">
+                    Tap a kanji to see readings, or a paragraph to reveal its translation.
+                </p>
+            </section>
+
+            {/* ── Focus mode (Phase 5.7) ──────────────────────────────────────── */}
+            <section>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                    Focus
+                </h3>
+                <button
+                    type="button"
+                    onClick={onFocusModeToggle}
+                    className={`w-full px-4 py-2 text-sm rounded-lg border transition-colors ${
+                        focusMode
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                >
+                    {focusMode ? 'Exit focus mode' : 'Enter focus mode'}
+                </button>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    Hide toolbars and center the text for distraction-free reading.
+                </p>
             </section>
         </div>
         </>

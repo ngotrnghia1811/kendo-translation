@@ -31,6 +31,11 @@ export interface ReaderThemeSettings {
      * null → show furigana for all kanji (no filter).
      */
     furiganaJlptMinLevel: JlptLevel | null
+    /**
+     * Phase 5.6 — Enable tap-to-reveal: tap kanji → reading popup,
+     * tap JP paragraph (when translation hidden) → reveal EN.
+     */
+    tapRevealEnabled: boolean
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -83,6 +88,7 @@ const DEFAULTS: ReaderThemeSettings = {
     layoutWidth:          'narrow',
     furiganaMode:         'furigana',
     furiganaJlptMinLevel: null,
+    tapRevealEnabled:     true,
 }
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
@@ -112,6 +118,7 @@ function loadFromStorage(): ReaderThemeSettings {
             layoutWidth:          parsed.layoutWidth          ?? DEFAULTS.layoutWidth,
             furiganaMode,
             furiganaJlptMinLevel: parsed.furiganaJlptMinLevel ?? DEFAULTS.furiganaJlptMinLevel,
+            tapRevealEnabled:     parsed.tapRevealEnabled     ?? DEFAULTS.tapRevealEnabled,
         }
     } catch {
         return DEFAULTS
@@ -147,6 +154,7 @@ export function useReaderTheme() {
     const setLayoutWidth        = useCallback((layoutWidth: LayoutWidth)         => setSettings({ layoutWidth }),          [setSettings])
     const setFuriganaMode       = useCallback((furiganaMode: FuriganaMode)       => setSettings({ furiganaMode }),         [setSettings])
     const setFuriganaJlptMinLevel = useCallback((furiganaJlptMinLevel: JlptLevel | null) => setSettings({ furiganaJlptMinLevel }), [setSettings])
+    const setTapRevealEnabled   = useCallback((tapRevealEnabled: boolean)        => setSettings({ tapRevealEnabled }),     [setSettings])
 
     const increaseFontSize = useCallback(
         () => setSettings({ fontSize: Math.min(FONT_SIZE_MAX, settings.fontSize + FONT_SIZE_STEP) }),
@@ -168,6 +176,7 @@ export function useReaderTheme() {
         setLayoutWidth,
         setFuriganaMode,
         setFuriganaJlptMinLevel,
+        setTapRevealEnabled,
         increaseFontSize,
         decreaseFontSize,
         fontSizeValue,

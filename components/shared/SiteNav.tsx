@@ -142,6 +142,10 @@ export function SiteNav() {
                             onFuriganaModeChange={themeCtx.setFuriganaMode}
                             furiganaJlptMinLevel={themeCtx.furiganaJlptMinLevel}
                             onFuriganaJlptMinLevelChange={themeCtx.setFuriganaJlptMinLevel}
+                            tapRevealEnabled={themeCtx.tapRevealEnabled}
+                            onTapRevealEnabledChange={themeCtx.setTapRevealEnabled}
+                            focusMode={false}
+                            onFocusModeToggle={() => {}}
                         />
                     </div>
 
