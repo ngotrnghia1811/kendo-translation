@@ -1,6 +1,8 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
+const KNOWN_ROLES = ['admin', 'translator', 'reader']
+
 export async function GET() {
     try {
         const supabase = await createClient()
@@ -16,6 +18,16 @@ export async function GET() {
             return NextResponse.json({ user: null, profile: null })
         }
 
+        // Phase 1.2i / Straggler D: read role from JWT app_metadata claim first.
+        // Falls back to profiles table query only when the claim is absent
+        // (stale JWT minted before the sync_profile_role trigger backfill).
+        const appRole =
+            (user.app_metadata as Record<string, unknown> | undefined)?.role as
+                | string
+                | undefined
+        const roleFromJwt =
+            appRole && KNOWN_ROLES.includes(appRole) ? appRole : null
+
         const adminSupabase = await createAdminClient()
         const { data: profile } = await adminSupabase
             .from('profiles')
@@ -23,13 +35,18 @@ export async function GET() {
             .eq('id', user.id)
             .single()
 
+        // Role source: JWT claim (authoritative) > profiles table > 'reader' default
+        const effectiveRole = roleFromJwt ?? profile?.role ?? 'reader'
+
         return NextResponse.json({
             user,
-            profile: profile || {
-                id: user.id,
-                email: user.email,
-                role: 'reader'
-            }
+            profile: profile
+                ? { ...profile, role: effectiveRole }
+                : {
+                      id: user.id,
+                      email: user.email,
+                      role: effectiveRole,
+                  },
         })
     } catch (error) {
         console.error('Error in /api/auth/me:', error)

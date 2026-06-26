@@ -10,9 +10,20 @@
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
+const KNOWN_ROLES = ['admin', 'translator', 'reader']
+
 async function requireAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
+
+    // Phase 1.2i / Straggler D: read role from JWT app_metadata claim first.
+    const appRole = (user.app_metadata as Record<string, unknown> | undefined)?.role as string | undefined
+    if (appRole && KNOWN_ROLES.includes(appRole)) {
+        if (appRole !== 'admin') return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
+        return { user }
+    }
+
+    // Fallback: stale JWT — query profiles table.
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
     if (profile?.role !== 'admin') return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
     return { user }
