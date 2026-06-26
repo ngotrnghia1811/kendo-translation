@@ -53,17 +53,17 @@ export function ContextBuilderModal({
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* Left panel — main working area (~55%) */}
-      <div className="relative w-[55%] bg-white overflow-y-auto p-6 flex flex-col">
+      <div className="relative w-[55%] bg-[var(--color-surface)] overflow-y-auto p-6 flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between mb-4 shrink-0">
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-[var(--color-text)]">
             MAC-RAG Context Builder
           </h2>
           <button
             type="button"
             onClick={onClose}
             data-testid="context-builder-modal-close"
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none p-1 rounded hover:bg-gray-100 transition-colors"
+            className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-xl leading-none p-1 rounded hover:bg-[var(--color-bg)] transition-colors"
             aria-label="Close"
           >
             ✕
@@ -84,8 +84,8 @@ export function ContextBuilderModal({
       </div>
 
       {/* Right panel — scrollable context sidebar (~45%) */}
-      <div className="relative w-[45%] bg-slate-50 border-l border-slate-200 overflow-y-auto p-6">
-        <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4">
+      <div className="relative w-[45%] bg-[var(--color-bg)] border-l border-[var(--color-border)] overflow-y-auto p-6">
+        <h3 className="text-sm font-medium text-[var(--color-text-muted)] uppercase tracking-wide mb-4">
           Context
         </h3>
 
@@ -94,14 +94,14 @@ export function ContextBuilderModal({
             {/* ── Translation Memory (L3/L4) ─────────────────────── */}
             {composeData.tm_matches && composeData.tm_matches.length > 0 && (
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                <p className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wide mb-2">
                   Translation Memory (L3/L4)
                 </p>
                 <ul className="space-y-1.5">
                   {composeData.tm_matches.map((m: TmMatch) => (
                     <li
                       key={m.id}
-                      className="rounded border border-slate-200 bg-white p-2"
+                      className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] p-2"
                     >
                       <div className="flex items-center gap-1.5 mb-1">
                         <span
@@ -133,7 +133,7 @@ export function ContextBuilderModal({
             {/* ── Terminology ────────────────────────────────────── */}
             {allTerms(composeData).length > 0 && (
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                <p className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wide mb-2">
                   Terminology
                 </p>
                 <ul className="space-y-1">
@@ -160,7 +160,7 @@ export function ContextBuilderModal({
             {/* ── Article Context ────────────────────────────────── */}
             {composeData.l2_context && (
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                <p className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wide mb-2">
                   Article Context
                 </p>
                 <div className="space-y-2">
@@ -172,7 +172,7 @@ export function ContextBuilderModal({
                   )}
 
                   {composeData.l2_context.neighbours.prev && (
-                    <div className="rounded border border-slate-200 bg-white p-2">
+                    <div className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
                       <p className="text-[10px] font-medium text-slate-500 mb-0.5">
                         Previous{' '}
                         {composeData.l2_context.neighbours.prev.usable ? (
@@ -188,7 +188,7 @@ export function ContextBuilderModal({
                   )}
 
                   {composeData.l2_context.neighbours.next && (
-                    <div className="rounded border border-slate-200 bg-white p-2">
+                    <div className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
                       <p className="text-[10px] font-medium text-slate-500 mb-0.5">
                         Next{' '}
                         {composeData.l2_context.neighbours.next.usable ? (
@@ -223,7 +223,7 @@ export function ContextBuilderModal({
             )}
           </div>
         ) : (
-          <p className="text-xs text-slate-400 italic">
+          <p className="text-xs text-[var(--color-text-muted)] italic">
             Compose context to see TM matches, terminology, and article
             context here.
           </p>

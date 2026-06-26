@@ -301,7 +301,7 @@ function AddAssignmentRow({
                             visibleResults.length > 0 ||
                             searchError) && (
                             <ul
-                                className="absolute z-10 mt-0.5 max-h-48 w-full overflow-y-auto rounded border border-slate-300 bg-white shadow"
+                                className="absolute z-10 mt-0.5 max-h-48 w-full overflow-y-auto rounded border border-[var(--color-border)] bg-[var(--color-surface)] shadow"
                                 data-testid="assignment-add-user-picker"
                             >
                                 {searching && (

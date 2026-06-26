@@ -17,11 +17,11 @@ export default function ProgressBar({ total, translated, reviewed, approved }: P
 
     return (
         <div className="w-full">
-            <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+            <div className="flex items-center justify-between text-xs text-[var(--color-text-muted)] mb-1">
                 <span>{translated}/{total} translated</span>
                 <span>{Math.round((translated / total) * 100)}%</span>
             </div>
-            <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden flex">
+            <div className="w-full h-2 bg-[var(--color-border)] rounded-full overflow-hidden flex">
                 {approvedPct > 0 && (
                     <div
                         className="h-full bg-green-500"
@@ -44,7 +44,7 @@ export default function ProgressBar({ total, translated, reviewed, approved }: P
                     />
                 )}
             </div>
-            <div className="flex gap-3 mt-1 text-xs text-gray-400">
+            <div className="flex gap-3 mt-1 text-xs text-[var(--color-text-muted)]">
                 <span className="flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> Approved
                 </span>

@@ -69,11 +69,11 @@ export function EditPatternModal({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-                <h2 className="mb-4 text-base font-semibold text-slate-800">
+            <div className="w-full max-w-md rounded-xl bg-[var(--color-surface)] p-6 shadow-xl">
+                <h2 className="mb-4 text-base font-semibold text-[var(--color-text)]">
                     Record edit pattern
                 </h2>
-                <p className="mb-4 text-xs text-slate-500">
+                <p className="mb-4 text-xs text-[var(--color-text-muted)]">
                     Describe what was changed so this pattern can be reused by the
                     agent in future edits.
                 </p>
@@ -86,7 +86,7 @@ export function EditPatternModal({
 
                 <div className="space-y-3">
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">
+                        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">
                             Before phrase
                         </label>
                         <input
@@ -97,11 +97,11 @@ export function EditPatternModal({
                                 setError(null)
                             }}
                             placeholder="e.g. he said"
-                            className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="w-full rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                     </div>
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">
+                        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">
                             After phrase
                         </label>
                         <input
@@ -112,11 +112,11 @@ export function EditPatternModal({
                                 setError(null)
                             }}
                             placeholder="e.g. he remarked"
-                            className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="w-full rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                     </div>
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">
+                        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">
                             Rationale
                         </label>
                         <input
@@ -124,7 +124,7 @@ export function EditPatternModal({
                             value={rationale}
                             onChange={(e) => setRationale(e.target.value)}
                             placeholder="e.g. more idiomatic"
-                            className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="w-full rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                     </div>
                 </div>
@@ -137,14 +137,14 @@ export function EditPatternModal({
                     <button
                         type="button"
                         onClick={onCancel}
-                        className="rounded-md px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
+                        className="rounded-md px-3 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-bg)]"
                     >
                         Cancel
                     </button>
                     <button
                         type="button"
                         onClick={handleSkip}
-                        className="rounded-md px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100"
+                        className="rounded-md px-3 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-bg)]"
                     >
                         Skip
                     </button>

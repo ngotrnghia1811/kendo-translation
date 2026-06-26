@@ -11,12 +11,12 @@ export default function PresenceIndicator({ presences }: PresenceIndicatorProps)
 
     return (
         <div className="flex items-center gap-1">
-            <span className="text-xs text-gray-500 mr-1">{presences.length} online</span>
+            <span className="text-xs text-[var(--color-text-muted)] mr-1">{presences.length} online</span>
             <div className="flex -space-x-2">
                 {presences.slice(0, 5).map((p) => (
                     <div
                         key={p.user_id}
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-medium border-2 border-white dark:border-gray-800"
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-medium border-2 border-[var(--color-surface)]"
                         style={{ backgroundColor: p.color }}
                         title={p.username}
                     >
@@ -24,7 +24,7 @@ export default function PresenceIndicator({ presences }: PresenceIndicatorProps)
                     </div>
                 ))}
                 {presences.length > 5 && (
-                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 border-2 border-white dark:border-gray-800">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium bg-[var(--color-border)] text-[var(--color-text)] border-2 border-[var(--color-surface)]">
                         +{presences.length - 5}
                     </div>
                 )}

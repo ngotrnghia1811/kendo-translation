@@ -24,14 +24,14 @@ export default function SegmentToolbar({
             <button
                 onClick={onSave}
                 disabled={saving || !hasChanges}
-                className="px-2 py-1 text-xs font-medium rounded bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                className="px-2 py-1 text-xs font-medium rounded bg-blue-600 text-white hover:bg-blue-700 disabled:bg-[var(--color-text-muted)] disabled:cursor-not-allowed transition-colors"
             >
                 {saving ? 'Saving...' : 'Save'}
             </button>
             <button
                 onClick={onCancel}
                 disabled={saving}
-                className="px-2 py-1 text-xs font-medium rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                className="px-2 py-1 text-xs font-medium rounded bg-[var(--color-border)] text-[var(--color-text)] hover:opacity-70 transition-colors"
             >
                 Cancel
             </button>
@@ -53,7 +53,7 @@ export default function SegmentToolbar({
                     MAC-RAG
                 </button>
             )}
-            <span className="text-xs text-gray-400 ml-auto">Cmd+S to save, Esc to cancel</span>
+            <span className="text-xs text-[var(--color-text-muted)] ml-auto">Cmd+S to save, Esc to cancel</span>
         </div>
     )
 }

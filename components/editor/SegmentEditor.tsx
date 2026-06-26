@@ -58,8 +58,8 @@ export default function SegmentEditor({
                 w-full resize-none rounded border p-2 text-sm leading-relaxed
                 transition-colors duration-150
                 ${disabled
-                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
-                    : 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border-blue-400 dark:border-blue-600 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 focus:outline-none'
+                    ? 'bg-[var(--color-bg)] text-[var(--color-text-muted)] cursor-not-allowed'
+                    : 'bg-[var(--color-surface)] text-[var(--color-text)] border-blue-400 dark:border-blue-600 focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 focus:outline-none'
                 }
             `}
             rows={1}

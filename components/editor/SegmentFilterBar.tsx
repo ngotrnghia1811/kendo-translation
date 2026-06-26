@@ -23,11 +23,11 @@ const STATUS_LABELS: Record<SegmentStatus, string> = {
 };
 
 const STATUS_COLORS: Record<SegmentStatus, { active: string; inactive: string }> = {
-    draft:       { active: 'bg-red-600 text-white border-red-600',        inactive: 'bg-white text-red-600 border-red-200 hover:bg-red-50' },
-    translated:  { active: 'bg-blue-600 text-white border-blue-600',      inactive: 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50' },
-    edited:      { active: 'bg-emerald-600 text-white border-emerald-600', inactive: 'bg-white text-emerald-600 border-emerald-200 hover:bg-emerald-50' },
-    proofread:   { active: 'bg-amber-500 text-white border-amber-500',     inactive: 'bg-white text-amber-600 border-amber-200 hover:bg-amber-50' },
-    qa_approved: { active: 'bg-violet-600 text-white border-violet-600',   inactive: 'bg-white text-violet-600 border-violet-200 hover:bg-violet-50' },
+    draft:       { active: 'bg-red-600 text-white border-red-600',        inactive: 'bg-[var(--color-surface)] text-red-600 border-red-200 hover:bg-red-50' },
+    translated:  { active: 'bg-blue-600 text-white border-blue-600',      inactive: 'bg-[var(--color-surface)] text-blue-600 border-blue-200 hover:bg-blue-50' },
+    edited:      { active: 'bg-emerald-600 text-white border-emerald-600', inactive: 'bg-[var(--color-surface)] text-emerald-600 border-emerald-200 hover:bg-emerald-50' },
+    proofread:   { active: 'bg-amber-500 text-white border-amber-500',     inactive: 'bg-[var(--color-surface)] text-amber-600 border-amber-200 hover:bg-amber-50' },
+    qa_approved: { active: 'bg-violet-600 text-white border-violet-600',   inactive: 'bg-[var(--color-surface)] text-violet-600 border-violet-200 hover:bg-violet-50' },
 };
 
 // ---------------------------------------------------------------------------
@@ -82,7 +82,7 @@ export default function SegmentFilterBar({
 
     return (
         <div
-            className="bg-white border border-gray-200 rounded-xl px-4 py-3 space-y-2.5"
+            className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl px-4 py-3 space-y-2.5"
             data-testid="segment-filter-bar"
         >
             {/* Row 1: Status pills */}
@@ -94,8 +94,8 @@ export default function SegmentFilterBar({
                     data-testid="filter-status-all"
                     className={`text-xs px-3 py-1 rounded-full border font-medium transition-colors ${
                         activeStatuses.length === 0 && !showMyPhase
-                            ? 'bg-gray-900 text-white border-gray-900'
-                            : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'
+                            ? 'bg-[var(--color-text)] text-[var(--color-surface)] border-[var(--color-text)]'
+                            : 'bg-[var(--color-surface)] text-[var(--color-text-muted)] border-[var(--color-border)] hover:bg-[var(--color-bg)]'
                     }`}
                 >
                     All
@@ -136,7 +136,7 @@ export default function SegmentFilterBar({
                         className={`text-xs px-3 py-1 rounded-full border font-medium transition-colors ml-auto ${
                             showMyPhase
                                 ? 'bg-indigo-600 text-white border-indigo-600'
-                                : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'
+                                : 'bg-[var(--color-surface)] text-indigo-600 border-indigo-200 hover:bg-indigo-50'
                         }`}
                         title={`Show only segments at your assigned phase${userPhases.length > 1 ? 's' : ''}: ${userPhases.join(', ')}`}
                     >
@@ -147,7 +147,7 @@ export default function SegmentFilterBar({
 
             {/* Row 2: Text search */}
             <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] pointer-events-none text-xs">
                     🔍
                 </span>
                 <input
@@ -156,13 +156,13 @@ export default function SegmentFilterBar({
                     onChange={(e) => onQueryChange(e.target.value)}
                     placeholder="Search source or translation…"
                     data-testid="filter-search-input"
-                    className="w-full pl-8 pr-4 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder:text-gray-400"
+                    className="w-full pl-8 pr-4 py-2 text-xs border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder:text-[var(--color-text-muted)]"
                 />
                 {query && (
                     <button
                         type="button"
                         onClick={() => onQueryChange('')}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-xs"
                         aria-label="Clear search"
                     >
                         ✕
@@ -172,7 +172,7 @@ export default function SegmentFilterBar({
 
             {/* Row 3: Active filter summary + clear */}
             {isFiltered && (
-                <div className="flex items-center justify-between text-xs text-gray-500">
+                <div className="flex items-center justify-between text-xs text-[var(--color-text-muted)]">
                     <span>
                         Filtering by:{' '}
                         {showMyPhase && <span className="font-medium text-indigo-600">my phase</span>}
@@ -195,7 +195,7 @@ export default function SegmentFilterBar({
                             if (showMyPhase) onToggleMyPhase();
                         }}
                         data-testid="filter-clear-all"
-                        className="text-gray-400 hover:text-gray-700 transition-colors underline"
+                        className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors underline"
                     >
                         Clear all
                     </button>

@@ -320,26 +320,26 @@ export function ContextBuilderPanel({
             <button
               type="button"
               onClick={() => setContextOpen((o) => !o)}
-              className="text-xs font-medium text-gray-500 uppercase tracking-wide hover:text-gray-700"
+              className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wide hover:text-[var(--color-text)]"
             >
               {contextOpen ? '▾ Context' : '▸ Context'}
             </button>
             {contextOpen && (
-              <div className="mt-2 space-y-2 border border-slate-200 rounded-lg bg-slate-50 p-3 text-xs">
+              <div className="mt-2 space-y-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg)] p-3 text-xs">
                 {/* TM section */}
                 {composeData.tm_matches && composeData.tm_matches.length > 0 && (
                   <div>
                     <button
                       type="button"
                       onClick={() => toggleSection('tm')}
-                      className="text-xs font-medium text-gray-500 uppercase tracking-wide hover:text-gray-700 w-full text-left"
+                      className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wide hover:text-[var(--color-text)] w-full text-left"
                     >
                       {expandedSections.tm ? '▾' : '▸'} Translation Memory (L3/L4)
                     </button>
                     {expandedSections.tm && (
                       <ul className="mt-1.5 space-y-1.5">
                         {composeData.tm_matches.map((m: TmMatch) => (
-                          <li key={m.id} className="rounded border border-slate-200 bg-white p-2">
+                          <li key={m.id} className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
                             <div className="flex items-center gap-1.5 mb-1">
                               <span
                                 className={`rounded px-1.5 py-0.5 text-[10px] font-medium ring-1 ring-inset ${qualityColor(m.qualityScore)}`}
@@ -366,7 +366,7 @@ export function ContextBuilderPanel({
                     <button
                       type="button"
                       onClick={() => toggleSection('terminology')}
-                      className="text-xs font-medium text-gray-500 uppercase tracking-wide hover:text-gray-700 w-full text-left"
+                      className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wide hover:text-[var(--color-text)] w-full text-left"
                     >
                       {expandedSections.terminology ? '▾' : '▸'} Terminology
                     </button>
@@ -395,7 +395,7 @@ export function ContextBuilderPanel({
                     <button
                       type="button"
                       onClick={() => toggleSection('article')}
-                      className="text-xs font-medium text-gray-500 uppercase tracking-wide hover:text-gray-700 w-full text-left"
+                      className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wide hover:text-[var(--color-text)] w-full text-left"
                     >
                       {expandedSections.article ? '▾' : '▸'} Article Context
                     </button>
@@ -409,7 +409,7 @@ export function ContextBuilderPanel({
                         )}
 
                         {composeData.l2_context.neighbours.prev && (
-                          <div className="rounded border border-slate-200 bg-white p-2">
+                          <div className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
                             <p className="text-[10px] font-medium text-slate-500 mb-0.5">
                               Previous{' '}
                               {composeData.l2_context.neighbours.prev.usable ? (
@@ -423,7 +423,7 @@ export function ContextBuilderPanel({
                         )}
 
                         {composeData.l2_context.neighbours.next && (
-                          <div className="rounded border border-slate-200 bg-white p-2">
+                          <div className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
                             <p className="text-[10px] font-medium text-slate-500 mb-0.5">
                               Next{' '}
                               {composeData.l2_context.neighbours.next.usable ? (
@@ -459,7 +459,7 @@ export function ContextBuilderPanel({
           {/* Prompt editor */}
           <div className="space-y-2">
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1 block">
+              <label className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wide mb-1 block">
                 System Prompt
               </label>
               <textarea
@@ -468,11 +468,11 @@ export function ContextBuilderPanel({
                 disabled={view === 'generating'}
                 rows={expanded ? 10 : 6}
                 data-testid="context-builder-system-prompt"
-                className="w-full text-xs border border-slate-200 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y font-mono bg-white disabled:opacity-50"
+                className="w-full text-xs border border-[var(--color-border)] rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y font-mono bg-[var(--color-surface)] disabled:opacity-50"
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1 block">
+              <label className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wide mb-1 block">
                 User Message
               </label>
               <textarea
@@ -481,7 +481,7 @@ export function ContextBuilderPanel({
                 disabled={view === 'generating'}
                 rows={expanded ? 18 : 10}
                 data-testid="context-builder-user-prompt"
-                className="w-full text-xs border border-slate-200 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y font-mono bg-white disabled:opacity-50"
+                className="w-full text-xs border border-[var(--color-border)] rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y font-mono bg-[var(--color-surface)] disabled:opacity-50"
               />
             </div>
           </div>
@@ -515,7 +515,7 @@ export function ContextBuilderPanel({
             <button
               type="button"
               onClick={handleReset}
-              className="text-xs text-gray-400 hover:text-gray-600"
+              className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
             >
               Reset
             </button>
@@ -525,7 +525,7 @@ export function ContextBuilderPanel({
 
       {/* ── GENERATED result block ────────────────────────────────── */}
       {view === 'generated' && generateData && (
-        <div data-testid="context-builder-result" className="space-y-3 border-t border-slate-200 pt-3">
+          <div data-testid="context-builder-result" className="space-y-3 border-t border-[var(--color-border)] pt-3">
           {/* Prompt edited badge */}
           {generateData.prompt_edited && (
             <span className="inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 ring-1 ring-inset ring-amber-200">
@@ -536,7 +536,7 @@ export function ContextBuilderPanel({
           {/* QA advisory output */}
           {generateData.advisory ? (
             <div className="space-y-2">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <p className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
                 Advisory QA candidates (raw JSON)
               </p>
               <p className="text-[10px] text-slate-400">
@@ -556,7 +556,7 @@ export function ContextBuilderPanel({
           ) : (
             /* Non-QA output */
             <div className="space-y-2">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <p className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
                 Proposed Translation
               </p>
               <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-700">

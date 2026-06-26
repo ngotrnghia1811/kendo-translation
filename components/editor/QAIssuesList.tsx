@@ -132,7 +132,7 @@ export function QAIssuesList({ segmentId }: QAIssuesListProps) {
         return (
             <div
                 key={issue.id}
-                className={`rounded-lg border p-3 ${isResolved ? 'border-slate-200 bg-slate-50' : 'border-slate-200 bg-white'}`}
+                className={`rounded-lg border p-3 ${isResolved ? 'border-[var(--color-border)] bg-[var(--color-bg)]' : 'border-[var(--color-border)] bg-[var(--color-surface)]'}`}
             >
                 <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">

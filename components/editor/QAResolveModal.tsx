@@ -68,18 +68,18 @@ export function QAResolveModal({ issue, onConfirm, onSkip, onCancel }: QAResolve
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-                <h2 className="mb-4 text-base font-semibold text-slate-800">
+            <div className="w-full max-w-md rounded-xl bg-[var(--color-surface)] p-6 shadow-xl">
+                <h2 className="mb-4 text-base font-semibold text-[var(--color-text)]">
                     Resolve QA issue
                 </h2>
-                <p className="mb-4 text-xs text-slate-500">
+                <p className="mb-4 text-xs text-[var(--color-text-muted)]">
                     Record the resolution outcome so the agent can learn from
                     this QA decision across future translations.
                 </p>
 
                 <div className="space-y-3">
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">
+                        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">
                             Pattern name
                         </label>
                         <input
@@ -90,11 +90,11 @@ export function QAResolveModal({ issue, onConfirm, onSkip, onCancel }: QAResolve
                                 setError(null)
                             }}
                             placeholder="e.g. Terminology/minor"
-                            className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="w-full rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                     </div>
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">
+                        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">
                             Category
                         </label>
                         <input
@@ -105,11 +105,11 @@ export function QAResolveModal({ issue, onConfirm, onSkip, onCancel }: QAResolve
                                 setError(null)
                             }}
                             placeholder="e.g. Terminology"
-                            className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="w-full rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                     </div>
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">
+                        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">
                             Outcome
                         </label>
                         <select
@@ -118,7 +118,7 @@ export function QAResolveModal({ issue, onConfirm, onSkip, onCancel }: QAResolve
                                 setOutcome(e.target.value)
                                 setError(null)
                             }}
-                            className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="w-full rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text)] focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         >
                             {OUTCOME_OPTIONS.map((o) => (
                                 <option key={o.value} value={o.value}>
@@ -129,7 +129,7 @@ export function QAResolveModal({ issue, onConfirm, onSkip, onCancel }: QAResolve
                     </div>
                     {outcome !== 'confirmed' && (
                         <div>
-                            <label className="mb-1 block text-xs font-medium text-slate-600">
+                            <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">
                                 Dismissal reason
                             </label>
                             <input
@@ -140,7 +140,7 @@ export function QAResolveModal({ issue, onConfirm, onSkip, onCancel }: QAResolve
                                     setError(null)
                                 }}
                                 placeholder="e.g. Not applicable for this domain"
-                                className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                className="w-full rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                             />
                         </div>
                     )}
@@ -154,14 +154,14 @@ export function QAResolveModal({ issue, onConfirm, onSkip, onCancel }: QAResolve
                     <button
                         type="button"
                         onClick={onCancel}
-                        className="rounded-md px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
+                        className="rounded-md px-3 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-bg)]"
                     >
                         Cancel
                     </button>
                     <button
                         type="button"
                         onClick={onSkip}
-                        className="rounded-md px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100"
+                        className="rounded-md px-3 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-bg)]"
                     >
                         Skip
                     </button>

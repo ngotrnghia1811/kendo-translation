@@ -81,18 +81,18 @@ export function StyleRuleModal({ articleId, onConfirm, onSkip, onCancel }: Style
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-                <h2 className="mb-4 text-base font-semibold text-slate-800">
+            <div className="w-full max-w-md rounded-xl bg-[var(--color-surface)] p-6 shadow-xl">
+                <h2 className="mb-4 text-base font-semibold text-[var(--color-text)]">
                     Record style rule
                 </h2>
-                <p className="mb-4 text-xs text-slate-500">
+                <p className="mb-4 text-xs text-[var(--color-text-muted)]">
                     Capture a reusable house-style convention from this proofread
                     edit so the agent can apply it consistently.
                 </p>
 
                 <div className="space-y-3">
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">
+                        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">
                             Scope
                         </label>
                         <select
@@ -101,7 +101,7 @@ export function StyleRuleModal({ articleId, onConfirm, onSkip, onCancel }: Style
                                 setScope(e.target.value)
                                 setError(null)
                             }}
-                            className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="w-full rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text)] focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         >
                             {SCOPE_OPTIONS.map((s) => (
                                 <option key={s} value={s}>
@@ -116,7 +116,7 @@ export function StyleRuleModal({ articleId, onConfirm, onSkip, onCancel }: Style
                         )}
                     </div>
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">
+                        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">
                             Rule category
                         </label>
                         <input
@@ -127,11 +127,11 @@ export function StyleRuleModal({ articleId, onConfirm, onSkip, onCancel }: Style
                                 setError(null)
                             }}
                             placeholder="e.g. punctuation"
-                            className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="w-full rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                     </div>
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">
+                        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">
                             Pattern
                         </label>
                         <input
@@ -142,11 +142,11 @@ export function StyleRuleModal({ articleId, onConfirm, onSkip, onCancel }: Style
                                 setError(null)
                             }}
                             placeholder="e.g. use em-dash for apposition"
-                            className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="w-full rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                     </div>
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">
+                        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">
                             Policy
                         </label>
                         <input
@@ -157,11 +157,11 @@ export function StyleRuleModal({ articleId, onConfirm, onSkip, onCancel }: Style
                                 setError(null)
                             }}
                             placeholder="e.g. must use em-dash"
-                            className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="w-full rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                     </div>
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-600">
+                        <label className="mb-1 block text-xs font-medium text-[var(--color-text-muted)]">
                             Rationale
                         </label>
                         <textarea
@@ -172,7 +172,7 @@ export function StyleRuleModal({ articleId, onConfirm, onSkip, onCancel }: Style
                             }}
                             rows={2}
                             placeholder="e.g. standard style for kendo literature"
-                            className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="w-full rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                     </div>
                 </div>
@@ -185,14 +185,14 @@ export function StyleRuleModal({ articleId, onConfirm, onSkip, onCancel }: Style
                     <button
                         type="button"
                         onClick={onCancel}
-                        className="rounded-md px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
+                        className="rounded-md px-3 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-bg)]"
                     >
                         Cancel
                     </button>
                     <button
                         type="button"
                         onClick={onSkip}
-                        className="rounded-md px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100"
+                        className="rounded-md px-3 py-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-bg)]"
                     >
                         Skip
                     </button>

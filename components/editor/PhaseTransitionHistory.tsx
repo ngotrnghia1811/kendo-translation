@@ -151,7 +151,7 @@ export function PhaseTransitionHistory({ segmentId }: Props) {
                 <li
                     key={row.id}
                     data-testid="phase-transition-row"
-                    className="rounded border border-slate-200 bg-white px-3 py-2"
+                    className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2"
                 >
                     <div className="flex items-center gap-2">
                         <PhaseBadge status={row.from_status} />

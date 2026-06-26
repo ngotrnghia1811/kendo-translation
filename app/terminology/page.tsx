@@ -67,18 +67,18 @@ function TermFormModal({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCancel}>
             <div
-                className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4"
+                className="bg-[var(--color-surface)] rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4"
                 onClick={e => e.stopPropagation()}
                 role="dialog"
                 aria-modal="true"
             >
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                <h2 className="text-lg font-semibold text-[var(--color-text)] mb-4">
                     {initial.source_term ? 'Edit Term' : 'New Term'}
                 </h2>
 
                 <div className="space-y-3">
                     <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                        <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">
                             Japanese (Source) <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -86,12 +86,12 @@ function TermFormModal({
                             value={form.source_term}
                             onChange={set('source_term')}
                             placeholder="e.g. 竹刀"
-                            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                             autoFocus
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                        <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">
                             Reading (Romaji / Kana)
                         </label>
                         <input
@@ -99,11 +99,11 @@ function TermFormModal({
                             value={form.reading}
                             onChange={set('reading')}
                             placeholder="e.g. shinai"
-                            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                        <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">
                             English (Target) <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -111,11 +111,11 @@ function TermFormModal({
                             value={form.target_term}
                             onChange={set('target_term')}
                             placeholder="e.g. bamboo sword"
-                            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                        <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">
                             Domain
                         </label>
                         <input
@@ -123,11 +123,11 @@ function TermFormModal({
                             value={form.domain}
                             onChange={set('domain')}
                             placeholder="e.g. equipment, technique, etiquette…"
-                            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                        <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">
                             Notes
                         </label>
                         <textarea
@@ -135,7 +135,7 @@ function TermFormModal({
                             onChange={set('notes')}
                             rows={2}
                             placeholder="Optional translation notes…"
-                            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+                            className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
                         />
                     </div>
                 </div>
@@ -149,7 +149,7 @@ function TermFormModal({
                         type="button"
                         onClick={onCancel}
                         disabled={saving}
-                        className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+                        className="px-4 py-2 text-sm rounded-lg border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-bg)] disabled:opacity-50"
                     >
                         Cancel
                     </button>
@@ -338,20 +338,20 @@ export default function TerminologyPage() {
             {deleting && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setDeleting(null)}>
                     <div
-                        className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4"
+                        className="bg-[var(--color-surface)] rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4"
                         onClick={e => e.stopPropagation()}
                         role="dialog"
                         aria-modal="true"
                     >
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Delete Term?</h2>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
+                        <h2 className="text-lg font-semibold text-[var(--color-text)] mb-3">Delete Term?</h2>
+                        <p className="text-sm text-[var(--color-text-muted)] mb-5">
                             This will permanently remove the term from the glossary. This action cannot be undone.
                         </p>
                         <div className="flex justify-end gap-3">
                             <button
                                 type="button"
                                 onClick={() => setDeleting(null)}
-                                className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                className="px-4 py-2 text-sm rounded-lg border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-bg)]"
                             >
                                 Cancel
                             </button>
@@ -393,7 +393,7 @@ export default function TerminologyPage() {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Search terms…"
-                        className="w-full max-w-md px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-300 focus:outline-none"
+                        className="w-full max-w-md px-3 py-2 rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] focus:ring-2 focus:ring-blue-300 focus:outline-none"
                     />
                 </div>
 
@@ -417,14 +417,14 @@ export default function TerminologyPage() {
                                     <td className="p-3 text-sm font-medium text-[var(--rt-text)]">{term.source_term}</td>
                                     <td className="p-3 text-sm text-[var(--rt-text-muted)]">{term.reading || '—'}</td>
                                     <td className="p-3 text-sm text-[var(--rt-text)]">{term.target_term}</td>
-                                    <td className="p-3 text-xs text-gray-400">{term.domain || '—'}</td>
+                                    <td className="p-3 text-xs text-[var(--color-text-muted)]">{term.domain || '—'}</td>
                                     {isAdmin && (
                                         <td className="p-3">
                                             <div className="flex items-center gap-2">
                                                 <button
                                                     type="button"
                                                     onClick={() => { setEditing(term); setModalError(null) }}
-                                                    className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                                                    className="text-xs px-2 py-1 rounded bg-[var(--color-bg)] text-[var(--color-text)] hover:opacity-80"
                                                 >
                                                     Edit
                                                 </button>
@@ -448,7 +448,7 @@ export default function TerminologyPage() {
                         </div>
                     )}
                     {filtered.length === 0 && !loading && (
-                        <div className="p-8 text-center text-sm text-gray-400 dark:text-gray-500">
+                        <div className="p-8 text-center text-sm text-[var(--color-text-muted)]">
                             {search ? `No terms matching "${search}"` : 'No terms in the glossary yet.'}
                             {isAdmin && !search && (
                                 <button

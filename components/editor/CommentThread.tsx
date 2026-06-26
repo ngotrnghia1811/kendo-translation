@@ -73,7 +73,7 @@ function CommentNode({
             data-comment-id={node.id}
             className="space-y-2"
         >
-            <div className="rounded border border-slate-200 bg-white px-3 py-2 text-sm">
+            <div className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm">
                 <div className="flex items-center gap-2 text-xs text-slate-500">
                     <span className="font-medium text-slate-700">
                         {authorName(node)}

@@ -247,7 +247,7 @@ export function SuggestionPanel({
                         key={row.id}
                         data-testid="suggestion-row"
                         data-suggestion-id={row.id}
-                        className="rounded border border-slate-200 bg-white px-3 py-2 text-sm"
+                        className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm"
                     >
                         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                             <span className="font-medium text-slate-700">

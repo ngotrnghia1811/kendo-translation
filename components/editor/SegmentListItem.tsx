@@ -38,7 +38,7 @@ export default function SegmentListItem({
                     className={`mt-4 ml-2 w-5 h-5 shrink-0 rounded border-2 flex items-center justify-center transition-colors ${
                         isSelected
                             ? 'bg-blue-600 border-blue-600 text-white'
-                            : 'bg-white border-gray-300 hover:border-blue-400'
+                            : 'bg-[var(--color-surface)] border-[var(--color-border)] hover:border-blue-400'
                     }`}
                     aria-label={isSelected ? 'Deselect segment' : 'Select segment'}
                 >
@@ -67,14 +67,14 @@ export default function SegmentListItem({
                         ? 'border-blue-400 bg-blue-50'
                         : isActive
                         ? 'border-blue-400 bg-blue-50 shadow-sm'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
+                        : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-text-muted)]'
                 }`}
             >
                 <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-800 font-medium truncate">{seg.source_text}</p>
+                        <p className="text-sm text-[var(--color-text)] font-medium truncate">{seg.source_text}</p>
                         {seg.target_text && (
-                            <p className="text-xs text-gray-500 mt-1 truncate">{seg.target_text}</p>
+                            <p className="text-xs text-[var(--color-text-muted)] mt-1 truncate">{seg.target_text}</p>
                         )}
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">

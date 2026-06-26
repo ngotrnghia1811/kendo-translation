@@ -74,7 +74,7 @@ export default function SegmentRow({
             case 'translated':
                 return <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">Translated</span>
             default:
-                return <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">Draft</span>
+                return <span className="text-xs px-1.5 py-0.5 rounded bg-[var(--color-bg)] text-[var(--color-text-muted)]">Draft</span>
         }
     }
 
@@ -91,20 +91,20 @@ export default function SegmentRow({
     return (
         <div
             className={`
-                grid grid-cols-[40px_1fr_1fr] gap-0 border-b border-gray-200 dark:border-gray-700
+                grid grid-cols-[40px_1fr_1fr] gap-0 border-b border-[var(--color-border)]
                 ${isActive ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}
                 ${presenceColor ? `border-l-4` : 'border-l-4 border-l-transparent'}
             `}
             style={presenceColor ? { borderLeftColor: presenceColor } : undefined}
         >
             {/* Row number */}
-            <div className="flex flex-col items-center justify-start pt-3 text-xs text-gray-400 border-r border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col items-center justify-start pt-3 text-xs text-[var(--color-text-muted)] border-r border-[var(--color-border)]">
                 <span>{segment.position + 1}</span>
             </div>
 
             {/* Source text (read-only) */}
-            <div className="p-3 border-r border-gray-200 dark:border-gray-700">
-                <div className="text-sm leading-relaxed whitespace-pre-wrap text-gray-800 dark:text-gray-200">
+            <div className="p-3 border-r border-[var(--color-border)]">
+                <div className="text-sm leading-relaxed whitespace-pre-wrap text-[var(--color-text)]">
                     {segment.source_text}
                 </div>
             </div>
@@ -158,7 +158,7 @@ export default function SegmentRow({
                                     <button
                                         type="button"
                                         onClick={() => setContextBuilderOpen(false)}
-                                        className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                        className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
                                         aria-label="Close context builder"
                                     >
                                         ✕
@@ -183,8 +183,8 @@ export default function SegmentRow({
                             text-sm leading-relaxed whitespace-pre-wrap min-h-[2rem] rounded p-2 cursor-pointer
                             transition-colors duration-150
                             ${segment.target_text
-                                ? 'text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
-                                : 'text-gray-400 italic hover:bg-gray-100 dark:hover:bg-gray-800'
+                                ? 'text-[var(--color-text)] hover:bg-[var(--color-bg)]'
+                                : 'text-[var(--color-text-muted)] italic hover:bg-[var(--color-bg)]'
                             }
                             ${isLockedByOther ? 'cursor-not-allowed opacity-60' : ''}
                         `}

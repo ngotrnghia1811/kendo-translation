@@ -109,27 +109,27 @@ export default function SegmentEditorPanel({
 
     return (
         <>
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+        <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-6 space-y-4">
             {/* Source */}
             <div>
-                <label className="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">
+                <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-2 uppercase tracking-wide">
                     Source
                 </label>
-                <p className="text-gray-900 text-sm leading-relaxed bg-gray-50 rounded-lg p-3">
+                <p className="text-[var(--color-text)] text-sm leading-relaxed bg-[var(--color-bg)] rounded-lg p-3">
                     {seg.source_text}
                 </p>
             </div>
 
             {/* Translation textarea */}
             <div>
-                <label className="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">
+                <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-2 uppercase tracking-wide">
                     Translation
                 </label>
                 <textarea
                     value={editingText}
                     onChange={e => onEditingTextChange(e.target.value)}
                     rows={4}
-                    className="w-full text-sm border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    className="w-full text-sm border border-[var(--color-border)] rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                     placeholder="Enter translation…"
                 />
             </div>
@@ -137,7 +137,7 @@ export default function SegmentEditorPanel({
             {/* MAC-RAG candidates */}
             {macRag.candidates.length > 0 && (
                 <div className="space-y-2">
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">AI Suggestions</p>
+                    <p className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wide">AI Suggestions</p>
                     {macRag.candidates.map((c, i) => (
                         <button
                             key={c.id}
@@ -145,12 +145,12 @@ export default function SegmentEditorPanel({
                             className={`w-full text-left text-xs p-3 rounded-lg border transition-all ${
                                 i === macRag.recommendedIndex
                                     ? 'border-blue-300 bg-blue-50'
-                                    : 'border-gray-200 hover:bg-gray-50'
+                                    : 'border-[var(--color-border)] hover:bg-[var(--color-bg)]'
                             }`}
                         >
-                            <span className="font-medium capitalize text-gray-600">{c.approach}</span>
-                            <span className="ml-2 text-gray-400">{Math.round(c.confidence * 100)}%</span>
-                            <p className="mt-1 text-gray-700">{c.text}</p>
+                            <span className="font-medium capitalize text-[var(--color-text-muted)]">{c.approach}</span>
+                            <span className="ml-2 text-[var(--color-text-muted)]">{Math.round(c.confidence * 100)}%</span>
+                            <p className="mt-1 text-[var(--color-text)]">{c.text}</p>
                         </button>
                     ))}
                 </div>
@@ -168,7 +168,7 @@ export default function SegmentEditorPanel({
                 <button
                     onClick={() => onSave(seg.id, editingText, 'translated')}
                     disabled={saving || !editingText.trim()}
-                    className="text-xs px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
+                    className="text-xs px-4 py-2 bg-[var(--color-text)] text-[var(--color-surface)] rounded-lg hover:opacity-80 transition-colors disabled:opacity-50"
                 >
                     {saving ? 'Saving…' : 'Save'}
                 </button>
@@ -181,7 +181,7 @@ export default function SegmentEditorPanel({
                 </button>
                 <button
                     onClick={() => setDetailsOpen(o => !o)}
-                    className="text-xs px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors ml-auto"
+                    className="text-xs px-4 py-2 border border-[var(--color-border)] text-[var(--color-text)] rounded-lg hover:bg-[var(--color-bg)] transition-colors ml-auto"
                     data-testid="segment-details-toggle"
                     data-open={detailsOpen}
                 >
@@ -191,7 +191,7 @@ export default function SegmentEditorPanel({
 
             {/* Cooperation drawer */}
             {detailsOpen && (
-                <div data-testid="segment-details-drawer" className="border-t border-gray-200 pt-4 mt-2">
+                <div data-testid="segment-details-drawer" className="border-t border-[var(--color-border)] pt-4 mt-2">
                     {/* Phase badge + advance button */}
                     <div className="flex items-center gap-2 mb-3">
                         <PhaseBadge status={seg.status as SegmentStatus} />
@@ -210,7 +210,7 @@ export default function SegmentEditorPanel({
                     </div>
 
                     {/* Tab strip */}
-                    <div className="flex border-b border-gray-200 mb-4 gap-0" role="tablist">
+                    <div className="flex border-b border-[var(--color-border)] mb-4 gap-0" role="tablist">
                         {DRAWER_TABS.map(({ key, label }) => (
                             <button
                                 key={key}
@@ -220,7 +220,7 @@ export default function SegmentEditorPanel({
                                 className={`text-xs px-3 py-2 border-b-2 transition-colors whitespace-nowrap ${
                                     drawerTab === key
                                         ? 'border-indigo-500 text-indigo-700 font-semibold'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                                        : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
                                 }`}
                             >
                                 {label}
@@ -238,7 +238,7 @@ export default function SegmentEditorPanel({
                     {drawerTab === 'suggestions' && (
                         <div role="tabpanel" className="space-y-4">
                             <div>
-                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                                <p className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wide mb-2">
                                     Suggestions
                                 </p>
                                 <SuggestionPanel
@@ -251,7 +251,7 @@ export default function SegmentEditorPanel({
                                 />
                             </div>
                             <div>
-                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                                <p className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wide mb-2">
                                     QA Issues
                                 </p>
                                 <QAIssuesList segmentId={seg.id} articleId={articleId} />
@@ -265,14 +265,14 @@ export default function SegmentEditorPanel({
                                 <>
                                     <div>
                                         <div className="flex items-center gap-2 mb-2">
-                                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                            <p className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
                                                 MAC-RAG Context Builder
                                             </p>
                                             <button
                                                 type="button"
                                                 onClick={() => setContextBuilderExpanded(true)}
                                                 data-testid="context-builder-expand-btn"
-                                                className="text-gray-400 hover:text-gray-600 text-sm leading-none p-0.5 rounded hover:bg-gray-100 transition-colors"
+                                                className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-sm leading-none p-0.5 rounded hover:bg-[var(--color-bg)] transition-colors"
                                                 aria-label="Expand context builder"
                                                 title="Expand"
                                             >
@@ -287,7 +287,7 @@ export default function SegmentEditorPanel({
                                         />
                                     </div>
                                     <div>
-                                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                                        <p className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wide mb-2">
                                             Agent
                                         </p>
                                         <AgentSuggestionPanel
@@ -298,7 +298,7 @@ export default function SegmentEditorPanel({
                                     </div>
                                 </>
                             ) : (
-                                <p className="text-sm text-gray-400 italic">
+                                <p className="text-sm text-[var(--color-text-muted)] italic">
                                     Context Builder is not available for QA-approved segments.
                                 </p>
                             )}
