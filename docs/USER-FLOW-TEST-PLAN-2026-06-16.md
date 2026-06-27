@@ -75,6 +75,7 @@ This document defines a **comprehensive real-user-flow test plan** for the kendo
 **UX / readability checkpoints**:
 - Step 4: Verify no gray-on-white text below WCAG AA 4.5:1 contrast ratio on default reader theme (light).
 - Step 4: Check that skeleton/loading state transitions cleanly to content (no flash of empty).
+- Step 4 (JP docs): When the document has JP source text with ruby annotations, verify `<ruby>/<rt>` elements render with correct vertical spacing (`line-height: 2.0` on `[data-paragraph-index]` per `globals.css` §Furigana vertical spacing). Annotation text must be legible (0.5em `rt` font-size) and not crowd adjacent lines.
 - Step 5: Verify bilingual layout doesn't overflow viewport on 1280×800.
 - Step 11: Verify no cumulative layout shift (CLS) during reading-progress restoration.
 
@@ -125,6 +126,7 @@ This document defines a **comprehensive real-user-flow test plan** for the kendo
 
 **UX / readability checkpoints**:
 - Step 2: Verify ZH font renders correctly (no tofu/garbled characters). Mincho font should be available for CJK.
+- Step 2 (JP documents): When viewing JP source text (not ZH target), furigana ruby annotations (`<ruby>/<rt>`) should render via the `RubyText` component backed by KANJIDIC2 per-character fallback engine (commit `e942fac`, `lib/furigana/annotate.ts`). Verify `<rt>` text is hiragana (not katakana, not romaji — romaji is a separate toggle). Coverage ~56% on primary test doc `86adf815-b0ca-46eb-bab7-b6fb040b845c`. JLPT filter dropdown (in reader settings) should show/hide annotations per level.
 - Step 4: PDF view should not cause full-page CLS during load.
 
 ---
@@ -143,8 +145,10 @@ This document defines a **comprehensive real-user-flow test plan** for the kendo
 
 **Success signal**: Search returns results; clicking navigates to correct page; highlight rendered.
 
+> **⚠ DEPLOY PRECONDITION (2026-06-27)**: Full-text search depends on the `search_segments` RPC rewritten in **migration 016** (`supabase/migrations/016_fix_search_kote.sql`, commit `eccf1a8`). The RPC rewrite removes the `ORDER BY` clause that caused the planner to use an expensive btree index scan on `idx_segments_article_position` for common search terms (~12k matches for "kote"), replacing it with an early-stopping sequential scan. Without this migration, cold-cache search for common terms takes **~1500ms** (vs. **<100ms** after). Migration 016 has been **applied to the live DB as of 2026-06-27** (kote 33.7ms warm). Rollback: re-apply migration 011.
+
 **UX / readability checkpoints**:
-- Step 2: Measure debounce latency — search should feel responsive (< 300ms after last keystroke).
+- Step 2: Measure debounce latency — search should feel responsive (< 300ms after last keystroke). With migration 016 applied, backend search latency is <100ms cold, <5ms warm.
 - Step 2: Verify search input has adequate contrast against sidebar background.
 
 ---
@@ -527,6 +531,8 @@ This document defines a **comprehensive real-user-flow test plan** for the kendo
 
 **Success signal**: Unauthenticated users cannot access protected resources.
 
+> **Note (2026-06-27, Straggler D)**: Admin role gating now reads the role from the JWT `app_metadata.role` claim on the fast path (commits `8e45463` / `ed4fa61`, affecting `lib/auth/requireAdmin.ts`, `lib/supabase/proxy.ts`, and the auth/terminology/batch-advance API routes). The claim is synced by migration 010's `sync_profile_role_trigger`. A stale-JWT fallback queries the `profiles` table only when the claim is absent. Test flows that exercise admin role checks (RF-ADMIN-*) should verify the `app_metadata.role` claim is present in the JWT for newly-issued tokens; otherwise role-dependent API routes will fall back to the profiles table query (still correct, but slower).
+
 ---
 
 ### 3.5 Cross-Cutting Flows
@@ -806,6 +812,7 @@ Replicate `production-smoke.spec.ts` `injectSession` pattern: log in via Supabas
 | Filter apply (large doc) | < 2,000 | < 5,000 | 15 | Client-side on 23k items |
 | Reader page turn | < 1,000 | < 3,000 | 10 | Page navigation |
 | Search sidebar debounce | < 300 | < 1,000 | 5 | After last keystroke |
+| **Second-nav article LCP** (reader) | **< 2,000** | **< 4,000** | **10** | **Straggler E (2026-06-27): second navigation to same article after `unstable_cache` warm. Live gate: 1,193ms PASS. See `tests/reader-second-nav-lcp.spec.ts`.** |
 
 **Grading**:
 - **PASS**: Within warm budget.
@@ -885,3 +892,105 @@ When instrumented Playwright tests are written from this plan:
 - Cross-cutting: 5 flows (cold-start, large-book, theme persistence, error states, lang switcher)
 
 **Ready for review**. Instrumented Playwright implementation to follow in a subsequent phase.
+
+---
+
+## 10. Addendum — Changes Since 2026-06-16 Baseline
+
+This section records features, fixes, and infrastructure changes that landed **after** the 2026-06-16 baseline and materially affect the test plan. Targeted inline updates have been woven into the relevant flow sections above; this addendum provides a consolidated changelog, expanded coverage notes, and a deploy-preconditions checklist.
+
+### 10.1 Changelog
+
+| Date | Commit | Area | What Changed | Test Impact |
+|------|--------|------|-------------|-------------|
+| 2026-06-26 | `e942fac` | **Furigana engine** | KANJIDIC2 per-character ON/KUN reading fallback (12,356 kanji, `lib/furigana/annotate.ts`). When Sudachi tokenizer returns surface-as-reading, the pipeline decomposes to per-character KANJIDIC2 lookups. KUN for standalone kanji, ON for compounds; katakana→hiragana conversion; okurigana stripping. Build green, integration 19/19 (`scripts/test-kanjidic2-integration.ts`). | New UX checkpoint: `<ruby>/<rt>` readability in JP reader (`RF-READER-01`, `RF-READER-03`). Coverage ~56% on primary test doc `86adf815`. Known visual gap: furigana screenshots were captured on documents-list, not reader; reader JP-mode screenshot needed to close. |
+| 2026-06-26 | `eccf1a8` | **Search RPC** | Migration 016 rewrites `search_segments()` to remove `ORDER BY`, replacing expensive btree index scan with early-stopping sequential scan. Cold kote: 1471ms → <100ms; warm: 33.7ms. Column shape unchanged; no app code change. | `RF-READER-04` full-text search now performant. ⚠️ Migration must be applied to live DB (applied 2026-06-27). Rollback: re-apply migration 011. |
+| 2026-06-26 | `8e45463` | **Auth (Straggler D)** | Admin role read from JWT `app_metadata.role` claim (fast path), falling back to `profiles` table for stale JWTs. Touches `lib/auth/requireAdmin.ts`, `lib/supabase/proxy.ts`, and 4 API routes (`auth/me`, `batch-advance`, `terminology` GET + PATCH). | `RF-ADMIN-*` role checks, `RF-ANON-02` 401 gate: verify `app_metadata.role` present in JWT for newly-issued tokens. Stale-token fallback still correct but slower (extra DB query). |
+| 2026-06-26 | `8e45463` | **Perf (Straggler E)** | New `tests/reader-second-nav-lcp.spec.ts`: measures LCP on second navigation to same article (`unstable_cache` warm). Gate: <2000ms. Live result: 1193ms PASS (TTFB 348ms). | New performance budget added to §7.1 time budgets table. `RF-CROSS-01` cold-start section should consider a warm-repeat variant. |
+| 2026-06-26 | `ed4fa61` | **Design tokens** | 21 files (editor components, terminology page, AssignmentTable): hardcoded Tailwind neutral colors → 7 semantic CSS custom properties (`--color-bg`, `--color-surface`, `--color-text`, `--color-text-muted`, `--color-border`, `--color-link`, `--color-accent`). Dark-mode variants removed (tokens handle it). | Editor/terminology/admin color contrast checks now depend on CSS custom property values, not hardcoded Tailwind classes. `RF-READER-02` theme-switch and §4.1 contrast matrix should validate that the tokens produce WCAG AA-compliant colors in all 7 reader themes + global light/dark. |
+| 2026-06-27 | `f32ad47` | **Build fix + QA hardening** | Fixes type-check regression in KANJIDIC2 integration test (type predicate on `findKanjiSpan`). Hardens 2 flaky QA specs: mobile 320px banner (now uses `waitFor` instead of `isVisible()`), PWA reading-position (now polls `toHaveValue()`). **1 commit ahead of origin/main — NOT YET PUSHED.** | Build green (27 static pages, type-check passes). Mobile-qa and PWA-offline specs now non-flaky. |
+
+### 10.2 Expanded Flow Coverage Notes
+
+#### 10.2.1 Furigana/Ruby Rendering in JP Reader
+
+The KANJIDIC2 fallback engine (commit `e942fac`, `lib/furigana/annotate.ts` lines 218–333) extends furigana annotation coverage beyond what Sudachi alone can provide. Key implementation details relevant to testing:
+
+- **Data source**: `lib/furigana/kanjidic2-readings.json` — 12,356 kanji with ON/KUN reading arrays (CC-BY-SA 4.0, KANJIDIC2).
+- **Fallback trigger**: When Sudachi tokenizer returns `reading === surface` (could not resolve reading), `kanjidic2Fallback()` decomposes the kanji run character by character, looks up each in the dictionary, and concatenates per-character readings.
+- **Heuristic**: Single-kanji → prefer KUN (kun-yomi context, e.g. 込 → こ); multi-kanji → prefer ON (on-yomi compound context, e.g. 上下 → じょうげ).
+- **Output**: All readings are hiragana. ON readings (katakana in KANJIDIC2) are converted via `katakanaToHiragana()`. KUN okurigana is stripped (e.g. `かえ.す` → `かえ`).
+- **Romaji**: Derived from hiragana via `wanakana.toRomaji()` with doubled-vowel Hepburn post-processing (`ō` → `ou`, etc.).
+- **Coverage**: ~56% of kanji in test doc `86adf815-b0ca-46eb-bab7-b6fb040b845c` have KANJIDIC2 entries; the remaining ~44% rely solely on Sudachi (which covers most common vocabulary).
+
+**Visual rendering**: The `RubyText` component (`components/reader/RubyText.tsx`) renders furigana as semantic `<ruby>kanji<rt>reading</rt></ruby>` elements. CSS in `globals.css` (lines 253–279) explicitly sets:
+
+- `[data-reader-theme] [data-paragraph-index] { line-height: 2.0; }` — constant line spacing regardless of furigana on/off, preventing `<rt>` annotation crowning of adjacent lines.
+- `ruby { ruby-position: over; }` — consistent across browser engines.
+- `rt { font-size: 0.5em; line-height: 1; }` — readable annotation size.
+
+**Test checkpoints** (added inline to `RF-READER-01` and `RF-READER-03`):
+1. Verify `<ruby>/<rt>` elements are present for kanji in JP source documents.
+2. Verify `<rt>` text is hiragana (not katakana, not surface kanji).
+3. Verify no line-height crowding: adjacent lines must not overlap.
+4. Verify furigana renders in all 7 reader themes (themes use `--rt-*` CSS custom properties).
+5. Verify JLPT filter dropdown (N5–N1) correctly shows/hides annotations.
+6. Verify romaji mode renders romaji text in `<rt>` (not hiragana).
+7. **Known visual gap**: Furigana reader screenshots were captured on the documents-list page, not the reader. JP single-language mode screenshot on the reader needed to close this QA gap (see evolving plan 2026-06-27).
+
+#### 10.2.2 Search Flow (RF-READER-04) — Migration 016 Dependency
+
+Migration 016 (`supabase/migrations/016_fix_search_kote.sql`, commit `eccf1a8`) is a **blocking precondition** for acceptable `RF-READER-04` performance:
+
+| Metric | Before (011) | After (016) | Speedup |
+|--------|-------------|-------------|---------|
+| `search_segments('kote', 20)` cold | ~1471ms | <100ms | 15×+ |
+| `search_segments('kote', 20)` warm | 26ms | 33.7ms | ~1× |
+| `search_segments('men', 20)` warm | 0.7ms | 0.68ms | ~1× |
+| `search_segments('剣道', 20)` warm | 0.8ms | 17.5ms | regressed but <50ms |
+
+The RPC rewrite removes the `ORDER BY s.article_id, s.position` clause that forced the PostgreSQL planner to use an ordered index scan on `idx_segments_article_position`, requiring expensive ILIKE rechecks on long text columns. Without ordering, the planner chooses an early-stopping sequential scan. The tradeoff: result ordering is no longer deterministic (heap order), but the app route never depended on ordering (all `rank` values are hardcoded to 0.0).
+
+Migration 016 was **applied to the live DB on 2026-06-27**. If a rollback is ever needed, re-apply migration 011. The migration is a pure `CREATE OR REPLACE FUNCTION` — instant apply, no data migration, no lock, no index change.
+
+Testing `RF-READER-04` without migration 016 applied will produce **FAIL** for common search terms on cold cache (1471ms > 1000ms warm budget for search sidebar debounce).
+
+#### 10.2.3 LCP / Second-Navigation Performance Budget
+
+Straggler E (commit `8e45463`) added `tests/reader-second-nav-lcp.spec.ts`, which establishes a **second-navigation LCP gate**: after priming Next.js `unstable_cache` via a first navigation, the second navigation to the same article (doc `86adf815`) must have LCP < 2000ms. Live measurement: **1193ms LCP, 348ms TTFB** — PASS.
+
+This gate has been added to the §7.1 time budgets table. For `RF-CROSS-01` (cold-start latency measurement), consider adding a **warm-repeat** variant that measures this second-nav LCP as a distinct timing point, since it exercises the `unstable_cache` path rather than fresh SSR.
+
+#### 10.2.4 app_metadata Role Change — Auth/Role-Gating Implications
+
+Straggler D (commit `8e45463`, `ed4fa61`) introduces a fast path for role checks:
+
+- **New helper**: `lib/auth/requireAdmin.ts` — `requireAdmin()` reads `app_metadata.role` from the JWT claim first; falls back to `profiles` table only for stale JWTs.
+- **Middleware**: `lib/supabase/proxy.ts` — admin path guard now checks `app_metadata.role` instead of querying `profiles` table.
+- **API routes**: `auth/me`, `batch-advance`, `terminology` GET/PATCH — all now use the same pattern.
+
+**Test implications for RF-ADMIN-* and RF-ANON-02**:
+
+1. Role checks are now faster (no per-request DB query) but depend on the `app_metadata.role` claim being present in the JWT. Migration 010's `sync_profile_role_trigger` is responsible for syncing this claim.
+2. Stale JWTs (minted before the trigger backfill) will fall back to the `profiles` table query — still correct but slower. Tests should not fail if the fallback fires, but performance expectations differ.
+3. `RF-ADMIN-02` (user role change): verify that after changing a user's role via the admin dashboard, the new role is reflected in the JWT `app_metadata.role` claim on the next token refresh.
+4. `RF-ANON-02` (401 gate): the 401/403 responses are unchanged; only the internal resolution path differs.
+
+### 10.3 Deploy Preconditions & Known Caveats
+
+| # | Condition | Status | Impact if unmet |
+|---|-----------|--------|-----------------|
+| 1 | **Migration 016 applied to live DB** | ✅ Applied 2026-06-27 (kote 33.7ms) | `RF-READER-04` fails hard timeout for common search terms on cold cache |
+| 2 | **Commit `f32ad47` pushed to origin/main** | ❌ NOT pushed (1 commit ahead) | Build type-check regression on `main` (KANJIDIC2 integration test fails `npm run build`); 2 flaky QA specs not hardened |
+| 3 | **Furigana visual QA gap closed** | ❌ Screenshots captured on wrong page (documents-list, not reader) | Furigana rendering not visually confirmed in reader JP single-language mode; CSS spacing fix (`line-height: 2.0`) not screenshot-verified |
+| 4 | **KANJIDIC2 re-precompute** (optional) | ❌ Not yet run; 439k existing JP rows use pre-fallback engine | Existing furigana annotations lack KANJIDIC2 fallback readings; coverage improves only after `--force` re-precompute via `npx tsx scripts/precompute-furigana.ts --force` |
+| 5 | **`app_metadata.role` trigger 010 functional** | ✅ Presumed functional per deploy history | If trigger fails, admin role checks fall back to profiles table (correct but slower); no auth breakage |
+| 6 | **Design token contrast audit** | ❌ Not systematically verified post-`ed4fa61` | 21 editor/terminology/admin files now reference CSS custom properties; contrast depends on theme variable values. `RF-READER-02` and §4.1 matrix should validate all 7 reader themes + global light/dark against WCAG AA |
+
+**Git state at time of writing (2026-06-27)**:
+- `HEAD` = `f32ad47` (1 commit ahead of `origin/main` which is at `e942fac`)
+- Working tree: clean
+- Migration 016 file: `supabase/migrations/016_fix_search_kote.sql`
+- KANJIDIC2 readings: `lib/furigana/kanjidic2-readings.json` (CC-BY-SA 4.0)
+- Integration test: `scripts/test-kanjidic2-integration.ts` (19/19)
+- Second-nav LCP spec: `tests/reader-second-nav-lcp.spec.ts` (LCP gate <2000ms, live 1193ms PASS)

@@ -249,3 +249,31 @@ body {
     color: var(--rt-text);
   }
 }
+
+/* ─── Furigana (ruby) vertical spacing ───────────────────────────────────────
+   Reader paragraphs/headings need enough line-height so ruby annotations
+   (<rt> placed above <ruby> by ruby-position:over) don't visually crowd
+   adjacent lines. At ~16.8px body font, line-height 2.0 ≈ 33.6px comfortably
+   exceeds the ~20px ruby line-box overhead (10px base + 10px rt).
+
+   Applied to BOTH furigana-on and furigana-off modes via [data-paragraph-index]
+   so toggling furigana causes no horizontal reflow — line spacing is constant
+   regardless of whether <ruby>/<rt> elements are present.
+   ────────────────────────────────────────────────────────────────────────── */
+
+[data-reader-theme] [data-paragraph-index] {
+  line-height: 2.0;
+}
+
+/* Explicit ruby defaults: browser-consistent annotation placement and sizing.
+   ruby-position: over is the default in all major engines; font-size 0.5em
+   matches the UA stylesheet for <rt>. Made explicit for clarity and defense
+   against future theme-level resets. */
+ruby {
+  ruby-position: over;
+}
+
+rt {
+  font-size: 0.5em;
+  line-height: 1;
+}
