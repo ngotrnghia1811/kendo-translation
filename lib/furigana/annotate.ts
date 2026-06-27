@@ -17,6 +17,9 @@
  * License notices:
  *   - Sudachi/SudachiDict — Apache 2.0 (WorksApplications)
  *   - wanakana — MIT (WaniKani/Tofugu)
+ *   - KANJIDIC2 — CC-BY-SA 4.0 (Electronic Dictionary Research and
+ *     Development Group, http://www.edrdg.org/kanjidic/kanjidic2.html)
+ *     Used for the per-character ON/KUN reading fallback.
  */
 
 import type { RubySpan, RubyAnnotation, KanjiRubySpan, TextSpan } from './types'
@@ -216,20 +219,117 @@ function getCompoundReading(
 // ---------------------------------------------------------------------------
 
 /**
- * Per-character ON/KUN reading lookup for kanji that could not be mapped
- * by the tokenizer (token.reading === token.surface).
- *
- * TODO (Phase 5.4.3): Parse KANJIDIC2 XML → JSON kanji→reading map.
- *   - KANJIDIC2: CC-BY-SA 4.0, 13,108 kanji with ON/KUN readings
- *   - Parse to `Map<string, string[]>` mapping kanji → readings
- *   - When token reading equals surface (unrecognized), decompose to
- *     per-kanji lookups and pick the most likely ON reading
- *
- * For now, returns null (no fallback) — unmapped kanji keep their surface
- * form as the reading.
+ * Lazy-loaded KANJIDIC2 readings map (kanji → { on: string[], kun: string[] }).
+ * Loaded on first fallback call; cached thereafter. Same pattern as the
+ * Sudachi/Wanakana caches elsewhere in this file.
  */
-function kanjidic2Fallback(_kanjiRun: string): string | null {
+let cachedKanjidic2Readings: Record<string, { on: string[]; kun: string[] }> | null = null
+let kanjidic2LoadPromise: Promise<Record<string, { on: string[]; kun: string[] }>> | null = null
+
+async function loadKanjidic2Readings(): Promise<Record<string, { on: string[]; kun: string[] }>> {
+    if (cachedKanjidic2Readings) return cachedKanjidic2Readings
+    if (!kanjidic2LoadPromise) {
+        kanjidic2LoadPromise = (async () => {
+            const fs = await import('node:fs')
+            const path = await import('node:path')
+            const { fileURLToPath } = await import('node:url')
+            const __filename = fileURLToPath(import.meta.url)
+            const __dirname = path.dirname(__filename)
+            const jsonPath = path.join(__dirname, 'kanjidic2-readings.json')
+            const result = JSON.parse(fs.readFileSync(jsonPath, 'utf-8')) as Record<string, { on: string[]; kun: string[] }>
+            cachedKanjidic2Readings = result
+            return result
+        })()
+    }
+    return kanjidic2LoadPromise
+}
+
+/**
+ * Strip okurigana from a KUN reading string.
+ * KANJIDIC2 KUN format: "かえ.す" (stem + okurigana separated by '.'),
+ * "-こ.む" (leading '-' = bound form), "うわ-" (trailing '-' = prefix).
+ *
+ * Returns the stem portion only (everything before the first '.'),
+ * with leading/trailing '-' stripped.
+ */
+function stripKunOkurigana(kun: string): string {
+    let s = kun
+    // Strip leading '-' (bound-form marker)
+    if (s.startsWith('-')) s = s.slice(1)
+    // Strip trailing '-' (prefix marker)
+    if (s.endsWith('-')) s = s.slice(0, -1)
+    // Strip okurigana: everything from the first '.' onward
+    const dotIdx = s.indexOf('.')
+    if (dotIdx !== -1) s = s.slice(0, dotIdx)
+    return s
+}
+
+/**
+ * Pick the most likely reading for a single kanji character.
+ *
+ * Heuristic:
+ *   - Single-kanji run (standalone in prose) → prefer KUN (kun-yomi context)
+ *   - Multi-kanji run (compound) → prefer ON (on-yomi compounds)
+ *
+ * KUN readings are already hiragana in KANJIDIC2; we strip the okurigana
+ * portion (after the '.') to get the stem.
+ *
+ * ON readings are katakana in KANJIDIC2; convert to hiragana via
+ * `katakanaToHiragana()` so downstream romaji generation works.
+ *
+ * This is a last-resort fallback — Sudachi already handles the common
+ * cases. Perfect disambiguation is NOT required.
+ *
+ * Returns null if the kanji has no usable readings in the dictionary.
+ */
+function pickKanjiReading(
+    entry: { on: string[]; kun: string[] },
+    preferKun: boolean,
+): string | null {
+    if (preferKun && entry.kun.length > 0) {
+        // Take first KUN, strip okurigana
+        return stripKunOkurigana(entry.kun[0])
+    }
+    if (entry.on.length > 0) {
+        // Take first ON, convert katakana → hiragana
+        return katakanaToHiragana(entry.on[0])
+    }
+    // Fallback: try KUN if ON was preferred but no ON available
+    if (!preferKun && entry.kun.length > 0) {
+        return stripKunOkurigana(entry.kun[0])
+    }
     return null
+}
+
+/**
+ * Per-character ON/KUN reading fallback for kanji runs that could not be
+ * mapped by the tokenizer (token.reading === token.surface).
+ *
+ * Receives a kanji RUN (one or more contiguous kanji, e.g. "込" or "上下").
+ * Decomposes to per-character KANJIDIC2 lookups; concatenates per-char
+ * readings. For single-kanji runs, prefers KUN (kun-yomi prose context);
+ * for multi-kanji compounds, prefers ON (on-yomi compounds).
+ *
+ * All output is hiragana (ON katakana readings are converted).
+ * Returns null if any character in the run cannot be mapped.
+ *
+ * Data source: lib/furigana/kanjidic2-readings.json
+ *   CC-BY-SA 4.0 — KANJIDIC2 (Electronic Dictionary Research and
+ *   Development Group). Generated by scripts/generate-kanjidic2-readings.ts.
+ */
+async function kanjidic2Fallback(kanjiRun: string): Promise<string | null> {
+    const dict = await loadKanjidic2Readings()
+    const preferKun = kanjiRun.length === 1
+
+    const parts: string[] = []
+    for (const ch of kanjiRun) {
+        const entry = dict[ch]
+        if (!entry) return null // can't map this character → bail
+        const reading = pickKanjiReading(entry, preferKun)
+        if (!reading || reading.length === 0) return null
+        parts.push(reading)
+    }
+    return parts.join('')
 }
 
 // ---------------------------------------------------------------------------
@@ -382,7 +482,7 @@ export async function annotateText(text: string): Promise<RubyAnnotation> {
 
             // Fallback: if tokenizer returned surface-as-reading, try KANJIDIC2
             if (reading === run.text || reading.length === 0) {
-                const fallback = kanjidic2Fallback(run.text)
+                const fallback = await kanjidic2Fallback(run.text)
                 if (fallback) reading = fallback
             }
 
