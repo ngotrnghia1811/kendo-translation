@@ -147,11 +147,15 @@ test('phase3-qa: 320px — DocumentCard, editor, no overflow', async () => {
         await page.waitForTimeout(2000)
         await snap(page, '320_editor_mobile')
 
-        // Verify editor banner is visible, not a full block
+        // Verify editor banner is visible, not a full block.
+        // Use waitForSelector with state:'visible' instead of a fixed timeout +
+        // isVisible() — the editor page needs time to fetch data (Supabase) and
+        // leave the loading state before the banner renders. The CSS is correct
+        // (md:hidden = visible only below 768px), so at 320px the banner should
+        // appear once the data loads. 15s timeout accommodates dev-server cold-start.
         const banner = page.locator('text=Editor works best on desktop')
-        const visible = await banner.isVisible().catch(() => false)
-        console.log(`[qa] 320px editor banner visible: ${visible}`)
-        expect(visible).toBe(true)
+        await banner.waitFor({ state: 'visible', timeout: 15_000 })
+        console.log('[qa] 320px editor banner visible: true')
 
         // Verify "Go to Reader View" link exists
         const readerLink = page.locator('[data-testid="mobile-editor-reader-link"]')

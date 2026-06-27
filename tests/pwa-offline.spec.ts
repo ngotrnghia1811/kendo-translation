@@ -259,9 +259,13 @@ test.describe('PWA — Reading position persistence', () => {
     const pageSelectAfter = page.locator('select[aria-label*="total"]')
     await expect(pageSelectAfter).toBeVisible({ timeout: 10000 })
 
-    // Check that we land on a non-zero page (the saved position was restored)
-    const valAfterReload = await pageSelectAfter.inputValue()
-    expect(Number(valAfterReload)).toBeGreaterThanOrEqual(1)
+    // Check that we land on a non-zero page (the saved position was restored).
+    // The restore effect in ReaderView (useEffect on totalPages) may not have
+    // executed yet when the select first becomes visible — it calls goToPage
+    // asynchronously after totalPages stabilises. Use toHaveValue with a timeout
+    // to poll until the select reflects the restored position, rather than
+    // reading inputValue() once and getting a stale 0.
+    await expect(pageSelectAfter).toHaveValue(/^[1-9]/, { timeout: 10_000 })
   })
 })
 

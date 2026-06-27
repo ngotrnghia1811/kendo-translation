@@ -12,7 +12,7 @@
  */
 
 import { annotateText } from '../lib/furigana/index.js'
-import type { RubyAnnotation } from '../lib/furigana/types.js'
+import type { RubyAnnotation, KanjiRubySpan } from '../lib/furigana/types.js'
 
 let failures = 0
 let passed = 0
@@ -27,8 +27,10 @@ function assert(condition: boolean, msg: string) {
     }
 }
 
-function findKanjiSpan(result: RubyAnnotation, base: string) {
-    return result.spans.find(s => s.type === 'kanji' && s.base === base)
+function findKanjiSpan(result: RubyAnnotation, base: string): KanjiRubySpan | undefined {
+    return result.spans.find(
+        (s): s is KanjiRubySpan => s.type === 'kanji' && s.base === base
+    )
 }
 
 async function main() {
