@@ -8,6 +8,8 @@
  * Run: npx playwright test tests/reader-lcp-gap.spec.ts --project=camoufox
  */
 
+// Camoufox fixture intentionally NOT used — performance measurement doesn't
+// need anti-detection, and the fixture context overhead would skew LCP/load timing.
 import { test, expect } from '@playwright/test'
 
 const LARGE_ARTICLE_ID = '84f5be1e-6cbf-4753-9fe3-f3146769c1eb'
@@ -99,14 +101,140 @@ test.describe('Phase 2 LCP gap closure', () => {
         console.log('[SEARCH] Waiting for background fill...')
         await page.waitForTimeout(8000)
 
+        // P0-3: Latency gate — measure search_segments() RPC response time.
+        // Migration 016 removed ORDER BY, dropping kote search from 1,471ms
+        // cold → 33.7ms warm. A future regression that silently re-adds ORDER BY
+        // would pass all existing functional tests. This timing gate catches it.
+        const searchT0 = Date.now()
         await searchInput.fill('kote')
         await page.waitForTimeout(1500)
+        const searchElapsed = Date.now() - searchT0
+
+        console.log(`[SEARCH] "kote" search elapsed: ${searchElapsed}ms`)
+        test.info().annotations.push({
+            type: 'search-latency',
+            description: JSON.stringify({ query: 'kote', elapsed_ms: searchElapsed }),
+        })
+
+        // Cold gate: < 1000ms. Warm expectation: < 100ms (logged for visibility).
+        expect(
+            searchElapsed,
+            `"kote" search latency ${searchElapsed}ms must be < 1000ms (regression guard against ORDER BY re-introduction)`,
+        ).toBeLessThan(1000)
 
         // Check that we have results (not "No results")
         const bodyText = page.locator('body').innerText()
         const hasNoResults = (await bodyText).includes('No results for')
         console.log(`[SEARCH] noResults found: ${hasNoResults}`)
         expect(hasNoResults, 'Search should find results for "kote"').toBe(false)
+    })
+
+    // ==================================================================
+    // RF-PERF-01 (P1): Search performance regression gate
+    // ==================================================================
+
+    test('RF-PERF-01: Search performance regression gate @userflow @p1', async ({ page }) => {
+        await page.goto(SMALL_READ_URL, { waitUntil: 'load', timeout: 30_000 })
+        await page.waitForTimeout(2000)
+
+        // Open sidebar
+        const sidebarButton = page.locator('button[aria-label="Open document sidebar (contents and search)"]')
+        await sidebarButton.click()
+        await page.waitForTimeout(500)
+
+        // Switch to search tab
+        const searchTab = page.locator('button:has-text("Search")').first()
+        if (await searchTab.count() > 0) {
+            await searchTab.click()
+            await page.waitForTimeout(300)
+        }
+
+        const searchInput = page.locator('input[aria-label="Search document"]')
+        await expect(searchInput).toBeVisible({ timeout: 5_000 })
+
+        // ── Cold search: measure time from fill to first result visible ────
+        console.log('[PERF-01] Cold search timing...')
+        const coldT0 = Date.now()
+        await searchInput.fill('kote')
+        // Wait for first search result visible
+        try {
+            await page.locator(
+                '[data-testid*="search-result"], [data-testid*="result-row"], li:not(.empty)',
+            ).first().waitFor({ state: 'visible', timeout: 10_000 })
+        } catch {
+            // Fallback: wait for any non-empty result
+            await page.waitForTimeout(2000)
+        }
+        const coldElapsed = Date.now() - coldT0
+        console.log(`[PERF-01] Cold search: ${coldElapsed}ms`)
+        test.info().annotations.push({
+            type: 'perf-search-cold',
+            description: JSON.stringify({ query: 'kote', elapsed_ms: coldElapsed }),
+        })
+        expect(coldElapsed, `Cold search latency ${coldElapsed}ms must be < 500ms`).toBeLessThan(500)
+
+        // ── Clear search and do warm search ────────────────────────────────
+        await searchInput.fill('')
+        await page.waitForTimeout(500)
+
+        console.log('[PERF-01] Warm search timing...')
+        const warmT0 = Date.now()
+        await searchInput.fill('kote')
+        try {
+            await page.locator(
+                '[data-testid*="search-result"], [data-testid*="result-row"], li:not(.empty)',
+            ).first().waitFor({ state: 'visible', timeout: 5_000 })
+        } catch {
+            await page.waitForTimeout(1000)
+        }
+        const warmElapsed = Date.now() - warmT0
+        console.log(`[PERF-01] Warm search: ${warmElapsed}ms`)
+        test.info().annotations.push({
+            type: 'perf-search-warm',
+            description: JSON.stringify({ query: 'kote', elapsed_ms: warmElapsed }),
+        })
+        expect(warmElapsed, `Warm search latency ${warmElapsed}ms must be < 200ms`).toBeLessThan(200)
+
+        // ── Empty search shows all segments ────────────────────────────────
+        await searchInput.fill('')
+        await page.waitForTimeout(1000)
+        const noResultsAfterEmpty = await page.locator('body').innerText()
+        const hasNoResults = noResultsAfterEmpty.includes('No results for')
+        expect(hasNoResults, 'Empty search should show all segments, not "No results"').toBe(false)
+
+        // ── Special characters don't cause errors ─────────────────────────
+        const specialChars = ['[', '(', '*']
+        for (const char of specialChars) {
+            await searchInput.fill(char)
+            await page.waitForTimeout(500)
+
+            // Should not show error
+            const bodyText = await page.locator('body').innerText()
+            const hasError = bodyText.includes('Error') || bodyText.includes('error')
+            test.info().annotations.push({
+                type: 'perf-search-special',
+                description: JSON.stringify({ char, hasError }),
+            })
+            expect(hasError, `Special character "${char}" should not cause error`).toBe(false)
+        }
+
+        // ── Search results contain highlighted <mark> elements after clicking ──
+        await searchInput.fill('kote')
+        await page.waitForTimeout(1000)
+
+        const firstResult = page.locator(
+            '[data-testid*="search-result"], [data-testid*="result-row"], li:not(.empty)',
+        ).first()
+        if (await firstResult.isVisible({ timeout: 3_000 }).catch(() => false)) {
+            await firstResult.click()
+            await page.waitForTimeout(1000)
+
+            const markCount = await page.locator('mark').count().catch(() => 0)
+            test.info().annotations.push({
+                type: 'perf-search-highlight',
+                description: JSON.stringify({ markCount }),
+            })
+        }
     })
 
     test('SEO bot path returns full static HTML', async ({ page }) => {

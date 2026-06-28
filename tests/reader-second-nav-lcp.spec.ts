@@ -7,6 +7,8 @@
  *
  * Run: npx playwright test tests/reader-second-nav-lcp.spec.ts --project=camoufox
  */
+// Camoufox fixture intentionally NOT used — performance measurement doesn't
+// need anti-detection, and the fixture context overhead would skew LCP timing.
 import { test, expect } from '@playwright/test'
 
 const TEST_DOC_ID = '86adf815-b0ca-46eb-bab7-b6fb040b845c'

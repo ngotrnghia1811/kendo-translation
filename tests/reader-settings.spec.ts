@@ -160,4 +160,66 @@ test.describe('Reader settings panel', () => {
         await expect(decreaseBtn).not.toBeDisabled()
         await snap('settings_font_size_restored')
     })
+
+    // P1-1: Furigana mode toggle — verify ふりがな button is present and
+    // functional in the reader settings panel.
+    test('furigana mode toggle activates ruby annotations', async ({ page, snap }) => {
+        const readUrl = await discoverReaderUrl(page)
+        await page.goto(readUrl)
+        await page.waitForTimeout(3_000)
+
+        // Open reader settings
+        const settingsBtn = page.locator('button[aria-label="Reader settings"]')
+        await settingsBtn.waitFor({ state: 'visible', timeout: 15_000 })
+        await settingsBtn.click()
+        await page.waitForTimeout(400)
+
+        // Click the ふりがな button to enable furigana mode
+        const furiganaBtn = page.locator('button:has-text("ふりがな"), [data-furigana-mode="furigana"]').first()
+        await furiganaBtn.waitFor({ state: 'visible', timeout: 5_000 })
+        await furiganaBtn.click()
+        await page.waitForTimeout(500)
+        await snap('settings_furigana_mode_selected')
+
+        // Verify aria-pressed or active state on the furigana button
+        const furiganaPressed = await furiganaBtn.getAttribute('aria-pressed').catch(() => null)
+        if (furiganaPressed !== null) {
+            expect(furiganaPressed, 'ふりがな button should have aria-pressed="true"').toBe('true')
+        }
+        // Fallback: check that the button has an active/selected class
+        const furiganaClass = await furiganaBtn.getAttribute('class').catch(() => '')
+        expect(
+            furiganaPressed === 'true' || /active|selected|pressed/i.test(furiganaClass),
+            'ふりがな button should appear active/selected',
+        ).toBe(true)
+
+        // Close settings
+        await settingsBtn.click()
+        await page.waitForTimeout(400)
+
+        // Verify persistence: set furiganaMode in localStorage, reload, and
+        // confirm the settings panel reflects it (mirrors the Sepia theme
+        // persistence pattern).
+        await page.evaluate(() => {
+            const settings = JSON.parse(localStorage.getItem('reader-theme-settings') || '{}')
+            settings.furiganaMode = 'furigana'
+            localStorage.setItem('reader-theme-settings', JSON.stringify(settings))
+        })
+
+        await page.reload()
+        await page.waitForTimeout(3_000)
+
+        // Re-open settings and verify ふりがな is active
+        await settingsBtn.waitFor({ state: 'visible', timeout: 15_000 })
+        await settingsBtn.click()
+        await page.waitForTimeout(400)
+
+        const furiganaAfterReload = page.locator('button:has-text("ふりがな"), [data-furigana-mode="furigana"]').first()
+        const pressedAfter = await furiganaAfterReload.getAttribute('aria-pressed').catch(() => null)
+        expect(
+            pressedAfter === 'true' || /active|selected|pressed/i.test((await furiganaAfterReload.getAttribute('class')) || ''),
+            'ふりがな mode should persist across reload',
+        ).toBe(true)
+        await snap('settings_furigana_persisted')
+    })
 })

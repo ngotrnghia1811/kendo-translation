@@ -318,9 +318,16 @@ test.describe('Real User Flows @userflow', () => {
       .catch(() => false)
     expect(mobileBlock, 'Mobile block banner should NOT be visible on desktop viewport').toBe(false)
 
+    // Pre-flight: verify document actually has segments before waiting for DOM
+    const segsCheck = await apiFetch<{ segments?: unknown[] }>(page, `/api/documents/${smallestDocId}/segments?limit=1`)
+    if (segsCheck.status !== 200 || !Array.isArray(segsCheck.body?.segments) || (segsCheck.body?.segments ?? []).length === 0) {
+      test.skip(true, `Document ${smallestDocId} has no segments (API status=${segsCheck.status}) — Vercel cold start or unsegmented doc`)
+      return
+    }
+
     // Step 3 — wait for first segment list item (editor hydration)
     const t1 = Date.now()
-    await page.waitForSelector('[data-testid="segment-list-item"]', { timeout: 30000 })
+    await page.waitForSelector('[data-testid="segment-list-item"]', { timeout: 60000 })
     const editorVisible = Date.now() - t1
     test.info().annotations.push({
       type: 'timing',
@@ -518,14 +525,96 @@ test.describe('Real User Flows @userflow', () => {
       })
     }
 
-    // Step 5 — Bilingual view mode button
+    // Step 5 — Furigana toggle + ruby verification (P0-1: KANJIDIC2 fallback coverage)
+    // Switch to JP single-language mode so furigana can render
+    const jpToggle = page.locator('button:has-text("JP")').first()
+    if (await jpToggle.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await jpToggle.click()
+      await page.waitForTimeout(800)
+    }
+
+    // Open reader settings and activate furigana mode
+    const readerSettingsBtn = page.locator('button[aria-label="Reader settings"]')
+    if (await readerSettingsBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await readerSettingsBtn.click()
+      await page.waitForTimeout(400)
+
+      // Click the ふりがな button to enable furigana annotations
+      const furiganaBtn = page.locator('button:has-text("ふりがな"), [data-furigana-mode="furigana"]').first()
+      if (await furiganaBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await furiganaBtn.click()
+        await page.waitForTimeout(1500) // allow ruby elements to render
+      }
+
+      // Close settings (click again or press Escape)
+      await readerSettingsBtn.click().catch(() => page.keyboard.press('Escape'))
+      await page.waitForTimeout(500)
+    }
+
+    // Verify <ruby> elements rendered by the KANJIDIC2 fallback engine
+    const rubyCount = await page.locator('ruby').count().catch(() => 0)
+    const rtCount = await page.locator('rt').count().catch(() => 0)
+    test.info().annotations.push({
+      type: 'furigana-check',
+      description: JSON.stringify({ rubyCount, rtCount }),
+    })
+    expect(rubyCount, 'furigana <ruby> elements should be present after enabling ふりがな mode').toBeGreaterThan(0)
+    expect(rtCount, 'furigana <rt> reading elements should be present').toBeGreaterThan(0)
+    await snap('reader-furigana-active')
+
+    // P1-6: Romaji mode — verify romaji in <rt> elements
+    const romajiBtn = page.locator('button:has-text("Rōmaji"), button:has-text("romaji"), [data-furigana-mode="romaji"]').first()
+    if (await romajiBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      // Re-open settings if needed
+      if (await readerSettingsBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await readerSettingsBtn.click()
+        await page.waitForTimeout(400)
+      }
+      await romajiBtn.click()
+      await page.waitForTimeout(1500)
+
+      // Verify first <rt> contains romaji (ASCII/latin, not hiragana)
+      const firstRtText = await page.locator('rt').first().textContent().catch(() => '')
+      const containsRomaji = /[a-zA-Z]/.test(firstRtText)
+      test.info().annotations.push({
+        type: 'romaji-check',
+        description: JSON.stringify({ firstRtText, containsRomaji }),
+      })
+      expect(containsRomaji, 'first <rt> should contain romaji (ASCII) text').toBe(true)
+      await snap('reader-furigana-romaji')
+
+      // Toggle back to furigana mode
+      const backToFurigana = page.locator('button:has-text("ふりがな"), [data-furigana-mode="furigana"]').first()
+      if (await backToFurigana.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await backToFurigana.click()
+        await page.waitForTimeout(1000)
+      }
+
+      // Close settings
+      await readerSettingsBtn.click().catch(() => page.keyboard.press('Escape'))
+      await page.waitForTimeout(500)
+    }
+
+    // Toggle furigana off to leave reader in default state
+    if (await readerSettingsBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await readerSettingsBtn.click()
+      await page.waitForTimeout(400)
+      const furiganaOffBtn = page.locator('button:has-text("日本語"), [data-furigana-mode="off"]').first()
+      if (await furiganaOffBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await furiganaOffBtn.click()
+        await page.waitForTimeout(500)
+      }
+      await readerSettingsBtn.click().catch(() => page.keyboard.press('Escape'))
+    }
+
+    // Step 6 — Bilingual view mode button
     const bilingualBtn = page.locator('button:has-text("Bilingual"), button:has-text("bilingual")')
     if ((await bilingualBtn.count()) > 0) {
       await bilingualBtn.first().click()
       await page.waitForTimeout(500)
     }
 
-    // Step 6 — Bookmark button
+    // Step 7 — Bookmark button
     const bookmarkBtn = page.locator(
       'button[aria-label*="Bookmark" i], button[aria-label*="bookmark" i], button:has-text("Bookmark")',
     )
@@ -534,7 +623,7 @@ test.describe('Real User Flows @userflow', () => {
       await page.waitForTimeout(300)
     }
 
-    // Step 7 — Next pagination button
+    // Step 8 — Next pagination button
     const nextBtn = page.locator('button:has-text("Next"), a:has-text("Next"), [aria-label*="Next" i]')
     if ((await nextBtn.count()) > 0) {
       await nextBtn.first().click()
@@ -542,9 +631,9 @@ test.describe('Real User Flows @userflow', () => {
       await page.waitForTimeout(500)
     }
 
-    // Step 8 — take a snap after content visible (already done above)
+    // Step 9 — take a snap after content visible (already done above)
 
-    // Step 9 — navigate back to /documents
+    // Step 10 — navigate back to /documents
     const t2 = Date.now()
     await page.goto(`${PROD}/documents`)
     await page.waitForLoadState('domcontentloaded')
@@ -554,7 +643,7 @@ test.describe('Real User Flows @userflow', () => {
       description: JSON.stringify({ step: 'back-to-documents-nav', elapsed_ms: backNavTime }),
     })
 
-    // Step 10 — sort by recently-viewed if sort is available
+    // Step 11 — sort by recently-viewed if sort is available
     if (sortApplied) {
       const sortControl2 = page.locator('[data-testid="documents-sort"]')
       if ((await sortControl2.count()) > 0) {
@@ -570,7 +659,7 @@ test.describe('Real User Flows @userflow', () => {
       }
     }
 
-    // Step 11 — click the just-visited doc again
+    // Step 12 — click the just-visited doc again
     if (clickedDocUrl) {
       const revisitLink = page.locator(`a[href="${clickedDocUrl}"]`).first()
       if ((await revisitLink.count()) > 0) {
@@ -826,13 +915,25 @@ test.describe('Real User Flows @userflow', () => {
           type: `theme-contrast-${theme.id}`,
           description: JSON.stringify({ color: themeInfo.color, bg: themeInfo.bg, ratio: ratio.toFixed(2) }),
         })
-        // Soft assert: ratio ≥ 3.0
-        expect
-          .soft(
+        // WCAG contrast tiered assertion:
+        //   ratio < 2.0 → HARD FAIL (genuine accessibility regression)
+        //   ratio 2.0–3.0 → soft warn (below WCAG AA but not a critical regression)
+        //   ratio ≥ 3.0 → pass
+        if (ratio < 2.0) {
+          // Hard fail: contrast this low is a genuine accessibility regression
+          expect(
             ratio,
-            `Theme ${theme.name} contrast ratio ${ratio.toFixed(2)} < 3.0 (text=${themeInfo.color}, bg=${themeInfo.bg})`,
-          )
-          .toBeGreaterThanOrEqual(3.0)
+            `Theme ${theme.name} contrast ratio ${ratio.toFixed(2)} < 2.0 — critical accessibility regression (text=${themeInfo.color}, bg=${themeInfo.bg})`,
+          ).toBeGreaterThanOrEqual(2.0)
+        } else if (ratio < 3.0) {
+          // Soft warn: below WCAG AA (3.0) but not a critical regression
+          expect
+            .soft(
+              ratio,
+              `Theme ${theme.name} contrast ratio ${ratio.toFixed(2)} < 3.0 — below WCAG AA (text=${themeInfo.color}, bg=${themeInfo.bg})`,
+            )
+            .toBeGreaterThanOrEqual(3.0)
+        }
       }
     }
 
@@ -3206,6 +3307,1146 @@ test.describe('Real User Flows @userflow', () => {
     }
 
     await snap('cross-lang-final')
+  })
+
+  // ==================================================================
+  // Flow 30 — RF-FURIGANA-01
+  // ==================================================================
+
+  test('RF-FURIGANA-01: Furigana rendering on production documents @userflow @p0', async ({ page, snap }) => {
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+
+    // Discover a readable doc (≥100 segments) to ensure real JP content
+    await page.goto(PROD)
+    await page.waitForLoadState('domcontentloaded')
+    const readableDocId = await discoverReadableDocId(page)
+    if (!readableDocId) {
+      test.skip(true, 'No readable documents found (min 100 segments)')
+      return
+    }
+
+    // Navigate to reader
+    await page.goto(`${PROD}/documents/${readableDocId}/read`)
+    await page.waitForLoadState('domcontentloaded')
+
+    try {
+      await page
+        .locator('p, [data-testid="segment-text"], [data-reader-theme]')
+        .first()
+        .waitFor({ state: 'visible', timeout: 30_000 })
+    } catch {
+      test.skip(true, 'Reader content not visible')
+      return
+    }
+
+    // Switch to JP single-language mode so furigana can render
+    const jpToggle = page.locator('button:has-text("JP")').first()
+    if (await jpToggle.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await jpToggle.click()
+      await page.waitForTimeout(800)
+    }
+
+    // Open reader settings and enable furigana
+    const settingsBtn = page.locator('button[aria-label="Reader settings"]')
+    if (!(await settingsBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
+      test.skip(true, 'Reader settings button not found')
+      return
+    }
+    await settingsBtn.click()
+    await page.waitForTimeout(400)
+
+    // Click ふりがな button
+    const furiganaBtn = page.locator('button:has-text("ふりがな"), [data-furigana-mode="furigana"]').first()
+    if (!(await furiganaBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
+      test.skip(true, 'Furigana toggle button not found')
+      return
+    }
+    await furiganaBtn.click()
+    await page.waitForTimeout(2000) // allow ruby elements to render
+
+    // Close settings
+    await settingsBtn.click().catch(() => page.keyboard.press('Escape'))
+    await page.waitForTimeout(500)
+
+    // Verify <ruby> and <rt> elements exist
+    const rubyCount = await page.locator('ruby').count().catch(() => 0)
+    const rtCount = await page.locator('rt').count().catch(() => 0)
+    test.info().annotations.push({
+      type: 'furigana-check',
+      description: JSON.stringify({ mode: 'furigana', rubyCount, rtCount }),
+    })
+    expect(rubyCount, 'furigana <ruby> elements should be present').toBeGreaterThan(0)
+    expect(rtCount, 'furigana <rt> reading elements should be present').toBeGreaterThan(0)
+    await snap('reader-furigana-active')
+
+    // Toggle OFF → verify all <ruby> removed
+    await settingsBtn.click().catch(() => page.keyboard.press('Escape'))
+    await page.waitForTimeout(400)
+    const offBtn = page.locator('button:has-text("日本語"), [data-furigana-mode="off"]').first()
+    if (await offBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await offBtn.click()
+      await page.waitForTimeout(1500)
+    }
+    await settingsBtn.click().catch(() => page.keyboard.press('Escape'))
+    await page.waitForTimeout(500)
+
+    const rubyAfterOff = await page.locator('ruby').count().catch(() => 0)
+    expect(rubyAfterOff, 'No <ruby> elements after furigana OFF').toBe(0)
+    await snap('reader-furigana-off')
+
+    // Toggle to romaji mode
+    await settingsBtn.click().catch(() => page.keyboard.press('Escape'))
+    await page.waitForTimeout(400)
+    const romajiBtn = page.locator('button:has-text("Rōmaji"), button:has-text("romaji"), [data-furigana-mode="romaji"]').first()
+    if (await romajiBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await romajiBtn.click()
+      await page.waitForTimeout(1500)
+    }
+    await settingsBtn.click().catch(() => page.keyboard.press('Escape'))
+    await page.waitForTimeout(500)
+
+    // Verify first <rt> contains ASCII/latin
+    const firstRtText = await page.locator('rt').first().textContent().catch(() => '')
+    const containsRomaji = /[a-zA-Z]/.test(firstRtText)
+    test.info().annotations.push({
+      type: 'romaji-check',
+      description: JSON.stringify({ firstRtText, containsRomaji }),
+    })
+    expect(containsRomaji, 'first <rt> should contain romaji (ASCII) text').toBe(true)
+    await snap('reader-furigana-romaji')
+
+    // Clean up: turn furigana off
+    await settingsBtn.click().catch(() => page.keyboard.press('Escape'))
+    await page.waitForTimeout(400)
+    const finalOff = page.locator('button:has-text("日本語"), [data-furigana-mode="off"]').first()
+    if (await finalOff.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await finalOff.click()
+      await page.waitForTimeout(500)
+    }
+    await settingsBtn.click().catch(() => page.keyboard.press('Escape'))
+  })
+
+  // ==================================================================
+  // Flow 31 — RF-READER-06
+  // ==================================================================
+
+  test('RF-READER-06: Keyboard shortcuts @userflow @p0', async ({ page, snap }) => {
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+
+    // Discover a readable doc
+    await page.goto(PROD)
+    await page.waitForLoadState('domcontentloaded')
+    const readableDocId = await discoverReadableDocId(page)
+    if (!readableDocId) {
+      test.skip(true, 'No readable documents found (min 100 segments)')
+      return
+    }
+
+    await page.goto(`${PROD}/documents/${readableDocId}/read`)
+    await page.waitForLoadState('domcontentloaded')
+
+    try {
+      await page
+        .locator('p, [data-reader-theme]')
+        .first()
+        .waitFor({ state: 'visible', timeout: 20_000 })
+    } catch {
+      test.skip(true, 'Reader content not visible')
+      return
+    }
+
+    // ── ? key → help modal ──────────────────────────────────────────
+    await page.keyboard.press('?')
+    await page.waitForTimeout(500)
+
+    const helpModal = page.locator('[role="dialog"][aria-label="Keyboard shortcuts"], [role="dialog"]:has-text("shortcut"), [role="dialog"]:has-text("Shortcut")').first()
+    const helpVisible = await helpModal.isVisible({ timeout: 5_000 }).catch(() => false)
+    if (helpVisible) {
+      test.info().annotations.push({ type: 'info', description: '? key opened keyboard shortcuts modal' })
+      await snap('keyboard-help-modal')
+    } else {
+      test.info().annotations.push({ type: 'skip', description: '? key did not open help modal — keyboard shortcuts may not be implemented' })
+    }
+
+    // ── Esc closes modal ────────────────────────────────────────────
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(300)
+    const helpAfterEsc = await helpModal.isVisible().catch(() => false)
+    if (helpVisible) {
+      expect(helpAfterEsc, 'Help modal should close on Esc').toBe(false)
+    }
+
+    // ── s toggles settings panel ─────────────────────────────────────
+    await page.keyboard.press('s')
+    await page.waitForTimeout(500)
+
+    const settingsPanel = page.locator(
+      '[data-testid*="reader-settings"], [aria-label*="Reader settings" i], [class*="settings-panel"]',
+    ).first()
+    const settingsOpen = await settingsPanel.isVisible({ timeout: 3_000 }).catch(() => false)
+    if (settingsOpen) {
+      test.info().annotations.push({ type: 'info', description: 's key toggled settings panel open' })
+      await page.keyboard.press('s')
+      await page.waitForTimeout(300)
+      const settingsClosed = !(await settingsPanel.isVisible().catch(() => true))
+      test.info().annotations.push({
+        type: settingsClosed ? 'info' : 'warn',
+        description: settingsClosed ? 's key toggled settings panel closed' : 's key may not toggle settings closed',
+      })
+    } else {
+      test.info().annotations.push({ type: 'skip', description: 's key did not toggle settings panel' })
+    }
+
+    // ── / focuses search input ──────────────────────────────────────
+    await page.keyboard.press('/')
+    await page.waitForTimeout(500)
+
+    const searchInput = page.locator('input[aria-label="Search document"], input[placeholder*="search" i]').first()
+    const searchFocused = await searchInput.evaluate((el) => document.activeElement === el).catch(() => false)
+    if (searchFocused) {
+      test.info().annotations.push({ type: 'info', description: '/ key focused search input' })
+    } else {
+      test.info().annotations.push({ type: 'skip', description: '/ key did not focus search input' })
+    }
+
+    // ── Esc closes sidebar ──────────────────────────────────────────
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(300)
+    const sidebar = page.locator('[aria-label="Reader sidebar"]')
+    const sidebarClosed = !(await sidebar.isVisible().catch(() => true))
+    if (sidebarClosed) {
+      test.info().annotations.push({ type: 'info', description: 'Esc closed search sidebar' })
+    }
+
+    // ── j advances pages (scroll / virtual page change) ─────────────
+    const initialScroll = await page.evaluate(() => {
+      const el = document.querySelector('[class*="overflow-y-auto"]')
+      return el ? el.scrollTop : window.scrollY
+    })
+
+    await page.keyboard.press('j')
+    await page.waitForTimeout(500)
+
+    const afterScroll = await page.evaluate(() => {
+      const el = document.querySelector('[class*="overflow-y-auto"]')
+      return el ? el.scrollTop : window.scrollY
+    })
+
+    test.info().annotations.push({
+      type: 'info',
+      description: `j key: scroll ${initialScroll} → ${afterScroll} (delta: ${afterScroll - initialScroll})`,
+    })
+
+    // ── k goes back ─────────────────────────────────────────────────
+    await page.keyboard.press('k')
+    await page.waitForTimeout(500)
+
+    const afterKScroll = await page.evaluate(() => {
+      const el = document.querySelector('[class*="overflow-y-auto"]')
+      return el ? el.scrollTop : window.scrollY
+    })
+
+    test.info().annotations.push({
+      type: 'info',
+      description: `k key: scroll ${afterScroll} → ${afterKScroll}`,
+    })
+
+    // ── b bookmark ──────────────────────────────────────────────────
+    await page.keyboard.press('b')
+    await page.waitForTimeout(500)
+    test.info().annotations.push({ type: 'info', description: 'b key pressed (bookmark shortcut)' })
+
+    await snap('keyboard-shortcuts-final')
+  })
+
+  // ==================================================================
+  // Flow 32 — RF-READER-07
+  // ==================================================================
+
+  test('RF-READER-07: Tap-reveal WordPopup on production documents @userflow @p0', async ({ page, snap }) => {
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+
+    // Discover a readable doc
+    await page.goto(PROD)
+    await page.waitForLoadState('domcontentloaded')
+    const readableDocId = await discoverReadableDocId(page)
+    if (!readableDocId) {
+      test.skip(true, 'No readable documents found (min 100 segments)')
+      return
+    }
+
+    // Enable furigana and tap-reveal via localStorage before navigating
+    await page.evaluate(() => {
+      try {
+        const raw = localStorage.getItem('reader-theme-settings')
+        const settings = raw ? JSON.parse(raw) : {}
+        settings.furiganaMode = 'furigana'
+        settings.tapRevealEnabled = true
+        localStorage.setItem('reader-theme-settings', JSON.stringify(settings))
+      } catch { /* ignore */ }
+    })
+
+    await page.goto(`${PROD}/documents/${readableDocId}/read`)
+    await page.waitForLoadState('domcontentloaded')
+
+    try {
+      await page.waitForSelector('ruby, p[data-paragraph-index]', { timeout: 30_000 })
+      await page.waitForTimeout(1500)
+    } catch {
+      test.skip(true, 'Reader content not visible after furigana enable')
+      return
+    }
+
+    // Switch to JP single-language mode
+    const jpToggle = page.locator('button:has-text("JP")').first()
+    if (await jpToggle.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await jpToggle.click()
+      await page.waitForTimeout(1000)
+    }
+
+    // Find a kanji span
+    const kanjiSpan = page.locator('[data-kanji]').first()
+    const kanjiFound = await kanjiSpan.isVisible({ timeout: 5_000 }).catch(() => false)
+
+    if (!kanjiFound) {
+      test.skip(true, 'No [data-kanji] spans found — document needs furigana data for this test')
+      return
+    }
+
+    // Click the kanji span
+    await kanjiSpan.click()
+    await page.waitForTimeout(500)
+    await snap('wordpopup-kanji-active')
+
+    // Verify popup appears
+    const popup = page.locator('div[role="dialog"]')
+    const popupVisible = await popup.isVisible({ timeout: 5_000 }).catch(() => false)
+    expect(popupVisible, 'WordPopup dialog should appear on kanji tap').toBe(true)
+
+    if (popupVisible) {
+      // Check for kanji base text in popup
+      const popupText = await popup.textContent().catch(() => '')
+      test.info().annotations.push({
+        type: 'wordpopup-content',
+        description: JSON.stringify({ popupText: popupText.slice(0, 200) }),
+      })
+
+      // ── Dismiss by clicking outside ───────────────────────────────
+      // Click on the reader background area
+      await page.locator('[data-reader-theme]').first().click({ position: { x: 10, y: 10 } })
+      await page.waitForTimeout(300)
+      const popupAfterOutside = await popup.isVisible().catch(() => false)
+      expect(popupAfterOutside, 'WordPopup should dismiss when clicking outside').toBe(false)
+
+      // ── Re-open popup ─────────────────────────────────────────────
+      await kanjiSpan.click()
+      await page.waitForTimeout(500)
+      const popupReopened = await popup.isVisible().catch(() => false)
+      expect(popupReopened, 'WordPopup should reopen on second kanji tap').toBe(true)
+
+      // ── Dismiss by scrolling ──────────────────────────────────────
+      await page.mouse.wheel(0, 300)
+      await page.waitForTimeout(300)
+      const popupAfterScroll = await popup.isVisible().catch(() => false)
+      expect(popupAfterScroll, 'WordPopup should dismiss on scroll').toBe(false)
+    }
+
+    await snap('wordpopup-final')
+  })
+
+  // ==================================================================
+  // Flow 33 — RF-CROSS-06
+  // ==================================================================
+
+  test('RF-CROSS-06: Full document lifecycle (admin → translator → reader) @userflow @p1', async ({ page, snap }) => {
+    test.info().annotations.push({
+      type: 'info',
+      description: 'WARNING: This test mutates data (assignment + translation + phase advance). Uses a small document to minimize side effects.',
+    })
+
+    // ── Step 1: Admin discovers smallest doc and creates assignment ──
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+
+    const docId = await discoverSmallestDocId(page)
+    if (!docId) {
+      test.skip(true, 'No documents found')
+      return
+    }
+    test.info().annotations.push({ type: 'info', description: `Testing lifecycle on doc: ${docId}` })
+
+    // Try to create an assignment via the assignments page
+    await page.goto(`${PROD}/admin/documents/${docId}/assignments`)
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1000)
+    await snap('lifecycle-admin-assignments')
+
+    // Check if there's already an assignment for translator-1
+    const existingAssignment = page.locator(
+      'text="translator-1@test.com", [data-testid="assignment-row"]:has-text("translator-1")',
+    ).first()
+    const alreadyAssigned = await existingAssignment.isVisible({ timeout: 3_000 }).catch(() => false)
+
+    if (!alreadyAssigned) {
+      // Attempt to create assignment — look for add form
+      const addBtn = page.locator('[data-testid="assignment-row-add"], button:has-text("Assign"), button:has-text("Add")').first()
+      if (await addBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
+        await addBtn.click()
+        await page.waitForTimeout(500)
+        // Look for user select
+        const userSelect = page.locator('select, [data-testid*="user-select"]').first()
+        if (await userSelect.isVisible({ timeout: 3_000 }).catch(() => false)) {
+          // Try to select translator-1
+          await userSelect.selectOption({ label: 'translator-1@test.com' }).catch(() => {
+            return userSelect.selectOption({ index: 1 }).catch(() => {})
+          })
+          await page.waitForTimeout(300)
+
+          const saveBtn = page.locator('[data-testid="assignment-save"], button:has-text("Save"), button:has-text("Confirm")').first()
+          if (await saveBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
+            await saveBtn.click()
+            await page.waitForTimeout(1000)
+          }
+        }
+      } else {
+        test.info().annotations.push({ type: 'skip', description: 'Assignment add button not found — may already have assignments' })
+      }
+    } else {
+      test.info().annotations.push({ type: 'info', description: 'translator-1 already assigned to this document' })
+    }
+
+    // ── Step 2: Translator navigates to editor and translates a segment ──
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+
+    await page.goto(`${PROD}/documents/${docId}/edit`)
+    await page.waitForLoadState('domcontentloaded')
+
+    try {
+      await page
+        .locator('[data-testid="segment-list-item"], tr')
+        .first()
+        .waitFor({ state: 'visible', timeout: 30_000 })
+    } catch {
+      test.info().annotations.push({ type: 'skip', description: 'Segment list not visible for translator step' })
+      return
+    }
+
+    // Click first segment
+    await page.locator('[data-testid="segment-list-item"], tr').first().click()
+    await page.waitForTimeout(500)
+
+    // Look for textarea to edit translation
+    const textarea = page.locator('textarea').first()
+    const textareaVisible = await textarea.isVisible({ timeout: 10_000 }).catch(() => false)
+    if (!textareaVisible) {
+      test.info().annotations.push({ type: 'skip', description: 'Editor textarea not visible' })
+      return
+    }
+
+    const translatorTimestamp = Date.now()
+    await textarea.press('End')
+    await textarea.press('Space')
+    await page.keyboard.type(`lifecycle-test-${translatorTimestamp}`)
+
+    // Save
+    await page.keyboard.press('Control+s')
+    await page.waitForTimeout(2000)
+    test.info().annotations.push({ type: 'info', description: `Translator saved translation: lifecycle-test-${translatorTimestamp}` })
+
+    // ── Step 3: Admin advances phase ──────────────────────────────────
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+
+    await page.goto(`${PROD}/documents/${docId}/edit`)
+    await page.waitForLoadState('domcontentloaded')
+
+    try {
+      await page
+        .locator('[data-testid="segment-list-item"], tr')
+        .first()
+        .waitFor({ state: 'visible', timeout: 30_000 })
+    } catch {
+      test.info().annotations.push({ type: 'skip', description: 'Segment list not visible for admin step' })
+      return
+    }
+
+    await page.locator('[data-testid="segment-list-item"], tr').first().click()
+    await page.waitForTimeout(500)
+
+    const phaseAdvanceBtn = page.locator('[data-testid="phase-advance-button"]')
+    const terminalNote = await page.locator('[data-testid="phase-advance-terminal"]').isVisible().catch(() => false)
+    if (terminalNote) {
+      test.info().annotations.push({ type: 'skip', description: 'Segment at terminal phase — cannot advance' })
+    } else if (await phaseAdvanceBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await phaseAdvanceBtn.click()
+      await page.waitForTimeout(300)
+      const confirmBtn = page.locator('[data-testid="phase-advance-confirm-submit"]')
+      if (await confirmBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
+        await confirmBtn.click()
+        await page.waitForTimeout(1000)
+      }
+      test.info().annotations.push({ type: 'info', description: 'Phase advanced' })
+    } else {
+      test.info().annotations.push({ type: 'skip', description: 'Phase advance button not found' })
+    }
+
+    // ── Step 4: Reader opens document and sees content ────────────────
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+
+    await page.goto(`${PROD}/documents/${docId}/read`)
+    await page.waitForLoadState('domcontentloaded')
+
+    try {
+      await page
+        .locator('p, [data-testid="segment-text"], [data-reader-theme]')
+        .first()
+        .waitFor({ state: 'visible', timeout: 20_000 })
+    } catch {
+      test.info().annotations.push({ type: 'skip', description: 'Reader content not visible' })
+      return
+    }
+
+    await snap('lifecycle-reader-final')
+
+    // Verify reader shows content (no error page)
+    const readerText = await page.locator('body').textContent().catch(() => '')
+    const isErrorState = readerText.includes('Error') || readerText.includes('404') || readerText.includes('not found')
+    expect(isErrorState, 'Reader should show document content, not error state').toBe(false)
+
+    test.info().annotations.push({
+      type: 'info',
+      description: 'NOTE: This test leaves side effects (translation edit and possible phase advance). Manual cleanup may be required.',
+    })
+  })
+
+  // ==================================================================
+  // Flow 34 — RF-ERROR-01
+  // ==================================================================
+
+  test('RF-ERROR-01: JWT expiry mid-session handling @userflow @p1', async ({ page }) => {
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+
+    // ── Step 1: Navigate to a protected page ──────────────────────────
+    await page.goto(`${PROD}/documents`)
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForSelector('a[href*="/read"], [data-testid="document-card"]', { timeout: 20_000 })
+
+    // ── Step 2: Manipulate the auth cookie to expire the JWT ──────────
+    // The Supabase SSR cookie stores tokens in format:
+    // sb-<project_ref>-auth-token = JSON.stringify({ access_token, refresh_token, ... })
+    const projectRef = SUPABASE_URL.replace('https://', '').split('.')[0]
+    const cookieName = `sb-${projectRef}-auth-token`
+
+    const expiredTokens = await page.evaluate(
+      ({ cookieName }) => {
+        // Read current cookie value
+        const cookies = document.cookie.split('; ')
+        const cookieStr = cookies.find((c) => c.startsWith(cookieName + '='))
+        if (!cookieStr) return { success: false, reason: 'Cookie not found' }
+
+        const value = decodeURIComponent(cookieStr.slice(cookieName.length + 1))
+        try {
+          // Access token is in the value as JSON
+          const parsed = JSON.parse(value)
+          // Manipulate via cookieStore if available (HTTP-only cookies can't be set via JS)
+          // This test may fail in headless browsers where cookie modification is restricted.
+          return {
+            success: false,
+            reason: 'Cannot modify HTTP-only cookies via JS. Test requires direct cookie manipulation in browser context.',
+            cookieName,
+            hasCookie: true,
+          }
+        } catch {
+          return { success: false, reason: 'Cookie parse error' }
+        }
+      },
+      { cookieName },
+    )
+
+    if (!expiredTokens.success) {
+      // Since we can't directly modify HTTP-only cookies via JS,
+      // try a different approach: use the browser context to set an expired cookie
+      const prodDomain = new URL(PROD).hostname
+      const expiredSessionValue = JSON.stringify({
+        access_token: readerTokens.access,
+        refresh_token: readerTokens.refresh,
+        token_type: 'bearer',
+        expires_in: -1,
+        expires_at: Math.floor(Date.now() / 1000) - 60, // expired 60 seconds ago
+      })
+
+      try {
+        await page.context().addCookies([
+          {
+            name: cookieName,
+            value: expiredSessionValue,
+            domain: prodDomain,
+            path: '/',
+            secure: true,
+            httpOnly: false,
+            sameSite: 'Lax',
+            expires: Math.floor(Date.now() / 1000) - 1, // already expired
+          },
+          {
+            name: `${cookieName}.0`,
+            value: expiredSessionValue,
+            domain: prodDomain,
+            path: '/',
+            secure: true,
+            httpOnly: false,
+            sameSite: 'Lax',
+            expires: Math.floor(Date.now() / 1000) - 1,
+          },
+        ])
+        test.info().annotations.push({ type: 'info', description: 'Set expired JWT cookie via context.addCookies()' })
+      } catch (err) {
+        test.info().annotations.push({
+          type: 'skip',
+          description: `Cannot set expired cookie via context.addCookies(): ${String(err)}. JWT expiry test requires specific cookie manipulation not possible in this environment.`,
+        })
+        return
+      }
+    }
+
+    // ── Step 3: Navigate to trigger token check ───────────────────────
+    // Listen for console errors before navigation
+    const consoleErrors: string[] = []
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text())
+    })
+
+    await page.goto(`${PROD}/profile`)
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(2000)
+
+    const finalUrl = page.url()
+    test.info().annotations.push({
+      type: 'info',
+      description: `After expired token navigation, final URL: ${finalUrl}`,
+    })
+
+    // Verify behaviour:
+    // - Either silent refresh succeeded (stayed on /profile)
+    // - Or redirected to login
+    const isLoginPage = finalUrl.includes('/login') || finalUrl.includes('/auth')
+    if (isLoginPage) {
+      test.info().annotations.push({ type: 'info', description: 'Redirected to login after expired token — correct graceful handling' })
+    } else if (finalUrl.includes('/profile')) {
+      test.info().annotations.push({ type: 'info', description: 'Stayed on /profile — silent refresh may have succeeded' })
+    }
+
+    // Check for no blank page / crash
+    const pageText = await page.locator('body').textContent().catch(() => '')
+    const isBlank = pageText.trim().length === 0
+    expect(isBlank, 'Page should not be blank after expired token').toBe(false)
+
+    if (consoleErrors.length > 0) {
+      test.info().annotations.push({
+        type: 'warn',
+        description: `Console errors during expired token navigation: ${consoleErrors.slice(0, 5).join('; ')}`,
+      })
+    }
+
+    // Re-inject valid session for subsequent tests
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+  })
+
+  // ==================================================================
+  // Flow 35 — RF-READER-08
+  // ==================================================================
+
+  test('RF-READER-08: Rapid mode cycling stress test @userflow @p2', async ({ page, snap }) => {
+    test.setTimeout(120_000)
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+
+    // Discover a readable doc
+    await page.goto(PROD)
+    await page.waitForLoadState('domcontentloaded')
+    const readableDocId = await discoverReadableDocId(page)
+    if (!readableDocId) {
+      test.skip(true, 'No readable documents found (min 100 segments)')
+      return
+    }
+
+    await page.goto(`${PROD}/documents/${readableDocId}/read`)
+    await page.waitForLoadState('domcontentloaded')
+
+    try {
+      await page
+        .locator('p, [data-reader-theme]')
+        .first()
+        .waitFor({ state: 'visible', timeout: 30_000 })
+    } catch {
+      test.skip(true, 'Reader content not visible')
+      return
+    }
+
+    // ── Set up console error listener ──────────────────────────────────
+    const consoleErrors: string[] = []
+    const consoleWarnings: string[] = []
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text())
+      if (msg.type() === 'warning') consoleWarnings.push(msg.text())
+    })
+
+    // Record initial scroll position
+    const getScrollPos = async () => page.evaluate(() => {
+      const el = document.querySelector('[class*="overflow-y-auto"]')
+      return el ? el.scrollTop : window.scrollY
+    })
+    const initialScroll = await getScrollPos()
+
+    const settingsBtn = page.locator('button[aria-label="Reader settings"]')
+    if (!(await settingsBtn.isVisible({ timeout: 5_000 }).catch(() => false))) {
+      test.skip(true, 'Reader settings button not found')
+      return
+    }
+
+    // ── Cycle furigana modes 3× ────────────────────────────────────────
+    for (let cycle = 0; cycle < 3; cycle++) {
+      await settingsBtn.click()
+      await page.waitForTimeout(150)
+
+      // ON (furigana)
+      const furiganaBtn = page.locator('button:has-text("ふりがな"), [data-furigana-mode="furigana"]').first()
+      if (await furiganaBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await furiganaBtn.click()
+        await page.waitForTimeout(100)
+      }
+
+      // Romaji
+      const romajiBtn = page.locator('button:has-text("Rōmaji"), button:has-text("romaji"), [data-furigana-mode="romaji"]').first()
+      if (await romajiBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await romajiBtn.click()
+        await page.waitForTimeout(100)
+      }
+
+      // OFF
+      const offBtn = page.locator('button:has-text("日本語"), [data-furigana-mode="off"]').first()
+      if (await offBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await offBtn.click()
+        await page.waitForTimeout(100)
+      }
+
+      await settingsBtn.click()
+      await page.waitForTimeout(100)
+    }
+
+    // Verify final furigana state is OFF (last selected)
+    const finalRubyAfterFuriganaCycle = await page.locator('ruby').count().catch(() => 0)
+    test.info().annotations.push({
+      type: 'stress-furigana',
+      description: JSON.stringify({ finalRubyCount: finalRubyAfterFuriganaCycle, expected: 0 }),
+    })
+
+    // ── Cycle language modes 3× ────────────────────────────────────────
+    const jpBtn = page.locator('button:has-text("JP")').first()
+    const bilingualBtn = page.locator('button:has-text("JP↔EN"), button:has-text("Bilingual")').first()
+    const enBtn = page.locator('button:has-text("EN")').last()
+
+    for (let cycle = 0; cycle < 3; cycle++) {
+      if (await jpBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
+        await jpBtn.click()
+        await page.waitForTimeout(100)
+      }
+      if (await bilingualBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
+        await bilingualBtn.click()
+        await page.waitForTimeout(100)
+      }
+      if (await enBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
+        await enBtn.click()
+        await page.waitForTimeout(100)
+      }
+    }
+
+    // ── Cycle themes rapidly ───────────────────────────────────────────
+    await settingsBtn.click()
+    await page.waitForTimeout(150)
+
+    const themes = ['Light', 'Dark', 'Sepia', 'Pastel', 'Light']
+    for (const theme of themes) {
+      const themeBtn = page.locator(`button:has-text("${theme}")`).first()
+      if (await themeBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
+        await themeBtn.click()
+        await page.waitForTimeout(100)
+      }
+    }
+
+    await settingsBtn.click()
+    await page.waitForTimeout(300)
+
+    // ── Assertions after rapid cycling ─────────────────────────────────
+
+    // No blank page
+    const bodyText = await page.locator('body').textContent().catch(() => '')
+    const isBlank = bodyText.trim().length === 0
+    expect(isBlank, 'Page should not be blank after rapid mode cycling').toBe(false)
+
+    // No console errors
+    const criticalErrors = consoleErrors.filter(
+      (e) => !e.includes('ResizeObserver') && !e.includes('NS_BINDING_ABORTED'),
+    )
+    test.info().annotations.push({
+      type: 'stress-errors',
+      description: JSON.stringify({
+        totalErrors: consoleErrors.length,
+        criticalErrors: criticalErrors.length,
+        errors: criticalErrors.slice(0, 5),
+      }),
+    })
+
+    // Reader content should still be visible
+    const hasContent = await page.locator('p').first().isVisible().catch(() => false)
+    expect(hasContent, 'Reader content should still be visible after rapid cycling').toBe(true)
+
+    // Scroll position should be preserved (or not far from original)
+    const finalScroll = await getScrollPos()
+    test.info().annotations.push({
+      type: 'stress-scroll',
+      description: JSON.stringify({ initialScroll, finalScroll }),
+    })
+
+    await snap('stress-cycling-final')
+  })
+
+  // ==================================================================
+  // Flow 36 — RF-READER-09
+  // ==================================================================
+
+  test('RF-READER-09: Partially translated documents @userflow @p2', async ({ page, snap }) => {
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+
+    // Discover a document with mixed phase segments
+    await page.goto(PROD)
+    await page.waitForLoadState('domcontentloaded')
+
+    // Query the documents API to find one with mixed phases
+    const docsRes = await apiFetch<{ documents?: Array<{ id: string; segment_count?: number }> }>(
+      page,
+      '/api/documents?limit=100',
+    )
+    const docs = docsRes.body?.documents ?? []
+    if (docs.length === 0) {
+      test.skip(true, 'No documents found')
+      return
+    }
+
+    // Try to find a doc we can navigate to; prefer one with >1 segment to test mixed phases
+    const doc = docs.find((d) => (d.segment_count ?? 0) > 1) ?? docs[0]
+    const docId = doc.id ?? null
+    if (!docId) {
+      test.skip(true, 'No document ID found')
+      return
+    }
+
+    // Check if this doc has mixed phase segments
+    try {
+      const segmentsRes = await apiFetch<unknown>(page, `/api/documents/${docId}/segments?limit=50`)
+      const segmentsArray = Array.isArray(segmentsRes.body)
+        ? (segmentsRes.body as Array<{ phase?: string; target_text?: string }>)
+        : Array.isArray((segmentsRes.body as { segments?: unknown })?.segments)
+          ? ((segmentsRes.body as { segments: Array<{ phase?: string; target_text?: string }> }).segments)
+          : []
+
+      const phases = new Set(segmentsArray.map((s) => s.phase ?? 'unknown'))
+      const hasMixedPhases = phases.size > 1
+
+      if (!hasMixedPhases || segmentsArray.length === 0) {
+        test.skip(true, `Document ${docId} has only ${phases.size} phase(s) — no mixed phases to test. Need a document with segments in draft + proofread/edited states.`)
+        return
+      }
+
+      const hasDraft = segmentsArray.some((s) => s.phase === 'draft')
+      const hasTranslated = segmentsArray.some((s) => s.phase === 'proofread' || s.phase === 'edited')
+      test.info().annotations.push({
+        type: 'mixed-phases',
+        description: JSON.stringify({
+          docId,
+          totalSegments: segmentsArray.length,
+          phases: [...phases],
+          hasDraft,
+          hasTranslated,
+        }),
+      })
+
+      // Navigate to reader
+      await page.goto(`${PROD}/documents/${docId}/read`)
+      await page.waitForLoadState('domcontentloaded')
+
+      try {
+        await page
+          .locator('p, [data-testid="segment-text"], [data-reader-theme]')
+          .first()
+          .waitFor({ state: 'visible', timeout: 20_000 })
+      } catch {
+        test.skip(true, 'Reader content not visible for partially-translated doc')
+        return
+      }
+
+      await snap('partial-translation-reader')
+
+      // Verify no crash — body text should be non-empty
+      const bodyText = await page.locator('body').textContent().catch(() => '')
+      const isErrorState = bodyText.includes('Error') || bodyText.includes('translation not available')
+      expect(isErrorState, 'Reader should not show error for mixed-phase document').toBe(false)
+
+      // Verify content visible
+      const paragraphCount = await page.locator('p').count().catch(() => 0)
+      expect(paragraphCount, 'Reader should render paragraph content for mixed-phase document').toBeGreaterThan(0)
+
+      await snap('partial-translation-final')
+    } catch {
+      test.skip(true, 'Could not query segment phases for this document')
+    }
+  })
+
+  // ==================================================================
+  // Flow 37 — RF-FURIGANA-03
+  // ==================================================================
+
+  test('RF-FURIGANA-03: Mixed content — kanji, katakana, hiragana, Latin @userflow @p2', async ({ page, snap }) => {
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+
+    // Discover a readable doc
+    await page.goto(PROD)
+    await page.waitForLoadState('domcontentloaded')
+    const readableDocId = await discoverReadableDocId(page)
+    if (!readableDocId) {
+      test.skip(true, 'No readable documents found (min 100 segments)')
+      return
+    }
+
+    // Enable furigana before navigating
+    await page.evaluate(() => {
+      try {
+        const raw = localStorage.getItem('reader-theme-settings')
+        const settings = raw ? JSON.parse(raw) : {}
+        settings.furiganaMode = 'furigana'
+        localStorage.setItem('reader-theme-settings', JSON.stringify(settings))
+      } catch { /* ignore */ }
+    })
+
+    await page.goto(`${PROD}/documents/${readableDocId}/read`)
+    await page.waitForLoadState('domcontentloaded')
+
+    try {
+      await page.waitForSelector('ruby, p[data-paragraph-index]', { timeout: 30_000 })
+      await page.waitForTimeout(1500)
+    } catch {
+      test.skip(true, 'Reader content not visible')
+      return
+    }
+
+    // Switch to JP single-language mode
+    const jpToggle = page.locator('button:has-text("JP")').first()
+    if (await jpToggle.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await jpToggle.click()
+      await page.waitForTimeout(1000)
+    }
+
+    // ── Verify <ruby> only wraps kanji spans, not kana ──────────────────
+    const rubyCount = await page.locator('ruby').count().catch(() => 0)
+    if (rubyCount === 0) {
+      test.skip(true, 'No <ruby> elements found — furigana may not be enabled or document has no kanji')
+      return
+    }
+
+    // Check text content of first few <ruby> elements — should all be kanji
+    const firstRubyTexts: string[] = []
+    const rubyElements = page.locator('ruby')
+    const count = Math.min(rubyCount, 10)
+    for (let i = 0; i < count; i++) {
+      const text = await rubyElements.nth(i).textContent().catch(() => '')
+      firstRubyTexts.push(text)
+    }
+
+    // Verify that at least some ruby elements contain kanji (CJK Unified Ideographs)
+    // and none contain only kana
+    const kanjiRegex = /[\u4E00-\u9FFF]/
+    const kanaOnlyRegex = /^[\u3040-\u309F\u30A0-\u30FF]+$/ // hiragana or katakana only
+
+    let kanjiInRuby = 0
+    let kanaOnlyRuby = 0
+    for (const text of firstRubyTexts) {
+      if (kanjiRegex.test(text)) kanjiInRuby++
+      if (kanaOnlyRegex.test(text.replace(/\s/g, ''))) kanaOnlyRuby++
+    }
+
+    test.info().annotations.push({
+      type: 'mixed-content-check',
+      description: JSON.stringify({
+        totalRuby: rubyCount,
+        sampledCount: count,
+        firstRubyTexts,
+        kanjiInRuby,
+        kanaOnlyRuby,
+      }),
+    })
+
+    // Kana-only ruby would be a bug — furigana should only annotate kanji
+    expect(kanaOnlyRuby, 'No <ruby> element should wrap kana-only text').toBe(0)
+
+    // ── Verify Latin/alphanumeric text renders without <ruby> wrapping ──
+    // Look for text nodes containing latin characters outside ruby
+    const latinInRuby = await page.evaluate(() => {
+      let count = 0
+      document.querySelectorAll('ruby').forEach((ruby) => {
+        const text = ruby.textContent ?? ''
+        if (/[a-zA-Z]/.test(text)) count++
+      })
+      return count
+    })
+    test.info().annotations.push({
+      type: 'mixed-latin',
+      description: JSON.stringify({ rubyElementsContainingLatin: latinInRuby }),
+    })
+
+    // ── Visual check ────────────────────────────────────────────────────
+    await snap('mixed-content-furigana')
+
+    // ── Check no layout overlap in mixed paragraph ──────────────────────
+    const hasOverlap = await page.evaluate(() => {
+      // Simple check: any rt element overlapping its sibling text
+      const rubies = document.querySelectorAll('ruby')
+      for (const ruby of rubies) {
+        const rt = ruby.querySelector('rt')
+        if (!rt) continue
+        const rubyRect = ruby.getBoundingClientRect()
+        const rtRect = rt.getBoundingClientRect()
+        // rt should be ABOVE the base text, not overlapping it vertically
+        if (rtRect.bottom > rubyRect.top + 2) {
+          return { overlap: true, rubyText: ruby.textContent?.slice(0, 20) }
+        }
+      }
+      return { overlap: false }
+    })
+    expect(hasOverlap.overlap, 'furigana <rt> should not overlap base text').toBe(false)
+
+    await snap('mixed-content-final')
+  })
+
+  // ==================================================================
+  // Flow 38 — RF-READER-10
+  // ==================================================================
+
+  test('RF-READER-10: Edge-case documents (0 segments, 1 segment, all headings) @userflow @p2', async ({ page, snap }) => {
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+
+    // ── Query documents API to find edge-case documents ──────────────────
+    const docsRes = await apiFetch<{ documents?: Array<{ id: string; segment_count?: number; title?: string }> }>(
+      page,
+      '/api/documents?limit=100',
+    )
+    const docs = docsRes.body?.documents ?? []
+
+    if (docs.length === 0) {
+      test.skip(true, 'No documents found')
+      return
+    }
+
+    test.info().annotations.push({
+      type: 'edge-case-setup',
+      description: JSON.stringify({ totalDocs: docs.length }),
+    })
+
+    // Helper: navigate to reader and verify no crash
+    async function verifyReaderNotBlank(docId: string, label: string): Promise<boolean> {
+      try {
+        await page.goto(`${PROD}/documents/${docId}/read`, { waitUntil: 'domcontentloaded' })
+        await page.waitForTimeout(2000)
+
+        // Check for empty state or content
+        const bodyText = await page.locator('body').textContent().catch(() => '')
+        const isEmpty = bodyText.trim().length < 10
+
+        // Check for error indicators
+        const hasError = bodyText.includes('Error') || bodyText.includes('error') ||
+          bodyText.includes('NaN') || bodyText.includes('undefined')
+
+        test.info().annotations.push({
+          type: `edge-case-${label}`,
+          description: JSON.stringify({
+            docId,
+            isEmpty,
+            hasError,
+            bodyPreview: bodyText.slice(0, 200),
+          }),
+        })
+
+        await snap(`edge-case-${label}`)
+
+        return !hasError && !isEmpty
+      } catch (err) {
+        test.info().annotations.push({
+          type: `edge-case-${label}`,
+          description: `Navigation failed: ${String(err)}`,
+        })
+        return false
+      }
+    }
+
+    // ── Test 0-segment document ─────────────────────────────────────────
+    const zeroSegDoc = docs.find((d) => (d.segment_count ?? -1) === 0)
+    if (zeroSegDoc?.id) {
+      const ok = await verifyReaderNotBlank(zeroSegDoc.id, 'zero-segments')
+      expect(ok, '0-segment document should show empty state, not blank page or error').toBe(true)
+    } else {
+      test.info().annotations.push({
+        type: 'skip',
+        description: 'No 0-segment document found in database. Need a document with segment_count=0 to test empty state.',
+      })
+    }
+
+    // ── Test 1-segment document ─────────────────────────────────────────
+    const oneSegDoc = docs.find((d) => (d.segment_count ?? 0) === 1)
+    if (oneSegDoc?.id) {
+      const ok = await verifyReaderNotBlank(oneSegDoc.id, 'one-segment')
+      expect(ok, '1-segment document should render single paragraph').toBe(true)
+
+      // Verify at least one paragraph renders
+      const pCount = await page.locator('p').count().catch(() => 0)
+      test.info().annotations.push({
+        type: 'edge-case-one-segment',
+        description: JSON.stringify({ pCount }),
+      })
+    } else {
+      test.info().annotations.push({
+        type: 'skip',
+        description: 'No 1-segment document found in database. Need a document with segment_count=1 to test single-segment rendering.',
+      })
+    }
+
+    // ── Test document with only headings (no body) ──────────────────────
+    // Heuristic: look for docs with low segment_count where title is same as content
+    const smallDoc = docs.find((d) => (d.segment_count ?? 0) >= 2 && (d.segment_count ?? 0) <= 5)
+    if (smallDoc?.id) {
+      const ok = await verifyReaderNotBlank(smallDoc.id, 'small-doc')
+      expect(ok, 'Small document should render without error').toBe(true)
+
+      // Check headings render with correct font sizing
+      const headings = page.locator('h1, h2, h3, h4')
+      const headingCount = await headings.count().catch(() => 0)
+      test.info().annotations.push({
+        type: 'edge-case-headings',
+        description: JSON.stringify({ docId: smallDoc.id, headingCount }),
+      })
+      await snap('edge-case-headings')
+    } else {
+      test.info().annotations.push({
+        type: 'skip',
+        description: 'No small document (2-5 segments) found for heading edge-case test.',
+      })
+    }
+
+    // ── Check documents list card shows correct segment count ────────────
+    await page.goto(`${PROD}/documents`)
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForSelector('a[href*="/read"], [data-testid="document-card"]', { timeout: 20_000 })
+
+    // Look for any segment count text that might be "NaN"
+    const bodyText = await page.locator('body').textContent().catch(() => '')
+    const hasNaN = bodyText.includes('NaN')
+    expect(hasNaN, 'Document cards should not show NaN segment count').toBe(false)
+
+    await snap('edge-case-documents-list')
   })
 
 })

@@ -74,6 +74,27 @@ test.describe('Reader — tap-to-reveal + focus mode (Phase 5.6 + 5.7)', () => {
         await page.goto(READ_URL)
         await waitForReaderContent(page)
 
+        // P0-4: CSS line-height assertion — guards against furigana ruby-crowding
+        // regression. app/globals.css:264-266 sets line-height: 2.0 on
+        // [data-reader-theme] [data-paragraph-index] specifically to prevent
+        // <ruby>/<rt> elements from being cramped. Browsers normalize
+        // computed lineHeight differently (pixels vs. unitless), so we
+        // accept either a px value ≥ 30 or unitless "2".
+        const lineHeight = await page.evaluate(() => {
+            const el = document.querySelector('[data-paragraph-index]')
+            if (!el) return null
+            const lh = window.getComputedStyle(el).lineHeight
+            return lh
+        })
+        console.log(`[line-height] computed lineHeight on first data-paragraph-index: ${lineHeight}`)
+        if (lineHeight) {
+            const lhNum = parseFloat(lineHeight)
+            expect(
+                lhNum >= 30 || lineHeight === '2',
+                `line-height ${lineHeight} must be ≥30px or "2" (guards furigana ruby-crowding regression in globals.css)`,
+            ).toBe(true)
+        }
+
         const rubyCount = await countRubyElements(page)
         // The test doc should have furigana at ~56% coverage — some <ruby> expected
         console.log(`[tap-reveal] Found ${rubyCount} <ruby> elements`)

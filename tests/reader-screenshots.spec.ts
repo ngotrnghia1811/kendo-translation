@@ -33,7 +33,11 @@ import fs from 'fs'
 
 const BASE = process.env.TEST_BASE_URL ?? 'http://localhost:3001'
 
-// Real article "Baba 1 Clean" — ~3271 segments.
+// DOC_ID: "Baba 1 Clean" — ~3271 segments, the largest complete JP kendo
+// text in the live DB. Precomputed furigana available at ~56% kanji coverage.
+// Hardcoded because the reader-screenshots spec needs a known, stable document
+// with specific rendering characteristics (headings, furigana, bilingual tabs).
+// Dynamic discovery would pick a random document and break visual baselines.
 const DOC_ID = '86adf815-b0ca-46eb-bab7-b6fb040b845c'
 const READ_PATH = `/documents/${DOC_ID}/read`
 

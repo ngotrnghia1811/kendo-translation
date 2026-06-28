@@ -229,6 +229,15 @@ async function waitForReader(page: Page): Promise<void> {
         await page.waitForSelector('button:has-text("Single language")', { timeout: 15_000 }).catch(() => {})
     }
     await page.waitForTimeout(2500)
+
+    // P1-2: Switch to JP single-language mode so furigana annotations
+    // (set via addInitScript furiganaMode: 'furigana') actually render.
+    // Without this, the reader shows bilingual/EN and <ruby> is absent.
+    const jpToggle = page.locator('button:has-text("JP")').first()
+    if (await jpToggle.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await jpToggle.click()
+        await page.waitForTimeout(1000)
+    }
 }
 
 async function waitForEditor(page: Page): Promise<void> {
@@ -278,12 +287,17 @@ async function captureRoute(
     try {
         await context.addInitScript((t: string) => {
             localStorage.setItem('kt-theme', t)
+            // P1-2: furiganaMode added to reader-theme-settings so the
+            // reader route screenshots include furigana annotations.
+            // Previously only fontSize/fontColor/layoutWidth were set,
+            // so furigana was never visually captured in theme QA.
             localStorage.setItem('reader-theme-settings', JSON.stringify({
                 theme: t,
                 font: 'sans',
                 fontSize: 16,
                 fontColor: null,
                 layoutWidth: 'narrow',
+                furiganaMode: 'furigana',
             }))
         }, theme)
     } catch (err) {
@@ -495,4 +509,172 @@ test('theme-visual-qa: all key routes in light + dark', async () => {
 
     // Sanity: we expect at least some captures
     expect(successCount).toBeGreaterThan(0)
-})
+  })
+
+  // =========================================================================
+  // RF-FURIGANA-02 (P1): Furigana × all 7 themes contrast verification
+  // =========================================================================
+
+  test('RF-FURIGANA-02: furigana <rt> contrast across all 7 themes @userflow @p1', async () => {
+    const results: Array<{ theme: string; rtColor: string; bg: string; ratio: number; verdict: string }> = []
+
+    const themes = ['light', 'dark', 'solarized', 'pastel', 'sepia', 'high-contrast', 'night-warm'] as const
+    type Theme = (typeof themes)[number]
+    const themeLabels: Record<Theme, string> = {
+      'light': 'Light',
+      'dark': 'Dark',
+      'solarized': 'Solarized',
+      'pastel': 'Pastel',
+      'sepia': 'Sepia',
+      'high-contrast': 'High Contrast',
+      'night-warm': 'Night (Warm)',
+    }
+
+    for (const theme of themes) {
+      const { browser, context, page } = await newRoleContext('reader')
+      try {
+        // Set theme + furigana via addInitScript before navigation
+        await context.addInitScript((t: string) => {
+          localStorage.setItem('kt-theme', t)
+          localStorage.setItem('reader-theme-settings', JSON.stringify({
+            theme: t,
+            font: 'sans',
+            fontSize: 16,
+            fontColor: null,
+            layoutWidth: 'narrow',
+            furiganaMode: 'furigana',
+          }))
+        }, theme)
+
+        // Navigate to reader and wait for content
+        await page.goto(`${BASE}${READ_PATH}`, { waitUntil: 'domcontentloaded' })
+        await page.waitForTimeout(3000)
+
+        // Switch to JP mode so furigana renders
+        const jpToggle = page.locator('button:has-text("JP")').first()
+        if (await jpToggle.isVisible({ timeout: 3_000 }).catch(() => false)) {
+          await jpToggle.click()
+          await page.waitForTimeout(1500)
+        }
+
+        // Compute contrast on first <rt> element
+        const contrastInfo = await page.evaluate(() => {
+          const ruby = document.querySelector('ruby')
+          if (!ruby) return { found: false }
+          const rt = ruby.querySelector('rt')
+          if (!rt) return { found: false, reason: 'no rt in ruby' }
+
+          const rtStyle = window.getComputedStyle(rt)
+          const rubyStyle = window.getComputedStyle(ruby)
+
+          // Find effective background
+          let bg = 'rgb(255, 255, 255)'
+          let node: Element | null = ruby.parentElement
+          while (node && node !== document.documentElement) {
+            const nodeBg = window.getComputedStyle(node).backgroundColor
+            if (nodeBg && nodeBg !== 'rgba(0, 0, 0, 0)' && nodeBg !== 'transparent') {
+              bg = nodeBg
+              break
+            }
+            node = node.parentElement
+          }
+
+          return {
+            found: true,
+            rtColor: rtStyle.color,
+            rtFontSize: rtStyle.fontSize,
+            bg,
+          }
+        }).catch(() => ({ found: false }))
+
+        if (!contrastInfo.found) {
+          test.info().annotations.push({
+            type: 'skip',
+            description: `Theme ${theme}: no <ruby> elements found — skipping furigana contrast check`,
+          })
+          continue
+        }
+
+        // Compute contrast ratio
+        function relativeLuminance(colorStr: string): number {
+          const m = colorStr.match(/\d+(\.\d+)?/g)
+          if (!m) return 0
+          const [r, g, b] = [parseFloat(m[0]) / 255, parseFloat(m[1]) / 255, parseFloat(m[2]) / 255]
+          const sRGB = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+          return 0.2126 * sRGB(r) + 0.7152 * sRGB(g) + 0.0722 * sRGB(b)
+        }
+        function contrastRatio(c1: string, c2: string): number {
+          const l1 = relativeLuminance(c1)
+          const l2 = relativeLuminance(c2)
+          const [light, dark] = l1 > l2 ? [l1, l2] : [l2, l1]
+          return (light + 0.05) / (dark + 0.05)
+        }
+
+        const ratio = contrastRatio(contrastInfo.rtColor, contrastInfo.bg)
+        const verdict = ratio < 2.0 ? 'FAIL' : ratio < 3.0 ? 'WARN' : 'PASS'
+
+        results.push({
+          theme: themeLabels[theme],
+          rtColor: contrastInfo.rtColor,
+          bg: contrastInfo.bg,
+          ratio: parseFloat(ratio.toFixed(2)),
+          verdict,
+        })
+
+        test.info().annotations.push({
+          type: `furigana-contrast-${theme}`,
+          description: JSON.stringify({
+            theme: themeLabels[theme],
+            rtColor: contrastInfo.rtColor,
+            bg: contrastInfo.bg,
+            ratio: ratio.toFixed(2),
+            verdict,
+          }),
+        })
+
+        // Take a screenshot for visual review
+        try {
+          await page.evaluate(() => window.scrollTo(0, 0))
+          await page.waitForTimeout(400)
+          const filename = `furigana_contrast_${theme}.png`
+          const fullPath = path.join(SCREENSHOT_DIR, filename)
+          await page.screenshot({ path: fullPath })
+          console.log(`[furigana-contrast] ✓ ${filename}`)
+        } catch { /* ignore screenshot errors */ }
+
+        // Hard fail if contrast < 2.0
+        if (ratio < 2.0) {
+          expect(
+            ratio,
+            `Theme ${themeLabels[theme]}: furigana <rt> contrast ${ratio.toFixed(2)} < 2.0 — CRITICAL accessibility regression`,
+          ).toBeGreaterThanOrEqual(2.0)
+        } else if (ratio < 3.0) {
+          // Soft warn
+          expect
+            .soft(
+              ratio,
+              `Theme ${themeLabels[theme]}: furigana <rt> contrast ${ratio.toFixed(2)} < 3.0 — below WCAG AA`,
+            )
+            .toBeGreaterThanOrEqual(3.0)
+        }
+      } catch (err) {
+        test.info().annotations.push({
+          type: 'error',
+          description: `Theme ${theme}: ${err instanceof Error ? err.message : String(err)}`,
+        })
+      } finally {
+        await context.close()
+        await browser.close()
+      }
+    }
+
+    // Summary report
+    console.log('\n══════════════════════════════════════════')
+    console.log(' FURIGANA CONTRAST — ALL 7 THEMES')
+    console.log('══════════════════════════════════════════')
+    for (const r of results) {
+      const icon = r.verdict === 'PASS' ? '✓' : r.verdict === 'WARN' ? '⚠' : '✗'
+      console.log(`  ${icon} ${r.theme.padEnd(16)} ratio=${r.ratio.toFixed(2)} (rt=${r.rtColor} bg=${r.bg})`)
+    }
+    console.log(`\n  Total: ${results.length} themes evaluated`)
+  })

@@ -153,6 +153,12 @@ test('phase3-qa: 320px — DocumentCard, editor, no overflow', async () => {
         // leave the loading state before the banner renders. The CSS is correct
         // (md:hidden = visible only below 768px), so at 320px the banner should
         // appear once the data loads. 15s timeout accommodates dev-server cold-start.
+        //
+        // KNOWN DEFECT (2026-06-27): This assertion can be flaky in dev
+        // environment when Camoufox viewport handling causes the banner to
+        // render outside the visible viewport or when HMR/connection blocking
+        // delays data fetch. If this fails consistently in CI, investigate
+        // whether the banner CSS or the editor data-fetch is the root cause.
         const banner = page.locator('text=Editor works best on desktop')
         await banner.waitFor({ state: 'visible', timeout: 15_000 })
         console.log('[qa] 320px editor banner visible: true')
