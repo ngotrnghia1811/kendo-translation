@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { Article } from '@/types/database'
@@ -44,13 +44,48 @@ interface DocumentsListProps {
   /** Current server-side sort params (for rendering the select) */
   currentSortBy?: SortBy
   currentSortDir?: SortDir
+  /** Server-side search term for document title (from URL param q=) */
+  searchTerm?: string | null
 }
 
-export default function DocumentsList({ articles, userEmail, nextCursor, currentSortBy = 'created_at', currentSortDir = 'desc' }: DocumentsListProps) {
+export default function DocumentsList({ articles, userEmail, nextCursor, currentSortBy = 'created_at', currentSortDir = 'desc', searchTerm = null }: DocumentsListProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(searchTerm ?? '')
   const router = useRouter()
   const searchParams = useSearchParams()
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Sync search input with URL when searchTerm prop changes (e.g. back-button)
+  useEffect(() => {
+    setSearchQuery(searchTerm ?? '')
+  }, [searchTerm])
+
+  // Debounced search: update URL param to trigger server-side re-fetch
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      const params = new URLSearchParams()
+      // Preserve current sort params
+      const sp = new URLSearchParams(searchParams.toString())
+      const sortBy = sp.get('sort_by')
+      const sortDir = sp.get('sort_dir')
+      if (sortBy) params.set('sort_by', sortBy)
+      if (sortDir) params.set('sort_dir', sortDir)
+      // Set/clear search term (no cursor → fresh page 1)
+      if (value.trim()) {
+        params.set('q', value.trim())
+      }
+      // replace without cursor so server does a fresh first page
+      router.replace(`/documents?${params.toString()}`)
+      debounceRef.current = null
+    }, 350)
+  }, [router, searchParams])
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [])
 
   // Build a URL that preserves sort + filter state for "Load more" links
   const buildNextUrl = useCallback((cursor: string) => {
@@ -71,12 +106,8 @@ export default function DocumentsList({ articles, userEmail, nextCursor, current
   // Derive current sort option value for the select
   const currentSortValue = `${currentSortBy}|${currentSortDir}`
 
-  const searchFiltered = useMemo(() => {
-    if (!searchQuery.trim()) return articles
-    const q = searchQuery.toLowerCase()
-    return articles.filter((a) => a.title.toLowerCase().includes(q))
-  }, [articles, searchQuery])
-  const filtered = useMemo(() => filterByStatus(searchFiltered, statusFilter), [searchFiltered, statusFilter])
+  // Only status filter is client-side; search is server-side (articles already filtered)
+  const filtered = useMemo(() => filterByStatus(articles, statusFilter), [articles, statusFilter])
 
   return (
     <div className="min-h-screen">
@@ -120,15 +151,24 @@ export default function DocumentsList({ articles, userEmail, nextCursor, current
           </div>
         </div>
 
-        {/* Search bar */}
+        {/* Search bar — triggers server-side search via URL param */}
         <div className="mb-4">
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search documents by title…"
             className="w-full max-w-md px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-[var(--color-text-muted)]"
           />
+          {searchQuery.trim() && (
+            <button
+              type="button"
+              onClick={() => handleSearchChange('')}
+              className="ml-2 text-xs text-blue-600 hover:underline"
+            >
+              Clear
+            </button>
+          )}
         </div>
 
         {filtered.length === 0 ? (

@@ -174,6 +174,9 @@ function TermFormModal({
 export default function TerminologyPage() {
     const [terms, setTerms] = useState<Term[]>([])
     const [totalTermCount, setTotalTermCount] = useState(0)
+    const [totalPages, setTotalPages] = useState(0)
+    const [page, setPage] = useState(1)
+    const [pageSize] = useState(50)
     const [search, setSearch] = useState('')
     const [loading, setLoading] = useState(true)
     const [isAdmin, setIsAdmin] = useState(false)
@@ -206,12 +209,14 @@ export default function TerminologyPage() {
                     setIsAdmin(profile?.role === 'admin')
                 }
 
-                // Fetch terms
-                const res = await fetch('/api/terminology')
+                // Fetch terms with pagination
+                const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
+                const res = await fetch(`/api/terminology?${params}`)
                 if (res.ok) {
                     const data = await res.json()
                     setTerms(data.terms || [])
                     setTotalTermCount(data.totalCount ?? (data.terms?.length ?? 0))
+                    setTotalPages(data.totalPages ?? 0)
                 }
             } catch (error) {
                 console.error('Error fetching terminology:', error)
@@ -220,7 +225,7 @@ export default function TerminologyPage() {
             }
         }
         fetchData()
-    }, [])
+    }, [page, pageSize])
 
     // -----------------------------------------------------------------------
     // CRUD handlers
@@ -393,7 +398,7 @@ export default function TerminologyPage() {
                     <input
                         type="text"
                         value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        onChange={(e) => { setSearch(e.target.value); setPage(1) }}
                         placeholder="Search terms…"
                         className="w-full max-w-md px-3 py-2 rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] focus:ring-2 focus:ring-blue-300 focus:outline-none"
                     />
@@ -414,7 +419,7 @@ export default function TerminologyPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {filtered.slice(0, 100).map((term) => (
+                            {filtered.map((term) => (
                                 <tr key={term.id} className="border-b border-[var(--rt-border)] hover:bg-[var(--rt-border)]/10">
                                     <td className="p-3 text-sm font-medium text-[var(--rt-text)]">{term.source_term}</td>
                                     <td className="p-3 text-sm text-[var(--rt-text-muted)]">{term.reading || '—'}</td>
@@ -444,9 +449,27 @@ export default function TerminologyPage() {
                             ))}
                         </tbody>
                     </table>
-                    {filtered.length > 100 && (
-                        <div className="p-3 text-center text-sm text-[var(--rt-text-muted)] border-t border-[var(--rt-border)]">
-                            Showing 100 of {filtered.length} terms. Use search to narrow results.
+                    {totalPages > 1 && (
+                        <div className="p-3 flex items-center justify-center gap-3 text-sm border-t border-[var(--rt-border)]">
+                            <button
+                                type="button"
+                                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                disabled={page <= 1}
+                                className="px-3 py-1 rounded border border-[var(--rt-border)] text-[var(--rt-text-muted)] hover:bg-[var(--rt-surface)] disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                ← Previous
+                            </button>
+                            <span className="text-[var(--rt-text-muted)]">
+                                Page {page} of {totalPages}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                disabled={page >= totalPages}
+                                className="px-3 py-1 rounded border border-[var(--rt-border)] text-[var(--rt-text-muted)] hover:bg-[var(--rt-surface)] disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                Next →
+                            </button>
                         </div>
                     )}
                     {filtered.length === 0 && !loading && (

@@ -29,9 +29,17 @@ async function requireAdmin(supabase: Awaited<ReturnType<typeof createClient>>) 
     return { user }
 }
 
-export async function GET() {
+const DEFAULT_PAGE_SIZE = 50
+
+export async function GET(req: NextRequest) {
     try {
         const supabase = await createClient()
+
+        const { searchParams } = req.nextUrl
+        const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10))
+        const pageSize = Math.min(200, Math.max(1, parseInt(searchParams.get('pageSize') ?? String(DEFAULT_PAGE_SIZE), 10)))
+        const from = (page - 1) * pageSize
+        const to = from + pageSize - 1
 
         // Separate count query (exact) to avoid PostgREST 1000-row cap
         const { count: totalCount, error: countErr } = await supabase
@@ -46,14 +54,22 @@ export async function GET() {
             .from('terminology')
             .select('id, source_term, target_term, reading, domain, notes')
             .order('source_term', { ascending: true })
-            .limit(1000)
+            .range(from, to)
 
         if (error) {
             console.error('Error fetching terminology:', error)
             return NextResponse.json({ error: error.message }, { status: 500 })
         }
 
-        return NextResponse.json({ terms: terms || [], totalCount: totalCount ?? (terms?.length ?? 0) })
+        const totalPages = totalCount ? Math.ceil(totalCount / pageSize) : 0
+
+        return NextResponse.json({
+            terms: terms || [],
+            totalCount: totalCount ?? (terms?.length ?? 0),
+            page,
+            pageSize,
+            totalPages,
+        })
     } catch (error) {
         console.error('Error in terminology GET:', error)
         return NextResponse.json({ error: 'Failed to fetch terminology' }, { status: 500 })

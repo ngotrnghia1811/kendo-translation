@@ -1,22 +1,13 @@
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/server';
 
-export default function HomePage() {
+export default async function HomePage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const isLoggedIn = !!user;
+
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <header className="border-b border-[var(--color-border)]">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">⚔️</span>
-            <h1 className="text-xl font-bold text-[var(--color-text)]">Kendo Translation</h1>
-          </div>
-          <nav className="flex items-center gap-4">
-            <Link href="/documents" className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors">Documents</Link>
-            <Link href="/login" className="text-sm bg-[var(--color-text)] text-[var(--color-surface)] px-4 py-2 rounded-lg hover:opacity-80 transition-opacity">Sign In</Link>
-          </nav>
-        </div>
-      </header>
-
       {/* Hero */}
       <section className="max-w-6xl mx-auto px-6 py-24 text-center">
         <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 text-sm px-4 py-2 rounded-full mb-8">
@@ -34,9 +25,15 @@ export default function HomePage() {
           <Link href="/documents" className="bg-[var(--color-text)] text-[var(--color-surface)] px-8 py-3 rounded-lg font-medium hover:opacity-80 transition-opacity">
             View Documents
           </Link>
-          <Link href="/login" className="border border-[var(--color-border)] text-[var(--color-text)] px-8 py-3 rounded-lg font-medium hover:bg-[var(--color-bg)] transition-colors">
-            Start Translating
-          </Link>
+          {isLoggedIn ? (
+            <Link href="/profile" className="border border-[var(--color-border)] text-[var(--color-text)] px-8 py-3 rounded-lg font-medium hover:bg-[var(--color-bg)] transition-colors">
+              My Profile
+            </Link>
+          ) : (
+            <Link href="/login" className="border border-[var(--color-border)] text-[var(--color-text)] px-8 py-3 rounded-lg font-medium hover:bg-[var(--color-bg)] transition-colors">
+              Sign In
+            </Link>
+          )}
         </div>
       </section>
 

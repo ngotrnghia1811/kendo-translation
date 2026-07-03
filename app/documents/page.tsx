@@ -7,7 +7,7 @@ import { sanitizeSortBy, sanitizeSortDir, buildCursor, parseCursor } from '@/lib
 export default async function DocumentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cursor?: string; sort_by?: string; sort_dir?: string }>;
+  searchParams: Promise<{ cursor?: string; sort_by?: string; sort_dir?: string; q?: string }>;
 }) {
   const supabase = await createClient();
 
@@ -18,15 +18,18 @@ export default async function DocumentsPage({
   const sortBy = sanitizeSortBy(params.sort_by ?? null);
   const sortDir = sanitizeSortDir(params.sort_dir ?? null);
   const cursor = parseCursor(params.cursor ?? null);
+  const searchTerm = (params.q ?? '').trim() || null;
 
   // Phase 1.2g: keyset-paginated documents feed via get_documents_feed_v1 RPC.
   // Replaces the unbounded .select() that was loading all ~900 articles.
+  // Migration 018 added p_search_term for server-side title search.
   const { data, error } = await supabase.rpc('get_documents_feed_v1', {
     p_cursor_sort_val: cursor?.sortVal ?? null,
     p_cursor_id: cursor?.id ?? null,
     p_limit: 30,
     p_sort_by: sortBy,
     p_sort_dir: sortDir,
+    p_search_term: searchTerm,
   });
 
   if (error) {
@@ -48,6 +51,7 @@ export default async function DocumentsPage({
       nextCursor={nextCursor}
       currentSortBy={sortBy}
       currentSortDir={sortDir}
+      searchTerm={searchTerm}
     />
   );
 }

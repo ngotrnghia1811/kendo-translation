@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get('limit') ?? '30', 10)));
   const sortBy = sanitizeSortBy(req.nextUrl.searchParams.get('sort_by'));
   const sortDir = sanitizeSortDir(req.nextUrl.searchParams.get('sort_dir'));
+  const searchTerm = (req.nextUrl.searchParams.get('q') ?? '').trim() || null;
 
   const cursor = parseCursor(rawCursor);
 
@@ -63,6 +64,7 @@ export async function GET(req: NextRequest) {
     p_limit: limit,
     p_sort_by: sortBy,
     p_sort_dir: sortDir,
+    p_search_term: searchTerm,
   });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

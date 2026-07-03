@@ -9,7 +9,6 @@ import ReaderSettingsPanel from '@/components/reader/ReaderSettingsPanel'
 
 /** Pages that have their own full-screen header — SiteNav is hidden there. */
 const PAGES_WITH_OWN_HEADER = [
-    '/',               // home — has its own header
     '/login',
     '/register',
 ]
