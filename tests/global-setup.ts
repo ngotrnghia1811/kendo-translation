@@ -97,46 +97,68 @@ async function loginAndSaveState(
         }
     }
 
-    const browser = await firefox.launch({ headless: true })
-    const context = await browser.newContext()
-    const page = await context.newPage()
+    // Retry once on transient failures (SPA hydration race, network blip).
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        const browser = await firefox.launch({ headless: true })
+        const context = await browser.newContext()
+        const page = await context.newPage()
 
-    try {
-        await page.goto(`${baseURL}/login`, { waitUntil: 'domcontentloaded' })
-        await page.fill('input[type="email"]', creds.email)
-        await page.fill('input[type="password"]', creds.password)
+        try {
+            // Use networkidle instead of domcontentloaded: the Next.js SPA
+            // login page renders the form only after JS hydration, which
+            // happens well after the DOM parse.  domcontentloaded fires too
+            // early, causing page.fill() to interact with a half-rendered
+            // React tree (controlled-input value not propagated → empty email
+            // sent to Supabase → "missing email or phone" 400).
+            await page.goto(`${baseURL}/login`, { waitUntil: 'networkidle' })
 
-        // Wait for the Supabase token endpoint to return 200 (auth success)
-        // rather than the post-login client-side navigation, which is brittle.
-        const tokenResponsePromise = page.waitForResponse(
-            (resp) =>
-                resp.url().includes('/auth/v1/token') &&
-                resp.request().method() === 'POST',
-            { timeout: 30_000 },
-        )
-        await page.click('button[type="submit"]')
-        const tokenResp = await tokenResponsePromise
+            // Defensive: wait for the email input to be visible in the DOM
+            // before filling (belt-and-suspenders with networkidle).
+            await page.waitForSelector('input[type="email"]', { state: 'visible', timeout: 15_000 })
 
-        if (tokenResp.status() !== 200) {
-            const body = await tokenResp.text().catch(() => '<unreadable>')
-            throw new Error(`auth status ${tokenResp.status()}: ${body.slice(0, 200)}`)
+            await page.fill('input[type="email"]', creds.email)
+            await page.fill('input[type="password"]', creds.password)
+
+            // Give React's controlled-input onChange handlers a tick to flush.
+            await page.waitForTimeout(200)
+
+            // Wait for the Supabase token endpoint to return 200 (auth success)
+            // rather than the post-login client-side navigation, which is brittle.
+            const tokenResponsePromise = page.waitForResponse(
+                (resp) =>
+                    resp.url().includes('/auth/v1/token') &&
+                    resp.request().method() === 'POST',
+                { timeout: 30_000 },
+            )
+            await page.click('button[type="submit"]')
+            const tokenResp = await tokenResponsePromise
+
+            if (tokenResp.status() !== 200) {
+                const body = await tokenResp.text().catch(() => '<unreadable>')
+                throw new Error(`auth status ${tokenResp.status()}: ${body.slice(0, 200)}`)
+            }
+
+            // Give the browser a brief moment to persist cookies returned by the
+            // Supabase client (synchronous in current versions, but defensive).
+            await page.waitForTimeout(500)
+
+            await context.storageState({ path: statePath })
+            console.log(`[global-setup] ✓ Saved auth state for ${creds.role} (${creds.email}) → ${statePath}`)
+            return true
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err)
+            if (attempt === 2) {
+                console.warn(`[global-setup] ✗ Login failed for ${creds.role} (${creds.email}) after retry: ${msg}`)
+            } else {
+                console.warn(`[global-setup] ⚠ Attempt ${attempt} failed for ${creds.role} (${creds.email}): ${msg} — retrying…`)
+            }
+        } finally {
+            await context.close()
+            await browser.close()
         }
-
-        // Give the browser a brief moment to persist cookies returned by the
-        // Supabase client (synchronous in current versions, but defensive).
-        await page.waitForTimeout(500)
-
-        await context.storageState({ path: statePath })
-        console.log(`[global-setup] ✓ Saved auth state for ${creds.role} (${creds.email}) → ${statePath}`)
-        return true
-    } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        console.warn(`[global-setup] ✗ Login failed for ${creds.role} (${creds.email}): ${msg}`)
-        return false
-    } finally {
-        await context.close()
-        await browser.close()
     }
+
+    return false
 }
 
 async function globalSetup(config: FullConfig): Promise<void> {
@@ -153,6 +175,8 @@ async function globalSetup(config: FullConfig): Promise<void> {
     // This avoids sequential Supabase rate-limiting (seen as 30s timeouts on
     // the 3rd/4th login when run serially even with a 5s pause between them).
     // Roles that already have a fresh auth file are skipped immediately.
+    // Each loginAndSaveState call retries once on transient failures
+    // (SPA hydration race) before giving up.
     await Promise.all(ROLES.map((creds) => loginAndSaveState(baseURL, creds)))
 }
 
