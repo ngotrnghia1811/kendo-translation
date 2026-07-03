@@ -1,21 +1,28 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { Article } from '@/types/database'
-import { createClient } from '@/lib/supabase/client'
+import type { SortBy, SortDir } from '@/lib/supabase/feed-cursor'
 
-type SortKey = 'name_asc' | 'name_desc' | 'length_desc' | 'length_asc' | 'progress_desc' | 'progress_asc' | 'recently-viewed'
 type StatusFilter = 'all' | 'in_progress' | 'complete'
 
-const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: 'name_asc',      label: 'Title A–Z' },
-  { value: 'name_desc',     label: 'Title Z–A' },
-  { value: 'length_desc',   label: 'Longest first' },
-  { value: 'length_asc',    label: 'Shortest first' },
-  { value: 'progress_desc', label: 'Most translated' },
-  { value: 'progress_asc',  label: 'Least translated' },
-  { value: 'recently-viewed', label: 'Recently Viewed' },
+interface SortOption {
+  sortBy: SortBy
+  sortDir: SortDir
+  label: string
+}
+
+const SORT_OPTIONS: SortOption[] = [
+  { sortBy: 'title',   sortDir: 'asc',  label: 'Title A–Z' },
+  { sortBy: 'title',   sortDir: 'desc', label: 'Title Z–A' },
+  { sortBy: 'segment_count', sortDir: 'desc', label: 'Longest first' },
+  { sortBy: 'segment_count', sortDir: 'asc',  label: 'Shortest first' },
+  { sortBy: 'status',  sortDir: 'desc', label: 'Most translated' },
+  { sortBy: 'status',  sortDir: 'asc',  label: 'Least translated' },
+  { sortBy: 'created_at', sortDir: 'desc', label: 'Newest first' },
+  { sortBy: 'created_at', sortDir: 'asc',  label: 'Oldest first' },
 ]
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
@@ -23,42 +30,6 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: 'in_progress', label: 'In Progress' },
   { value: 'complete',    label: 'Completed' },
 ]
-
-/** Map translation_status to an ordinal for sorting. */
-function statusOrdinal(status: string | null): number {
-  switch (status) {
-    case 'complete':     return 2
-    case 'in_progress':  return 1
-    default:             return 0 // 'pending' or null
-  }
-}
-
-function sortArticles(articles: Article[], key: SortKey, viewMap?: Map<string, string>): Article[] {
-  const sorted = [...articles]
-  switch (key) {
-    case 'name_asc':
-      return sorted.sort((a, b) => a.title.localeCompare(b.title))
-    case 'name_desc':
-      return sorted.sort((a, b) => b.title.localeCompare(a.title))
-    case 'length_desc':
-      return sorted.sort((a, b) => (b.segment_count ?? 0) - (a.segment_count ?? 0))
-    case 'length_asc':
-      return sorted.sort((a, b) => (a.segment_count ?? 0) - (b.segment_count ?? 0))
-    case 'progress_desc':
-      return sorted.sort((a, b) => statusOrdinal(b.translation_status) - statusOrdinal(a.translation_status))
-    case 'progress_asc':
-      return sorted.sort((a, b) => statusOrdinal(a.translation_status) - statusOrdinal(b.translation_status))
-    case 'recently-viewed':
-      return sorted.sort((a, b) => {
-        const aTime = viewMap?.get(a.id) ?? ''
-        const bTime = viewMap?.get(b.id) ?? ''
-        if (aTime === bTime) return 0
-        if (!aTime) return 1    // no view record → sort last
-        if (!bTime) return -1
-        return bTime.localeCompare(aTime) // desc by updated_at
-      })
-  }
-}
 
 function filterByStatus(articles: Article[], status: StatusFilter): Article[] {
   if (status === 'all') return articles
@@ -70,34 +41,35 @@ interface DocumentsListProps {
   userEmail: string
   /** Phase 1.2g: keyset pagination cursor for "Load more" link */
   nextCursor?: string | null
+  /** Current server-side sort params (for rendering the select) */
+  currentSortBy?: SortBy
+  currentSortDir?: SortDir
 }
 
-export default function DocumentsList({ articles, userEmail, nextCursor }: DocumentsListProps) {
-  const [sortKey, setSortKey] = useState<SortKey>('name_asc')
+export default function DocumentsList({ articles, userEmail, nextCursor, currentSortBy = 'created_at', currentSortDir = 'desc' }: DocumentsListProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [viewMap, setViewMap] = useState<Map<string, string>>(new Map())
+  const router = useRouter()
+  const searchParams = useSearchParams()
 
-  // Fetch reading_progress on mount for recently-viewed sort
-  useEffect(() => {
-    const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      supabase
-        .from('reading_progress')
-        .select('content_id, updated_at')
-        .eq('content_type', 'article')
-        .eq('user_id', user.id)
-        .then(({ data, error }) => {
-          if (error || !data) return
-          const map = new Map<string, string>()
-          for (const row of data as { content_id: string; updated_at: string }[]) {
-            map.set(row.content_id, row.updated_at)
-          }
-          setViewMap(map)
-        })
-    })
-  }, [])
+  // Build a URL that preserves sort + filter state for "Load more" links
+  const buildNextUrl = useCallback((cursor: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('cursor', cursor)
+    return `/documents?${params.toString()}`
+  }, [searchParams])
+
+  // When sort select changes, update URL params (resets cursor → fresh server fetch)
+  const handleSortChange = useCallback((sortBy: SortBy, sortDir: SortDir) => {
+    const params = new URLSearchParams()
+    params.set('sort_by', sortBy)
+    params.set('sort_dir', sortDir)
+    // No cursor → fresh page 1
+    router.replace(`/documents?${params.toString()}`)
+  }, [router])
+
+  // Derive current sort option value for the select
+  const currentSortValue = `${currentSortBy}|${currentSortDir}`
 
   const searchFiltered = useMemo(() => {
     if (!searchQuery.trim()) return articles
@@ -105,7 +77,6 @@ export default function DocumentsList({ articles, userEmail, nextCursor }: Docum
     return articles.filter((a) => a.title.toLowerCase().includes(q))
   }, [articles, searchQuery])
   const filtered = useMemo(() => filterByStatus(searchFiltered, statusFilter), [searchFiltered, statusFilter])
-  const sorted = useMemo(() => sortArticles(filtered, sortKey, viewMap), [filtered, sortKey, viewMap])
 
   return (
     <div className="min-h-screen">
@@ -132,15 +103,18 @@ export default function DocumentsList({ articles, userEmail, nextCursor }: Docum
               ))}
             </div>
 
-            {/* Sort select */}
+            {/* Sort select — triggers server re-fetch via URL params */}
             <select
               data-testid="documents-sort"
-              value={sortKey}
-              onChange={(e) => setSortKey(e.target.value as SortKey)}
+              value={currentSortValue}
+              onChange={(e) => {
+                const [sortBy, sortDir] = e.target.value.split('|') as [SortBy, SortDir]
+                handleSortChange(sortBy, sortDir)
+              }}
               className="text-sm rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               {SORT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option key={`${opt.sortBy}|${opt.sortDir}`} value={`${opt.sortBy}|${opt.sortDir}`}>{opt.label}</option>
               ))}
             </select>
           </div>
@@ -157,7 +131,7 @@ export default function DocumentsList({ articles, userEmail, nextCursor }: Docum
           />
         </div>
 
-        {sorted.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="text-center py-24 text-[var(--color-text-muted)]">
             <span className="text-5xl block mb-4">📄</span>
             <p className="text-lg font-medium text-[var(--color-text)] mb-2">No documents yet</p>
@@ -166,7 +140,7 @@ export default function DocumentsList({ articles, userEmail, nextCursor }: Docum
         ) : (
           <>
             <div className="grid grid-cols-1 gap-4">
-              {sorted.map((doc) => (
+              {filtered.map((doc) => (
                 <div key={doc.id} className="rounded-xl border p-4 sm:p-5 bg-[var(--rt-surface)] border-[var(--rt-border)] hover:border-[var(--rt-text-muted)] transition-colors">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
@@ -207,12 +181,12 @@ export default function DocumentsList({ articles, userEmail, nextCursor }: Docum
               ))}
             </div>
 
-            {/* Phase 1.2g: keyset pagination "Load more" */}
+            {/* Phase 1.2g: keyset pagination "Load more" (preserves sort params) */}
             {nextCursor && (
               <div className="mt-6 text-center">
                 <Link
-                  href={`/documents?cursor=${encodeURIComponent(nextCursor)}`}
-                  className="inline-block px-6 py-2 text-sm font-medium rounded-lg border border-[var(--rt-border)] hover:bg-[var(--rt-surface)] transition-colors text-[var(--rt-text-muted)]"
+                  href={buildNextUrl(nextCursor)}
+                  className="inline-block px-6 py-3 text-sm font-medium rounded-lg border border-[var(--rt-border)] hover:bg-[var(--rt-surface)] transition-colors text-[var(--rt-text-muted)]"
                 >
                   Load more documents →
                 </Link>

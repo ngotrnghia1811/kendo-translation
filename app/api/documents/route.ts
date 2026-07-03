@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { sanitizeSortBy, sanitizeSortDir, buildCursor, parseCursor } from '@/lib/supabase/feed-cursor';
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
@@ -51,10 +52,17 @@ export async function GET(req: NextRequest) {
   // Phase 1.2g: keyset-paginated feed for the public documents list.
   const rawCursor = req.nextUrl.searchParams.get('cursor') ?? null;
   const limit = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get('limit') ?? '30', 10)));
+  const sortBy = sanitizeSortBy(req.nextUrl.searchParams.get('sort_by'));
+  const sortDir = sanitizeSortDir(req.nextUrl.searchParams.get('sort_dir'));
+
+  const cursor = parseCursor(rawCursor);
 
   const { data, error } = await supabase.rpc('get_documents_feed_v1', {
-    p_cursor: rawCursor ? new Date(rawCursor).toISOString() : null,
+    p_cursor_sort_val: cursor?.sortVal ?? null,
+    p_cursor_id: cursor?.id ?? null,
     p_limit: limit,
+    p_sort_by: sortBy,
+    p_sort_dir: sortDir,
   });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -62,7 +70,7 @@ export async function GET(req: NextRequest) {
   const articles = data ?? [];
   const nextCursor =
     articles.length > 0
-      ? (articles[articles.length - 1] as Record<string, unknown>).created_at as string ?? null
+      ? buildCursor(articles[articles.length - 1] as Record<string, unknown>, sortBy)
       : null;
 
   return NextResponse.json({ documents: articles, next_cursor: nextCursor });
