@@ -33,6 +33,15 @@ export async function GET() {
     try {
         const supabase = await createClient()
 
+        // Separate count query (exact) to avoid PostgREST 1000-row cap
+        const { count: totalCount, error: countErr } = await supabase
+            .from('terminology')
+            .select('id', { count: 'exact', head: true })
+
+        if (countErr) {
+            console.error('Error counting terminology:', countErr)
+        }
+
         const { data: terms, error } = await supabase
             .from('terminology')
             .select('id, source_term, target_term, reading, domain, notes')
@@ -44,7 +53,7 @@ export async function GET() {
             return NextResponse.json({ error: error.message }, { status: 500 })
         }
 
-        return NextResponse.json({ terms: terms || [] })
+        return NextResponse.json({ terms: terms || [], totalCount: totalCount ?? (terms?.length ?? 0) })
     } catch (error) {
         console.error('Error in terminology GET:', error)
         return NextResponse.json({ error: 'Failed to fetch terminology' }, { status: 500 })

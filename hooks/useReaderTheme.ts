@@ -56,7 +56,7 @@ export const FONTS: { id: ReaderFont; label: string }[] = [
     { id: 'mincho', label: 'Mincho (JP)' },
 ]
 
-export const FONT_SIZE_MIN  = 10   // px
+export const FONT_SIZE_MIN  = 8    // px
 export const FONT_SIZE_MAX  = 32   // px
 export const FONT_SIZE_STEP = 1    // 1px per step
 

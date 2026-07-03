@@ -317,6 +317,7 @@ async function CachedArticleContent({
           totalSegmentsHint={totalSegmentsHint}
           pageMetadataHint={pageMetadataHint}
           zhCountHint={zhCountHint}
+          publishFilter={publishFilter}
         />
       )}
     </div>

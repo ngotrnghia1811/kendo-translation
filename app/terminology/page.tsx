@@ -173,6 +173,7 @@ function TermFormModal({
 
 export default function TerminologyPage() {
     const [terms, setTerms] = useState<Term[]>([])
+    const [totalTermCount, setTotalTermCount] = useState(0)
     const [search, setSearch] = useState('')
     const [loading, setLoading] = useState(true)
     const [isAdmin, setIsAdmin] = useState(false)
@@ -210,6 +211,7 @@ export default function TerminologyPage() {
                 if (res.ok) {
                     const data = await res.json()
                     setTerms(data.terms || [])
+                    setTotalTermCount(data.totalCount ?? (data.terms?.length ?? 0))
                 }
             } catch (error) {
                 console.error('Error fetching terminology:', error)
@@ -372,7 +374,7 @@ export default function TerminologyPage() {
                     <div>
                         <h1 className="text-2xl font-bold text-[var(--rt-text)]">Terminology</h1>
                         <p className="text-sm text-[var(--rt-text-muted)] mt-0.5">
-                            {filtered.length} of {terms.length} terms
+                            {filtered.length} of {totalTermCount} terms
                         </p>
                     </div>
                     {isAdmin && (

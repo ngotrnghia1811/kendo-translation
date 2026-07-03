@@ -44,6 +44,8 @@ interface ReaderViewProps {
     prevArticleHref?: string | null
     /** Next article href for mobile bottom-bar navigation. */
     nextArticleHref?: string | null
+    /** Publish filter applied server-side; lazy-fetched pages re-apply this filter. */
+    publishFilter?: string
 }
 
 const MODE_LABELS: Record<ReaderMode, string> = {
@@ -158,7 +160,7 @@ function ToolbarButton({
 // Main component
 // ---------------------------------------------------------------------------
 
-export default function ReaderView({ segments, zhSegments, settings, title, articleId, canEdit, pairedPdfPath, totalSegmentsHint, pageMetadataHint, zhCountHint, prevArticleHref, nextArticleHref }: ReaderViewProps) {
+export default function ReaderView({ segments, zhSegments, settings, title, articleId, canEdit, pairedPdfPath, totalSegmentsHint, pageMetadataHint, zhCountHint, prevArticleHref, nextArticleHref, publishFilter }: ReaderViewProps) {
     // ── Lazy page cache ─────────────────────────────────────────────────
     // In lazy mode (totalSegmentsHint provided), the server only sends page 1.
     // We maintain a cache of loaded segments that grows as pages are fetched
@@ -247,7 +249,12 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                 }
             )
             if (!enErr && enData) {
-                enPageCacheRef.current.set(pageIndex, enData as Segment[])
+                const filterFn = (s: { status: string; target_text?: string | null }) =>
+                    publishFilter === 'qa_approved'
+                        ? s.status === 'qa_approved'
+                        : s.status === 'qa_approved' || s.target_text != null
+                const filtered = (enData as Segment[]).filter(filterFn)
+                enPageCacheRef.current.set(pageIndex, filtered)
                 setEnCacheVersion(v => v + 1)
             }
 
@@ -275,7 +282,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                 return next
             })
         }
-    }, [articleId, pageMetadataHint, totalSegmentsHint, zhCountHint, pageFetching])
+    }, [articleId, pageMetadataHint, totalSegmentsHint, zhCountHint, pageFetching, publishFilter])
 
     // Track background fill progress
     const bgFillDoneRef = useRef(false)

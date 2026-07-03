@@ -48,13 +48,13 @@ const JLPT_OPTIONS: { value: JlptLevel | null; label: string }[] = [
 
 /** Swatch border colour for light themes that need contrast against white toolbar */
 const SWATCH_BORDERS: Record<ReaderTheme, string> = {
-    light:         '#d1d5db',
-    dark:          'transparent',
-    solarized:     'transparent',
-    pastel:        '#ddd6fe',
-    sepia:         '#d4c5a0',
-    'high-contrast': 'transparent',
-    'night-warm':  'transparent',
+    light:         '#cbd5e1',
+    dark:          '#374151',
+    solarized:     '#374151',
+    pastel:        '#c4b5fd',
+    sepia:         '#c4a97d',
+    'high-contrast': '#374151',
+    'night-warm':  '#374151',
 }
 
 export default function ReaderSettingsPanel({
@@ -133,7 +133,7 @@ export default function ReaderSettingsPanel({
             className={
                 isMobile
                     ? 'fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl border border-gray-200 bg-white shadow-2xl p-4 space-y-5 max-h-[60vh] overflow-y-auto'
-                    : 'absolute right-0 top-full mt-2 z-50 w-72 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl p-4 space-y-5'
+                    : 'absolute right-0 top-full mt-2 z-50 w-72 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl p-4 space-y-5 max-h-[80vh] overflow-y-auto'
             }
         >
             {/* Mobile drag handle pill */}
@@ -157,16 +157,22 @@ export default function ReaderSettingsPanel({
                             className="flex flex-col items-center gap-1 group focus:outline-none"
                         >
                             <span
-                                className={`w-8 h-8 rounded-full transition-all ${
+                                className={`w-8 h-8 rounded-full transition-all flex items-center justify-center ${
                                     theme === t.id
                                         ? 'ring-2 ring-offset-2 ring-blue-500 dark:ring-offset-gray-900 scale-110'
-                                        : 'hover:scale-105'
+                                        : 'ring-1 ring-gray-300 dark:ring-gray-600 hover:scale-105'
                                 }`}
                                 style={{
                                     backgroundColor: t.swatch,
-                                    border: `1px solid ${SWATCH_BORDERS[t.id]}`,
+                                    border: `1.5px solid ${SWATCH_BORDERS[t.id]}`,
                                 }}
-                            />
+                            >
+                                {theme === t.id && (
+                                    <svg className="w-4 h-4 text-white drop-shadow-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                    </svg>
+                                )}
+                            </span>
                             <span className="text-[10px] text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200 leading-none">
                                 {t.label}
                             </span>
@@ -219,14 +225,19 @@ export default function ReaderSettingsPanel({
                                     className={`w-7 h-7 rounded-full transition-all flex items-center justify-center text-[10px] font-bold ${
                                         isSelected
                                             ? 'ring-2 ring-offset-1 ring-blue-500 scale-110'
-                                            : 'hover:scale-105'
+                                            : 'ring-1 ring-gray-300 dark:ring-gray-600 hover:scale-105'
                                     } ${isDefault ? 'border border-dashed border-gray-400' : ''}`}
                                     style={isDefault ? {} : {
                                         backgroundColor: c.value!,
-                                        border: c.value === '#f9fafb' ? '1px solid #d1d5db' : undefined,
+                                        border: c.value === '#f9fafb' ? '1.5px solid #cbd5e1' : undefined,
                                     }}
                                 >
                                     {isDefault && <span className="text-gray-400">A</span>}
+                                    {isSelected && !isDefault && (
+                                        <svg className="w-3.5 h-3.5 text-white drop-shadow-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                        </svg>
+                                    )}
                                 </span>
                                 <span className="text-[9px] text-gray-500 dark:text-gray-400 leading-none max-w-[3rem] text-center">
                                     {c.label}

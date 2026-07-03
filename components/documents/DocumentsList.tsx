@@ -75,6 +75,7 @@ interface DocumentsListProps {
 export default function DocumentsList({ articles, userEmail, nextCursor }: DocumentsListProps) {
   const [sortKey, setSortKey] = useState<SortKey>('name_asc')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [searchQuery, setSearchQuery] = useState('')
   const [viewMap, setViewMap] = useState<Map<string, string>>(new Map())
 
   // Fetch reading_progress on mount for recently-viewed sort
@@ -98,36 +99,18 @@ export default function DocumentsList({ articles, userEmail, nextCursor }: Docum
     })
   }, [])
 
-  const filtered = useMemo(() => filterByStatus(articles, statusFilter), [articles, statusFilter])
+  const searchFiltered = useMemo(() => {
+    if (!searchQuery.trim()) return articles
+    const q = searchQuery.toLowerCase()
+    return articles.filter((a) => a.title.toLowerCase().includes(q))
+  }, [articles, searchQuery])
+  const filtered = useMemo(() => filterByStatus(searchFiltered, statusFilter), [searchFiltered, statusFilter])
   const sorted = useMemo(() => sortArticles(filtered, sortKey, viewMap), [filtered, sortKey, viewMap])
 
   return (
     <div className="min-h-screen">
-      <header className="border-b bg-[var(--rt-surface)] border-[var(--rt-border)]">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <Link href="/" className="text-lg sm:text-xl font-bold text-[var(--color-text)] flex items-center gap-2 shrink-0">
-              <span>⚔️</span>
-              <span className="hidden sm:inline">Kendo Translation</span>
-            </Link>
-            <span className="text-[var(--color-text-muted)]/40">/</span>
-            <span className="text-[var(--color-text)] truncate">Documents</span>
-          </div>
-          <Link
-            href="/profile"
-            className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors group"
-            title="Your profile"
-          >
-            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-sm shrink-0 group-hover:bg-blue-200 transition-colors">
-              {userEmail[0]?.toUpperCase() ?? 'U'}
-            </div>
-            <span className="hidden sm:inline">{userEmail.split('@')[0]}</span>
-          </Link>
-        </div>
-      </header>
-
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <h2 className="text-xl font-bold text-[var(--color-text)]">All Documents</h2>
 
           {/* Sort + filter controls */}
@@ -161,6 +144,17 @@ export default function DocumentsList({ articles, userEmail, nextCursor }: Docum
               ))}
             </select>
           </div>
+        </div>
+
+        {/* Search bar */}
+        <div className="mb-4">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search documents by title…"
+            className="w-full max-w-md px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-[var(--color-text-muted)]"
+          />
         </div>
 
         {sorted.length === 0 ? (
