@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { useTitleLanguage } from '@/hooks/useTitleLanguage';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -172,6 +173,7 @@ export default function AdminDocDetailPage() {
     const [detail, setDetail] = useState<DocDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const { titleLanguage, toggleTitleLanguage } = useTitleLanguage();
 
     useEffect(() => {
         (async () => {
@@ -215,6 +217,7 @@ export default function AdminDocDetailPage() {
     }
 
     const { article, phaseBreakdown, assignments, recentActivity, totalSegments } = detail;
+    const displayTitle = titleLanguage === 'ja' && article.title_ja ? article.title_ja : article.title;
     const approvedCount = phaseBreakdown['qa_approved'] ?? 0;
     const translatedCount = totalSegments - (phaseBreakdown['draft'] ?? 0);
     const progressPct = totalSegments > 0 ? Math.round((translatedCount / totalSegments) * 100) : 0;
@@ -227,13 +230,30 @@ export default function AdminDocDetailPage() {
             <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] mb-4">
                 <Link href="/admin" className="hover:text-[var(--color-text)] transition-colors">Admin</Link>
                 <span>/</span>
-                <span className="text-[var(--color-text)] font-medium truncate">{article.title}</span>
+                <span className="text-[var(--color-text)] font-medium truncate">{displayTitle}</span>
             </div>
 
             {/* Header */}
             <div className="flex items-start justify-between gap-4 mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-[var(--color-text)]">{article.title}</h1>
+                    <div className="flex items-center gap-2">
+                        <h1 className="text-2xl font-bold text-[var(--color-text)]">{displayTitle}</h1>
+                        {article.title_ja && (
+                            <button
+                                type="button"
+                                onClick={toggleTitleLanguage}
+                                title={`Toggle title language (currently ${titleLanguage === 'en' ? 'English' : 'Japanese'})`}
+                                className="shrink-0 text-[10px] px-1.5 py-0.5 rounded border transition-colors leading-none"
+                                style={{
+                                    backgroundColor: titleLanguage === 'ja' ? '#3b82f6' : 'var(--rt-surface)',
+                                    borderColor: titleLanguage === 'ja' ? '#3b82f6' : 'var(--rt-border)',
+                                    color: titleLanguage === 'ja' ? '#fff' : 'var(--rt-text-muted)',
+                                }}
+                            >
+                                {titleLanguage === 'en' ? '日' : 'EN'}
+                            </button>
+                        )}
+                    </div>
                     <p className="text-xs text-[var(--color-text-muted)] font-mono mt-0.5">{article.id}</p>
                     {article.updated_at && (
                         <p className="text-xs text-[var(--color-text-muted)] mt-1">

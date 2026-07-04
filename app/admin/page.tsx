@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useTitleLanguage } from '@/hooks/useTitleLanguage'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -18,6 +19,7 @@ interface UserInfo {
 interface DocInfo {
     id: string
     title: string
+    title_ja?: string | null
     segmented?: boolean
     progress?: { percentage?: number }
     publish_filter?: string
@@ -142,6 +144,7 @@ export default function AdminPage() {
     const [filterSaving, setFilterSaving] = useState<string | null>(null)
     const [roleSaving, setRoleSaving] = useState<string | null>(null)
     const [docsPage, setDocsPage] = useState(0)
+    const { titleLanguage, toggleTitleLanguage } = useTitleLanguage()
 
     const PAGE_SIZE = 25
 
@@ -459,7 +462,26 @@ export default function AdminPage() {
                     <tbody>
                         {docs.slice(docsPage * PAGE_SIZE, (docsPage + 1) * PAGE_SIZE).map((doc) => (
                             <tr key={doc.id} className="border-b border-[var(--rt-border)]" data-testid="admin-document-row" data-doc-id={doc.id}>
-                                <td className="p-3 text-sm text-[var(--rt-text)] truncate max-w-xs">{doc.title}</td>
+                                <td className="p-3 text-sm text-[var(--rt-text)] truncate max-w-xs">
+                                    <span className="inline-flex items-center gap-1">
+                                        <span className="truncate">{titleLanguage === 'ja' && doc.title_ja ? doc.title_ja : doc.title}</span>
+                                        {doc.title_ja && (
+                                            <button
+                                                type="button"
+                                                onClick={toggleTitleLanguage}
+                                                title={`Toggle title language (currently ${titleLanguage === 'en' ? 'English' : 'Japanese'})`}
+                                                className="shrink-0 text-[10px] px-1.5 py-0.5 rounded border transition-colors leading-none"
+                                                style={{
+                                                    backgroundColor: titleLanguage === 'ja' ? '#3b82f6' : 'var(--rt-surface)',
+                                                    borderColor: titleLanguage === 'ja' ? '#3b82f6' : 'var(--rt-border)',
+                                                    color: titleLanguage === 'ja' ? '#fff' : 'var(--rt-text-muted)',
+                                                }}
+                                            >
+                                                {titleLanguage === 'en' ? '日' : 'EN'}
+                                            </button>
+                                        )}
+                                    </span>
+                                </td>
                                 <td className="p-3 text-sm text-[var(--rt-text-muted)] font-mono text-xs">{doc.id.substring(0, 8)}…</td>
                                 <td className="p-3 text-sm text-[var(--rt-text-muted)]">{doc.progress?.percentage ?? 0}%</td>
                                 <td className="p-3">

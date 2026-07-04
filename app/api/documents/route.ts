@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     // Not on the hot read path — used by admin tools for assignment/count management.
     let query = supabase
       .from('articles')
-      .select('id, title, translation_status, segment_count, created_at, updated_at, segmented, paired_pdf_path, document_settings(publish_filter, total_segments, translated_count, approved_count)')
+      .select('id, title, title_ja, translation_status, segment_count, created_at, updated_at, segmented, paired_pdf_path, document_settings(publish_filter, total_segments, translated_count, approved_count)')
       .order('created_at', { ascending: false });
 
     const { data, error } = await query;
