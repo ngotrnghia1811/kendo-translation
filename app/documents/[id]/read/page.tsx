@@ -148,7 +148,7 @@ function BotArticleHtml({
   readableSegments,
   settings,
 }: {
-  article: { id: string; title: string };
+  article: { id: string; title: string; title_ja?: string | null };
   readableSegments: Segment[];
   settings: DocumentSettings | null;
 }) {
@@ -240,7 +240,7 @@ async function CachedArticleContent({
   articleId: string;
   publishFilter: string;
   isBot: boolean;
-  article: { id: string; title: string; paired_pdf_path?: string | null };
+  article: { id: string; title: string; title_ja?: string | null; paired_pdf_path?: string | null };
   canEdit: boolean;
   settings: DocumentSettings | null;
 }) {
@@ -311,6 +311,7 @@ async function CachedArticleContent({
           zhSegments={zhSegments.length > 0 ? zhSegments : undefined}
           settings={settings ?? null}
           title={article.title}
+          titleJa={article.title_ja ?? null}
           articleId={articleId}
           canEdit={canEdit}
           pairedPdfPath={article.paired_pdf_path ?? null}

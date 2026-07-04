@@ -8,6 +8,7 @@ import { useThemeContext } from '@/components/shared/ThemeProvider'
 import { useReaderBookmarks } from '@/hooks/useReaderBookmarks'
 import { useReaderKeyboard } from '@/hooks/useReaderKeyboard'
 import { useReaderProgress } from '@/hooks/useReaderProgress'
+import { useTitleLanguage } from '@/hooks/useTitleLanguage'
 import { createClient } from '@/lib/supabase/client'
 import { recordArticleAccess } from '@/lib/pwa/storage'
 import VirtualizedReader from './VirtualizedReader'
@@ -30,6 +31,8 @@ interface ReaderViewProps {
     zhSegments?: ZhSegmentRow[]
     settings: DocumentSettings | null
     title: string
+    /** Japanese title for bilingual title display. Null if not available. */
+    titleJa?: string | null
     articleId: string
     canEdit: boolean
     /** Relative path to the paired PDF (from DB). When non-null, a "PDF" tab is shown. */
@@ -160,7 +163,7 @@ function ToolbarButton({
 // Main component
 // ---------------------------------------------------------------------------
 
-export default function ReaderView({ segments, zhSegments, settings, title, articleId, canEdit, pairedPdfPath, totalSegmentsHint, pageMetadataHint, zhCountHint, prevArticleHref, nextArticleHref, publishFilter }: ReaderViewProps) {
+export default function ReaderView({ segments, zhSegments, settings, title, titleJa, articleId, canEdit, pairedPdfPath, totalSegmentsHint, pageMetadataHint, zhCountHint, prevArticleHref, nextArticleHref, publishFilter }: ReaderViewProps) {
     // ── Lazy page cache ─────────────────────────────────────────────────
     // In lazy mode (totalSegmentsHint provided), the server only sends page 1.
     // We maintain a cache of loaded segments that grows as pages are fetched
@@ -505,6 +508,10 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
     // Progress persistence — auto-resume last page on load
     // -----------------------------------------------------------------------
     const { savedPageIndex, persistPage } = useReaderProgress(articleId)
+
+    // ── Bilingual title toggle ────────────────────────────────────────────
+    const { titleLanguage, toggleTitleLanguage } = useTitleLanguage()
+    const displayTitle = titleLanguage === 'ja' && titleJa ? titleJa : title
 
     // Once on mount (after pages are built), jump to the saved page if any.
     const hasRestoredRef = useRef(false)
@@ -864,7 +871,22 @@ export default function ReaderView({ segments, zhSegments, settings, title, arti
                                 <span className="sm:hidden">←</span>
                             </Link>
                             <span className="shrink-0" style={{ color: 'var(--rt-border)' }}>/</span>
-                            <h1 className="text-base sm:text-lg font-semibold truncate" style={{ color: 'var(--rt-text)' }}>{title}</h1>
+                            <h1 className="text-base sm:text-lg font-semibold truncate" style={{ color: 'var(--rt-text)' }}>{displayTitle}</h1>
+                            {titleJa && (
+                                <button
+                                    type="button"
+                                    onClick={toggleTitleLanguage}
+                                    title={`Toggle title language (currently ${titleLanguage === 'en' ? 'English' : 'Japanese'})`}
+                                    className="ml-1 shrink-0 text-[10px] px-1.5 py-0.5 rounded border transition-colors leading-none"
+                                    style={{
+                                        backgroundColor: titleLanguage === 'ja' ? '#3b82f6' : 'var(--rt-surface)',
+                                        borderColor: titleLanguage === 'ja' ? '#3b82f6' : 'var(--rt-border)',
+                                        color: titleLanguage === 'ja' ? '#fff' : 'var(--rt-text-muted)',
+                                    }}
+                                >
+                                    {titleLanguage === 'en' ? '日' : 'EN'}
+                                </button>
+                            )}
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">

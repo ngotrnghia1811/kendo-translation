@@ -11,6 +11,7 @@ import { useParams } from 'next/navigation';
 interface ArticleInfo {
     id: string;
     title: string;
+    title_ja?: string | null;
     segment_count: number | null;
     segmented: boolean | null;
     translation_status: string | null;

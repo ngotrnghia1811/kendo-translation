@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { Article } from '@/types/database'
 import type { SortBy, SortDir } from '@/lib/supabase/feed-cursor'
+import { useTitleLanguage } from '@/hooks/useTitleLanguage'
 
 type StatusFilter = 'all' | 'in_progress' | 'complete'
 
@@ -54,6 +55,9 @@ export default function DocumentsList({ articles, userEmail, nextCursor, current
   const router = useRouter()
   const searchParams = useSearchParams()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ── Bilingual title toggle ──────────────────────────────────────────────
+  const { titleLanguage, toggleTitleLanguage } = useTitleLanguage()
 
   // Sync search input with URL when searchTerm prop changes (e.g. back-button)
   useEffect(() => {
@@ -184,7 +188,26 @@ export default function DocumentsList({ articles, userEmail, nextCursor, current
                 <div key={doc.id} className="rounded-xl border p-4 sm:p-5 bg-[var(--rt-surface)] border-[var(--rt-border)] hover:border-[var(--rt-text-muted)] transition-colors">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-[var(--rt-text)] truncate">{doc.title}</h3>
+                      <div className="flex items-center gap-1">
+                        <h3 className="font-semibold text-[var(--rt-text)] truncate">
+                          {titleLanguage === 'ja' && doc.title_ja ? doc.title_ja : doc.title}
+                        </h3>
+                        {doc.title_ja && (
+                          <button
+                            type="button"
+                            onClick={toggleTitleLanguage}
+                            title={`Toggle title language (currently ${titleLanguage === 'en' ? 'English' : 'Japanese'})`}
+                            className="shrink-0 text-[10px] px-1.5 py-0.5 rounded border transition-colors leading-none"
+                            style={{
+                              backgroundColor: titleLanguage === 'ja' ? '#3b82f6' : 'var(--rt-surface)',
+                              borderColor: titleLanguage === 'ja' ? '#3b82f6' : 'var(--rt-border)',
+                              color: titleLanguage === 'ja' ? '#fff' : 'var(--rt-text-muted)',
+                            }}
+                          >
+                            {titleLanguage === 'en' ? '日' : 'EN'}
+                          </button>
+                        )}
+                      </div>
                       <div className="flex flex-wrap items-center gap-2 mt-2">
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                           doc.translation_status === 'complete' || doc.translation_status === 'qa_approved'
