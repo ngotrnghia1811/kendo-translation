@@ -13,6 +13,9 @@ interface ArticleInfo {
     id: string;
     title: string;
     title_ja?: string | null;
+    doc_type?: string | null;
+    author?: string | null;
+    summary?: string | null;
     segment_count: number | null;
     segmented: boolean | null;
     translation_status: string | null;
@@ -238,6 +241,15 @@ export default function AdminDocDetailPage() {
                 <div>
                     <div className="flex items-center gap-2">
                         <h1 className="text-2xl font-bold text-[var(--color-text)]">{displayTitle}</h1>
+                        {article.doc_type && (
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                                article.doc_type === 'book'
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : 'bg-gray-100 text-gray-600'
+                            }`}>
+                                {article.doc_type === 'book' ? 'Book' : 'Article'}
+                            </span>
+                        )}
                         {article.title_ja && (
                             <button
                                 type="button"
@@ -254,6 +266,21 @@ export default function AdminDocDetailPage() {
                             </button>
                         )}
                     </div>
+                    {/* Book metadata: author + summary (read-only display) */}
+                    {article.doc_type === 'book' && (article.author || article.summary) && (
+                        <div className="mt-2 border-l-2 border-amber-300 pl-2.5 max-w-xl">
+                            {article.author && (
+                                <p className="text-xs text-[var(--color-text-muted)]">
+                                    <span className="font-medium text-[var(--color-text)]">Author:</span> {article.author}
+                                </p>
+                            )}
+                            {article.summary && (
+                                <p className="text-xs text-[var(--color-text-muted)] leading-relaxed mt-1">
+                                    {article.summary}
+                                </p>
+                            )}
+                        </div>
+                    )}
                     <p className="text-xs text-[var(--color-text-muted)] font-mono mt-0.5">{article.id}</p>
                     {article.updated_at && (
                         <p className="text-xs text-[var(--color-text-muted)] mt-1">

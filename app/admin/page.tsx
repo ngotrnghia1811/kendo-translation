@@ -467,6 +467,15 @@ export default function AdminPage() {
                             <tr key={doc.id} className="border-b border-[var(--rt-border)]" data-testid="admin-document-row" data-doc-id={doc.id}>
                                 <td className="p-3 text-sm text-[var(--rt-text)] truncate max-w-xs">
                                     <span className="inline-flex items-center gap-1">
+                                        {doc.doc_type && (
+                                            <span className={`shrink-0 text-[10px] px-1 py-0.5 rounded font-medium leading-none ${
+                                                doc.doc_type === 'book'
+                                                    ? 'bg-amber-100 text-amber-700'
+                                                    : 'bg-gray-100 text-gray-500'
+                                            }`}>
+                                                {doc.doc_type === 'book' ? 'Bk' : 'Ar'}
+                                            </span>
+                                        )}
                                         <span className="truncate">{titleLanguage === 'ja' && doc.title_ja ? doc.title_ja : doc.title}</span>
                                         {doc.title_ja && (
                                             <button
