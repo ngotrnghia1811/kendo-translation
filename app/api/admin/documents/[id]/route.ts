@@ -31,7 +31,7 @@ export async function GET(
     // Fetch article metadata
     const { data: article, error: artErr } = await supabase
         .from('articles')
-        .select('id, title, title_ja, segment_count, segmented, translation_status, updated_at')
+        .select('id, title, title_ja, doc_type, author, summary, segment_count, segmented, translation_status, updated_at')
         .eq('id', documentId)
         .maybeSingle();
 

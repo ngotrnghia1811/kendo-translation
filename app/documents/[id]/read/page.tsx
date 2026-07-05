@@ -240,7 +240,7 @@ async function CachedArticleContent({
   articleId: string;
   publishFilter: string;
   isBot: boolean;
-  article: { id: string; title: string; title_ja?: string | null; paired_pdf_path?: string | null };
+  article: { id: string; title: string; title_ja?: string | null; paired_pdf_path?: string | null; doc_type?: string | null; author?: string | null; summary?: string | null };
   canEdit: boolean;
   settings: DocumentSettings | null;
 }) {
@@ -312,6 +312,9 @@ async function CachedArticleContent({
           settings={settings ?? null}
           title={article.title}
           titleJa={article.title_ja ?? null}
+          docType={article.doc_type ?? null}
+          author={article.author ?? null}
+          summary={article.summary ?? null}
           articleId={articleId}
           canEdit={canEdit}
           pairedPdfPath={article.paired_pdf_path ?? null}

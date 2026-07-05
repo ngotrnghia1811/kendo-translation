@@ -52,6 +52,7 @@ interface DocumentsListProps {
 export default function DocumentsList({ articles, userEmail, nextCursor, currentSortBy = 'created_at', currentSortDir = 'desc', searchTerm = null }: DocumentsListProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [searchQuery, setSearchQuery] = useState(searchTerm ?? '')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -189,9 +190,28 @@ export default function DocumentsList({ articles, userEmail, nextCursor, current
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">
-                        <h3 className="font-semibold text-[var(--rt-text)] truncate">
-                          {titleLanguage === 'ja' && doc.title_ja ? doc.title_ja : doc.title}
-                        </h3>
+                        {/* Expand affordance for books — clickable title to reveal author + summary */}
+                        {doc.doc_type === 'book' && (doc.author || doc.summary) ? (
+                          <button
+                            type="button"
+                            onClick={() => setExpandedId(expandedId === doc.id ? null : doc.id)}
+                            className="flex items-center gap-1 text-left group min-w-0"
+                          >
+                            <h3 className="font-semibold text-[var(--rt-text)] truncate group-hover:text-blue-600 transition-colors">
+                              {titleLanguage === 'ja' && doc.title_ja ? doc.title_ja : doc.title}
+                            </h3>
+                            <svg
+                              className={`w-3.5 h-3.5 shrink-0 text-[var(--rt-text-muted)] transition-transform ${expandedId === doc.id ? 'rotate-180' : ''}`}
+                              fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                            </svg>
+                          </button>
+                        ) : (
+                          <h3 className="font-semibold text-[var(--rt-text)] truncate">
+                            {titleLanguage === 'ja' && doc.title_ja ? doc.title_ja : doc.title}
+                          </h3>
+                        )}
                         {doc.title_ja && (
                           <button
                             type="button"
@@ -222,6 +242,21 @@ export default function DocumentsList({ articles, userEmail, nextCursor, current
                           <span className="text-xs text-[var(--rt-text-muted)]">{doc.segment_count} segments</span>
                         )}
                       </div>
+                      {/* Expandable author + summary for books */}
+                      {doc.doc_type === 'book' && expandedId === doc.id && (
+                        <div className="mt-2 pl-1 border-l-2 border-blue-300 dark:border-blue-700">
+                          {doc.author && (
+                            <p className="text-xs text-[var(--rt-text-muted)] mb-1">
+                              <span className="font-medium">Author:</span> {doc.author}
+                            </p>
+                          )}
+                          {doc.summary && (
+                            <p className="text-xs text-[var(--rt-text-muted)] leading-relaxed">
+                              {doc.summary}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <Link

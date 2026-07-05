@@ -15,6 +15,12 @@ export interface Article {
   title: string
   /** Japanese title (bilingual titles feature). Null if not yet translated. */
   title_ja?: string | null
+  /** Document classification: 'book' (compilation/long-form) or 'article' (single piece). */
+  doc_type?: string | null
+  /** Author name(s) for books. Null for articles. */
+  author?: string | null
+  /** Concise summary paragraph for books. Null for articles. */
+  summary?: string | null
   content_ja: string | null
   content_en: string | null
   // NOTE: `status` was previously declared here but was never present in the

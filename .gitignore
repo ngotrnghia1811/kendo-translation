@@ -59,6 +59,9 @@ scripts/vision-qa*.mjs
 scripts/_dbping.ts
 scripts/check_db.ts
 
+# supabase CLI local project state (machine-specific, auto-generated)
+supabase/.temp/
+
 # supabase dashboard recon (archived; contains real session cookie)
 # Allowlist the .ts helpers; keep screenshots/JSON/TXT (which may carry
 # session cookies, PATs, or IPs) local-only.

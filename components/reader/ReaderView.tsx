@@ -33,6 +33,12 @@ interface ReaderViewProps {
     title: string
     /** Japanese title for bilingual title display. Null if not available. */
     titleJa?: string | null
+    /** Document type: 'book' or 'article'. */
+    docType?: string | null
+    /** Author name(s) for books. */
+    author?: string | null
+    /** Concise summary for books. */
+    summary?: string | null
     articleId: string
     canEdit: boolean
     /** Relative path to the paired PDF (from DB). When non-null, a "PDF" tab is shown. */
@@ -163,7 +169,7 @@ function ToolbarButton({
 // Main component
 // ---------------------------------------------------------------------------
 
-export default function ReaderView({ segments, zhSegments, settings, title, titleJa, articleId, canEdit, pairedPdfPath, totalSegmentsHint, pageMetadataHint, zhCountHint, prevArticleHref, nextArticleHref, publishFilter }: ReaderViewProps) {
+export default function ReaderView({ segments, zhSegments, settings, title, titleJa, docType, author, summary, articleId, canEdit, pairedPdfPath, totalSegmentsHint, pageMetadataHint, zhCountHint, prevArticleHref, nextArticleHref, publishFilter }: ReaderViewProps) {
     // ── Lazy page cache ─────────────────────────────────────────────────
     // In lazy mode (totalSegmentsHint provided), the server only sends page 1.
     // We maintain a cache of loaded segments that grows as pages are fetched
@@ -1051,6 +1057,22 @@ export default function ReaderView({ segments, zhSegments, settings, title, titl
                             </div>
                         </div>
                     </div>
+
+                    {/* Book metadata: author + summary (static, not expandable) */}
+                    {docType === 'book' && (author || summary) && (
+                        <div className="mb-3 border-l-2 border-blue-300 dark:border-blue-700 pl-2">
+                            {author && (
+                                <p className="text-[11px]" style={{ color: 'var(--rt-text-muted)' }}>
+                                    <span className="font-medium">Author:</span> {author}
+                                </p>
+                            )}
+                            {summary && (
+                                <p className="text-[11px] leading-relaxed mt-0.5" style={{ color: 'var(--rt-text-muted)' }}>
+                                    {summary}
+                                </p>
+                            )}
+                        </div>
+                    )}
 
                     {/* Second row: mode tabs + language selector + pager */}
                     <div className="flex items-center justify-between flex-wrap gap-3">

@@ -20,6 +20,9 @@ interface DocInfo {
     id: string
     title: string
     title_ja?: string | null
+    doc_type?: string | null
+    author?: string | null
+    summary?: string | null
     segmented?: boolean
     progress?: { percentage?: number }
     publish_filter?: string
