@@ -67,3 +67,5 @@ supabase/.temp/
 # session cookies, PATs, or IPs) local-only.
 /scripts/dashboard-recon/*
 !/scripts/dashboard-recon/*.ts
+*.backup
+db_cluster-*.backup

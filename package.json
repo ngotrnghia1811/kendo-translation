@@ -35,6 +35,7 @@
     "kuroshiro": "^1.2.0",
     "kuroshiro-analyzer-kuromoji": "^1.1.0",
     "pg": "^8.20.0",
+    "pocketbase": "^0.27.1",
     "sudachi-wasm333": "^1.0.4",
     "tailwindcss": "^4.0.0",
     "typescript": "^5",
