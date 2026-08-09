@@ -36,11 +36,11 @@ export async function logAgentCall(log: Omit<AgentLog, 'id' | 'timestamp'>): Pro
   if (agentLogs.length > MAX_LOGS) agentLogs.pop();
 
   try {
-    const { createClient } = await import('@/lib/supabase/server');
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { createServerClient } = await import('@/lib/pocketbase/server');
+    const pb = await createServerClient();
+    const user = pb.authStore.record;
 
-    await supabase.from('agent_logs').insert({
+    await pb.collection('agent_logs').create({
       user_id: user?.id || null,
       agent_type: log.agentType,
       model: log.model,

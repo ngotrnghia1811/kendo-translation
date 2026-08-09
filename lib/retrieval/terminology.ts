@@ -3,7 +3,7 @@
  * Layer 3: Terminology database integration with enforcement rules
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import PocketBase from 'pocketbase';
 
 export interface TermEntry {
   id: string;
@@ -91,40 +91,30 @@ function normalizeTermType(raw?: string): TermEntry['type'] {
 }
 
 export async function searchTerminology(
-  supabase: SupabaseClient,
+  pb: PocketBase,
   options: TermSearchOptions
 ): Promise<TermSearchResult> {
   const { text, sourceLang, domain } = options;
 
   let dbTerms: TermEntry[] = [];
   try {
-    // 005: query terminology_active_view, which exposes promotion_eligible.
-    // Column names map to the real schema (source_term/target_term/term_type);
-    // the prior code read japanese_term/english_term/type/part_of_speech/
-    // alternatives/confidence, NONE of which exist — so the DB path was dead
-    // and silently fell back to the built-in list below.
-    let query = supabase.from('terminology_active_view').select('*');
-    if (domain) query = query.eq('domain', domain);
+    let filter = '';
+    if (domain) filter = `domain = "${domain}"`;
 
-    const { data, error } = await query.limit(500);
+    const records = await pb.collection('terminology').getFullList<{
+      id: string; source_term: string; target_term: string;
+      domain?: string; reading?: string; notes?: string;
+    }>({ filter: filter || undefined });
 
-    if (!error && data) {
-      dbTerms = data.map((row: {
-        id: string; source_term: string; target_term: string;
-        domain?: string; term_type?: string; reading?: string;
-        notes?: string; promotion_eligible?: boolean;
-      }) => ({
-        id: row.id,
-        japaneseTerm: row.source_term,
-        englishTerm: row.target_term,
-        domain: row.domain || 'general',
-        type: normalizeTermType(row.term_type),
-        // part_of_speech / alternatives are not in the schema; left undefined.
-        notes: row.reading ? `${row.reading}${row.notes ? ` — ${row.notes}` : ''}` : row.notes,
-        // No confidence column; promoted/eligible terms are treated as canonical.
-        confidence: row.promotion_eligible ? 1.0 : 0.8,
-      }));
-    }
+    dbTerms = records.map((row) => ({
+      id: row.id,
+      japaneseTerm: row.source_term,
+      englishTerm: row.target_term,
+      domain: row.domain || 'general',
+      type: 'preferred' as const,
+      notes: row.reading ? `${row.reading}${row.notes ? ` — ${row.notes}` : ''}` : (row.notes || undefined),
+      confidence: 0.8,
+    }));
   } catch (err) {
     console.error('Terminology DB error:', err);
   }

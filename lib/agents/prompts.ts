@@ -3,7 +3,7 @@
  * Manages fetching and resolving prompt templates from Database or fallback defaults.
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/pocketbase/server';
 
 export interface PromptTemplate {
   id?: string;
@@ -95,23 +95,21 @@ export async function getPromptTemplate(agentType: string, approach?: string): P
   }
 
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const pb = await createServerClient();
+    const user = pb.authStore.record;
 
     if (user) {
-      let query = supabase
-        .from('agent_prompts')
-        .select('template')
-        .eq('user_id', user.id)
-        .eq('agent_type', agentType);
-
+      let filter = `user_id = "${user.id}" && agent_type = "${agentType}"`;
       if (approach) {
-        query = query.eq('approach', approach);
+        filter += ` && approach = "${approach}"`;
       } else {
-        query = query.is('approach', null);
+        filter += ` && approach = null`;
       }
 
-      const { data } = await query.single();
+      const records = await pb.collection('agent_prompts').getFullList<{ template: string }>({
+        filter,
+      });
+      const data = records.length > 0 ? records[0] : null;
       if (data?.template) {
         promptCache[cacheKey] = { template: data.template, timestamp: now };
         return data.template;

@@ -8,7 +8,7 @@
  *   - Terms already annotated in this article's accepted segments
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import PocketBase from 'pocketbase';
 
 export interface NeighbourSegment {
   id: string;
@@ -86,51 +86,36 @@ function toNeighbour(
 }
 
 export async function buildArticleL2Context(
-  supabase: SupabaseClient,
+  pb: PocketBase,
   segmentId: string,
   articleId: string,
   segmentPosition: number,
 ): Promise<ArticleL2Context> {
   // ── Parallel fetch of all L2 data sources ────────────────────────
-  const titleP = supabase
-    .from('articles')
-    .select('title')
-    .eq('id', articleId)
-    .maybeSingle();
-
-  const prevP = supabase
-    .from('segments')
-    .select('id, position, source_text, target_text, status')
-    .eq('article_id', articleId)
-    .eq('position', segmentPosition - 1)
-    .maybeSingle();
-
-  const nextP = supabase
-    .from('segments')
-    .select('id, position, source_text, target_text, status')
-    .eq('article_id', articleId)
-    .eq('position', segmentPosition + 1)
-    .maybeSingle();
-
-  const termsP = supabase
-    .from('terminology_active_view')
-    .select('source_term')
-    .limit(1000);
-
-  const segsP = supabase
-    .from('segments')
-    .select('id, target_text')
-    .eq('article_id', articleId)
-    .in('status', ['edited', 'proofread', 'qa_approved'])
-    .limit(5000);
-
   const [
-    { data: articleData },
-    { data: prevData },
-    { data: nextData },
-    { data: termData },
-    { data: segData },
-  ] = await Promise.all([titleP, prevP, nextP, termsP, segsP]);
+    articleData,
+    prevData,
+    nextData,
+    termData,
+    segData,
+  ] = await Promise.all([
+    pb.collection('articles').getOne(articleId, { fields: 'title' }).catch(() => null),
+    pb.collection('segments').getFullList<{ id: string; position: number; source_text: string | null; target_text: string | null; status: string }>({
+      filter: `article_id = "${articleId}" && position = ${segmentPosition - 1}`,
+      fields: 'id,position,source_text,target_text,status',
+    }).then(arr => arr[0] ?? null).catch(() => null),
+    pb.collection('segments').getFullList<{ id: string; position: number; source_text: string | null; target_text: string | null; status: string }>({
+      filter: `article_id = "${articleId}" && position = ${segmentPosition + 1}`,
+      fields: 'id,position,source_text,target_text,status',
+    }).then(arr => arr[0] ?? null).catch(() => null),
+    pb.collection('terminology').getFullList<{ source_term: string }>({
+      fields: 'source_term',
+    }).catch(() => []),
+    pb.collection('segments').getFullList<{ id: string; target_text: string | null }>({
+      filter: `article_id = "${articleId}" && (status = "edited" || status = "proofread" || status = "qa_approved")`,
+      fields: 'id,target_text',
+    }).catch(() => []),
+  ]);
 
   const documentTitle: string | null = (articleData as { title?: string } | null)?.title ?? null;
 
@@ -138,12 +123,8 @@ export async function buildArticleL2Context(
   const next = toNeighbour(nextData as Parameters<typeof toNeighbour>[0], 'no_successor');
 
   // ── Terms already annotated ──────────────────────────────────────
-  // Check which source_term values from the terminology view already
-  // appear (case-insensitive) in the target_text of accepted segments
-  // in the same article.
   const termsAlreadyAnnotated: string[] = [];
   if (termData && termData.length > 0 && segData && segData.length > 0) {
-    // Exclude the current segment from the set of accepted targets.
     const otherTargets = (segData as Array<{ id: string; target_text: string | null }>).filter(
       (s) => s.id !== segmentId,
     );

@@ -1,9 +1,13 @@
 /**
  * MAC-RAG TM Search Module
  * Layer 3: Fuzzy translation memory matching with semantic similarity
+ *
+ * PocketBase edition: translation_memory table was NOT migrated
+ * (archived as gzipped JSON on the Oracle instance).
+ * TM search always returns empty for now.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import PocketBase from 'pocketbase';
 
 export interface TMMatch {
   id: string;
@@ -13,15 +17,10 @@ export interface TMMatch {
   matchType: 'exact' | 'high' | 'fuzzy' | 'low';
   domain?: string;
   qualityScore?: number;
-  /**
-   * 005 retrieval layer discriminator from tm_search_view:
-   * 'project' (L3 — article-scoped) | 'external' (L4 — global).
-   */
   retrievalLayer?: 'project' | 'external';
   createdAt: string;
   metadata?: {
     articleId?: string;
-    /** feedback_score from tm_search_view — Phase-4b boost signal. */
     feedbackScore?: number;
   };
 }
@@ -108,93 +107,31 @@ function classifyMatch(score: number): TMMatch['matchType'] {
 }
 
 export async function searchTM(
-  supabase: SupabaseClient,
-  options: TMSearchOptions
+  _pb: PocketBase,
+  _options: TMSearchOptions
 ): Promise<TMSearchResult> {
-  const startTime = Date.now();
-  const {
-    sourceText,
-    sourceLang,
-    targetLang,
-    domain,
-    minMatchScore = 50,
-    maxResults = 10,
-    includeExact = true,
-    includeFuzzy = true,
-  } = options;
-
-  try {
-    // 005: query tm_search_view, which filters superseded rows
-    // (is_current) and exposes retrieval_layer (L3 project / L4 external).
-    let query = supabase.from('tm_search_view').select('*');
-    if (domain) query = query.eq('domain', domain);
-    if (sourceLang) query = query.eq('source_lang', sourceLang);
-    if (targetLang) query = query.eq('target_lang', targetLang);
-
-    const { data, error } = await query.limit(200);
-
-    if (error) {
-      console.error('TM search error:', error);
-      return { matches: [], searchTime: Date.now() - startTime, totalCandidates: 0 };
-    }
-
-    if (!data) {
-      return { matches: [], searchTime: Date.now() - startTime, totalCandidates: 0 };
-    }
-
-    const scoredMatches: TMMatch[] = data
-      .map((row: {
-        id: string; source_text: string; target_text: string;
-        domain?: string; quality?: number; last_used_at: string;
-        article_id?: string; feedback_score?: number;
-        retrieval_layer?: 'project' | 'external';
-      }) => {
-        const score = calculateFuzzyScore(sourceText, row.source_text);
-        return {
-          id: row.id,
-          sourceText: row.source_text,
-          targetText: row.target_text,
-          matchPercentage: score,
-          matchType: classifyMatch(score),
-          domain: row.domain,
-          qualityScore: row.quality,
-          retrievalLayer: row.retrieval_layer,
-          createdAt: row.last_used_at,
-          metadata: { articleId: row.article_id, feedbackScore: row.feedback_score },
-        };
-      })
-      .filter((match: TMMatch) => {
-        if (match.matchPercentage < minMatchScore) return false;
-        if (!includeExact && match.matchType === 'exact') return false;
-        if (!includeFuzzy && match.matchType !== 'exact') return false;
-        return true;
-      })
-      .sort((a: TMMatch, b: TMMatch) => b.matchPercentage - a.matchPercentage)
-      .slice(0, maxResults);
-
-    return { matches: scoredMatches, searchTime: Date.now() - startTime, totalCandidates: data.length };
-  } catch (error) {
-    console.error('TM search exception:', error);
-    return { matches: [], searchTime: Date.now() - startTime, totalCandidates: 0 };
-  }
+  // translation_memory table was NOT migrated to PocketBase
+  // (archived as gzipped JSON on the Oracle instance).
+  // TM search always returns empty for now.
+  return { matches: [], searchTime: 0, totalCandidates: 0 };
 }
 
 export async function findExactMatches(
-  supabase: SupabaseClient,
+  pb: PocketBase,
   sourceText: string,
   sourceLang: 'ja' | 'en'
 ): Promise<TMMatch[]> {
-  const result = await searchTM(supabase, { sourceText, sourceLang, minMatchScore: 95, maxResults: 5 });
+  const result = await searchTM(pb, { sourceText, sourceLang, minMatchScore: 95, maxResults: 5 });
   return result.matches;
 }
 
 export async function findFuzzyMatches(
-  supabase: SupabaseClient,
+  pb: PocketBase,
   sourceText: string,
   sourceLang: 'ja' | 'en',
   domain?: string
 ): Promise<TMMatch[]> {
-  const result = await searchTM(supabase, {
+  const result = await searchTM(pb, {
     sourceText, sourceLang, domain, minMatchScore: 70, maxResults: 10, includeExact: false,
   });
   return result.matches;
