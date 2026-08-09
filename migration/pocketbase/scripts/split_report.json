@@ -1,0 +1,1199 @@
+{
+  "generatedAt": "2026-08-09T00:52:08.809Z",
+  "summary": {
+    "totalBooks": 25,
+    "totalSegmentsIn": 366954,
+    "totalSegmentsOut": 366954,
+    "totalChildren": 126,
+    "booksSplit": 11,
+    "booksFallback": 14
+  },
+  "books": {
+    "Kendojidai 2010": {
+      "originalSegmentCount": 29070,
+      "segmentsOut": 29070,
+      "childCount": 7,
+      "fallback": false,
+      "fallbackReason": null,
+      "detector": null,
+      "boundaryCount": 6,
+      "issueCount": 6,
+      "quality": {
+        "childCount": 7,
+        "minSegs": 1153,
+        "maxSegs": 8666,
+        "avgSegs": "4153",
+        "tinyCount": 0,
+        "hugeCount": 0
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Kendojidai 2010 — Front Matter",
+          "segmentCount": 2130,
+          "fallback": "pre_boundary"
+        },
+        {
+          "index": 1,
+          "title": "Kendojidai 2010-07",
+          "segmentCount": 3450,
+          "fallback": null
+        },
+        {
+          "index": 2,
+          "title": "Kendojidai 2010-08",
+          "segmentCount": 5276,
+          "fallback": null
+        },
+        {
+          "index": 3,
+          "title": "Kendojidai 2010-09",
+          "segmentCount": 8666,
+          "fallback": null
+        },
+        {
+          "index": 4,
+          "title": "Kendojidai 2010-10",
+          "segmentCount": 1153,
+          "fallback": null
+        },
+        {
+          "index": 5,
+          "title": "Kendojidai 2010-11",
+          "segmentCount": 5182,
+          "fallback": null
+        },
+        {
+          "index": 6,
+          "title": "Kendojidai 2010-12",
+          "segmentCount": 3213,
+          "fallback": null
+        }
+      ]
+    },
+    "Kendojidai 2011": {
+      "originalSegmentCount": 60027,
+      "segmentsOut": 60027,
+      "childCount": 12,
+      "fallback": false,
+      "fallbackReason": null,
+      "detector": null,
+      "boundaryCount": 11,
+      "issueCount": 11,
+      "quality": {
+        "childCount": 12,
+        "minSegs": 2,
+        "maxSegs": 9964,
+        "avgSegs": "5002",
+        "tinyCount": 1,
+        "hugeCount": 0
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Kendojidai 2011 — Front Matter",
+          "segmentCount": 1075,
+          "fallback": "pre_boundary"
+        },
+        {
+          "index": 1,
+          "title": "Kendojidai 2011-01",
+          "segmentCount": 7078,
+          "fallback": null
+        },
+        {
+          "index": 2,
+          "title": "Kendojidai 2011-02",
+          "segmentCount": 7748,
+          "fallback": null
+        },
+        {
+          "index": 3,
+          "title": "Kendojidai 2011-03",
+          "segmentCount": 6442,
+          "fallback": null
+        },
+        {
+          "index": 4,
+          "title": "Kendojidai 2011-05",
+          "segmentCount": 3646,
+          "fallback": null
+        },
+        {
+          "index": 5,
+          "title": "Kendojidai 2011-06",
+          "segmentCount": 6750,
+          "fallback": null
+        },
+        {
+          "index": 6,
+          "title": "Kendojidai 2011-07",
+          "segmentCount": 4166,
+          "fallback": null
+        },
+        {
+          "index": 7,
+          "title": "Kendojidai 2011-08",
+          "segmentCount": 4218,
+          "fallback": null
+        },
+        {
+          "index": 8,
+          "title": "Kendojidai 2011-09",
+          "segmentCount": 9964,
+          "fallback": null
+        },
+        {
+          "index": 9,
+          "title": "Kendojidai 2011-10",
+          "segmentCount": 3185,
+          "fallback": null
+        },
+        {
+          "index": 10,
+          "title": "Kendojidai 2011-11",
+          "segmentCount": 5753,
+          "fallback": null
+        },
+        {
+          "index": 11,
+          "title": "Kendojidai 2011-12",
+          "segmentCount": 2,
+          "fallback": null
+        }
+      ]
+    },
+    "Kendojidai 2012": {
+      "originalSegmentCount": 40614,
+      "segmentsOut": 40614,
+      "childCount": 13,
+      "fallback": false,
+      "fallbackReason": null,
+      "detector": null,
+      "boundaryCount": 12,
+      "issueCount": 12,
+      "quality": {
+        "childCount": 13,
+        "minSegs": 1282,
+        "maxSegs": 5381,
+        "avgSegs": "3124",
+        "tinyCount": 0,
+        "hugeCount": 0
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Kendojidai 2012 — Front Matter",
+          "segmentCount": 4231,
+          "fallback": "pre_boundary"
+        },
+        {
+          "index": 1,
+          "title": "Kendojidai 2012-01",
+          "segmentCount": 2724,
+          "fallback": null
+        },
+        {
+          "index": 2,
+          "title": "Kendojidai 2012-02",
+          "segmentCount": 4558,
+          "fallback": null
+        },
+        {
+          "index": 3,
+          "title": "Kendojidai 2012-03",
+          "segmentCount": 5381,
+          "fallback": null
+        },
+        {
+          "index": 4,
+          "title": "Kendojidai 2012-04",
+          "segmentCount": 2069,
+          "fallback": null
+        },
+        {
+          "index": 5,
+          "title": "Kendojidai 2012-05",
+          "segmentCount": 3498,
+          "fallback": null
+        },
+        {
+          "index": 6,
+          "title": "Kendojidai 2012-06",
+          "segmentCount": 2500,
+          "fallback": null
+        },
+        {
+          "index": 7,
+          "title": "Kendojidai 2012-07",
+          "segmentCount": 1282,
+          "fallback": null
+        },
+        {
+          "index": 8,
+          "title": "Kendojidai 2012-08",
+          "segmentCount": 3557,
+          "fallback": null
+        },
+        {
+          "index": 9,
+          "title": "Kendojidai 2012-09",
+          "segmentCount": 1416,
+          "fallback": null
+        },
+        {
+          "index": 10,
+          "title": "Kendojidai 2012-10",
+          "segmentCount": 3538,
+          "fallback": null
+        },
+        {
+          "index": 11,
+          "title": "Kendojidai 2012-11",
+          "segmentCount": 4414,
+          "fallback": null
+        },
+        {
+          "index": 12,
+          "title": "Kendojidai 2012-12",
+          "segmentCount": 1446,
+          "fallback": null
+        }
+      ]
+    },
+    "Kendojidai 2013": {
+      "originalSegmentCount": 35749,
+      "segmentsOut": 35749,
+      "childCount": 12,
+      "fallback": false,
+      "fallbackReason": null,
+      "detector": null,
+      "boundaryCount": 11,
+      "issueCount": 11,
+      "quality": {
+        "childCount": 12,
+        "minSegs": 11,
+        "maxSegs": 6596,
+        "avgSegs": "2979",
+        "tinyCount": 0,
+        "hugeCount": 0
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Kendojidai 2013 — Front Matter",
+          "segmentCount": 1600,
+          "fallback": "pre_boundary"
+        },
+        {
+          "index": 1,
+          "title": "Kendojidai 2013-01",
+          "segmentCount": 6596,
+          "fallback": null
+        },
+        {
+          "index": 2,
+          "title": "Kendojidai 2013-02",
+          "segmentCount": 3548,
+          "fallback": null
+        },
+        {
+          "index": 3,
+          "title": "Kendojidai 2013-03",
+          "segmentCount": 3103,
+          "fallback": null
+        },
+        {
+          "index": 4,
+          "title": "Kendojidai 2013-04",
+          "segmentCount": 3097,
+          "fallback": null
+        },
+        {
+          "index": 5,
+          "title": "Kendojidai 2013-05",
+          "segmentCount": 4633,
+          "fallback": null
+        },
+        {
+          "index": 6,
+          "title": "Kendojidai 2013-06",
+          "segmentCount": 3887,
+          "fallback": null
+        },
+        {
+          "index": 7,
+          "title": "Kendojidai 2013-07",
+          "segmentCount": 2541,
+          "fallback": null
+        },
+        {
+          "index": 8,
+          "title": "Kendojidai 2013-08",
+          "segmentCount": 2961,
+          "fallback": null
+        },
+        {
+          "index": 9,
+          "title": "Kendojidai 2013-09",
+          "segmentCount": 249,
+          "fallback": null
+        },
+        {
+          "index": 10,
+          "title": "Kendojidai 2013-10",
+          "segmentCount": 3523,
+          "fallback": null
+        },
+        {
+          "index": 11,
+          "title": "Kendojidai 2013-12",
+          "segmentCount": 11,
+          "fallback": null
+        }
+      ]
+    },
+    "Kendojidai 2014": {
+      "originalSegmentCount": 22162,
+      "segmentsOut": 22162,
+      "childCount": 12,
+      "fallback": false,
+      "fallbackReason": null,
+      "detector": null,
+      "boundaryCount": 11,
+      "issueCount": 11,
+      "quality": {
+        "childCount": 12,
+        "minSegs": 441,
+        "maxSegs": 3730,
+        "avgSegs": "1847",
+        "tinyCount": 0,
+        "hugeCount": 0
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Kendojidai 2014 — Front Matter",
+          "segmentCount": 441,
+          "fallback": "pre_boundary"
+        },
+        {
+          "index": 1,
+          "title": "Kendojidai 2014-01",
+          "segmentCount": 2602,
+          "fallback": null
+        },
+        {
+          "index": 2,
+          "title": "Kendojidai 2014-02",
+          "segmentCount": 716,
+          "fallback": null
+        },
+        {
+          "index": 3,
+          "title": "Kendojidai 2014-03",
+          "segmentCount": 2925,
+          "fallback": null
+        },
+        {
+          "index": 4,
+          "title": "Kendojidai 2014-04",
+          "segmentCount": 1133,
+          "fallback": null
+        },
+        {
+          "index": 5,
+          "title": "Kendojidai 2014-05",
+          "segmentCount": 1685,
+          "fallback": null
+        },
+        {
+          "index": 6,
+          "title": "Kendojidai 2014-06",
+          "segmentCount": 3730,
+          "fallback": null
+        },
+        {
+          "index": 7,
+          "title": "Kendojidai 2014-08",
+          "segmentCount": 1428,
+          "fallback": null
+        },
+        {
+          "index": 8,
+          "title": "Kendojidai 2014-09",
+          "segmentCount": 1820,
+          "fallback": null
+        },
+        {
+          "index": 9,
+          "title": "Kendojidai 2014-10",
+          "segmentCount": 1623,
+          "fallback": null
+        },
+        {
+          "index": 10,
+          "title": "Kendojidai 2014-11",
+          "segmentCount": 3348,
+          "fallback": null
+        },
+        {
+          "index": 11,
+          "title": "Kendojidai 2014-12",
+          "segmentCount": 711,
+          "fallback": null
+        }
+      ]
+    },
+    "Kendojidai 2015": {
+      "originalSegmentCount": 20670,
+      "segmentsOut": 20670,
+      "childCount": 10,
+      "fallback": false,
+      "fallbackReason": null,
+      "detector": null,
+      "boundaryCount": 9,
+      "issueCount": 9,
+      "quality": {
+        "childCount": 10,
+        "minSegs": 224,
+        "maxSegs": 3293,
+        "avgSegs": "2067",
+        "tinyCount": 0,
+        "hugeCount": 0
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Kendojidai 2015 — Front Matter",
+          "segmentCount": 902,
+          "fallback": "pre_boundary"
+        },
+        {
+          "index": 1,
+          "title": "Kendojidai 2015-01",
+          "segmentCount": 2875,
+          "fallback": null
+        },
+        {
+          "index": 2,
+          "title": "Kendojidai 2015-02",
+          "segmentCount": 751,
+          "fallback": null
+        },
+        {
+          "index": 3,
+          "title": "Kendojidai 2015-03",
+          "segmentCount": 1926,
+          "fallback": null
+        },
+        {
+          "index": 4,
+          "title": "Kendojidai 2015-04",
+          "segmentCount": 2454,
+          "fallback": null
+        },
+        {
+          "index": 5,
+          "title": "Kendojidai 2015-05",
+          "segmentCount": 2977,
+          "fallback": null
+        },
+        {
+          "index": 6,
+          "title": "Kendojidai 2015-07",
+          "segmentCount": 3293,
+          "fallback": null
+        },
+        {
+          "index": 7,
+          "title": "Kendojidai 2015-08",
+          "segmentCount": 224,
+          "fallback": null
+        },
+        {
+          "index": 8,
+          "title": "Kendojidai 2015-09",
+          "segmentCount": 2620,
+          "fallback": null
+        },
+        {
+          "index": 9,
+          "title": "Kendojidai 2015-10",
+          "segmentCount": 2648,
+          "fallback": null
+        }
+      ]
+    },
+    "Kendojidai 2016": {
+      "originalSegmentCount": 21092,
+      "segmentsOut": 21092,
+      "childCount": 12,
+      "fallback": false,
+      "fallbackReason": null,
+      "detector": null,
+      "boundaryCount": 11,
+      "issueCount": 11,
+      "quality": {
+        "childCount": 12,
+        "minSegs": 409,
+        "maxSegs": 3221,
+        "avgSegs": "1758",
+        "tinyCount": 0,
+        "hugeCount": 0
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Kendojidai 2016 — Front Matter",
+          "segmentCount": 624,
+          "fallback": "pre_boundary"
+        },
+        {
+          "index": 1,
+          "title": "Kendojidai 2016-01",
+          "segmentCount": 2998,
+          "fallback": null
+        },
+        {
+          "index": 2,
+          "title": "Kendojidai 2016-02",
+          "segmentCount": 1665,
+          "fallback": null
+        },
+        {
+          "index": 3,
+          "title": "Kendojidai 2016-03",
+          "segmentCount": 3221,
+          "fallback": null
+        },
+        {
+          "index": 4,
+          "title": "Kendojidai 2016-04",
+          "segmentCount": 987,
+          "fallback": null
+        },
+        {
+          "index": 5,
+          "title": "Kendojidai 2016-05",
+          "segmentCount": 1725,
+          "fallback": null
+        },
+        {
+          "index": 6,
+          "title": "Kendojidai 2016-06",
+          "segmentCount": 1519,
+          "fallback": null
+        },
+        {
+          "index": 7,
+          "title": "Kendojidai 2016-07",
+          "segmentCount": 1499,
+          "fallback": null
+        },
+        {
+          "index": 8,
+          "title": "Kendojidai 2016-08",
+          "segmentCount": 2313,
+          "fallback": null
+        },
+        {
+          "index": 9,
+          "title": "Kendojidai 2016-09",
+          "segmentCount": 2656,
+          "fallback": null
+        },
+        {
+          "index": 10,
+          "title": "Kendojidai 2016-10",
+          "segmentCount": 1476,
+          "fallback": null
+        },
+        {
+          "index": 11,
+          "title": "Kendojidai 2016-11",
+          "segmentCount": 409,
+          "fallback": null
+        }
+      ]
+    },
+    "Kendojidai 2017": {
+      "originalSegmentCount": 21030,
+      "segmentsOut": 21030,
+      "childCount": 12,
+      "fallback": false,
+      "fallbackReason": null,
+      "detector": null,
+      "boundaryCount": 11,
+      "issueCount": 11,
+      "quality": {
+        "childCount": 12,
+        "minSegs": 646,
+        "maxSegs": 4053,
+        "avgSegs": "1753",
+        "tinyCount": 0,
+        "hugeCount": 0
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Kendojidai 2017 — Front Matter",
+          "segmentCount": 892,
+          "fallback": "pre_boundary"
+        },
+        {
+          "index": 1,
+          "title": "Kendojidai 2017-01",
+          "segmentCount": 4053,
+          "fallback": null
+        },
+        {
+          "index": 2,
+          "title": "Kendojidai 2017-02",
+          "segmentCount": 1409,
+          "fallback": null
+        },
+        {
+          "index": 3,
+          "title": "Kendojidai 2017-03",
+          "segmentCount": 646,
+          "fallback": null
+        },
+        {
+          "index": 4,
+          "title": "Kendojidai 2017-04",
+          "segmentCount": 1891,
+          "fallback": null
+        },
+        {
+          "index": 5,
+          "title": "Kendojidai 2017-05",
+          "segmentCount": 1667,
+          "fallback": null
+        },
+        {
+          "index": 6,
+          "title": "Kendojidai 2017-06",
+          "segmentCount": 3146,
+          "fallback": null
+        },
+        {
+          "index": 7,
+          "title": "Kendojidai 2017-08",
+          "segmentCount": 1267,
+          "fallback": null
+        },
+        {
+          "index": 8,
+          "title": "Kendojidai 2017-09",
+          "segmentCount": 1228,
+          "fallback": null
+        },
+        {
+          "index": 9,
+          "title": "Kendojidai 2017-10",
+          "segmentCount": 1853,
+          "fallback": null
+        },
+        {
+          "index": 10,
+          "title": "Kendojidai 2017-11",
+          "segmentCount": 1738,
+          "fallback": null
+        },
+        {
+          "index": 11,
+          "title": "Kendojidai 2017-12",
+          "segmentCount": 1240,
+          "fallback": null
+        }
+      ]
+    },
+    "Kendojidai 2018": {
+      "originalSegmentCount": 6720,
+      "segmentsOut": 6720,
+      "childCount": 5,
+      "fallback": false,
+      "fallbackReason": null,
+      "detector": null,
+      "boundaryCount": 4,
+      "issueCount": 4,
+      "quality": {
+        "childCount": 5,
+        "minSegs": 297,
+        "maxSegs": 2230,
+        "avgSegs": "1344",
+        "tinyCount": 0,
+        "hugeCount": 0
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Kendojidai 2018 — Front Matter",
+          "segmentCount": 297,
+          "fallback": "pre_boundary"
+        },
+        {
+          "index": 1,
+          "title": "Kendojidai 2018-01",
+          "segmentCount": 2230,
+          "fallback": null
+        },
+        {
+          "index": 2,
+          "title": "Kendojidai 2018-02",
+          "segmentCount": 2193,
+          "fallback": null
+        },
+        {
+          "index": 3,
+          "title": "Kendojidai 2018-03",
+          "segmentCount": 1447,
+          "fallback": null
+        },
+        {
+          "index": 4,
+          "title": "Kendojidai 2018-04",
+          "segmentCount": 553,
+          "fallback": null
+        }
+      ]
+    },
+    "Kendo Friendly Conversations": {
+      "originalSegmentCount": 6482,
+      "segmentsOut": 6482,
+      "childCount": 1,
+      "fallback": true,
+      "fallbackReason": "No reliable chapter boundaries detected",
+      "detector": null,
+      "boundaryCount": 0,
+      "issueCount": 0,
+      "quality": {
+        "childCount": 1
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Kendo Friendly Conversations",
+          "segmentCount": 6482,
+          "fallback": "no_boundaries"
+        }
+      ]
+    },
+    "Men Kendo": {
+      "originalSegmentCount": 12138,
+      "segmentsOut": 12138,
+      "childCount": 1,
+      "fallback": true,
+      "fallbackReason": "No reliable chapter boundaries detected",
+      "detector": null,
+      "boundaryCount": 0,
+      "issueCount": 0,
+      "quality": {
+        "childCount": 1
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Men Kendo",
+          "segmentCount": 12138,
+          "fallback": "no_boundaries"
+        }
+      ]
+    },
+    "Fudochi Shinmyoroku": {
+      "originalSegmentCount": 5193,
+      "segmentsOut": 5193,
+      "childCount": 1,
+      "fallback": true,
+      "fallbackReason": "No reliable chapter boundaries detected",
+      "detector": null,
+      "boundaryCount": 0,
+      "issueCount": 0,
+      "quality": {
+        "childCount": 1
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Fudochi Shinmyoroku",
+          "segmentCount": 5193,
+          "fallback": "no_boundaries"
+        }
+      ]
+    },
+    "Kendo Mental Strengthening Methods": {
+      "originalSegmentCount": 3707,
+      "segmentsOut": 3707,
+      "childCount": 1,
+      "fallback": true,
+      "fallbackReason": "No reliable chapter boundaries detected",
+      "detector": null,
+      "boundaryCount": 0,
+      "issueCount": 0,
+      "quality": {
+        "childCount": 1
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Kendo Mental Strengthening Methods",
+          "segmentCount": 3707,
+          "fallback": "no_boundaries"
+        }
+      ]
+    },
+    "Kendo Mental Strengthening (Alt Ed)": {
+      "originalSegmentCount": 3877,
+      "segmentsOut": 3877,
+      "childCount": 1,
+      "fallback": true,
+      "fallbackReason": "No reliable chapter boundaries detected",
+      "detector": null,
+      "boundaryCount": 0,
+      "issueCount": 0,
+      "quality": {
+        "childCount": 1
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Kendo Mental Strengthening (Alt Ed)",
+          "segmentCount": 3877,
+          "fallback": "no_boundaries"
+        }
+      ]
+    },
+    "Sword and the Way": {
+      "originalSegmentCount": 3669,
+      "segmentsOut": 3669,
+      "childCount": 1,
+      "fallback": true,
+      "fallbackReason": "No reliable chapter boundaries detected",
+      "detector": null,
+      "boundaryCount": 0,
+      "issueCount": 0,
+      "quality": {
+        "childCount": 1
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Sword and the Way",
+          "segmentCount": 3669,
+          "fallback": "no_boundaries"
+        }
+      ]
+    },
+    "Kendo Reiho and Saho": {
+      "originalSegmentCount": 7613,
+      "segmentsOut": 7613,
+      "childCount": 10,
+      "fallback": false,
+      "fallbackReason": null,
+      "detector": "chapter_numbered (forced)",
+      "boundaryCount": 9,
+      "issueCount": 0,
+      "quality": {
+        "childCount": 10,
+        "minSegs": 6,
+        "maxSegs": 7159,
+        "avgSegs": "761",
+        "tinyCount": 0,
+        "hugeCount": 1
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Kendo Reiho and Saho — Front Matter",
+          "segmentCount": 92,
+          "fallback": "pre_boundary"
+        },
+        {
+          "index": 1,
+          "title": "Kendo Reiho and Saho — 第一章 日本人と剣道",
+          "segmentCount": 18,
+          "fallback": null
+        },
+        {
+          "index": 2,
+          "title": "Kendo Reiho and Saho — 第二章 勝利至上主義の弊害",
+          "segmentCount": 6,
+          "fallback": null
+        },
+        {
+          "index": 3,
+          "title": "Kendo Reiho and Saho — 第三章 道場の意義",
+          "segmentCount": 36,
+          "fallback": null
+        },
+        {
+          "index": 4,
+          "title": "Kendo Reiho and Saho — 第四章 道場での礼法・作法",
+          "segmentCount": 66,
+          "fallback": null
+        },
+        {
+          "index": 5,
+          "title": "Kendo Reiho and Saho — 第五章 剣道用具の取り扱い方",
+          "segmentCount": 94,
+          "fallback": null
+        },
+        {
+          "index": 6,
+          "title": "Kendo Reiho and Saho — 第六章 立合の礼法・作法",
+          "segmentCount": 42,
+          "fallback": null
+        },
+        {
+          "index": 7,
+          "title": "Kendo Reiho and Saho — 第七章 稽古中の礼法・作法",
+          "segmentCount": 54,
+          "fallback": null
+        },
+        {
+          "index": 8,
+          "title": "Kendo Reiho and Saho — 第八章 見学者と審判員の礼法・作法",
+          "segmentCount": 46,
+          "fallback": null
+        },
+        {
+          "index": 9,
+          "title": "Kendo Reiho and Saho — 第九章 稽古後の礼法・作法",
+          "segmentCount": 7159,
+          "fallback": null
+        }
+      ]
+    },
+    "My Kendo Life": {
+      "originalSegmentCount": 4311,
+      "segmentsOut": 4311,
+      "childCount": 1,
+      "fallback": true,
+      "fallbackReason": "No reliable chapter boundaries detected",
+      "detector": null,
+      "boundaryCount": 0,
+      "issueCount": 0,
+      "quality": {
+        "childCount": 1
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "My Kendo Life",
+          "segmentCount": 4311,
+          "fallback": "no_boundaries"
+        }
+      ]
+    },
+    "Kendo Lecture — New Edition": {
+      "originalSegmentCount": 13231,
+      "segmentsOut": 13231,
+      "childCount": 1,
+      "fallback": true,
+      "fallbackReason": "No reliable chapter boundaries detected",
+      "detector": null,
+      "boundaryCount": 0,
+      "issueCount": 0,
+      "quality": {
+        "childCount": 1
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Kendo Lecture — New Edition",
+          "segmentCount": 13231,
+          "fallback": "no_boundaries"
+        }
+      ]
+    },
+    "Sankaku-ku and Tanden Datotsu": {
+      "originalSegmentCount": 12797,
+      "segmentsOut": 12797,
+      "childCount": 1,
+      "fallback": true,
+      "fallbackReason": "No reliable chapter boundaries detected",
+      "detector": null,
+      "boundaryCount": 0,
+      "issueCount": 0,
+      "quality": {
+        "childCount": 1
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Sankaku-ku and Tanden Datotsu",
+          "segmentCount": 12797,
+          "fallback": "no_boundaries"
+        }
+      ]
+    },
+    "A Record of 100 Training Sessions": {
+      "originalSegmentCount": 12309,
+      "segmentsOut": 12309,
+      "childCount": 1,
+      "fallback": true,
+      "fallbackReason": "No reliable chapter boundaries detected",
+      "detector": null,
+      "boundaryCount": 0,
+      "issueCount": 0,
+      "quality": {
+        "childCount": 1
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "A Record of 100 Training Sessions",
+          "segmentCount": 12309,
+          "fallback": "no_boundaries"
+        }
+      ]
+    },
+    "Kokyu: Ki Cultivation": {
+      "originalSegmentCount": 5099,
+      "segmentsOut": 5099,
+      "childCount": 1,
+      "fallback": true,
+      "fallbackReason": "No reliable chapter boundaries detected",
+      "detector": null,
+      "boundaryCount": 0,
+      "issueCount": 0,
+      "quality": {
+        "childCount": 1
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Kokyu: Ki Cultivation",
+          "segmentCount": 5099,
+          "fallback": "no_boundaries"
+        }
+      ]
+    },
+    "Kendo is Basics!": {
+      "originalSegmentCount": 3866,
+      "segmentsOut": 3866,
+      "childCount": 1,
+      "fallback": true,
+      "fallbackReason": "No reliable chapter boundaries detected",
+      "detector": null,
+      "boundaryCount": 0,
+      "issueCount": 0,
+      "quality": {
+        "childCount": 1
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Kendo is Basics!",
+          "segmentCount": 3866,
+          "fallback": "no_boundaries"
+        }
+      ]
+    },
+    "Detailed Explanation of Sword Princ.": {
+      "originalSegmentCount": 4260,
+      "segmentsOut": 4260,
+      "childCount": 1,
+      "fallback": true,
+      "fallbackReason": "No reliable chapter boundaries detected",
+      "detector": null,
+      "boundaryCount": 0,
+      "issueCount": 0,
+      "quality": {
+        "childCount": 1
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Detailed Explanation of Sword Princ.",
+          "segmentCount": 4260,
+          "fallback": "no_boundaries"
+        }
+      ]
+    },
+    "Ki Breathing Method": {
+      "originalSegmentCount": 4486,
+      "segmentsOut": 4486,
+      "childCount": 7,
+      "fallback": false,
+      "fallbackReason": null,
+      "detector": "chapter_numbered (forced)",
+      "boundaryCount": 6,
+      "issueCount": 0,
+      "quality": {
+        "childCount": 7,
+        "minSegs": 10,
+        "maxSegs": 4254,
+        "avgSegs": "641",
+        "tinyCount": 0,
+        "hugeCount": 1
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Ki Breathing Method — Front Matter",
+          "segmentCount": 130,
+          "fallback": "pre_boundary"
+        },
+        {
+          "index": 1,
+          "title": "Ki Breathing Method — 第1章 人間は天地自然に生かされている",
+          "segmentCount": 22,
+          "fallback": null
+        },
+        {
+          "index": 2,
+          "title": "Ki Breathing Method — 第2章 正しい姿勢は健康の万能薬",
+          "segmentCount": 10,
+          "fallback": null
+        },
+        {
+          "index": 3,
+          "title": "Ki Breathing Method — 第3章 天地自然と一体になる心身統一",
+          "segmentCount": 32,
+          "fallback": null
+        },
+        {
+          "index": 4,
+          "title": "Ki Breathing Method — 第4章 氣の呼吸法は不老長寿の妙薬",
+          "segmentCount": 22,
+          "fallback": null
+        },
+        {
+          "index": 5,
+          "title": "Ki Breathing Method — 第5章 自然な生活で健康を保つ",
+          "segmentCount": 16,
+          "fallback": null
+        },
+        {
+          "index": 6,
+          "title": "Ki Breathing Method — 第6章 氣圧法で自然治癒力を高める",
+          "segmentCount": 4254,
+          "fallback": null
+        }
+      ]
+    },
+    "Kendo Practice Menu 200": {
+      "originalSegmentCount": 6782,
+      "segmentsOut": 6782,
+      "childCount": 1,
+      "fallback": true,
+      "fallbackReason": "No reliable chapter boundaries detected",
+      "detector": null,
+      "boundaryCount": 0,
+      "issueCount": 0,
+      "quality": {
+        "childCount": 1
+      },
+      "children": [
+        {
+          "index": 0,
+          "title": "Kendo Practice Menu 200",
+          "segmentCount": 6782,
+          "fallback": "no_boundaries"
+        }
+      ]
+    }
+  }
+}
