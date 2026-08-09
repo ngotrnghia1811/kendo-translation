@@ -16,7 +16,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { ArticleHit, SearchResponse, SegmentHit } from '@/app/api/search/route'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/pocketbase/client'
 import { useAuth } from '@/components/shared/AuthProvider'
 
 /** A raw segment row fetched for context display. */
@@ -50,15 +50,13 @@ function SegmentContextPanel({
         setLoading(true)
         setError(null)
         try {
-            const supabase = createClient()
-            const { data, error: se } = await supabase
-                .from('segments')
-                .select('id, position, source_text')
-                .eq('article_id', articleId)
-                .in('position', [position - 1, position, position + 1])
-                .order('position', { ascending: true })
-            if (se) throw new Error(se.message)
-            setContext((data ?? []) as ContextSegment[])
+            const pb = createClient()
+            const records = await pb.collection('segments').getFullList<ContextSegment>({
+                filter: `article_id = "${articleId}" && (position = ${position - 1} || position = ${position} || position = ${position + 1})`,
+                sort: '+position',
+                fields: 'id,position,source_text',
+            })
+            setContext(records ?? [])
         } catch (e) {
             setError(e instanceof Error ? e.message : String(e))
         } finally {

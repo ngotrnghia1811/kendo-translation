@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { Article } from '@/types/database'
-import type { SortBy, SortDir } from '@/lib/supabase/feed-cursor'
+import type { SortBy, SortDir } from '@/lib/pocketbase/feed-cursor'
 import { useTitleLanguage } from '@/hooks/useTitleLanguage'
 
 type StatusFilter = 'all' | 'in_progress' | 'complete'

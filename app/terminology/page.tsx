@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/pocketbase/client'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -198,15 +198,10 @@ export default function TerminologyPage() {
         const fetchData = async () => {
             try {
                 // Check auth + role
-                const supabase = createClient()
-                const { data: { user } } = await supabase.auth.getUser()
+                const pb = createClient()
+                const user = pb.authStore.record
                 if (user) {
-                    const { data: profile } = await supabase
-                        .from('profiles')
-                        .select('role')
-                        .eq('id', user.id)
-                        .maybeSingle()
-                    setIsAdmin(profile?.role === 'admin')
+                    setIsAdmin((user as Record<string, unknown>).role === 'admin')
                 }
 
                 // Fetch terms with pagination

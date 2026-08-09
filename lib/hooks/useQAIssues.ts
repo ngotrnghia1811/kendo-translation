@@ -13,7 +13,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/pocketbase/client'
 import type { QAIssue } from '@/types/database'
 
 /** Shape of the qa_save payload sent when resolving with pattern recording. */
@@ -78,27 +78,17 @@ export function useQAIssues(segmentId: string): UseQAIssuesResult {
 
     // Realtime: refetch whenever any qa_issues row for this segment is
     // inserted, updated, or deleted by anyone.
-    const supabase = useMemo(() => createClient(), [])
+    const pb = useMemo(() => createClient(), [])
     useEffect(() => {
-        const channel = supabase
-            .channel(`seg-qa-issues:${segmentId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'qa_issues',
-                    filter: `segment_id=eq.${segmentId}`,
-                },
-                () => {
-                    void refresh()
-                }
-            )
-            .subscribe()
+        let unsub = false
+        pb.collection('qa_issues').subscribe('*', () => {
+            if (!unsub) void refresh()
+        }, { filter: `segment_id = "${segmentId}"` })
         return () => {
-            void supabase.removeChannel(channel)
+            unsub = true
+            void pb.collection('qa_issues').unsubscribe()
         }
-    }, [supabase, segmentId, refresh])
+    }, [pb, segmentId, refresh])
 
     const patchIssue = useCallback(
         async (id: string, body: Record<string, unknown>): Promise<QAIssueResolveResponse> => {

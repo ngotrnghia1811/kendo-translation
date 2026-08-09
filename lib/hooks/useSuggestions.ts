@@ -16,7 +16,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/pocketbase/client'
 
 export type SuggestionStatus = 'pending' | 'accepted' | 'rejected' | 'superseded'
 export type SuggesterKind = 'human' | 'agent'
@@ -116,27 +116,17 @@ export function useSuggestions(segmentId: string): UseSuggestionsResult {
 
     // Realtime: refetch whenever any segment_suggestions row for this
     // segment is inserted, updated, or deleted by anyone.
-    const supabase = useMemo(() => createClient(), [])
+    const pb = useMemo(() => createClient(), [])
     useEffect(() => {
-        const channel = supabase
-            .channel(`seg-suggestions:${segmentId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'segment_suggestions',
-                    filter: `segment_id=eq.${segmentId}`,
-                },
-                () => {
-                    void refresh()
-                }
-            )
-            .subscribe()
+        let unsub = false
+        pb.collection('segment_suggestions').subscribe('*', () => {
+            if (!unsub) void refresh()
+        }, { filter: `segment_id = "${segmentId}"` })
         return () => {
-            void supabase.removeChannel(channel)
+            unsub = true
+            void pb.collection('segment_suggestions').unsubscribe()
         }
-    }, [supabase, segmentId, refresh])
+    }, [pb, segmentId, refresh])
 
     const patchTransition = useCallback(
         async (id: string, body: Record<string, unknown>): Promise<SuggestionRow> => {

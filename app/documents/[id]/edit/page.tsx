@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/pocketbase/client';
 import { useMacRag } from '@/lib/hooks/useMacRag';
 import Link from 'next/link';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
@@ -13,7 +13,7 @@ import SegmentEditorPanel from '@/components/editor/SegmentEditorPanel';
 import BatchAdvanceToolbar from '@/components/editor/BatchAdvanceToolbar';
 import { useEditorKeyboard } from '@/hooks/useEditorKeyboard';
 import { useEditorProgress } from '@/hooks/useEditorProgress';
-import { fetchAllSegments } from '@/lib/supabase/fetch-all-segments';
+import { fetchAllSegments } from '@/lib/pocketbase/fetch-all-segments';
 
 /**
  * Per-segment cooperation counts surfaced as badges on the segment list.
@@ -38,7 +38,7 @@ export default function EditPage() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const supabase = createClient();
+  const pb = createClient();
   const macRag = useMacRag();
 
   // Shared theme context for layout width.
@@ -174,15 +174,15 @@ export default function EditPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [{ data: art }, segs] = await Promise.all([
-      supabase.from('articles').select('id,title').eq('id', params.id).single(),
-      fetchAllSegments<Segment>(supabase, params.id, targetLang),
+    const [art, segs] = await Promise.all([
+      pb.collection('articles').getOne<{ id: string; title: string }>(params.id, { fields: 'id,title' }).catch(() => null),
+      fetchAllSegments<Segment>(pb, params.id, targetLang),
     ]);
-    if (art) setArticle(art as { id: string; title: string });
+    if (art) setArticle(art);
     setSegments(segs);
     setLoading(false);
     void refreshActivity();
-  }, [params.id, refreshActivity, targetLang]);
+  }, [params.id, refreshActivity, targetLang, pb]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -221,24 +221,21 @@ export default function EditPage() {
   }, []);
 
   useEffect(() => {
-    const channel = supabase
-      .channel(`segments:${params.id}:${targetLang}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'segments',
-        filter: `and(article_id=eq.${params.id},target_lang=eq.${targetLang})`,
-      }, (payload) => {
-        if (payload.eventType === 'UPDATE') {
-          setSegments(prev =>
-            prev.map(s => s.id === (payload.new as Segment).id ? (payload.new as Segment) : s)
-          );
-        }
-      })
-      .subscribe();
+    let unsub = false
+    pb.collection('segments').subscribe('*', (data) => {
+      if (unsub) return
+      if (data.action === 'update') {
+        setSegments(prev =>
+          prev.map(s => s.id === (data.record as unknown as Segment).id ? (data.record as unknown as Segment) : s)
+        );
+      }
+    }, { filter: `article_id = "${params.id}" && target_lang = "${targetLang}"` });
 
-    return () => { supabase.removeChannel(channel); };
-  }, [params.id, targetLang]);
+    return () => {
+      unsub = true
+      void pb.collection('segments').unsubscribe()
+    };
+  }, [params.id, targetLang, pb]);
 
   const selectSegment = async (seg: Segment) => {
     if (activeSegment && activeSegment !== seg.id) {

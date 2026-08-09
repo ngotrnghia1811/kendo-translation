@@ -9,7 +9,7 @@ import { useReaderBookmarks } from '@/hooks/useReaderBookmarks'
 import { useReaderKeyboard } from '@/hooks/useReaderKeyboard'
 import { useReaderProgress } from '@/hooks/useReaderProgress'
 import { useTitleLanguage } from '@/hooks/useTitleLanguage'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/pocketbase/client'
 import { recordArticleAccess } from '@/lib/pwa/storage'
 import VirtualizedReader from './VirtualizedReader'
 import RubyText from './RubyText'
@@ -237,7 +237,8 @@ export default function ReaderView({ segments, zhSegments, settings, title, titl
 
         setPageFetching(prev => new Set(prev).add(pageIndex))
 
-        const supabase = createClient()
+        const pb = createClient()
+        const pbUrl = process.env.NEXT_PUBLIC_POCKETBASE_URL ?? 'http://127.0.0.1:8090'
         try {
             const pageNum = pageMetadataHint?.[pageIndex] ?? null
             const offset = pageNum === null && pageMetadataHint === null
@@ -247,17 +248,16 @@ export default function ReaderView({ segments, zhSegments, settings, title, titl
                 ? Math.min(FALLBACK_CHUNK_SIZE, totalSegmentsHint! - pageIndex * FALLBACK_CHUNK_SIZE)
                 : 0
 
-            const { data: enData, error: enErr } = await supabase.rpc(
-                'get_article_bilingual_window',
-                {
-                    p_article_id: articleId,
-                    p_target_lang: 'en',
-                    p_offset: offset,
-                    p_limit: limit,
-                    p_page: pageNum,
-                }
-            )
-            if (!enErr && enData) {
+            const enParams = new URLSearchParams({
+                article_id: articleId,
+                target_lang: 'en',
+            })
+            if (pageNum !== null) { enParams.set('page', String(pageNum)) }
+            else { enParams.set('offset', String(offset)); enParams.set('limit', String(limit)) }
+
+            const enRes = await fetch(`${pbUrl}/api/custom/article-bilingual-window?${enParams}`)
+            if (enRes.ok) {
+                const enData = await enRes.json()
                 const filterFn = (s: { status: string; target_text?: string | null }) =>
                     publishFilter === 'qa_approved'
                         ? s.status === 'qa_approved'
@@ -269,17 +269,16 @@ export default function ReaderView({ segments, zhSegments, settings, title, titl
 
             // Also fetch ZH for this page if ZH exists
             if (zhCountHint && zhCountHint > 0) {
-                const { data: zhData, error: zhErr } = await supabase.rpc(
-                    'get_article_bilingual_window',
-                    {
-                        p_article_id: articleId,
-                        p_target_lang: 'zh',
-                        p_offset: offset,
-                        p_limit: limit,
-                        p_page: pageNum,
-                    }
-                )
-                if (!zhErr && zhData) {
+                const zhParams = new URLSearchParams({
+                    article_id: articleId,
+                    target_lang: 'zh',
+                })
+                if (pageNum !== null) { zhParams.set('page', String(pageNum)) }
+                else { zhParams.set('offset', String(offset)); zhParams.set('limit', String(limit)) }
+
+                const zhRes = await fetch(`${pbUrl}/api/custom/article-bilingual-window?${zhParams}`)
+                if (zhRes.ok) {
+                    const zhData = await zhRes.json()
                     zhPageCacheRef.current.set(pageIndex, zhData as Segment[])
                     setZhCacheVersion(v => v + 1)
                 }

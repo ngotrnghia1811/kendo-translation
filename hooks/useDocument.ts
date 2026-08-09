@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/pocketbase/client'
 import type { Segment, DocumentSettings, Article } from '@/types/database'
 
 interface UseDocumentState {
@@ -21,7 +21,7 @@ export function useDocument(articleId: string) {
         error: null,
     })
 
-    const supabase = createClient()
+    const pb = createClient()
 
     // Fetch document, segments, and settings
     const fetchDocument = useCallback(async () => {
@@ -29,35 +29,29 @@ export function useDocument(articleId: string) {
 
         try {
             // Fetch document
-            const { data: docData, error: docError } = await supabase
-                .from('articles')
-                .select('*')
-                .eq('id', articleId)
-                .single()
+            const docData = await pb.collection('articles').getOne<Article>(articleId)
 
-            if (docError) throw new Error(docError.message)
-
-            // Fetch segments — Phase 4.8: bounded fetch to prevent unbounded load
-            const { data: segmentsData, error: segError } = await supabase
-                .from('segments')
-                .select('*')
-                .eq('article_id', articleId)
-                .order('position', { ascending: true })
-                .limit(10000)
-
-            if (segError) throw new Error(segError.message)
+            // Fetch segments — PocketBase getFullList handles pagination automatically
+            const segmentsData = await pb.collection('segments').getFullList<Segment>({
+                filter: `article_id = "${articleId}"`,
+                sort: '+position',
+            })
 
             // Fetch settings
-            const { data: settingsData } = await supabase
-                .from('document_settings')
-                .select('*')
-                .eq('article_id', articleId)
-                .single()
+            let settingsData: DocumentSettings | null = null
+            try {
+                const settingsList = await pb.collection('document_settings').getFullList<DocumentSettings>({
+                    filter: `article_id = "${articleId}"`,
+                })
+                settingsData = settingsList.length > 0 ? settingsList[0] : null
+            } catch {
+                // settings not found — not an error
+            }
 
             setState({
                 document: docData,
                 segments: segmentsData || [],
-                settings: settingsData || null,
+                settings: settingsData,
                 loading: false,
                 error: null,
             })
@@ -68,58 +62,47 @@ export function useDocument(articleId: string) {
                 error: error instanceof Error ? error.message : 'Failed to load document',
             }))
         }
-    }, [articleId, supabase])
+    }, [articleId, pb])
 
     // Subscribe to real-time segment changes
     useEffect(() => {
         fetchDocument()
 
-        const channel = supabase
-            .channel(`doc:${articleId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'segments',
-                    filter: `article_id=eq.${articleId}`,
-                },
-                (payload) => {
-                    setState(prev => {
-                        const segments = [...prev.segments]
+        let unsub = false
+        pb.collection('segments').subscribe('*', (data) => {
+            if (unsub) return
+            setState(prev => {
+                const segments = [...prev.segments]
+                const payload = data.record as unknown as Segment
 
-                        if (payload.eventType === 'INSERT') {
-                            const newSegment = payload.new as Segment
-                            const idx = segments.findIndex(s => s.position > newSegment.position)
-                            if (idx === -1) {
-                                segments.push(newSegment)
-                            } else {
-                                segments.splice(idx, 0, newSegment)
-                            }
-                        } else if (payload.eventType === 'UPDATE') {
-                            const updated = payload.new as Segment
-                            const idx = segments.findIndex(s => s.id === updated.id)
-                            if (idx !== -1) {
-                                segments[idx] = updated
-                            }
-                        } else if (payload.eventType === 'DELETE') {
-                            const deleted = payload.old as { id: string }
-                            const idx = segments.findIndex(s => s.id === deleted.id)
-                            if (idx !== -1) {
-                                segments.splice(idx, 1)
-                            }
-                        }
-
-                        return { ...prev, segments }
-                    })
+                if (data.action === 'create') {
+                    const idx = segments.findIndex(s => s.position > payload.position)
+                    if (idx === -1) {
+                        segments.push(payload)
+                    } else {
+                        segments.splice(idx, 0, payload)
+                    }
+                } else if (data.action === 'update') {
+                    const idx = segments.findIndex(s => s.id === payload.id)
+                    if (idx !== -1) {
+                        segments[idx] = payload
+                    }
+                } else if (data.action === 'delete') {
+                    const idx = segments.findIndex(s => s.id === payload.id)
+                    if (idx !== -1) {
+                        segments.splice(idx, 1)
+                    }
                 }
-            )
-            .subscribe()
+
+                return { ...prev, segments }
+            })
+        }, { filter: `article_id = "${articleId}"` })
 
         return () => {
-            supabase.removeChannel(channel)
+            unsub = true
+            void pb.collection('segments').unsubscribe()
         }
-    }, [articleId, fetchDocument, supabase])
+    }, [articleId, fetchDocument, pb])
 
     // Update a segment locally (optimistic update)
     const updateSegmentLocally = useCallback((segmentId: string, updates: Partial<Segment>) => {

@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PhaseBadge } from '@/components/shared/PhaseBadge'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/pocketbase/client'
 import type { SegmentStatus } from '@/types/database'
 
 interface ActorRef {
@@ -86,30 +86,18 @@ export function PhaseTransitionHistory({ segmentId }: Props) {
         }
     }, [refresh])
 
-    // Realtime: refetch on any INSERT for this segment's transitions
-    // (the table is append-only, so INSERT is the only event of
-    // interest, but '*' is harmless and future-proof).
-    const supabase = useMemo(() => createClient(), [])
+    // Realtime: refetch on any change for this segment's transitions
+    const pb = useMemo(() => createClient(), [])
     useEffect(() => {
-        const channel = supabase
-            .channel(`seg-transitions:${segmentId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'segment_phase_transitions',
-                    filter: `segment_id=eq.${segmentId}`,
-                },
-                () => {
-                    void refresh()
-                }
-            )
-            .subscribe()
+        let unsub = false
+        pb.collection('segment_phase_transitions').subscribe('*', () => {
+            if (!unsub) void refresh()
+        }, { filter: `segment_id = "${segmentId}"` })
         return () => {
-            void supabase.removeChannel(channel)
+            unsub = true
+            void pb.collection('segment_phase_transitions').unsubscribe()
         }
-    }, [supabase, segmentId, refresh])
+    }, [pb, segmentId, refresh])
 
     if (error) {
         return (

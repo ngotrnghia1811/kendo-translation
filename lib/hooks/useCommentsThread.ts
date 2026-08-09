@@ -16,7 +16,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/pocketbase/client'
 
 export interface CommentAuthor {
     username: string | null
@@ -86,27 +86,17 @@ export function useCommentsThread(segmentId: string): UseCommentsThreadResult {
     }, [refresh])
 
     // Realtime fanout for the comment thread.
-    const supabase = useMemo(() => createClient(), [])
+    const pb = useMemo(() => createClient(), [])
     useEffect(() => {
-        const channel = supabase
-            .channel(`seg-comments:${segmentId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'segment_comments',
-                    filter: `segment_id=eq.${segmentId}`,
-                },
-                () => {
-                    void refresh()
-                }
-            )
-            .subscribe()
+        let unsub = false
+        pb.collection('segment_comments').subscribe('*', () => {
+            if (!unsub) void refresh()
+        }, { filter: `segment_id = "${segmentId}"` })
         return () => {
-            void supabase.removeChannel(channel)
+            unsub = true
+            void pb.collection('segment_comments').unsubscribe()
         }
-    }, [supabase, segmentId, refresh])
+    }, [pb, segmentId, refresh])
 
     const post = useCallback<UseCommentsThreadResult['post']>(
         async (content, opts) => {
