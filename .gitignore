@@ -69,3 +69,4 @@ supabase/.temp/
 !/scripts/dashboard-recon/*.ts
 *.backup
 db_cluster-*.backup
+.tmp-pb/
