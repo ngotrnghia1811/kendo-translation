@@ -1,79 +1,131 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { sanitizeSortBy, sanitizeSortDir, buildCursor, parseCursor } from '@/lib/supabase/feed-cursor';
+import { createServerClient } from '@/lib/pocketbase/server';
+import {
+  sanitizeSortBy,
+  sanitizeSortDir,
+  buildCursor,
+  parseCursor,
+} from '@/lib/supabase/feed-cursor';
+
+const PB_URL =
+  process.env.NEXT_PUBLIC_POCKETBASE_URL ?? 'http://127.0.0.1:8090';
 
 export async function GET(req: NextRequest) {
-  const supabase = await createClient();
+  const pb = await createServerClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Auth check
+  if (!pb.authStore.isValid || !pb.authStore.record) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
-  // ?all=1 returns every article row (admin use: counts, assignment management).
-  // Default: only articles where segmented=true so readers/translators see
-  // articles that actually have segment data to work with.
   const includeAll = req.nextUrl.searchParams.get('all') === '1';
 
   if (includeAll) {
-    // Admin full-list path: keep the existing pattern (unpaginated, with settings).
-    // Not on the hot read path — used by admin tools for assignment/count management.
-    let query = supabase
-      .from('articles')
-      .select('id, title, title_ja, translation_status, segment_count, created_at, updated_at, segmented, paired_pdf_path, document_settings(publish_filter, total_segments, translated_count, approved_count)')
-      .order('created_at', { ascending: false });
+    // Admin full-list path: fetch all articles with document_settings
+    try {
+      const articles = await pb.collection('articles').getFullList({
+        sort: '-created',
+        fields:
+          'id,title,title_ja,translation_status,segment_count,created,updated,segmented,paired_pdf_path,expand',
+      });
 
-    const { data, error } = await query;
+      // Fetch document_settings for all articles in one go
+      // PocketBase doesn't have joins — fetch settings separately
+      const allSettings = await pb
+        .collection('document_settings')
+        .getFullList({
+          fields: 'article_id,publish_filter,total_segments,translated_count,approved_count',
+        });
+      const settingsMap = new Map<string, Record<string, unknown>>();
+      for (const s of allSettings) {
+        const data = JSON.parse(JSON.stringify(s)) as Record<string, unknown>;
+        settingsMap.set(data.article_id as string, data);
+      }
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      const documents = articles.map((a) => {
+        const data = JSON.parse(JSON.stringify(a)) as Record<string, unknown>;
+        const settings = settingsMap.get(data.id as string);
+        const totalSegs = (settings?.total_segments as number) ?? 0;
+        const approvedSegs = (settings?.approved_count as number) ?? 0;
+        const translatedSegs =
+          (settings?.translated_count as number) ?? 0;
+        const progressCount =
+          approvedSegs > 0 ? approvedSegs : translatedSegs;
+        return {
+          id: data.id,
+          title: data.title,
+          title_ja: data.title_ja ?? null,
+          translation_status: data.translation_status,
+          segment_count: totalSegs,
+          created_at: data.created,
+          updated_at: data.updated,
+          segmented: data.segmented,
+          paired_pdf_path: data.paired_pdf_path ?? null,
+          publish_filter:
+            (settings?.publish_filter as string) ?? 'any_translated',
+          progress: {
+            percentage:
+              totalSegs > 0
+                ? Math.round((progressCount / totalSegs) * 100)
+                : 0,
+          },
+        };
+      });
 
-    // Flatten the nested document_settings into the document object for convenience
-    const documents = (data || []).map((article) => {
-      const settings = Array.isArray(article.document_settings)
-        ? article.document_settings[0]
-        : article.document_settings;
-      const { document_settings: _ds, ...rest } = article;
-      void _ds;
-      const totalSegs = settings?.total_segments ?? 0;
-      const approvedSegs = settings?.approved_count ?? 0;
-      const translatedSegs = settings?.translated_count ?? 0;
-      const progressCount = approvedSegs > 0 ? approvedSegs : translatedSegs;
-      return {
-        ...rest,
-        publish_filter: (settings?.publish_filter ?? 'any_translated') as string,
-        segment_count: totalSegs,
-        progress: {
-          percentage: totalSegs > 0 ? Math.round((progressCount / totalSegs) * 100) : 0,
-        },
-      };
-    });
-
-    return NextResponse.json({ documents });
+      return NextResponse.json({ documents });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      return NextResponse.json({ error: msg }, { status: 500 });
+    }
   }
 
-  // Phase 1.2g: keyset-paginated feed for the public documents list.
+  // Keyset-paginated feed via PocketBase custom route
   const rawCursor = req.nextUrl.searchParams.get('cursor') ?? null;
-  const limit = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get('limit') ?? '30', 10)));
+  const limit = Math.min(
+    100,
+    Math.max(
+      1,
+      parseInt(req.nextUrl.searchParams.get('limit') ?? '30', 10),
+    ),
+  );
   const sortBy = sanitizeSortBy(req.nextUrl.searchParams.get('sort_by'));
   const sortDir = sanitizeSortDir(req.nextUrl.searchParams.get('sort_dir'));
-  const searchTerm = (req.nextUrl.searchParams.get('q') ?? '').trim() || null;
+  const searchTerm =
+    (req.nextUrl.searchParams.get('q') ?? '').trim() || null;
 
   const cursor = parseCursor(rawCursor);
 
-  const { data, error } = await supabase.rpc('get_documents_feed_v1', {
-    p_cursor_sort_val: cursor?.sortVal ?? null,
-    p_cursor_id: cursor?.id ?? null,
-    p_limit: limit,
-    p_sort_by: sortBy,
-    p_sort_dir: sortDir,
-    p_search_term: searchTerm,
+  const queryParams = new URLSearchParams({
+    sort_by: sortBy,
+    sort_dir: sortDir,
+    limit: String(limit),
   });
+  if (cursor?.sortVal) queryParams.set('cursor_sort_val', cursor.sortVal);
+  if (cursor?.id) queryParams.set('cursor_id', cursor.id);
+  if (searchTerm) queryParams.set('search', searchTerm);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const feedRes = await fetch(
+    `${PB_URL}/api/custom/documents-feed?${queryParams}`,
+  );
+  if (!feedRes.ok) {
+    return NextResponse.json(
+      { error: `Feed error: ${feedRes.status}` },
+      { status: 500 },
+    );
+  }
 
-  const articles = data ?? [];
+  const feedData = await feedRes.json();
+  const articles = feedData.items ?? [];
+
   const nextCursor =
-    articles.length > 0
-      ? buildCursor(articles[articles.length - 1] as Record<string, unknown>, sortBy)
-      : null;
+    feedData.next_cursor_sort_val && feedData.next_cursor_id
+      ? `${feedData.next_cursor_sort_val}|${feedData.next_cursor_id}`
+      : articles.length > 0
+        ? buildCursor(
+            articles[articles.length - 1] as Record<string, unknown>,
+            sortBy,
+          )
+        : null;
 
   return NextResponse.json({ documents: articles, next_cursor: nextCursor });
 }

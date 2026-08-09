@@ -2,65 +2,59 @@
  * POST /api/documents/[id]/view
  *
  * Records a view for the authenticated user on the given article.
- * UPSERTs into reading_progress (manually: SELECT then UPDATE or INSERT,
- * since no unique constraint exists beyond the pkey).
+ * UPSERTs into reading_progress.
+ *
+ * PocketBase edition.
  *
  * Auth: any authenticated user.
  * Statuses: 200 ok | 401 unauth | 500 db error
  */
 
-import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
+import { createServerClient } from '@/lib/pocketbase/server';
+import { NextResponse } from 'next/server';
 
 export async function POST(
   _req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const pb = await createServerClient();
+    if (!pb.authStore.isValid || !pb.authStore.record) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = await params
+    const user = pb.authStore.record as Record<string, unknown>;
+    const userId = user.id as string;
+    const { id } = await params;
 
     // SELECT existing row
-    const { data: existing } = await supabase
-      .from('reading_progress')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('content_type', 'article')
-      .eq('content_id', id)
-      .limit(1)
-      .maybeSingle()
+    const existing = await pb
+      .collection('reading_progress')
+      .getList(1, 1, {
+        filter: `user_id = "${userId}" && content_type = "article" && content_id = "${id}"`,
+      });
 
-    if (existing) {
+    if (existing.items.length > 0) {
       // UPDATE
-      const { error } = await supabase
-        .from('reading_progress')
-        .update({ updated_at: new Date().toISOString() })
-        .eq('id', existing.id)
-
-      if (error) throw error
+      await pb
+        .collection('reading_progress')
+        .update(existing.items[0].id, {
+          updated: new Date().toISOString(),
+        });
     } else {
       // INSERT
-      const { error } = await supabase
-        .from('reading_progress')
-        .insert({
-          user_id: user.id,
-          content_type: 'article',
-          content_id: id,
-          progress_pct: 0,
-          last_position: 0,
-        })
-
-      if (error) throw error
+      await pb.collection('reading_progress').create({
+        user_id: userId,
+        content_type: 'article',
+        content_id: id,
+        progress_pct: 0,
+        last_position: 0,
+      });
     }
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
