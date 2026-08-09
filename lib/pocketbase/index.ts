@@ -1,12 +1,9 @@
 /**
  * PocketBase auth layer — public API surface.
  *
- * This directory is the parallel, dormant replacement for lib/supabase/.
- * Everything here is developed and tested against a LOCAL PocketBase
- * instance only.  No production Oracle-hosted PocketBase exists yet.
- *
- * DO NOT wire these imports into any existing page/component/API route
- * until the explicit cutover work unit is authorized by aki-main.
+ * This directory is the parallel replacement for lib/supabase/.
+ * Wired into production routes as part of the Supabase→PocketBase
+ * SSR cutover (2026-08).
  */
 
 // Client singletons
@@ -31,6 +28,19 @@ export {
   requireTranslator,
   exportAuthCookie,
 } from "./auth";
+
+// Feed cursor utilities (mirrors lib/supabase/feed-cursor.ts)
+export {
+  sanitizeSortBy,
+  sanitizeSortDir,
+  normalizeSortVal,
+  buildCursor,
+  parseCursor,
+} from "./feed-cursor";
+export type { SortBy, SortDir } from "./feed-cursor";
+
+// Fetch-all-segments helper (mirrors lib/supabase/fetch-all-segments.ts)
+export { fetchAllSegments } from "./fetch-all-segments";
 
 // Types
 export type { AppRole, PbUser, AuthResult } from "./types";
