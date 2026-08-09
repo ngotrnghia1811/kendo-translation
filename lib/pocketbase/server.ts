@@ -118,3 +118,19 @@ export function createMiddlewareClient(
 
   return pb;
 }
+
+/**
+ * Create a PocketBase client suitable for use inside `unstable_cache` or
+ * `"use cache"` scopes where dynamic APIs like `cookies()` are forbidden.
+ *
+ * Returns a bare PocketBase instance with no auth — the PocketBase admin
+ * UI's collection-level rules (listRule/viewRule) control access.  Since
+ * all public-facing collections (articles, segments, document_settings)
+ * have wide-open list/view rules, unauthenticated reads work fine.
+ *
+ * This is the PocketBase equivalent of lib/supabase/server.ts's
+ * `createCacheSafeAdminClient`.
+ */
+export function createCacheSafeClient(baseUrl?: string): PocketBase {
+  return new PocketBase(baseUrl ?? DEFAULT_BASE_URL);
+}

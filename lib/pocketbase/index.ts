@@ -13,7 +13,11 @@
 export { createClient, createFreshClient } from "./client";
 
 // Server-component / middleware clients
-export { createServerClient, createMiddlewareClient } from "./server";
+export {
+  createServerClient,
+  createMiddlewareClient,
+  createCacheSafeClient,
+} from "./server";
 
 // Auth helpers
 export {

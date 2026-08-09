@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
-import { createAdminClient, createCacheSafeAdminClient, createClient } from '@/lib/supabase/server';
+import { createServerClient, createCacheSafeClient } from '@/lib/pocketbase/server';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
@@ -12,15 +12,11 @@ import ReaderLoading from './loading';
 
 /**
  * Phase 4.1 / 4.2: Article data cache via unstable_cache (Data Cache).
- * We use unstable_cache instead of "use cache" because "use cache" requires
- * global `cacheComponents: true` in next.config.ts, which has a large blast
- * radius across all API routes and auth-gated pages. unstable_cache achieves
- * the same result — cacheable article segment queries with tag-based
- * invalidation — without the global flag.
+ * PocketBase edition — uses createCacheSafeClient() instead of
+ * createCacheSafeAdminClient(); collection-level list/view rules ("" for
+ * articles/segments/document_settings) allow unauthenticated reads.
  *
- * Cache key = (articleId, publishFilter). publishFilter varies by viewer class
- * (public sees qa_approved, admins see any_translated), so different scopes
- * get separate cache entries. Admins/public don't poison each other's cache.
+ * Cache tag strategy unchanged: per-article tag + coarse "articles" tag.
  */
 
 interface FetchedArticleData {
@@ -32,19 +28,9 @@ interface FetchedArticleData {
 }
 
 const FALLBACK_CHUNK_SIZE = 50; // must match hooks/useReaderView.ts
+const PB_URL =
+  process.env.NEXT_PUBLIC_POCKETBASE_URL ?? 'http://127.0.0.1:8090';
 
-/**
- * Per-article unstable_cache factory.
- *
- * We cannot use `cacheTag()` inside an `unstable_cache`-wrapped function
- * without enabling `cacheComponents: true` (PPR).  Because PPR is
- * incompatible with the app's pervasive `cookies()` usage (see Rev 3 in
- * the plan), we instead bake the per-article tag into the `unstable_cache`
- * options at factory-build time.  The outer factory returns a cached
- * fetcher whose cache entries are tagged with BOTH a per-article tag
- * (`article-${articleId}`) AND the coarse `articles` tag for bulk
- * invalidation.
- */
 const cacheFactoryMap = new Map<
   string,
   ReturnType<typeof unstable_cache<typeof fetchArticleDataImpl>>
@@ -62,42 +48,48 @@ function getCachedFetcher(articleId: string) {
   if (existing) return existing;
 
   const fetcher = unstable_cache(
-    async (
-      id: string,
-      publishFilter: string,
-    ): Promise<FetchedArticleData> => {
-      const supabase = createCacheSafeAdminClient();
-
-      // ── Page info hints (for lazy-pager human view) ──────────────────────
+    async (id: string, publishFilter: string): Promise<FetchedArticleData> => {
+      // ── Page info hints (for lazy-pager human view) ────────────
       let totalSegmentsHint: number | undefined;
       let pageMetadataHint: number[] | null | undefined;
-      const { data: pageInfo } = await supabase.rpc('get_article_page_info', {
-        p_article_id: id,
-        p_target_lang: 'en',
-        p_publish_filter: publishFilter,
-      });
-      const info = (pageInfo as any)?.[0];
-      totalSegmentsHint = info?.total_count ? Number(info.total_count) : undefined;
-      pageMetadataHint = info?.has_page_metadata && info?.distinct_pages
-        ? (info.distinct_pages as number[])
-        : null;
 
-      // ── Fetch EN segments (page 1 for human, full for bot) ──────────────
+      const infoUrl = new URL(`${PB_URL}/api/custom/article-page-info`);
+      infoUrl.searchParams.set('article_id', id);
+      infoUrl.searchParams.set('target_lang', 'en');
+      infoUrl.searchParams.set('publish_filter', publishFilter);
+
+      const infoRes = await fetch(infoUrl.toString());
+      if (infoRes.ok) {
+        const info = await infoRes.json();
+        totalSegmentsHint = info.total_count
+          ? Number(info.total_count)
+          : undefined;
+        pageMetadataHint = info.has_page_metadata && info.distinct_pages?.length
+          ? (info.distinct_pages as number[])
+          : null;
+      }
+
+      // ── Fetch EN segments (page 1) ─────────────────────────────
       const page0PageNum: number | undefined = pageMetadataHint
         ? pageMetadataHint[0]
         : undefined;
-      const { data: enData, error: enErr } = await supabase.rpc(
-        'get_article_bilingual_window',
-        {
-          p_article_id: id,
-          p_target_lang: 'en',
-          p_offset: page0PageNum !== undefined ? 0 : 0,
-          p_limit: page0PageNum !== undefined ? 0 : FALLBACK_CHUNK_SIZE,
-          p_page: page0PageNum ?? undefined,
-        },
-      );
-      if (enErr) throw new Error(`Failed to fetch EN page 1: ${enErr.message}`);
-      const enSegmentsRaw = (enData ?? []) as Segment[];
+
+      const enUrl = new URL(`${PB_URL}/api/custom/article-bilingual-window`);
+      enUrl.searchParams.set('article_id', id);
+      enUrl.searchParams.set('target_lang', 'en');
+      if (page0PageNum !== undefined) {
+        enUrl.searchParams.set('page', String(page0PageNum));
+      } else {
+        enUrl.searchParams.set('offset', '0');
+        enUrl.searchParams.set('limit', String(FALLBACK_CHUNK_SIZE));
+      }
+
+      const enRes = await fetch(enUrl.toString());
+      if (!enRes.ok) {
+        throw new Error(`Failed to fetch EN segments: ${enRes.status}`);
+      }
+      const enData = await enRes.json();
+      const enSegmentsRaw = (enData.items ?? []) as Segment[];
 
       const readableSegments = enSegmentsRaw.filter((s) =>
         publishFilter === 'qa_approved'
@@ -105,30 +97,51 @@ function getCachedFetcher(articleId: string) {
           : s.status === 'qa_approved' || s.target_text,
       );
 
-      // ── ZH segments (conditional) ────────────────────────────────────────
+      // ── ZH segments (conditional) ───────────────────────────────
       let zhSegments: Segment[] = [];
       let zhCountHint: number | undefined;
-      const { count: zhCount } = await supabase
-        .from('segments')
-        .select('id', { count: 'exact', head: true })
-        .eq('article_id', id)
-        .eq('target_lang', 'zh')
-        .limit(1);
-      const needsZh = (zhCount ?? 0) > 0;
+
+      // Count ZH segments via PocketBase getList with count
+      const pb = createCacheSafeClient();
+      const zhCountResult = await pb
+        .collection('segments')
+        .getList(1, 1, {
+          filter: `article_id = "${id}" && target_lang = "zh"`,
+          fields: 'id',
+        });
+      const zhCount = zhCountResult.totalItems;
+      const needsZh = zhCount > 0;
 
       if (needsZh) {
-        zhCountHint = zhCount ?? 0;
-        const { data: zhData } = await supabase.rpc('get_article_bilingual_window', {
-          p_article_id: id,
-          p_target_lang: 'zh',
-          p_offset: page0PageNum !== undefined ? 0 : 0,
-          p_limit: page0PageNum !== undefined ? 0 : FALLBACK_CHUNK_SIZE,
-          p_page: page0PageNum ?? undefined,
-        });
-        zhSegments = ((zhData ?? []) as Segment[]).filter((s) => s.target_text);
+        zhCountHint = zhCount;
+        const zhUrl = new URL(
+          `${PB_URL}/api/custom/article-bilingual-window`,
+        );
+        zhUrl.searchParams.set('article_id', id);
+        zhUrl.searchParams.set('target_lang', 'zh');
+        if (page0PageNum !== undefined) {
+          zhUrl.searchParams.set('page', String(page0PageNum));
+        } else {
+          zhUrl.searchParams.set('offset', '0');
+          zhUrl.searchParams.set('limit', String(FALLBACK_CHUNK_SIZE));
+        }
+
+        const zhRes = await fetch(zhUrl.toString());
+        if (zhRes.ok) {
+          const zhData = await zhRes.json();
+          zhSegments = ((zhData.items ?? []) as Segment[]).filter(
+            (s) => s.target_text,
+          );
+        }
       }
 
-      return { readableSegments, zhSegments, totalSegmentsHint, pageMetadataHint, zhCountHint };
+      return {
+        readableSegments,
+        zhSegments,
+        totalSegmentsHint,
+        pageMetadataHint,
+        zhCountHint,
+      };
     },
     ['article-segment-data', articleId],
     {
@@ -153,7 +166,9 @@ function BotArticleHtml({
   settings: DocumentSettings | null;
 }) {
   const boundaries = new Set(settings?.paragraph_boundaries || [0]);
-  const ordered = [...readableSegments].sort((a, b) => a.position - b.position);
+  const ordered = [...readableSegments].sort(
+    (a, b) => a.position - b.position,
+  );
   const paragraphs: Paragraph[] = [];
   let currentPara: Segment[] = [];
   let paraStart = ordered.length ? ordered[0].position : 0;
@@ -177,9 +192,13 @@ function BotArticleHtml({
       <header className="border-b border-gray-200 bg-white">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">{article.title}</h1>
+            <h1 className="text-xl font-semibold text-gray-900">
+              {article.title}
+            </h1>
             <p className="text-xs text-gray-500 mt-1">
-              {paragraphs.length} paragraph{paragraphs.length === 1 ? '' : 's'} — {sourceLang.toUpperCase()} → {targetLang.toUpperCase()}
+              {paragraphs.length} paragraph
+              {paragraphs.length === 1 ? '' : 's'} —{' '}
+              {sourceLang.toUpperCase()} → {targetLang.toUpperCase()}
             </p>
           </div>
         </div>
@@ -187,44 +206,55 @@ function BotArticleHtml({
       <main className="max-w-3xl mx-auto px-6 py-8">
         <article>
           {paragraphs.map((p) => {
-              const srcText = p.segments
-                .map((s) => s.source_text)
-                .filter(Boolean)
-                .join(/^(ja|zh|ko)/.test(sourceLang) ? '' : ' ');
-              const tgtText = p.segments
-                .map((s) => s.target_text || '')
-                .filter(Boolean)
-                .join(/^(ja|zh|ko)/.test(targetLang) ? '' : ' ');
+            const srcText = p.segments
+              .map((s) => s.source_text)
+              .filter(Boolean)
+              .join(/^(ja|zh|ko)/.test(sourceLang) ? '' : ' ');
+            const tgtText = p.segments
+              .map((s) => s.target_text || '')
+              .filter(Boolean)
+              .join(/^(ja|zh|ko)/.test(targetLang) ? '' : ' ');
 
-              if (!srcText.trim() && !tgtText.trim()) return null;
+            if (!srcText.trim() && !tgtText.trim()) return null;
 
-              if (isHeadingParagraph(p)) {
-                return (
-                  <div key={p.position} className="mt-10 mb-4">
-                    {srcText.trim() && (
-                      <h2 lang={sourceLang} className="text-xl font-semibold">{srcText}</h2>
-                    )}
-                    {tgtText.trim() && (
-                      <h2 lang={targetLang} className="text-lg font-semibold text-gray-600 mt-1">{tgtText}</h2>
-                    )}
-                  </div>
-                );
-              }
-
+            if (isHeadingParagraph(p)) {
               return (
-                <div key={p.position} className="mb-6">
+                <div key={p.position} className="mt-10 mb-4">
                   {srcText.trim() && (
-                    <div lang={sourceLang} className="border-l-4 border-red-400 pl-4 py-2 mb-2">
-                      <p className="text-base leading-relaxed">{srcText}</p>
-                    </div>
+                    <h2 lang={sourceLang} className="text-xl font-semibold">
+                      {srcText}
+                    </h2>
                   )}
                   {tgtText.trim() && (
-                    <div lang={targetLang} className="border-l-4 border-blue-400 pl-4 py-2">
-                      <p className="text-base leading-relaxed">{tgtText}</p>
-                    </div>
+                    <h2
+                      lang={targetLang}
+                      className="text-lg font-semibold text-gray-600 mt-1"
+                    >
+                      {tgtText}
+                    </h2>
                   )}
                 </div>
               );
+            }
+
+            return (
+              <div key={p.position} className="mb-6">
+                {srcText.trim() && (
+                  <div className="border-l-4 border-red-400 pl-4 py-2 mb-2">
+                    <p lang={sourceLang} className="text-base leading-relaxed">
+                      {srcText}
+                    </p>
+                  </div>
+                )}
+                {tgtText.trim() && (
+                  <div className="border-l-4 border-blue-400 pl-4 py-2">
+                    <p lang={targetLang} className="text-base leading-relaxed">
+                      {tgtText}
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
           })}
         </article>
       </main>
@@ -232,15 +262,28 @@ function BotArticleHtml({
   );
 }
 
-// ── Cached article content (wrapped in Suspense for streaming) ──────────
+// ── Cached article content ──────────────────────────────────────────────
 
 async function CachedArticleContent({
-  articleId, publishFilter, isBot, article, canEdit, settings,
+  articleId,
+  publishFilter,
+  isBot,
+  article,
+  canEdit,
+  settings,
 }: {
   articleId: string;
   publishFilter: string;
   isBot: boolean;
-  article: { id: string; title: string; title_ja?: string | null; paired_pdf_path?: string | null; doc_type?: string | null; author?: string | null; summary?: string | null };
+  article: {
+    id: string;
+    title: string;
+    title_ja?: string | null;
+    paired_pdf_path?: string | null;
+    doc_type?: string | null;
+    author?: string | null;
+    summary?: string | null;
+  };
   canEdit: boolean;
   settings: DocumentSettings | null;
 }) {
@@ -265,15 +308,25 @@ async function CachedArticleContent({
 
   // Human: empty state or ReaderView
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--rt-bg, #ffffff)' }}>
+    <div
+      className="min-h-screen"
+      style={{ backgroundColor: 'var(--rt-bg, #ffffff)' }}
+    >
       {readableSegments.length === 0 ? (
         <>
           <header className="border-b border-[var(--color-border)]">
             <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Link href="/documents" className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-sm">← Documents</Link>
+                <Link
+                  href="/documents"
+                  className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-sm"
+                >
+                  ← Documents
+                </Link>
                 <span className="text-[var(--color-text-muted)]/40">/</span>
-                <h1 className="text-sm font-medium text-[var(--color-text)]">{article.title}</h1>
+                <h1 className="text-sm font-medium text-[var(--color-text)]">
+                  {article.title}
+                </h1>
               </div>
               {canEdit && (
                 <Link
@@ -290,16 +343,28 @@ async function CachedArticleContent({
               <p className="text-4xl mb-4">📝</p>
               {canEdit ? (
                 <>
-                  <p className="font-medium text-gray-600 dark:text-gray-300">No approved translations yet</p>
-                  <p className="text-sm mt-2">Approve segments in the editor to see them here.</p>
-                  <Link href={`/documents/${articleId}/edit`} className="inline-block mt-4 text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                  <p className="font-medium text-gray-600 dark:text-gray-300">
+                    No approved translations yet
+                  </p>
+                  <p className="text-sm mt-2">
+                    Approve segments in the editor to see them here.
+                  </p>
+                  <Link
+                    href={`/documents/${articleId}/edit`}
+                    className="inline-block mt-4 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                  >
                     Open Editor →
                   </Link>
                 </>
               ) : (
                 <>
-                  <p className="font-medium text-gray-600 dark:text-gray-300">No translations available yet</p>
-                  <p className="text-sm mt-2">This document hasn&apos;t been published for reading yet. Check back later.</p>
+                  <p className="font-medium text-gray-600 dark:text-gray-300">
+                    No translations available yet
+                  </p>
+                  <p className="text-sm mt-2">
+                    This document hasn&apos;t been published for reading yet.
+                    Check back later.
+                  </p>
                 </>
               )}
             </div>
@@ -328,73 +393,104 @@ async function CachedArticleContent({
   );
 }
 
-// ── Page entry point (NON-cached parent) ────────────────────────────────
+// ── Page entry point ────────────────────────────────────────────────────
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
   const { id } = await params;
-  const supabase = await createClient();
-  const { data: article } = await supabase
-    .from('articles')
-    .select('title')
-    .eq('id', id)
-    .single();
-
-  return {
-    title: article?.title ?? 'Read Article',
-    description: article?.title ? `Read "${article.title}" on Kendo Translation` : 'Read article on Kendo Translation',
-  };
+  const pb = createCacheSafeClient();
+  try {
+    const record = await pb.collection('articles').getOne(id, {
+      fields: 'title',
+    });
+    const data = JSON.parse(JSON.stringify(record)) as Record<
+      string,
+      unknown
+    >;
+    const title = data.title as string | undefined;
+    return {
+      title: title ?? 'Read Article',
+      description: title
+        ? `Read "${title}" on Kendo Translation`
+        : 'Read article on Kendo Translation',
+    };
+  } catch {
+    return { title: 'Read Article' };
+  }
 }
 
-export default async function ReadPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ReadPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
-  const supabase = await createClient();
+  const pb = await createServerClient();
 
   // Runtime data — NOT cached (cookies, headers, auth are per-request)
-  const { data: article } = await supabase
-    .from('articles')
-    .select('*')
-    .eq('id', id)
-    .single();
+  let articleData: Record<string, unknown> | null = null;
+  try {
+    const record = await pb.collection('articles').getOne(id);
+    // PocketBase Record → plain object for safe property access
+    articleData = JSON.parse(JSON.stringify(record));
+  } catch {
+    notFound();
+  }
 
-  if (!article) notFound();
+  if (!articleData) notFound();
 
-  // Role check from JWT app_metadata (Phase 1.2i)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Role check from PocketBase auth record — role is a first-class field
+  const user = pb.authStore.record as Record<string, unknown> | null;
   let canEdit = false;
   if (user) {
-    const role = (user.app_metadata as Record<string, unknown> | undefined)
-      ?.role as string | undefined;
+    const role = user.role as string | undefined;
     canEdit = role === 'translator' || role === 'admin';
   }
 
   // Bot detection (Phase 2.3)
   const headersList = await headers();
   const userAgent = headersList.get('user-agent') ?? '';
-  const isBot = /bot|crawler|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandex/i.test(userAgent);
+  const isBot =
+    /bot|crawler|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandex/i.test(
+      userAgent,
+    );
 
   // Document settings (for publish_filter)
-  const { data: settings } = await supabase
-    .from('document_settings')
-    .select('*')
-    .eq('article_id', id)
-    .maybeSingle();
+  let settings: Record<string, unknown> | null = null;
+  try {
+    const settingsList = await pb
+      .collection('document_settings')
+      .getList(1, 1, {
+        filter: `article_id = "${id}"`,
+      });
+    settings = settingsList.items[0] as Record<string, unknown> | null;
+  } catch {
+    // No settings — use defaults
+  }
 
-  const publishFilter = settings?.publish_filter ?? 'any_translated';
+  const publishFilter =
+    (settings?.publish_filter as string) ?? 'any_translated';
 
-  // Phase 4.2 / 4.3: the cached data fetch is wrapped in <Suspense> so the
-  // static shell (header/breadcrumb) streams immediately while the data
-  // fetch resolves from Data Cache (or server on first hit).
   return (
     <Suspense fallback={<ReaderLoading />}>
       <CachedArticleContent
         articleId={id}
         publishFilter={publishFilter}
         isBot={isBot}
-        article={article}
+        article={{
+          id: articleData.id as string,
+          title: (articleData.title as string) ?? '',
+          title_ja: (articleData.title_ja as string) ?? null,
+          paired_pdf_path: (articleData.paired_pdf_path as string) ?? null,
+          doc_type: (articleData.doc_type as string) ?? null,
+          author: (articleData.author as string) ?? null,
+          summary: (articleData.summary as string) ?? null,
+        }}
         canEdit={canEdit}
-        settings={settings ?? null}
+        settings={settings as DocumentSettings | null}
       />
     </Suspense>
   );
