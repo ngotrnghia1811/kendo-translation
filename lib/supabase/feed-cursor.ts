@@ -8,15 +8,15 @@
  * See: supabase/migrations/017_documents_feed_sort.sql
  */
 
-export type SortBy = 'title' | 'created_at' | 'updated_at' | 'segment_count' | 'status'
+export type SortBy = 'title' | 'segment_count' | 'status'
 export type SortDir = 'asc' | 'desc'
 
-const VALID_SORT_BY: Set<string> = new Set(['title', 'created_at', 'updated_at', 'segment_count', 'status'])
+const VALID_SORT_BY: Set<string> = new Set(['title', 'segment_count', 'status'])
 const VALID_SORT_DIR: Set<string> = new Set(['asc', 'desc'])
 
 export function sanitizeSortBy(raw: string | null): SortBy {
   if (raw && VALID_SORT_BY.has(raw)) return raw as SortBy
-  return 'created_at'
+  return 'title'
 }
 
 export function sanitizeSortDir(raw: string | null): SortDir {
@@ -32,10 +32,6 @@ export function normalizeSortVal(row: Record<string, unknown>, sortBy: SortBy): 
   switch (sortBy) {
     case 'title':
       return String(row['title'] ?? '')
-    case 'created_at':
-      return String(row['created_at'] ?? '')
-    case 'updated_at':
-      return String(row['updated_at'] ?? '1970-01-01 00:00:00+00')
     case 'segment_count':
       return String(row['segment_count'] ?? 0).padStart(10, '0')
     case 'status': {
@@ -50,7 +46,7 @@ export function normalizeSortVal(row: Record<string, unknown>, sortBy: SortBy): 
       return ordinals[s] ?? '0'
     }
     default:
-      return String(row['created_at'] ?? '')
+      return String(row['title'] ?? '')
   }
 }
 
