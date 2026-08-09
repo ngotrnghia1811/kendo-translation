@@ -36,7 +36,7 @@ routerAdd("GET", "/api/custom/article-bilingual-window", (e) => {
     const safeTargetLang = targetLang.replace(/'/g, "''");
 
     // Build SQL
-    let whereClause = `s.article_id = '${safeArticleId}' AND s.target_lang = '${safeTargetLang}'`;
+    let whereClause = `s.article = '${safeArticleId}' AND s.target_lang = '${safeTargetLang}'`;
 
     if (rawPage !== "") {
         const pageNum = parseInt(rawPage, 10);
@@ -59,7 +59,7 @@ routerAdd("GET", "/api/custom/article-bilingual-window", (e) => {
     const sql = `
         SELECT
             s.id,
-            s.article_id,
+            s.article,
             s.position,
             s.source_text,
             s.target_text,
@@ -71,9 +71,7 @@ routerAdd("GET", "/api/custom/article-bilingual-window", (e) => {
             s.translated_by,
             s.reviewed_by,
             s.quality_detail,
-            s.metadata,
-            s.created,
-            s.updated
+            s.metadata
         FROM segments s
         WHERE ${whereClause}
         ORDER BY s.position ASC
@@ -85,7 +83,7 @@ routerAdd("GET", "/api/custom/article-bilingual-window", (e) => {
 
     const result = arrayOf(new DynamicModel({
         "id":             "",
-        "article_id":     "",
+        "article":        "",
         "position":       0,
         "source_text":    "",
         "target_text":    "",
@@ -96,10 +94,8 @@ routerAdd("GET", "/api/custom/article-bilingual-window", (e) => {
         "locked_at":      "",
         "translated_by":  "",
         "reviewed_by":    "",
-        "quality_detail": "",
-        "metadata":       "",
-        "created":        "",
-        "updated":        "",
+        "quality_detail": nullString(),
+        "metadata":       nullString(),
     }));
 
     db.newQuery(sql).all(result);
@@ -113,22 +109,20 @@ routerAdd("GET", "/api/custom/article-bilingual-window", (e) => {
             try { return typeof val === "string" ? JSON.parse(val) : val; } catch { return val; }
         };
         items.push({
-            id:             row.get("id"),
-            article_id:     row.get("article_id"),
-            position:       row.getInt("position"),
-            source_text:    row.get("source_text") || "",
-            target_text:    row.get("target_text") || "",
-            source_lang:    row.get("source_lang") || "",
-            target_lang:    row.get("target_lang") || "",
-            status:         row.get("status") || "",
-            locked_by:      row.get("locked_by") || null,
-            locked_at:      row.get("locked_at") || null,
-            translated_by:  row.get("translated_by") || null,
-            reviewed_by:    row.get("reviewed_by") || null,
-            quality_detail: parseJson(row.get("quality_detail")),
-            metadata:       parseJson(row.get("metadata")),
-            created_at:     row.get("created") || "",
-            updated_at:     row.get("updated") || "",
+            id:             row.id,
+            article_id:     row.article,
+            position:       row.position,
+            source_text:    row.source_text || "",
+            target_text:    row.target_text || "",
+            source_lang:    row.source_lang || "",
+            target_lang:    row.target_lang || "",
+            status:         row.status || "",
+            locked_by:      row.locked_by || null,
+            locked_at:      row.locked_at || null,
+            translated_by:  row.translated_by || null,
+            reviewed_by:    row.reviewed_by || null,
+            quality_detail: parseJson(row.quality_detail),
+            metadata:       parseJson(row.metadata),
         });
     }
 

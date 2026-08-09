@@ -40,7 +40,7 @@ routerAdd("GET", "/api/custom/article-page-info", (e) => {
     const countSql = `
         SELECT COUNT(*) AS total_count
         FROM segments s
-        WHERE s.article_id = '${safeArticleId}'
+        WHERE s.article = '${safeArticleId}'
           AND s.target_lang = '${safeTargetLang}'
           AND ${publishCondition}
     `;
@@ -48,13 +48,13 @@ routerAdd("GET", "/api/custom/article-page-info", (e) => {
     let totalCount = 0;
     const countResult = new DynamicModel({ total_count: 0 });
     db.newQuery(countSql).one(countResult);
-    totalCount = countResult.getInt("total_count") || 0;
+    totalCount = countResult.total_count || 0;
 
     // ── Has page metadata check ──────────────────────────────────
     const pageCheckSql = `
         SELECT EXISTS (
             SELECT 1 FROM segments s
-            WHERE s.article_id = '${safeArticleId}'
+            WHERE s.article = '${safeArticleId}'
               AND s.target_lang = '${safeTargetLang}'
               AND ${publishCondition}
               AND json_extract(s.metadata, '$.page') IS NOT NULL
@@ -65,7 +65,7 @@ routerAdd("GET", "/api/custom/article-page-info", (e) => {
     let hasPageMetadata = false;
     const pageCheckResult = new DynamicModel({ has_pages: false });
     db.newQuery(pageCheckSql).one(pageCheckResult);
-    hasPageMetadata = pageCheckResult.getBool("has_pages") || false;
+    hasPageMetadata = pageCheckResult.has_pages || false;
 
     // ── Distinct pages ────────────────────────────────────────────
     let distinctPages = [];
@@ -73,7 +73,7 @@ routerAdd("GET", "/api/custom/article-page-info", (e) => {
         const pagesSql = `
             SELECT DISTINCT CAST(json_extract(s.metadata, '$.page') AS INTEGER) AS pn
             FROM segments s
-            WHERE s.article_id = '${safeArticleId}'
+            WHERE s.article = '${safeArticleId}'
               AND s.target_lang = '${safeTargetLang}'
               AND ${publishCondition}
               AND json_extract(s.metadata, '$.page') IS NOT NULL
@@ -85,7 +85,7 @@ routerAdd("GET", "/api/custom/article-page-info", (e) => {
 
         distinctPages = [];
         for (let i = 0; i < pagesResult.length; i++) {
-            distinctPages.push(pagesResult[i].getInt("pn"));
+            distinctPages.push(pagesResult[i].pn);
         }
     }
 

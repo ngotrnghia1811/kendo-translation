@@ -11,7 +11,7 @@
  * Registered in pb_hooks/*.pb.js — PocketBase auto-loads on serve.
  *
  * Query params:
- *   sort_by         — "created_at" | "updated_at" | "title" | "segment_count" | "status"
+ *   sort_by         — "title" | "segment_count" | "status"
  *   sort_dir        — "asc" | "desc"
  *   search          — ILIKE match on title
  *   cursor_sort_val — opaque sort_val of last seen item
@@ -20,7 +20,7 @@
  */
 
 routerAdd("GET", "/api/custom/documents-feed", (e) => {
-    const sortBy = e.request.url.query().get("sort_by") || "created_at";
+    const sortBy = e.request.url.query().get("sort_by") || "title";
     const sortDir = (e.request.url.query().get("sort_dir") || "desc").toLowerCase();
     const searchTerm = e.request.url.query().get("search") || "";
     const cursorSortVal = e.request.url.query().get("cursor_sort_val") || "";
@@ -31,7 +31,7 @@ routerAdd("GET", "/api/custom/documents-feed", (e) => {
     );
 
     // ── Validate ─────────────────────────────────────────────────
-    const allowedSortFields = ["created_at", "updated_at", "title", "segment_count", "status"];
+    const allowedSortFields = ["title", "segment_count", "status"];
     if (!allowedSortFields.includes(sortBy)) {
         throw new BadRequestError(
             "Invalid sort_by: " + sortBy + ". Must be one of: " + allowedSortFields.join(", ")
@@ -46,12 +46,7 @@ routerAdd("GET", "/api/custom/documents-feed", (e) => {
         case "title":
             sortValExpr = "a.title";
             break;
-        case "created_at":
-            sortValExpr = "CAST(a.created AS TEXT)";
-            break;
-        case "updated_at":
-            sortValExpr = "CAST(COALESCE(a.updated, '1970-01-01 00:00:00') AS TEXT)";
-            break;
+
         case "segment_count":
             // LPAD equivalent in SQLite: SUBSTR('0000000000' || val, -10)
             sortValExpr = "SUBSTR('0000000000' || CAST(COALESCE(a.segment_count, 0) AS TEXT), -10, 10)";
@@ -70,7 +65,7 @@ routerAdd("GET", "/api/custom/documents-feed", (e) => {
                 ELSE '0' END`;
             break;
         default:
-            sortValExpr = "CAST(a.created AS TEXT)";
+            sortValExpr = "a.title";
     }
 
     // ── Build CTE query ──────────────────────────────────────────
@@ -130,7 +125,6 @@ routerAdd("GET", "/api/custom/documents-feed", (e) => {
                 a.title_ja,
                 a.translation_status,
                 a.segment_count,
-                a.created,
                 a.doc_type,
                 a.author,
                 a.summary,
@@ -144,7 +138,6 @@ routerAdd("GET", "/api/custom/documents-feed", (e) => {
             title_ja,
             translation_status,
             segment_count,
-            created AS created_at,
             doc_type,
             author,
             summary,
@@ -162,7 +155,6 @@ routerAdd("GET", "/api/custom/documents-feed", (e) => {
         "title_ja":          "",
         "translation_status": "",
         "segment_count":     0,
-        "created_at":        "",
         "doc_type":          "",
         "author":            "",
         "summary":           "",
@@ -179,15 +171,14 @@ routerAdd("GET", "/api/custom/documents-feed", (e) => {
     for (let i = 0; i < maxItems; i++) {
         const row = result[i];
         items.push({
-            id:                 row.get("id"),
-            title:              row.get("title"),
-            title_ja:           row.get("title_ja"),
-            translation_status: row.get("translation_status"),
-            segment_count:      row.get("segment_count"),
-            created_at:         row.get("created_at"),
-            doc_type:           row.get("doc_type"),
-            author:             row.get("author"),
-            summary:            row.get("summary"),
+            id:                 row.id,
+            title:              row.title,
+            title_ja:           row.title_ja,
+            translation_status: row.translation_status,
+            segment_count:      row.segment_count,
+            doc_type:           row.doc_type,
+            author:             row.author,
+            summary:            row.summary,
         });
     }
 
@@ -196,8 +187,8 @@ routerAdd("GET", "/api/custom/documents-feed", (e) => {
     let nextCursorId = null;
     if (hasMore && items.length > 0) {
         const lastResult = result[items.length - 1];
-        nextCursorSortVal = lastResult.get("sort_val");
-        nextCursorId = lastResult.get("id");
+        nextCursorSortVal = lastResult.sort_val;
+        nextCursorId = lastResult.id;
     }
 
     return e.json(200, {
