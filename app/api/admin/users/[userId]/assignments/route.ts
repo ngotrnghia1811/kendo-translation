@@ -1,56 +1,66 @@
 /**
  * /api/admin/users/[userId]/assignments
  *
- * Admin-only inverse view of `document_assignments`: lists every
+ * Admin-only inverse view of document_assignments: lists every
  * document the given user is assigned to, with the joined document
- * title for display. Powers the per-user assignment matrix page.
+ * title for display.
  *
- * GET — returns { assignments: [{ id, document_id, allowed_phases,
- *       assigned_by, created_at, updated_at, document: {id, title} }] }
+ * PocketBase edition.
  *
- * Mutations (PATCH/DELETE) re-use the existing per-document routes at
- * /api/documents/[id]/assignments/[userId] — no new mutation surface
- * is introduced here, since the identity of an assignment is always
- * (document_id, user_id) regardless of which page edits it.
- *
- * Auth: requires an authenticated user whose `profiles.role === 'admin'`.
+ * Auth: requires an authenticated user whose role === 'admin'.
  * Statuses: 200 | 400 (bad userId) | 401 | 403 | 500
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/pocketbase/server';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
 
 const UUID_RE =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(
-    _req: NextRequest,
-    { params }: { params: Promise<{ userId: string }> }
+  _req: NextRequest,
+  { params }: { params: Promise<{ userId: string }> },
 ) {
-    const { userId } = await params;
-    if (!UUID_RE.test(userId)) {
-        return NextResponse.json(
-            { error: '`userId` must be a UUID' },
-            { status: 400 }
-        );
-    }
+  const { userId } = await params;
+  if (!UUID_RE.test(userId)) {
+    return NextResponse.json(
+      { error: '`userId` must be a UUID' },
+      { status: 400 },
+    );
+  }
 
-    const supabase = await createClient();
-    const guard = await requireAdmin(supabase);
-    if (guard instanceof NextResponse) return guard;
+  const pb = await createServerClient();
+  const guard = await requireAdmin(pb);
+  if (guard instanceof NextResponse) return guard;
 
-    const { data, error } = await supabase
-        .from('document_assignments')
-        .select(
-            'id, user_id, document_id, allowed_phases, assigned_by, created_at, updated_at, document:articles!document_id(id, title)'
-        )
-        .eq('user_id', userId)
-        .order('created_at', { ascending: true });
+  // Fetch assignments with expanded document info
+  const result = await pb.collection('document_assignments').getFullList({
+    filter: `user_id = "${userId}"`,
+    sort: '+created',
+    expand: 'document_id',
+  });
 
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+  const assignments = result.map((a) => {
+    const data = JSON.parse(JSON.stringify(a)) as Record<string, unknown>;
+    const expand = (data.expand ?? {}) as Record<
+      string,
+      Record<string, unknown>
+    >;
+    const doc = expand.document_id;
+    return {
+      id: data.id,
+      user_id: data.user_id,
+      document_id: data.document_id,
+      allowed_phases: data.allowed_phases,
+      assigned_by: data.assigned_by ?? null,
+      created_at: data.created,
+      updated_at: data.updated,
+      document: doc
+        ? { id: doc.id, title: doc.title ?? '' }
+        : null,
+    };
+  });
 
-    return NextResponse.json({ assignments: data ?? [] });
+  return NextResponse.json({ assignments });
 }
