@@ -54,12 +54,12 @@ cp -r migration/pocketbase/pb_hooks /tmp/pb-test/
 
 # Start PocketBase (creates pb_data/ automatically, runs migrations on boot)
 cd /tmp/pb-test
-pocketbase serve --http 127.0.0.1:8090
+pocketbase serve --http 127.0.0.1:8090 --dir ./pb_data --migrationsDir ./pb_migrations
 ```
 
 Visit `http://127.0.0.1:8090/_/` to create the first superuser account.
 
-PocketBase **auto-applies** migrations in `pb_migrations/` on startup — no manual step needed.
+**IMPORTANT (verified against v0.39.10):** PocketBase does **NOT** auto-detect `pb_migrations/` from the current working directory — you must pass `--migrationsDir ./pb_migrations` explicitly, or custom JS migrations are **silently skipped** (only the built-in Go migrations run). Always confirm your custom migrations applied by checking the `_migrations` system table after boot.
 
 ### 2. Import data from the pg_dump backup
 
@@ -116,9 +116,9 @@ curl -s "http://127.0.0.1:8090/api/custom/documents-feed?sort_by=title&sort_dir=
 4. **Start PocketBase**:
    ```bash
    cd /opt/pocketbase
-   ./pocketbase serve yourdomain.com
+   ./pocketbase serve yourdomain.com --migrationsDir ./pb_migrations
    ```
-   Migrations auto-apply on first boot.
+   The `--migrationsDir` flag is **required** — without it, custom JS migrations are silently skipped (see note above).
 5. **Create admin superuser** via Admin UI at `https://yourdomain.com/_/`
 6. **Run data import** against the production PocketBase URL:
    ```bash
