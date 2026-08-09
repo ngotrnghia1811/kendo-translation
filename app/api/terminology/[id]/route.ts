@@ -3,28 +3,21 @@
  *
  * PATCH  — admin only: update an existing term
  * DELETE — admin only: delete a term
+ * PocketBase edition.
  */
 
-import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/pocketbase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
-const KNOWN_ROLES = ['admin', 'translator', 'reader']
-
-async function requireAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
-
-    // Phase 1.2i / Straggler D: read role from JWT app_metadata claim first.
-    const appRole = (user.app_metadata as Record<string, unknown> | undefined)?.role as string | undefined
-    if (appRole && KNOWN_ROLES.includes(appRole)) {
-        if (appRole !== 'admin') return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
-        return { user }
+async function requireAdmin(pb: Awaited<ReturnType<typeof createServerClient>>) {
+    if (!pb.authStore.isValid || !pb.authStore.record) {
+        return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
     }
-
-    // Fallback: stale JWT — query profiles table.
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
-    if (profile?.role !== 'admin') return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
-    return { user }
+    const role = (pb.authStore.record as Record<string, unknown>).role as string | undefined
+    if (role !== 'admin') {
+        return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
+    }
+    return { user: pb.authStore.record }
 }
 
 export async function PATCH(
@@ -32,8 +25,8 @@ export async function PATCH(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const authClient = await createClient()
-        const gate = await requireAdmin(authClient)
+        const pb = await createServerClient()
+        const gate = await requireAdmin(pb)
         if ('error' in gate) return gate.error
 
         const { id } = await params
@@ -44,33 +37,22 @@ export async function PATCH(
             return NextResponse.json({ error: 'source_term and target_term are required' }, { status: 400 })
         }
 
-        const supabase = await createAdminClient()
-        const { data, error } = await supabase
-            .from('terminology')
-            .update({
-                source_term: source_term.trim(),
-                target_term: target_term.trim(),
-                reading: reading?.trim() || null,
-                domain: domain?.trim() || null,
-                notes: notes?.trim() || null,
-            })
-            .eq('id', id)
-            .select('id, source_term, target_term, reading, domain, notes')
-            .single()
-
-        if (error) {
-            console.error('Error updating term:', error)
-            return NextResponse.json({ error: error.message }, { status: 500 })
-        }
-
-        if (!data) {
-            return NextResponse.json({ error: 'Term not found' }, { status: 404 })
-        }
+        const data = await pb.collection('terminology').update(id, {
+            source_term: source_term.trim(),
+            target_term: target_term.trim(),
+            reading: reading?.trim() || null,
+            domain: domain?.trim() || null,
+            notes: notes?.trim() || null,
+        })
 
         return NextResponse.json({ term: data })
     } catch (error) {
-        console.error('Error in terminology PATCH:', error)
-        return NextResponse.json({ error: 'Failed to update term' }, { status: 500 })
+        const msg = error instanceof Error ? error.message : 'Unknown error'
+        // PocketBase throws on not-found; map to 404
+        if (msg.includes('not found') || msg.includes('404')) {
+            return NextResponse.json({ error: 'Term not found' }, { status: 404 })
+        }
+        return NextResponse.json({ error: msg }, { status: 500 })
     }
 }
 
@@ -79,25 +61,19 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const authClient = await createClient()
-        const gate = await requireAdmin(authClient)
+        const pb = await createServerClient()
+        const gate = await requireAdmin(pb)
         if ('error' in gate) return gate.error
 
         const { id } = await params
-        const supabase = await createAdminClient()
-        const { error } = await supabase
-            .from('terminology')
-            .delete()
-            .eq('id', id)
 
-        if (error) {
-            console.error('Error deleting term:', error)
-            return NextResponse.json({ error: error.message }, { status: 500 })
-        }
-
+        await pb.collection('terminology').delete(id)
         return NextResponse.json({ success: true })
     } catch (error) {
-        console.error('Error in terminology DELETE:', error)
-        return NextResponse.json({ error: 'Failed to delete term' }, { status: 500 })
+        const msg = error instanceof Error ? error.message : 'Unknown error'
+        if (msg.includes('not found') || msg.includes('404')) {
+            return NextResponse.json({ error: 'Term not found' }, { status: 404 })
+        }
+        return NextResponse.json({ error: msg }, { status: 500 })
     }
 }

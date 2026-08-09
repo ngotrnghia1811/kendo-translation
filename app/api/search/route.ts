@@ -2,35 +2,21 @@
  * app/api/search/route.ts
  *
  * Global full-text search across articles and segments.
+ * PocketBase edition: replaces Supabase search_segments RPC (GIN trigram
+ * index) with PocketBase filter ~ (LIKE) operators.
  *
- * GET /api/search?q=<query>[&scope=articles|segments|both][&limit=<n>]
- *
- * - `q`      — required; minimum 2 characters
- * - `scope`  — "articles" | "segments" | "both" (default: "both")
- * - `limit`  — max results per category, 1–50 (default: 20)
- *
- * Authentication required (any role). Returns a JSON object:
- * {
- *   query: string,
- *   articles: ArticleHit[],
- *   segments: SegmentHit[],
- * }
- *
- * ArticleHit: { id, title, segment_count, snippet: string | null }
- * SegmentHit: { id, article_id, article_title, position, source_snippet, target_snippet, status }
- *
- * Phase 1.2f: Segment search now uses the search_segments RPC (GIN trigram index)
- * instead of PostgREST .ilike('%term%') full-table scans.
+ * NOTE: Without a GIN trigram index, ILIKE searches on ~446K segments
+ * may be slow. For now this is acceptable for an MVP; a PocketBase
+ * full-text search hook route can be added later if needed.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/pocketbase/server'
 
 export interface ArticleHit {
     id: string
     title: string
     segment_count: number
-    /** First matched segment text, truncated to ~200 chars */
     snippet: string | null
 }
 
@@ -51,9 +37,8 @@ export interface SearchResponse {
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const pb = await createServerClient()
+    if (!pb.authStore.isValid || !pb.authStore.record) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -69,90 +54,96 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const rawScope = searchParams.get('scope') ?? 'both'
     const scope = ['articles', 'segments', 'both'].includes(rawScope) ? rawScope : 'both'
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10)))
-    const pattern = `%${q}%`
 
     const articleHits: ArticleHit[] = []
     const segmentHits: SegmentHit[] = []
 
-    // -------------------------------------------------------------------------
-    // Articles — search by title (ilike is fine for ~993 articles)
-    // -------------------------------------------------------------------------
-    if (scope === 'articles' || scope === 'both') {
-        const { data: articles, error: aErr } = await supabase
-            .from('articles')
-            .select('id, title, segment_count')
-            .ilike('title', pattern)
-            .limit(limit)
+    try {
+        // Articles — search by title
+        if (scope === 'articles' || scope === 'both') {
+            const articles = await pb.collection('articles').getList(1, limit, {
+                filter: `title ~ "${q.replace(/"/g, '\\"')}"`,
+                sort: '-created',
+                fields: 'id,title,segment_count',
+            })
 
-        if (aErr) {
-            return NextResponse.json({ error: aErr.message }, { status: 500 })
+            const articleList = articles.items as Array<Record<string, unknown>>
+            if (articleList.length > 0) {
+                const articleIds = articleList.map(a => a.id as string)
+                // Get one translated segment per article for snippet
+                const snippetMap = new Map<string, string>()
+                for (const aid of articleIds) {
+                    try {
+                        const segs = await pb.collection('segments').getList(1, 1, {
+                            filter: `article_id = "${aid}" && target_text != null && status != "draft"`,
+                            sort: '+position',
+                            fields: 'article_id,target_text',
+                        })
+                        if (segs.items.length > 0) {
+                            snippetMap.set(aid, (segs.items[0] as Record<string, unknown>).target_text as string)
+                        }
+                    } catch { /* ignore */ }
+                }
+
+                for (const a of articleList) {
+                    articleHits.push({
+                        id: a.id as string,
+                        title: a.title as string,
+                        segment_count: (a.segment_count as number) ?? 0,
+                        snippet: snippetMap.get(a.id as string) ?? null,
+                    })
+                }
+            }
         }
 
-        // For each matching article, grab its first translated/qa_approved segment
-        // as a snippet so users can preview the content.
-        const articleList = articles ?? []
-        if (articleList.length > 0) {
-            const articleIds = articleList.map(a => a.id)
-            // Fetch one representative target_text segment per article.
-            const { data: snippetRows } = await supabase
-                .from('segments')
-                .select('article_id, target_text')
-                .in('article_id', articleIds)
-                .in('status', ['translated', 'edited', 'proofread', 'qa_approved'])
-                .not('target_text', 'is', null)
-                .order('position', { ascending: true })
-                .limit(articleIds.length * 3) // grab a few per article, dedupe below
+        // Segments — search via filter
+        if (scope === 'segments' || scope === 'both') {
+            const escapedQ = q.replace(/"/g, '\\"')
+            // Search in source_text and target_text
+            const filter = `(source_text ~ "${escapedQ}" || target_text ~ "${escapedQ}")`
+            const segs = await pb.collection('segments').getList(1, limit, {
+                filter,
+                sort: '-created',
+                fields: 'id,article_id,position,source_text,target_text,status',
+            })
 
-            const snippetMap = new Map<string, string>()
-            for (const row of snippetRows ?? []) {
-                if (!snippetMap.has(row.article_id) && row.target_text) {
-                    snippetMap.set(row.article_id, row.target_text)
+            const segList = segs.items as Array<Record<string, unknown>>
+            // Fetch article titles for hits
+            const articleTitleMap = new Map<string, string>()
+            for (const s of segList) {
+                const aid = s.article_id as string
+                if (!articleTitleMap.has(aid)) {
+                    try {
+                        const art = await pb.collection('articles').getOne(aid, { fields: 'title' })
+                        articleTitleMap.set(aid, (art as Record<string, unknown>).title as string)
+                    } catch {
+                        articleTitleMap.set(aid, 'Unknown')
+                    }
                 }
             }
 
-            for (const a of articleList) {
-                articleHits.push({
-                    id: a.id,
-                    title: a.title,
-                    segment_count: a.segment_count ?? 0,
-                    snippet: snippetMap.get(a.id) ?? null,
+            for (const s of segList) {
+                segmentHits.push({
+                    id: s.id as string,
+                    article_id: s.article_id as string,
+                    article_title: articleTitleMap.get(s.article_id as string) ?? 'Unknown',
+                    position: s.position as number,
+                    source_snippet: (s.source_text as string) ?? null,
+                    target_snippet: (s.target_text as string) ?? null,
+                    status: s.status as string,
                 })
             }
         }
-    }
 
-    // -------------------------------------------------------------------------
-    // Segments — search via search_segments RPC (GIN trigram index)
-    // -------------------------------------------------------------------------
-    if (scope === 'segments' || scope === 'both') {
-        const { data: segData, error: segErr } = await supabase.rpc(
-            'search_segments',
-            { p_query: q, p_limit: limit },
-        )
-
-        if (segErr) {
-            return NextResponse.json({ error: segErr.message }, { status: 500 })
+        const response: SearchResponse = {
+            query: q,
+            articles: articleHits,
+            segments: segmentHits,
         }
 
-        const rows = segData ?? []
-        for (const s of rows) {
-            segmentHits.push({
-                id: s.id,
-                article_id: s.article_id,
-                article_title: s.article_title,
-                position: s.position,
-                source_snippet: s.source_snippet,
-                target_snippet: s.target_snippet,
-                status: s.status,
-            })
-        }
+        return NextResponse.json(response)
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error'
+        return NextResponse.json({ error: msg }, { status: 500 })
     }
-
-    const response: SearchResponse = {
-        query: q,
-        articles: articleHits,
-        segments: segmentHits,
-    }
-
-    return NextResponse.json(response)
 }

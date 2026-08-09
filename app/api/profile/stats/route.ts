@@ -2,117 +2,78 @@
  * /api/profile/stats
  *
  * GET — returns activity stats for the authenticated user.
- *
- * Response shape:
- * {
- *   editCount: number,          -- segment_revisions rows authored by user
- *   commentCount: number,       -- segment_comments rows authored by user
- *   transitionCount: number,    -- segment_phase_transitions rows by user
- *   assignedDocCount: number,   -- document_assignments rows for user
- *   assignments: Array<{
- *     document_id: string,
- *     title: string | null,
- *     allowed_phases: string[],
- *   }>,
- *   recentHistory: Array<{
- *     item_id: string,
- *     item_type: string,
- *     item_title: string,
- *     visited_at: string,
- *   }>,
- * }
- *
- * Status codes: 200 ok | 401 unauth | 500 db error
+ * PocketBase edition.
  */
 
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/pocketbase/server'
 
 export async function GET() {
-    const supabase = await createClient()
+    const pb = await createServerClient()
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
+    if (!pb.authStore.isValid || !pb.authStore.record) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const uid = pb.authStore.record.id
 
-    const uid = user.id
+    try {
+        const [
+            editResult,
+            commentResult,
+            transitionResult,
+            assignmentResult,
+            historyResult,
+        ] = await Promise.all([
+            pb.collection('segment_revisions').getList(1, 1, {
+                filter: `edited_by = "${uid}"`,
+                fields: 'id',
+            }),
+            pb.collection('segment_comments').getList(1, 1, {
+                filter: `user_id = "${uid}"`,
+                fields: 'id',
+            }),
+            pb.collection('segment_phase_transitions').getList(1, 1, {
+                filter: `actor_id = "${uid}"`,
+                fields: 'id',
+            }),
+            pb.collection('document_assignments').getFullList({
+                filter: `user_id = "${uid}"`,
+                sort: '-created',
+                fields: 'document_id,allowed_phases',
+            }).catch(() => []),
+            pb.collection('user_history').getList(1, 10, {
+                filter: `user_id = "${uid}"`,
+                sort: '-visited_at',
+                fields: 'item_id,item_type,item_title,visited_at',
+            }).catch(() => ({ items: [] })),
+        ])
 
-    // Run all queries in parallel for speed
-    const [
-        editResult,
-        commentResult,
-        transitionResult,
-        assignmentResult,
-        historyResult,
-    ] = await Promise.all([
-        // Edit count
-        supabase
-            .from('segment_revisions')
-            .select('id', { count: 'exact', head: true })
-            .eq('edited_by', uid),
+        // Fetch article titles for assignments
+        const assignments = await Promise.all(
+            (Array.isArray(assignmentResult) ? assignmentResult : []).map(async (row) => {
+                let title: string | null = null
+                try {
+                    const article = await pb.collection('articles').getOne(row.document_id as string, { fields: 'title' })
+                    title = (article as Record<string, unknown>).title as string | null
+                } catch { /* ignore */ }
+                return {
+                    document_id: row.document_id,
+                    title,
+                    allowed_phases: row.allowed_phases ?? [],
+                }
+            })
+        )
 
-        // Comment count
-        supabase
-            .from('segment_comments')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', uid),
-
-        // Phase transition count
-        supabase
-            .from('segment_phase_transitions')
-            .select('id', { count: 'exact', head: true })
-            .eq('actor_id', uid),
-
-        // Assigned documents with article title
-        supabase
-            .from('document_assignments')
-            .select(`
-                document_id,
-                allowed_phases,
-                articles:document_id ( title )
-            `)
-            .eq('user_id', uid)
-            .order('created_at', { ascending: false })
-            .limit(20),
-
-        // Recent reading history
-        supabase
-            .from('user_history')
-            .select('item_id, item_type, item_title, visited_at')
-            .eq('user_id', uid)
-            .order('visited_at', { ascending: false })
-            .limit(10),
-    ])
-
-    // Check for errors — return 500 on DB failure
-    const dbError = editResult.error || commentResult.error || transitionResult.error
-
-    if (dbError) {
-        return NextResponse.json({ error: dbError.message }, { status: 500 })
+        return NextResponse.json({
+            editCount: editResult.totalItems,
+            commentCount: commentResult.totalItems,
+            transitionCount: transitionResult.totalItems,
+            assignedDocCount: assignments.length,
+            assignments,
+            recentHistory: (historyResult as { items?: Record<string, unknown>[] }).items ?? [],
+        })
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error'
+        return NextResponse.json({ error: msg }, { status: 500 })
     }
-
-    // assignmentResult may fail if the table is behind RLS that blocks it;
-    // gracefully degrade to empty array rather than hard-failing.
-    const assignments = (assignmentResult.data ?? []).map((row) => ({
-        document_id: row.document_id,
-        // articles join returns an object (or null) with title field
-        title:
-            row.articles && typeof row.articles === 'object' && 'title' in row.articles
-                ? (row.articles as { title: string | null }).title
-                : null,
-        allowed_phases: row.allowed_phases ?? [],
-    }))
-
-    return NextResponse.json({
-        editCount: editResult.count ?? 0,
-        commentCount: commentResult.count ?? 0,
-        transitionCount: transitionResult.count ?? 0,
-        assignedDocCount: assignments.length,
-        assignments,
-        recentHistory: historyResult.data ?? [],
-    })
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/pocketbase/server';
 import { buildContext } from '@/lib/context/context-builder';
 import { analyzeJaForTranslation, generateTranslationGuidance } from '@/lib/agents/ja-en-agent';
 import { searchTM } from '@/lib/retrieval/tm-search';
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'sourceText is required' }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  const pb = await createServerClient();
   const timings: Record<string, number> = {};
 
   try {
@@ -38,14 +38,14 @@ export async function POST(req: NextRequest) {
       timings.context = Date.now() - t0;
 
       const [tmResult, termResult] = await Promise.all([
-        searchTM(supabase, {
+        searchTM(pb, {
           sourceText,
           sourceLang: context.sourceLang,
           domain: context.domain.primary,
           minMatchScore: 50,
           maxResults: 10,
         }),
-        searchTerminology(supabase, {
+        searchTerminology(pb, {
           text: sourceText,
           sourceLang: context.sourceLang,
           domain: context.domain.primary,
@@ -168,8 +168,8 @@ export async function POST(req: NextRequest) {
 
     if (phase === 'translate') {
       const context = await buildContext({ sourceText, sourceLang, targetLang });
-      const termResult = await searchTerminology(supabase, { text: sourceText, sourceLang: context.sourceLang });
-      const tmResult = await searchTM(supabase, { sourceText, sourceLang: context.sourceLang, domain: context.domain.primary });
+      const termResult = await searchTerminology(pb, { text: sourceText, sourceLang: context.sourceLang });
+      const tmResult = await searchTM(pb, { sourceText, sourceLang: context.sourceLang, domain: context.domain.primary });
 
       let guidance: string | undefined;
       if (context.sourceLang === 'ja') {
@@ -202,7 +202,7 @@ export async function POST(req: NextRequest) {
       }
 
       const context = await buildContext({ sourceText, sourceLang, targetLang });
-      const termResult = await searchTerminology(supabase, { text: sourceText, sourceLang: context.sourceLang });
+      const termResult = await searchTerminology(pb, { text: sourceText, sourceLang: context.sourceLang });
 
       const t0 = Date.now();
       const qualityAssessment = await scoreTranslation({

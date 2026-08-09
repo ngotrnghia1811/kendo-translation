@@ -2,52 +2,27 @@
  * /api/profiles
  *
  * Admin-only directory search for the AssignmentTable user picker.
- *
- * GET /api/profiles?search=&limit=
- *   - `search` optional case-insensitive substring on `username`.
- *   - `limit`  optional integer 1..50, default 20.
- *
- * Returns `{ profiles: [{ id, username, role }] }`.
- *
- * Auth: requires an authenticated user whose `profiles.role === 'admin'`.
- * Uses the RLS-aware `createClient()` (NOT service-role); relies on the
- * existing `profiles` SELECT policy to enumerate rows for admins.
- *
- * Status codes:
- *   200 ok | 400 bad limit | 401 unauth | 403 non-admin | 500 db error
+ * PocketBase edition: queries the `users` auth collection directly
+ * since `profiles` was merged into `users` during migration.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/pocketbase/server';
 
-async function requireAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-        return {
-            error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
-        };
+async function requireAdmin(pb: Awaited<ReturnType<typeof createServerClient>>) {
+    if (!pb.authStore.isValid || !pb.authStore.record) {
+        return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
     }
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
-    if (profile?.role !== 'admin') {
-        return {
-            error: NextResponse.json(
-                { error: 'Forbidden: admin role required' },
-                { status: 403 }
-            ),
-        };
+    const role = (pb.authStore.record as Record<string, unknown>).role as string | undefined;
+    if (role !== 'admin') {
+        return { error: NextResponse.json({ error: 'Forbidden: admin role required' }, { status: 403 }) };
     }
-    return { user };
+    return { user: pb.authStore.record };
 }
 
 export async function GET(req: NextRequest) {
-    const supabase = await createClient();
-    const gate = await requireAdmin(supabase);
+    const pb = await createServerClient();
+    const gate = await requireAdmin(pb);
     if ('error' in gate) return gate.error;
 
     const url = new URL(req.url);
@@ -67,22 +42,28 @@ export async function GET(req: NextRequest) {
         limit = n;
     }
 
-    let query = supabase
-        .from('profiles')
-        .select('id, username, role')
-        .order('username', { ascending: true })
-        .limit(limit);
+    try {
+        let filter: string | undefined;
+        if (search.length > 0) {
+            // PocketBase filter ~ operator for LIKE/ILIKE
+            filter = `username ~ "${search.replace(/"/g, '\\"')}"`;
+        }
 
-    if (search.length > 0) {
-        // Escape PostgREST ilike wildcards in user input.
-        const esc = search.replace(/[\\%_]/g, (m) => `\\${m}`);
-        query = query.ilike('username', `%${esc}%`);
+        const records = await pb.collection('users').getList(1, limit, {
+            filter,
+            sort: 'username',
+            fields: 'id,username,role',
+        });
+
+        return NextResponse.json({
+            profiles: records.items.map(r => ({
+                id: r.id,
+                username: (r as Record<string, unknown>).username,
+                role: (r as Record<string, unknown>).role,
+            })),
+        });
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: msg }, { status: 500 });
     }
-
-    const { data, error } = await query;
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ profiles: data ?? [] });
 }

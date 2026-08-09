@@ -1,27 +1,12 @@
 /**
  * /api/agents/qa
  *
- * Advisory QA agent.  POST a `segment_id`; the route calls the LLM with the
- * QA review prompt and returns a JSON array of candidate qa_issue objects for
- * the translator to triage.
- *
- * Cooperation invariant: the agent PROPOSES, the human DECIDES.  This route
- * NEVER writes to the `qa_issues` table.  The caller is expected to present
- * the candidates to the translator and let them choose which to accept via
- * POST /api/segments/[id]/qa-issues.
- *
- * Request body:
- *   { segment_id: string (UUID) }
- *
- * Response 200:
- *   { candidates: QAIssueCandidate[] }
- *   where QAIssueCandidate = { category, severity, body, char_start, char_end }
- *
- * Response 422: segment has no target_text (nothing to QA yet).
+ * Advisory QA agent.
+ * PocketBase edition.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/pocketbase/server';
 import { agentChatWithFallback } from '@/lib/llm/provider';
 import { qaPrompt } from '@/lib/agents/phase-prompts';
 import type { QAIssueCategory, QAIssueSeverity } from '@/types/database';
@@ -48,12 +33,9 @@ interface QAIssueCandidate {
     char_end: number | null;
 }
 
-/** Parse and validate the raw LLM JSON output into typed candidates. */
 function parseCandidates(raw: string): QAIssueCandidate[] {
     let parsed: unknown;
     try {
-        // Strip optional markdown code fences the model might include despite
-        // instructions.
         const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
         parsed = JSON.parse(stripped);
     } catch {
@@ -62,12 +44,9 @@ function parseCandidates(raw: string): QAIssueCandidate[] {
     if (!Array.isArray(parsed)) return [];
 
     const result: QAIssueCandidate[] = [];
-    for (const item of parsed) {
+    for (const item of parsed as Record<string, unknown>[]) {
         if (typeof item !== 'object' || item === null) continue;
-        const { category, severity, body, char_start, char_end } = item as Record<
-            string,
-            unknown
-        >;
+        const { category, severity, body, char_start, char_end } = item;
         if (
             typeof category !== 'string' ||
             !VALID_CATEGORIES.has(category as QAIssueCategory)
@@ -82,24 +61,17 @@ function parseCandidates(raw: string): QAIssueCandidate[] {
             category: category as QAIssueCategory,
             severity: severity as QAIssueSeverity,
             body: typeof body === 'string' ? body : null,
-            char_start:
-                typeof char_start === 'number' && Number.isInteger(char_start)
-                    ? char_start
-                    : null,
-            char_end:
-                typeof char_end === 'number' && Number.isInteger(char_end) ? char_end : null,
+            char_start: typeof char_start === 'number' && Number.isInteger(char_start) ? char_start : null,
+            char_end: typeof char_end === 'number' && Number.isInteger(char_end) ? char_end : null,
         });
     }
     return result;
 }
 
 export async function POST(req: NextRequest) {
-    const supabase = await createClient();
+    const pb = await createServerClient();
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+    if (!pb.authStore.isValid || !pb.authStore.record) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -118,16 +90,10 @@ export async function POST(req: NextRequest) {
         );
     }
 
-    const { data: segment, error: segErr } = await supabase
-        .from('segments')
-        .select('id, source_text, target_text')
-        .eq('id', segment_id)
-        .maybeSingle();
-
-    if (segErr) {
-        return NextResponse.json({ error: segErr.message }, { status: 500 });
-    }
-    if (!segment) {
+    let segment: Record<string, unknown>;
+    try {
+        segment = await pb.collection('segments').getOne(segment_id);
+    } catch {
         return NextResponse.json({ error: 'Segment not found' }, { status: 404 });
     }
 
@@ -138,8 +104,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
             {
                 error:
-                    'QA requires a non-empty target_text on the segment.  ' +
-                    'Translate the segment first.',
+                    'QA requires a non-empty target_text on the segment. Translate the segment first.',
             },
             { status: 422 }
         );
@@ -168,8 +133,6 @@ export async function POST(req: NextRequest) {
 
     const candidates = parseCandidates(rawContent);
 
-    // Return the raw LLM output alongside parsed candidates so callers can
-    // display or log it for debugging even when parsing yields zero results.
     return NextResponse.json({
         candidates,
         segment_id,

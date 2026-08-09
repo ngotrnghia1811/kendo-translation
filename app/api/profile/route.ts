@@ -2,31 +2,22 @@
  * /api/profile
  *
  * PATCH — update the authenticated user's own profile fields.
- *
- * Body (JSON): { username?: string }
- *   - `username` must be 2–30 chars, alphanumeric + underscore/hyphen.
- *
- * Returns: { profile: { id, username, role, email, created_at, updated_at } }
- *
- * Status codes:
- *   200 ok | 400 bad input | 401 unauth | 409 username taken | 500 db error
+ * PocketBase edition: updates the `users` auth collection directly
+ * since `profiles` was merged into `users` during migration.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/pocketbase/server'
 
 const USERNAME_RE = /^[a-zA-Z0-9_-]{2,30}$/
 
 export async function PATCH(req: NextRequest) {
-    const supabase = await createClient()
+    const pb = await createServerClient()
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
+    if (!pb.authStore.isValid || !pb.authStore.record) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const user = pb.authStore.record
 
     let body: Record<string, unknown>
     try {
@@ -54,25 +45,18 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: 'No updatable fields provided' }, { status: 400 })
     }
 
-    updates.updated_at = new Date().toISOString()
-
-    const { data, error } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', user.id)
-        .select('id, username, role, email, created_at, updated_at')
-        .single()
-
-    if (error) {
-        // Unique constraint on username
-        if (error.code === '23505') {
+    try {
+        const data = await pb.collection('users').update(user.id, updates)
+        return NextResponse.json({ profile: data })
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error'
+        // PocketBase doesn't expose SQL error codes; surface a generic message
+        if (msg.includes('unique') || msg.includes('duplicate') || msg.includes('already')) {
             return NextResponse.json(
                 { error: 'That username is already taken' },
                 { status: 409 }
             )
         }
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ error: msg }, { status: 500 })
     }
-
-    return NextResponse.json({ profile: data })
 }

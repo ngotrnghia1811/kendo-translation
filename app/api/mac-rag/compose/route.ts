@@ -1,15 +1,12 @@
 /**
  * POST /api/mac-rag/compose
  *
- * Stage 1 of the two-stage MAC-RAG pipeline: retrieval + prompt assembly.
- * No LLM call — returns the assembled prompt for human review/edit.
- *
- * The caller (human or UI) inspects the assembled `prompt` and submits
- * the (optionally edited) version to `POST /api/mac-rag/generate`.
+ * Stage 1: retrieval + prompt assembly. No LLM call.
+ * PocketBase edition.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/pocketbase/server';
 import { searchTM } from '@/lib/retrieval/tm-search';
 import { searchTerminology } from '@/lib/retrieval/terminology';
 import { buildArticleL2Context, KENDO_AUDIENCE_PROFILE } from '@/lib/context/article-context';
@@ -20,8 +17,6 @@ import {
   proofreadPrompt,
   qaPrompt,
 } from '@/lib/agents/phase-prompts';
-import type { TMMatch } from '@/lib/retrieval/tm-search';
-import type { TermEntry } from '@/lib/retrieval/terminology';
 
 type Phase = 'translate' | 'edit' | 'proofread' | 'qa';
 type SourceLang = 'ja' | 'en';
@@ -63,27 +58,17 @@ export async function POST(req: NextRequest) {
   const targetLang: 'en' | 'zh' =
     target_lang === 'zh' ? 'zh' : 'en';
 
-  const supabase = await createClient();
+  const pb = await createServerClient();
 
-  // ── Auth ──────────────────────────────────────────────────────────
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  if (!pb.authStore.isValid || !pb.authStore.record) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // ── Fetch segment ─────────────────────────────────────────────────
-  const { data: segment, error: segmentErr } = await supabase
-    .from('segments')
-    .select('id, source_text, target_text, status, article_id, source_lang, target_lang, position')
-    .eq('id', segment_id)
-    .maybeSingle();
-
-  if (segmentErr) {
-    return NextResponse.json({ error: segmentErr.message }, { status: 500 });
-  }
-  if (!segment) {
+  // Fetch segment
+  let segment: Record<string, unknown>;
+  try {
+    segment = await pb.collection('segments').getOne(segment_id);
+  } catch {
     return NextResponse.json({ error: 'Segment not found' }, { status: 404 });
   }
 
@@ -95,10 +80,10 @@ export async function POST(req: NextRequest) {
   const segArticleId: string = segment.article_id as string;
   const segPosition: number = segment.position as number;
 
-  // ── Parallel retrieval + L2 context ───────────────────────────────
+  // Parallel retrieval + L2 context
   const retrievalT0 = Date.now();
   const [tmResult, termResult, l2] = await Promise.all([
-    searchTM(supabase, {
+    searchTM(pb, {
       sourceText,
       sourceLang,
       targetLang,
@@ -106,12 +91,12 @@ export async function POST(req: NextRequest) {
       minMatchScore: 50,
       maxResults: 10,
     }),
-    searchTerminology(supabase, {
+    searchTerminology(pb, {
       text: sourceText,
       sourceLang,
       domain: 'kendo',
     }),
-    buildArticleL2Context(supabase, segment_id, segArticleId, segPosition).catch((err) => {
+    buildArticleL2Context(pb, segment_id, segArticleId, segPosition).catch((err) => {
       console.warn('L2 context build failed, using empty context:', err);
       return {
         articleId: segArticleId,
@@ -123,7 +108,7 @@ export async function POST(req: NextRequest) {
   ]);
   const retrievalMs = Date.now() - retrievalT0;
 
-  // ── Build phase-specific prompt (no LLM) ──────────────────────────
+  // Build phase-specific prompt
   const composeT0 = Date.now();
 
   let built: { system: string; user: string };
@@ -142,10 +127,9 @@ export async function POST(req: NextRequest) {
       break;
   }
 
-  // ── Augment user message with retrieval context ──────────────────
+  // Augment user message with retrieval context
   const contextLines: string[] = [];
 
-  // L2 (article-local) context blocks — added before TM / terminology
   if (l2.documentTitle) {
     contextLines.push('## Document Context');
     contextLines.push(`- Title: ${l2.documentTitle}`);
@@ -179,7 +163,6 @@ export async function POST(req: NextRequest) {
     contextLines.push('');
   }
 
-  // ── Audience profile (static kendo-domain default) ────────────
   contextLines.push('## Audience Profile');
   contextLines.push(`- Domain: ${KENDO_AUDIENCE_PROFILE.domain}`);
   contextLines.push(`- Register: ${KENDO_AUDIENCE_PROFILE.register}`);
@@ -188,10 +171,8 @@ export async function POST(req: NextRequest) {
   contextLines.push('');
 
   if (tmResult.matches.length > 0) {
-    // Split by retrieval_layer: L3 (in-project) and L4 (external/global).
     const l3Matches = tmResult.matches.filter(m => m.retrievalLayer !== 'external');
     const l4Matches = tmResult.matches.filter(m => m.retrievalLayer === 'external');
-
     const top3L3 = l3Matches.slice(0, 3);
     const top3L4 = l4Matches.slice(0, 3);
 
@@ -247,7 +228,6 @@ export async function POST(req: NextRequest) {
 
   const composeMs = Date.now() - composeT0;
 
-  // ── Response ─────────────────────────────────────────────────────
   return NextResponse.json({
     segment_id,
     phase,

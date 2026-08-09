@@ -1,21 +1,12 @@
 /**
  * /api/agents/[phase]
  *
- * Per-phase LLM agent suggestion endpoints. POST a `segment_id`, the route
- * picks the correct system prompt for the phase (translate/edit/proofread),
- * calls the configured translation agent, and writes the response as a
- * pending row in `segment_suggestions` with `suggester_kind='agent'` and
- * `suggester_id` = the triggering user.
- *
- * Agents are participants, not owners: the row is `pending` until a human
- * accepts, rejects, or supersedes it via /api/segments/[id]/suggestions/[suggestionId].
- *
- * QA is intentionally NOT a phase here — QA findings go into `qa_issues`,
- * not `segment_suggestions`, and live behind a separate endpoint.
+ * Per-phase LLM agent suggestion endpoints.
+ * PocketBase edition.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/pocketbase/server';
 import { agentChatWithFallback } from '@/lib/llm/provider';
 import {
     AgentPhase,
@@ -41,14 +32,12 @@ export async function POST(
     }
     const phase: AgentPhase = phaseParam;
 
-    const supabase = await createClient();
+    const pb = await createServerClient();
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+    if (!pb.authStore.isValid || !pb.authStore.record) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const userId = pb.authStore.record.id;
 
     let body: unknown;
     try {
@@ -65,16 +54,10 @@ export async function POST(
         );
     }
 
-    const { data: segment, error: segmentErr } = await supabase
-        .from('segments')
-        .select('id, source_text, target_text')
-        .eq('id', segment_id)
-        .maybeSingle();
-
-    if (segmentErr) {
-        return NextResponse.json({ error: segmentErr.message }, { status: 500 });
-    }
-    if (!segment) {
+    let segment: Record<string, unknown>;
+    try {
+        segment = await pb.collection('segments').getOne(segment_id);
+    } catch {
         return NextResponse.json({ error: 'Segment not found' }, { status: 404 });
     }
 
@@ -121,21 +104,16 @@ export async function POST(
         );
     }
 
-    const { data: inserted, error: insertErr } = await supabase
-        .from('segment_suggestions')
-        .insert({
+    try {
+        const inserted = await pb.collection('segment_suggestions').create({
             segment_id,
-            suggester_id: user.id,
+            suggester_id: userId,
             suggester_kind: 'agent',
             proposed_text: proposedText,
-            // status defaults to 'pending' in SQL
-        })
-        .select()
-        .single();
-
-    if (insertErr) {
-        return NextResponse.json({ error: insertErr.message }, { status: 500 });
+        });
+        return NextResponse.json(inserted, { status: 201 });
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: msg }, { status: 500 });
     }
-
-    return NextResponse.json(inserted, { status: 201 });
 }

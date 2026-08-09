@@ -1,18 +1,12 @@
 /**
  * POST /api/mac-rag/generate
  *
- * Stage 2 of the two-stage MAC-RAG pipeline: takes the (possibly
- * human-edited) prompt → calls LLM → returns the proposed text.
- *
- * The caller is responsible for creating a `segment_suggestions` row
- * via `POST /api/segments/[id]/suggestions` after inspecting the result.
- *
- * QA phase output is advisory only (`advisory: true` in the response)
- * and should NOT produce a segment_suggestion row.
+ * Stage 2: prompt → LLM → proposed text.
+ * PocketBase edition.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/pocketbase/server';
 import { agentChatWithFallback } from '@/lib/llm/provider';
 
 type Phase = 'translate' | 'edit' | 'proofread' | 'qa';
@@ -43,7 +37,6 @@ export async function POST(req: NextRequest) {
     original_prompt_user?: unknown;
   };
 
-  // ── Validation ─────────────────────────────────────────────────────
   if (typeof segment_id !== 'string' || !UUID_RE.test(segment_id)) {
     return NextResponse.json(
       { error: 'segment_id is required and must be a UUID' },
@@ -72,17 +65,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const supabase = await createClient();
+  const pb = await createServerClient();
 
-  // ── Auth ──────────────────────────────────────────────────────────
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  if (!pb.authStore.isValid || !pb.authStore.record) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const userId = pb.authStore.record.id;
 
-  // ── LLM call ──────────────────────────────────────────────────────
   const llmT0 = Date.now();
   let llmContent: string;
   try {
@@ -107,7 +96,7 @@ export async function POST(req: NextRequest) {
   }
   const llmMs = Date.now() - llmT0;
 
-  // ── Detect & record prompt edits ──────────────────────────────────
+  // Detect & record prompt edits
   let promptEdited = false;
   let promptEditId: string | null = null;
 
@@ -119,41 +108,27 @@ export async function POST(req: NextRequest) {
     original_prompt_user !== prompt_user;
 
   if (systemEdited || userEdited) {
-    // Look up the active global agent_prompt for this phase
-    const { data: agentPrompt, error: apErr } = await supabase
-      .from('agent_prompts')
-      .select('id, template')
-      .eq('agent_type', phase)
-      .eq('active', true)
-      .is('user_id', null)
-      .limit(1)
-      .maybeSingle();
+    try {
+      const agentPrompts = await pb.collection('agent_prompts').getFullList({
+        filter: `agent_type = "${phase}" && active = true && user_id = null`,
+        fields: 'id,template',
+      });
+      const agentPrompt = agentPrompts.length > 0 ? agentPrompts[0] : null;
 
-    // If not found: skip silently (no agent_prompts row for every phase)
-    if (!apErr && agentPrompt) {
-      const { data: inserted, error: insertErr } = await supabase
-        .from('prompt_edits')
-        .insert({
-          agent_prompt_id: agentPrompt.id,
-          prev_template:
-            typeof original_prompt_system === 'string'
-              ? original_prompt_system
-              : null,
+      if (agentPrompt) {
+        const inserted = await pb.collection('prompt_edits').create({
+          agent_prompt_id: (agentPrompt as Record<string, unknown>).id,
+          prev_template: typeof original_prompt_system === 'string' ? original_prompt_system : null,
           new_template: prompt_system,
           rationale: 'human edit before generation',
-          edited_by: user.id,
-        })
-        .select('id')
-        .single();
-
-      if (!insertErr && inserted) {
+          edited_by: userId,
+        });
         promptEdited = true;
-        promptEditId = inserted.id;
+        promptEditId = (inserted as Record<string, unknown>).id as string;
       }
-    }
+    } catch { /* best-effort */ }
   }
 
-  // ── Response ─────────────────────────────────────────────────────
   const responsePayload: Record<string, unknown> = {
     segment_id,
     phase,
@@ -163,7 +138,6 @@ export async function POST(req: NextRequest) {
     timings: { llm_ms: llmMs },
   };
 
-  // QA output is advisory only — caller should NOT create a suggestion
   if (phase === 'qa') {
     responsePayload.advisory = true;
   }
