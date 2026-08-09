@@ -1,24 +1,12 @@
 /**
  * /api/documents/[id]/assignments
  *
- * Admin-managed per-document, per-phase capability grants. Drives the
- * is_assigned_to_phase() RLS helper that gates phase-restricted edits
- * on segments.
- *
- *   GET  \u2014 list all assignments for the document (public-read via RLS).
- *   POST \u2014 admin-only upsert. Body: { user_id, allowed_phases }.
- *          If an assignment already exists for (user_id, document_id)
- *          its allowed_phases is overwritten (explicit replace, not
- *          merge). Returns 201 on insert, 200 on update.
- *
- * Per-user mutation (PATCH / DELETE) lives at .../assignments/[userId].
- *
- * Note: "document" in the URL maps to the `articles` table; the FK
- * points at articles(id) per the migration 004 schema.
+ * Admin-managed per-document, per-phase capability grants.
+ * PocketBase edition.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/pocketbase/server';
 
 const UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -36,22 +24,15 @@ function validatePhases(value: unknown): string | string[] {
     return value as string[];
 }
 
-async function requireAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+async function requireAdmin(pb: Awaited<ReturnType<typeof createServerClient>>) {
+    if (!pb.authStore.isValid || !pb.authStore.record) {
         return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
     }
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
-    if (profile?.role !== 'admin') {
+    const role = (pb.authStore.record as Record<string, unknown>).role as string | undefined;
+    if (role !== 'admin') {
         return { error: NextResponse.json({ error: 'Forbidden: admin role required' }, { status: 403 }) };
     }
-    return { user };
+    return { user: pb.authStore.record };
 }
 
 export async function GET(
@@ -59,19 +40,18 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     const { id: documentId } = await params;
-    const supabase = await createClient();
+    const pb = await createServerClient();
 
-    const { data, error } = await supabase
-        .from('document_assignments')
-        .select('*, user:profiles!user_id(username)')
-        .eq('document_id', documentId)
-        .order('created_at', { ascending: true });
-
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    try {
+        const records = await pb.collection('document_assignments').getFullList({
+            filter: `document_id = "${documentId}"`,
+            sort: '+created_at',
+        });
+        return NextResponse.json({ assignments: records ?? [] });
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: msg }, { status: 500 });
     }
-
-    return NextResponse.json({ assignments: data ?? [] });
 }
 
 export async function POST(
@@ -79,9 +59,9 @@ export async function POST(
     { params }: { params: Promise<{ id: string }> }
 ) {
     const { id: documentId } = await params;
-    const supabase = await createClient();
+    const pb = await createServerClient();
 
-    const guard = await requireAdmin(supabase);
+    const guard = await requireAdmin(pb);
     if (guard.error) return guard.error;
     const adminUser = guard.user!;
 
@@ -109,29 +89,21 @@ export async function POST(
     }
     const phases = phasesOrErr;
 
-    // Verify the document (article) exists for a clean 404.
-    const { data: doc, error: docErr } = await supabase
-        .from('articles')
-        .select('id')
-        .eq('id', documentId)
-        .maybeSingle();
-    if (docErr) {
-        return NextResponse.json({ error: docErr.message }, { status: 500 });
-    }
-    if (!doc) {
+    // Verify document exists
+    try {
+        await pb.collection('articles').getOne(documentId);
+    } catch {
         return NextResponse.json({ error: 'Document not found' }, { status: 404 });
     }
 
-    // Check for existing assignment so we can report 201 vs 200.
-    const { data: existing, error: existingErr } = await supabase
-        .from('document_assignments')
-        .select('id')
-        .eq('user_id', user_id)
-        .eq('document_id', documentId)
-        .maybeSingle();
-    if (existingErr) {
-        return NextResponse.json({ error: existingErr.message }, { status: 500 });
-    }
+    // Check for existing assignment
+    let existing: Record<string, unknown> | null = null;
+    try {
+        const existingList = await pb.collection('document_assignments').getFullList({
+            filter: `user_id = "${user_id}" && document_id = "${documentId}"`,
+        });
+        existing = existingList.length > 0 ? existingList[0] : null;
+    } catch { /* ignore */ }
 
     const payload = {
         user_id,
@@ -140,15 +112,16 @@ export async function POST(
         assigned_by: adminUser.id,
     };
 
-    const { data, error } = await supabase
-        .from('document_assignments')
-        .upsert(payload, { onConflict: 'user_id,document_id' })
-        .select()
-        .single();
-
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    try {
+        let data: Record<string, unknown>;
+        if (existing?.id) {
+            data = await pb.collection('document_assignments').update(existing.id as string, payload);
+        } else {
+            data = await pb.collection('document_assignments').create(payload);
+        }
+        return NextResponse.json(data, { status: existing ? 200 : 201 });
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: msg }, { status: 500 });
     }
-
-    return NextResponse.json(data, { status: existing ? 200 : 201 });
 }

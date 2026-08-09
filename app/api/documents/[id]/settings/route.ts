@@ -1,37 +1,26 @@
 /**
  * /api/documents/[id]/settings
  *
- * PATCH — Update document_settings fields for a given article.
- *
- * Currently supported fields:
- *   publish_filter: 'any_translated' | 'qa_approved'
- *
- * Auth: requires admin role.
- * If document_settings row does not exist for this article, it is created
- * (upsert by article_id).
- *
- * Statuses: 200 ok | 400 bad body | 401 unauth | 403 non-admin | 404 article not found | 500 db error
+ * PATCH — Update document_settings fields.
+ * PocketBase edition.
  */
 
-import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/pocketbase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag, revalidatePath } from 'next/cache'
 import type { PublishFilter } from '@/types/database'
 
 const VALID_PUBLISH_FILTERS: PublishFilter[] = ['any_translated', 'qa_approved']
 
-async function requireAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle()
-    if (profile?.role !== 'admin') {
+async function requireAdmin(pb: Awaited<ReturnType<typeof createServerClient>>) {
+    if (!pb.authStore.isValid || !pb.authStore.record) {
+        return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
+    }
+    const role = (pb.authStore.record as Record<string, unknown>).role as string | undefined
+    if (role !== 'admin') {
         return { error: NextResponse.json({ error: 'Forbidden: admin role required' }, { status: 403 }) }
     }
-    return { user }
+    return { user: pb.authStore.record }
 }
 
 export async function PATCH(
@@ -41,13 +30,12 @@ export async function PATCH(
     const { id: articleId } = await params
 
     try {
-        const authClient = await createClient()
-        const gate = await requireAdmin(authClient)
+        const pb = await createServerClient()
+        const gate = await requireAdmin(pb)
         if ('error' in gate) return gate.error
 
         const body = await request.json()
 
-        // Validate fields
         if ('publish_filter' in body) {
             if (!VALID_PUBLISH_FILTERS.includes(body.publish_filter)) {
                 return NextResponse.json(
@@ -62,32 +50,30 @@ export async function PATCH(
             )
         }
 
-        const supabase = await createAdminClient()
-
         // Verify article exists
-        const { data: article } = await supabase
-            .from('articles')
-            .select('id')
-            .eq('id', articleId)
-            .maybeSingle()
-        if (!article) {
+        try {
+            await pb.collection('articles').getOne(articleId)
+        } catch {
             return NextResponse.json({ error: 'Article not found' }, { status: 404 })
         }
 
-        // Upsert document_settings — create if missing, update if present
-        const { data, error } = await supabase
-            .from('document_settings')
-            .upsert(
-                { article_id: articleId, ...('publish_filter' in body ? { publish_filter: body.publish_filter } : {}) },
-                { onConflict: 'article_id', ignoreDuplicates: false }
-            )
-            .select()
-            .single()
+        // Upsert document_settings
+        const existingList = await pb.collection('document_settings').getFullList({
+            filter: `article_id = "${articleId}"`,
+        });
 
-        if (error) throw new Error(error.message)
+        let data: Record<string, unknown>
+        if (existingList.length > 0) {
+            data = await pb.collection('document_settings').update(existingList[0].id, {
+                publish_filter: body.publish_filter,
+            })
+        } else {
+            data = await pb.collection('document_settings').create({
+                article_id: articleId,
+                publish_filter: body.publish_filter,
+            })
+        }
 
-        // Phase 4.4: changing publish_filter affects what readers see —
-        // invalidate the cached article data.
         revalidateTag(`article-${articleId}`, 'max');
         revalidatePath(`/documents/${articleId}/read`);
         revalidateTag('articles', 'max');

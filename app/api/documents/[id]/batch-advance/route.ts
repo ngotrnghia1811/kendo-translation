@@ -1,30 +1,12 @@
 /**
  * /api/documents/[id]/batch-advance
  *
- * Bulk-advance a set of segments through the cooperation-first phase model:
- *   draft → translated → edited → proofread → qa_approved
- *
- * POST body:
- *   segment_ids:     string[]     — array of segment UUIDs to advance (max 500)
- *   to_status:       SegmentStatus — target status (must be one step forward from each segment's current)
- *   note?:           string        — optional audit note applied to all transitions
- *
- * Auth: requires admin role (translators advance segments one-by-one via the
- * standard /api/segments/[id]/advance-phase endpoint).
- *
- * Behaviour:
- *   - Segments already at `to_status` are silently skipped (idempotent).
- *   - Segments at a different unexpected status are counted as failures.
- *   - Segments with empty target_text are skipped when to_status !== 'draft'
- *     (same content guard as single advance).
- *   - Each advance is independent; partial success is reported.
- *
- * Response (200):
- *   { succeeded: string[], skipped: string[], failed: { id: string; reason: string }[] }
+ * Bulk-advance segments through the phase model.
+ * PocketBase edition.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/pocketbase/server'
 import { revalidateTag, revalidatePath } from 'next/cache'
 
 type SegmentStatus =
@@ -47,28 +29,15 @@ function isStatus(v: unknown): v is SegmentStatus {
     return typeof v === 'string' && ALL_STATUSES.has(v as SegmentStatus)
 }
 
-const KNOWN_ROLES = ['admin', 'translator', 'reader']
-
-async function requireAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
-
-    // Phase 1.2i / Straggler D: read role from JWT app_metadata claim first.
-    const appRole = (user.app_metadata as Record<string, unknown> | undefined)?.role as string | undefined
-    if (appRole && KNOWN_ROLES.includes(appRole)) {
-        if (appRole !== 'admin') {
-            return { error: NextResponse.json({ error: 'Forbidden: admin role required' }, { status: 403 }) }
-        }
-        return { user }
+async function requireAdmin(pb: Awaited<ReturnType<typeof createServerClient>>) {
+    if (!pb.authStore.isValid || !pb.authStore.record) {
+        return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
     }
-
-    // Fallback: stale JWT — query profiles table.
-    const { data: profile } = await supabase
-        .from('profiles').select('role').eq('id', user.id).maybeSingle()
-    if (profile?.role !== 'admin') {
+    const role = (pb.authStore.record as Record<string, unknown>).role as string | undefined
+    if (role !== 'admin') {
         return { error: NextResponse.json({ error: 'Forbidden: admin role required' }, { status: 403 }) }
     }
-    return { user }
+    return { user: pb.authStore.record }
 }
 
 const MAX_IDS = 500
@@ -80,8 +49,8 @@ export async function POST(
     const { id: articleId } = await params
 
     try {
-        const authClient = await createClient()
-        const gate = await requireAdmin(authClient)
+        const pb = await createServerClient()
+        const gate = await requireAdmin(pb)
         if ('error' in gate) return gate.error
         const { user } = gate
 
@@ -92,7 +61,6 @@ export async function POST(
             note?: unknown
         }
 
-        // Validate segment_ids
         if (!Array.isArray(segment_ids) || segment_ids.length === 0) {
             return NextResponse.json({ error: '`segment_ids` must be a non-empty array' }, { status: 400 })
         }
@@ -103,7 +71,6 @@ export async function POST(
             return NextResponse.json({ error: '`segment_ids` must be an array of strings' }, { status: 400 })
         }
 
-        // Validate to_status
         if (!isStatus(to_status)) {
             return NextResponse.json(
                 { error: '`to_status` must be a valid segment status' },
@@ -111,7 +78,6 @@ export async function POST(
             )
         }
 
-        // to_status can't be 'draft' (you can't batch-advance to draft — that's a rollback)
         if (to_status === 'draft') {
             return NextResponse.json({ error: 'Cannot batch-advance to draft' }, { status: 400 })
         }
@@ -120,32 +86,29 @@ export async function POST(
             return NextResponse.json({ error: '`note` must be a string' }, { status: 400 })
         }
 
-        // Derive the expected from_status from the target
-        // (reverse lookup: which status must a segment be in to advance to to_status?)
         const from_status = (Object.entries(LEGAL_FORWARD) as [SegmentStatus, SegmentStatus | null][])
             .find(([, v]) => v === to_status)?.[0] ?? null
         if (!from_status) {
             return NextResponse.json({ error: `No legal predecessor for status '${to_status}'` }, { status: 400 })
         }
 
-        const supabase = await createAdminClient()
-
-        // Fetch current state of all requested segments
-        const { data: segRows, error: fetchErr } = await supabase
-            .from('segments')
-            .select('id, status, target_text, article_id')
-            .in('id', segment_ids as string[])
-
-        if (fetchErr) throw new Error(fetchErr.message)
-
-        const segMap = new Map((segRows ?? []).map((s) => [s.id, s]))
+        // Fetch all requested segments
+        const segIds = segment_ids as string[]
+        const segMap = new Map<string, Record<string, unknown>>()
+        for (const segId of segIds) {
+            try {
+                const seg = await pb.collection('segments').getOne(segId)
+                segMap.set(segId, seg)
+            } catch {
+                // segment not found — will be in failed list
+            }
+        }
 
         const succeeded: string[] = []
         const skipped: string[] = []
         const failed: { id: string; reason: string }[] = []
 
-        // Process each segment independently
-        for (const segId of segment_ids as string[]) {
+        for (const segId of segIds) {
             const seg = segMap.get(segId)
 
             if (!seg) {
@@ -153,62 +116,47 @@ export async function POST(
                 continue
             }
 
-            // Article guard — segments must belong to this document
             if (seg.article_id !== articleId) {
                 failed.push({ id: segId, reason: 'Segment does not belong to this document' })
                 continue
             }
 
-            // Already at target — idempotent skip
             if (seg.status === to_status) {
                 skipped.push(segId)
                 continue
             }
 
-            // Wrong current status
             if (seg.status !== from_status) {
                 failed.push({ id: segId, reason: `Expected status '${from_status}', got '${seg.status}'` })
                 continue
             }
 
-            // Content guard (same as single advance). to_status is always
-            // non-draft here (we reject 'draft' above), so content must be present.
-            if (!seg.target_text || seg.target_text.trim().length === 0) {
+            if (!seg.target_text || String(seg.target_text).trim().length === 0) {
                 failed.push({ id: segId, reason: 'target_text is empty' })
                 continue
             }
 
-            // Atomic update
-            const { data: updated, error: updateErr } = await supabase
-                .from('segments')
-                .update({ status: to_status })
-                .eq('id', segId)
-                .eq('status', from_status)
-                .select('id')
-                .maybeSingle()
+            try {
+                await pb.collection('segments').update(segId, { status: to_status })
 
-            if (updateErr) {
-                failed.push({ id: segId, reason: updateErr.message })
-                continue
+                // Audit transition
+                try {
+                    await pb.collection('segment_phase_transitions').create({
+                        segment_id: segId,
+                        from_status,
+                        to_status,
+                        actor_id: user.id,
+                        note: typeof note === 'string' ? note : null,
+                    })
+                } catch { /* best-effort audit */ }
+
+                succeeded.push(segId)
+            } catch (err) {
+                const msg = err instanceof Error ? err.message : 'Unknown error'
+                failed.push({ id: segId, reason: msg })
             }
-            if (!updated) {
-                failed.push({ id: segId, reason: 'Concurrent modification — status changed during batch' })
-                continue
-            }
-
-            // Audit transition
-            await supabase.from('segment_phase_transitions').insert({
-                segment_id: segId,
-                from_status,
-                to_status,
-                actor_id: user.id,
-                note: typeof note === 'string' ? note : null,
-            })
-
-            succeeded.push(segId)
         }
 
-        // Phase 4.4: invalidate cached article data after batch advance
         revalidateTag(`article-${articleId}`, 'max');
         revalidatePath(`/documents/${articleId}/read`);
         revalidateTag('articles', 'max');

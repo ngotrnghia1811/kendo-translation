@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/pocketbase/server';
 import { detectLanguage } from '@/lib/context/context-builder';
 
 function splitIntoSegments(text: string, lang: 'ja' | 'en'): string[] {
@@ -16,67 +16,60 @@ function splitIntoSegments(text: string, lang: 'ja' | 'en'): string[] {
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createClient();
+  const pb = await createServerClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!pb.authStore.isValid || !pb.authStore.record) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  if (!profile || !['admin', 'translator'].includes(profile.role)) {
+  const role = (pb.authStore.record as Record<string, unknown>).role as string | undefined;
+  if (!role || !['admin', 'translator'].includes(role)) {
     return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
   }
 
-  const { data: article } = await supabase
-    .from('articles')
-    .select('*')
-    .eq('id', id)
-    .single();
-
-  if (!article) return NextResponse.json({ error: 'Article not found' }, { status: 404 });
+  let article: Record<string, unknown>;
+  try {
+    article = await pb.collection('articles').getOne(id);
+  } catch {
+    return NextResponse.json({ error: 'Article not found' }, { status: 404 });
+  }
 
   const body = await req.json().catch(() => ({}));
-  const sourceLang: 'ja' | 'en' = body.source_lang || detectLanguage(article.content_ja || article.title || '');
+  const sourceLang: 'ja' | 'en' = body.source_lang || detectLanguage((article.content_ja as string) || (article.title as string) || '');
   const targetLang: 'ja' | 'en' = body.target_lang || (sourceLang === 'ja' ? 'en' : 'ja');
-  const sourceContent = sourceLang === 'ja' ? (article.content_ja || '') : (article.content_en || '');
+  const sourceContent = sourceLang === 'ja' ? ((article.content_ja as string) || '') : ((article.content_en as string) || '');
 
-  await supabase.from('segments').delete().eq('article_id', id);
+  // Delete existing segments for this article
+  const existingSegs = await pb.collection('segments').getFullList<{ id: string }>({
+    filter: `article_id = "${id}"`,
+    fields: 'id',
+  });
+  for (const seg of existingSegs) {
+    await pb.collection('segments').delete(seg.id);
+  }
 
   const sentences = splitIntoSegments(sourceContent, sourceLang);
+  const paragraphBoundaries = Array.from({ length: sentences.length }, (_, i) => i);
 
-  const segmentRows = sentences.map((sentence, i) => ({
-    article_id: id,
-    position: i,
-    source_text: sentence.trim(),
-    target_text: null,
-    source_lang: sourceLang,
-    target_lang: targetLang,
-    status: 'draft',
-  }));
+  const inserted: Record<string, unknown>[] = [];
+  for (let i = 0; i < sentences.length; i++) {
+    const data = await pb.collection('segments').create({
+      article_id: id,
+      position: i,
+      source_text: sentences[i].trim(),
+      target_text: null,
+      source_lang: sourceLang,
+      target_lang: targetLang,
+      status: 'draft',
+    });
+    inserted.push(data);
+  }
 
-  const { data: inserted, error } = await supabase
-    .from('segments')
-    .insert(segmentRows)
-    .select();
+  await pb.collection('articles').update(id, {
+    segmented: true,
+    segment_count: sentences.length,
+    paragraph_boundaries: paragraphBoundaries,
+  });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  // paragraph_boundaries: for user-segmented docs each segment is its
-  // own paragraph (same semantics as pipeline-imported articles).
-  const paragraphBoundaries = Array.from({ length: segmentRows.length }, (_, i) => i);
-
-  await supabase
-    .from('articles')
-    .update({
-      segmented: true,
-      segment_count: segmentRows.length,
-      paragraph_boundaries: paragraphBoundaries,
-    })
-    .eq('id', id);
-
-  return NextResponse.json({ segments: inserted, count: inserted?.length || 0 });
+  return NextResponse.json({ segments: inserted, count: inserted.length });
 }

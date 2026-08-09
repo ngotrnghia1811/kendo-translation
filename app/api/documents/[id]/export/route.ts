@@ -1,29 +1,12 @@
 /**
  * GET /api/documents/[id]/export
  *
- * Exports a document's translated text in a requested format.
- *
- * Query params:
- *   format  — "txt" | "md"  (default: "txt")
- *   lang    — "en" | "zh"   (default: "en")
- *
- * Auth: any authenticated user (readers, translators, admins).
- *
- * Segment visibility contract: honours the document's `publish_filter`
- * setting. "qa_approved" → only qa_approved segments; "any_translated"
- * (default) → qa_approved or any segment with target_text.
- *
- * Paragraph grouping: segments with the same `metadata.page` value are
- * grouped; within each group, segments are joined by a language-aware
- * separator ('' for ZH/JA/KO, ' ' otherwise) exactly as the reader does.
+ * Exports a document's translated text.
+ * PocketBase edition.
  */
 
-import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/pocketbase/server'
 import { NextRequest, NextResponse } from 'next/server'
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function joiner(lang: string): string {
     return /^(ja|zh|ko)/.test(lang) ? '' : ' '
@@ -39,8 +22,6 @@ type Segment = {
 function buildParagraphs(segments: Segment[], lang: string): string[] {
     const sep = joiner(lang)
 
-    // Group by page (metadata.page). Segments without a page value all fall
-    // into group null (treated as one large group, then chunked by 50).
     const pageMap = new Map<string, Segment[]>()
     for (const seg of segments) {
         const page = seg.metadata?.page as string | undefined
@@ -51,9 +32,6 @@ function buildParagraphs(segments: Segment[], lang: string): string[] {
 
     const paragraphs: string[] = []
     for (const [, segs] of pageMap) {
-        // Within each page, build paragraph blocks. Treat each run of segments
-        // as one paragraph (simplified; full paragraph-boundary logic lives in
-        // the reader hook but isn't needed for plain-text export).
         const text = segs
             .map(s => (s.target_text ?? '').trim())
             .filter(Boolean)
@@ -62,10 +40,6 @@ function buildParagraphs(segments: Segment[], lang: string): string[] {
     }
     return paragraphs
 }
-
-// ---------------------------------------------------------------------------
-// Route handler
-// ---------------------------------------------------------------------------
 
 export async function GET(
     req: NextRequest,
@@ -77,48 +51,45 @@ export async function GET(
         const format = (url.searchParams.get('format') ?? 'txt') as 'txt' | 'md'
         const lang = (url.searchParams.get('lang') ?? 'en') as 'en' | 'zh'
 
-        // Auth — must be authenticated
-        const authClient = await createClient()
-        const { data: { user } } = await authClient.auth.getUser()
-        if (!user) {
+        const pb = await createServerClient()
+        if (!pb.authStore.isValid || !pb.authStore.record) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const supabase = await createAdminClient()
-
-        // Fetch article metadata + document settings in parallel
-        const [{ data: article }, { data: settings }] = await Promise.all([
-            supabase.from('articles').select('id, title').eq('id', id).maybeSingle(),
-            supabase.from('document_settings').select('publish_filter').eq('article_id', id).maybeSingle(),
-        ])
-
-        if (!article) {
+        // Fetch article
+        let article: Record<string, unknown>
+        try {
+            article = await pb.collection('articles').getOne(id, { fields: 'id,title' })
+        } catch {
             return NextResponse.json({ error: 'Document not found' }, { status: 404 })
         }
 
-        // Fetch segments in the requested language
-        const { data: rawSegments, error: segErr } = await supabase
-            .from('segments')
-            .select('position, target_text, status, metadata')
-            .eq('article_id', id)
-            .eq('target_lang', lang)
-            .order('position')
+        // Fetch settings for publish_filter
+        let publishFilter = 'any_translated'
+        try {
+            const settingsList = await pb.collection('document_settings').getFullList({
+                filter: `article_id = "${id}"`,
+                fields: 'publish_filter',
+            })
+            if (settingsList.length > 0) {
+                publishFilter = (settingsList[0] as Record<string, unknown>).publish_filter as string ?? 'any_translated'
+            }
+        } catch { /* ignore */ }
 
-        if (segErr) {
-            console.error('Export segment fetch error:', segErr)
-            return NextResponse.json({ error: 'Failed to fetch segments' }, { status: 500 })
-        }
+        // Fetch segments
+        const rawSegments = await pb.collection('segments').getFullList<Segment>({
+            filter: `article_id = "${id}" && target_lang = "${lang}"`,
+            sort: '+position',
+            fields: 'position,target_text,status,metadata',
+        })
 
-        const publishFilter = (settings as { publish_filter?: string } | null)?.publish_filter ?? 'any_translated'
-        const segments = ((rawSegments ?? []) as Segment[]).filter((s) =>
+        const segments = rawSegments.filter((s) =>
             publishFilter === 'qa_approved'
                 ? s.status === 'qa_approved'
                 : (s.status === 'qa_approved' || s.target_text)
         )
 
         const paragraphs = buildParagraphs(segments, lang)
-
-        // Build output
         const titleLine = article.title as string
 
         let body: string
@@ -130,7 +101,6 @@ export async function GET(
             filename = `${titleLine.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.md`
             body = `# ${titleLine}\n\n` + paragraphs.join('\n\n')
         } else {
-            // txt (default)
             contentType = 'text/plain; charset=utf-8'
             filename = `${titleLine.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.txt`
             body = titleLine + '\n' + '='.repeat(titleLine.length) + '\n\n' + paragraphs.join('\n\n')

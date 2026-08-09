@@ -1,17 +1,13 @@
 /**
  * /api/documents/[id]/assignments/[userId]
  *
- *   PATCH  \u2014 admin-only. Replace allowed_phases for an existing
- *            (user_id, document_id) assignment.
- *   DELETE \u2014 admin-only. Remove an assignment outright.
- *
- * RLS doc_assignments_admin_write already enforces admin via is_admin();
- * we add an explicit pre-check so the response code is a clean 403
- * instead of an opaque RLS-empty-result 404.
+ *   PATCH  — admin-only: replace allowed_phases
+ *   DELETE — admin-only: remove an assignment
+ * PocketBase edition.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/pocketbase/server';
 
 const UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -29,22 +25,15 @@ function validatePhases(value: unknown): string | string[] {
     return value as string[];
 }
 
-async function requireAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+async function requireAdmin(pb: Awaited<ReturnType<typeof createServerClient>>) {
+    if (!pb.authStore.isValid || !pb.authStore.record) {
         return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
     }
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
-    if (profile?.role !== 'admin') {
+    const role = (pb.authStore.record as Record<string, unknown>).role as string | undefined;
+    if (role !== 'admin') {
         return { error: NextResponse.json({ error: 'Forbidden: admin role required' }, { status: 403 }) };
     }
-    return { user };
+    return { user: pb.authStore.record };
 }
 
 export async function PATCH(
@@ -52,9 +41,9 @@ export async function PATCH(
     { params }: { params: Promise<{ id: string; userId: string }> }
 ) {
     const { id: documentId, userId } = await params;
-    const supabase = await createClient();
+    const pb = await createServerClient();
 
-    const guard = await requireAdmin(supabase);
+    const guard = await requireAdmin(pb);
     if (guard.error) return guard.error;
 
     if (!UUID_RE.test(userId)) {
@@ -74,22 +63,23 @@ export async function PATCH(
         return NextResponse.json({ error: phasesOrErr }, { status: 400 });
     }
 
-    const { data, error } = await supabase
-        .from('document_assignments')
-        .update({ allowed_phases: phasesOrErr })
-        .eq('user_id', userId)
-        .eq('document_id', documentId)
-        .select()
-        .maybeSingle();
-
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-    if (!data) {
+    // Find existing assignment
+    const existingList = await pb.collection('document_assignments').getFullList({
+        filter: `user_id = "${userId}" && document_id = "${documentId}"`,
+    });
+    if (existingList.length === 0) {
         return NextResponse.json({ error: 'Assignment not found' }, { status: 404 });
     }
 
-    return NextResponse.json(data);
+    try {
+        const data = await pb.collection('document_assignments').update(existingList[0].id, {
+            allowed_phases: phasesOrErr,
+        });
+        return NextResponse.json(data);
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: msg }, { status: 500 });
+    }
 }
 
 export async function DELETE(
@@ -97,29 +87,27 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string; userId: string }> }
 ) {
     const { id: documentId, userId } = await params;
-    const supabase = await createClient();
+    const pb = await createServerClient();
 
-    const guard = await requireAdmin(supabase);
+    const guard = await requireAdmin(pb);
     if (guard.error) return guard.error;
 
     if (!UUID_RE.test(userId)) {
         return NextResponse.json({ error: '`userId` must be a UUID' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
-        .from('document_assignments')
-        .delete()
-        .eq('user_id', userId)
-        .eq('document_id', documentId)
-        .select('id')
-        .maybeSingle();
-
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-    if (!data) {
+    const existingList = await pb.collection('document_assignments').getFullList({
+        filter: `user_id = "${userId}" && document_id = "${documentId}"`,
+    });
+    if (existingList.length === 0) {
         return NextResponse.json({ error: 'Assignment not found' }, { status: 404 });
     }
 
-    return new NextResponse(null, { status: 204 });
+    try {
+        await pb.collection('document_assignments').delete(existingList[0].id);
+        return new NextResponse(null, { status: 204 });
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: msg }, { status: 500 });
+    }
 }
