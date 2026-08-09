@@ -97,7 +97,7 @@ Optional:
 // ── PocketBase client setup ───────────────────────────────────────
 let PocketBase;
 try {
-    PocketBase = require("pocketbase");
+    PocketBase = require("pocketbase/cjs");
 } catch {
     console.error("ERROR: 'pocketbase' npm package not found. Run: npm install pocketbase");
     process.exit(1);
@@ -107,7 +107,7 @@ async function createPbClient(args) {
     const pb = new PocketBase(args.pbUrl);
     if (!args.dryRun) {
         console.log(`Authenticating to PocketBase at ${args.pbUrl}...`);
-        await pb.collection("users").authWithPassword(args.email, args.password);
+        await pb.collection("users").authWithPassword(args.pbEmail, args.pbPassword);
         console.log(`Authenticated as ${pb.authStore.record.email} (role: ${pb.authStore.record.role})`);
     }
     return pb;
@@ -117,6 +117,19 @@ async function createPbClient(args) {
 // Maps Postgres table names to PocketBase collection names + field mappings.
 // "exclude" = skip entirely (translation_memory, public.users, auth.*, etc.)
 const TABLE_REGISTRY = {
+    "auth.users": {
+        collection: "users",  // Imported into PocketBase users auth collection
+        fields: ["id", "email", "created_at", "updated_at"],
+        fieldMap: {
+            "id":         { key: "id",       type: "text" },
+            "email":      { key: "email",    type: "text" },
+            "created_at": { key: "created",  type: "date" },
+            "updated_at": { key: "updated",  type: "date" },
+        },
+        // Bug #8: users need temp passwords (bcrypt hashes from Supabase cannot be reused).
+        // Role is set later by Phase 2b profiles merge (auth.users.role is 'authenticated'
+        // which doesn't match PocketBase's allowed values).
+    },
     "public.articles": {
         collection: "articles",
         fields: [
@@ -778,6 +791,13 @@ async function* parseBackup(backupPath) {
 // ── IMPORT: tm archival ───────────────────────────────────────────
 // We handle translation_memory specially — write to archive file.
 const TM_ARCHIVE_TABLE = "public.translation_memory";
+// Bug #7 fix: add TM to TABLE_REGISTRY so parseBackup yields it (main() handles archival)
+// Without this, parseBackup silently skips TM rows because they have no tableConfig entry.
+TABLE_REGISTRY["public.translation_memory"] = {
+    collection: "__TM_ARCHIVE__",  // marker only — never imported, archived instead
+    fields: [],
+    fieldMap: {},
+};
 // translation_memory parser config (used for archival export only)
 const TM_FIELDS = [
     "id", "source_text", "target_text", "source_lang", "target_lang",
@@ -816,7 +836,7 @@ async function main() {
         "auth.oauth_clients", "auth.oauth_consents", "auth.one_time_tokens",
         "auth.refresh_tokens", "auth.saml_providers", "auth.saml_relay_states",
         "auth.schema_migrations", "auth.sessions", "auth.sso_domains", "auth.sso_providers",
-        "auth.users", "auth.webauthn_challenges", "auth.webauthn_credentials",
+        "auth.webauthn_challenges", "auth.webauthn_credentials",
         "public.users", "public.prompt_edits",
         "realtime.messages", "realtime.schema_migrations", "realtime.subscription",
         "storage.buckets", "storage.objects", "storage.migrations",
@@ -828,6 +848,8 @@ async function main() {
         if (skippedTables.has(tableName)) return true;
         if (tableName.startsWith("realtime.messages_")) return true;
         if (tableName.startsWith("storage.")) return true;
+        // Bug #8: allow auth.users through (imported into PocketBase users collection)
+        if (tableName === "auth.users") return false;
         if (tableName.startsWith("auth.")) return true;
         if (tableName.startsWith("vault.")) return true;
         if (tableName.startsWith("extensions.")) return true;
@@ -920,8 +942,9 @@ async function main() {
     console.log(`\nPhase 2: Importing to PocketBase...`);
     console.log(`Orphaned rows filtered: ${totalOrphaned}`);
 
-    // Import order: dependencies first (articles before segments, etc.)
+    // Import order: users first (all other tables depend on them), then articles, etc.
     const importOrder = [
+        "auth.users",        // Bug #8 fix: users must exist before any relation references them
         "public.articles",
         "public.videos",
         "public.terminology",
@@ -982,6 +1005,19 @@ async function main() {
         const totalBatches = Math.ceil(rows.length / batchSize);
         const startTime = Date.now();
 
+        // Bug #8: Special handling for auth.users → PocketBase users collection
+        // bcrypt hashes from Supabase cannot be reused — set temp passwords
+        const isUsersCollection = (collectionName === "users");
+        if (isUsersCollection && !args.dryRun) {
+            for (const record of rows) {
+                record.password = "TempImport2026!";
+                record.passwordConfirm = "TempImport2026!";
+                // Supabase auth.users.email_confirmed_at maps to PocketBase verified
+                // We set verified=true for all imported users (they'll need password reset anyway)
+                record.verified = true;
+            }
+        }
+
         for (let i = 0; i < rows.length; i += batchSize) {
             const batch = rows.slice(i, i + batchSize);
             const batchNum = Math.floor(i / batchSize) + 1;
@@ -989,28 +1025,51 @@ async function main() {
             try {
                 // Use direct create for each record (PocketBase SDK doesn't support
                 // multi-record bulk create directly, but we can use Promise.all concurrency)
+                // Bug #6 fix: use allSettled so one bad record doesn't fail the batch
                 const createPromises = batch.map(record =>
                     pb.collection(collectionName).create(record, { requestKey: null })
                         .catch(err => {
-                            // If record already exists (409 or similar), try update
-                            if (err.status === 400 && err.data && err.data.id) {
-                                return pb.collection(collectionName).update(record.id, record, { requestKey: null });
+                            // Bug #5 fix: SDK nests id at err.data.data.id, not err.data.id
+                            const isDuplicate = (err.status === 400) && (
+                                (err.data && err.data.id) ||
+                                (err.data && err.data.data && err.data.data.id)
+                            );
+                            if (isDuplicate) {
+                                // Remove id from body before update (PocketBase already has it in URL)
+                                const { id, ...updateBody } = record;
+                                return pb.collection(collectionName).update(record.id, updateBody, { requestKey: null });
                             }
                             throw err;
                         })
                 );
 
-                await Promise.all(createPromises);
-                imported += batch.length;
+                const results = await Promise.allSettled(createPromises);
+                let batchOk = 0;
+                let batchErr = 0;
+                for (const r of results) {
+                    if (r.status === "fulfilled") {
+                        batchOk++;
+                    } else {
+                        batchErr++;
+                        if (batchErr <= 3) {
+                            // Log first few errors per batch for diagnosis
+                            const msg = r.reason?.message || String(r.reason);
+                            const data = r.reason?.data ? JSON.stringify(r.reason.data).substring(0, 200) : "";
+                            console.error(`\n    Record error: ${msg} ${data}`);
+                        }
+                    }
+                }
+                imported += batchOk;
+                errors += batchErr;
 
                 // Progress
                 const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
                 const rate = (imported / parseFloat(elapsed)).toFixed(0);
                 process.stdout.write(
-                    `\r    Batch ${batchNum}/${totalBatches} | ${imported.toLocaleString()} rows | ${elapsed}s | ~${rate}/s`
+                    `\r    Batch ${batchNum}/${totalBatches} | ${imported.toLocaleString()} rows (+${batchOk}) | ${elapsed}s | ~${rate}/s`
                 );
             } catch (err) {
-                console.error(`\n    ERROR in batch ${batchNum}: ${err.message}`);
+                console.error(`\n    FATAL in batch ${batchNum}: ${err.message}`);
                 errors += batch.length;
             }
         }
