@@ -1012,9 +1012,12 @@ async function main() {
             for (const record of rows) {
                 record.password = "TempImport2026!";
                 record.passwordConfirm = "TempImport2026!";
-                // Supabase auth.users.email_confirmed_at maps to PocketBase verified
-                // We set verified=true for all imported users (they'll need password reset anyway)
-                record.verified = true;
+                // role is required by PocketBase schema; set default 'reader'
+                // Phase 2b profiles merge will override with correct role
+                record.role = "reader";
+                // NOTE: verified field requires superuser privileges to set.
+                // Imported users will be unverified until an admin verifies them
+                // or they complete email verification via SMTP.
             }
         }
 
@@ -1035,8 +1038,9 @@ async function main() {
                                 (err.data && err.data.data && err.data.data.id)
                             );
                             if (isDuplicate) {
-                                // Remove id from body before update (PocketBase already has it in URL)
-                                const { id, ...updateBody } = record;
+                                // Remove id, password, passwordConfirm from body before update
+                                // (id is in URL, password changes require oldPassword via separate API)
+                                const { id, password, passwordConfirm, ...updateBody } = record;
                                 return pb.collection(collectionName).update(record.id, updateBody, { requestKey: null });
                             }
                             throw err;
