@@ -68,7 +68,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     // Phase 4.4: invalidate cached article data
-    const articleId = (data as Record<string, unknown>).article_id as string | undefined;
+    const articleId = (data as Record<string, unknown>).article as string | undefined;
     if (articleId) {
       revalidateTag(`article-${articleId}`, 'max');
       revalidatePath(`/documents/${articleId}/read`);

@@ -59,14 +59,14 @@ export async function PATCH(
 
     const updateData: Record<string, unknown> = { status: newStatus };
     if (newStatus === 'accepted') {
-        updateData.accepter_id = userId;
+        updateData.accepter = userId;
         updateData.accepted_at = new Date().toISOString();
     }
 
     // Verify suggestion exists and belongs to this segment
     try {
         const existing = await pb.collection('segment_suggestions').getOne(suggestionId);
-        const existingSegId = (existing as Record<string, unknown>).segment_id as string;
+        const existingSegId = (existing as Record<string, unknown>).segment as string;
         if (existingSegId !== segmentId) {
             return NextResponse.json(
                 { error: 'Suggestion not found or not permitted' },

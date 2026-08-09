@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     ? (segment.target_text as string)
     : null;
   const sourceLang: SourceLang = asSourceLang(segment.source_lang);
-  const segArticleId: string = segment.article_id as string;
+  const segArticleId: string = segment.article as string;
   const segPosition: number = segment.position as number;
 
   // Parallel retrieval + L2 context

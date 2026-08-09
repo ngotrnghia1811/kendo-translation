@@ -41,7 +41,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // Delete existing segments for this article
   const existingSegs = await pb.collection('segments').getFullList<{ id: string }>({
-    filter: `article_id = "${id}"`,
+    filter: `article = "${id}"`,
     fields: 'id',
   });
   for (const seg of existingSegs) {
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const inserted: Record<string, unknown>[] = [];
   for (let i = 0; i < sentences.length; i++) {
     const data = await pb.collection('segments').create({
-      article_id: id,
+      article: id,
       position: i,
       source_text: sentences[i].trim(),
       target_text: null,

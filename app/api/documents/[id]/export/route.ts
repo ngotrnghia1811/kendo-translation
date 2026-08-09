@@ -68,7 +68,7 @@ export async function GET(
         let publishFilter = 'any_translated'
         try {
             const settingsList = await pb.collection('document_settings').getFullList({
-                filter: `article_id = "${id}"`,
+                filter: `article = "${id}"`,
                 fields: 'publish_filter',
             })
             if (settingsList.length > 0) {
@@ -78,7 +78,7 @@ export async function GET(
 
         // Fetch segments
         const rawSegments = await pb.collection('segments').getFullList<Segment>({
-            filter: `article_id = "${id}" && target_lang = "${lang}"`,
+            filter: `article = "${id}" && target_lang = "${lang}"`,
             sort: '+position',
             fields: 'position,target_text,status,metadata',
         })

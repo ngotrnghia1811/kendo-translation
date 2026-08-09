@@ -41,7 +41,7 @@ export async function GET(
   const [segments, assignments, transitions] = await Promise.all([
     // Phase breakdown: fetch EN segments statuses
     pb.collection('segments').getFullList({
-      filter: `article_id = "${documentId}" && target_lang = "en"`,
+      filter: `article = "${documentId}" && target_lang = "en"`,
       fields: 'status',
     }),
     // Assignments
@@ -52,8 +52,8 @@ export async function GET(
     }),
     // Recent phase transitions (last 14 days)
     pb.collection('segment_phase_transitions').getFullList({
-      filter: `article_id = "${documentId}"`,
-      sort: '-created',
+      filter: `article = "${documentId}"`,
+      sort: '-id',
       fields: 'created,segment_id,to_status',
       requestKey: 'transitions-' + documentId,
     }),

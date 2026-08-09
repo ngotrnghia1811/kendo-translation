@@ -59,7 +59,7 @@ export async function PATCH(
 
         // Upsert document_settings
         const existingList = await pb.collection('document_settings').getFullList({
-            filter: `article_id = "${articleId}"`,
+            filter: `article = "${articleId}"`,
         });
 
         let data: Record<string, unknown>
@@ -69,7 +69,7 @@ export async function PATCH(
             })
         } else {
             data = await pb.collection('document_settings').create({
-                article_id: articleId,
+                article: articleId,
                 publish_filter: body.publish_filter,
             })
         }

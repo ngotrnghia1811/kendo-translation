@@ -27,7 +27,7 @@ export async function GET(request: Request, { params }: RouteParams) {
       const settingsList = await pb
         .collection('document_settings')
         .getList(1, 1, {
-          filter: `article_id = "${id}"`,
+          filter: `article = "${id}"`,
         });
       if (settingsList.items.length > 0) {
         settings = JSON.parse(

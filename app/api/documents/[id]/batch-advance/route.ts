@@ -116,7 +116,7 @@ export async function POST(
                 continue
             }
 
-            if (seg.article_id !== articleId) {
+            if (seg.article !== articleId) {
                 failed.push({ id: segId, reason: 'Segment does not belong to this document' })
                 continue
             }

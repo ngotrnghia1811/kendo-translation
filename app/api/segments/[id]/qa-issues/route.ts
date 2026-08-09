@@ -31,8 +31,8 @@ export async function GET(
 
     try {
         const records = await pb.collection('qa_issues').getFullList({
-            filter: `segment_id = "${segmentId}"`,
-            sort: '+created_at',
+            filter: `segment = "${segmentId}"`,
+            sort: '+id',
         });
         return NextResponse.json(records ?? []);
     } catch (error) {
@@ -114,13 +114,13 @@ export async function POST(
 
     try {
         const data = await pb.collection('qa_issues').create({
-            segment_id: segmentId,
+            segment: segmentId,
             category: category as QAIssueCategory,
             severity: severity as QAIssueSeverity,
             body: typeof issueBody === 'string' ? issueBody : null,
             char_start: typeof char_start === 'number' ? char_start : null,
             char_end: typeof char_end === 'number' ? char_end : null,
-            author_id: userId,
+            author: userId,
             author_kind: 'human',
         });
         return NextResponse.json(data, { status: 201 });

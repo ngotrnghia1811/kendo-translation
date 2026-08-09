@@ -177,7 +177,7 @@ export async function POST(
     }
 
     // Phase 4.4: invalidate cached article data
-    const articleId = segment.article_id as string | undefined;
+    const articleId = segment.article as string | undefined;
     if (articleId) {
       revalidateTag(`article-${articleId}`, 'max');
       revalidatePath(`/documents/${articleId}/read`);

@@ -63,7 +63,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         if (scope === 'articles' || scope === 'both') {
             const articles = await pb.collection('articles').getList(1, limit, {
                 filter: `title ~ "${q.replace(/"/g, '\\"')}"`,
-                sort: '-created',
+                sort: '-id',
                 fields: 'id,title,segment_count',
             })
 
@@ -75,9 +75,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
                 for (const aid of articleIds) {
                     try {
                         const segs = await pb.collection('segments').getList(1, 1, {
-                            filter: `article_id = "${aid}" && target_text != null && status != "draft"`,
+                            filter: `article = "${aid}" && target_text != null && status != "draft"`,
                             sort: '+position',
-                            fields: 'article_id,target_text',
+                            fields: 'article,target_text',
                         })
                         if (segs.items.length > 0) {
                             snippetMap.set(aid, (segs.items[0] as Record<string, unknown>).target_text as string)
@@ -103,15 +103,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             const filter = `(source_text ~ "${escapedQ}" || target_text ~ "${escapedQ}")`
             const segs = await pb.collection('segments').getList(1, limit, {
                 filter,
-                sort: '-created',
-                fields: 'id,article_id,position,source_text,target_text,status',
+                sort: '-id',
+                fields: 'id,article,position,source_text,target_text,status',
             })
 
             const segList = segs.items as Array<Record<string, unknown>>
             // Fetch article titles for hits
             const articleTitleMap = new Map<string, string>()
             for (const s of segList) {
-                const aid = s.article_id as string
+                const aid = s.article as string
                 if (!articleTitleMap.has(aid)) {
                     try {
                         const art = await pb.collection('articles').getOne(aid, { fields: 'title' })
@@ -123,10 +123,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             }
 
             for (const s of segList) {
+                const aid = s.article as string
                 segmentHits.push({
                     id: s.id as string,
-                    article_id: s.article_id as string,
-                    article_title: articleTitleMap.get(s.article_id as string) ?? 'Unknown',
+                    article_id: s.article as string,
+                    article_title: articleTitleMap.get(s.article as string) ?? 'Unknown',
                     position: s.position as number,
                     source_snippet: (s.source_text as string) ?? null,
                     target_snippet: (s.target_text as string) ?? null,

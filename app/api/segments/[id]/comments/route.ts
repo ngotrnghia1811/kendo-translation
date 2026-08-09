@@ -20,8 +20,8 @@ export async function GET(
 
     try {
         const records = await pb.collection('segment_comments').getFullList({
-            filter: `segment_id = "${segmentId}"`,
-            sort: '+created_at',
+            filter: `segment = "${segmentId}"`,
+            sort: '+id',
         });
         return NextResponse.json({ comments: records ?? [] });
     } catch (error) {
@@ -88,7 +88,7 @@ export async function POST(
     if (parentId !== null) {
         try {
             const parent = await pb.collection('segment_comments').getOne(parentId);
-            const parentSegId = (parent as Record<string, unknown>).segment_id as string;
+            const parentSegId = (parent as Record<string, unknown>).segment as string;
             if (parentSegId !== segmentId) {
                 return NextResponse.json(
                     { error: 'Parent comment belongs to a different segment' },
@@ -109,8 +109,8 @@ export async function POST(
 
     try {
         const data = await pb.collection('segment_comments').create({
-            segment_id: segmentId,
-            user_id: userId,
+            segment: segmentId,
+            user: userId,
             content,
             parent_comment_id: parentId,
             mentions: mentionsArr,

@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
     try {
         const records = await pb.collection('segments').getList(1, limit, {
             filter: filters.join(' && ') || undefined,
-            sort: '-created',
+            sort: '-id',
         });
         return NextResponse.json({ segments: records.items ?? [] });
     } catch (error) {

@@ -61,7 +61,7 @@ export async function PATCH(
     // Verify comment exists and belongs to this segment
     try {
         const existing = await pb.collection('segment_comments').getOne(commentId);
-        const existingSegId = (existing as Record<string, unknown>).segment_id as string;
+        const existingSegId = (existing as Record<string, unknown>).segment as string;
         if (existingSegId !== segmentId) {
             return NextResponse.json(
                 { error: 'Comment not found or not permitted' },

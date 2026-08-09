@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     // Admin full-list path: fetch all articles with document_settings
     try {
       const articles = await pb.collection('articles').getFullList({
-        sort: '-created',
+        sort: '-id',
         fields:
           'id,title,title_ja,translation_status,segment_count,created,updated,segmented,paired_pdf_path,expand',
       });
@@ -34,12 +34,12 @@ export async function GET(req: NextRequest) {
       const allSettings = await pb
         .collection('document_settings')
         .getFullList({
-          fields: 'article_id,publish_filter,total_segments,translated_count,approved_count',
+          fields: 'article,publish_filter,total_segments,translated_count,approved_count',
         });
       const settingsMap = new Map<string, Record<string, unknown>>();
       for (const s of allSettings) {
         const data = JSON.parse(JSON.stringify(s)) as Record<string, unknown>;
-        settingsMap.set(data.article_id as string, data);
+        settingsMap.set(data.article as string, data);
       }
 
       const documents = articles.map((a) => {

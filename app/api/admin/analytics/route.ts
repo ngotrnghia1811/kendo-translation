@@ -126,7 +126,7 @@ const fetchAnalytics = unstable_cache(
     // Recent transitions (last 30 days) — for daily activity
     const transitionsData = await apiFetch('segment_phase_transitions', {
       filter: `created >= "${thirtyDaysAgo}"`,
-      sort: '-created',
+      sort: '-id',
       fields: 'created,new_phase',
       perPage: '5000',
     });
@@ -177,7 +177,7 @@ const fetchAnalytics = unstable_cache(
       const severity = (row.severity as string) || 'minor';
       const expand = row.expand as Record<string, Record<string, unknown>> | undefined;
       const seg = expand?.segment_id;
-      const articleId = seg?.article_id as string | undefined;
+      const articleId = seg?.article as string | undefined;
       if (!articleId) continue;
 
       // Fetch article title — could be cached but fine for analytics

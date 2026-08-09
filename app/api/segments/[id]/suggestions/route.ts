@@ -19,8 +19,8 @@ export async function GET(
 
     try {
         const records = await pb.collection('segment_suggestions').getFullList({
-            filter: `segment_id = "${segmentId}"`,
-            sort: '+created_at',
+            filter: `segment = "${segmentId}"`,
+            sort: '+id',
         });
         return NextResponse.json({ suggestions: records ?? [] });
     } catch (error) {
@@ -80,10 +80,11 @@ export async function POST(
 
     try {
         const data = await pb.collection('segment_suggestions').create({
-            segment_id: segmentId,
-            suggester_id: userId,
+            segment: segmentId,
+            suggester: userId,
             suggester_kind: kind,
             proposed_text,
+            status: 'pending',
         });
         return NextResponse.json(data, { status: 201 });
     } catch (error) {

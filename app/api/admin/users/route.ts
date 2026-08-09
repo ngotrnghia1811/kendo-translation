@@ -30,7 +30,7 @@ export async function GET() {
       }),
       pb.collection('segment_revisions').getFullList({
         fields: 'edited_by,created',
-        sort: '-created',
+        sort: '-id',
       }),
     ]);
 

@@ -22,7 +22,7 @@ export async function fetchAllSegments<T = Record<string, unknown>>(
   selectCols = '*',
 ): Promise<T[]> {
   const records = await pb.collection('segments').getFullList<T>({
-    filter: `article_id = "${articleId}" && target_lang = "${targetLang}"`,
+    filter: `article = "${articleId}" && target_lang = "${targetLang}"`,
     sort: '+position',
     fields: selectCols === '*' ? undefined : selectCols,
   })

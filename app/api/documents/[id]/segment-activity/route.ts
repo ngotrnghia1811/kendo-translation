@@ -70,7 +70,7 @@ export async function GET(
 
     // Fetch all segment ids for the document
     const segs = await pb.collection('segments').getFullList<{ id: string }>({
-        filter: `article_id = "${documentId}"`,
+        filter: `article = "${documentId}"`,
         fields: 'id',
     });
     const segmentIds = segs.map(s => s.id);
