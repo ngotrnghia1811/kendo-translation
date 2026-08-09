@@ -17,6 +17,9 @@ migrate((app) => {
             const collection = app.findCollectionByNameOrId(name);
             const idField = collection.fields.find(f => f.name === "id");
             if (idField) {
+                // Bug #9/#10 fix: old UP migration set max=50 but live instance
+                // had max=15 (likely a stale DOWN migration was re-applied).
+                // UUIDs are 36 chars with hyphens, so we need max≥36 + hyphens.
                 idField.min = 1;
                 idField.max = 50;
                 // Allow UUIDs: hyphens, lowercase alphanumeric

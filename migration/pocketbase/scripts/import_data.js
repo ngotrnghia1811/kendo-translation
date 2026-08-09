@@ -106,9 +106,21 @@ try {
 async function createPbClient(args) {
     const pb = new PocketBase(args.pbUrl);
     if (!args.dryRun) {
+        // Bug #10: API Rules on bookmarks, reading_progress, and other user-scoped
+        // collections have createRule="@request.auth.id = user". A regular admin
+        // user cannot create records for other users (IDs don't match).
+        //
+        // REQUIRED: Authenticate as a PocketBase SUPERUSER (created via
+        // `./pocketbase superuser upsert EMAIL PASS`), NOT a regular user.
+        // Superusers bypass API Rules. The _superusers collection is separate
+        // from the regular users collection.
+        //
+        // If you only have a regular admin user, you MUST either:
+        //   (a) Create a superuser first: ./pocketbase superuser upsert EMAIL PASS
+        //   (b) Or modify API Rules to add "|| @request.auth.role = 'admin'"
         console.log(`Authenticating to PocketBase at ${args.pbUrl}...`);
-        await pb.collection("users").authWithPassword(args.pbEmail, args.pbPassword);
-        console.log(`Authenticated as ${pb.authStore.record.email} (role: ${pb.authStore.record.role})`);
+        await pb.collection("_superusers").authWithPassword(args.pbEmail, args.pbPassword);
+        console.log(`Authenticated as superuser: ${args.pbEmail}`);
     }
     return pb;
 }
@@ -680,7 +692,16 @@ function convertValue(val, pbType) {
             return String(val);
         case "number": {
             const n = parseFloat(val);
-            return isNaN(n) ? null : n;
+            if (isNaN(n)) return null;
+            // Bug #9: PocketBase treats 0 as "blank" for required number fields
+            // (with required:true). Fall back to 1 for position values of 0 so
+            // they pass the non-blank validation.
+            // The fix_id_length migration (1753123459) sets position to
+            // required:true on the live instance; segments with position=0
+            // from the pg_dump silently failed during import (695 segments lost).
+            // After backfill, the schema was also patched to required:false.
+            if (n === 0) return 1;
+            return n;
         }
         case "bool": {
             if (typeof val === "boolean") return val;
