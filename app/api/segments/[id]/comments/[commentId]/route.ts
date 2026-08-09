@@ -1,27 +1,21 @@
 /**
  * /api/segments/[id]/comments/[commentId]
  *
- *   PATCH \u2014 update a comment's `content` and/or `resolved` flag.
- *
- * RLS (comments_update) limits writes to auth.uid() = user_id, so only
- * the comment author can edit. A 404 covers both not-found and
- * RLS-hidden rows; we never leak existence.
+ *   PATCH — update a comment's `content` and/or `resolved` flag.
+ *   PocketBase edition.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/pocketbase/server';
 
 export async function PATCH(
     req: NextRequest,
     { params }: { params: Promise<{ id: string; commentId: string }> }
 ) {
     const { id: segmentId, commentId } = await params;
-    const supabase = await createClient();
+    const pb = await createServerClient();
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+    if (!pb.authStore.isValid || !pb.authStore.record) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -64,23 +58,28 @@ export async function PATCH(
         );
     }
 
-    const { data, error } = await supabase
-        .from('segment_comments')
-        .update(updateData)
-        .eq('id', commentId)
-        .eq('segment_id', segmentId)
-        .select()
-        .maybeSingle();
-
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-    if (!data) {
+    // Verify comment exists and belongs to this segment
+    try {
+        const existing = await pb.collection('segment_comments').getOne(commentId);
+        const existingSegId = (existing as Record<string, unknown>).segment_id as string;
+        if (existingSegId !== segmentId) {
+            return NextResponse.json(
+                { error: 'Comment not found or not permitted' },
+                { status: 404 }
+            );
+        }
+    } catch {
         return NextResponse.json(
             { error: 'Comment not found or not permitted' },
             { status: 404 }
         );
     }
 
-    return NextResponse.json(data);
+    try {
+        const data = await pb.collection('segment_comments').update(commentId, updateData);
+        return NextResponse.json(data);
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: msg }, { status: 500 });
+    }
 }

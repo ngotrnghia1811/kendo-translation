@@ -1,22 +1,12 @@
 /**
  * /api/segments/[id]/suggestions
  *
- * Cooperation-first overlay on the existing soft-lock editor. Any
- * authenticated user can propose an alternative `target_text` for a
- * segment without taking the lock or mutating the segment itself.
- *
- *   GET  — list all suggestions for the segment, oldest first.
- *   POST — create a new pending suggestion.
- *
- * Acceptance (status transition to 'accepted'/'rejected'/'superseded')
- * lives at /api/segments/[id]/suggestions/[suggestionId] (PATCH).
- * Applying an accepted suggestion to segments.target_text remains the
- * caller's responsibility via the existing PATCH /api/segments/[id],
- * preserving the soft-lock contract.
+ * Cooperation-first overlay on the existing soft-lock editor.
+ * PocketBase edition.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/pocketbase/server';
 
 type SuggesterKind = 'human' | 'agent';
 
@@ -25,19 +15,18 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     const { id: segmentId } = await params;
-    const supabase = await createClient();
+    const pb = await createServerClient();
 
-    const { data, error } = await supabase
-        .from('segment_suggestions')
-        .select('*, suggester:profiles!suggester_id(username)')
-        .eq('segment_id', segmentId)
-        .order('created_at', { ascending: true });
-
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    try {
+        const records = await pb.collection('segment_suggestions').getFullList({
+            filter: `segment_id = "${segmentId}"`,
+            sort: '+created_at',
+        });
+        return NextResponse.json({ suggestions: records ?? [] });
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: msg }, { status: 500 });
     }
-
-    return NextResponse.json({ suggestions: data ?? [] });
 }
 
 export async function POST(
@@ -45,14 +34,12 @@ export async function POST(
     { params }: { params: Promise<{ id: string }> }
 ) {
     const { id: segmentId } = await params;
-    const supabase = await createClient();
+    const pb = await createServerClient();
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+    if (!pb.authStore.isValid || !pb.authStore.record) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const userId = pb.authStore.record.id;
 
     let body: unknown;
     try {
@@ -84,36 +71,23 @@ export async function POST(
         kind = suggester_kind;
     }
 
-    // Verify the segment exists up front so we return a clean 404 instead
-    // of relying on the FK error path.
-    const { data: segment, error: segmentErr } = await supabase
-        .from('segments')
-        .select('id')
-        .eq('id', segmentId)
-        .maybeSingle();
-
-    if (segmentErr) {
-        return NextResponse.json({ error: segmentErr.message }, { status: 500 });
-    }
-    if (!segment) {
+    // Verify the segment exists
+    try {
+        await pb.collection('segments').getOne(segmentId);
+    } catch {
         return NextResponse.json({ error: 'Segment not found' }, { status: 404 });
     }
 
-    const { data, error } = await supabase
-        .from('segment_suggestions')
-        .insert({
+    try {
+        const data = await pb.collection('segment_suggestions').create({
             segment_id: segmentId,
-            suggester_id: user.id,
+            suggester_id: userId,
             suggester_kind: kind,
             proposed_text,
-            // status defaults to 'pending' in SQL
-        })
-        .select()
-        .single();
-
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        });
+        return NextResponse.json(data, { status: 201 });
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: msg }, { status: 500 });
     }
-
-    return NextResponse.json(data, { status: 201 });
 }

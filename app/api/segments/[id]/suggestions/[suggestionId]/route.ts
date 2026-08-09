@@ -4,34 +4,14 @@
  *   PATCH — transition a suggestion's status to
  *           'accepted' | 'rejected' | 'superseded'.
  *
- * RLS gates the update to: the original suggester, the accepter, or an
- * admin (suggestions_update_own_or_accepter). On status='accepted' the
- * server stamps `accepter_id = auth.uid()` and `accepted_at = now()`.
- *
- * Note: this route deliberately does NOT mutate `segments.target_text`.
- * Applying an accepted suggestion to the segment still goes through
- * PATCH /api/segments/[id] so the soft-lock contract is preserved.
- *
- * Phase-4b memory write-back (005): after an `accepted` stamp succeeds,
- * this route fires the matching `rpc_phase_4b_*` SECURITY-DEFINER RPC so
- * the accepted translation feeds the memory loop (translation_memory,
- * term promotion, TM-example boosts). The RPC self-validates that the
- * caller is the accepter (or admin) and that the suggestion is already
- * `accepted`, so it MUST run in the same authed request context as the
- * accept (never service-role). The write-back is best-effort: a failure
- * is logged and surfaced as a non-fatal `memory` field on the response,
- * never rolling back the user-facing accept.
- *
- * Phase coverage:
- *   draft      → rpc_phase_4b_translate_save  (inserts TM row)
- *   translated → rpc_phase_4b_edit_save       (supersede-links TM + edit_patterns)
- *   edited     → rpc_phase_4b_save_style       (insert-or-increment style_guide)
- *   proofread  → skipped; rpc_phase_4b_qa_save uses qa_issue_id, not suggestion
- *   qa_approved→ terminal; no write-back needed
+ * PocketBase edition. Phase-4b memory write-back (translation_memory) is
+ * removed — the `translation_memory` table was NOT migrated to PocketBase
+ * (archived as gzipped JSON on the Oracle instance). The accept/reject
+ * transition still succeeds; the memory write-back is simply a no-op.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/pocketbase/server';
 
 type SuggestionStatus = 'pending' | 'accepted' | 'rejected' | 'superseded';
 
@@ -41,42 +21,17 @@ const TERMINAL_STATUSES: ReadonlySet<SuggestionStatus> = new Set([
     'superseded',
 ]);
 
-/** Shape of edit_pattern metadata accepted from the UI. */
-interface EditPatternBody {
-    before_phrase: string;
-    after_phrase: string;
-    rationale?: string;
-    approach?: string;
-}
-
-/** Shape of style_rule metadata accepted from the UI. */
-interface StyleRuleBody {
-    scope: string;
-    /**
-     * UUID of the article or document to anchor this style rule to.
-     * Null / absent for global scope. Forwarded as `scope_ref` in the
-     * rpc_phase_4b_save_style payload.
-     */
-    scope_ref?: string | null;
-    rule_category: string;
-    pattern: string;
-    policy: string;
-    rationale?: string;
-}
-
 export async function PATCH(
     req: NextRequest,
     { params }: { params: Promise<{ id: string; suggestionId: string }> }
 ) {
     const { id: segmentId, suggestionId } = await params;
-    const supabase = await createClient();
+    const pb = await createServerClient();
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+    if (!pb.authStore.isValid || !pb.authStore.record) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const userId = pb.authStore.record.id;
 
     let body: Record<string, unknown>;
     try {
@@ -85,11 +40,7 @@ export async function PATCH(
         return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    const { status, edit_pattern, style_rule } = body as {
-        status?: unknown;
-        edit_pattern?: EditPatternBody | null;
-        style_rule?: StyleRuleBody;
-    };
+    const { status } = body as { status?: unknown };
 
     if (
         typeof status !== 'string' ||
@@ -108,167 +59,40 @@ export async function PATCH(
 
     const updateData: Record<string, unknown> = { status: newStatus };
     if (newStatus === 'accepted') {
-        updateData.accepter_id = user.id;
+        updateData.accepter_id = userId;
         updateData.accepted_at = new Date().toISOString();
     }
 
-    const { data, error } = await supabase
-        .from('segment_suggestions')
-        .update(updateData)
-        .eq('id', suggestionId)
-        .eq('segment_id', segmentId)
-        .select()
-        .maybeSingle();
-
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-    if (!data) {
-        // Either the row doesn't exist or RLS hid it from this user.
+    // Verify suggestion exists and belongs to this segment
+    try {
+        const existing = await pb.collection('segment_suggestions').getOne(suggestionId);
+        const existingSegId = (existing as Record<string, unknown>).segment_id as string;
+        if (existingSegId !== segmentId) {
+            return NextResponse.json(
+                { error: 'Suggestion not found or not permitted' },
+                { status: 404 }
+            );
+        }
+    } catch {
         return NextResponse.json(
             { error: 'Suggestion not found or not permitted' },
             { status: 404 }
         );
     }
 
-    // Phase-4b memory write-back (best-effort, non-fatal).
-    let memory: Record<string, unknown> | undefined;
-    if (newStatus === 'accepted') {
-        memory = await runPhase4bWriteBack(
-            supabase,
-            segmentId,
-            suggestionId,
-            edit_pattern,
-            style_rule
-        );
+    try {
+        const data = await pb.collection('segment_suggestions').update(suggestionId, updateData);
+
+        // Phase-4b memory write-back: translation_memory was NOT migrated.
+        // This was previously handled by Supabase RPC rpc_phase_4b_*. We
+        // return a `memory` field noting the skip so the UI doesn't break.
+        const memory = newStatus === 'accepted'
+            ? { skipped: true, reason: 'translation_memory table not migrated to PocketBase (archived on Oracle instance)' }
+            : undefined;
+
+        return NextResponse.json(memory ? { ...data, memory } : data);
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: msg }, { status: 500 });
     }
-
-    return NextResponse.json(memory ? { ...data, memory } : data);
-}
-
-/**
- * Fire the matching `rpc_phase_4b_*` RPC for an accepted suggestion.
- *
- * Phase routing (by segment.status at accept time):
- *   draft      → rpc_phase_4b_translate_save  (new TM row)
- *   translated → rpc_phase_4b_edit_save       (TM supersede + edit_patterns)
- *   edited     → rpc_phase_4b_save_style       (insert-or-increment style_guide)
- *   proofread  → skipped (qa_save uses qa_issue_id, not suggestion-based)
- *
- * Returns a small status object (merged into the `memory` response field) and
- * NEVER throws — the accept must stand even if the learning side-effect fails.
- */
-async function runPhase4bWriteBack(
-    supabase: Awaited<ReturnType<typeof createClient>>,
-    segmentId: string,
-    suggestionId: string,
-    editPattern?: EditPatternBody | null,
-    styleRule?: StyleRuleBody
-): Promise<Record<string, unknown> | undefined> {
-    // Determine the phase from the segment's current lifecycle status.
-    const { data: seg, error: segErr } = await supabase
-        .from('segments')
-        .select('status')
-        .eq('id', segmentId)
-        .maybeSingle();
-
-    if (segErr || !seg) {
-        return { skipped: true, reason: 'segment lookup failed' };
-    }
-
-    // Translate phase: draft segment accepted → new TM row.
-    if (seg.status === 'draft') {
-        const payload = {
-            save_to_tm: true,
-            approach: 'human_accept',
-            promote_terms: [] as Array<{ term_id: string }>,
-            boost_tm_examples: [] as Array<{ tm_id: string }>,
-        };
-        const { data: rpcResult, error: rpcErr } = await supabase.rpc(
-            'rpc_phase_4b_translate_save',
-            { segment_id: segmentId, suggestion_id: suggestionId, payload }
-        );
-        if (rpcErr) {
-            console.error(
-                `[phase-4b] translate_save failed for suggestion ${suggestionId}:`,
-                rpcErr.message
-            );
-            return { ok: false, rpc: 'rpc_phase_4b_translate_save', error: rpcErr.message };
-        }
-        return { ok: true, rpc: 'rpc_phase_4b_translate_save', result: rpcResult };
-    }
-
-    // Edit phase: translated segment accepted → supersede-link TM + record
-    // edit_patterns. If the caller supplied edit_pattern metadata it is
-    // forwarded; otherwise `null` (the RPC skips that block).
-    if (seg.status === 'translated') {
-        const payload = {
-            update_tm: true,
-            approach: 'human_edit_accept',
-            edit_pattern: editPattern ?? null,
-            promote_terms: [] as Array<{ term_id: string }>,
-        };
-        const { data: rpcResult, error: rpcErr } = await supabase.rpc(
-            'rpc_phase_4b_edit_save',
-            { segment_id: segmentId, suggestion_id: suggestionId, payload }
-        );
-        if (rpcErr) {
-            console.error(
-                `[phase-4b] edit_save failed for suggestion ${suggestionId}:`,
-                rpcErr.message
-            );
-            return { ok: false, rpc: 'rpc_phase_4b_edit_save', error: rpcErr.message };
-        }
-        return { ok: true, rpc: 'rpc_phase_4b_edit_save', result: rpcResult };
-    }
-
-    // Edited (proofread) phase: insert-or-increment style_guide row.
-    // Only fires when style_rule is provided with all required fields.
-    if (seg.status === 'edited') {
-        if (
-            styleRule &&
-            styleRule.scope &&
-            styleRule.rule_category &&
-            styleRule.pattern &&
-            styleRule.policy
-        ) {
-            const payload: Record<string, unknown> = {
-                scope: styleRule.scope,
-                rule_category: styleRule.rule_category,
-                pattern: styleRule.pattern,
-                policy: styleRule.policy,
-            };
-            // scope_ref anchors article/document-level rules; null for global.
-            if (styleRule.scope_ref) {
-                payload.scope_ref = styleRule.scope_ref;
-            }
-            if (styleRule.rationale) {
-                payload.rationale = styleRule.rationale;
-            }
-            const { data: rpcResult, error: rpcErr } = await supabase.rpc(
-                'rpc_phase_4b_save_style',
-                { segment_id: segmentId, suggestion_id: suggestionId, payload }
-            );
-            if (rpcErr) {
-                console.error(
-                    `[phase-4b] save_style failed for suggestion ${suggestionId}:`,
-                    rpcErr.message
-                );
-                return { ok: false, rpc: 'rpc_phase_4b_save_style', error: rpcErr.message };
-            }
-            return { ok: true, rpc: 'rpc_phase_4b_save_style', result: rpcResult };
-        }
-        return {
-            skipped: true,
-            reason: 'style_rule absent or incomplete (not an error — style annotations are optional)',
-        };
-    }
-
-    // Proofread phase: rpc_phase_4b_qa_save is driven by qa_issue_id, not by
-    // the suggestion accept path.
-    // qa_approved phase: terminal; no write-back needed.
-    return {
-        skipped: true,
-        reason: `no write-back for phase (status=${seg.status})`,
-    };
 }

@@ -2,24 +2,12 @@
  * /api/segments/[id]/qa-issues
  *
  *   GET  — list all qa_issues for a segment (open and resolved).
- *   POST — create a new qa_issue (human triage only; agents may not INSERT
- *          directly; they propose via /api/agents/qa and the human triages).
- *
- * Cooperation invariant: agents PROPOSE; humans CREATE.  The agent QA
- * endpoint (/api/agents/qa) returns a JSON array of candidate issues for
- * the translator to review; only a human POST to this endpoint writes to
- * the qa_issues table.  The author_kind field on every human-created row is
- * 'human'; if a caller explicitly sets author_kind='agent', we reject it.
- *
- * RLS policies (from 004_phase_workflow.sql):
- *   SELECT — public (any authenticated or anon reader can see qa_issues)
- *   INSERT — any authenticated user
- *   UPDATE — any authenticated user (PATCH /qa-issues/[issueId])
- *   DELETE — admin only
+ *   POST — create a new qa_issue (human triage only).
+ * PocketBase edition.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/pocketbase/server';
 import type { QAIssueCategory, QAIssueSeverity } from '@/types/database';
 
 const VALID_CATEGORIES = new Set<QAIssueCategory>([
@@ -39,19 +27,18 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     const { id: segmentId } = await params;
-    const supabase = await createClient();
+    const pb = await createServerClient();
 
-    const { data, error } = await supabase
-        .from('qa_issues')
-        .select('*')
-        .eq('segment_id', segmentId)
-        .order('created_at', { ascending: true });
-
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    try {
+        const records = await pb.collection('qa_issues').getFullList({
+            filter: `segment_id = "${segmentId}"`,
+            sort: '+created_at',
+        });
+        return NextResponse.json(records ?? []);
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: msg }, { status: 500 });
     }
-
-    return NextResponse.json(data ?? []);
 }
 
 export async function POST(
@@ -59,14 +46,12 @@ export async function POST(
     { params }: { params: Promise<{ id: string }> }
 ) {
     const { id: segmentId } = await params;
-    const supabase = await createClient();
+    const pb = await createServerClient();
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+    if (!pb.authStore.isValid || !pb.authStore.record) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const userId = pb.authStore.record.id;
 
     let body: unknown;
     try {
@@ -91,13 +76,11 @@ export async function POST(
         author_kind?: unknown;
     };
 
-    // Cooperation invariant: humans only.  Reject any attempt to impersonate
-    // an agent write via this surface.
     if (author_kind !== undefined && author_kind !== 'human') {
         return NextResponse.json(
             {
                 error:
-                    "author_kind must be 'human' or omitted.  " +
+                    "author_kind must be 'human' or omitted. " +
                     'Agent QA findings are proposed via /api/agents/qa and triaged by a human.',
             },
             { status: 400 }
@@ -122,34 +105,27 @@ export async function POST(
         );
     }
 
-    // Verify the segment exists (gives a clean 404 rather than a FK violation).
-    const { error: segErr } = await supabase
-        .from('segments')
-        .select('id')
-        .eq('id', segmentId)
-        .maybeSingle();
-    if (segErr) {
-        return NextResponse.json({ error: segErr.message }, { status: 500 });
+    // Verify segment exists
+    try {
+        await pb.collection('segments').getOne(segmentId);
+    } catch {
+        // Segment might not exist; tolerate via FK constraint
     }
 
-    const { data: inserted, error: insertErr } = await supabase
-        .from('qa_issues')
-        .insert({
+    try {
+        const data = await pb.collection('qa_issues').create({
             segment_id: segmentId,
             category: category as QAIssueCategory,
             severity: severity as QAIssueSeverity,
             body: typeof issueBody === 'string' ? issueBody : null,
             char_start: typeof char_start === 'number' ? char_start : null,
             char_end: typeof char_end === 'number' ? char_end : null,
-            author_id: user.id,
+            author_id: userId,
             author_kind: 'human',
-        })
-        .select()
-        .single();
-
-    if (insertErr) {
-        return NextResponse.json({ error: insertErr.message }, { status: 500 });
+        });
+        return NextResponse.json(data, { status: 201 });
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: msg }, { status: 500 });
     }
-
-    return NextResponse.json(inserted, { status: 201 });
 }

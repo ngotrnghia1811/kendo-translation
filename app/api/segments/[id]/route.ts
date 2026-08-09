@@ -1,74 +1,83 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/pocketbase/server';
 import { revalidateTag, revalidatePath } from 'next/cache';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createClient();
+  const pb = await createServerClient();
 
-  const { data, error } = await supabase.from('segments').select('*').eq('id', id).single();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 404 });
-  return NextResponse.json(data);
+  try {
+    const data = await pb.collection('segments').getOne(id);
+    return NextResponse.json(data);
+  } catch {
+    return NextResponse.json({ error: 'Segment not found' }, { status: 404 });
+  }
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createClient();
+  const pb = await createServerClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!pb.authStore.isValid || !pb.authStore.record) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const userId = pb.authStore.record.id;
 
   const body = await req.json();
   const { target_text, status } = body;
 
-  const { data: segment } = await supabase
-    .from('segments')
-    .select('locked_by, article_id')
-    .eq('id', id)
-    .single();
+  // Pre-fetch for lock check
+  let segment: Record<string, unknown>;
+  try {
+    segment = await pb.collection('segments').getOne(id);
+  } catch {
+    return NextResponse.json({ error: 'Segment not found' }, { status: 404 });
+  }
 
-  if (segment?.locked_by && segment.locked_by !== user.id) {
+  if (segment?.locked_by && segment.locked_by !== userId) {
     return NextResponse.json({ error: 'Segment is locked by another user' }, { status: 409 });
   }
 
-  const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const previousTargetText = segment.target_text as string | undefined;
+
+  const updateData: Record<string, unknown> = {};
   if (target_text !== undefined) {
     updateData.target_text = target_text;
-    updateData.translated_by = user.id;
+    updateData.translated_by = userId;
   }
   if (status !== undefined) updateData.status = status;
 
-  const { data: previous } = await supabase
-    .from('segments')
-    .select('target_text')
-    .eq('id', id)
-    .single();
-
-  const { data, error } = await supabase
-    .from('segments')
-    .update(updateData)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  if (previous?.target_text && target_text !== undefined && target_text !== previous.target_text) {
-    await supabase.from('segment_revisions').insert({
-      segment_id: id,
-      target_text: previous.target_text,
-      edited_by: user.id,
-    });
+  if (Object.keys(updateData).length === 0) {
+    return NextResponse.json(segment);
   }
 
-  // Phase 4.4: invalidate cached article data so readers see the update
-  const articleId = data.article_id;
-  if (articleId) {
-    revalidateTag(`article-${articleId}`, 'max');
-    revalidatePath(`/documents/${articleId}/read`);
-  }
-  revalidateTag('articles', 'max');
+  try {
+    const data = await pb.collection('segments').update(id, updateData);
 
-  return NextResponse.json(data);
+    // Create revision if target_text changed
+    if (previousTargetText && target_text !== undefined && target_text !== previousTargetText) {
+      try {
+        await pb.collection('segment_revisions').create({
+          segment_id: id,
+          target_text: previousTargetText,
+          edited_by: userId,
+        });
+      } catch {
+        // Best-effort revision log; don't fail the update
+      }
+    }
+
+    // Phase 4.4: invalidate cached article data
+    const articleId = (data as Record<string, unknown>).article_id as string | undefined;
+    if (articleId) {
+      revalidateTag(`article-${articleId}`, 'max');
+      revalidatePath(`/documents/${articleId}/read`);
+    }
+    revalidateTag('articles', 'max');
+
+    return NextResponse.json(data);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }

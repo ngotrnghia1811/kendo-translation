@@ -3,14 +3,13 @@
  *
  * Filtered cross-document segment discovery. Used primarily by tests to
  * locate segments in specific states (e.g. draft+content, draft+empty)
- * without paginating through ~958 documents. RLS-respecting; the read
- * policy on `segments` is permissive so any authed user can use this.
+ * without paginating through ~958 documents.
  *
- * Per-document reads still go through GET /api/documents/[id]/segments.
+ * PocketBase edition.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/pocketbase/server';
 
 const VALID_STATUSES = new Set([
     'draft',
@@ -21,12 +20,9 @@ const VALID_STATUSES = new Set([
 ]);
 
 export async function GET(req: NextRequest) {
-    const supabase = await createClient();
+    const pb = await createServerClient();
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+    if (!pb.authStore.isValid || !pb.authStore.record) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -54,16 +50,15 @@ export async function GET(req: NextRequest) {
         limit = parsed;
     }
 
-    let query = supabase.from('segments').select('*').limit(limit);
-
+    // Build filter string
+    const filters: string[] = [];
     if (statusParam) {
-        query = query.eq('status', statusParam);
+        filters.push(`status = "${statusParam}"`);
     }
     if (hasTargetParam === 'true') {
-        query = query.not('target_text', 'is', null).neq('target_text', '');
+        filters.push('target_text != null && target_text != ""');
     } else if (hasTargetParam === 'false') {
-        // Either NULL or empty string. supabase-js .or() handles this.
-        query = query.or('target_text.is.null,target_text.eq.');
+        filters.push('(target_text = null || target_text = "")');
     } else if (hasTargetParam !== null) {
         return NextResponse.json(
             { error: '`has_target_text` must be "true" or "false"' },
@@ -71,10 +66,14 @@ export async function GET(req: NextRequest) {
         );
     }
 
-    const { data, error } = await query;
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    try {
+        const records = await pb.collection('segments').getList(1, limit, {
+            filter: filters.join(' && ') || undefined,
+            sort: '-created',
+        });
+        return NextResponse.json({ segments: records.items ?? [] });
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: msg }, { status: 500 });
     }
-
-    return NextResponse.json({ segments: data ?? [] });
 }

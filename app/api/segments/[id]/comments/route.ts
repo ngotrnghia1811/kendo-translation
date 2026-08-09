@@ -1,24 +1,12 @@
 /**
  * /api/segments/[id]/comments
  *
- * Cooperation-first discussion thread anchored to a segment. Single
- * adjacency-list table (`segment_comments`) with optional
- * `parent_comment_id` for replies; the frontend assembles the tree.
- *
- *   GET  — list all comments for the segment, oldest first (flat).
- *   POST — create a comment (optionally a reply via `parent_comment_id`).
- *
- * Per-comment edit / resolve transitions live at
- * /api/segments/[id]/comments/[commentId] (PATCH). RLS (comments_read,
- * comments_insert, comments_update) does the heavy lifting; this route
- * only adds shape validation and the same-segment parent check.
- *
- * Mention notification dispatch is deliberately out of scope for this
- * unit \u2014 `mentions` is persisted only.
+ * Cooperation-first discussion thread anchored to a segment.
+ * PocketBase edition.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/pocketbase/server';
 
 const UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -28,19 +16,18 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     const { id: segmentId } = await params;
-    const supabase = await createClient();
+    const pb = await createServerClient();
 
-    const { data, error } = await supabase
-        .from('segment_comments')
-        .select('*, author:profiles!user_id(username)')
-        .eq('segment_id', segmentId)
-        .order('created_at', { ascending: true });
-
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    try {
+        const records = await pb.collection('segment_comments').getFullList({
+            filter: `segment_id = "${segmentId}"`,
+            sort: '+created_at',
+        });
+        return NextResponse.json({ comments: records ?? [] });
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: msg }, { status: 500 });
     }
-
-    return NextResponse.json({ comments: data ?? [] });
 }
 
 export async function POST(
@@ -48,14 +35,12 @@ export async function POST(
     { params }: { params: Promise<{ id: string }> }
 ) {
     const { id: segmentId } = await params;
-    const supabase = await createClient();
+    const pb = await createServerClient();
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+    if (!pb.authStore.isValid || !pb.authStore.record) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const userId = pb.authStore.record.id;
 
     let body: unknown;
     try {
@@ -99,56 +84,40 @@ export async function POST(
         mentionsArr = mentions as string[];
     }
 
-    // If a parent is supplied, it must belong to the same segment so
-    // threads can't be cross-stitched across segments.
+    // If a parent is supplied, verify it belongs to the same segment
     if (parentId !== null) {
-        const { data: parent, error: parentErr } = await supabase
-            .from('segment_comments')
-            .select('id, segment_id')
-            .eq('id', parentId)
-            .maybeSingle();
-        if (parentErr) {
-            return NextResponse.json({ error: parentErr.message }, { status: 500 });
-        }
-        if (!parent) {
+        try {
+            const parent = await pb.collection('segment_comments').getOne(parentId);
+            const parentSegId = (parent as Record<string, unknown>).segment_id as string;
+            if (parentSegId !== segmentId) {
+                return NextResponse.json(
+                    { error: 'Parent comment belongs to a different segment' },
+                    { status: 400 }
+                );
+            }
+        } catch {
             return NextResponse.json({ error: 'Parent comment not found' }, { status: 400 });
-        }
-        if (parent.segment_id !== segmentId) {
-            return NextResponse.json(
-                { error: 'Parent comment belongs to a different segment' },
-                { status: 400 }
-            );
         }
     }
 
-    // Verify the segment exists up front for a clean 404.
-    const { data: segment, error: segmentErr } = await supabase
-        .from('segments')
-        .select('id')
-        .eq('id', segmentId)
-        .maybeSingle();
-    if (segmentErr) {
-        return NextResponse.json({ error: segmentErr.message }, { status: 500 });
-    }
-    if (!segment) {
+    // Verify the segment exists
+    try {
+        await pb.collection('segments').getOne(segmentId);
+    } catch {
         return NextResponse.json({ error: 'Segment not found' }, { status: 404 });
     }
 
-    const { data, error } = await supabase
-        .from('segment_comments')
-        .insert({
+    try {
+        const data = await pb.collection('segment_comments').create({
             segment_id: segmentId,
-            user_id: user.id,
+            user_id: userId,
             content,
             parent_comment_id: parentId,
             mentions: mentionsArr,
-        })
-        .select()
-        .single();
-
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        });
+        return NextResponse.json(data, { status: 201 });
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: msg }, { status: 500 });
     }
-
-    return NextResponse.json(data, { status: 201 });
 }
