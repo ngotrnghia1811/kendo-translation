@@ -70,3 +70,4 @@ supabase/.temp/
 *.backup
 db_cluster-*.backup
 .tmp-pb/
+tm_archive.json.gz
