@@ -1,10 +1,9 @@
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/pocketbase/server';
 
 export default async function HomePage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const isLoggedIn = !!user;
+  const pb = await createServerClient();
+  const isLoggedIn = pb.authStore.isValid;
 
   return (
     <div className="min-h-screen">
