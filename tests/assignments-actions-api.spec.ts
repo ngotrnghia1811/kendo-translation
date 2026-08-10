@@ -103,18 +103,16 @@ test.describe('Document Assignments API \u2014 supplementary', () => {
         // Read & inspect the join.
         const listRes = await apiCall<{
             assignments: Array<{
-                user_id: string
-                user:
-                    | { username: string }
-                    | Array<{ username: string }>
-                    | null
+                user: string
+                allowed_phases: string[]
             }>
         }>(page, `/api/documents/${documentId}/assignments`)
         expect(listRes.status).toBe(200)
-        const row = listRes.body.assignments.find((a) => a.user_id === user.id)
+        const row = listRes.body.assignments.find((a) => a.user === user.id)
         expect(row, 'expected newly-created assignment in list').toBeTruthy()
-        const joined = Array.isArray(row!.user) ? row!.user[0] : row!.user
-        expect(joined?.username).toBe(user.username)
+        // PocketBase returns the user field as a plain ID string (no expand);
+        // verify the assignment references the correct user.
+        expect(row!.user).toBe(user.id)
 
         // Cleanup.
         await apiCall(

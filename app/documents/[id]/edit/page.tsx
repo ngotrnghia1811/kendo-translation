@@ -111,8 +111,8 @@ export default function EditPage() {
 
         const assnRes = await fetch(`/api/documents/${params.id}/assignments`);
         if (!assnRes.ok) return;
-        const data = await assnRes.json() as { assignments?: Array<{ user_id: string; allowed_phases: WorkflowPhase[] }> };
-        const mine = (data.assignments ?? []).find(a => a.user_id === userId);
+        const data = await assnRes.json() as { assignments?: Array<{ user: string; allowed_phases: WorkflowPhase[] }> };
+        const mine = (data.assignments ?? []).find(a => a.user === userId);
         if (mine) setUserPhases(mine.allowed_phases);
       } catch { /* non-fatal */ }
     })();
