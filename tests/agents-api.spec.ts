@@ -140,7 +140,7 @@ test.describe('Agents API', () => {
 
             const res = await apiCall<{
                 id: string
-                segment_id: string
+                segment: string
                 suggester_kind: string
                 status: string
                 proposed_text: string
@@ -155,7 +155,7 @@ test.describe('Agents API', () => {
                 return
             }
             expect(res.status, JSON.stringify(res.body)).toBe(201)
-            expect(res.body.segment_id).toBe(segment.id)
+            expect(res.body.segment).toBe(segment.id)
             expect(res.body.suggester_kind).toBe('agent')
             expect(res.body.status).toBe('pending')
             expect(res.body.proposed_text.length).toBeGreaterThan(0)
@@ -174,7 +174,7 @@ test.describe('Agents API', () => {
 
             const res = await apiCall<{
                 id: string
-                segment_id: string
+                segment: string
                 suggester_kind: string
                 status: string
                 proposed_text: string
@@ -189,7 +189,7 @@ test.describe('Agents API', () => {
                 return
             }
             expect(res.status, JSON.stringify(res.body)).toBe(201)
-            expect(res.body.segment_id).toBe(segment.id)
+            expect(res.body.segment).toBe(segment.id)
             expect(res.body.suggester_kind).toBe('agent')
             expect(res.body.status).toBe('pending')
             expect(res.body.proposed_text.length).toBeGreaterThan(0)

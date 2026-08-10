@@ -122,7 +122,7 @@ test.describe('Advance-phase API', () => {
                 segment: { id: string; status: string }
                 transition: {
                     id: string
-                    segment_id: string
+                    segment: string
                     from_status: string
                     to_status: string
                     actor_id: string

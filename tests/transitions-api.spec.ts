@@ -89,7 +89,7 @@ test.describe('Transitions API', () => {
             const res = await apiCall<{
                 transitions: Array<{
                     id: string
-                    segment_id: string
+                    segment: string
                     from_status: string
                     to_status: string
                     created_at: string
