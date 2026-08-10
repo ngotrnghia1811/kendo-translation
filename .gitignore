@@ -71,3 +71,5 @@ supabase/.temp/
 db_cluster-*.backup
 .tmp-pb/
 tm_archive.json.gz
+.playwright-cli/
+.opencode/browser-state/cf-profile/
