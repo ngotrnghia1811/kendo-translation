@@ -99,7 +99,7 @@ test.describe('Suggestions API', () => {
             const proposedText = `wave-2 suggestion probe @ ${new Date().toISOString()}`
             const createRes = await apiCall<{
                 id: string
-                segment_id: string
+                segment: string
                 proposed_text: string
                 status: string
                 suggester_kind: string
@@ -108,7 +108,7 @@ test.describe('Suggestions API', () => {
                 body: { proposed_text: proposedText },
             })
             expect(createRes.status).toBe(201)
-            expect(createRes.body.segment_id).toBe(segmentId)
+            expect(createRes.body.segment).toBe(segmentId)
             expect(createRes.body.proposed_text).toBe(proposedText)
             expect(createRes.body.status).toBe('pending')
             expect(createRes.body.suggester_kind).toBe('human')

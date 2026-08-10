@@ -75,7 +75,7 @@ test.describe('QA Issues API', () => {
             // 2. POST a qa_issue.
             const createRes = await apiCall<{
                 id: string
-                segment_id: string
+                segment: string
                 category: string
                 severity: string
                 resolved: boolean
@@ -89,7 +89,7 @@ test.describe('QA Issues API', () => {
                 },
             })
             expect(createRes.status).toBe(201)
-            expect(createRes.body.segment_id).toBe(segmentId)
+            expect(createRes.body.segment).toBe(segmentId)
             expect(createRes.body.category).toBe('Terminology')
             expect(createRes.body.severity).toBe('minor')
             expect(createRes.body.resolved).toBe(false)

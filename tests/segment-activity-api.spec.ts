@@ -44,7 +44,7 @@ async function apiCall<T = unknown>(
 }
 
 type ActivityRow = {
-    segment_id: string
+    segment: string
     pending_suggestions: number
     unresolved_comments: number
     recent_transitions_24h: number
@@ -76,7 +76,7 @@ test.describe('Segment activity API', () => {
 
             // Every row must have the expected shape with numeric counts.
             for (const row of res.body.activity) {
-                expect(typeof row.segment_id).toBe('string')
+                expect(typeof row.segment).toBe('string')
                 expect(typeof row.pending_suggestions).toBe('number')
                 expect(typeof row.unresolved_comments).toBe('number')
                 expect(typeof row.recent_transitions_24h).toBe('number')

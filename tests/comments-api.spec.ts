@@ -87,7 +87,7 @@ test.describe('Comments API', () => {
             const rootText = `wave-2 root comment @ ${new Date().toISOString()}`
             const rootRes = await apiCall<{
                 id: string
-                segment_id: string
+                segment: string
                 content: string
                 parent_comment_id: string | null
                 mentions: string[]
@@ -97,7 +97,7 @@ test.describe('Comments API', () => {
                 body: { content: rootText },
             })
             expect(rootRes.status).toBe(201)
-            expect(rootRes.body.segment_id).toBe(segmentId)
+            expect(rootRes.body.segment).toBe(segmentId)
             expect(rootRes.body.content).toBe(rootText)
             expect(rootRes.body.parent_comment_id).toBeNull()
             expect(Array.isArray(rootRes.body.mentions)).toBe(true)
