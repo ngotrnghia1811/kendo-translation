@@ -14,7 +14,7 @@ const UUID_RE =
 const CHUNK_SIZE = 200;
 
 interface ActivityRow {
-    segment_id: string;
+    segment: string;
     pending_suggestions: number;
     unresolved_comments: number;
     recent_transitions_24h: number;
@@ -79,19 +79,21 @@ export async function GET(
         return NextResponse.json({ activity: [] });
     }
 
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    // NOTE: PocketBase `base` collections lack the system `created` field,
+    // so we count all transitions per segment rather than last-24h only.
+    // To restore 24h filtering, add a DateField `created_at` via migration.
 
     try {
         const [suggestions, comments, transitions] = await Promise.all([
             chunkedIn(pb, 'segment_suggestions', segmentIds, 'status = "pending"'),
             chunkedIn(pb, 'segment_comments', segmentIds, 'resolved = false'),
-            chunkedIn(pb, 'segment_phase_transitions', segmentIds, `created >= "${since}"`),
+            chunkedIn(pb, 'segment_phase_transitions', segmentIds),
         ]);
 
         const tally = new Map<string, ActivityRow>();
         for (const id of segmentIds) {
             tally.set(id, {
-                segment_id: id,
+                segment: id,
                 pending_suggestions: 0,
                 unresolved_comments: 0,
                 recent_transitions_24h: 0,
@@ -100,7 +102,7 @@ export async function GET(
 
         const bump = (
             rows: Array<{ segment: string }>,
-            key: keyof Omit<ActivityRow, 'segment_id'>
+            key: keyof Omit<ActivityRow, 'segment'>
         ) => {
             for (const r of rows) {
                 const row = tally.get(r.segment);

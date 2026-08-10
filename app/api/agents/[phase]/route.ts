@@ -106,9 +106,10 @@ export async function POST(
 
     try {
         const inserted = await pb.collection('segment_suggestions').create({
-            segment,
+            segment: segment_id,
             suggester: userId,
             suggester_kind: 'agent',
+            status: 'pending',
             proposed_text: proposedText,
         });
         return NextResponse.json(inserted, { status: 201 });
