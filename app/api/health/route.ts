@@ -10,13 +10,10 @@
  * Response 503 — database unreachable:
  *   { ok: false, db: "error", error: "<message>", timestamp: "<ISO string>" }
  *
- * The DB check runs a minimal no-auth query (SELECT 1) against Supabase
- * using the anon key — RLS will block any data read but the round-trip
- * confirms the connection is alive.
+ * The DB check pings PocketBase's own /api/health endpoint (no auth required).
  */
 
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 
 // Build-time git SHA injected by Vercel (VERCEL_GIT_COMMIT_SHA env var).
 // Falls back to 'dev' if not available.
@@ -28,16 +25,14 @@ const VERSION =
 export async function GET() {
     const timestamp = new Date().toISOString()
 
-    // Minimal Supabase ping using anon key — no cookie/auth required.
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const pbUrl = process.env.NEXT_PUBLIC_POCKETBASE_URL
 
-    if (!supabaseUrl || !supabaseAnonKey) {
+    if (!pbUrl) {
         return NextResponse.json(
             {
                 ok: false,
                 db: 'misconfigured',
-                error: 'NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY is not set',
+                error: 'NEXT_PUBLIC_POCKETBASE_URL is not set',
                 timestamp,
                 version: VERSION,
             },
@@ -46,36 +41,53 @@ export async function GET() {
     }
 
     try {
-        const supabase = createClient(supabaseUrl, supabaseAnonKey)
-        // Cheapest possible round-trip: count rows in a public table.
-        // If Supabase is down this throws or returns a network error.
-        const { error } = await supabase.from('articles').select('id', { count: 'exact', head: true })
-        if (error) {
+        const res = await fetch(`${pbUrl}/api/health`, {
+            signal: AbortSignal.timeout(5000),
+            cache: 'no-store',
+        })
+
+        if (!res.ok) {
             return NextResponse.json(
                 {
                     ok: false,
                     db: 'error',
-                    error: error.message,
+                    error: `PocketBase returned HTTP ${res.status}`,
                     timestamp,
                     version: VERSION,
                 },
                 { status: 503 }
             )
         }
+
+        const body = (await res.json()) as { code?: number; message?: string }
+
+        if (body.code === 200) {
+            return NextResponse.json(
+                {
+                    ok: true,
+                    db: 'ok',
+                    timestamp,
+                    version: VERSION,
+                },
+                {
+                    status: 200,
+                    headers: {
+                        // Prevent CDN caching of health checks.
+                        'Cache-Control': 'no-store, no-cache, must-revalidate',
+                    },
+                }
+            )
+        }
+
         return NextResponse.json(
             {
-                ok: true,
-                db: 'ok',
+                ok: false,
+                db: 'error',
+                error: body.message ?? `PocketBase returned code ${body.code}`,
                 timestamp,
                 version: VERSION,
             },
-            {
-                status: 200,
-                headers: {
-                    // Prevent CDN caching of health checks.
-                    'Cache-Control': 'no-store, no-cache, must-revalidate',
-                },
-            }
+            { status: 503 }
         )
     } catch (err) {
         return NextResponse.json(
