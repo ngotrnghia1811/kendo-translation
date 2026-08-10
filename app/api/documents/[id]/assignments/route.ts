@@ -44,8 +44,8 @@ export async function GET(
 
     try {
         const records = await pb.collection('document_assignments').getFullList({
-            filter: `document_id = "${documentId}"`,
-            sort: '+created_at',
+            filter: `document = "${documentId}"`,
+            sort: '-id',
         });
         return NextResponse.json({ assignments: records ?? [] });
     } catch (error) {
@@ -100,14 +100,14 @@ export async function POST(
     let existing: Record<string, unknown> | null = null;
     try {
         const existingList = await pb.collection('document_assignments').getFullList({
-            filter: `user_id = "${user_id}" && document_id = "${documentId}"`,
+            filter: `user = "${user_id}" && document = "${documentId}"`,
         });
         existing = existingList.length > 0 ? existingList[0] : null;
     } catch { /* ignore */ }
 
     const payload = {
-        user_id,
-        document_id: documentId,
+        user: user_id,
+        document: documentId,
         allowed_phases: phases,
         assigned_by: adminUser.id,
     };

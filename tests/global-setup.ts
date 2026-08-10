@@ -33,6 +33,9 @@
  *   PB_TEST_PASSWORD          (default: TempImport2026!)
  */
 
+import { config as loadEnv } from 'dotenv';
+loadEnv({ path: '.env.local' });
+
 import { firefox, type FullConfig } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';

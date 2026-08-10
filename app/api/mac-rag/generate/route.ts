@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
   if (systemEdited || userEdited) {
     try {
       const agentPrompts = await pb.collection('agent_prompts').getFullList({
-        filter: `agent_type = "${phase}" && active = true && user_id = null`,
+        filter: `agent_type = "${phase}" && active = true && user = null`,
         fields: 'id,template',
       });
       const agentPrompt = agentPrompts.length > 0 ? agentPrompts[0] : null;

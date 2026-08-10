@@ -106,8 +106,8 @@ export async function POST(
 
     try {
         const inserted = await pb.collection('segment_suggestions').create({
-            segment_id,
-            suggester_id: userId,
+            segment,
+            suggester: userId,
             suggester_kind: 'agent',
             proposed_text: proposedText,
         });

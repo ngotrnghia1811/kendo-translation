@@ -31,7 +31,7 @@ export async function POST(
     const existing = await pb
       .collection('reading_progress')
       .getList(1, 1, {
-        filter: `user_id = "${userId}" && content_type = "article" && content_id = "${id}"`,
+        filter: `user = "${userId}" && content_type = "article" && content_id = "${id}"`,
       });
 
     if (existing.items.length > 0) {
@@ -44,7 +44,7 @@ export async function POST(
     } else {
       // INSERT
       await pb.collection('reading_progress').create({
-        user_id: userId,
+        user: userId,
         content_type: 'article',
         content_id: id,
         progress_pct: 0,

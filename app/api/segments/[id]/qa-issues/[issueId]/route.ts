@@ -107,7 +107,7 @@ export async function PATCH(
     // Verify issue exists and belongs to this segment
     try {
         const existing = await pb.collection('qa_issues').getOne(issueId);
-        const existingSegId = (existing as Record<string, unknown>).segment_id as string;
+        const existingSegId = (existing as Record<string, unknown>).segment as string;
         if (existingSegId !== segmentId) {
             return NextResponse.json(
                 { error: 'QA issue not found or does not belong to this segment' },

@@ -36,9 +36,9 @@ export async function GET(
 
   // Fetch assignments with expanded document info
   const result = await pb.collection('document_assignments').getFullList({
-    filter: `user_id = "${userId}"`,
-    sort: '+created',
-    expand: 'document_id',
+    filter: `user = "${userId}"`,
+    sort: '-id',
+    expand: 'document',
   });
 
   const assignments = result.map((a) => {
@@ -47,11 +47,11 @@ export async function GET(
       string,
       Record<string, unknown>
     >;
-    const doc = expand.document_id;
+    const doc = expand.document;
     return {
       id: data.id,
-      user_id: data.user_id,
-      document_id: data.document_id,
+      user_id: data.user,
+      document_id: data.document,
       allowed_phases: data.allowed_phases,
       assigned_by: data.assigned_by ?? null,
       created_at: data.created,

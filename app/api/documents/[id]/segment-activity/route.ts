@@ -20,26 +20,26 @@ interface ActivityRow {
     recent_transitions_24h: number;
 }
 
-/** Fetch all records of a collection filtered by segment_id IN (ids).
+/** Fetch all records of a collection filtered by segment IN (ids).
  *  Chunked to avoid filter-string length limits. */
 async function chunkedIn(
     pb: ReturnType<typeof createServerClient> extends Promise<infer T> ? T : never,
     collection: string,
     ids: string[],
     extraFilter?: string,
-): Promise<Array<{ segment_id: string }>> {
-    const results: Array<{ segment_id: string }> = [];
+): Promise<Array<{ segment: string }>> {
+    const results: Array<{ segment: string }> = [];
     for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
         const chunk = ids.slice(i, i + CHUNK_SIZE);
-        const idFilters = chunk.map(id => `segment_id = "${id}"`).join(' || ');
+        const idFilters = chunk.map(id => `segment = "${id}"`).join(' || ');
         let filter = chunk.length === 1
-            ? `segment_id = "${chunk[0]}"`
+            ? `segment = "${chunk[0]}"`
             : `(${idFilters})`;
         if (extraFilter) filter = `(${filter}) && (${extraFilter})`;
 
-        const records = await pb.collection(collection).getFullList<{ segment_id: string }>({
+        const records = await pb.collection(collection).getFullList<{ segment: string }>({
             filter,
-            fields: 'segment_id',
+            fields: 'segment',
         });
         results.push(...records);
     }
@@ -85,7 +85,7 @@ export async function GET(
         const [suggestions, comments, transitions] = await Promise.all([
             chunkedIn(pb, 'segment_suggestions', segmentIds, 'status = "pending"'),
             chunkedIn(pb, 'segment_comments', segmentIds, 'resolved = false'),
-            chunkedIn(pb, 'segment_phase_transitions', segmentIds, `created_at >= "${since}"`),
+            chunkedIn(pb, 'segment_phase_transitions', segmentIds, `created >= "${since}"`),
         ]);
 
         const tally = new Map<string, ActivityRow>();
@@ -99,11 +99,11 @@ export async function GET(
         }
 
         const bump = (
-            rows: Array<{ segment_id: string }>,
+            rows: Array<{ segment: string }>,
             key: keyof Omit<ActivityRow, 'segment_id'>
         ) => {
             for (const r of rows) {
-                const row = tally.get(r.segment_id);
+                const row = tally.get(r.segment);
                 if (row) row[key] += 1;
             }
         };

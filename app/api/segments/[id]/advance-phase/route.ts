@@ -160,10 +160,10 @@ export async function POST(
     let transition: Record<string, unknown> | null = null;
     try {
         transition = await pb.collection('segment_phase_transitions').create({
-            segment_id: segmentId,
+            segment: segmentId,
             from_status: expected_current_status,
             to_status,
-            actor_id: userId,
+            actor: userId,
             note: typeof note === 'string' ? note : null,
         });
     } catch (transitionErr) {

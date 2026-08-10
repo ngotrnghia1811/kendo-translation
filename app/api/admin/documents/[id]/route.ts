@@ -37,8 +37,10 @@ export async function GET(
     return NextResponse.json({ error: 'Document not found' }, { status: 404 });
   }
 
-  // Parallel queries: phase breakdown, assignments, recent transitions
-  const [segments, assignments, transitions] = await Promise.all([
+  // Parallel queries: phase breakdown + assignments (transitions are
+  // chained below since segment_phase_transitions has no `article` field
+  // — we must join via segment IDs).
+  const [segments, assignments] = await Promise.all([
     // Phase breakdown: fetch EN segments statuses
     pb.collection('segments').getFullList({
       filter: `article = "${documentId}" && target_lang = "en"`,
@@ -46,16 +48,9 @@ export async function GET(
     }),
     // Assignments
     pb.collection('document_assignments').getFullList({
-      filter: `document_id = "${documentId}"`,
-      sort: '+created',
-      expand: 'user_id',
-    }),
-    // Recent phase transitions (last 14 days)
-    pb.collection('segment_phase_transitions').getFullList({
-      filter: `article = "${documentId}"`,
+      filter: `document = "${documentId}"`,
       sort: '-id',
-      fields: 'created,segment_id,to_status',
-      requestKey: 'transitions-' + documentId,
+      expand: 'user',
     }),
   ]);
 
@@ -73,14 +68,45 @@ export async function GET(
     if (s in phaseBreakdown) phaseBreakdown[s]++;
   }
 
+  // Fetch transitions filtered by the document's segment IDs (no `article`
+  // field on segment_phase_transitions — must join via segments).
+  let transitions: Record<string, unknown>[] = [];
+  if (segments.length > 0) {
+    const segIds = segments.map((s) => {
+      const d = JSON.parse(JSON.stringify(s)) as Record<string, unknown>;
+      return d.id as string;
+    });
+    // Chunk to avoid filter-string length limits
+    const CHUNK = 100;
+    for (let i = 0; i < segIds.length; i += CHUNK) {
+      const chunk = segIds.slice(i, i + CHUNK);
+      const filter =
+        chunk.length === 1
+          ? `segment = "${chunk[0]}"`
+          : `(${chunk.map((id) => `segment = "${id}"`).join(' || ')})`;
+      const batch = await pb
+        .collection('segment_phase_transitions')
+        .getFullList({
+          filter,
+          sort: '-id',
+          fields: 'created,segment,to_status',
+          requestKey: 'transitions-' + documentId + '-chunk-' + i,
+        });
+      transitions.push(
+        ...(batch.map((r) => JSON.parse(JSON.stringify(r))) as Record<
+          string,
+          unknown
+        >[]),
+      );
+    }
+  }
+
   // Build daily activity timeline (last 14 days, including 0-activity days)
   const activityMap = new Map<string, number>();
   const fourteenDaysAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
   for (const t of transitions) {
-    const data = JSON.parse(JSON.stringify(t)) as Record<string, unknown>;
-    const created = data.created as string;
+    const created = t.created as string;
     if (!created) continue;
-    // Check if within 14 days
     if (new Date(created).getTime() >= fourteenDaysAgo) {
       const day = created.slice(0, 10);
       activityMap.set(day, (activityMap.get(day) ?? 0) + 1);
@@ -93,16 +119,16 @@ export async function GET(
     recentActivity.push({ date: day, count: activityMap.get(day) ?? 0 });
   }
 
-  // Format assignments — expand user_id gives the related user record
+  // Format assignments — expand user gives the related user record
   const formattedAssignments = assignments.map((a) => {
     const data = JSON.parse(JSON.stringify(a)) as Record<string, unknown>;
     const expand = (data.expand ?? {}) as Record<
       string,
       Record<string, unknown>
     >;
-    const user = expand.user_id;
+    const user = expand.user;
     return {
-      user_id: data.user_id as string,
+      user_id: data.user as string,
       username: (user?.username as string) ?? null,
       role: (user?.role as string) ?? null,
       allowed_phases: data.allowed_phases as string[],

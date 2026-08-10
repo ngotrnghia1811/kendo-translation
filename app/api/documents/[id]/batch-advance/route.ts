@@ -142,10 +142,10 @@ export async function POST(
                 // Audit transition
                 try {
                     await pb.collection('segment_phase_transitions').create({
-                        segment_id: segId,
+                        segment: segId,
                         from_status,
                         to_status,
-                        actor_id: user.id,
+                        actor: user.id,
                         note: typeof note === 'string' ? note : null,
                     })
                 } catch { /* best-effort audit */ }

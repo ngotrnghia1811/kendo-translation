@@ -65,7 +65,7 @@ export async function PATCH(
 
     // Find existing assignment
     const existingList = await pb.collection('document_assignments').getFullList({
-        filter: `user_id = "${userId}" && document_id = "${documentId}"`,
+        filter: `user = "${userId}" && document = "${documentId}"`,
     });
     if (existingList.length === 0) {
         return NextResponse.json({ error: 'Assignment not found' }, { status: 404 });
@@ -97,7 +97,7 @@ export async function DELETE(
     }
 
     const existingList = await pb.collection('document_assignments').getFullList({
-        filter: `user_id = "${userId}" && document_id = "${documentId}"`,
+        filter: `user = "${userId}" && document = "${documentId}"`,
     });
     if (existingList.length === 0) {
         return NextResponse.json({ error: 'Assignment not found' }, { status: 404 });

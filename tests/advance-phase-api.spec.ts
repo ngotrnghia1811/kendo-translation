@@ -139,7 +139,7 @@ test.describe('Advance-phase API', () => {
             expect(advanceRes.status).toBe(200)
             expect(advanceRes.body.segment.id).toBe(segment.id)
             expect(advanceRes.body.segment.status).toBe('translated')
-            expect(advanceRes.body.transition.segment_id).toBe(segment.id)
+            expect(advanceRes.body.transition.segment).toBe(segment.id)
             expect(advanceRes.body.transition.from_status).toBe('draft')
             expect(advanceRes.body.transition.to_status).toBe('translated')
             expect(advanceRes.body.transition.note).toBe(noteText)

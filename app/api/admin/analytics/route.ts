@@ -127,7 +127,7 @@ const fetchAnalytics = unstable_cache(
     const transitionsData = await apiFetch('segment_phase_transitions', {
       filter: `created >= "${thirtyDaysAgo}"`,
       sort: '-id',
-      fields: 'created,new_phase',
+      fields: 'created,to_status',
       perPage: '5000',
     });
 
@@ -158,9 +158,9 @@ const fetchAnalytics = unstable_cache(
     // Open QA issues — by article
     const qaIssuesData = await apiFetch('qa_issues', {
       filter: 'resolved = false',
-      fields: 'severity,segment_id',
+      fields: 'severity,segment',
       perPage: '5000',
-      expand: 'segment_id',
+      expand: 'segment',
     });
 
     const articleQaMap: Map<
@@ -176,7 +176,7 @@ const fetchAnalytics = unstable_cache(
     for (const row of qaIssuesData.items ?? []) {
       const severity = (row.severity as string) || 'minor';
       const expand = row.expand as Record<string, Record<string, unknown>> | undefined;
-      const seg = expand?.segment_id;
+      const seg = expand?.segment;
       const articleId = seg?.article as string | undefined;
       if (!articleId) continue;
 

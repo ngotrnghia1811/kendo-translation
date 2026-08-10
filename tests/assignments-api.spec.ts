@@ -92,10 +92,10 @@ test.describe('Document Assignments API', () => {
                 method: 'DELETE',
             })
 
-            // 1. POST \u2014 create.
+            // 1. POST — create.
             const createRes = await apiCall<{
-                user_id: string
-                document_id: string
+                user: string
+                document: string
                 allowed_phases: string[]
                 assigned_by: string | null
             }>(page, `/api/documents/${documentId}/assignments`, {
@@ -103,21 +103,21 @@ test.describe('Document Assignments API', () => {
                 body: { user_id: userId, allowed_phases: ['translate'] },
             })
             expect(createRes.status).toBe(201)
-            expect(createRes.body.user_id).toBe(userId)
-            expect(createRes.body.document_id).toBe(documentId)
+            expect(createRes.body.user).toBe(userId)
+            expect(createRes.body.document).toBe(documentId)
             expect(createRes.body.allowed_phases).toEqual(['translate'])
             expect(createRes.body.assigned_by).not.toBeNull()
 
-            // 2. GET \u2014 list shows the new assignment.
+            // 2. GET — list shows the new assignment.
             const listRes = await apiCall<{
-                assignments: Array<{ user_id: string; allowed_phases: string[] }>
+                assignments: Array<{ user: string; allowed_phases: string[] }>
             }>(page, `/api/documents/${documentId}/assignments`)
             expect(listRes.status).toBe(200)
-            const found = listRes.body.assignments.find((a) => a.user_id === userId)
+            const found = listRes.body.assignments.find((a) => a.user === userId)
             expect(found).toBeTruthy()
             expect(found!.allowed_phases).toEqual(['translate'])
 
-            // 3. PATCH \u2014 grow allowed_phases.
+            // 3. PATCH — grow allowed_phases.
             const patchRes = await apiCall<{ allowed_phases: string[] }>(
                 page,
                 `/api/documents/${documentId}/assignments/${userId}`,
@@ -126,14 +126,14 @@ test.describe('Document Assignments API', () => {
             expect(patchRes.status).toBe(200)
             expect(patchRes.body.allowed_phases).toEqual(['translate', 'edit'])
 
-            // 4. GET \u2014 confirm.
+            // 4. GET — confirm.
             const listRes2 = await apiCall<{
-                assignments: Array<{ user_id: string; allowed_phases: string[] }>
+                assignments: Array<{ user: string; allowed_phases: string[] }>
             }>(page, `/api/documents/${documentId}/assignments`)
-            const found2 = listRes2.body.assignments.find((a) => a.user_id === userId)
+            const found2 = listRes2.body.assignments.find((a) => a.user === userId)
             expect(found2!.allowed_phases).toEqual(['translate', 'edit'])
 
-            // 5. DELETE \u2014 cleanup.
+            // 5. DELETE — cleanup.
             const delRes = await apiCall(
                 page,
                 `/api/documents/${documentId}/assignments/${userId}`,
@@ -141,11 +141,11 @@ test.describe('Document Assignments API', () => {
             )
             expect(delRes.status).toBe(204)
 
-            // 6. GET \u2014 confirm absent.
+            // 6. GET — confirm absent.
             const listRes3 = await apiCall<{
-                assignments: Array<{ user_id: string }>
+                assignments: Array<{ user: string }>
             }>(page, `/api/documents/${documentId}/assignments`)
-            const found3 = listRes3.body.assignments.find((a) => a.user_id === userId)
+            const found3 = listRes3.body.assignments.find((a) => a.user === userId)
             expect(found3).toBeUndefined()
         })
 

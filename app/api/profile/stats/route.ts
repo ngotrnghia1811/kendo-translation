@@ -29,22 +29,22 @@ export async function GET() {
                 fields: 'id',
             }),
             pb.collection('segment_comments').getList(1, 1, {
-                filter: `user_id = "${uid}"`,
+                filter: `user = "${uid}"`,
                 fields: 'id',
             }),
             pb.collection('segment_phase_transitions').getList(1, 1, {
-                filter: `actor_id = "${uid}"`,
+                filter: `actor = "${uid}"`,
                 fields: 'id',
             }),
             pb.collection('document_assignments').getFullList({
-                filter: `user_id = "${uid}"`,
-                sort: '-created',
-                fields: 'document_id,allowed_phases',
+                filter: `user = "${uid}"`,
+                sort: '-id',
+                fields: 'document,allowed_phases',
             }).catch(() => []),
             pb.collection('user_history').getList(1, 10, {
-                filter: `user_id = "${uid}"`,
-                sort: '-visited_at',
-                fields: 'item_id,item_type,item_title,visited_at',
+                filter: `user = "${uid}"`,
+                sort: '-id',
+                fields: 'item_id,item_type,item_title,created',
             }).catch(() => ({ items: [] })),
         ])
 
@@ -53,11 +53,11 @@ export async function GET() {
             (Array.isArray(assignmentResult) ? assignmentResult : []).map(async (row) => {
                 let title: string | null = null
                 try {
-                    const article = await pb.collection('articles').getOne(row.document_id as string, { fields: 'title' })
+                    const article = await pb.collection('articles').getOne(row.document as string, { fields: 'title' })
                     title = (article as Record<string, unknown>).title as string | null
                 } catch { /* ignore */ }
                 return {
-                    document_id: row.document_id,
+                    document_id: row.document,
                     title,
                     allowed_phases: row.allowed_phases ?? [],
                 }

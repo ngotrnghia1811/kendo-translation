@@ -36,9 +36,9 @@ export async function GET(
 
     try {
         const records = await pb.collection('segment_phase_transitions').getFullList({
-            filter: `segment_id = "${segmentId}"`,
-            sort: '-created_at',
-            fields: 'id,segment_id,from_status,to_status,actor_id,acknowledged_minor,note,created_at',
+            filter: `segment = "${segmentId}"`,
+            sort: '-id',
+            fields: 'id,segment,from_status,to_status,actor,acknowledged_minor,note,created',
         })
         return NextResponse.json({ transitions: records ?? [] })
     } catch (error) {

@@ -58,7 +58,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (previousTargetText && target_text !== undefined && target_text !== previousTargetText) {
       try {
         await pb.collection('segment_revisions').create({
-          segment_id: id,
+          segment: id,
           target_text: previousTargetText,
           edited_by: userId,
         });
