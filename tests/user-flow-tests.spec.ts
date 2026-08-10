@@ -2,7 +2,7 @@
  * tests/user-flow-tests.spec.ts
  *
  * Five instrumented user-flow Playwright tests running against the
- * production Vercel deployment at PROD_URL (default kendo-translation.vercel.app).
+ * production Vercel deployment at PROD_URL (default kendotranslation.com).
  *
  * Each flow measures per-step timing (Date.now() snapshots around
  * navigation + element-visible waits) AND checks UX/readability via
@@ -15,8 +15,8 @@
  *   RF-READER-02  Reader:     7-theme switch cycle + layout + font-size
  *   RF-CROSS-01   Mixed:      cold-start latency baseline (auth + unauth)
  *
- * Auth: Supabase REST API password grant in beforeAll (3× retry, 2 s
- * backoff).  Session cookies are injected per-test via
+ * Auth: PocketBase REST API password grant in beforeAll (3× retry, 2 s
+ * backoff).  Session cookies (pb_auth) are injected per-test via
  * page.context().addCookies() — no form-based per-test login.
  *
  * Side-effect: RF-TRANS-01 may advance a phase on the smallest doc
@@ -29,7 +29,7 @@ import fs from 'fs'
 import path from 'path'
 
 // ---------------------------------------------------------------------------
-// Load .env.local so Supabase keys are available in Playwright's Node process
+// Load .env.local so PocketBase keys are available in Playwright's Node process
 // (Playwright does NOT auto-load .env.local; only the Next.js dev server does).
 // ---------------------------------------------------------------------------
 
@@ -55,16 +55,15 @@ loadEnvLocal()
 // Constants
 // ---------------------------------------------------------------------------
 
-const PROD = process.env.PROD_URL ?? 'https://kendo-translation.vercel.app'
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://mbgmyvmsvenvtecvrjia.supabase.co'
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
+const PROD = process.env.TEST_BASE_URL ?? 'https://kendotranslation.com'
+const POCKETBASE_URL = process.env.NEXT_PUBLIC_POCKETBASE_URL ?? 'https://155-248-165-196.nip.io'
 
-const ADMIN_EMAIL = 'admin-1@test.com'
-const TRANSLATOR_EMAIL = 'translator-1@test.com'
-const READER_EMAIL = 'reader-1@test.com'
-const TEST_PASSWORD = 'test-password'
+const ADMIN_EMAIL = process.env.PB_TEST_ADMIN_EMAIL ?? 'admin-1@test.com'
+const TRANSLATOR_EMAIL = process.env.PB_TEST_TRANSLATOR_EMAIL ?? 'translator-test@kendo-translation.local'
+const READER_EMAIL = process.env.PB_TEST_READER_EMAIL ?? 'reader-test@kendo-translation.local'
+const TEST_PASSWORD = process.env.PB_TEST_PASSWORD ?? 'TempImport2026!'
 
-type TokenSet = { access: string; refresh: string }
+type TokenSet = { access: string; refresh: string; record: Record<string, unknown> }
 
 // ---------------------------------------------------------------------------
 // WCAG contrast helpers (run outside page.evaluate — strings from getComputedStyle)
@@ -89,59 +88,83 @@ function contrastRatio(c1: string, c2: string): number {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Fetch an API path using page.request (shares cookies from the browser context). */
+/** Fetch an API path. Uses page.evaluate when page is on the same origin;
+ *  falls back to page.request for about:blank or cross-origin contexts. */
 async function apiFetch<T = unknown>(
   page: Page,
   path: string,
 ): Promise<{ status: number; body: T }> {
-  const res = await page.request.get(`${PROD}${path}`)
+  const url = `${PROD}${path}`
+  // Prefer page.evaluate(fetch) when page is on the app origin
+  try {
+    const pageUrl = page.url()
+    if (pageUrl.startsWith(PROD)) {
+      const result = await page.evaluate(async (u) => {
+        const res = await fetch(u, { credentials: 'include' })
+        let body: unknown = null
+        try { body = await res.json() } catch { /* not JSON */ }
+        return { status: res.status, body }
+      }, url)
+      return { status: result.status, body: result.body as T }
+    }
+  } catch {
+    // Fall through to page.request
+  }
+  // Fallback: use page.request (works from any page, but may have cookie quirks in Camoufox)
+  const res = await page.request.get(url)
   let body: unknown
   try { body = await res.json() } catch { body = null }
   return { status: res.status(), body: body as T }
 }
 
-/** Inject a Supabase SSR session cookie into the page's browser context. */
-async function injectSession(ctx: BrowserContext, accessToken: string, refreshToken: string) {
-  const projectRef = SUPABASE_URL.replace('https://', '').split('.')[0]
-  const cookieName = `sb-${projectRef}-auth-token`
-  const sessionValue = JSON.stringify({
-    access_token: accessToken,
-    refresh_token: refreshToken,
-    token_type: 'bearer',
-    expires_in: 3600,
-    expires_at: Math.floor(Date.now() / 1000) + 3600,
-  })
-
+/** Inject a PocketBase pb_auth cookie into the page's browser context.
+ *  PocketBase's loadFromCookie expects a URL-encoded JSON: {"token":"...","record":{...}} */
+async function injectSession(ctx: BrowserContext, token: string, _refreshToken: string, record?: Record<string, unknown>) {
   const prodDomain = new URL(PROD).hostname
-  const cookieBase = {
-    domain: prodDomain,
-    path: '/',
-    secure: true,
-    httpOnly: false,
-    sameSite: 'Lax' as const,
-    expires: Math.floor(Date.now() / 1000) + 3600,
-  }
-
+  const cookieValue = encodeURIComponent(JSON.stringify({
+    token,
+    record: record ?? {},
+  }))
   await ctx.addCookies([
-    { ...cookieBase, name: cookieName, value: sessionValue },
-    { ...cookieBase, name: `${cookieName}.0`, value: sessionValue },
+    {
+      name: 'pb_auth',
+      value: cookieValue,
+      domain: prodDomain,
+      path: '/',
+      secure: true,
+      httpOnly: false,
+      sameSite: 'Lax' as const,
+      expires: Math.floor(Date.now() / 1000) + 3600,
+    },
   ])
 }
 
-/** Discover the smallest-doc ID (by segment_count asc) at runtime. */
+/** Discover the smallest-doc ID (by segment_count asc) at runtime,
+ *  cross-checking that the document actually has segments via the API. */
 async function discoverSmallestDocId(page: Page): Promise<string | null> {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const docsRes = await apiFetch<unknown>(page, '/api/documents')
+      const docsRes = await apiFetch<unknown>(page, '/api/documents?limit=50')
       const docsArray = Array.isArray(docsRes.body)
         ? (docsRes.body as Array<{ id: string; segment_count?: number }>)
         : Array.isArray((docsRes.body as { documents?: unknown })?.documents)
           ? ((docsRes.body as { documents: Array<{ id: string; segment_count?: number }> }).documents)
           : []
       if (docsRes.status === 200 && docsArray.length > 0) {
-        const sorted = [...docsArray].sort((a, b) => (a.segment_count ?? 0) - (b.segment_count ?? 0))
-        const smallest = sorted.find((d) => (d.segment_count ?? 0) > 0) ?? docsArray[0]
-        return smallest.id ?? null
+        // Sort by segment_count, find candidates with segment_count > 0
+        const sorted = [...docsArray]
+          .filter(d => (d.segment_count ?? 0) > 0)
+          .sort((a, b) => (a.segment_count ?? 0) - (b.segment_count ?? 0))
+        // Verify actual segments exist for the candidate
+        for (const doc of sorted) {
+          const segCheck = await apiFetch<{ segments?: unknown[] }>(page, `/api/documents/${doc.id}/segments?limit=1`)
+          if (segCheck.status === 200 && Array.isArray(segCheck.body?.segments) && (segCheck.body!.segments!).length > 0) {
+            return doc.id ?? null
+          }
+        }
+        // Fallback: return the first doc even if unverified
+        if (sorted.length > 0) return sorted[0].id ?? null
+        return docsArray[0]?.id ?? null
       }
       if (attempt < 2) await page.waitForTimeout(1000)
     } catch {
@@ -252,29 +275,32 @@ test.describe('Real User Flows @userflow', () => {
   let translatorTokens: TokenSet
   let readerTokens: TokenSet
 
-  // --- beforeAll: authenticate all three roles via Supabase REST API ---
+  // --- beforeAll: authenticate all three roles via PocketBase REST API ---
 
   test.beforeAll(async ({ request }) => {
     const authUser = async (email: string): Promise<TokenSet> => {
       let loginResp: import('@playwright/test').APIResponse | null = null
       for (let attempt = 1; attempt <= 3; attempt++) {
         loginResp = await request.post(
-          `${SUPABASE_URL}/auth/v1/token?grant_type=password`,
+          `${POCKETBASE_URL}/api/collections/users/auth-with-password`,
           {
-            headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
-            data: { email, password: TEST_PASSWORD },
+            headers: { 'Content-Type': 'application/json' },
+            data: { identity: email, password: TEST_PASSWORD },
           },
         )
         if (loginResp.ok()) break
         if (attempt < 3) await new Promise((r) => setTimeout(r, 2000))
       }
       if (!loginResp || !loginResp.ok()) {
+        const status = loginResp?.status() ?? 'no response'
+        let detail = ''
+        try { const b = await loginResp?.json(); detail = JSON.stringify(b).slice(0, 200) } catch { /* ignore */ }
         throw new Error(
-          `Supabase login failed for ${email} after 3 attempts: ${loginResp?.status() ?? 'no response'}`,
+          `PocketBase login failed for ${email} after 3 attempts (${status}): ${detail}`,
         )
       }
-      const body = (await loginResp.json()) as { access_token: string; refresh_token: string }
-      return { access: body.access_token, refresh: body.refresh_token }
+      const body = (await loginResp.json()) as { token: string; record: Record<string, unknown> }
+      return { access: body.token, refresh: body.token, record: body.record }
     }
 
     adminTokens = await authUser(ADMIN_EMAIL)
@@ -287,7 +313,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-TRANS-01: Login → edit → save → advance phase @userflow @p0', async ({ page, snap }) => {
-    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh, translatorTokens.record)
 
     // Step 1 — home page cold load
     const t0 = Date.now()
@@ -450,7 +476,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-READER-01: Browse → open → read → bookmark → resume @userflow @p0', async ({ page, snap }) => {
-    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh, readerTokens.record)
 
     // Step 1 — navigate to /documents
     const t0 = Date.now()
@@ -685,7 +711,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-ADMIN-01: Dashboard review @userflow @p0', async ({ page, snap }) => {
-    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh, adminTokens.record)
 
     // Step 1 — navigate to /admin
     const t0 = Date.now()
@@ -827,7 +853,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-READER-02: Theme switch cycle (all 7 themes) @userflow @p1', async ({ page, snap }) => {
-    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh, readerTokens.record)
 
     // Discover readable doc (min 100 segments, avoids empty-state docs)
     await page.goto(PROD)
@@ -982,7 +1008,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-READER-03: ZH language toggle + PDF view @userflow @p1', async ({ page, snap }) => {
-    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh, readerTokens.record)
 
     // Navigate to PROD first to establish origin for apiFetch
     await page.goto(PROD)
@@ -1095,7 +1121,7 @@ test.describe('Real User Flows @userflow', () => {
 
   test('RF-TRANS-02: Agent suggestion → accept (EditPatternModal) @userflow @p1', async ({ page, snap }) => {
     test.setTimeout(120000)
-    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh, translatorTokens.record)
 
     // Step 1 — discover smallest doc
     const docId = await discoverSmallestDocId(page)
@@ -1226,7 +1252,7 @@ test.describe('Real User Flows @userflow', () => {
 
   test('RF-TRANS-05: Context Builder two-stage MAC-RAG @userflow @p1', async ({ page, snap }) => {
     test.setTimeout(120000)
-    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh, translatorTokens.record)
 
     // Step 1 — discover smallest doc
     const docId = await discoverSmallestDocId(page)
@@ -1373,7 +1399,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-TRANS-06: Comment thread @userflow @p1', async ({ page, snap }) => {
-    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh, translatorTokens.record)
 
     // Step 1 — discover smallest doc
     const docId = await discoverSmallestDocId(page)
@@ -1498,7 +1524,7 @@ test.describe('Real User Flows @userflow', () => {
     })
 
     // Step 2 — inject admin session cookies
-    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh, adminTokens.record)
 
     // Step 3 — /documents
     const t2 = Date.now()
@@ -1580,7 +1606,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-READER-04: Full-text search in reader sidebar @userflow @p2', async ({ page, snap }) => {
-    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh, readerTokens.record)
 
     // Discover a readable doc (min 100 segments) to avoid empty-state docs
     await page.goto(PROD)
@@ -1691,7 +1717,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-READER-05: Status filter sidebar @userflow @p2', async ({ page, snap }) => {
-    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh, readerTokens.record)
 
     // Discover a readable doc (min 100 segments) to avoid empty-state docs
     await page.goto(PROD)
@@ -1771,7 +1797,7 @@ test.describe('Real User Flows @userflow', () => {
       description: 'WARNING: This flow requires a proofreader-role user. We use admin tokens (which may have proofreader capabilities) and skip if no edited segments found.',
     })
 
-    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh, adminTokens.record)
 
     // Discover smallest doc
     const docId = await discoverSmallestDocId(page)
@@ -1871,7 +1897,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-TRANS-04: MemoryWriteBanner after phase advance @userflow @p2', async ({ page, snap }) => {
-    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh, translatorTokens.record)
 
     const docId = await discoverSmallestDocId(page)
     if (!docId) {
@@ -1956,7 +1982,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-TRANS-07: QA Issue resolve @userflow @p2', async ({ page, snap }) => {
-    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh, translatorTokens.record)
 
     const docId = await discoverSmallestDocId(page)
     if (!docId) {
@@ -2035,7 +2061,7 @@ test.describe('Real User Flows @userflow', () => {
 
   test('RF-TRANS-08: Batch advance toolbar @userflow @p2', async ({ page, snap }) => {
     // Batch mode toggle is admin-only (see edit page line 496)
-    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh, adminTokens.record)
 
     const docId = await discoverSmallestDocId(page)
     if (!docId) {
@@ -2112,7 +2138,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-TRANS-09: Filter bar — status, text search, myPhase toggle @userflow @p2', async ({ page, snap }) => {
-    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh, translatorTokens.record)
 
     const docId = await discoverSmallestDocId(page)
     if (!docId) {
@@ -2187,7 +2213,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-TRANS-10: Keyboard shortcuts @userflow @p2', async ({ page, snap }) => {
-    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh, translatorTokens.record)
 
     const docId = await discoverSmallestDocId(page)
     if (!docId) {
@@ -2267,7 +2293,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-TRANS-11: Mobile editor phone-block banner @userflow @p2', async ({ page, snap }) => {
-    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh, translatorTokens.record)
 
     // Set mobile viewport
     await page.setViewportSize({ width: 375, height: 812 })
@@ -2335,7 +2361,7 @@ test.describe('Real User Flows @userflow', () => {
       description: 'WARNING: This test mutates a user role in the database. Logging original state.',
     })
 
-    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh, adminTokens.record)
 
     // Navigate to admin
     await page.goto(`${PROD}/admin`)
@@ -2421,7 +2447,7 @@ test.describe('Real User Flows @userflow', () => {
       description: 'WARNING: This test mutates document publish policy. Logging original state.',
     })
 
-    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh, adminTokens.record)
 
     await page.goto(`${PROD}/admin`)
     await page.waitForLoadState('domcontentloaded')
@@ -2488,7 +2514,7 @@ test.describe('Real User Flows @userflow', () => {
       description: 'WARNING: This test may mutate document assignments.',
     })
 
-    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh, adminTokens.record)
 
     const docId = await discoverSmallestDocId(page)
     if (!docId) {
@@ -2564,7 +2590,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-ADMIN-05: Per-user assignments page @userflow @p2', async ({ page, snap }) => {
-    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh, adminTokens.record)
 
     await page.goto(`${PROD}/admin`)
     await page.waitForLoadState('domcontentloaded')
@@ -2636,7 +2662,7 @@ test.describe('Real User Flows @userflow', () => {
       description: 'WARNING: This test may re-segmentize a document. Will skip if segmentize is not available for already-segmented docs.',
     })
 
-    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh, adminTokens.record)
 
     const docId = await discoverSmallestDocId(page)
     if (!docId) {
@@ -2910,7 +2936,7 @@ test.describe('Real User Flows @userflow', () => {
 
   test('RF-CROSS-02: Large-book performance (23,500-segment document) @userflow @p1', async ({ page, snap }) => {
     test.setTimeout(180000)
-    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh, adminTokens.record)
 
     // Discover largest document
     const docsRes = await apiFetch<{ documents?: Array<{ id: string; segment_count?: number }> }>(
@@ -3031,7 +3057,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-CROSS-03: Global theme persistence across pages @userflow @p1', async ({ page, snap }) => {
-    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh, readerTokens.record)
 
     // Step 1 — navigate to /documents (SiteNav is visible here)
     const t0 = Date.now()
@@ -3118,7 +3144,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-CROSS-04: Error / empty states @userflow @p1', async ({ page, snap }) => {
-    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh, readerTokens.record)
 
     // Step 1 — /documents (as reader, may have docs, this is just baseline)
     await page.goto(`${PROD}/documents`)
@@ -3199,7 +3225,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-CROSS-05: EN/ZH language switcher consistency @userflow @p2', async ({ page, snap }) => {
-    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh, translatorTokens.record)
 
     // Discover a doc (ideally one with ZH)
     const docId = await discoverDocWithZH(page) ?? await discoverSmallestDocId(page)
@@ -3314,7 +3340,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-FURIGANA-01: Furigana rendering on production documents @userflow @p0', async ({ page, snap }) => {
-    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh, readerTokens.record)
 
     // Discover a readable doc (≥100 segments) to ensure real JP content
     await page.goto(PROD)
@@ -3431,7 +3457,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-READER-06: Keyboard shortcuts @userflow @p0', async ({ page, snap }) => {
-    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh, readerTokens.record)
 
     // Discover a readable doc
     await page.goto(PROD)
@@ -3564,7 +3590,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-READER-07: Tap-reveal WordPopup on production documents @userflow @p0', async ({ page, snap }) => {
-    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh, readerTokens.record)
 
     // Discover a readable doc
     await page.goto(PROD)
@@ -3665,7 +3691,7 @@ test.describe('Real User Flows @userflow', () => {
     })
 
     // ── Step 1: Admin discovers smallest doc and creates assignment ──
-    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh, adminTokens.record)
 
     const docId = await discoverSmallestDocId(page)
     if (!docId) {
@@ -3715,7 +3741,7 @@ test.describe('Real User Flows @userflow', () => {
     }
 
     // ── Step 2: Translator navigates to editor and translates a segment ──
-    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh)
+    await injectSession(page.context(), translatorTokens.access, translatorTokens.refresh, translatorTokens.record)
 
     await page.goto(`${PROD}/documents/${docId}/edit`)
     await page.waitForLoadState('domcontentloaded')
@@ -3753,7 +3779,7 @@ test.describe('Real User Flows @userflow', () => {
     test.info().annotations.push({ type: 'info', description: `Translator saved translation: lifecycle-test-${translatorTimestamp}` })
 
     // ── Step 3: Admin advances phase ──────────────────────────────────
-    await injectSession(page.context(), adminTokens.access, adminTokens.refresh)
+    await injectSession(page.context(), adminTokens.access, adminTokens.refresh, adminTokens.record)
 
     await page.goto(`${PROD}/documents/${docId}/edit`)
     await page.waitForLoadState('domcontentloaded')
@@ -3789,7 +3815,7 @@ test.describe('Real User Flows @userflow', () => {
     }
 
     // ── Step 4: Reader opens document and sees content ────────────────
-    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh, readerTokens.record)
 
     await page.goto(`${PROD}/documents/${docId}/read`)
     await page.waitForLoadState('domcontentloaded')
@@ -3822,7 +3848,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-ERROR-01: JWT expiry mid-session handling @userflow @p1', async ({ page }) => {
-    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh, readerTokens.record)
 
     // ── Step 1: Navigate to a protected page ──────────────────────────
     await page.goto(`${PROD}/documents`)
@@ -3830,10 +3856,8 @@ test.describe('Real User Flows @userflow', () => {
     await page.waitForSelector('a[href*="/read"], [data-testid="document-card"]', { timeout: 20_000 })
 
     // ── Step 2: Manipulate the auth cookie to expire the JWT ──────────
-    // The Supabase SSR cookie stores tokens in format:
-    // sb-<project_ref>-auth-token = JSON.stringify({ access_token, refresh_token, ... })
-    const projectRef = SUPABASE_URL.replace('https://', '').split('.')[0]
-    const cookieName = `sb-${projectRef}-auth-token`
+    // PocketBase uses a single `pb_auth` cookie with the JWT token as its value.
+    const cookieName = 'pb_auth'
 
     const expiredTokens = await page.evaluate(
       ({ cookieName }) => {
@@ -3844,10 +3868,7 @@ test.describe('Real User Flows @userflow', () => {
 
         const value = decodeURIComponent(cookieStr.slice(cookieName.length + 1))
         try {
-          // Access token is in the value as JSON
-          const parsed = JSON.parse(value)
-          // Manipulate via cookieStore if available (HTTP-only cookies can't be set via JS)
-          // This test may fail in headless browsers where cookie modification is restricted.
+          // pb_auth cookie is just a JWT string (not JSON-wrapped)
           return {
             success: false,
             reason: 'Cannot modify HTTP-only cookies via JS. Test requires direct cookie manipulation in browser context.',
@@ -3865,19 +3886,12 @@ test.describe('Real User Flows @userflow', () => {
       // Since we can't directly modify HTTP-only cookies via JS,
       // try a different approach: use the browser context to set an expired cookie
       const prodDomain = new URL(PROD).hostname
-      const expiredSessionValue = JSON.stringify({
-        access_token: readerTokens.access,
-        refresh_token: readerTokens.refresh,
-        token_type: 'bearer',
-        expires_in: -1,
-        expires_at: Math.floor(Date.now() / 1000) - 60, // expired 60 seconds ago
-      })
 
       try {
         await page.context().addCookies([
           {
             name: cookieName,
-            value: expiredSessionValue,
+            value: '', // empty/invalid token
             domain: prodDomain,
             path: '/',
             secure: true,
@@ -3885,18 +3899,8 @@ test.describe('Real User Flows @userflow', () => {
             sameSite: 'Lax',
             expires: Math.floor(Date.now() / 1000) - 1, // already expired
           },
-          {
-            name: `${cookieName}.0`,
-            value: expiredSessionValue,
-            domain: prodDomain,
-            path: '/',
-            secure: true,
-            httpOnly: false,
-            sameSite: 'Lax',
-            expires: Math.floor(Date.now() / 1000) - 1,
-          },
         ])
-        test.info().annotations.push({ type: 'info', description: 'Set expired JWT cookie via context.addCookies()' })
+        test.info().annotations.push({ type: 'info', description: 'Set expired pb_auth cookie via context.addCookies()' })
       } catch (err) {
         test.info().annotations.push({
           type: 'skip',
@@ -3946,7 +3950,7 @@ test.describe('Real User Flows @userflow', () => {
     }
 
     // Re-inject valid session for subsequent tests
-    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh, readerTokens.record)
   })
 
   // ==================================================================
@@ -3955,7 +3959,7 @@ test.describe('Real User Flows @userflow', () => {
 
   test('RF-READER-08: Rapid mode cycling stress test @userflow @p2', async ({ page, snap }) => {
     test.setTimeout(120_000)
-    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh, readerTokens.record)
 
     // Discover a readable doc
     await page.goto(PROD)
@@ -4112,7 +4116,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-READER-09: Partially translated documents @userflow @p2', async ({ page, snap }) => {
-    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh, readerTokens.record)
 
     // Discover a document with mixed phase segments
     await page.goto(PROD)
@@ -4203,7 +4207,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-FURIGANA-03: Mixed content — kanji, katakana, hiragana, Latin @userflow @p2', async ({ page, snap }) => {
-    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh, readerTokens.record)
 
     // Discover a readable doc
     await page.goto(PROD)
@@ -4328,7 +4332,7 @@ test.describe('Real User Flows @userflow', () => {
   // ==================================================================
 
   test('RF-READER-10: Edge-case documents (0 segments, 1 segment, all headings) @userflow @p2', async ({ page, snap }) => {
-    await injectSession(page.context(), readerTokens.access, readerTokens.refresh)
+    await injectSession(page.context(), readerTokens.access, readerTokens.refresh, readerTokens.record)
 
     // ── Query documents API to find edge-case documents ──────────────────
     const docsRes = await apiFetch<{ documents?: Array<{ id: string; segment_count?: number; title?: string }> }>(
