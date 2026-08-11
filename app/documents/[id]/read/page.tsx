@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { createServerClient, createCacheSafeClient } from '@/lib/pocketbase/server';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { unstable_cache } from 'next/cache';
 import ReaderView from '@/components/reader/ReaderView';
@@ -442,6 +442,22 @@ export default async function ReadPage({
 
   if (!articleData) notFound();
 
+  // ── Book hierarchy redirect (Phase 1, docs/BOOK_HIERARCHY_UI_PLAN.md) ──
+  const articleBook = (articleData.book as string) ?? '';
+  const isSegmented = (articleData.segmented as boolean) ?? false;
+  const segCount = (articleData.segment_count as number) ?? 0;
+
+  if (articleBook) {
+    // Article has a book relation → redirect to the new book hierarchy URL
+    // Use 308 (Permanent Redirect) since this is the new canonical URL scheme
+    redirect(`/books/${articleBook}/${id}/1`);
+  }
+
+  // Husk detection: segmented=false + segment_count=0 → no real content
+  // These are the 11 parent-book husk rows (docs/HUSK_ARTICLES_REVIEW.md)
+  // Show graceful fallback instead of a blank/broken page
+  const isHusk = !isSegmented && segCount === 0;
+
   // Role check from PocketBase auth record — role is a first-class field
   const user = pb.authStore.record as Record<string, unknown> | null;
   let canEdit = false;
@@ -473,6 +489,34 @@ export default async function ReadPage({
 
   const publishFilter =
     (settings?.publish_filter as string) ?? 'any_translated';
+
+  // ── Husk fallback: graceful "content moved" state ───────────────
+  if (isHusk) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: 'var(--rt-bg, #ffffff)' }}
+      >
+        <div className="text-center px-6 py-20 max-w-md mx-auto">
+          <p className="text-4xl mb-4">📦</p>
+          <h1 className="text-xl font-semibold text-[var(--color-text)] mb-2">
+            This content has moved
+          </h1>
+          <p className="text-sm text-[var(--color-text-muted)] mb-6">
+            &ldquo;{(articleData.title as string) ?? 'This article'}&rdquo; was a parent container whose
+            content has been split into child articles. Those articles are
+            now available through the book browse.
+          </p>
+          <Link
+            href="/books"
+            className="inline-block px-4 py-2 bg-[var(--color-text)] text-[var(--color-surface)] rounded-lg hover:opacity-80 transition-opacity text-sm"
+          >
+            Browse Books →
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Suspense fallback={<ReaderLoading />}>
