@@ -58,6 +58,26 @@ export interface PageContent {
     segment_count: number;
   };
   segments: PageSegment[];
+  /** All pages in this article (for sidebar TOC). */
+  all_pages?: PageSummary[];
+  /** Document settings (paragraph boundaries, lang config, publish filter). */
+  settings?: {
+    source_lang?: string;
+    target_lang?: string;
+    paragraph_boundaries?: number[];
+    publish_filter?: string;
+    paired_pdf_path?: string | null;
+  } | null;
+  /** Book-level metadata for display. */
+  book?: {
+    author?: string | null;
+    summary?: string | null;
+    doc_type?: string | null;
+  } | null;
+  /** Whether ZH target segments exist for this article. */
+  has_zh?: boolean;
+  /** Whether the current user can edit this article. */
+  can_edit?: boolean;
 }
 
 export interface PageSegment {

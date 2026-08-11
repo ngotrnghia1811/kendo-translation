@@ -5,6 +5,9 @@
  * GET /api/books/[bookId]/[articleId]/[page]) and renders PageReader.
  *
  * Phase 2 of docs/BOOK_HIERARCHY_UI_PLAN.md.
+ * Phase 4 (feature restoration) — now fetches document_settings,
+ * book metadata, ZH availability, and user permissions to restore
+ * the full ReaderView feature set in the page-scoped model.
  */
 
 import { createServerClient } from '@/lib/pocketbase/server';
@@ -32,16 +35,49 @@ export default async function ReadPagePage({
     notFound();
   }
 
-  // Confirm article belongs to this book
+  // ── Article record ──────────────────────────────────────────
   const articleRecord = await pb.collection('articles').getOne(articleId, {
-    fields: 'id,title,title_ja,book,segment_count',
+    fields: 'id,title,title_ja,book,segment_count,paired_pdf_path',
   }).catch(() => null);
 
   if (!articleRecord) notFound();
   const articleRaw = JSON.parse(JSON.stringify(articleRecord)) as Record<string, unknown>;
   if ((articleRaw.book as string) !== bookId) notFound();
 
-  // Get page index from PocketBase custom hook
+  // ── User permissions ────────────────────────────────────────
+  const user = pb.authStore.record as Record<string, unknown> | null;
+  const role = user?.role as string | undefined;
+  const canEdit = role === 'translator' || role === 'admin';
+
+  // ── Document settings (paragraph boundaries, lang config) ────
+  let settings: Record<string, unknown> | null = null;
+  try {
+    const settingsList = await pb
+      .collection('document_settings')
+      .getList(1, 1, {
+        filter: `article = "${articleId}"`,
+      });
+    settings = settingsList.items[0]
+      ? (JSON.parse(JSON.stringify(settingsList.items[0])) as Record<string, unknown>)
+      : null;
+  } catch {
+    // No settings — use defaults
+  }
+
+  // ── Book metadata ───────────────────────────────────────────
+  let bookMeta: Record<string, unknown> | null = null;
+  try {
+    const bookRecord = await pb.collection('books').getOne(bookId, {
+      fields: 'id,title,title_ja,author,summary,doc_type',
+    }).catch(() => null);
+    if (bookRecord) {
+      bookMeta = JSON.parse(JSON.stringify(bookRecord)) as Record<string, unknown>;
+    }
+  } catch {
+    // Book metadata is optional
+  }
+
+  // ── Get page index from PocketBase custom hook ──────────────
   const pagesUrl = new URL(`${PB_URL}/api/custom/article-pages`);
   pagesUrl.searchParams.set('article_id', articleId);
   pagesUrl.searchParams.set('target_lang', 'en');
@@ -57,7 +93,7 @@ export default async function ReadPagePage({
 
   const mode: string = pagesData.mode ?? 'synthetic_chunk';
 
-  // Fetch segments for this page
+  // ── Fetch segments for this page ────────────────────────────
   let segments: Array<Record<string, unknown>> = [];
 
   if (mode === 'source_page') {
@@ -78,7 +114,6 @@ export default async function ReadPagePage({
     segments = winData.items ?? [];
   } else {
     if (targetPage.segment_ids.length > 0) {
-      // Fetch segments in order of position
       const allSegments = await pb.collection('segments').getFullList({
         filter: `article = "${articleId}" && target_lang = "en"`,
         sort: '+position',
@@ -90,6 +125,19 @@ export default async function ReadPagePage({
     }
   }
 
+  // ── ZH availability ──────────────────────────────────────────
+  let hasZh = false;
+  try {
+    const zhCount = await pb.collection('segments').getList(1, 1, {
+      filter: `article = "${articleId}" && target_lang = "zh"`,
+      fields: 'id',
+    });
+    hasZh = zhCount.totalItems > 0;
+  } catch {
+    // ZH not available — hide the toggle
+  }
+
+  // ── Build PageContent ───────────────────────────────────────
   const pageContent: PageContent = {
     page_number: pageNumber,
     page_count: pagesList.length,
@@ -112,6 +160,28 @@ export default async function ReadPagePage({
       ruby_data: (s.ruby_data ?? null) as PageContent['segments'][0]['ruby_data'],
       metadata: (s.metadata as Record<string, unknown> | null) ?? null,
     })),
+    all_pages: pagesList.map((p) => ({
+      page_number: p.page_number,
+      segment_count: p.segment_ids.length,
+    })),
+    settings: settings
+      ? {
+          source_lang: (settings.source_lang as string) ?? 'ja',
+          target_lang: (settings.target_lang as string) ?? 'en',
+          paragraph_boundaries: (settings.paragraph_boundaries as number[]) ?? [],
+          publish_filter: (settings.publish_filter as string) ?? 'any_translated',
+          paired_pdf_path: (articleRaw.paired_pdf_path as string) ?? null,
+        }
+      : null,
+    book: bookMeta
+      ? {
+          author: (bookMeta.author as string) ?? null,
+          summary: (bookMeta.summary as string) ?? null,
+          doc_type: (bookMeta.doc_type as string) ?? null,
+        }
+      : null,
+    has_zh: hasZh,
+    can_edit: canEdit,
   };
 
   return (
