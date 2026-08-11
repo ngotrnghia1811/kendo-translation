@@ -16,6 +16,9 @@ const PAGES_WITH_OWN_HEADER = [
 const isDocumentSubpage = (pathname: string) =>
     /^\/documents\/[^/]/.test(pathname)  // /documents/[id]/read, /documents/[id]/edit
 
+const isBookPageReader = (pathname: string) =>
+    /^\/books\/[^/]+\/[^/]+\/\d+/.test(pathname)  // /books/[bookId]/[articleId]/[page]
+
 export function SiteNav() {
     const pathname = usePathname()
     const { profile } = useAuth()
@@ -27,7 +30,8 @@ export function SiteNav() {
     // Suppress on pages with their own header
     const suppress =
         PAGES_WITH_OWN_HEADER.includes(pathname) ||
-        isDocumentSubpage(pathname)
+        isDocumentSubpage(pathname) ||
+        isBookPageReader(pathname)
 
     // Close mobile menu when route changes
     useEffect(() => {
@@ -45,13 +49,13 @@ export function SiteNav() {
     const navLinks = (
         <>
             <Link
-                href="/documents"
+                href="/books"
                 prefetch
-                className={`transition-opacity hover:opacity-80 ${pathname === '/documents' ? 'font-semibold' : ''}`}
-                style={{ color: pathname === '/documents' ? 'var(--color-text)' : 'var(--color-text-muted)' }}
+                className={`transition-opacity hover:opacity-80 ${pathname.startsWith('/books') ? 'font-semibold' : ''}`}
+                style={{ color: pathname.startsWith('/books') ? 'var(--color-text)' : 'var(--color-text-muted)' }}
                 onClick={() => setMobileMenuOpen(false)}
             >
-                Documents
+                Books
             </Link>
             <Link
                 href="/terminology"

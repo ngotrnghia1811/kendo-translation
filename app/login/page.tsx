@@ -30,7 +30,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.push('/documents');
+      router.push('/books');
       router.refresh();
     } catch {
       setError('Network error — please try again.');

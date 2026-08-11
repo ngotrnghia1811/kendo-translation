@@ -21,8 +21,8 @@ export default async function HomePage() {
           terminology enforcement, translation memory, and real-time multi-user editing.
         </p>
         <div className="flex gap-4 justify-center flex-wrap">
-          <Link href="/documents" className="bg-[var(--color-text)] text-[var(--color-surface)] px-8 py-3 rounded-lg font-medium hover:opacity-80 transition-opacity">
-            View Documents
+          <Link href="/books" className="bg-[var(--color-text)] text-[var(--color-surface)] px-8 py-3 rounded-lg font-medium hover:opacity-80 transition-opacity">
+            Browse Books
           </Link>
           {isLoggedIn ? (
             <Link href="/profile" className="border border-[var(--color-border)] text-[var(--color-text)] px-8 py-3 rounded-lg font-medium hover:bg-[var(--color-bg)] transition-colors">

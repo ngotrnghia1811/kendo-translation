@@ -229,7 +229,7 @@ function SearchPageInner() {
             {/* Header */}
             <header className="bg-[var(--color-surface)] border-b border-[var(--color-border)] sticky top-0 z-10">
                 <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3 flex-wrap">
-                    <Link href="/documents" className="shrink-0 text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors">
+                    <Link href="/books" className="shrink-0 text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors">
                         {/* Back arrow */}
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />

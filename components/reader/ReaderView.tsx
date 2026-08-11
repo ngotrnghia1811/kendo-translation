@@ -868,11 +868,11 @@ export default function ReaderView({ segments, zhSegments, settings, title, titl
                     <div className="flex items-center justify-between mb-3 gap-2">
                         <div className="flex items-center gap-2 min-w-0 flex-1">
                             <Link
-                                href="/documents"
+                                href="/books"
                                 className="text-sm shrink-0"
                                 style={{ color: 'var(--rt-text-muted)' }}
                             >
-                                <span className="hidden sm:inline">← Documents</span>
+                                <span className="hidden sm:inline">← Books</span>
                                 <span className="sm:hidden">←</span>
                             </Link>
                             <span className="shrink-0" style={{ color: 'var(--rt-border)' }}>/</span>
