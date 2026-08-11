@@ -52,7 +52,7 @@ function SegmentContextPanel({
         try {
             const pb = createClient()
             const records = await pb.collection('segments').getFullList<ContextSegment>({
-                filter: `article_id = "${articleId}" && (position = ${position - 1} || position = ${position} || position = ${position + 1})`,
+                filter: `article = "${articleId}" && (position = ${position - 1} || position = ${position} || position = ${position + 1})`,
                 sort: '+position',
                 fields: 'id,position,source_text',
             })

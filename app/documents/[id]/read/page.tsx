@@ -106,7 +106,7 @@ function getCachedFetcher(articleId: string) {
       const zhCountResult = await pb
         .collection('segments')
         .getList(1, 1, {
-          filter: `article_id = "${id}" && target_lang = "zh"`,
+          filter: `article = "${id}" && target_lang = "zh"`,
           fields: 'id',
         });
       const zhCount = zhCountResult.totalItems;
@@ -464,7 +464,7 @@ export default async function ReadPage({
     const settingsList = await pb
       .collection('document_settings')
       .getList(1, 1, {
-        filter: `article_id = "${id}"`,
+        filter: `article = "${id}"`,
       });
     settings = settingsList.items[0] as Record<string, unknown> | null;
   } catch {

@@ -101,18 +101,18 @@ export async function buildArticleL2Context(
   ] = await Promise.all([
     pb.collection('articles').getOne(articleId, { fields: 'title' }).catch(() => null),
     pb.collection('segments').getFullList<{ id: string; position: number; source_text: string | null; target_text: string | null; status: string }>({
-      filter: `article_id = "${articleId}" && position = ${segmentPosition - 1}`,
+      filter: `article = "${articleId}" && position = ${segmentPosition - 1}`,
       fields: 'id,position,source_text,target_text,status',
     }).then(arr => arr[0] ?? null).catch(() => null),
     pb.collection('segments').getFullList<{ id: string; position: number; source_text: string | null; target_text: string | null; status: string }>({
-      filter: `article_id = "${articleId}" && position = ${segmentPosition + 1}`,
+      filter: `article = "${articleId}" && position = ${segmentPosition + 1}`,
       fields: 'id,position,source_text,target_text,status',
     }).then(arr => arr[0] ?? null).catch(() => null),
     pb.collection('terminology').getFullList<{ source_term: string }>({
       fields: 'source_term',
     }).catch(() => []),
     pb.collection('segments').getFullList<{ id: string; target_text: string | null }>({
-      filter: `article_id = "${articleId}" && (status = "edited" || status = "proofread" || status = "qa_approved")`,
+      filter: `article = "${articleId}" && (status = "edited" || status = "proofread" || status = "qa_approved")`,
       fields: 'id,target_text',
     }).catch(() => []),
   ]);

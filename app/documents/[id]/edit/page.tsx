@@ -229,7 +229,7 @@ export default function EditPage() {
           prev.map(s => s.id === (data.record as unknown as Segment).id ? (data.record as unknown as Segment) : s)
         );
       }
-    }, { filter: `article_id = "${params.id}" && target_lang = "${targetLang}"` });
+    }, { filter: `article = "${params.id}" && target_lang = "${targetLang}"` });
 
     return () => {
       unsub = true
