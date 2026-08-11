@@ -20,6 +20,9 @@ import ReaderSidebar from '@/components/reader/ReaderSidebar';
 import ReaderKeyboardHelpModal from '@/components/reader/ReaderKeyboardHelpModal';
 import MobileBottomBar, { type ThreeWayLang } from '@/components/reader/MobileBottomBar';
 import WordPopup, { type WordPopupData } from '@/components/reader/WordPopup';
+import TranslatorAlignedView from '@/components/reader/TranslatorAlignedView';
+import PdfPageView from '@/components/reader/PdfPageView';
+import type { Segment } from '@/types/database';
 import type { PageContent, PageSegment } from '@/components/books/types';
 
 /* ------------------------------------------------------------------ */
@@ -238,15 +241,70 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
   const scrollRestoreRef = useRef<number | null>(null);
 
   // ── Mode & language state ──────────────────────────────────────
-  const [mode, setMode] = useState<'single' | 'bilingual'>('single');
+  const [mode, setMode] = useState<'single' | 'bilingual' | 'aligned' | 'pdf'>('single');
   const [displayLang, setDisplayLang] = useState<'source' | 'target'>('target');
   const [targetLangChoice, setTargetLangChoice] = useState<'en' | 'zh'>('en');
+  // ZH position→target_text map for aligned mode (fetched on demand)
+  const [zhAlignedMap, setZhAlignedMap] = useState<Map<number, string> | null>(null);
 
   const sourceLang = page.settings?.source_lang ?? 'ja';
   const targetLang = page.settings?.target_lang ?? 'en';
   const effectiveTargetLang = targetLangChoice === 'zh' ? 'zh' : targetLang;
   const hasZh = page.has_zh ?? false;
   const canEdit = page.can_edit ?? false;
+  const pairedPdfPath = page.settings?.paired_pdf_path ?? null;
+  // PDF mode is only available for source_page-mode docs with a real paired PDF
+  const pdfAvailable = !!(pairedPdfPath && page.mode === 'source_page');
+
+  const MODE_LABELS: Record<string, string> = {
+    single: 'Single language',
+    bilingual: 'Bilingual (paragraph)',
+    aligned: 'Aligned (sentence)',
+    pdf: 'Paired PDF',
+  };
+
+  // ── ZH segment fetch for aligned mode ─────────────────────────
+  useEffect(() => {
+    if (mode !== 'aligned' || !hasZh) {
+      setZhAlignedMap(null);
+      return;
+    }
+
+    let cancelled = false;
+    const fetchZh = async () => {
+      const pbUrl = process.env.NEXT_PUBLIC_POCKETBASE_URL ?? 'http://127.0.0.1:8090';
+      const params = new URLSearchParams({
+        article_id: articleId,
+        target_lang: 'zh',
+      });
+
+      if (page.mode === 'source_page') {
+        params.set('page', String(pageNumber));
+      } else {
+        params.set('offset', String((pageNumber - 1) * FALLBACK_CHUNK_SIZE));
+        params.set('limit', String(FALLBACK_CHUNK_SIZE));
+      }
+
+      try {
+        const res = await fetch(`${pbUrl}/api/custom/article-bilingual-window?${params}`);
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const items = (data.items ?? data ?? []) as Array<{ position: number; target_text: string | null }>;
+        const map = new Map<number, string>();
+        for (const item of items) {
+          if (item.target_text) map.set(item.position, item.target_text);
+        }
+        if (!cancelled) setZhAlignedMap(map);
+      } catch {
+        // Silently fail — ZH overlay will be absent but aligned view works without it
+      }
+    };
+
+    fetchZh();
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, hasZh, articleId, pageNumber, page.mode]);
 
   // ── Three-way language toggle ───────────────────────────────────
   const threeWayLang: ThreeWayLang =
@@ -917,23 +975,26 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
                   className="flex rounded-lg overflow-hidden"
                   style={{ border: '1px solid var(--rt-border)', width: 'max-content' }}
                 >
-                  {([
-                    { m: 'single' as const, label: 'Single language' },
-                    { m: 'bilingual' as const, label: 'Bilingual (paragraph)' },
-                  ]).map(({ m, label }) => (
-                    <button
-                      key={m}
-                      onClick={() => setMode(m)}
-                      className="px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap"
-                      style={
-                        mode === m
-                          ? { backgroundColor: '#3b82f6', color: '#fff' }
-                          : { backgroundColor: 'var(--rt-surface)', color: 'var(--rt-text-muted)' }
-                      }
-                    >
-                      {label}
-                    </button>
-                  ))}
+                  {(Object.keys(MODE_LABELS) as Array<'single' | 'bilingual' | 'aligned' | 'pdf'>)
+                    .filter((m) => {
+                      if (m === 'aligned') return canEdit;
+                      if (m === 'pdf') return pdfAvailable;
+                      return true;
+                    })
+                    .map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setMode(m)}
+                        className="px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap"
+                        style={
+                          mode === m
+                            ? { backgroundColor: '#3b82f6', color: '#fff' }
+                            : { backgroundColor: 'var(--rt-surface)', color: 'var(--rt-text-muted)' }
+                        }
+                      >
+                        {MODE_LABELS[m]}
+                      </button>
+                    ))}
                 </div>
               </div>
 
@@ -966,7 +1027,7 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
                 </div>
 
                 {/* ZH / EN target language toggle */}
-                {hasZh && (
+                {hasZh && mode !== 'pdf' && (
                   <div
                     className="flex items-center rounded-lg overflow-hidden text-xs font-medium"
                     style={{ border: '1px solid var(--rt-border)' }}
@@ -1128,7 +1189,7 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
       >
         {/* Font family + size wrapper */}
         <div data-reader-font={font} style={{ fontSize: fontSizeValue, minHeight: '100%' }}>
-          {segments.length === 0 ? (
+          {segments.length === 0 && mode !== 'pdf' ? (
             <div className="text-center py-20" style={{ color: 'var(--rt-text-muted)' }}>
               <p className="text-4xl mb-4">📄</p>
               <p className="text-lg font-medium" style={{ color: 'var(--rt-text)' }}>
@@ -1136,6 +1197,20 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
               </p>
               <p className="text-sm">This page has no translatable content yet.</p>
             </div>
+          ) : mode === 'aligned' && canEdit ? (
+            <TranslatorAlignedView
+              segments={pageContent.segments as unknown as Segment[]}
+              sourceLang={sourceLang}
+              targetLang={targetLang}
+              zhByPosition={hasZh ? (zhAlignedMap ?? new Map()) : undefined}
+              targetLangChoice={targetLangChoice}
+              layoutWidth={layoutWidth}
+            />
+          ) : mode === 'pdf' && pdfAvailable ? (
+            <PdfPageView
+              articleId={articleId}
+              pdfPage={page.mode === 'source_page' ? pageNumber : null}
+            />
           ) : (
             <div
               lang={mode === 'single' ? (displayLang === 'source' ? sourceLang : effectiveTargetLang) : undefined}
