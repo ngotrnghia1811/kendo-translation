@@ -37,7 +37,7 @@ interface ReaderSettingsPanelProps {
 }
 
 /** JLPT level options for the furigana filter dropdown. */
-const JLPT_OPTIONS: { value: JlptLevel | null; label: string }[] = [
+export const JLPT_OPTIONS: { value: JlptLevel | null; label: string }[] = [
     { value: null, label: 'All kanji' },
     { value: 'N5', label: 'N5 and above' },
     { value: 'N4', label: 'N4 and above' },
@@ -47,7 +47,7 @@ const JLPT_OPTIONS: { value: JlptLevel | null; label: string }[] = [
 ]
 
 /** Swatch border colour for light themes that need contrast against white toolbar */
-const SWATCH_BORDERS: Record<ReaderTheme, string> = {
+export const SWATCH_BORDERS: Record<ReaderTheme, string> = {
     light:         '#cbd5e1',
     dark:          '#374151',
     solarized:     '#374151',
