@@ -23,6 +23,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   const userId = pb.authStore.record.id;
 
+  // Role gate: only translator/admin may write segment content (Phase 0 fix).
+  const role = (pb.authStore.record as Record<string, unknown>).role as string | undefined;
+  if (role !== 'admin' && role !== 'translator') {
+    return NextResponse.json({ error: 'Forbidden: translator or admin role required' }, { status: 403 });
+  }
+
   const body = await req.json();
   const { target_text, status } = body;
 

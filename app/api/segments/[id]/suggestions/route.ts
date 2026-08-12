@@ -41,6 +41,12 @@ export async function POST(
     }
     const userId = pb.authStore.record.id;
 
+    // Role gate: proposing a translation is editing-adjacent (Phase 0 fix).
+    const role = (pb.authStore.record as Record<string, unknown>).role as string | undefined;
+    if (role !== 'admin' && role !== 'translator') {
+        return NextResponse.json({ error: 'Forbidden: translator or admin role required' }, { status: 403 });
+    }
+
     let body: unknown;
     try {
         body = await req.json();

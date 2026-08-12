@@ -1,647 +1,85 @@
-'use client';
-
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { createClient } from '@/lib/pocketbase/client';
-import { useMacRag } from '@/lib/hooks/useMacRag';
+import { notFound, redirect } from 'next/navigation';
+import { createServerClient } from '@/lib/pocketbase/server';
 import Link from 'next/link';
-import { useParams, useSearchParams, useRouter } from 'next/navigation';
-import { useThemeContext } from '@/components/shared/ThemeProvider';
-import type { Segment, SegmentStatus, WorkflowPhase } from '@/types/database';
-import SegmentFilterBar, { ALL_STATUSES } from '@/components/editor/SegmentFilterBar';
-import SegmentListItem from '@/components/editor/SegmentListItem';
-import SegmentEditorPanel from '@/components/editor/SegmentEditorPanel';
-import BatchAdvanceToolbar from '@/components/editor/BatchAdvanceToolbar';
-import { useEditorKeyboard } from '@/hooks/useEditorKeyboard';
-import { useEditorProgress } from '@/hooks/useEditorProgress';
-import { fetchAllSegments } from '@/lib/pocketbase/fetch-all-segments';
+import { isHuskArticle } from '@/lib/husk-filter';
+import EditorClient from '@/components/editor/EditorClient';
 
 /**
- * Per-segment cooperation counts surfaced as badges on the segment list.
- * Shape mirrors GET /api/documents/[id]/segment-activity.
+ * /documents/[id]/edit — legacy editor route.
+ *
+ * Phase 0 + Phase 1 (editor-workflow redesign):
+ *   - Server-side role gate: only translator/admin may edit (security fix).
+ *   - Redirect parity with the reader: articles with a `book` relation are
+ *     redirected to the new canonical `/books/[bookId]/[articleId]/edit`.
+ *   - Husk-article fallback parity: the 11 husk articles show a graceful
+ *     "content has moved" state instead of a blank editor.
  */
-interface ActivityRow {
-    segment_id: string;
-    pending_suggestions: number;
-    unresolved_comments: number;
-    recent_transitions_24h: number;
-}
 
-/** Maps document_assignments.allowed_phases → segment statuses the user works on. */
-const PHASE_STATUS_MAP: Record<WorkflowPhase, SegmentStatus[]> = {
-    translate: ['draft'],
-    edit:      ['translated'],
-    proofread: ['edited'],
-    qa:        ['proofread'],
-};
+export default async function EditPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const pb = await createServerClient();
 
-export default function EditPage() {
-  const params = useParams<{ id: string }>();
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const pb = createClient();
-  const macRag = useMacRag();
+  // ── Auth: editor requires an authenticated session ──────────────
+  if (!pb.authStore.isValid || !pb.authStore.record) {
+    redirect(`/login?next=/documents/${id}/edit`);
+  }
 
-  // Shared theme context for layout width.
-  // ('two-column' is N/A for the editor's 2-column grid → treated as 'full'.)
-  const { layoutWidth } = useThemeContext();
-  const editorWidthClass =
-    layoutWidth === 'full' || layoutWidth === 'two-column' ? 'max-w-full' : 'max-w-6xl';
+  // ── Role gate (mirrors app/documents/[id]/read/page.tsx canEdit) ──
+  const user = pb.authStore.record as Record<string, unknown> | null;
+  let canEdit = false;
+  if (user) {
+    const role = user.role as string | undefined;
+    canEdit = role === 'translator' || role === 'admin';
+  }
+  if (!canEdit) {
+    // Reader (or any non-editor role) → bounce to the read view.
+    redirect(`/documents/${id}/read`);
+  }
 
-  const [article, setArticle] = useState<{ id: string; title: string } | null>(null);
-  const [segments, setSegments] = useState<Segment[]>([]);
-  const [activeSegment, setActiveSegment] = useState<string | null>(null);
-  const [editingText, setEditingText] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activity, setActivity] = useState<Map<string, ActivityRow>>(new Map());
-  const [targetLang, setTargetLang] = useState<'en' | 'zh'>('en');
-  const [batchMode, setBatchMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [batchAdvancing, setBatchAdvancing] = useState(false);
-  const [batchResult, setBatchResult] = useState<{ succeeded: number; skipped: number; failed: number } | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [mobileBannerDismissed, setMobileBannerDismissed] = useState(false);
+  // ── Article record ───────────────────────────────────────────────
+  let articleData: Record<string, unknown> | null = null;
+  try {
+    const record = await pb.collection('articles').getOne(id);
+    articleData = JSON.parse(JSON.stringify(record));
+  } catch {
+    notFound();
+  }
+  if (!articleData) notFound();
 
-  // --- T5: segment progress memory ---
-  const { savedSegmentId, persistSegment } = useEditorProgress(params.id);
-  const progressRestoredRef = useRef(false);
+  // ── Book hierarchy redirect (Phase 1) ────────────────────────────
+  const articleBook = (articleData.book as string) ?? '';
+  if (articleBook) {
+    redirect(`/books/${articleBook}/${id}/edit`);
+  }
 
-  // --- Filter state (T1) ---
-  // Initialise from URL params so filters survive navigation / bookmarks.
-  const [filterStatuses, setFilterStatuses] = useState<SegmentStatus[]>(() => {
-    const raw = searchParams.get('status') ?? '';
-    return raw ? (raw.split(',').filter(s => (ALL_STATUSES as string[]).includes(s)) as SegmentStatus[]) : [];
-  });
-  const [filterQuery, setFilterQuery] = useState<string>(() => searchParams.get('q') ?? '');
-  const [showMyPhase, setShowMyPhase] = useState<boolean>(() => searchParams.get('myPhase') === '1');
-  const [userPhases, setUserPhases] = useState<WorkflowPhase[]>([]);
-  const [userName, setUserName] = useState<string | null>(null);
-  // Track if we've already synced URL to avoid double-push on initial mount
-  const filterInitRef = useRef(true);
-
-  // --- Sync filter state → URL params (T1) ---
-  useEffect(() => {
-    // Skip the very first effect call (initial mount from URL read)
-    if (filterInitRef.current) {
-      filterInitRef.current = false;
-      return;
-    }
-    const urlParams = new URLSearchParams();
-    if (filterStatuses.length > 0) urlParams.set('status', filterStatuses.join(','));
-    if (filterQuery.trim()) urlParams.set('q', filterQuery.trim());
-    if (showMyPhase) urlParams.set('myPhase', '1');
-    const search = urlParams.toString();
-    router.replace(search ? `?${search}` : '?', { scroll: false });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterStatuses, filterQuery, showMyPhase]);
-
-  // --- Fetch user's phase assignments for this document (T1/T2) ---
-  useEffect(() => {
-    (async () => {
-      try {
-        // Get current user id + profile (T2 banner needs username)
-        const meRes = await fetch('/api/auth/me');
-        if (!meRes.ok) return;
-        const meData = await meRes.json() as { user?: { id: string }; profile?: { id: string; username?: string; role?: string } };
-        const userId = meData.user?.id ?? meData.profile?.id;
-        if (!userId) return;
-        const name = meData.profile?.username ?? null;
-        setUserName(name);
-
-        const assnRes = await fetch(`/api/documents/${params.id}/assignments`);
-        if (!assnRes.ok) return;
-        const data = await assnRes.json() as { assignments?: Array<{ user: string; allowed_phases: WorkflowPhase[] }> };
-        const mine = (data.assignments ?? []).find(a => a.user === userId);
-        if (mine) setUserPhases(mine.allowed_phases);
-      } catch { /* non-fatal */ }
-    })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id]);
-
-  // --- Computed: filteredSegments (T1) ---
-  const filteredSegments = useMemo(() => {
-    let list = segments;
-
-    // My phase filter
-    if (showMyPhase && userPhases.length > 0) {
-      const myStatuses = userPhases.flatMap(p => PHASE_STATUS_MAP[p] ?? []);
-      list = list.filter(s => myStatuses.includes(s.status as SegmentStatus));
-    }
-
-    // Status filter (additive)
-    if (filterStatuses.length > 0) {
-      list = list.filter(s => filterStatuses.includes(s.status as SegmentStatus));
-    }
-
-    // Text search
-    const q = filterQuery.trim().toLowerCase();
-    if (q) {
-      list = list.filter(s =>
-        s.source_text.toLowerCase().includes(q) ||
-        (s.target_text ?? '').toLowerCase().includes(q)
-      );
-    }
-
-    return list;
-  }, [segments, filterStatuses, filterQuery, showMyPhase, userPhases]);
-
-  // --- Computed: statusCounts (T1) — counts BEFORE status filter but AFTER lang/myPhase/text filters ---
-  const statusCounts = useMemo(() => {
-    const base = showMyPhase && userPhases.length > 0
-      ? segments.filter(s => userPhases.flatMap(p => PHASE_STATUS_MAP[p] ?? []).includes(s.status as SegmentStatus))
-      : segments;
-    const q = filterQuery.trim().toLowerCase();
-    const searched = q ? base.filter(s => s.source_text.toLowerCase().includes(q) || (s.target_text ?? '').toLowerCase().includes(q)) : base;
-    return ALL_STATUSES.reduce<Record<SegmentStatus, number>>((acc, status) => {
-      acc[status] = searched.filter(s => s.status === status).length;
-      return acc;
-    }, {} as Record<SegmentStatus, number>);
-  }, [segments, showMyPhase, userPhases, filterQuery]);
-
-  const refreshActivity = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/documents/${params.id}/segment-activity`);
-      if (!res.ok) return;
-      const json = (await res.json()) as { activity: ActivityRow[] };
-      const next = new Map<string, ActivityRow>();
-      for (const row of json.activity ?? []) next.set(row.segment_id, row);
-      setActivity(next);
-    } catch {
-      /* non-fatal: badges simply stay stale */
-    }
-  }, [params.id]);
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    const [art, segs] = await Promise.all([
-      pb.collection('articles').getOne<{ id: string; title: string }>(params.id, { fields: 'id,title' }).catch(() => null),
-      fetchAllSegments<Segment>(pb, params.id, targetLang),
-    ]);
-    if (art) setArticle(art);
-    setSegments(segs);
-    setLoading(false);
-    void refreshActivity();
-  }, [params.id, refreshActivity, targetLang, pb]);
-
-  useEffect(() => { loadData(); }, [loadData]);
-
-  // --- T5: restore saved segment once segments are loaded ---
-  useEffect(() => {
-    if (progressRestoredRef.current) return;
-    if (segments.length === 0) return;
-    if (!savedSegmentId) return;
-    const saved = segments.find(s => s.id === savedSegmentId);
-    if (saved) {
-      progressRestoredRef.current = true;
-      // selectSegment is async but we don't await here to avoid blocking render
-      void selectSegment(saved);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [segments]);
-
-  // --- T5: scroll active segment into view on restore ---
-  useEffect(() => {
-    if (!activeSegment) return;
-    const el = document.querySelector<HTMLElement>(`[data-testid="segment-list-item"][data-segment-id="${activeSegment}"]`);
-    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [activeSegment]);
-
-  // Check if current user is admin (for batch ops)
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const data = await res.json();
-          setIsAdmin(data.role === 'admin');
-        }
-      } catch { /* non-fatal */ }
-    })();
-  }, []);
-
-  useEffect(() => {
-    let unsub = false
-    pb.collection('segments').subscribe('*', (data) => {
-      if (unsub) return
-      if (data.action === 'update') {
-        setSegments(prev =>
-          prev.map(s => s.id === (data.record as unknown as Segment).id ? (data.record as unknown as Segment) : s)
-        );
-      }
-    }, { filter: `article = "${params.id}" && target_lang = "${targetLang}"` });
-
-    return () => {
-      unsub = true
-      void pb.collection('segments').unsubscribe()
-    };
-  }, [params.id, targetLang, pb]);
-
-  const selectSegment = async (seg: Segment) => {
-    if (activeSegment && activeSegment !== seg.id) {
-      await fetch(`/api/segments/${activeSegment}/lock`, { method: 'DELETE' });
-    }
-
-    setActiveSegment(seg.id);
-    setEditingText(seg.target_text || '');
-    persistSegment(seg.id);  // T5: remember last-active segment
-
-    await fetch(`/api/segments/${seg.id}/lock`, { method: 'POST' });
-  };
-
-  const saveSegment = async (segId: string, text: string, status: SegmentStatus = 'translated') => {
-    setSaving(true);
-    try {
-      await fetch(`/api/segments/${segId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target_text: text, status }),
-      });
-      setSegments(prev =>
-        prev.map(s => s.id === segId ? { ...s, target_text: text, status } : s)
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleAITranslate = async (seg: Segment) => {
-    try {
-      setError(null);
-      const result = await macRag.buildContext(seg.source_text, {
-        sourceLang: seg.source_lang as 'ja' | 'en',
-        targetLang: seg.target_lang as 'ja' | 'en',
-      });
-      if (result?.context) {
-        await macRag.translate();
-        if (macRag.selectedCandidate?.text) {
-          setEditingText(macRag.selectedCandidate.text);
-        }
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Translation failed');
-    }
-  };
-
-  const handleBatchAdvance = async (toStatus: SegmentStatus) => {
-    if (selectedIds.size === 0) return;
-    setBatchAdvancing(true);
-    setBatchResult(null);
-    try {
-      const res = await fetch(`/api/documents/${params.id}/batch-advance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ segment_ids: Array.from(selectedIds), to_status: toStatus }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        const { succeeded, skipped, failed } = data as { succeeded: string[]; skipped: string[]; failed: { id: string; reason: string }[] };
-        // Update local state for succeeded segments
-        setSegments(prev =>
-          prev.map(s => succeeded.includes(s.id) ? { ...s, status: toStatus } : s)
-        );
-        setBatchResult({ succeeded: succeeded.length, skipped: skipped.length, failed: failed.length });
-        setSelectedIds(new Set());
-        void refreshActivity();
-      } else {
-        setError(data.error ?? 'Batch advance failed');
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Batch advance failed');
-    } finally {
-      setBatchAdvancing(false);
-    }
-  };
-
-  const toggleSelectSegment = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedIds.size === filteredSegments.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filteredSegments.map(s => s.id)));
-    }
-  };
-
-  const stats = {
-    total: segments.length,
-    translated: segments.filter(s => s.status !== 'draft').length,
-    approved: segments.filter(s => s.status === 'qa_approved').length,
-  };
-
-  // --- T3: Editor keyboard shortcuts ---
-  // activeIndex in the *filtered* list (may be -1 if segment was filtered out)
-  const activeIndex = activeSegment
-    ? filteredSegments.findIndex(s => s.id === activeSegment)
-    : -1;
-
-  const goToPrevSegment = useCallback(() => {
-    if (activeIndex <= 0) return;
-    void selectSegment(filteredSegments[activeIndex - 1]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndex, filteredSegments]);
-
-  const goToNextSegment = useCallback(() => {
-    if (activeIndex < 0 || activeIndex >= filteredSegments.length - 1) return;
-    void selectSegment(filteredSegments[activeIndex + 1]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndex, filteredSegments]);
-
-  /** Ctrl+S: save the active segment's current editing text as 'translated'. */
-  const handleKeyboardSave = useCallback(() => {
-    if (!activeSegment || !editingText) return;
-    const seg = segments.find(s => s.id === activeSegment);
-    if (!seg) return;
-    void saveSegment(activeSegment, editingText, 'translated');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSegment, editingText, segments]);
-
-  /** Ctrl+Enter: approve / advance active segment to the next phase status. */
-  const handleKeyboardApprove = useCallback(() => {
-    if (!activeSegment || !editingText) return;
-    const seg = segments.find(s => s.id === activeSegment);
-    if (!seg) return;
-    // Advance to the next logical status, capped at qa_approved
-    const ORDER: SegmentStatus[] = ['draft', 'translated', 'edited', 'proofread', 'qa_approved'];
-    const currentIdx = ORDER.indexOf(seg.status as SegmentStatus);
-    const nextStatus: SegmentStatus = currentIdx >= 0 && currentIdx < ORDER.length - 1
-      ? ORDER[currentIdx + 1]
-      : 'qa_approved';
-    void saveSegment(activeSegment, editingText, nextStatus);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSegment, editingText, segments]);
-
-  useEditorKeyboard({
-    onPrevSegment: goToPrevSegment,
-    onNextSegment: goToNextSegment,
-    prevDisabled: activeIndex <= 0,
-    nextDisabled: activeIndex < 0 || activeIndex >= filteredSegments.length - 1,
-    onSave: handleKeyboardSave,
-    onApprove: handleKeyboardApprove,
-    hasActiveSegment: !!activeSegment,
-  });
-
-  if (loading) {
+  // ── Husk fallback: graceful "content moved" state ────────────────
+  if (isHuskArticle(id)) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-[var(--color-text-muted)]">
-        <span>Loading editor…</span>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center px-6 py-20 max-w-md mx-auto">
+          <p className="text-4xl mb-4">📦</p>
+          <h1 className="text-xl font-semibold text-[var(--color-text)] mb-2">
+            This content has moved
+          </h1>
+          <p className="text-sm text-[var(--color-text-muted)] mb-6">
+            &ldquo;{(articleData.title as string) ?? 'This article'}&rdquo; was a parent container whose
+            content has been split into child articles. Those articles are
+            now available through the book browse.
+          </p>
+          <Link
+            href="/books"
+            className="inline-block px-4 py-2 bg-[var(--color-text)] text-[var(--color-surface)] rounded-lg hover:opacity-80 transition-opacity text-sm"
+          >
+            Browse Books →
+          </Link>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen">
-      {/* Mobile editor banner — dismissible top banner replacing the old full-viewport block (Phase 3.5).
-           On mobile (<768px) the editor panel is hidden and segments are scrollable/read-only.
-           At ≥768px (tablet+), normal editing is available. */}
-      {!mobileBannerDismissed && (
-        <div className="md:hidden sticky top-0 z-10 flex items-start gap-3 px-4 py-3 bg-amber-50 border-b border-amber-200 text-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 shrink-0 text-amber-600 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-          </svg>
-          <div className="flex-1 min-w-0">
-            <p className="text-amber-800 font-medium mb-0.5">Editor works best on desktop</p>
-            <p className="text-amber-700">
-              <Link
-                href={`/documents/${params.id}/read`}
-                className="underline font-semibold hover:text-amber-900"
-                data-testid="mobile-editor-reader-link"
-              >
-                Switch to Reader View
-              </Link>
-              {' '}or continue on tablet/desktop for full editing.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setMobileBannerDismissed(true)}
-            aria-label="Dismiss editor mobile notice"
-            className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-amber-600 hover:text-amber-900 hover:bg-amber-100 transition-colors"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      {/* Header */}
-      <header className="bg-[var(--color-surface)] border-b border-[var(--color-border)] sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2 min-w-0">
-            <Link href="/documents" className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors text-sm">← Docs</Link>
-            <span className="text-[var(--color-text-muted)]/40">/</span>
-            <span className="text-sm font-medium text-[var(--color-text)] truncate">{article?.title}</span>
-            <div className="flex items-center gap-1.5 ml-2" data-testid="lang-switcher">
-              <button
-                onClick={() => setTargetLang('en')}
-                data-testid="lang-tab-en"
-                className={`text-xs px-2 py-0.5 rounded transition-colors font-medium ${
-                  targetLang === 'en'
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-[var(--color-text-muted)] hover:bg-[var(--color-bg)]'
-                }`}
-              >
-                EN
-              </button>
-              <button
-                onClick={() => setTargetLang('zh')}
-                data-testid="lang-tab-zh"
-                className={`text-xs px-2 py-0.5 rounded transition-colors font-medium ${
-                  targetLang === 'zh'
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-[var(--color-text-muted)] hover:bg-[var(--color-bg)]'
-                }`}
-              >
-                ZH
-              </button>
-              {targetLang === 'zh' && (
-                <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium">
-                  ZH — draft segments
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-4 text-sm text-[var(--color-text-muted)] shrink-0">
-            <span>{stats.translated}/{stats.total} translated</span>
-            <span className="text-green-600">{stats.approved} approved</span>
-          </div>
-        </div>
-        {stats.total > 0 && (
-          <div className="h-1 bg-[var(--color-bg)]">
-            <div
-              className="h-full bg-blue-500 transition-all"
-              style={{ width: `${(stats.translated / stats.total) * 100}%` }}
-            />
-          </div>
-        )}
-      </header>
-
-      {error && (
-        <div className="max-w-6xl mx-auto px-6 pt-4">
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
-            {error}
-          </div>
-        </div>
-      )}
-
-      <div className={`${editorWidthClass} mx-auto px-6 py-6 grid grid-cols-1 lg:grid-cols-2 gap-6`}>
-        {/* Segment list */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
-              Segments
-              {filteredSegments.length !== segments.length && (
-                <span className="ml-1 text-indigo-600 normal-case font-normal">
-                  {filteredSegments.length} / {segments.length}
-                </span>
-              )}
-              {batchMode && selectedIds.size > 0 && (
-                <span className="ml-1 text-blue-600">({selectedIds.size} selected)</span>
-              )}
-            </h3>
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={() => { setBatchMode(o => !o); setSelectedIds(new Set()); setBatchResult(null); }}
-                className={`text-xs px-2 py-1 rounded border transition-colors ${
-                  batchMode
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-[var(--color-surface)] text-[var(--color-text-muted)] border-[var(--color-border)] hover:bg-[var(--color-bg)]'
-                }`}
-                data-testid="batch-mode-toggle"
-              >
-                {batchMode ? '✓ Batch mode' : 'Batch mode'}
-              </button>
-            )}
-          </div>
-
-          {/* Assignment visibility banner (T2) */}
-          {userPhases.length > 0 && (
-            <div
-              data-testid="assignment-banner"
-              className="flex items-start gap-2 px-3 py-2.5 rounded-lg border border-indigo-200 bg-indigo-50 text-sm mb-2"
-            >
-              {/* Assignment icon */}
-              <svg className="w-4 h-4 mt-0.5 text-indigo-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-              </svg>
-              <div className="flex-1 min-w-0">
-                <span className="font-medium text-indigo-800">
-                  {userName ? `${userName} — ` : ''}Assigned phases:
-                </span>{' '}
-                <span className="inline-flex flex-wrap gap-1 ml-0.5">
-                  {userPhases.map(phase => (
-                    <span
-                      key={phase}
-                      className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200"
-                    >
-                      {phase}
-                    </span>
-                  ))}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowMyPhase(o => !o)}
-                  className={`ml-3 text-xs underline-offset-2 underline transition-colors ${
-                    showMyPhase ? 'text-indigo-700 font-semibold' : 'text-indigo-500 hover:text-indigo-700'
-                  }`}
-                >
-                  {showMyPhase ? '✓ Showing my segments' : 'Show my segments'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Segment filter bar (T1) */}
-          <SegmentFilterBar
-            statusCounts={statusCounts}
-            activeStatuses={filterStatuses}
-            query={filterQuery}
-            showMyPhase={showMyPhase}
-            userPhases={userPhases}
-            onToggleStatus={(s) => setFilterStatuses(prev =>
-              prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]
-            )}
-            onClearStatuses={() => setFilterStatuses([])}
-            onQueryChange={setFilterQuery}
-            onToggleMyPhase={() => setShowMyPhase(o => !o)}
-          />
-
-          {batchMode && (
-            <div className="flex items-center gap-3 text-xs text-[var(--color-text-muted)] mb-2 pb-2 border-b border-[var(--color-border)]">
-              <button type="button" onClick={toggleSelectAll} className="hover:text-blue-600 transition-colors">
-                {selectedIds.size === filteredSegments.length ? 'Deselect all' : 'Select all'}
-              </button>
-              {batchResult && (
-                <span className="text-green-600 font-medium">
-                  ✓ {batchResult.succeeded} advanced{batchResult.skipped > 0 ? `, ${batchResult.skipped} skipped` : ''}{batchResult.failed > 0 ? `, ${batchResult.failed} failed` : ''}
-                </span>
-              )}
-            </div>
-          )}
-          {filteredSegments.map(seg => (
-            <SegmentListItem
-              key={seg.id}
-              segment={seg}
-              isActive={activeSegment === seg.id}
-              batchMode={batchMode}
-              isSelected={selectedIds.has(seg.id)}
-              activity={activity.get(seg.id)}
-              onSelect={selectSegment}
-              onToggleSelect={toggleSelectSegment}
-            />
-          ))}
-
-          {/* Batch advance toolbar — floats at bottom when selections exist */}
-          <BatchAdvanceToolbar
-            selectedCount={batchMode ? selectedIds.size : 0}
-            advancing={batchAdvancing}
-            onAdvance={handleBatchAdvance}
-          />
-        </div>
-
-        {/* Editor panel — hidden on mobile (<768px), visible on tablet+ (Phase 3.5) */}
-        <div className="hidden md:block lg:sticky lg:top-20 lg:self-start">
-          {activeSegment ? (() => {
-            const seg = segments.find(s => s.id === activeSegment);
-            return seg ? (
-              <SegmentEditorPanel
-                segment={seg}
-                articleId={params.id}
-                editingText={editingText}
-                saving={saving}
-                macRag={{
-                  candidates: macRag.candidates,
-                  recommendedIndex: macRag.recommendedIndex,
-                  isLoading: macRag.isLoading,
-                }}
-                targetLang={targetLang}
-                onEditingTextChange={setEditingText}
-                onSave={saveSegment}
-                onAITranslate={() => handleAITranslate(seg)}
-                onCandidateSelect={(text) => setEditingText(text)}
-                onSegmentStatusChange={(segId, newStatus) => {
-                  setSegments(prev =>
-                    prev.map(s => s.id === segId ? { ...s, status: newStatus } : s)
-                  );
-                }}
-                onActivityRefresh={refreshActivity}
-                onSuggestionRefresh={() => { /* state is internal to SegmentEditorPanel */ }}
-              />
-            ) : null;
-          })() : (
-            <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-12 text-center text-[var(--color-text-muted)]">
-              <p className="text-4xl mb-3">👆</p>
-              <p className="text-sm">Select a segment to start editing</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  return <EditorClient articleId={id} bookContext={null} />;
 }

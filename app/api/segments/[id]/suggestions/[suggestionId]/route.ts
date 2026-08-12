@@ -33,6 +33,12 @@ export async function PATCH(
     }
     const userId = pb.authStore.record.id;
 
+    // Role gate: accepting/rejecting a suggestion is editing-adjacent (Phase 0 fix).
+    const role = (pb.authStore.record as Record<string, unknown>).role as string | undefined;
+    if (role !== 'admin' && role !== 'translator') {
+        return NextResponse.json({ error: 'Forbidden: translator or admin role required' }, { status: 403 });
+    }
+
     let body: Record<string, unknown>;
     try {
         body = (await req.json()) as Record<string, unknown>;

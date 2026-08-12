@@ -10,6 +10,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
   const userId = pb.authStore.record.id;
 
+  // Role gate: locking is an editor action (Phase 0 fix).
+  const role = (pb.authStore.record as Record<string, unknown>).role as string | undefined;
+  if (role !== 'admin' && role !== 'translator') {
+    return NextResponse.json({ error: 'Forbidden: translator or admin role required' }, { status: 403 });
+  }
+
   let segment: Record<string, unknown>;
   try {
     segment = await pb.collection('segments').getOne(id);
@@ -46,6 +52,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const userId = pb.authStore.record.id;
+
+  // Role gate: unlocking is an editor action (Phase 0 fix).
+  const role = (pb.authStore.record as Record<string, unknown>).role as string | undefined;
+  if (role !== 'admin' && role !== 'translator') {
+    return NextResponse.json({ error: 'Forbidden: translator or admin role required' }, { status: 403 });
+  }
 
   // Only unlock if locked_by matches the current user
   let segment: Record<string, unknown>;
