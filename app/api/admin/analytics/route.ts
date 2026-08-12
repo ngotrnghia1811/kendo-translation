@@ -149,8 +149,23 @@ const fetchAnalytics = unstable_cache(
       fields: 'id',
     });
 
-    // Article count
+    // Article count (exclude husks — see lib/husk-filter.ts)
+    const huskIdList = [
+      '38221898-d3e4-4012-8a23-4a71c6f3a4ee',
+      '84f5be1e-6cbf-4753-9fe3-f3146769c1eb',
+      '4143b5fb-74df-414f-8ea3-fccc1a2b3b1b',
+      '563b88bb-ed67-4f68-abfe-22068c1cf08c',
+      'f8eb8778-b83b-4556-86f7-aaa4092d16d6',
+      '4541dd08-3773-4b5d-9f8c-81efc75831ea',
+      '057c1970-5c75-47f0-85e7-b3a949766148',
+      'c602f1e2-95df-4da9-a3cf-3a389efdce92',
+      'e9cfbf9f-5be9-4a1f-b5c9-5a52270a6d8c',
+      'aea3e1a6-fe6a-408b-b57d-4942900670f4',
+      '3785cd55-421e-4daf-b1ba-546e3a09fdbe',
+    ];
+    const huskFilter = huskIdList.map((id) => `id != "${id}"`).join(' && ');
     const articlesData = await apiFetch('articles', {
+      filter: huskFilter,
       perPage: '1',
       fields: 'id',
     });

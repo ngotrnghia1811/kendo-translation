@@ -6,6 +6,7 @@ import {
   buildCursor,
   parseCursor,
 } from '@/lib/pocketbase/feed-cursor';
+import { withHuskExclusion } from '@/lib/husk-filter';
 
 const PB_URL =
   process.env.NEXT_PUBLIC_POCKETBASE_URL ?? 'http://127.0.0.1:8090';
@@ -24,6 +25,7 @@ export async function GET(req: NextRequest) {
     // Admin full-list path: fetch all articles with document_settings
     try {
       const articles = await pb.collection('articles').getFullList({
+        filter: withHuskExclusion(),
         sort: '-id',
         fields:
           'id,title,title_ja,translation_status,segment_count,created,updated,segmented,paired_pdf_path,expand',

@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/pocketbase/server'
+import { withHuskExclusion } from '@/lib/husk-filter'
 
 export interface ArticleHit {
     id: string
@@ -62,7 +63,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         // Articles — search by title
         if (scope === 'articles' || scope === 'both') {
             const articles = await pb.collection('articles').getList(1, limit, {
-                filter: `title ~ "${q.replace(/"/g, '\\"')}"`,
+                filter: `(${withHuskExclusion(`title ~ "${q.replace(/"/g, '\\"')}"`)})`,
                 sort: '-id',
                 fields: 'id,title,segment_count',
             })

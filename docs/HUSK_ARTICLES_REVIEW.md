@@ -77,3 +77,38 @@ needs a paired cascade-delete, and that's routine). No user-facing data
 This file exists purely for review — no deletion has been performed. Reply
 to aki-main with your decision and it will be actioned as a small, isolated
 follow-up unit.
+
+---
+
+## DECISION: KEEP (hidden everywhere) — 2026-08-11
+
+**Decision:** Keep all 11 husk rows in the `articles` table. Do NOT delete them.
+Do NOT modify their data or their `document_settings` rows. Instead, hide
+them from **every** surface in the application — including admin views,
+search, analytics counts, and the reader redirect (which already handles
+them gracefully).
+
+**Rationale:**
+- Deleting rows is irreversible; keeping them preserves a full audit trail
+  of the book-splitting migration.
+- `books.source_book_id` contains text references to 9 of these 11 IDs —
+  keeping the rows means those references remain traceable to the original
+  pre-split parent article.
+- The FK safety check shows no active dependencies (bookmarks, reading
+  progress, assignments) — the rows are harmless to keep.
+- Hiding them everywhere (including admin) reduces cognitive noise without
+  needing a DB migration or `archived` flag.
+
+**Implementation:**
+- Created `lib/husk-filter.ts` with the 11 IDs and a reusable PocketBase
+  filter fragment (`HUSK_EXCLUSION_FILTER` / `withHuskExclusion()`).
+- Applied the exclusion at these call sites:
+  - `app/api/search/route.ts` — article search queries
+  - `app/api/documents/route.ts` — admin full-list (`?all=1`)
+  - `app/api/admin/analytics/route.ts` — article total count
+  - `app/api/admin/documents/[id]/route.ts` — direct admin detail (404)
+  - `app/documents/[id]/read/page.tsx` — already handled (graceful
+    "content moved" fallback, no change needed)
+  - `migration/pocketbase/pb_hooks/documents_feed.pb.js` — already
+    filtered by `segmented = 1`, no change needed
+- No deletion. No `document_settings` cascade. No data mutation.

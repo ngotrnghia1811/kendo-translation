@@ -18,6 +18,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/pocketbase/server';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
+import { isHuskArticle } from '@/lib/husk-filter';
 
 export async function GET(
   _req: NextRequest,
@@ -27,6 +28,15 @@ export async function GET(
   const pb = await createServerClient();
   const gate = await requireAdmin(pb);
   if (gate instanceof NextResponse) return gate;
+
+  // Block husk articles — these are empty parent-book containers with no
+  // content (docs/HUSK_ARTICLES_REVIEW.md).
+  if (isHuskArticle(documentId)) {
+    return NextResponse.json(
+      { error: 'Document not found' },
+      { status: 404 },
+    );
+  }
 
   // Fetch article metadata
   let article: Record<string, unknown>;
