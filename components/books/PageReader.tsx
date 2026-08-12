@@ -644,8 +644,8 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
                 lang={mode === 'single' ? (displayLang === 'source' ? sourceLang : effectiveTargetLang) : undefined}
                 className={
                   focusMode
-                    ? 'max-w-[72ch] mx-auto py-8 px-4 flex-1 flex flex-col min-h-0'
-                    : `${readerWidthClass} mx-auto py-8 px-4 flex-1 flex flex-col min-h-0 ${mode === 'bilingual' ? 'space-y-8' : ''}`
+                    ? 'w-full max-w-[72ch] mx-auto py-8 px-4 flex-1 flex flex-col min-h-0'
+                    : `w-full ${readerWidthClass} mx-auto py-8 px-4 flex-1 flex flex-col min-h-0 ${mode === 'bilingual' ? 'space-y-8' : ''}`
                 }
               >
                 <VirtualizedReader
