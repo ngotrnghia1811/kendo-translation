@@ -39,6 +39,14 @@ export async function POST(
     }
     const userId = pb.authStore.record.id;
 
+    // Role gate: only translator/admin may trigger agent suggestions (Phase 0
+    // follow-up). This adds an authz check BEFORE the LLM call — it does not
+    // change any LLM-triggering behavior, only who is allowed to reach it.
+    const role = (pb.authStore.record as Record<string, unknown>).role as string | undefined;
+    if (role !== 'admin' && role !== 'translator') {
+        return NextResponse.json({ error: 'Forbidden: translator or admin role required' }, { status: 403 });
+    }
+
     let body: unknown;
     try {
         body = await req.json();

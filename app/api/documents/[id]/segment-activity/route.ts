@@ -11,10 +11,15 @@ import { createServerClient } from '@/lib/pocketbase/server';
 const UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const CHUNK_SIZE = 200;
+// PocketBase rejects OR-filters with too many terms (~65 is the observed
+// ceiling; 200 reliably 400s). 50 is safely under the limit.
+const CHUNK_SIZE = 50;
 
 interface ActivityRow {
-    segment: string;
+    // `segment_id` matches the client's ActivityRow shape (components/editor/
+    // EditorClient.tsx). Previously named `segment`, which the client never
+    // read — so the cooperation badges silently never rendered.
+    segment_id: string;
     pending_suggestions: number;
     unresolved_comments: number;
     recent_transitions_24h: number;
@@ -93,7 +98,7 @@ export async function GET(
         const tally = new Map<string, ActivityRow>();
         for (const id of segmentIds) {
             tally.set(id, {
-                segment: id,
+                segment_id: id,
                 pending_suggestions: 0,
                 unresolved_comments: 0,
                 recent_transitions_24h: 0,
@@ -102,7 +107,7 @@ export async function GET(
 
         const bump = (
             rows: Array<{ segment: string }>,
-            key: keyof Omit<ActivityRow, 'segment'>
+            key: keyof Omit<ActivityRow, 'segment_id'>
         ) => {
             for (const r of rows) {
                 const row = tally.get(r.segment);
