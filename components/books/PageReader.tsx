@@ -14,9 +14,9 @@ import VirtualizedReader from '@/components/reader/VirtualizedReader';
 import RubyText from '@/components/reader/RubyText';
 import type { RubySpan, JlptLevel } from '@/lib/furigana/types';
 import type { VirtuosoHandle } from 'react-virtuoso';
-import ReaderCollapsibleSidebar from '@/components/reader/ReaderCollapsibleSidebar';
+import ReaderCollapsibleSidebar, { type ReaderCollapsibleSidebarHandle } from '@/components/reader/ReaderCollapsibleSidebar';
 import ReaderKeyboardHelpModal from '@/components/reader/ReaderKeyboardHelpModal';
-import MobileBottomBar, { type ThreeWayLang } from '@/components/reader/MobileBottomBar';
+import MobileBottomBar from '@/components/reader/MobileBottomBar';
 import WordPopup, { type WordPopupData } from '@/components/reader/WordPopup';
 import TranslatorAlignedView from '@/components/reader/TranslatorAlignedView';
 import PdfPageView from '@/components/reader/PdfPageView';
@@ -134,6 +134,9 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
 
+  // ── Sidebar imperative handle (keyboard shortcuts) ──────────────
+  const sidebarHandleRef = useRef<ReaderCollapsibleSidebarHandle>(null);
+
   // ── Tap-to-reveal popup state ───────────────────────────────────
   const [popupData, setPopupData] = useState<WordPopupData | null>(null);
 
@@ -202,27 +205,6 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
       cancelled = true;
     };
   }, [mode, hasZh, articleId, pageNumber, page.mode]);
-
-  // ── Three-way language toggle ───────────────────────────────────
-  const threeWayLang: ThreeWayLang =
-    mode === 'bilingual' ? 'bilingual'
-      : mode === 'single' && displayLang === 'source' ? 'jp'
-      : 'en';
-
-  const targetToggleLabel = targetLangChoice === 'zh' ? '中文' : 'EN';
-
-  const handleThreeWayToggle = useCallback((sel: ThreeWayLang) => {
-    scrollRestoreRef.current = contentRef.current?.scrollTop ?? null;
-    if (sel === 'jp') {
-      setMode('single');
-      setDisplayLang('source');
-    } else if (sel === 'bilingual') {
-      setMode('bilingual');
-    } else {
-      setMode('single');
-      setDisplayLang('target');
-    }
-  }, []);
 
   // Restore scroll position after mode/displayLang change
   useEffect(() => {
@@ -372,8 +354,8 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
     onCloseAll: () => setKeyboardHelpOpen(false),
     anyPanelOpen: keyboardHelpOpen,
     onToggleBookmark: toggleBookmark,
-    onToggleSettings: () => { /* settings moved to sidebar — noop */ },
-    onOpenSearch: () => { /* search moved to sidebar — noop */ },
+    onToggleSettings: () => sidebarHandleRef.current?.openSection('settings'),
+    onOpenSearch: () => sidebarHandleRef.current?.openSection('search'),
     onToggleHelp: () => setKeyboardHelpOpen((o) => !o),
   });
 
@@ -566,6 +548,7 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
       <div className="flex flex-1 min-h-0">
         {/* Collapsible sidebar (desktop: icon rail or expanded panel; mobile: overlay) */}
         <ReaderCollapsibleSidebar
+          ref={sidebarHandleRef}
           /* nav */
           bookId={bookId}
           articleId={articleId}
@@ -758,13 +741,10 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
 
         {/* ── Mobile bottom reading bar ──────────────────────── */}
         <MobileBottomBar
-          langSelection={threeWayLang}
-          onLangChange={handleThreeWayToggle}
-          targetLabel={targetToggleLabel}
           fontSize={fontSize}
           onIncreaseFontSize={increaseFontSize}
           onDecreaseFontSize={decreaseFontSize}
-          onOpenToc={() => { /* sidebar handles TOC on mobile via overlay */ }}
+          onOpenSidebar={() => sidebarHandleRef.current?.openSection('nav')}
           prevArticleHref={null}
           nextArticleHref={null}
           scrollParent={scrollParent}

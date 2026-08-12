@@ -4,22 +4,14 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type ThreeWayLang = 'jp' | 'bilingual' | 'en'
-
 interface MobileBottomBarProps {
-    /** Current three-way language selection. */
-    langSelection: ThreeWayLang
-    /** Called when user picks a different language mode. */
-    onLangChange: (sel: ThreeWayLang) => void
-    /** Target language label for the EN button (e.g. "EN" or "中文"). */
-    targetLabel: string
     /** Current font size value in px. */
     fontSize: number
     /** Callbacks for font size adjustment. */
     onIncreaseFontSize: () => void
     onDecreaseFontSize: () => void
-    /** Open the table-of-contents sidebar. */
-    onOpenToc: () => void
+    /** Open the sidebar (replaces old TOC button). */
+    onOpenSidebar: () => void
     /** Previous article href (null if none). */
     prevArticleHref?: string | null
     /** Next article href (null if none). */
@@ -36,13 +28,10 @@ const TAP_TARGET = 'min-w-[48px] min-h-[48px]'
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function MobileBottomBar({
-    langSelection,
-    onLangChange,
-    targetLabel,
     fontSize,
     onIncreaseFontSize,
     onDecreaseFontSize,
-    onOpenToc,
+    onOpenSidebar,
     prevArticleHref,
     nextArticleHref,
     scrollParent,
@@ -84,15 +73,6 @@ export default function MobileBottomBar({
         return () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current) }
     }, [])
 
-    // ── Lang button styles ───────────────────────────────────────────────────
-
-    const langBtnClasses = (active: boolean) =>
-        `flex-1 ${TAP_TARGET} flex items-center justify-center text-sm font-semibold rounded-lg transition-colors ${
-            active
-                ? 'bg-blue-600 text-white'
-                : 'text-[var(--rt-text-muted)] hover:bg-[var(--rt-surface)]'
-        }`
-
     return (
         <nav
             className={`md:hidden fixed bottom-0 inset-x-0 z-30 transition-transform duration-300 ${
@@ -104,39 +84,8 @@ export default function MobileBottomBar({
             }}
             aria-label="Mobile reading controls"
         >
-            {/* ── Row 1: Language toggle ────────────────────────────────────── */}
-            <div className="flex items-center gap-1 px-2 pt-2">
-                <button
-                    type="button"
-                    onClick={() => onLangChange('jp')}
-                    className={langBtnClasses(langSelection === 'jp')}
-                    aria-pressed={langSelection === 'jp'}
-                    aria-label="Japanese only"
-                >
-                    JP
-                </button>
-                <button
-                    type="button"
-                    onClick={() => onLangChange('bilingual')}
-                    className={langBtnClasses(langSelection === 'bilingual')}
-                    aria-pressed={langSelection === 'bilingual'}
-                    aria-label="Bilingual"
-                >
-                    JP↔EN
-                </button>
-                <button
-                    type="button"
-                    onClick={() => onLangChange('en')}
-                    className={langBtnClasses(langSelection === 'en')}
-                    aria-pressed={langSelection === 'en'}
-                    aria-label={`${targetLabel} only`}
-                >
-                    {targetLabel}
-                </button>
-            </div>
-
-            {/* ── Row 2: Font size + navigation ─────────────────────────────── */}
-            <div className="flex items-center justify-between px-2 py-1.5">
+            {/* ── Font size + navigation + sidebar toggle ─────────── */}
+            <div className="flex items-center justify-between px-2 py-2">
                 {/* Font size controls */}
                 <div className="flex items-center gap-1">
                     <button
@@ -167,11 +116,11 @@ export default function MobileBottomBar({
                     </button>
                 </div>
 
-                {/* TOC button */}
+                {/* Sidebar / menu button */}
                 <button
                     type="button"
-                    onClick={onOpenToc}
-                    aria-label="Open table of contents"
+                    onClick={onOpenSidebar}
+                    aria-label="Open sidebar"
                     className={`${TAP_TARGET} flex items-center justify-center rounded-lg transition-colors`}
                     style={{ color: 'var(--rt-text)' }}
                 >

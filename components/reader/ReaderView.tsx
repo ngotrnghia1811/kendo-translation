@@ -22,7 +22,9 @@ import ReaderSettingsPanel from './ReaderSettingsPanel'
 import ReaderBookmarksPanel from './ReaderBookmarksPanel'
 import ReaderSidebar from './ReaderSidebar'
 import ReaderKeyboardHelpModal from './ReaderKeyboardHelpModal'
-import MobileBottomBar, { type ThreeWayLang } from './MobileBottomBar'
+import MobileBottomBar from './MobileBottomBar'
+
+type ThreeWayLang = 'jp' | 'bilingual' | 'en'
 import WordPopup, { type WordPopupData } from './WordPopup'
 
 interface ReaderViewProps {
@@ -1367,13 +1369,10 @@ export default function ReaderView({ segments, zhSegments, settings, title, titl
 
                 {/* ── Mobile bottom reading bar (Phase 3.4) ──────────────────────── */}
                 <MobileBottomBar
-                    langSelection={threeWayLang}
-                    onLangChange={handleThreeWayToggle}
-                    targetLabel={targetToggleLabel}
                     fontSize={fontSize}
                     onIncreaseFontSize={increaseFontSize}
                     onDecreaseFontSize={decreaseFontSize}
-                    onOpenToc={() => { setSidebarTab('toc'); setSidebarOpen(true) }}
+                    onOpenSidebar={() => { setSidebarTab('toc'); setSidebarOpen(true) }}
                     prevArticleHref={prevArticleHref}
                     nextArticleHref={nextArticleHref}
                     scrollParent={scrollParent}

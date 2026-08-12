@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react'
 import Link from 'next/link'
 import type { ReaderPage } from '@/types/reader'
 import type {
@@ -28,6 +28,11 @@ import type { ReaderBookmark } from '@/hooks/useReaderBookmarks'
 /* ------------------------------------------------------------------ */
 
 export type SidebarSection = 'nav' | 'view' | 'settings' | 'bookmarks' | 'search'
+
+/** Imperative handle exposed to parent (PageReader) for keyboard shortcuts. */
+export interface ReaderCollapsibleSidebarHandle {
+  openSection: (section: SidebarSection, focusSearchInput?: boolean) => void
+}
 
 export interface ReaderCollapsibleSidebarProps {
   /* ── Nav / breadcrumb ─────────────────────────────────── */
@@ -299,6 +304,7 @@ function NavSection({
   progressPercent,
   bookAuthor,
   bookSummary,
+  hasZh,
   readerPages,
 }: {
   bookId: string
@@ -315,6 +321,7 @@ function NavSection({
   progressPercent: number
   bookAuthor?: string | null
   bookSummary?: string | null
+  hasZh: boolean
   readerPages: ReaderPage[]
 }) {
   const activeRef = useRef<HTMLButtonElement | null>(null)
@@ -401,6 +408,39 @@ function NavSection({
             />
           </div>
         )}
+
+        {/* Download / Export */}
+        <div className="mt-2 pt-2" style={{ borderTop: '1px solid var(--rt-border)' }}>
+          <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--rt-text-muted)' }}>
+            Export
+          </p>
+          <div className="flex flex-col gap-0.5">
+            {(['en', 'zh'] as const)
+              .filter((l) => l === 'en' || hasZh)
+              .map((l) => (
+                <div key={l} className="flex items-center gap-1">
+                  <span className="text-[10px] w-5 text-right font-mono" style={{ color: 'var(--rt-text-muted)' }}>
+                    {l.toUpperCase()}
+                  </span>
+                  {(['txt', 'md'] as const).map((fmt) => (
+                    <a
+                      key={`${l}-${fmt}`}
+                      href={`/api/documents/${articleId}/export?format=${fmt}&lang=${l}`}
+                      download
+                      className="text-[10px] px-1.5 py-0.5 rounded border transition-colors hover:opacity-80"
+                      style={{
+                        color: 'var(--rt-text)',
+                        backgroundColor: 'var(--rt-surface)',
+                        borderColor: 'var(--rt-border)',
+                      }}
+                    >
+                      .{fmt}
+                    </a>
+                  ))}
+                </div>
+              ))}
+          </div>
+        </div>
       </div>
 
       {/* Page list */}
@@ -1115,7 +1155,8 @@ function SearchSection({
 /*  Main component                                                     */
 /* ------------------------------------------------------------------ */
 
-export default function ReaderCollapsibleSidebar(props: ReaderCollapsibleSidebarProps) {
+const ReaderCollapsibleSidebar = forwardRef<ReaderCollapsibleSidebarHandle, ReaderCollapsibleSidebarProps>(
+  function ReaderCollapsibleSidebar(props, ref) {
   const {
     bookId,
     articleId,
@@ -1183,6 +1224,13 @@ export default function ReaderCollapsibleSidebar(props: ReaderCollapsibleSidebar
     })
   }, [])
 
+  /* ── Imperative handle (for keyboard shortcuts) ─── */
+  useImperativeHandle(ref, () => ({
+    openSection(section: SidebarSection, _focus?: boolean) {
+      updateState({ expanded: true, activeSection: section })
+    },
+  }), [updateState])
+
   const handleExpand = useCallback(() => updateState({ expanded: true }), [updateState])
   const handleCollapse = useCallback(() => updateState({ expanded: false }), [updateState])
   const handleSelectSection = useCallback((section: SidebarSection) => {
@@ -1224,6 +1272,7 @@ export default function ReaderCollapsibleSidebar(props: ReaderCollapsibleSidebar
             progressPercent={progressPercent}
             bookAuthor={bookAuthor}
             bookSummary={bookSummary}
+            hasZh={hasZh}
             readerPages={readerPages}
           />
         )
@@ -1306,7 +1355,7 @@ export default function ReaderCollapsibleSidebar(props: ReaderCollapsibleSidebar
     return (
       <div className="hidden md:flex shrink-0 h-full" style={{ width: '52px' }}>
         <IconRail
-          activeSection={null}
+          activeSection={activeSection}
           onSelect={handleSelectSection}
           onExpand={handleExpand}
           bookmarksCount={bookmarks.length}
@@ -1438,4 +1487,6 @@ export default function ReaderCollapsibleSidebar(props: ReaderCollapsibleSidebar
       </div>
     </div>
   )
-}
+})
+
+export default ReaderCollapsibleSidebar
