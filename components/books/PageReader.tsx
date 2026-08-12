@@ -401,10 +401,17 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
     if (!seg) return null;
 
     if (mode === 'single') {
-      const text = displayLang === 'source' ? seg.source_text : seg.target_text || '';
+      // When displaying target lang, fall back to source text if target is empty.
+      // This ensures every segment renders something — no "blank gaps" in the reader.
+      const preferredText = displayLang === 'source' ? seg.source_text : seg.target_text;
+      const fallbackText = displayLang === 'source' ? seg.target_text : seg.source_text;
+      const text = (preferredText?.trim() ? preferredText : fallbackText) || '';
       if (!text.trim()) return null;
 
-      if (displayLang === 'source' && sourceLang === 'ja') {
+      // Determine the effective display language for styling (RubyText only applies to JA source)
+      const effectiveDisplayLang = (preferredText?.trim() ? displayLang : (displayLang === 'source' ? 'target' : 'source')) as 'source' | 'target';
+
+      if (effectiveDisplayLang === 'source' && sourceLang === 'ja') {
         return (
           <p className="text-base leading-relaxed mb-6" data-segment-index={index}>
             <RubyText
@@ -608,8 +615,8 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
             style={fontColor ? { ['--rt-text' as string]: fontColor } : undefined}
             onClick={handleContentClick}
           >
-            {/* Font family + size wrapper */}
-            <div data-reader-font={font} style={{ fontSize: fontSizeValue, minHeight: '100%' }}>
+            {/* Font family + size wrapper — flex column so Virtuoso fills remaining height */}
+            <div data-reader-font={font} style={{ fontSize: fontSizeValue, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
               {segments.length === 0 && mode !== 'pdf' ? (
             <div className="text-center py-20" style={{ color: 'var(--rt-text-muted)' }}>
               <p className="text-4xl mb-4">📄</p>
@@ -633,21 +640,20 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
               pdfPage={page.mode === 'source_page' ? pageNumber : null}
             />
           ) : (
-            <div
-              lang={mode === 'single' ? (displayLang === 'source' ? sourceLang : effectiveTargetLang) : undefined}
-              className={
-                focusMode
-                  ? 'max-w-[72ch] mx-auto py-8 px-4'
-                  : `${readerWidthClass} mx-auto py-8 px-4 ${mode === 'bilingual' ? 'space-y-8' : ''}`
-              }
-            >
-              <VirtualizedReader
-                ref={virtuosoRef}
-                totalCount={orderedSegments.length}
-                itemContent={renderSegmentItem}
-                computeItemKey={(i: number) => `seg-${orderedSegments[i]?.id ?? i}`}
-                customScrollParent={scrollParent}
-              />
+              <div
+                lang={mode === 'single' ? (displayLang === 'source' ? sourceLang : effectiveTargetLang) : undefined}
+                className={
+                  focusMode
+                    ? 'max-w-[72ch] mx-auto py-8 px-4 flex-1 flex flex-col min-h-0'
+                    : `${readerWidthClass} mx-auto py-8 px-4 flex-1 flex flex-col min-h-0 ${mode === 'bilingual' ? 'space-y-8' : ''}`
+                }
+              >
+                <VirtualizedReader
+                  ref={virtuosoRef}
+                  totalCount={orderedSegments.length}
+                  itemContent={renderSegmentItem}
+                  computeItemKey={(i: number) => `seg-${orderedSegments[i]?.id ?? i}`}
+                />
 
               {/* Legend — bilingual mode only */}
               {mode === 'bilingual' && (hasAnySource || hasAnyTarget) && (

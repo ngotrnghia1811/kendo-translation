@@ -1058,6 +1058,16 @@ test.describe('Page Reader Sidebar Redesign Verification', () => {
     await waitForReader(page)
     await snap('29_single')
 
+    // Wait for the first segment to be attached in the DOM
+    await page.waitForSelector('[data-segment-index]', { state: 'attached', timeout: 10000 })
+
+    // Scroll the Virtuoso scroller to trigger rendering of more virtual items
+    const scroller = page.locator('[data-virtuoso-scroller]')
+    if (await scroller.count() > 0) {
+      await scroller.evaluate((el) => { el.scrollTop = 2000 })
+      await page.waitForTimeout(800)
+    }
+
     // In Single mode: each segment should have its own <p> with data-segment-index
     const segParagraphs = page.locator('[data-segment-index]')
     const count = await segParagraphs.count()
@@ -1085,6 +1095,12 @@ test.describe('Page Reader Sidebar Redesign Verification', () => {
       await snap('29_bilingual')
 
       // In Bilingual mode: each segment should be a distinct block
+      // Scroll again to populate virtual items
+      const scroller2 = page.locator('[data-virtuoso-scroller]')
+      if (await scroller2.count() > 0) {
+        await scroller2.evaluate((el) => { el.scrollTop = 2000 })
+        await page.waitForTimeout(800)
+      }
       const bilingualBlocks = page.locator('[data-segment-index]')
       const bilingualCount = await bilingualBlocks.count()
       console.log(`29: Bilingual mode — segment blocks = ${bilingualCount}`)

@@ -1097,16 +1097,30 @@ function SearchSection({
   pageNoun,
   onGoToPage,
   inStack,
+  focusOnMount,
+  onFocused,
 }: {
   pages: ReaderPage[]
   pageNoun: string
   onGoToPage: (i: number) => void
   inStack?: boolean
+  /** When > 0, auto-focus the search input (set by '/' shortcut). */
+  focusOnMount?: number
+  /** Called after auto-focus completes so the parent can reset the trigger. */
+  onFocused?: () => void
 }) {
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement | null>(null)
 
-  useEffect(() => { inputRef.current?.focus() }, [])
+  // Only auto-focus when explicitly triggered (e.g. '/' shortcut).
+  // Never auto-focus on normal page navigation — prevents the search
+  // input from stealing focus and suppressing keyboard shortcuts.
+  useEffect(() => {
+    if (focusOnMount && focusOnMount > 0) {
+      inputRef.current?.focus()
+      onFocused?.()
+    }
+  }, [focusOnMount, onFocused])
 
   const results = useMemo(() => searchPagesFn(pages, query), [pages, query])
   const hasQuery = query.trim().length > 0
@@ -1260,6 +1274,9 @@ const ReaderCollapsibleSidebar = forwardRef<ReaderCollapsibleSidebarHandle, Read
   const bookmarksSectionRef = useRef<HTMLDivElement | null>(null)
   const searchSectionRef = useRef<HTMLDivElement | null>(null)
 
+  /* Search auto-focus trigger (incremented on '/' shortcut) */
+  const [searchFocusTrigger, setSearchFocusTrigger] = useState(0)
+
   /* Resize state */
   const [resizing, setResizing] = useState(false)
   const resizeStartXRef = useRef(0)
@@ -1300,7 +1317,13 @@ const ReaderCollapsibleSidebar = forwardRef<ReaderCollapsibleSidebarHandle, Read
     openSection(section: SidebarSection) {
       updateState({ expanded: true })
       // Scroll after expand render
-      requestAnimationFrame(() => scrollToSection(section))
+      requestAnimationFrame(() => {
+        scrollToSection(section)
+        // For '/' shortcut: trigger search input focus after scroll
+        if (section === 'search') {
+          setSearchFocusTrigger((n) => n + 1)
+        }
+      })
     },
   }), [updateState, scrollToSection])
 
@@ -1311,6 +1334,8 @@ const ReaderCollapsibleSidebar = forwardRef<ReaderCollapsibleSidebarHandle, Read
     updateState({ expanded: true })
     requestAnimationFrame(() => scrollToSection(section))
   }, [updateState, scrollToSection])
+
+  const handleSearchFocused = useCallback(() => setSearchFocusTrigger(0), [])
 
   /* ── Resize handlers ─────────────────────────────── */
   const sidebarWidthRef = useRef(sidebarWidth)
@@ -1435,6 +1460,8 @@ const ReaderCollapsibleSidebar = forwardRef<ReaderCollapsibleSidebarHandle, Read
           pages={readerPages} pageNoun={pageNoun}
           onGoToPage={(i) => { onGoToPage(i); if (mobile) handleCollapse() }}
           inStack
+          focusOnMount={searchFocusTrigger}
+          onFocused={handleSearchFocused}
         />
       </div>
     </>

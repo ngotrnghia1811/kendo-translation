@@ -70,7 +70,7 @@ const VirtualizedReader = forwardRef<VirtuosoHandle, VirtualizedReaderProps>(
                 onScroll={handleScroll}
                 // Virtuoso defaults to 100vh height; when using a
                 // customScrollParent we want it to fill the parent.
-                style={{ height: '100%' }}
+                style={{ flex: 1 }}
             />
         )
     },
