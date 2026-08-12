@@ -39,44 +39,11 @@ export interface PageReaderProps {
 
 const FALLBACK_CHUNK_SIZE = 50; // must match hooks/useReaderView.ts
 
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                           */
-/* ------------------------------------------------------------------ */
-
-/** Group ordered segments into paragraphs using paragraph_boundaries. */
-function groupParagraphs(segments: PageSegment[], boundaries: Set<number>): { segments: PageSegment[]; position: number }[] {
-  const result: { segments: PageSegment[]; position: number }[] = [];
-  let currentParagraph: PageSegment[] = [];
-  let paragraphStart = segments.length ? segments[0].position : 0;
-
-  for (const segment of segments) {
-    if (boundaries.has(segment.position) && currentParagraph.length > 0) {
-      result.push({ segments: currentParagraph, position: paragraphStart });
-      currentParagraph = [];
-      paragraphStart = segment.position;
-    }
-    currentParagraph.push(segment);
-  }
-
-  if (currentParagraph.length > 0) {
-    result.push({ segments: currentParagraph, position: paragraphStart });
-  }
-
-  return result;
-}
-
-/** Build concatenated RubySpan[] from paragraph segments for furigana rendering. */
-function getParagraphRubySpans(segments: PageSegment[]): RubySpan[] {
-  const spans: RubySpan[] = [];
-  for (const seg of segments) {
-    const rubySpans = seg.ruby_data?.spans as RubySpan[] | undefined;
-    if (rubySpans && rubySpans.length > 0) {
-      spans.push(...rubySpans);
-    } else {
-      spans.push({ type: 'text', text: seg.source_text });
-    }
-  }
-  return spans;
+/** Build RubySpan[] for a single segment's furigana rendering. */
+function getSegmentRubySpans(seg: PageSegment): RubySpan[] {
+  const rubySpans = seg.ruby_data?.spans as RubySpan[] | undefined;
+  if (rubySpans && rubySpans.length > 0) return rubySpans;
+  return [{ type: 'text', text: seg.source_text }];
 }
 
 /* ------------------------------------------------------------------ */
@@ -219,20 +186,16 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
     }
   }, [mode, displayLang]);
 
-  // ── Paragraph grouping ─────────────────────────────────────────
+  // ── Ordered segments (per-segment rendering, each segment = its own block) ─
   const segments = page.segments;
 
-  const paragraphs = useMemo(() => {
+  const orderedSegments = useMemo(() => {
     if (!segments.length) return [];
-    const ordered = [...segments].sort((a, b) => a.position - b.position);
-    const boundaries = new Set(page.settings?.paragraph_boundaries ?? [0]);
-    return groupParagraphs(ordered, boundaries);
-  }, [segments, page.settings?.paragraph_boundaries]);
-
-  // For the download/export feature, build a flat segment list
-  const allSegmentsForDownload = useMemo(() => {
     return [...segments].sort((a, b) => a.position - b.position);
   }, [segments]);
+
+  // For the download/export feature, same flat list
+  const allSegmentsForDownload = orderedSegments;
 
   // ── Page navigation (Next.js routing) ──────────────────────────
   const hasPrev = pageNumber > 1;
@@ -385,20 +348,16 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
       }
 
       if (mode === 'single' && displayLang === 'source') {
-        const paraEl = (e.target as HTMLElement).closest('[data-paragraph-index]');
-        if (paraEl instanceof HTMLElement) {
-          const idxStr = paraEl.getAttribute('data-paragraph-index');
+        const segEl = (e.target as HTMLElement).closest('[data-segment-index]');
+        if (segEl instanceof HTMLElement) {
+          const idxStr = segEl.getAttribute('data-segment-index');
           const idx = idxStr ? parseInt(idxStr, 10) : -1;
-          if (idx >= 0 && idx < paragraphs.length) {
-            const para = paragraphs[idx];
-            const joiner = /^(ja|zh|ko)/.test(targetLang) ? '' : ' ';
-            const targetText = para.segments
-              .map((s) => s.target_text || '')
-              .filter(Boolean)
-              .join(joiner);
+          if (idx >= 0 && idx < orderedSegments.length) {
+            const seg = orderedSegments[idx];
+            const targetText = seg.target_text || '';
             const noTranslation = !targetText || targetText.trim().length === 0;
             setPopupData({
-              anchorRect: paraEl.getBoundingClientRect(),
+              anchorRect: segEl.getBoundingClientRect(),
               base: null,
               reading: null,
               romaji: null,
@@ -413,7 +372,7 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
 
       setPopupData(null);
     },
-    [tapRevealEnabled, mode, displayLang, paragraphs, targetLang],
+    [tapRevealEnabled, mode, displayLang, orderedSegments, targetLang],
   );
 
   // ── Focus mode esc handler ─────────────────────────────────────
@@ -436,28 +395,20 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
     : mode === 'bilingual' ? 'max-w-3xl'
     : 'max-w-2xl';
 
-  // ── Paragraph renderer (for VirtualizedReader) ─────────────────
-  function renderParagraphItem(index: number): React.ReactNode {
-    const paragraph = paragraphs[index];
-    if (!paragraph) return null;
-
-    const segs = paragraph.segments;
+  // ── Segment renderer (for VirtualizedReader) — each segment is its own block ─
+  function renderSegmentItem(index: number): React.ReactNode {
+    const seg = orderedSegments[index];
+    if (!seg) return null;
 
     if (mode === 'single') {
-      const joiner = displayLang === 'source'
-        ? (/^(ja|zh|ko)/.test(sourceLang) ? '' : ' ')
-        : (/^(ja|zh|ko)/.test(effectiveTargetLang) ? '' : ' ');
-      const text = segs
-        .map((s) => (displayLang === 'source' ? s.source_text : s.target_text || ''))
-        .filter(Boolean)
-        .join(joiner);
+      const text = displayLang === 'source' ? seg.source_text : seg.target_text || '';
       if (!text.trim()) return null;
 
       if (displayLang === 'source' && sourceLang === 'ja') {
         return (
-          <p className="text-base leading-relaxed mb-6" data-paragraph-index={index}>
+          <p className="text-base leading-relaxed mb-6" data-segment-index={index}>
             <RubyText
-              spans={getParagraphRubySpans(segs)}
+              spans={getSegmentRubySpans(seg)}
               furiganaMode={furiganaMode}
               furiganaJlptMinLevel={furiganaJlptMinLevel}
             />
@@ -465,27 +416,25 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
         );
       }
       return (
-        <p className="text-base leading-relaxed mb-6" data-paragraph-index={index}>
+        <p className="text-base leading-relaxed mb-6" data-segment-index={index}>
           {text}
         </p>
       );
     }
 
-    // bilingual mode
-    const srcJoiner = /^(ja|zh|ko)/.test(sourceLang) ? '' : ' ';
-    const tgtJoiner = /^(ja|zh|ko)/.test(effectiveTargetLang) ? '' : ' ';
-    const sourceText = segs.map((s) => s.source_text).filter(Boolean).join(srcJoiner);
-    const targetText = segs.map((s) => s.target_text || '').filter(Boolean).join(tgtJoiner);
+    // bilingual mode — each segment is rendered as its own side-by-side block
+    const sourceText = seg.source_text;
+    const targetText = seg.target_text || '';
     if (!sourceText.trim() && !targetText.trim()) return null;
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-x-4 gap-y-1" data-paragraph-index={index}>
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-x-4 gap-y-1 mb-4" data-segment-index={index}>
         {sourceText.trim() && (
           <div lang={sourceLang} className="border-l-4 border-red-400 dark:border-red-500/70 pl-4 py-2">
             <p className="text-base leading-relaxed">
               {sourceLang === 'ja' ? (
                 <RubyText
-                  spans={getParagraphRubySpans(segs)}
+                  spans={getSegmentRubySpans(seg)}
                   furiganaMode={furiganaMode}
                   furiganaJlptMinLevel={furiganaJlptMinLevel}
                 />
@@ -506,11 +455,11 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
   }
 
   // Check if any source/target text for legend
-  const hasAnySource = paragraphs.some((p) =>
-    p.segments.some((s) => s.source_text && s.source_text.trim()),
+  const hasAnySource = orderedSegments.some(
+    (s) => s.source_text && s.source_text.trim(),
   );
-  const hasAnyTarget = paragraphs.some((p) =>
-    p.segments.some((s) => s.target_text && s.target_text.trim()),
+  const hasAnyTarget = orderedSegments.some(
+    (s) => s.target_text && s.target_text.trim(),
   );
 
   // ── Build reader pages list for sidebar ─────────────────────────
@@ -694,9 +643,9 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
             >
               <VirtualizedReader
                 ref={virtuosoRef}
-                totalCount={paragraphs.length}
-                itemContent={renderParagraphItem}
-                computeItemKey={(i: number) => `p-${paragraphs[i]?.position ?? i}`}
+                totalCount={orderedSegments.length}
+                itemContent={renderSegmentItem}
+                computeItemKey={(i: number) => `seg-${orderedSegments[i]?.id ?? i}`}
                 customScrollParent={scrollParent}
               />
 

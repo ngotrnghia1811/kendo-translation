@@ -102,24 +102,29 @@ export interface ReaderCollapsibleSidebarProps {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Persistence                                                       */
+/*  Persistence (expanded state + sidebar width)                       */
 /* ------------------------------------------------------------------ */
 
 const SIDEBAR_STORAGE_KEY = 'reader-sidebar-state'
+const SIDEBAR_WIDTH_KEY = 'reader-sidebar-width'
+const DEFAULT_SIDEBAR_WIDTH = 300
+const MIN_SIDEBAR_WIDTH = 240
+const MAX_SIDEBAR_WIDTH = 600
 
 interface SidebarState {
   expanded: boolean
-  activeSection: SidebarSection
 }
 
 function loadSidebarState(): SidebarState {
-  if (typeof window === 'undefined') return { expanded: false, activeSection: 'nav' }
+  if (typeof window === 'undefined') return { expanded: false }
   try {
     const raw = localStorage.getItem(SIDEBAR_STORAGE_KEY)
-    if (!raw) return { expanded: false, activeSection: 'nav' }
-    return JSON.parse(raw) as SidebarState
+    if (!raw) return { expanded: false }
+    const parsed = JSON.parse(raw)
+    // Accept both old format (with activeSection) and new format
+    return { expanded: !!(parsed.expanded ?? false) }
   } catch {
-    return { expanded: false, activeSection: 'nav' }
+    return { expanded: false }
   }
 }
 
@@ -127,6 +132,25 @@ function saveSidebarState(state: SidebarState) {
   if (typeof window === 'undefined') return
   try {
     localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(state))
+  } catch { /* ignore */ }
+}
+
+function loadSidebarWidth(): number {
+  if (typeof window === 'undefined') return DEFAULT_SIDEBAR_WIDTH
+  try {
+    const raw = localStorage.getItem(SIDEBAR_WIDTH_KEY)
+    if (!raw) return DEFAULT_SIDEBAR_WIDTH
+    const v = parseInt(raw, 10)
+    return isNaN(v) || v < MIN_SIDEBAR_WIDTH ? DEFAULT_SIDEBAR_WIDTH : v
+  } catch {
+    return DEFAULT_SIDEBAR_WIDTH
+  }
+}
+
+function saveSidebarWidth(w: number) {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, String(w))
   } catch { /* ignore */ }
 }
 
@@ -219,13 +243,12 @@ function CloseIcon() {
 /* ------------------------------------------------------------------ */
 
 interface IconRailProps {
-  activeSection: SidebarSection | null
-  onSelect: (section: SidebarSection) => void
+  onScrollTo: (section: SidebarSection) => void
   onExpand: () => void
   bookmarksCount: number
 }
 
-function IconRail({ activeSection, onSelect, onExpand, bookmarksCount }: IconRailProps) {
+function IconRail({ onScrollTo, onExpand, bookmarksCount }: IconRailProps) {
   const sections: { key: SidebarSection; label: string; icon: React.ReactNode; badge?: number }[] = [
     { key: 'nav', label: 'Contents', icon: <TocIcon /> },
     { key: 'view', label: 'View & Language', icon: <LangIcon /> },
@@ -261,13 +284,9 @@ function IconRail({ activeSection, onSelect, onExpand, bookmarksCount }: IconRai
             type="button"
             aria-label={label}
             title={label}
-            onClick={() => onSelect(key)}
-            className="w-9 h-9 flex items-center justify-center rounded-lg transition-colors"
-            style={
-              activeSection === key
-                ? { backgroundColor: '#3b82f6', color: '#fff' }
-                : { color: 'var(--rt-text-muted)' }
-            }
+            onClick={() => onScrollTo(key)}
+            className="w-9 h-9 flex items-center justify-center rounded-lg transition-colors hover:opacity-80"
+            style={{ color: 'var(--rt-text-muted)' }}
           >
             {icon}
           </button>
@@ -306,6 +325,7 @@ function NavSection({
   bookSummary,
   hasZh,
   readerPages,
+  inStack,
 }: {
   bookId: string
   articleId: string
@@ -323,6 +343,7 @@ function NavSection({
   bookSummary?: string | null
   hasZh: boolean
   readerPages: ReaderPage[]
+  inStack?: boolean
 }) {
   const activeRef = useRef<HTMLButtonElement | null>(null)
 
@@ -331,7 +352,7 @@ function NavSection({
   }, [currentPageIndex])
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+    <div className={inStack ? 'flex flex-col' : 'flex flex-col flex-1 min-h-0 overflow-hidden'}>
       {/* Breadcrumb */}
       <div className="px-4 py-3 shrink-0" style={{ borderBottom: '1px solid var(--rt-border)' }}>
         <div className="flex items-center gap-1.5 text-sm">
@@ -444,7 +465,7 @@ function NavSection({
       </div>
 
       {/* Page list */}
-      <div className="flex flex-col gap-px overflow-y-auto flex-1 px-2 py-2">
+      <div className={`flex flex-col gap-px ${inStack ? 'max-h-48 overflow-y-auto' : 'overflow-y-auto flex-1'} px-2 py-2`}>
         {readerPages.length === 0 ? (
           <p className="text-xs p-3" style={{ color: 'var(--rt-text-muted)' }}>No pages available.</p>
         ) : (
@@ -641,6 +662,7 @@ function SettingsSection({
   focusMode,
   onFocusModeToggle,
   fontSize,
+  inStack,
 }: {
   theme: ReaderTheme
   font: ReaderFont
@@ -662,9 +684,10 @@ function SettingsSection({
   onTapRevealEnabledChange: (v: boolean) => void
   focusMode: boolean
   onFocusModeToggle: () => void
+  inStack?: boolean
 }) {
   return (
-    <div className="p-4 space-y-5 overflow-y-auto flex-1">
+    <div className={inStack ? 'p-4 space-y-5' : 'p-4 space-y-5 overflow-y-auto flex-1'}>
       {/* ── Theme ─────────────────────────────────────── */}
       <section>
         <h3 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--rt-text-muted)' }}>
@@ -947,6 +970,7 @@ function BookmarksSection({
   onRemove,
   isBookmarked,
   onToggleBookmark,
+  inStack,
 }: {
   bookmarks: ReaderBookmark[]
   currentPageIndex: number
@@ -955,9 +979,10 @@ function BookmarksSection({
   onRemove: (i: number) => void
   isBookmarked: boolean
   onToggleBookmark: () => void
+  inStack?: boolean
 }) {
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+    <div className={inStack ? 'flex flex-col' : 'flex flex-col flex-1 min-h-0 overflow-hidden'}>
       {/* Bookmark toggle for current page */}
       <div className="px-4 py-3 shrink-0" style={{ borderBottom: '1px solid var(--rt-border)' }}>
         <button
@@ -976,7 +1001,7 @@ function BookmarksSection({
       </div>
 
       {/* Bookmark list */}
-      <div className="overflow-y-auto flex-1">
+      <div className={inStack ? 'max-h-48 overflow-y-auto' : 'overflow-y-auto flex-1'}>
         {bookmarks.length === 0 ? (
           <p className="text-sm text-center py-8 px-4" style={{ color: 'var(--rt-text-muted)' }}>
             No bookmarks yet.
@@ -1071,10 +1096,12 @@ function SearchSection({
   pages,
   pageNoun,
   onGoToPage,
+  inStack,
 }: {
   pages: ReaderPage[]
   pageNoun: string
   onGoToPage: (i: number) => void
+  inStack?: boolean
 }) {
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -1094,7 +1121,7 @@ function SearchSection({
   }, [results])
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+    <div className={inStack ? 'flex flex-col' : 'flex flex-col flex-1 min-h-0 overflow-hidden'}>
       <div className="p-3 shrink-0">
         <div className="flex items-center gap-2 rounded-lg border px-3 py-2" style={{ backgroundColor: 'var(--rt-surface)', borderColor: 'var(--rt-border)' }}>
           <SearchIcon />
@@ -1113,7 +1140,7 @@ function SearchSection({
           )}
         </div>
       </div>
-      <div className="overflow-y-auto flex-1 px-3 pb-4">
+      <div className={inStack ? 'max-h-64 overflow-y-auto px-3 pb-4' : 'overflow-y-auto flex-1 px-3 pb-4'}>
         {!hasQuery && <p className="text-sm text-center py-8" style={{ color: 'var(--rt-text-muted)' }}>Type to search across all pages</p>}
         {hasQuery && results.length === 0 && <p className="text-sm text-center py-8" style={{ color: 'var(--rt-text-muted)' }}>No results for &ldquo;{query}&rdquo;</p>}
         {hasQuery && results.length > 0 && (
@@ -1147,6 +1174,25 @@ function SearchSection({
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Section header helper                                              */
+/* ------------------------------------------------------------------ */
+
+function SectionHeader({ label, count }: { label: string; count?: number }) {
+  return (
+    <div className="px-4 py-2" style={{ backgroundColor: 'var(--rt-surface)', borderBottom: '1px solid var(--rt-border)' }}>
+      <h3 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--rt-text-muted)' }}>
+        {label}
+        {count !== undefined && count > 0 && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: '#3b82f6', color: '#fff' }}>
+            {count}
+          </span>
+        )}
+      </h3>
     </div>
   )
 }
@@ -1202,9 +1248,22 @@ const ReaderCollapsibleSidebar = forwardRef<ReaderCollapsibleSidebarHandle, Read
   } = props
 
   const [sidebarState, setSidebarState] = useState<SidebarState>(loadSidebarState)
-  const { expanded, activeSection } = sidebarState
+  const { expanded } = sidebarState
+  const [sidebarWidth, setSidebarWidth] = useState<number>(loadSidebarWidth)
   const sidebarRef = useRef<HTMLDivElement | null>(null)
   const [isMobile, setIsMobile] = useState(false)
+
+  /* Section refs for scroll-to navigation */
+  const navSectionRef = useRef<HTMLDivElement | null>(null)
+  const viewSectionRef = useRef<HTMLDivElement | null>(null)
+  const settingsSectionRef = useRef<HTMLDivElement | null>(null)
+  const bookmarksSectionRef = useRef<HTMLDivElement | null>(null)
+  const searchSectionRef = useRef<HTMLDivElement | null>(null)
+
+  /* Resize state */
+  const [resizing, setResizing] = useState(false)
+  const resizeStartXRef = useRef(0)
+  const resizeStartWidthRef = useRef(0)
 
   /* ── Detect mobile ──────────────────────────────── */
   useEffect(() => {
@@ -1224,18 +1283,75 @@ const ReaderCollapsibleSidebar = forwardRef<ReaderCollapsibleSidebarHandle, Read
     })
   }, [])
 
+  /* ── Scroll to section helper ────────────────────── */
+  const scrollToSection = useCallback((section: SidebarSection) => {
+    const refMap: Record<SidebarSection, React.RefObject<HTMLDivElement | null>> = {
+      nav: navSectionRef,
+      view: viewSectionRef,
+      settings: settingsSectionRef,
+      bookmarks: bookmarksSectionRef,
+      search: searchSectionRef,
+    }
+    refMap[section]?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
+
   /* ── Imperative handle (for keyboard shortcuts) ─── */
   useImperativeHandle(ref, () => ({
-    openSection(section: SidebarSection, _focus?: boolean) {
-      updateState({ expanded: true, activeSection: section })
+    openSection(section: SidebarSection) {
+      updateState({ expanded: true })
+      // Scroll after expand render
+      requestAnimationFrame(() => scrollToSection(section))
     },
-  }), [updateState])
+  }), [updateState, scrollToSection])
 
   const handleExpand = useCallback(() => updateState({ expanded: true }), [updateState])
   const handleCollapse = useCallback(() => updateState({ expanded: false }), [updateState])
-  const handleSelectSection = useCallback((section: SidebarSection) => {
-    updateState({ expanded: true, activeSection: section })
-  }, [updateState])
+
+  const handleScrollTo = useCallback((section: SidebarSection) => {
+    updateState({ expanded: true })
+    requestAnimationFrame(() => scrollToSection(section))
+  }, [updateState, scrollToSection])
+
+  /* ── Resize handlers ─────────────────────────────── */
+  const sidebarWidthRef = useRef(sidebarWidth)
+  sidebarWidthRef.current = sidebarWidth
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setResizing(true)
+    resizeStartXRef.current = e.clientX
+    resizeStartWidthRef.current = sidebarWidthRef.current
+  }, [])
+
+  useEffect(() => {
+    if (!resizing) return
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = e.clientX - resizeStartXRef.current
+      const newWidth = Math.min(
+        MAX_SIDEBAR_WIDTH,
+        Math.max(MIN_SIDEBAR_WIDTH, resizeStartWidthRef.current + delta)
+      )
+      setSidebarWidth(newWidth)
+    }
+    const handleMouseUp = () => {
+      setResizing(false)
+    }
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [resizing])
+
+  // Persist width when resize ends
+  const prevResizing = useRef(resizing)
+  useEffect(() => {
+    if (prevResizing.current && !resizing) {
+      saveSidebarWidth(sidebarWidth)
+    }
+    prevResizing.current = resizing
+  }, [resizing, sidebarWidth])
 
   /* ── Close on Escape ─────────────────────────────── */
   useEffect(() => {
@@ -1252,111 +1368,95 @@ const ReaderCollapsibleSidebar = forwardRef<ReaderCollapsibleSidebarHandle, Read
     }
   }, [handleCollapse])
 
-  /* ── Content area ────────────────────────────────── */
-  const renderSectionContent = () => {
-    switch (activeSection) {
-      case 'nav':
-        return (
-          <NavSection
-            bookId={bookId}
-            articleId={articleId}
-            pageNumber={pageNumber}
-            totalPages={totalPages}
-            currentPageIndex={currentPageIndex}
-            pageNoun={pageNoun}
-            displayTitle={displayTitle}
-            hasJapaneseTitle={hasJapaneseTitle}
-            titleLanguage={titleLanguage}
-            onToggleTitleLanguage={onToggleTitleLanguage}
-            onGoToPage={(i) => { onGoToPage(i); if (isMobile) handleCollapse() }}
-            progressPercent={progressPercent}
-            bookAuthor={bookAuthor}
-            bookSummary={bookSummary}
-            hasZh={hasZh}
-            readerPages={readerPages}
-          />
-        )
-      case 'view':
-        return (
-          <ViewLanguageSection
-            mode={mode}
-            onModeChange={onModeChange}
-            displayLang={displayLang}
-            onDisplayLangChange={onDisplayLangChange}
-            targetLangChoice={targetLangChoice}
-            onTargetLangChoiceChange={onTargetLangChoiceChange}
-            sourceLang={sourceLang}
-            targetLang={targetLang}
-            hasZh={hasZh}
-            canEdit={canEdit}
-            pdfAvailable={pdfAvailable}
-          />
-        )
-      case 'settings':
-        return (
-          <SettingsSection
-            theme={theme} font={font} fontSize={fontSize} fontSizeValue={fontSizeValue}
-            fontColor={fontColor} layoutWidth={layoutWidth}
-            onThemeChange={onThemeChange} onFontChange={onFontChange}
-            onFontColorChange={onFontColorChange} onLayoutWidthChange={onLayoutWidthChange}
-            onIncreaseFontSize={onIncreaseFontSize} onDecreaseFontSize={onDecreaseFontSize}
-            furiganaMode={furiganaMode} onFuriganaModeChange={onFuriganaModeChange}
-            furiganaJlptMinLevel={furiganaJlptMinLevel} onFuriganaJlptMinLevelChange={onFuriganaJlptMinLevelChange}
-            tapRevealEnabled={tapRevealEnabled} onTapRevealEnabledChange={onTapRevealEnabledChange}
-            focusMode={focusMode} onFocusModeToggle={onFocusModeToggle}
-          />
-        )
-      case 'bookmarks':
-        return (
-          <BookmarksSection
-            bookmarks={bookmarks}
-            currentPageIndex={currentPageIndex}
-            pageNoun={pageNoun}
-            onJumpTo={(i) => { onJumpToBookmark(i); if (isMobile) handleCollapse() }}
-            onRemove={onRemoveBookmark}
-            isBookmarked={isBookmarked}
-            onToggleBookmark={onToggleBookmark}
-          />
-        )
-      case 'search':
-        return (
-          <SearchSection
-            pages={readerPages}
-            pageNoun={pageNoun}
-            onGoToPage={(i) => { onGoToPage(i); if (isMobile) handleCollapse() }}
-          />
-        )
-      default:
-        return null
-    }
-  }
+  /* ── Stacked sections (reusable) ─────────────────── */
+  const renderStackedSections = (mobile: boolean) => (
+    <>
+      {/* Nav */}
+      <div ref={navSectionRef}>
+        <SectionHeader label="Navigation" />
+        <NavSection
+          bookId={bookId} articleId={articleId} pageNumber={pageNumber}
+          totalPages={totalPages} currentPageIndex={currentPageIndex}
+          pageNoun={pageNoun} displayTitle={displayTitle}
+          hasJapaneseTitle={hasJapaneseTitle} titleLanguage={titleLanguage}
+          onToggleTitleLanguage={onToggleTitleLanguage}
+          onGoToPage={(i) => { onGoToPage(i); if (mobile) handleCollapse() }}
+          progressPercent={progressPercent} bookAuthor={bookAuthor}
+          bookSummary={bookSummary} hasZh={hasZh} readerPages={readerPages}
+          inStack
+        />
+      </div>
+
+      {/* View & Language */}
+      <div ref={viewSectionRef} style={{ borderTop: '1px solid var(--rt-border)' }}>
+        <SectionHeader label="View & Language" />
+        <ViewLanguageSection
+          mode={mode} onModeChange={onModeChange}
+          displayLang={displayLang} onDisplayLangChange={onDisplayLangChange}
+          targetLangChoice={targetLangChoice} onTargetLangChoiceChange={onTargetLangChoiceChange}
+          sourceLang={sourceLang} targetLang={targetLang}
+          hasZh={hasZh} canEdit={canEdit} pdfAvailable={pdfAvailable}
+        />
+      </div>
+
+      {/* Settings */}
+      <div ref={settingsSectionRef} style={{ borderTop: '1px solid var(--rt-border)' }}>
+        <SectionHeader label="Settings" />
+        <SettingsSection
+          theme={theme} font={font} fontSize={fontSize} fontSizeValue={fontSizeValue}
+          fontColor={fontColor} layoutWidth={layoutWidth}
+          onThemeChange={onThemeChange} onFontChange={onFontChange}
+          onFontColorChange={onFontColorChange} onLayoutWidthChange={onLayoutWidthChange}
+          onIncreaseFontSize={onIncreaseFontSize} onDecreaseFontSize={onDecreaseFontSize}
+          furiganaMode={furiganaMode} onFuriganaModeChange={onFuriganaModeChange}
+          furiganaJlptMinLevel={furiganaJlptMinLevel} onFuriganaJlptMinLevelChange={onFuriganaJlptMinLevelChange}
+          tapRevealEnabled={tapRevealEnabled} onTapRevealEnabledChange={onTapRevealEnabledChange}
+          focusMode={focusMode} onFocusModeToggle={onFocusModeToggle}
+          inStack
+        />
+      </div>
+
+      {/* Bookmarks */}
+      <div ref={bookmarksSectionRef} style={{ borderTop: '1px solid var(--rt-border)' }}>
+        <SectionHeader label="Bookmarks" count={bookmarks.length} />
+        <BookmarksSection
+          bookmarks={bookmarks} currentPageIndex={currentPageIndex} pageNoun={pageNoun}
+          onJumpTo={(i) => { onJumpToBookmark(i); if (mobile) handleCollapse() }}
+          onRemove={onRemoveBookmark} isBookmarked={isBookmarked}
+          onToggleBookmark={onToggleBookmark}
+          inStack
+        />
+      </div>
+
+      {/* Search */}
+      <div ref={searchSectionRef} style={{ borderTop: '1px solid var(--rt-border)' }}>
+        <SectionHeader label="Search" />
+        <SearchSection
+          pages={readerPages} pageNoun={pageNoun}
+          onGoToPage={(i) => { onGoToPage(i); if (mobile) handleCollapse() }}
+          inStack
+        />
+      </div>
+    </>
+  )
 
   /* ── Collapsed: icon rail only ───────────────────── */
   if (!expanded) {
     if (isMobile) {
-      // Mobile: show a thin expandable toggle in a fixed bottom-left position
       return (
         <button
-          type="button"
-          onClick={handleExpand}
-          aria-label="Open sidebar"
+          type="button" onClick={handleExpand} aria-label="Open sidebar"
           className="fixed bottom-4 left-4 z-30 w-11 h-11 flex items-center justify-center rounded-full shadow-lg border transition-all"
-          style={{
-            backgroundColor: 'var(--rt-bg)',
-            borderColor: 'var(--rt-border)',
-            color: 'var(--rt-text)',
-          }}
+          style={{ backgroundColor: 'var(--rt-bg)', borderColor: 'var(--rt-border)', color: 'var(--rt-text)' }}
         >
           <TocIcon />
         </button>
       )
     }
-    // Desktop: icon rail on left
     return (
       <div className="hidden md:flex shrink-0 h-full" style={{ width: '52px' }}>
         <IconRail
-          activeSection={activeSection}
-          onSelect={handleSelectSection}
+          onScrollTo={handleScrollTo}
           onExpand={handleExpand}
           bookmarksCount={bookmarks.length}
         />
@@ -1368,123 +1468,84 @@ const ReaderCollapsibleSidebar = forwardRef<ReaderCollapsibleSidebarHandle, Read
   // Mobile: full-screen overlay
   if (isMobile) {
     return (
-      <div
-        className="fixed inset-0 z-50 flex"
-        onClick={handleBackdropClick}
-        style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
-      >
-        <div
-          ref={sidebarRef}
-          className="flex flex-col w-full max-h-full"
-          style={{
-            backgroundColor: 'var(--rt-bg)',
-            borderTop: '1px solid var(--rt-border)',
-            borderRadius: '16px 16px 0 0',
-            marginTop: '10vh',
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Mobile header with tabs */}
-          <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ borderBottom: '1px solid var(--rt-border)' }}>
-            <div className="flex gap-1 overflow-x-auto">
-              {(['nav', 'view', 'settings', 'bookmarks', 'search'] as SidebarSection[]).map((key) => {
-                const labels: Record<SidebarSection, string> = { nav: 'Nav', view: 'View', settings: 'Settings', bookmarks: 'Bm', search: 'Search' }
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => updateState({ activeSection: key })}
-                    className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors shrink-0"
-                    style={activeSection === key ? { backgroundColor: '#3b82f6', color: '#fff' } : { backgroundColor: 'var(--rt-surface)', color: 'var(--rt-text-muted)' }}
-                  >
-                    {labels[key]}
-                  </button>
-                )
-              })}
-            </div>
-            <button
-              type="button"
-              onClick={handleCollapse}
-              aria-label="Close sidebar"
-              className="w-7 h-7 flex items-center justify-center rounded-lg ml-2"
-              style={{ color: 'var(--rt-text-muted)' }}
-            >
+      <div className="fixed inset-0 z-50 flex" onClick={handleBackdropClick}
+        style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+        <div ref={sidebarRef} className="flex flex-col w-full max-h-full"
+          style={{ backgroundColor: 'var(--rt-bg)', borderTop: '1px solid var(--rt-border)',
+            borderRadius: '16px 16px 0 0', marginTop: '10vh' }}
+          onClick={(e) => e.stopPropagation()}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 shrink-0"
+            style={{ borderBottom: '1px solid var(--rt-border)' }}>
+            <span className="text-sm font-semibold" style={{ color: 'var(--rt-text)' }}>Sidebar</span>
+            <button type="button" onClick={handleCollapse} aria-label="Close sidebar"
+              className="w-7 h-7 flex items-center justify-center rounded-lg"
+              style={{ color: 'var(--rt-text-muted)' }}>
               <CloseIcon />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto">{renderSectionContent()}</div>
+          {/* Stacked sections */}
+          <div className="flex-1 overflow-y-auto">
+            {renderStackedSections(true)}
+          </div>
         </div>
       </div>
     )
   }
 
-  // Desktop: expanded sidebar
+  // Desktop: expanded sidebar with resize handle
   return (
-    <div className="hidden md:flex shrink-0 h-full" style={{ width: '300px' }}>
-      {/* Icon rail (still visible on the inner side for quick nav) */}
+    <div className="hidden md:flex shrink-0 h-full" style={{ width: `${sidebarWidth + 52}px` }}>
       <IconRail
-        activeSection={activeSection}
-        onSelect={handleSelectSection}
+        onScrollTo={handleScrollTo}
         onExpand={handleExpand}
         bookmarksCount={bookmarks.length}
       />
 
-      {/* Expanded panel */}
-      <div
-        ref={sidebarRef}
-        className="flex flex-col flex-1 min-w-0"
-        style={{
-          backgroundColor: 'var(--rt-bg)',
-          borderRight: '1px solid var(--rt-border)',
-        }}
-      >
+      <div ref={sidebarRef} className="flex flex-col flex-1 min-w-0"
+        style={{ backgroundColor: 'var(--rt-bg)', borderRight: '1px solid var(--rt-border)' }}>
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ borderBottom: '1px solid var(--rt-border)' }}>
-          <div className="flex gap-1 overflow-x-auto">
-            {(['nav', 'view', 'settings', 'bookmarks', 'search'] as SidebarSection[]).map((key) => {
-              const labels: Record<SidebarSection, string> = { nav: 'Nav', view: 'View', settings: 'Settings', bookmarks: 'Bm', search: 'Search' }
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => updateState({ activeSection: key })}
-                  className="px-2.5 py-1 text-xs font-medium rounded-lg transition-colors shrink-0"
-                  style={activeSection === key ? { backgroundColor: '#3b82f6', color: '#fff' } : { backgroundColor: 'var(--rt-surface)', color: 'var(--rt-text-muted)' }}
-                >
-                  {labels[key]}
-                </button>
-              )
-            })}
-          </div>
+        <div className="flex items-center justify-between px-4 py-3 shrink-0"
+          style={{ borderBottom: '1px solid var(--rt-border)' }}>
+          <span className="text-sm font-semibold" style={{ color: 'var(--rt-text)' }}>Sidebar</span>
           <div className="flex items-center gap-1">
-            {/* Keyboard help */}
-            <button
-              type="button"
-              onClick={onShowKeyboardHelp}
-              title="Keyboard shortcuts (?)"
-              aria-label="Keyboard shortcuts"
+            <button type="button" onClick={onShowKeyboardHelp}
+              title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts"
               className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors"
-              style={{ color: 'var(--rt-text-muted)' }}
-            >
+              style={{ color: 'var(--rt-text-muted)' }}>
               <HelpIcon />
             </button>
-            {/* Collapse */}
-            <button
-              type="button"
-              onClick={handleCollapse}
-              aria-label="Collapse sidebar"
-              title="Collapse sidebar"
+            <button type="button" onClick={handleCollapse}
+              aria-label="Collapse sidebar" title="Collapse sidebar"
               className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors"
-              style={{ color: 'var(--rt-text-muted)' }}
-            >
+              style={{ color: 'var(--rt-text-muted)' }}>
               <ChevronLeftIcon />
             </button>
           </div>
         </div>
 
-        {/* Section content */}
-        <div className="flex-1 min-h-0 overflow-y-auto">{renderSectionContent()}</div>
+        {/* Stacked sections */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {renderStackedSections(false)}
+        </div>
       </div>
+
+      {/* Resize handle */}
+      <div
+        onMouseDown={handleResizeStart}
+        className="shrink-0 select-none transition-colors"
+        style={{
+          width: '4px',
+          cursor: 'col-resize',
+          backgroundColor: resizing ? 'rgba(59,130,246,0.4)' : 'transparent',
+        }}
+        onMouseEnter={(e) => {
+          if (!resizing) (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(59,130,246,0.2)'
+        }}
+        onMouseLeave={(e) => {
+          if (!resizing) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'
+        }}
+      />
     </div>
   )
 })

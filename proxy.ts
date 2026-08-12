@@ -3,7 +3,7 @@ import { exportAuthCookie } from '@/lib/pocketbase/auth';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-const PROTECTED_PATHS = ['/documents', '/profile', '/admin'];
+const PROTECTED_PATHS = ['/documents', '/profile', '/admin', '/books'];
 const ADMIN_PATHS = ['/admin'];
 const TRANSLATOR_PATHS: string[] = [];
 
