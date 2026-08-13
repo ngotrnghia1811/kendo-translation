@@ -34,8 +34,11 @@ export interface SuggestionRow {
     status: SuggestionStatus
     accepter_id: string | null
     accepted_at: string | null
-    created_at: string
+    created_at: string | null
     suggester?: SuggesterRef | SuggesterRef[] | null
+    /** Normalized display username (added by the API from the expanded
+     *  `suggester` relation). Present when the relation resolved to a user. */
+    suggester_name?: string | null
     /** Phase-4b memory write-back result attached by the PATCH route
      *  after a successful accept.  Absent for non-accepted actions. */
     memory?: MemoryWriteResult

@@ -22,6 +22,7 @@ import {
     chunkedInBySegment,
     withSegmentContext,
 } from '@/lib/pocketbase/article-aggregate';
+import { relationUsername, pbTimestamp } from '@/lib/pocketbase/display';
 
 const UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -101,8 +102,13 @@ export async function GET(
             'segment_comments',
             ids,
             extraFilter,
+            'user',
         );
-        const items = withSegmentContext(records, contexts);
+        const items = withSegmentContext(records, contexts).map((r) => ({
+            ...r,
+            author_name: relationUsername(r, 'user'),
+            created_at: pbTimestamp(r),
+        }));
 
         const totalItems = items.length;
         const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / perPage);

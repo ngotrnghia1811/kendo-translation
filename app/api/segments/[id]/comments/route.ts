@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/pocketbase/server';
+import { relationUsername, pbTimestamp } from '@/lib/pocketbase/display';
 
 const UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -22,8 +23,14 @@ export async function GET(
         const records = await pb.collection('segment_comments').getFullList({
             filter: `segment = "${segmentId}"`,
             sort: '+id',
+            expand: 'user',
         });
-        return NextResponse.json({ comments: records ?? [] });
+        const normalized = (records ?? []).map((r) => ({
+            ...(r as Record<string, unknown>),
+            author_name: relationUsername(r as Record<string, unknown>, 'user'),
+            created_at: pbTimestamp(r as Record<string, unknown>),
+        }));
+        return NextResponse.json({ comments: normalized });
     } catch (error) {
         const msg = error instanceof Error ? error.message : 'Unknown error';
         return NextResponse.json({ error: msg }, { status: 500 });

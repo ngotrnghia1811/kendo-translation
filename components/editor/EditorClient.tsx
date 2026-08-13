@@ -7,12 +7,14 @@ import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useThemeContext } from '@/components/shared/ThemeProvider';
 import type { Segment, SegmentStatus, WorkflowPhase } from '@/types/database';
-import SegmentFilterBar, { ALL_STATUSES } from '@/components/editor/SegmentFilterBar';
+import { ALL_STATUSES } from '@/components/editor/SegmentFilterBar';
 import SegmentListItem from '@/components/editor/SegmentListItem';
 import SegmentEditorPanel from '@/components/editor/SegmentEditorPanel';
 import BatchAdvanceToolbar from '@/components/editor/BatchAdvanceToolbar';
+import EditorSidebar from '@/components/editor/EditorSidebar';
 import { useEditorKeyboard } from '@/hooks/useEditorKeyboard';
 import { useEditorProgress } from '@/hooks/useEditorProgress';
+import { useArticleAggregates } from '@/lib/hooks/useArticleAggregates';
 import { fetchAllSegments } from '@/lib/pocketbase/fetch-all-segments';
 
 /**
@@ -92,6 +94,9 @@ export default function EditorClient({
   // --- T5: segment progress memory ---
   const { savedSegmentId, persistSegment } = useEditorProgress(articleId);
   const progressRestoredRef = useRef(false);
+
+  // --- Article-level cooperation rollups (sidebar Suggestions/Comments/QA) ---
+  const aggregates = useArticleAggregates(articleId);
 
   // --- Filter state (T1) ---
   // Initialise from URL params so filters survive navigation / bookmarks.
@@ -274,6 +279,18 @@ export default function EditorClient({
 
     await fetch(`/api/segments/${seg.id}/lock`, { method: 'POST' });
   };
+
+  /** Jump to a segment from an article-level sidebar section (suggestion /
+   *  comment / QA issue). Clears filters so the target is visible, then
+   *  selects it (which scrolls it into view). */
+  const handleJumpToSegment = useCallback((segmentId: string) => {
+    const seg = segments.find(s => s.id === segmentId);
+    if (!seg) return;
+    setFilterStatuses([]);
+    setFilterQuery('');
+    setShowMyPhase(false);
+    void selectSegment(seg);
+  }, [segments, selectSegment]);
 
   const saveSegment = async (segId: string, text: string, status: SegmentStatus = 'translated') => {
     setSaving(true);
@@ -460,239 +477,144 @@ export default function EditorClient({
         </div>
       )}
 
-      {/* Header */}
-      <header className="bg-[var(--color-surface)] border-b border-[var(--color-border)] sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2 min-w-0">
-            {bookContext ? (
-              <>
-                <Link href="/books" className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors text-sm">← Books</Link>
-                <span className="text-[var(--color-text-muted)]/40">/</span>
-                <Link href={`/books/${bookContext.book.id}`} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors text-sm truncate max-w-[200px]">{bookContext.book.title}</Link>
-                <span className="text-[var(--color-text-muted)]/40">/</span>
-                <span className="text-sm font-medium text-[var(--color-text)] truncate">{bookContext.article.title}</span>
-              </>
-            ) : (
-              <>
-                <Link href="/documents" className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors text-sm">← Docs</Link>
-                <span className="text-[var(--color-text-muted)]/40">/</span>
-                <span className="text-sm font-medium text-[var(--color-text)] truncate">{article?.title}</span>
-              </>
-            )}
-            <div className="flex items-center gap-1.5 ml-2" data-testid="lang-switcher">
-              <button
-                onClick={() => setTargetLang('en')}
-                data-testid="lang-tab-en"
-                className={`text-xs px-2 py-0.5 rounded transition-colors font-medium ${
-                  targetLang === 'en'
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-[var(--color-text-muted)] hover:bg-[var(--color-bg)]'
-                }`}
-              >
-                EN
-              </button>
-              <button
-                onClick={() => setTargetLang('zh')}
-                data-testid="lang-tab-zh"
-                className={`text-xs px-2 py-0.5 rounded transition-colors font-medium ${
-                  targetLang === 'zh'
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-[var(--color-text-muted)] hover:bg-[var(--color-bg)]'
-                }`}
-              >
-                ZH
-              </button>
-              {targetLang === 'zh' && (
-                <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium">
-                  ZH — draft segments
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-4 text-sm text-[var(--color-text-muted)] shrink-0">
-            <span>{stats.translated}/{stats.total} translated</span>
-            <span className="text-green-600">{stats.approved} approved</span>
-          </div>
-        </div>
-        {bookContext && (
-          <div className="max-w-6xl mx-auto px-6 pb-2 flex items-center gap-3 text-xs text-[var(--color-text-muted)]">
-            {(bookContext.article.author || bookContext.book.author) && (
-              <span>{bookContext.article.author || bookContext.book.author}</span>
-            )}
-            {(bookContext.article.doc_type || bookContext.book.doc_type) && (
-              <span className="uppercase tracking-wide">{bookContext.article.doc_type || bookContext.book.doc_type}</span>
-            )}
-          </div>
-        )}
-        {stats.total > 0 && (
-          <div className="h-1 bg-[var(--color-bg)]">
-            <div
-              className="h-full bg-blue-500 transition-all"
-              style={{ width: `${(stats.translated / stats.total) * 100}%` }}
-            />
-          </div>
-        )}
-      </header>
+      {/* 3-way layout: collapsible sidebar + (segment list + editor panel). */}
+      <div className="flex">
+        <EditorSidebar
+          bookContext={bookContext ?? null}
+          articleTitle={article?.title ?? null}
+          targetLang={targetLang}
+          onTargetLangChange={setTargetLang}
+          stats={stats}
+          statusCounts={statusCounts}
+          filterStatuses={filterStatuses}
+          filterQuery={filterQuery}
+          showMyPhase={showMyPhase}
+          userPhases={userPhases}
+          onToggleStatus={(s) => setFilterStatuses(prev =>
+            prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]
+          )}
+          onClearStatuses={() => setFilterStatuses([])}
+          onQueryChange={setFilterQuery}
+          onToggleMyPhase={() => setShowMyPhase(o => !o)}
+          userName={userName}
+          suggestions={aggregates.suggestions}
+          comments={aggregates.comments}
+          qaIssues={aggregates.qaIssues}
+          aggregatesLoading={aggregates.loading}
+          onRefreshAggregates={aggregates.refresh}
+          onJumpToSegment={handleJumpToSegment}
+        />
 
-      {error && (
-        <div className="max-w-6xl mx-auto px-6 pt-4">
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
-            {error}
-          </div>
-        </div>
-      )}
-
-      <div className={`${editorWidthClass} mx-auto px-6 py-6 grid grid-cols-1 lg:grid-cols-2 gap-6`}>
-        {/* Segment list */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
-              Segments
-              {filteredSegments.length !== segments.length && (
-                <span className="ml-1 text-indigo-600 normal-case font-normal">
-                  {filteredSegments.length} / {segments.length}
-                </span>
-              )}
-              {batchMode && selectedIds.size > 0 && (
-                <span className="ml-1 text-blue-600">({selectedIds.size} selected)</span>
-              )}
-            </h3>
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={() => { setBatchMode(o => !o); setSelectedIds(new Set()); setBatchResult(null); }}
-                className={`text-xs px-2 py-1 rounded border transition-colors ${
-                  batchMode
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-[var(--color-surface)] text-[var(--color-text-muted)] border-[var(--color-border)] hover:bg-[var(--color-bg)]'
-                }`}
-                data-testid="batch-mode-toggle"
-              >
-                {batchMode ? '✓ Batch mode' : 'Batch mode'}
-              </button>
-            )}
-          </div>
-
-          {/* Assignment visibility banner (T2) */}
-          {userPhases.length > 0 && (
-            <div
-              data-testid="assignment-banner"
-              className="flex items-start gap-2 px-3 py-2.5 rounded-lg border border-indigo-200 bg-indigo-50 text-sm mb-2"
-            >
-              {/* Assignment icon */}
-              <svg className="w-4 h-4 mt-0.5 text-indigo-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-              </svg>
-              <div className="flex-1 min-w-0">
-                <span className="font-medium text-indigo-800">
-                  {userName ? `${userName} — ` : ''}Assigned phases:
-                </span>{' '}
-                <span className="inline-flex flex-wrap gap-1 ml-0.5">
-                  {userPhases.map(phase => (
-                    <span
-                      key={phase}
-                      className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200"
-                    >
-                      {phase}
-                    </span>
-                  ))}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowMyPhase(o => !o)}
-                  className={`ml-3 text-xs underline-offset-2 underline transition-colors ${
-                    showMyPhase ? 'text-indigo-700 font-semibold' : 'text-indigo-500 hover:text-indigo-700'
-                  }`}
-                >
-                  {showMyPhase ? '✓ Showing my segments' : 'Show my segments'}
-                </button>
+        <div className="flex-1 min-w-0">
+          {error && (
+            <div className="px-6 pt-4">
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+                {error}
               </div>
             </div>
           )}
 
-          {/* Segment filter bar (T1) */}
-          <SegmentFilterBar
-            statusCounts={statusCounts}
-            activeStatuses={filterStatuses}
-            query={filterQuery}
-            showMyPhase={showMyPhase}
-            userPhases={userPhases}
-            onToggleStatus={(s) => setFilterStatuses(prev =>
-              prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]
-            )}
-            onClearStatuses={() => setFilterStatuses([])}
-            onQueryChange={setFilterQuery}
-            onToggleMyPhase={() => setShowMyPhase(o => !o)}
-          />
+          <div className={`${editorWidthClass} mx-auto px-6 py-6 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6`}>
+            {/* Segment list */}
+            <div className="min-w-0 space-y-2">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
+                  Segments
+                  {filteredSegments.length !== segments.length && (
+                    <span className="ml-1 text-indigo-600 normal-case font-normal">
+                      {filteredSegments.length} / {segments.length}
+                    </span>
+                  )}
+                  {batchMode && selectedIds.size > 0 && (
+                    <span className="ml-1 text-blue-600">({selectedIds.size} selected)</span>
+                  )}
+                </h3>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => { setBatchMode(o => !o); setSelectedIds(new Set()); setBatchResult(null); }}
+                    className={`text-xs px-2 py-1 rounded border transition-colors ${
+                      batchMode
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-[var(--color-surface)] text-[var(--color-text-muted)] border-[var(--color-border)] hover:bg-[var(--color-bg)]'
+                    }`}
+                    data-testid="batch-mode-toggle"
+                  >
+                    {batchMode ? '✓ Batch mode' : 'Batch mode'}
+                  </button>
+                )}
+              </div>
 
-          {batchMode && (
-            <div className="flex items-center gap-3 text-xs text-[var(--color-text-muted)] mb-2 pb-2 border-b border-[var(--color-border)]">
-              <button type="button" onClick={toggleSelectAll} className="hover:text-blue-600 transition-colors">
-                {selectedIds.size === filteredSegments.length ? 'Deselect all' : 'Select all'}
-              </button>
-              {batchResult && (
-                <span className="text-green-600 font-medium">
-                  ✓ {batchResult.succeeded} advanced{batchResult.skipped > 0 ? `, ${batchResult.skipped} skipped` : ''}{batchResult.failed > 0 ? `, ${batchResult.failed} failed` : ''}
-                </span>
+              {batchMode && (
+                <div className="flex items-center gap-3 text-xs text-[var(--color-text-muted)] mb-2 pb-2 border-b border-[var(--color-border)]">
+                  <button type="button" onClick={toggleSelectAll} className="hover:text-blue-600 transition-colors">
+                    {selectedIds.size === filteredSegments.length ? 'Deselect all' : 'Select all'}
+                  </button>
+                  {batchResult && (
+                    <span className="text-green-600 font-medium">
+                      ✓ {batchResult.succeeded} advanced{batchResult.skipped > 0 ? `, ${batchResult.skipped} skipped` : ''}{batchResult.failed > 0 ? `, ${batchResult.failed} failed` : ''}
+                    </span>
+                  )}
+                </div>
+              )}
+              {filteredSegments.map(seg => (
+                <SegmentListItem
+                  key={seg.id}
+                  segment={seg}
+                  isActive={activeSegment === seg.id}
+                  batchMode={batchMode}
+                  isSelected={selectedIds.has(seg.id)}
+                  activity={activity.get(seg.id)}
+                  onSelect={selectSegment}
+                  onToggleSelect={toggleSelectSegment}
+                />
+              ))}
+
+              {/* Batch advance toolbar — floats at bottom when selections exist */}
+              <BatchAdvanceToolbar
+                selectedCount={batchMode ? selectedIds.size : 0}
+                advancing={batchAdvancing}
+                onAdvance={handleBatchAdvance}
+              />
+            </div>
+
+            {/* Editor panel — hidden on mobile (<768px), visible on tablet+ (Phase 3.5) */}
+            <div className="min-w-0 hidden md:block lg:sticky lg:top-6 lg:self-start">
+              {activeSegment ? (() => {
+                const seg = segments.find(s => s.id === activeSegment);
+                return seg ? (
+                  <SegmentEditorPanel
+                    segment={seg}
+                    articleId={articleId}
+                    editingText={editingText}
+                    saving={saving}
+                    macRag={{
+                      candidates: macRag.candidates,
+                      recommendedIndex: macRag.recommendedIndex,
+                      isLoading: macRag.isLoading,
+                    }}
+                    targetLang={targetLang}
+                    onEditingTextChange={setEditingText}
+                    onSave={saveSegment}
+                    onAITranslate={() => handleAITranslate(seg)}
+                    onCandidateSelect={(text) => setEditingText(text)}
+                    onSegmentStatusChange={(segId, newStatus) => {
+                      setSegments(prev =>
+                        prev.map(s => s.id === segId ? { ...s, status: newStatus } : s)
+                      );
+                    }}
+                    onActivityRefresh={refreshActivity}
+                    onSuggestionRefresh={() => { /* state is internal to SegmentEditorPanel */ }}
+                  />
+                ) : null;
+              })() : (
+                <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-12 text-center text-[var(--color-text-muted)]">
+                  <p className="text-4xl mb-3">👆</p>
+                  <p className="text-sm">Select a segment to start editing</p>
+                </div>
               )}
             </div>
-          )}
-          {filteredSegments.map(seg => (
-            <SegmentListItem
-              key={seg.id}
-              segment={seg}
-              isActive={activeSegment === seg.id}
-              batchMode={batchMode}
-              isSelected={selectedIds.has(seg.id)}
-              activity={activity.get(seg.id)}
-              onSelect={selectSegment}
-              onToggleSelect={toggleSelectSegment}
-            />
-          ))}
-
-          {/* Batch advance toolbar — floats at bottom when selections exist */}
-          <BatchAdvanceToolbar
-            selectedCount={batchMode ? selectedIds.size : 0}
-            advancing={batchAdvancing}
-            onAdvance={handleBatchAdvance}
-          />
-        </div>
-
-        {/* Editor panel — hidden on mobile (<768px), visible on tablet+ (Phase 3.5) */}
-        <div className="hidden md:block lg:sticky lg:top-20 lg:self-start">
-          {activeSegment ? (() => {
-            const seg = segments.find(s => s.id === activeSegment);
-            return seg ? (
-              <SegmentEditorPanel
-                segment={seg}
-                articleId={articleId}
-                editingText={editingText}
-                saving={saving}
-                macRag={{
-                  candidates: macRag.candidates,
-                  recommendedIndex: macRag.recommendedIndex,
-                  isLoading: macRag.isLoading,
-                }}
-                targetLang={targetLang}
-                onEditingTextChange={setEditingText}
-                onSave={saveSegment}
-                onAITranslate={() => handleAITranslate(seg)}
-                onCandidateSelect={(text) => setEditingText(text)}
-                onSegmentStatusChange={(segId, newStatus) => {
-                  setSegments(prev =>
-                    prev.map(s => s.id === segId ? { ...s, status: newStatus } : s)
-                  );
-                }}
-                onActivityRefresh={refreshActivity}
-                onSuggestionRefresh={() => { /* state is internal to SegmentEditorPanel */ }}
-              />
-            ) : null;
-          })() : (
-            <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-12 text-center text-[var(--color-text-muted)]">
-              <p className="text-4xl mb-3">👆</p>
-              <p className="text-sm">Select a segment to start editing</p>
-            </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/pocketbase/server';
+import { relationUsername, pbTimestamp } from '@/lib/pocketbase/display';
 import type { QAIssueCategory, QAIssueSeverity } from '@/types/database';
 
 const VALID_CATEGORIES = new Set<QAIssueCategory>([
@@ -33,8 +34,14 @@ export async function GET(
         const records = await pb.collection('qa_issues').getFullList({
             filter: `segment = "${segmentId}"`,
             sort: '+id',
+            expand: 'author',
         });
-        return NextResponse.json(records ?? []);
+        const normalized = (records ?? []).map((r) => ({
+            ...(r as Record<string, unknown>),
+            author_name: relationUsername(r as Record<string, unknown>, 'author'),
+            created_at: pbTimestamp(r as Record<string, unknown>),
+        }));
+        return NextResponse.json(normalized);
     } catch (error) {
         const msg = error instanceof Error ? error.message : 'Unknown error';
         return NextResponse.json({ error: msg }, { status: 500 });

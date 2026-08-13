@@ -43,15 +43,18 @@ function buildTree(rows: CommentRow[]): TreeNode[] {
 }
 
 function authorName(node: TreeNode): string {
+    if (node.author_name) return node.author_name
     const a = Array.isArray(node.author) ? node.author[0] : node.author
     return a?.username ?? 'unknown'
 }
 
-function formatTime(iso: string): string {
+function formatTime(iso: string | null | undefined): string {
+    if (!iso) return ''
     try {
-        return new Date(iso).toLocaleString()
+        const d = new Date(iso)
+        return Number.isNaN(d.getTime()) ? '' : d.toLocaleString()
     } catch {
-        return iso
+        return ''
     }
 }
 
@@ -78,7 +81,9 @@ function CommentNode({
                     <span className="font-medium text-slate-700">
                         {authorName(node)}
                     </span>
-                    <span>· {formatTime(node.created_at)}</span>
+                    {formatTime(node.created_at) && (
+                        <span>· {formatTime(node.created_at)}</span>
+                    )}
                     {node.resolved && (
                         <span
                             data-testid="comment-resolved"

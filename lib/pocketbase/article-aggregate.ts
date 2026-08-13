@@ -72,13 +72,16 @@ export async function fetchArticleSegmentContexts(
 /**
  * Fetch all records of `collection` whose `segment` relation is one of `ids`.
  * Chunked to avoid filter-string length limits. `extraFilter` (optional) is
- * ANDed against the segment filter.
+ * ANDed against the segment filter. `expand` (optional) is passed through to
+ * PocketBase so relation fields (e.g. `user`, `suggester`, `author`) are
+ * expanded to their full records for display.
  */
 export async function chunkedInBySegment<T extends { segment: string }>(
     pb: PocketBase,
     collection: string,
     ids: string[],
     extraFilter?: string,
+    expand?: string,
 ): Promise<T[]> {
     if (ids.length === 0) return [];
     const results: T[] = [];
@@ -90,7 +93,10 @@ export async function chunkedInBySegment<T extends { segment: string }>(
             : `(${idFilters})`;
         if (extraFilter) filter = `(${filter}) && (${extraFilter})`;
 
-        const records = await pb.collection(collection).getFullList<T>({ filter });
+        const query: Record<string, unknown> = { filter };
+        if (expand) query.expand = expand;
+
+        const records = await pb.collection(collection).getFullList<T>(query);
         results.push(...records);
     }
     return results;

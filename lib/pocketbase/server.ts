@@ -120,6 +120,38 @@ export function createMiddlewareClient(
 }
 
 /**
+ * Create a PocketBase client authenticated as a **superuser** (the
+ * `_superusers` collection — PocketBase's admin tier).
+ *
+ * Superusers bypass all collection API rules, so this client can write to
+ * collections whose `updateRule`/`deleteRule` would otherwise reject an
+ * unauthenticated or non-privileged request. It is used by trusted
+ * server-side jobs (e.g. the Vercel cron that releases stale segment locks)
+ * which run outside any user session.
+ *
+ * Requires `POCKETBASE_ADMIN_EMAIL` / `POCKETBASE_ADMIN_PASSWORD` to be set
+ * (same superuser account used by the `migration/pocketbase/scripts/*` import
+ * tooling). Throws if they are missing so a misconfigured cron fails loudly
+ * rather than silently writing nothing.
+ */
+export async function createSuperuserClient(
+    baseUrl?: string,
+): Promise<PocketBase> {
+    const pb = new PocketBase(baseUrl ?? DEFAULT_BASE_URL);
+
+    const email = process.env.POCKETBASE_ADMIN_EMAIL;
+    const password = process.env.POCKETBASE_ADMIN_PASSWORD;
+    if (!email || !password) {
+        throw new Error(
+            'POCKETBASE_ADMIN_EMAIL / POCKETBASE_ADMIN_PASSWORD are not configured',
+        );
+    }
+
+    await pb.collection('_superusers').authWithPassword(email, password);
+    return pb;
+}
+
+/**
  * Create a PocketBase client suitable for use inside `unstable_cache` or
  * `"use cache"` scopes where dynamic APIs like `cookies()` are forbidden.
  *

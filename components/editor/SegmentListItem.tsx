@@ -62,7 +62,7 @@ export default function SegmentListItem({
                     if (!batchMode) onSelect(seg);
                     else onToggleSelect(seg.id);
                 }}
-                className={`flex-1 text-left p-4 rounded-xl border transition-all ${
+                className={`flex-1 min-w-0 text-left p-4 rounded-xl border transition-all ${
                     batchMode && isSelected
                         ? 'border-blue-400 bg-blue-50'
                         : isActive

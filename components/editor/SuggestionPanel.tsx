@@ -44,15 +44,18 @@ interface SuggestionPanelProps {
 }
 
 function suggesterName(row: SuggestionRow): string {
+    if (row.suggester_name) return row.suggester_name
     const s = Array.isArray(row.suggester) ? row.suggester[0] : row.suggester
     return s?.username ?? 'unknown'
 }
 
-function formatTime(iso: string): string {
+function formatTime(iso: string | null | undefined): string {
+    if (!iso) return ''
     try {
-        return new Date(iso).toLocaleString()
+        const d = new Date(iso)
+        return Number.isNaN(d.getTime()) ? '' : d.toLocaleString()
     } catch {
-        return iso
+        return ''
     }
 }
 
@@ -260,7 +263,9 @@ export function SuggestionPanel({
                             >
                                 {row.suggester_kind}
                             </span>
-                            <span>· {formatTime(row.created_at)}</span>
+                            {formatTime(row.created_at) && (
+                                <span>· {formatTime(row.created_at)}</span>
+                            )}
                             <span
                                 data-testid="suggestion-status"
                                 className={`ml-auto rounded px-1.5 py-0.5 ring-1 ring-inset ${

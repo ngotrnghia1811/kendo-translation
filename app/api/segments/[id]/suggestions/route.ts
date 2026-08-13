@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/pocketbase/server';
+import { relationUsername, pbTimestamp } from '@/lib/pocketbase/display';
 
 type SuggesterKind = 'human' | 'agent';
 
@@ -21,8 +22,14 @@ export async function GET(
         const records = await pb.collection('segment_suggestions').getFullList({
             filter: `segment = "${segmentId}"`,
             sort: '+id',
+            expand: 'suggester',
         });
-        return NextResponse.json({ suggestions: records ?? [] });
+        const normalized = (records ?? []).map((r) => ({
+            ...(r as Record<string, unknown>),
+            suggester_name: relationUsername(r as Record<string, unknown>, 'suggester'),
+            created_at: pbTimestamp(r as Record<string, unknown>),
+        }));
+        return NextResponse.json({ suggestions: normalized });
     } catch (error) {
         const msg = error instanceof Error ? error.message : 'Unknown error';
         return NextResponse.json({ error: msg }, { status: 500 });

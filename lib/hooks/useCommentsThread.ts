@@ -30,10 +30,13 @@ export interface CommentRow {
     resolved: boolean
     parent_comment_id: string | null
     mentions: string[]
-    created_at: string
+    created_at: string | null
     // Joined via profiles!user_id; may be object, array, or null
     // depending on PostgREST cardinality inference.
     author?: CommentAuthor | CommentAuthor[] | null
+    /** Normalized display username (added by the API from the expanded
+     *  `user` relation). Present when the relation resolved to a user. */
+    author_name?: string | null
 }
 
 export interface PostCommentOptions {

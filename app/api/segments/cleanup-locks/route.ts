@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/pocketbase/server';
+import { createServerClient, createSuperuserClient } from '@/lib/pocketbase/server';
 
 /**
  * /api/segments/cleanup-locks — releases soft-locks older than 5 minutes.
@@ -30,26 +30,35 @@ import { createServerClient } from '@/lib/pocketbase/server';
  * manual triggering keeps working regardless.
  */
 
-function isAuthorized(
-  req: NextRequest,
-  pb: Awaited<ReturnType<typeof createServerClient>>,
-): boolean {
-  // 1. Vercel cron — CRON_SECRET bearer token.
+/**
+ * True when the request carries a valid `Authorization: Bearer <CRON_SECRET>`.
+ * The Vercel cron injects this header only when `CRON_SECRET` is set on the
+ * project — it is the security boundary for the unauthenticated cron path.
+ */
+function isCronAuthorized(req: NextRequest): boolean {
   const authHeader = req.headers.get('authorization') ?? '';
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
-    return true;
-  }
-
-  // 2. Authenticated admin (manual trigger).
-  const record = pb.authStore.record as Record<string, unknown> | null;
-  return pb.authStore.isValid && record?.role === 'admin';
+  return !!cronSecret && authHeader === `Bearer ${cronSecret}`;
 }
 
 export async function POST(req: NextRequest) {
-  const pb = await createServerClient();
+  // Resolve an authorized client. Two mutually-exclusive paths:
+  //   1. Authenticated admin (manual trigger) — cookie session, role admin.
+  //   2. Vercel cron — CRON_SECRET bearer; uses a SUPERUSER client because
+  //      `segments.updateRule` requires a translator/admin role that the
+  //      cron's unauthenticated context does not have (this is the fix for
+  //      the historical "cron never actually releases locks" bug).
+  const adminPb = await createServerClient();
+  const adminRecord = adminPb.authStore.record as Record<string, unknown> | null;
+  const adminAuthorized = adminPb.authStore.isValid && adminRecord?.role === 'admin';
+  const cronAuthorized = isCronAuthorized(req);
 
-  if (!isAuthorized(req, pb)) {
+  let pb: Awaited<ReturnType<typeof createServerClient>>;
+  if (adminAuthorized) {
+    pb = adminPb;
+  } else if (cronAuthorized) {
+    pb = await createSuperuserClient();
+  } else {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
