@@ -76,13 +76,45 @@ class OpenAIProvider implements LLMProvider {
   }
 }
 
+// ---------------------------------------------------------------------------
+// OpenRouter retry / timeout configuration
+// ---------------------------------------------------------------------------
+// Transient failures worth retrying (with key rotation + backoff): 429 rate
+// limits and 5xx upstream errors. Client errors (4xx other than 429) and auth
+// failures are NOT retried — they will not succeed on a different key.
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+
+// Backoff schedule: ~1s, ~2s, ~4s. Length determines max retries (3 retries
+// = 4 total attempts).
+const RETRY_BACKOFF_MS = [1000, 2000, 4000];
+
+// Default request timeout. Free-tier models can be slow on cold start; 60s
+// is overridable via OPENROUTER_TIMEOUT_MS.
+const DEFAULT_TIMEOUT_MS = 60000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+class OpenRouterHttpError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'OpenRouterHttpError';
+    this.status = status;
+  }
+}
+
 class OpenRouterProvider implements LLMProvider {
   private apiKeys: string[];
   private baseUrl: string;
+  private timeoutMs: number;
 
   constructor() {
     this.apiKeys = OpenRouterProvider.collectKeys();
     this.baseUrl = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
+    const parsed = Number(process.env.OPENROUTER_TIMEOUT_MS);
+    this.timeoutMs = Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_TIMEOUT_MS;
   }
 
   /**
@@ -112,55 +144,151 @@ class OpenRouterProvider implements LLMProvider {
   /** Random pick from the pool. Exposed as a method so future round-robin
    *  or quota-aware variants can swap in without touching chat(). */
   private pickKey(): string {
-    if (this.apiKeys.length === 0) {
+    return this.pickKeyExcluding(new Set());
+  }
+
+  /** Pick a key while avoiding keys already tried in this request. Falls back
+   *  to the full pool (reusing a key) once every key has been tried once. */
+  private pickKeyExcluding(excluded: Set<string>): string {
+    const candidates = this.apiKeys.filter((k) => !excluded.has(k));
+    const pool = candidates.length > 0 ? candidates : this.apiKeys;
+    if (pool.length === 0) {
       throw new Error('No OpenRouter API key configured');
     }
-    const idx = Math.floor(Math.random() * this.apiKeys.length);
-    return this.apiKeys[idx];
+    return pool[Math.floor(Math.random() * pool.length)];
   }
 
   getDefaultModel(): string { return 'nvidia/nemotron-3-super-120b-a12b:free'; }
 
   async chat(messages: Message[], options?: ChatOptions): Promise<ChatResponse> {
     const model = options?.model || this.getDefaultModel();
-    const apiKey = this.pickKey();
 
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://kendo-translation.local',
-        'X-Title': 'Kendo Translation Platform',
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: options?.temperature ?? 0.3,
-        max_tokens: options?.maxTokens,
-        response_format:
-          options?.responseFormat === 'json' ? { type: 'json_object' } : undefined,
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`OpenRouter API error: ${error.error?.message || response.statusText}`);
+    if (this.apiKeys.length === 0) {
+      throw new Error('No OpenRouter API key configured');
     }
 
-    const data = await response.json();
+    const tried = new Set<string>();
+    let lastError: Error = new Error('No OpenRouter API key configured');
 
-    if (!data.choices || !data.choices.length) {
-      throw new Error('OpenRouter API error: Invalid response format (missing choices).');
+    // First attempt + up to RETRY_BACKOFF_MS.length retries on transient
+    // 429/5xx, rotating to a different key and sleeping with jittered
+    // backoff between attempts.
+    for (let attempt = 0; attempt <= RETRY_BACKOFF_MS.length; attempt++) {
+      const apiKey = this.pickKeyExcluding(tried);
+      tried.add(apiKey);
+      try {
+        return await this.request(messages, options, apiKey, model);
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        const retryable =
+          err instanceof OpenRouterHttpError && RETRYABLE_STATUSES.has(err.status);
+        const isLastAttempt = attempt === RETRY_BACKOFF_MS.length;
+        if (retryable && !isLastAttempt) {
+          const backoff = RETRY_BACKOFF_MS[attempt];
+          await sleep(backoff + Math.random() * backoff * 0.5);
+          continue;
+        }
+        throw lastError;
+      }
     }
 
-    return {
-      content: data.choices[0]?.message?.content || '',
-      model: data.model,
-      usage: data.usage
-        ? { promptTokens: data.usage.prompt_tokens, completionTokens: data.usage.completion_tokens }
-        : undefined,
-    };
+    // Unreachable — the loop returns or throws on every path.
+    throw lastError;
+  }
+
+  /** Single request attempt against one key. Throws OpenRouterHttpError for
+   *  non-2xx responses, or a plain Error for network/timeout/schema issues. */
+  private async request(
+    messages: Message[],
+    options: ChatOptions | undefined,
+    apiKey: string,
+    model: string
+  ): Promise<ChatResponse> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://kendo-translation.local',
+          'X-Title': 'Kendo Translation Platform',
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: options?.temperature ?? 0.3,
+          max_tokens: options?.maxTokens,
+          response_format:
+            options?.responseFormat === 'json' ? { type: 'json_object' } : undefined,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const detail = await OpenRouterProvider.readErrorDetail(response);
+        throw new OpenRouterHttpError(
+          response.status,
+          `OpenRouter API error (${response.status}): ${detail}`
+        );
+      }
+
+      const data = await response.json();
+
+      // Some providers return an error object alongside a 200 status.
+      if (data && typeof data === 'object' && data.error) {
+        const msg =
+          typeof data.error === 'string'
+            ? data.error
+            : data.error?.message || JSON.stringify(data.error);
+        throw new OpenRouterHttpError(response.status, `OpenRouter API error: ${msg}`);
+      }
+
+      if (!data.choices || !data.choices.length) {
+        throw new Error('OpenRouter API error: Invalid response format (missing choices).');
+      }
+
+      return {
+        content: data.choices[0]?.message?.content || '',
+        model: data.model,
+        usage: data.usage
+          ? { promptTokens: data.usage.prompt_tokens, completionTokens: data.usage.completion_tokens }
+          : undefined,
+      };
+    } catch (err) {
+      if (err instanceof OpenRouterHttpError) throw err;
+      const name = (err as { name?: string })?.name;
+      if (name === 'AbortError') {
+        throw new Error(
+          `OpenRouter request timed out after ${this.timeoutMs}ms (model: ${model})`
+        );
+      }
+      throw new Error(
+        `OpenRouter request failed: ${err instanceof Error ? err.message : String(err)}`
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /** Best-effort extraction of the upstream error message from a non-2xx
+   *  response body; falls back to status text. */
+  private static async readErrorDetail(response: Response): Promise<string> {
+    try {
+      const text = await response.text();
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed?.error?.message) return parsed.error.message;
+        if (typeof parsed?.error === 'string') return parsed.error;
+      } catch {
+        /* not JSON — fall through to raw text */
+      }
+      if (text.trim()) return text.slice(0, 400);
+    } catch {
+      /* ignore body-read failures */
+    }
+    return response.statusText;
   }
 }
 
