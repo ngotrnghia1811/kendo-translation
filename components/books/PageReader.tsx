@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ReaderPage } from '@/types/reader';
 import { useTitleLanguage } from '@/hooks/useTitleLanguage';
+import { useReaderViewPrefs } from '@/hooks/useReaderViewPrefs';
 import { useThemeContext } from '@/components/shared/ThemeProvider';
 import { useReaderBookmarks } from '@/hooks/useReaderBookmarks';
 import { useReaderKeyboard } from '@/hooks/useReaderKeyboard';
@@ -114,10 +115,17 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const scrollRestoreRef = useRef<number | null>(null);
 
-  // ── Mode & language state ──────────────────────────────────────
-  const [mode, setMode] = useState<'single' | 'bilingual' | 'aligned' | 'pdf'>('single');
-  const [displayLang, setDisplayLang] = useState<'source' | 'target'>('target');
-  const [targetLangChoice, setTargetLangChoice] = useState<'en' | 'zh'>('en');
+  // ── Mode & language state (persisted via localStorage so the View /
+  //    Language dropdowns survive page navigation — PageReader remounts
+  //    on every page change, so plain useState would reset to defaults) ─
+  const {
+    mode,
+    setMode,
+    displayLang,
+    setDisplayLang,
+    targetLangChoice,
+    setTargetLangChoice,
+  } = useReaderViewPrefs();
   // ZH position→target_text map for aligned mode (fetched on demand)
   const [zhAlignedMap, setZhAlignedMap] = useState<Map<number, string> | null>(null);
 

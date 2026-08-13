@@ -119,7 +119,7 @@ class OpenRouterProvider implements LLMProvider {
     return this.apiKeys[idx];
   }
 
-  getDefaultModel(): string { return 'meta-llama/llama-3.3-70b-instruct:free'; }
+  getDefaultModel(): string { return 'nvidia/nemotron-3-super-120b-a12b:free'; }
 
   async chat(messages: Message[], options?: ChatOptions): Promise<ChatResponse> {
     const model = options?.model || this.getDefaultModel();

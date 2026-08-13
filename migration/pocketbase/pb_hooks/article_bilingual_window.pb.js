@@ -71,7 +71,8 @@ routerAdd("GET", "/api/custom/article-bilingual-window", (e) => {
             s.translated_by,
             s.reviewed_by,
             s.quality_detail,
-            s.metadata
+            s.metadata,
+            s.ruby_data
         FROM segments s
         WHERE ${whereClause}
         ORDER BY s.position ASC
@@ -96,6 +97,7 @@ routerAdd("GET", "/api/custom/article-bilingual-window", (e) => {
         "reviewed_by":    "",
         "quality_detail": nullString(),
         "metadata":       nullString(),
+        "ruby_data":      nullString(),
     }));
 
     db.newQuery(sql).all(result);
@@ -123,6 +125,7 @@ routerAdd("GET", "/api/custom/article-bilingual-window", (e) => {
             reviewed_by:    row.reviewed_by || null,
             quality_detail: parseJson(row.quality_detail),
             metadata:       parseJson(row.metadata),
+            ruby_data:      parseJson(row.ruby_data),
         });
     }
 
