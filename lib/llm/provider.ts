@@ -214,6 +214,7 @@ class OpenRouterProvider implements LLMProvider {
           Authorization: `Bearer ${apiKey}`,
           'HTTP-Referer': 'https://kendo-translation.local',
           'X-Title': 'Kendo Translation Platform',
+          'X-OpenRouter-Cache': 'true',
         },
         body: JSON.stringify({
           model,
