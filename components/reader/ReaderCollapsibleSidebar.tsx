@@ -47,6 +47,7 @@ export interface ReaderCollapsibleSidebarProps {
   titleLanguage: 'en' | 'ja'
   onToggleTitleLanguage: () => void
   onGoToPage: (pageIndex: number) => void
+  onGoToPageNumber: (pageNumber: number) => void
   progressPercent: number
   bookAuthor?: string | null
   bookSummary?: string | null
@@ -320,6 +321,7 @@ function NavSection({
   titleLanguage,
   onToggleTitleLanguage,
   onGoToPage,
+  onGoToPageNumber,
   progressPercent,
   bookAuthor,
   bookSummary,
@@ -338,6 +340,7 @@ function NavSection({
   titleLanguage: 'en' | 'ja'
   onToggleTitleLanguage: () => void
   onGoToPage: (i: number) => void
+  onGoToPageNumber: (pageNumber: number) => void
   progressPercent: number
   bookAuthor?: string | null
   bookSummary?: string | null
@@ -403,7 +406,7 @@ function NavSection({
             <span>{pageNoun}</span>
             <select
               value={pageNumber}
-              onChange={(e) => onGoToPage(Number(e.target.value) - 1)}
+              onChange={(e) => onGoToPageNumber(Number(e.target.value))}
               aria-label={`Jump to ${pageNoun}`}
               className="text-xs rounded border px-1 py-0.5"
               style={{
@@ -412,9 +415,12 @@ function NavSection({
                 borderColor: 'var(--rt-border)',
               }}
             >
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
-                <option key={n} value={n}>{n}</option>
-              ))}
+              {readerPages.map((p, i) => {
+                const realPage = p.page ?? i + 1
+                return (
+                  <option key={realPage} value={realPage}>{p.label}</option>
+                )
+              })}
             </select>
             <span>of {totalPages}</span>
           </div>
@@ -1229,6 +1235,7 @@ const ReaderCollapsibleSidebar = forwardRef<ReaderCollapsibleSidebarHandle, Read
     titleLanguage,
     onToggleTitleLanguage,
     onGoToPage,
+    onGoToPageNumber,
     progressPercent,
     bookAuthor,
     bookSummary,
@@ -1406,6 +1413,7 @@ const ReaderCollapsibleSidebar = forwardRef<ReaderCollapsibleSidebarHandle, Read
           hasJapaneseTitle={hasJapaneseTitle} titleLanguage={titleLanguage}
           onToggleTitleLanguage={onToggleTitleLanguage}
           onGoToPage={(i) => { onGoToPage(i); if (mobile) handleCollapse() }}
+          onGoToPageNumber={(p) => { onGoToPageNumber(p); if (mobile) handleCollapse() }}
           progressPercent={progressPercent} bookAuthor={bookAuthor}
           bookSummary={bookSummary} hasZh={hasZh} readerPages={readerPages}
           inStack

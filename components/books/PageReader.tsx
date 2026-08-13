@@ -527,6 +527,7 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
           onGoToPage={(i) => {
             if (i !== currentPageIndex) router.push(`/books/${bookId}/${articleId}/${i + 1}`);
           }}
+          onGoToPageNumber={navigateToPage}
           progressPercent={progressPercent}
           bookAuthor={page.book?.author ?? null}
           bookSummary={page.book?.summary ?? null}
