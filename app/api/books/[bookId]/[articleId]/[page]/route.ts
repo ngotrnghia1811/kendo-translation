@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/pocketbase/server';
+import { normalizeRubyData } from '@/lib/furigana/normalize';
 
 const PB_URL =
   process.env.NEXT_PUBLIC_POCKETBASE_URL ?? 'http://127.0.0.1:8090';
@@ -137,7 +138,10 @@ export async function GET(
         title_ja: (article.title_ja as string) ?? null,
         segment_count: article.segment_count as number,
       },
-      segments,
+      segments: segments.map((s) => ({
+        ...s,
+        ruby_data: normalizeRubyData(s.ruby_data),
+      })),
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';

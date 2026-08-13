@@ -14,6 +14,7 @@ import { createServerClient } from '@/lib/pocketbase/server';
 import { redirect, notFound } from 'next/navigation';
 import PageReader from '@/components/books/PageReader';
 import type { PageContent } from '@/components/books/types';
+import { normalizeRubyData } from '@/lib/furigana/normalize';
 
 const PB_URL =
   process.env.NEXT_PUBLIC_POCKETBASE_URL ?? 'http://127.0.0.1:8090';
@@ -157,7 +158,7 @@ export default async function ReadPagePage({
       source_lang: (s.source_lang as string) ?? 'ja',
       target_lang: (s.target_lang as string) ?? 'en',
       status: (s.status as string) ?? 'draft',
-      ruby_data: (s.ruby_data ?? null) as PageContent['segments'][0]['ruby_data'],
+      ruby_data: normalizeRubyData(s.ruby_data),
       metadata: (s.metadata as Record<string, unknown> | null) ?? null,
     })),
     all_pages: pagesList.map((p) => ({
