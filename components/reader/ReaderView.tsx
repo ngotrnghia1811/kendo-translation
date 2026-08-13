@@ -514,7 +514,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, titl
     // -----------------------------------------------------------------------
     // Progress persistence — auto-resume last page on load
     // -----------------------------------------------------------------------
-    const { savedPageIndex, persistPage } = useReaderProgress(articleId)
+    const { savedPageNumber, persistPage } = useReaderProgress(articleId)
 
     // ── Bilingual title toggle ────────────────────────────────────────────
     const { titleLanguage, toggleTitleLanguage } = useTitleLanguage()
@@ -524,10 +524,16 @@ export default function ReaderView({ segments, zhSegments, settings, title, titl
     const hasRestoredRef = useRef(false)
     useEffect(() => {
         if (hasRestoredRef.current) return
-        if (savedPageIndex !== null && savedPageIndex > 0 && totalPages > 1) {
-            const target = Math.min(savedPageIndex, totalPages - 1)
-            if (target > 0) {
-                goToPage(target)
+        if (savedPageNumber !== null && savedPageNumber > 0 && totalPages > 1) {
+            // savedPageNumber is a REAL page number. Locate its index in the
+            // pages array (chunk-mode pages have `page: null`, whose real page
+            // number is index + 1; source-page docs use `page` directly).
+            const idx = pages.findIndex((p, i) => (p.page ?? i + 1) === savedPageNumber)
+            if (idx > 0) {
+                goToPage(idx)
+                hasRestoredRef.current = true
+            } else {
+                // Saved page not found (or is the first page) — no restore.
                 hasRestoredRef.current = true
             }
         } else if (totalPages > 0) {
@@ -559,7 +565,9 @@ export default function ReaderView({ segments, zhSegments, settings, title, titl
             return
         }
         const label = currentPage?.label ?? String(currentPageIndex + 1)
-        persistPage(currentPageIndex, label)
+        // Persist the REAL page number (chunk-mode pages are index + 1).
+        const pageNumber = currentPage?.page ?? currentPageIndex + 1
+        persistPage(pageNumber, label)
     }, [currentPageIndex, currentPage, totalPages, persistPage])
 
     // -----------------------------------------------------------------------

@@ -12,7 +12,7 @@
  * use the returned methods.
  *
  * Store layout (DB "kendo-pwa", version 1):
- *   readingPosition  { articleId: string, pageIndex: number, pageLabel: string, savedAt: string }
+ *   readingPosition  { articleId: string, pageNumber: number, pageLabel: string, savedAt: string }
  *   offlineArticles  { articleId: string, url: string, title: string, lastAccess: number }
  *   bookmarks        { articleId: string, bookmarks: ReaderBookmark[] }
  */
@@ -23,7 +23,8 @@
 
 export interface ReadingPosition {
   articleId: string
-  pageIndex: number
+  /** REAL page number (the value in the reader URL), not an array index. */
+  pageNumber: number
   pageLabel: string
   savedAt: string
 }
@@ -149,7 +150,7 @@ export async function saveReadingPosition(pos: ReadingPosition): Promise<void> {
     // Also write to localStorage for fast synchronous read on next mount
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(`reader-progress:${pos.articleId}`, JSON.stringify({
-        pageIndex: pos.pageIndex,
+        pageNumber: pos.pageNumber,
         pageLabel: pos.pageLabel,
         savedAt: pos.savedAt,
       }))

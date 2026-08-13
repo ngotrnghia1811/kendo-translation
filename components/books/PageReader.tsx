@@ -272,7 +272,7 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
   }, [toggleBookmarkRaw]);
 
   // ── Reading progress ───────────────────────────────────────────
-  const { savedPageIndex, persistPage } = useReaderProgress(articleId);
+  const { savedPageNumber, persistPage } = useReaderProgress(articleId);
 
   // Restore saved page if it differs from current — only on the FIRST
   // reader mount for this article within the browsing session.  A
@@ -294,16 +294,24 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
       sessionStorage.setItem(autoResumeSessionKey, '1');
     } catch { /* sessionStorage unavailable — ignore */ }
 
-    if (savedPageIndex !== null && savedPageIndex > 0 && savedPageIndex !== pageNumber - 1) {
-      router.replace(`/books/${bookId}/${articleId}/${savedPageIndex + 1}`);
+    // savedPageNumber holds the REAL page number (not an array index).
+    // Resolve it via findIndex against the article's actual pages array —
+    // source_page-mode articles can be non-sequential (e.g. 1, 130..241),
+    // so `+1`/`-1` index arithmetic would compute the wrong target. Only
+    // navigate if the saved page still exists in readerPages.
+    if (savedPageNumber !== null && savedPageNumber !== pageNumber) {
+      const savedIdx = readerPages.findIndex((p) => p.page === savedPageNumber);
+      if (savedIdx >= 0) {
+        router.replace(`/books/${bookId}/${articleId}/${savedPageNumber}`);
+      }
     }
-  }, [savedPageIndex, pageNumber, router, bookId, articleId, autoResumeSessionKey]);
+  }, [savedPageNumber, pageNumber, readerPages, router, bookId, articleId, autoResumeSessionKey]);
 
-  // Persist current page
+  // Persist current page as its REAL page number (not pageNumber - 1).
   useEffect(() => {
     if (totalPages <= 1) return;
     if (pageNumber === 1) return; // never persist page 1 (default)
-    persistPage(pageNumber - 1, String(pageNumber));
+    persistPage(pageNumber, String(pageNumber));
   }, [pageNumber, totalPages, persistPage]);
 
   // ── Progress percent ───────────────────────────────────────────

@@ -1,19 +1,26 @@
 'use client'
 
 /**
- * useReaderProgress — persists the last-read page index per article to
+ * useReaderProgress — persists the last-read page per article to
  * IndexedDB (Phase 5.2) with a localStorage fallback for fast synchronous
  * read on mount.
  *
  * Storage key pattern: `reader-progress:<articleId>`
- * Value shape: `{ pageIndex: number, pageLabel: string, savedAt: string }`
+ * Value shape: `{ pageNumber: number, pageLabel: string, savedAt: string }`
  *
- * Designed to be called once at the top of ReaderView with the current
+ * The persisted value is the REAL page number (the number that appears in
+ * the `/books/[bookId]/[articleId]/[page]` URL), NOT an array index.
+ * source_page-mode articles can have non-sequential real page numbers
+ * (e.g. 1, 130..241), so callers must store the real page number and
+ * resolve it back via `findIndex` against the article's actual pages
+ * array — never via `+1`/`-1` index arithmetic.
+ *
+ * Designed to be called once at the top of the reader with the current
  * articleId.  The hook:
- *   1. Returns `savedPageIndex` — the persisted index (null if none / same doc
- *      has never been read).
- *   2. Exposes `persistPage(index, label)` — call it whenever the reader
- *      navigates to a new page.
+ *   1. Returns `savedPageNumber` — the persisted real page number (null if
+ *      none / same doc has never been read).
+ *   2. Exposes `persistPage(pageNumber, label)` — call it whenever the
+ *      reader navigates to a new page.
  *   3. Exposes `clearProgress()` — for a "start over" button if needed.
  *
  * Write path: IndexedDB (primary) + localStorage (sync-cache mirror).
@@ -30,7 +37,7 @@ import {
 const STORAGE_PREFIX = 'reader-progress'
 
 interface ProgressRecord {
-  pageIndex: number
+  pageNumber: number
   pageLabel: string
   savedAt: string
 }
@@ -61,10 +68,10 @@ function writeLocal(articleId: string, record: ProgressRecord) {
 }
 
 export interface UseReaderProgressReturn {
-  /** The last saved page index for this article, or null if not previously read / page 0. */
-  savedPageIndex: number | null
-  /** Persist the current page. Call on every page navigation. */
-  persistPage: (pageIndex: number, pageLabel: string) => void
+  /** The last saved real page number for this article, or null if not previously read / page 0. */
+  savedPageNumber: number | null
+  /** Persist the current page (by REAL page number). Call on every page navigation. */
+  persistPage: (pageNumber: number, pageLabel: string) => void
   /** Remove stored progress for this article. */
   clearProgress: () => void
 }
@@ -76,7 +83,7 @@ export function useReaderProgress(articleId: string | undefined | null): UseRead
     (() => {
       if (!articleId || typeof window === 'undefined') return null
       const record = readLocal(articleId)
-      return record && record.pageIndex > 0 ? record.pageIndex : null
+      return record && record.pageNumber > 0 ? record.pageNumber : null
     })()
   )
 
@@ -88,15 +95,15 @@ export function useReaderProgress(articleId: string | undefined | null): UseRead
     let cancelled = false
     loadReadingPosition(articleId).then((pos) => {
       if (cancelled) return
-      if (pos && pos.pageIndex > 0) {
+      if (pos && pos.pageNumber > 0) {
         // Sync localStorage with IndexedDB (repair drift)
         writeLocal(articleId, {
-          pageIndex: pos.pageIndex,
+          pageNumber: pos.pageNumber,
           pageLabel: pos.pageLabel,
           savedAt: pos.savedAt,
         })
         if (savedRef.current === null) {
-          savedRef.current = pos.pageIndex
+          savedRef.current = pos.pageNumber
         }
       }
       setIdbReconciled(true)
@@ -113,13 +120,13 @@ export function useReaderProgress(articleId: string | undefined | null): UseRead
       return
     }
     const record = readLocal(articleId)
-    savedRef.current = record && record.pageIndex > 0 ? record.pageIndex : null
+    savedRef.current = record && record.pageNumber > 0 ? record.pageNumber : null
   }, [articleId])
 
-  const persistPage = useCallback((pageIndex: number, pageLabel: string) => {
+  const persistPage = useCallback((pageNumber: number, pageLabel: string) => {
     if (!articleId) return
     const record: ProgressRecord = {
-      pageIndex,
+      pageNumber,
       pageLabel,
       savedAt: new Date().toISOString(),
     }
@@ -127,7 +134,7 @@ export function useReaderProgress(articleId: string | undefined | null): UseRead
     writeLocal(articleId, record)
     saveReadingPosition({
       articleId,
-      pageIndex,
+      pageNumber,
       pageLabel,
       savedAt: record.savedAt,
     }).catch(() => {})
@@ -141,7 +148,7 @@ export function useReaderProgress(articleId: string | undefined | null): UseRead
   }, [articleId])
 
   return {
-    get savedPageIndex() { return savedRef.current },
+    get savedPageNumber() { return savedRef.current },
     persistPage,
     clearProgress,
   }
