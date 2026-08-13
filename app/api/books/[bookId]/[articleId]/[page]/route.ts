@@ -114,9 +114,14 @@ export async function GET(
         });
       }
 
-      // Fetch segments in batches via the book's collection
+      // Fetch segments via the book's collection. No target_lang filter:
+      // monolingual articles (e.g. scraped English Kendojidai web articles)
+      // store their content under a target_lang that differs from the reader's
+      // default 'en', so filtering here would return zero rows. The page's
+      // segment_ids (resolved by the article-pages hook) already select the
+      // correct rows below.
       const allSegments = await pb.collection('segments').getFullList({
-        filter: `article = "${articleId}" && target_lang = "${targetLang}"`,
+        filter: `article = "${articleId}"`,
         sort: '+position',
       });
 

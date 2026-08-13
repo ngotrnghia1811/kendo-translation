@@ -115,8 +115,12 @@ export default async function ReadPagePage({
     segments = winData.items ?? [];
   } else {
     if (targetPage.segment_ids.length > 0) {
+      // No target_lang filter: monolingual articles (scraped English
+      // Kendojidai web articles) store content under a target_lang that
+      // differs from the reader default 'en', so filtering would return
+      // zero rows. The page's segment_ids already select the correct rows.
       const allSegments = await pb.collection('segments').getFullList({
-        filter: `article = "${articleId}" && target_lang = "en"`,
+        filter: `article = "${articleId}"`,
         sort: '+position',
       });
       const idSet = new Set(targetPage.segment_ids);

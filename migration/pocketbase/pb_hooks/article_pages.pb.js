@@ -17,11 +17,14 @@
  *   target_lang — language code (default "en")
  */
 
-// ── Constants ─────────────────────────────────────────────────────────
-var SYNTH_CHUNK_SIZE = 25;
-
 // ── Route ─────────────────────────────────────────────────────────────
 routerAdd("GET", "/api/custom/article-pages", function (e) {
+    // NOTE: constants must live INSIDE the handler. PocketBase's Goja bridge
+    // does not expose module-level `var` declarations to `routerAdd` callbacks
+    // (verified against v0.39.10 — a module-level `var` here throws
+    // "SYNTH_CHUNK_SIZE is not defined" when the synthetic_chunk branch runs).
+    var SYNTH_CHUNK_SIZE = 25;
+
     var articleId = e.request.url.query().get("article_id") || "";
     var targetLang = e.request.url.query().get("target_lang") || "en";
 
@@ -33,12 +36,40 @@ routerAdd("GET", "/api/custom/article-pages", function (e) {
     var safeTargetLang = targetLang.replace(/'/g, "''");
     var db = $app.db();
 
+    // ── STEP 0: Resolve the effective target_lang ──
+    // Monolingual articles (e.g. individually-scraped English Kendojidai web
+    // articles, `metadata.source = 'kendojidai_monolingual'`) are ingested with
+    // a single target_lang that differs from the reader's default 'en' — their
+    // English text lives in `source_text` with `target_lang = 'ja'` and an empty
+    // `target_text`. Querying `target_lang = 'en'` therefore returns zero rows
+    // and produced the "0 pages" symptom. When the requested lang is absent but
+    // the article has exactly one distinct lang, fall back to that lang so the
+    // synthetic_chunk pagination still resolves the article's real segments.
+    var langSQL =
+        "SELECT DISTINCT s.target_lang AS tl FROM segments s" +
+        " WHERE s.article = '" + safeArticleId + "'";
+    var langRows = arrayOf(new DynamicModel({ tl: "" }));
+    db.newQuery(langSQL).all(langRows);
+
+    var effectiveLang = safeTargetLang;
+    var hasRequested = false;
+    var li;
+    for (li = 0; li < langRows.length; li++) {
+        if (langRows[li].tl === safeTargetLang) {
+            hasRequested = true;
+            break;
+        }
+    }
+    if (!hasRequested && langRows.length === 1) {
+        effectiveLang = langRows[0].tl.replace(/'/g, "''");
+    }
+
     // ── STEP 1: Detect mode — do any segments have metadata.page? ──
     var checkSQL =
         "SELECT EXISTS (" +
         "  SELECT 1 FROM segments s" +
         "  WHERE s.article = '" + safeArticleId + "'" +
-        "    AND s.target_lang = '" + safeTargetLang + "'" +
+        "    AND s.target_lang = '" + effectiveLang + "'" +
         "    AND json_extract(s.metadata, '$.page') IS NOT NULL" +
         "  LIMIT 1" +
         ") AS has_pages";
@@ -56,7 +87,7 @@ routerAdd("GET", "/api/custom/article-pages", function (e) {
         "  CAST(COALESCE(json_extract(s.metadata, '$.page'), 0) AS INTEGER) AS page_num" +
         " FROM segments s" +
         " WHERE s.article = '" + safeArticleId + "'" +
-        "   AND s.target_lang = '" + safeTargetLang + "'" +
+        "   AND s.target_lang = '" + effectiveLang + "'" +
         " ORDER BY s.position ASC";
 
     var segRows = arrayOf(new DynamicModel({
