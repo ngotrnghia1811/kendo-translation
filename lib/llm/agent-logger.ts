@@ -1,6 +1,6 @@
 /**
  * Agent Logger — Tracks all LLM agent calls for debugging and transparency.
- * Stores in-memory (ring buffer of 100) and persists to Supabase `agent_logs` table.
+ * Stores in-memory (ring buffer of 100) and persists to the PocketBase `agent_logs` collection.
  */
 
 import type { Message } from './provider';
@@ -41,7 +41,7 @@ export async function logAgentCall(log: Omit<AgentLog, 'id' | 'timestamp'>): Pro
     const user = pb.authStore.record;
 
     await pb.collection('agent_logs').create({
-      user_id: user?.id || null,
+      user: user?.id || null,
       agent_type: log.agentType,
       model: log.model,
       system_prompt: log.messages.find(m => m.role === 'system')?.content,
@@ -51,8 +51,8 @@ export async function logAgentCall(log: Omit<AgentLog, 'id' | 'timestamp'>): Pro
       completion_tokens: log.usage?.completionTokens,
       duration_ms: log.durationMs,
       error: log.error,
-      article_id: log.articleId,
-      video_id: log.videoId,
+      article: log.articleId,
+      video: log.videoId,
     });
   } catch (err) {
     console.error('Failed to persist agent log to DB:', err);

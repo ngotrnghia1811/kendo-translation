@@ -216,10 +216,40 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
     [router, bookId, articleId],
   );
 
+  // ── Reader pages list (sidebar TOC / dropdown / bookmarks) ─────
+  const readerPages: ReaderPage[] = useMemo(() => {
+    if (!page.all_pages?.length) return [];
+    return page.all_pages.map((p) => ({
+      page: p.page_number,
+      label: String(p.page_number),
+      // Only the current page has loaded segments; other pages are empty
+      // (search only works within the current page in the page-scoped model)
+      segments: p.page_number === pageNumber
+        ? (segments as unknown as import('@/types/database').Segment[])
+        : [],
+      paragraphs: [],
+    }));
+  }, [page.all_pages, segments, pageNumber]);
+
+  // Current page as a 0-based index into readerPages. source_page-mode
+  // articles can have non-sequential real page numbers (e.g. 1, 130..241),
+  // so `pageNumber - 1` is NOT the array index — derive it via findIndex.
+  const currentPageIndex = useMemo(() => {
+    if (!readerPages.length) return pageNumber - 1;
+    const idx = readerPages.findIndex((p) => p.page === pageNumber);
+    return idx >= 0 ? idx : pageNumber - 1;
+  }, [readerPages, pageNumber]);
+
+  // Map a 0-based readerPages index to the real page number used in the URL.
+  const pageIndexToPageNumber = useCallback(
+    (i: number) => readerPages[i]?.page ?? i + 1,
+    [readerPages],
+  );
+
   // ── Bookmarks ──────────────────────────────────────────────────
-  // Use pageNumber-1 as currentPageIndex so the hook's comparison works
-  // (hooks store pageIndex as 0-based). goToPage maps 0-based index to
-  // 1-based URL page number.
+  // Bookmarks store pageIndex as the 0-based index into readerPages (not
+  // `pageNumber - 1`, which is wrong for non-sequential source_page pages).
+  // pageIndexToPageNumber maps that index back to the real page number.
   const {
     bookmarks,
     isBookmarked,
@@ -227,13 +257,13 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
     removeBookmark,
   } = useReaderBookmarks(
     articleId,
-    pageNumber - 1,
+    currentPageIndex,
     String(pageNumber),
     useCallback(
       (i: number) => {
-        router.push(`/books/${bookId}/${articleId}/${i + 1}`);
+        router.push(`/books/${bookId}/${articleId}/${pageIndexToPageNumber(i)}`);
       },
-      [router, bookId, articleId],
+      [router, bookId, articleId, pageIndexToPageNumber],
     ),
   );
 
@@ -477,22 +507,6 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
     (s) => s.target_text && s.target_text.trim(),
   );
 
-  // ── Build reader pages list for sidebar ─────────────────────────
-  const readerPages: ReaderPage[] = useMemo(() => {
-    if (!page.all_pages?.length) return [];
-    return page.all_pages.map((p) => ({
-      page: p.page_number,
-      label: String(p.page_number),
-      // Only the current page has loaded segments; other pages are empty
-      // (search only works within the current page in the page-scoped model)
-      segments: p.page_number === pageNumber
-        ? (segments as unknown as import('@/types/database').Segment[])
-        : [],
-      paragraphs: [],
-    }));
-  }, [page.all_pages, segments, pageNumber]);
-
-  const currentPageIndex = pageNumber - 1;
   const pageNoun = page.mode === 'source_page' ? 'Page' : 'Chunk';
 
   // ── Render ──────────────────────────────────────────────────────
@@ -525,7 +539,7 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
           titleLanguage={titleLanguage}
           onToggleTitleLanguage={toggleTitleLanguage}
           onGoToPage={(i) => {
-            if (i !== currentPageIndex) router.push(`/books/${bookId}/${articleId}/${i + 1}`);
+            if (i !== currentPageIndex) router.push(`/books/${bookId}/${articleId}/${pageIndexToPageNumber(i)}`);
           }}
           onGoToPageNumber={navigateToPage}
           progressPercent={progressPercent}
@@ -570,7 +584,7 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
           onToggleBookmark={toggleBookmark}
           onRemoveBookmark={removeBookmark}
           onJumpToBookmark={(i) => {
-            router.push(`/books/${bookId}/${articleId}/${i + 1}`);
+            router.push(`/books/${bookId}/${articleId}/${pageIndexToPageNumber(i)}`);
           }}
           /* search */
           readerPages={readerPages}

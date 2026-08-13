@@ -971,6 +971,7 @@ function formatDate(iso: string): string {
 function BookmarksSection({
   bookmarks,
   currentPageIndex,
+  pageNumber,
   pageNoun,
   onJumpTo,
   onRemove,
@@ -980,6 +981,7 @@ function BookmarksSection({
 }: {
   bookmarks: ReaderBookmark[]
   currentPageIndex: number
+  pageNumber: number
   pageNoun: string
   onJumpTo: (i: number) => void
   onRemove: (i: number) => void
@@ -1002,7 +1004,7 @@ function BookmarksSection({
           }
         >
           <BookmarkIcon />
-          {isBookmarked ? 'Remove bookmark' : `Bookmark ${pageNoun} ${currentPageIndex + 1}`}
+          {isBookmarked ? 'Remove bookmark' : `Bookmark ${pageNoun} ${pageNumber}`}
         </button>
       </div>
 
@@ -1453,7 +1455,7 @@ const ReaderCollapsibleSidebar = forwardRef<ReaderCollapsibleSidebarHandle, Read
       <div ref={bookmarksSectionRef} style={{ borderTop: '1px solid var(--rt-border)' }}>
         <SectionHeader label="Bookmarks" count={bookmarks.length} />
         <BookmarksSection
-          bookmarks={bookmarks} currentPageIndex={currentPageIndex} pageNoun={pageNoun}
+          bookmarks={bookmarks} currentPageIndex={currentPageIndex} pageNumber={pageNumber} pageNoun={pageNoun}
           onJumpTo={(i) => { onJumpToBookmark(i); if (mobile) handleCollapse() }}
           onRemove={onRemoveBookmark} isBookmarked={isBookmarked}
           onToggleBookmark={onToggleBookmark}
