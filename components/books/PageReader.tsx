@@ -206,9 +206,6 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
   const allSegmentsForDownload = orderedSegments;
 
   // ── Page navigation (Next.js routing) ──────────────────────────
-  const hasPrev = pageNumber > 1;
-  const hasNext = pageNumber < totalPages;
-
   const navigateToPage = useCallback(
     (targetPage: number) => {
       router.push(`/books/${bookId}/${articleId}/${targetPage}`);
@@ -245,6 +242,17 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
     (i: number) => readerPages[i]?.page ?? i + 1,
     [readerPages],
   );
+
+  // Boundary checks derived from position within readerPages (the real pages
+  // array), NOT from arithmetic pageNumber bounds. source_page-mode articles
+  // can have non-sequential real page numbers (e.g. 1, 130..241), so
+  // `pageNumber > 1` / `pageNumber < totalPages` are not equivalent to
+  // "has a prev/next page". When readerPages is empty (all_pages not loaded),
+  // fall back to the sequential arithmetic bounds.
+  const hasPrev = currentPageIndex > 0;
+  const hasNext = readerPages.length > 0
+    ? currentPageIndex < readerPages.length - 1
+    : pageNumber < totalPages;
 
   // ── Bookmarks ──────────────────────────────────────────────────
   // Bookmarks store pageIndex as the 0-based index into readerPages (not
@@ -353,10 +361,10 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
   // ── Keyboard shortcuts ─────────────────────────────────────────
   useReaderKeyboard({
     onPrevPage: () => {
-      if (hasPrev) navigateToPage(pageNumber - 1);
+      if (hasPrev) navigateToPage(pageIndexToPageNumber(currentPageIndex - 1));
     },
     onNextPage: () => {
-      if (hasNext) navigateToPage(pageNumber + 1);
+      if (hasNext) navigateToPage(pageIndexToPageNumber(currentPageIndex + 1));
     },
     prevDisabled: !hasPrev,
     nextDisabled: !hasNext,
