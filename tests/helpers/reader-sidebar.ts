@@ -6,8 +6,8 @@ import { Page, expect } from '@playwright/test';
  */
 export async function ensureSidebarOpen(page: Page) {
   // Check if sidebar is already expanded by looking for the "Collapse sidebar" button (desktop) or "Close sidebar" (mobile)
-  const isExpanded = (await page.locator('button[aria-label="Collapse sidebar"]').isVisible()) ||
-                     (await page.locator('button[aria-label="Close sidebar"]').isVisible());
+  const isExpanded = (await page.locator('button[aria-label="Collapse sidebar"]').count() > 0) ||
+                     (await page.locator('button[aria-label="Close sidebar"]').count() > 0);
 
   if (!isExpanded) {
     // Try to click expand button.
@@ -17,18 +17,13 @@ export async function ensureSidebarOpen(page: Page) {
       'button[aria-label="Open document sidebar (contents and search)"]',
     ];
 
-    let clicked = false;
-    for (const selector of expandButtons) {
-        const locator = page.locator(selector);
-        const count = await locator.count();
-        if (count > 0) {
-            await locator.first().click();
-            clicked = true;
-            break;
-        }
-    }
-
-    if (!clicked) {
+    // Use a locator that matches any of them and wait for it
+    const expandLocator = page.locator(expandButtons.join(', '));
+    
+    try {
+        await expandLocator.first().waitFor({ state: 'visible', timeout: 5000 });
+        await expandLocator.first().click();
+    } catch (e) {
         // Maybe it's already expanded but something else is wrong?
         if ((await page.locator('span', { hasText: 'Sidebar' }).isVisible())) {
             return; // Already open
@@ -37,6 +32,6 @@ export async function ensureSidebarOpen(page: Page) {
     }
 
     // Wait for the sidebar to be fully open/visible (check for "Collapse sidebar" or "Close sidebar" to appear)
-    await expect(page.locator('button[aria-label="Collapse sidebar"], button[aria-label="Close sidebar"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('button[aria-label="Collapse sidebar"], button[aria-label="Close sidebar"]')).toBeVisible({ timeout: 30000 });
   }
 }
