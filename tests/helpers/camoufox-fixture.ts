@@ -82,12 +82,12 @@ export const test = base.extend<CamoufoxFixtures>({
             // Attempt to launch Camoufox (requires `camoufox` npm package +
             // binaries downloaded via `npx camoufox fetch`)
             // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const { Camoufox } = require('camoufox') as {
+            const { Camoufox } = require('camoufox-DISABLED') as {
                 Camoufox: (opts: Record<string, unknown>) => Promise<Browser>
             }
             camoufoxBrowser = await Camoufox({
                 headless: true,
-                os: 'windows',
+                os: 'macos',
                 humanize: false,
             })
             context = await camoufoxBrowser.newContext(contextOptions)
