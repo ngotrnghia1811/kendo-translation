@@ -12,6 +12,7 @@
  */
 
 import { test, expect } from './helpers/camoufox-fixture'
+import { ensureSidebarOpen } from './helpers/reader-sidebar'
 
 const READER_URL = '/documents/86adf815-b0ca-46eb-bab7-b6fb040b845c/read'
 
@@ -283,8 +284,10 @@ test.describe('PWA — No-regress checks', () => {
   test('reader virtualization: DOM stable on scroll', async ({ page }) => {
     await page.goto(READER_URL)
     await page.waitForLoadState('domcontentloaded')
-    // Wait for reader content
-    await page.waitForSelector('[data-reader-font]', { timeout: 10000 })
+    // Wait for reader content — wait for actual paragraph/heading children,
+    // not just the container, so `before` isn't read while content is still
+    // rendering (was causing a false-positive threshold failure).
+    await page.waitForSelector('[data-reader-font] p, [data-reader-font] h2', { timeout: 10000 })
 
     // Count rendered paragraphs before scroll
     const before = await page.locator('[data-reader-font] p, [data-reader-font] h2').count()
@@ -307,10 +310,9 @@ test.describe('PWA — No-regress checks', () => {
         await page.waitForLoadState('domcontentloaded')
         await page.waitForSelector('[data-reader-theme]', { timeout: 10000 })
 
-        // Open sidebar via the "Open document sidebar" button
-        const sidebarBtn = page.locator('button[aria-label="Open document sidebar (contents and search)"]')
-        await sidebarBtn.click()
-        await page.waitForTimeout(500)
+        // Open sidebar via the robust retry-based helper (single-shot click
+        // + fixed timeout was flaky against animation/render timing).
+        await ensureSidebarOpen(page)
 
         // Sidebar should be visible
         const sidebar = page.locator('[aria-label="Reader sidebar"]')
@@ -354,7 +356,13 @@ test.describe('PWA — No-regress checks', () => {
       expect(manifestResp.status()).toBe(200)
 
       const contentType = manifestResp.headers()['content-type'] ?? ''
-      expect(contentType).toContain('application/manifest+json')
+      // manifest.json is served as a static file from public/ — Next.js/Vercel
+      // static serving legitimately returns application/json here, not
+      // application/manifest+json (which only Next's app-router `manifest.ts`
+      // convention auto-sets). Browsers fully support application/json for
+      // manifests, so this is not a production regression — confirmed via
+      // playwright-test investigation (2026-08-14).
+      expect(contentType).toContain('application/json')
 
       // ── 2: Manifest fields ──────────────────────────────────────────
       const manifest = await manifestResp.json()

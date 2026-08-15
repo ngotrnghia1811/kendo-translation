@@ -21,6 +21,7 @@
  */
 
 import { test, expect } from './helpers/camoufox-fixture'
+import { ensureSidebarOpen } from './helpers/reader-sidebar'
 
 const BASE   = process.env.TEST_BASE_URL ?? 'http://localhost:3001'
 const DOC_ID = '86adf815-b0ca-46eb-bab7-b6fb040b845c'
@@ -31,14 +32,33 @@ const READ_URL = `${BASE}/documents/${DOC_ID}/read`
 // ---------------------------------------------------------------------------
 
 /**
+ * Expand the collapsible reader sidebar (icon rail by default) so the pager
+ * select becomes present in the DOM. Mirrors the openSidebar() helper in
+ * tests/page-reader-verification.spec.ts.
+ */
+async function openSidebar(page: import('@playwright/test').Page) {
+    const expandBtn = page
+        .locator('button[aria-label="Expand sidebar"], button[aria-label="Open sidebar"]')
+        .first()
+    if (await expandBtn.isVisible().catch(() => false)) {
+        await expandBtn.click()
+        await page.waitForTimeout(400)
+    }
+}
+
+/**
  * Wait for the pager to appear and return the current page index as a number.
- * The pager select has aria-label "{pageNoun}, {totalPages} total".
+ * The pager select has aria-label "Jump to Page" or "Jump to Chunk".
+ * The pager lives inside the collapsible sidebar (ReaderCollapsibleSidebar.tsx),
+ * which defaults to collapsed on first load, so the sidebar must be expanded
+ * first or the select is not rendered at all (not just hidden).
  */
 async function getPagerSelect(page: import('@playwright/test').Page) {
-    return page.locator('select[aria-label*="total"]')
+    return page.locator('select[aria-label^="Jump to"]')
 }
 
 async function waitForPager(page: import('@playwright/test').Page, timeout = 30_000) {
+    await ensureSidebarOpen(page)
     const sel = await getPagerSelect(page)
     await sel.waitFor({ state: 'visible', timeout })
     return sel
@@ -64,11 +84,11 @@ test.describe('Reader features — pagination, filter, progress memory', () => {
         const pagerSelect = await waitForPager(page, 30_000)
         await snap('pager_initial')
 
-        // Verify page 1 is selected by default (index 0).
-        const initialIdx = await pagerSelect.evaluate(
-            (el: HTMLSelectElement) => el.selectedIndex
+        // Verify page 1 is selected by default.
+        const initialPage = await pagerSelect.evaluate(
+            (el: HTMLSelectElement) => el.value
         )
-        expect(initialIdx, 'should start on page index 0').toBe(0)
+        expect(initialPage, 'should start on page 1').toBe('1')
 
         // The "Previous page" button should be disabled on page 1.
         const prevBtn = page.locator('button[aria-label="Previous page"]')
@@ -83,10 +103,12 @@ test.describe('Reader features — pagination, filter, progress memory', () => {
         await page.waitForTimeout(600)
         await snap('pager_after_next')
 
-        const afterNextIdx = await pagerSelect.evaluate(
-            (el: HTMLSelectElement) => el.selectedIndex
+        const afterNextPage = await pagerSelect.evaluate(
+            (el: HTMLSelectElement) => el.value
         )
-        expect(afterNextIdx, 'should be on page index 1 after Next').toBe(1)
+        // Note: The specific real page number depends on the doc structure.
+        // For Baba 1 Clean, it should advance from '1' to '2'.
+        expect(afterNextPage, 'should be on page 2 after Next').toBe('2')
 
         // Previous button should now be enabled.
         await expect(prevBtn).not.toBeDisabled()
@@ -96,10 +118,10 @@ test.describe('Reader features — pagination, filter, progress memory', () => {
         await page.waitForTimeout(600)
         await snap('pager_after_prev')
 
-        const afterPrevIdx = await pagerSelect.evaluate(
-            (el: HTMLSelectElement) => el.selectedIndex
+        const afterPrevPage = await pagerSelect.evaluate(
+            (el: HTMLSelectElement) => el.value
         )
-        expect(afterPrevIdx, 'should be back on page index 0 after Prev').toBe(0)
+        expect(afterPrevPage, 'should be back on page 1 after Prev').toBe('1')
     })
 
     test('A2: page-select dropdown jump navigates correctly', async ({
@@ -120,10 +142,13 @@ test.describe('Reader features — pagination, filter, progress memory', () => {
         await page.waitForTimeout(600)
         await snap('pager_jumped_to_last')
 
-        const finalIdx = await pagerSelect.evaluate(
-            (el: HTMLSelectElement) => el.selectedIndex
+        const finalPage = await pagerSelect.evaluate(
+            (el: HTMLSelectElement) => el.value
         )
-        expect(finalIdx, 'should be on last page after select jump').toBe(optionCount - 1)
+        const lastOptionValue = await pagerSelect.evaluate(
+            (el: HTMLSelectElement) => el.options[el.options.length - 1].value
+        )
+        expect(finalPage, 'should be on last page after select jump').toBe(lastOptionValue)
 
         // Next button should now be disabled on last page.
         const nextBtn = page.locator('button[aria-label="Next page"]')
@@ -142,11 +167,8 @@ test.describe('Reader features — pagination, filter, progress memory', () => {
         // Wait for the reader to load.
         await page.waitForTimeout(3_000)
 
-        // Open the sidebar via the Contents/Search toolbar button.
-        // The button aria-label contains "sidebar".
-        const sidebarBtn = page.locator('button[aria-label*="sidebar"]')
-        await sidebarBtn.waitFor({ state: 'visible', timeout: 15_000 })
-        await sidebarBtn.click()
+        // Open the sidebar via helper
+        await ensureSidebarOpen(page)
         await page.waitForTimeout(500)
         await snap('sidebar_open')
 
@@ -200,10 +222,10 @@ test.describe('Reader features — pagination, filter, progress memory', () => {
         await snap('progress_fresh_load_page1')
 
         // Confirm we're on page 1.
-        const startIdx = await pagerSelect.evaluate(
-            (el: HTMLSelectElement) => el.selectedIndex
+        const startPage = await pagerSelect.evaluate(
+            (el: HTMLSelectElement) => el.value
         )
-        expect(startIdx, 'should start on page 0 after clearing progress').toBe(0)
+        expect(startPage, 'should start on page 1 after clearing progress').toBe('1')
 
         // Navigate to page 2 via Next.
         const nextBtn = page.locator('button[aria-label="Next page"]')
@@ -211,10 +233,10 @@ test.describe('Reader features — pagination, filter, progress memory', () => {
         await page.waitForTimeout(800)
         await snap('progress_navigated_to_page2')
 
-        const afterNavIdx = await pagerSelect.evaluate(
-            (el: HTMLSelectElement) => el.selectedIndex
+        const afterNavPage = await pagerSelect.evaluate(
+            (el: HTMLSelectElement) => el.value
         )
-        expect(afterNavIdx, 'should be on page index 1').toBe(1)
+        expect(afterNavPage, 'should be on page 2').toBe('2')
 
         // Verify localStorage was updated (key = "reader-progress:<articleId>").
         const savedRaw = await page.evaluate(
@@ -223,7 +245,7 @@ test.describe('Reader features — pagination, filter, progress memory', () => {
         )
         expect(savedRaw, 'localStorage should have been written').toBeTruthy()
         const saved = JSON.parse(savedRaw!)
-        expect(saved.pageIndex, 'saved pageIndex should be 1').toBe(1)
+        expect(saved.pageNumber, 'saved pageNumber should be 2').toBe(2)
 
         // Reload the page — the reader should auto-resume to page 2.
         await page.reload()
@@ -231,9 +253,9 @@ test.describe('Reader features — pagination, filter, progress memory', () => {
         await page.waitForTimeout(1_000) // allow restore useEffect to fire
         await snap('progress_after_reload')
 
-        const resumedIdx = await pagerAfterReload.evaluate(
-            (el: HTMLSelectElement) => el.selectedIndex
+        const resumedPage = await pagerAfterReload.evaluate(
+            (el: HTMLSelectElement) => el.value
         )
-        expect(resumedIdx, 'should resume to page index 1 after reload').toBe(1)
+        expect(resumedPage, 'should resume to page 2 after reload').toBe('2')
     })
 })
