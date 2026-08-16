@@ -15,6 +15,7 @@ export async function ensureSidebarOpen(page: Page) {
       'button[aria-label="Expand sidebar"]',
       'button[aria-label="Open sidebar"]',
       'button[aria-label="Open document sidebar (contents and search)"]',
+      'button[aria-label="Open document contents, search, and filter"]',
     ];
 
     // Use a locator that matches any of them and wait for it
@@ -32,6 +33,7 @@ export async function ensureSidebarOpen(page: Page) {
     }
 
     // Wait for the sidebar to be fully open/visible (check for "Collapse sidebar" or "Close sidebar" to appear)
-    await expect(page.locator('button[aria-label="Collapse sidebar"], button[aria-label="Close sidebar"]')).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('[data-testid="reader-sidebar-panel"]')).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('button[aria-label="Collapse sidebar"], button[aria-label="Close sidebar"]')).toBeVisible({ timeout: 10000 });
   }
 }

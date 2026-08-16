@@ -414,10 +414,29 @@ export default function ReaderView({ segments, zhSegments, settings, title, titl
     // Panel state — at most one can be open at a time
     const [settingsOpen, setSettingsOpen] = useState(false)
     const [bookmarksOpen, setBookmarksOpen] = useState(false)
-    const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
+        // Rehydrate synchronously on mount to avoid a flash of wrong state,
+        // mirroring useReaderProgress's synchronous localStorage read.
+        if (typeof window === 'undefined') return false
+        try {
+            return localStorage.getItem('reader-sidebar-open') === 'true'
+        } catch {
+            return false
+        }
+    })
     const [sidebarTab, setSidebarTab] = useState<'toc' | 'search'>('toc')
     const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false)
     const [downloadOpen, setDownloadOpen] = useState(false)
+
+    // Persist sidebar open/closed preference on every change.
+    useEffect(() => {
+        if (typeof window === 'undefined') return
+        try {
+            localStorage.setItem('reader-sidebar-open', String(sidebarOpen))
+        } catch {
+            // Storage quota exceeded — silently ignore.
+        }
+    }, [sidebarOpen])
 
     // ── Phase 5.6: Tap-to-reveal popup state ────────────────────────────
     const [popupData, setPopupData] = useState<WordPopupData | null>(null)
@@ -918,8 +937,8 @@ export default function ReaderView({ segments, zhSegments, settings, title, titl
                             <ToolbarButton
                                 active={sidebarOpen}
                                 onClick={() => { setSidebarTab('toc'); setSidebarOpen((o) => !o); setSettingsOpen(false); setBookmarksOpen(false) }}
-                                ariaLabel="Open document sidebar (contents and search)"
-                                title="Contents & Search (press / to search)"
+                                ariaLabel={sidebarOpen ? 'Close document sidebar' : 'Open document contents, search, and filter'}
+                                title="Contents, Search & Filter (press / to search)"
                             >
                                 <BookOpenIcon />
                             </ToolbarButton>
