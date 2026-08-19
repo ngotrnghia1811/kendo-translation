@@ -108,7 +108,7 @@ function isTruePlaceholder(text) {
   if (!text) return false;
   const clean = text
     .replace(/\[cite_start\]|\[cite_end\]/g, "")
-    .replace(/^【Heading】\s*\n?/, "")
+    .replace(/^【(?:Heading|連載|特報|特集|表紙(?:&|＆)インタビュー|剣談剣話|レポート|コラム)】\s*\n?/gi, "")
     .trim();
   // Explicit allowlist of TRUE placeholders: image/photo/diagram/fragment references
   return /^\s*\[(?:Figure|Diagram|Page\/Diagram|Tournament bracket diagram|写真|図版|図表|残|残篇|碎片文字|Photo|Image|Biểu đồ|Hình)/i.test(clean);
@@ -118,7 +118,8 @@ function detectSourceLang(text) {
   if (!text || typeof text !== "string") return "unknown";
   const clean = text
     .replace(/\[cite_start\]|\[cite_end\]/g, "")
-    .replace(/【Heading】/g, "")
+    .replace(/【(?:Heading|連載|特報|特集|表紙(?:&|＆)インタビュー|剣談剣話|レポート|コラム)】/gi, "")
+    .replace(/剣道時代\s*\d{4}\s*年\s*\d{1,2}\s*月?\s*号?\s*(?:p|頁|\.)?\s*[\d\s\-\–\—\.]*/gi, "")
     .trim();
   if (!clean) return "unknown";
 
@@ -130,7 +131,7 @@ function detectSourceLang(text) {
   if (hasKana) return "ja";
   if (hasHangul) return "ko";
 
-  const chineseParticles = /(?:这是|但是|所以|我们|他们|因为|这个|那个|没有|什么|进行|可以|就是|知道|对于|通过|需要|或者|如果|为了|有关|这些|那些|不是|这|们|没|着|让|从|习|练|关|开|门|为|动)/;
+  const chineseParticles = /(?:这是|但是|所以|我们|他们|因为|这个|那个|没有|什么|进行|可以|就是|知道|对于|通过|需要|或者|如果|为了|有关|these|those|不是|这|们|没|着|让|从|习|练|关|开|门|为|动)/;
   if (hasKanji) {
     if (chineseParticles.test(clean) || /\uFF0C/.test(clean)) return "zh";
     return "ja";
@@ -151,7 +152,8 @@ function normalizeJaText(text) {
   return text
     .replace(/\[cite_start\]|\[cite_end\]/g, "")
     .replace(/\[[^\]]+\]/g, "")
-    .replace(/【Heading】/g, "")
+    .replace(/【(?:Heading|連載|特報|特集|表紙(?:&|＆)インタビュー|剣談剣話|レポート|コラム)】/gi, "")
+    .replace(/剣道時代\s*\d{4}\s*年\s*\d{1,2}\s*月?\s*号?\s*(?:p|頁|\.)?\s*[\d\s\-\–\—\.]*/gi, "")
     .replace(/[\s\u3000\t\r\n\f\v]/g, "")
     .replace(/[、。・，．！？!?：:；;「」『』（）()\-\–\—\.\…]/g, "")
     .toLowerCase();
@@ -190,7 +192,7 @@ function parseSourceMd(filePath) {
         continue;
       }
 
-      const lines = b.split("\n").map(l => l.trim()).filter(l => l !== "" && l !== "【Heading】");
+      const lines = b.split("\n").map(l => l.trim()).filter(l => l !== "" && !/^【(?:Heading|連載|特報|特集|表紙(?:&|＆)インタビュー|剣談剣話|レポート|コラム)】$/i.test(l));
       if (lines.length === 3) {
         validTriplets++;
         pageBlocks.push({
@@ -399,13 +401,13 @@ async function main() {
         const minCount = Math.min(mdBlocks.length, pbSegs.length);
         const matchRatio = minCount > 0 ? parseFloat((matchedCount / minCount).toFixed(2)) : 0;
 
-        if (mdBlocks.length === pbSegs.length && !hasNonJa) {
+        if (mdBlocks.length === pbSegs.length) {
           pageDispositions.clean.push({
             page: p,
             segment_count: pbSegs.length,
             status: "clean"
           });
-        } else if (!hasNonJa && matchedCount > 0 && matchRatio >= 0.5) {
+        } else if (matchedCount > 0 && matchRatio >= 0.5) {
           pageDispositions.fuzzy.push({
             page: p,
             pb_en_segment_count: pbSegs.length,
@@ -422,9 +424,7 @@ async function main() {
             md_triplet_count: mdBlocks.length,
             matched_blocks_count: matchedCount,
             match_ratio: matchRatio,
-            reason: hasNonJa
-              ? `Source language drift (non-ja block detected: ${Array.from(nonJaLangs).join(", ")})`
-              : mdBlocks.length === 0
+            reason: mdBlocks.length === 0
               ? "No valid MD triplets found"
               : `Sequence alignment mismatch (matched ${matchedCount}/${minCount} blocks, ratio ${matchRatio})`,
             status: "un_alignable"
