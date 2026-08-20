@@ -7,7 +7,7 @@ production at [kendotranslation.com](https://kendotranslation.com)).
 
 | File | Description |
 |------|-------------|
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | Technical architecture overview — stack, data model, API design, deployment. |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | Technical architecture overview — stack, data model, PocketBase setup, API design, deployment. |
 | [VISION.md](./VISION.md) | Product vision — cooperation-first co-translation platform for Japanese kendo literature. |
 | [OVERALL_ROADMAP_2026.md](./OVERALL_ROADMAP_2026.md) | Single source of truth for the complete Day 1 to 2026 future development roadmap. |
 | [active_users.md](./active_users.md) | Current PocketBase user accounts, credentials, and roles (production, 2026-08-10). |
@@ -17,9 +17,8 @@ production at [kendotranslation.com](https://kendotranslation.com)).
 
 ## archive/
 
-Superseded point-in-time planning, coordination, and design documents from the
-pre-migration Supabase era (May–June 2026). These describe work that has since
-shipped; they are preserved for historical reference.
+Superseded point-in-time planning, coordination, and feature design documents from earlier eras.
+These describe work that has since shipped or been superseded; preserved for historical reference.
 
 | File | What it was |
 |------|-------------|
@@ -27,6 +26,7 @@ shipped; they are preserved for historical reference.
 | BACKEND-FOLLOWUP-FE-COORD.md | Backend–frontend coordination follow-up |
 | BACKEND-HANDOFF-DATA-IMPORT.md | Backend handoff for data import pipeline |
 | BE-PLAN-2026-06-04.md | Backend implementation plan (2026-06-04) |
+| BOOK_HIERARCHY_UI_PLAN.md | Book hierarchy UI redesign plan (Phases 1-3 shipped) |
 | DEV-PLAN-2026-06-10.md | Development plan snapshot (2026-06-10) |
 | DEV-PLAN-2026-06-13.md | Development plan snapshot (2026-06-13) |
 | DEV-STATE-2026-05-20.md | Development state snapshot (2026-05-20) |
@@ -35,6 +35,7 @@ shipped; they are preserved for historical reference.
 | FE-COORD-RESPONSE-SCALING-2026-05-31.md | Frontend coordination — response scaling |
 | FE-DEV-PLAN.md | Frontend development plan |
 | FE-READER-AUDIT-2026-05-25.md | Frontend reader-role audit |
+| HUSK_ARTICLES_REVIEW.md | Review & audit of 11 husk parent articles |
 | MAC-RAG-EXAMPLES-TODO-PLAN.md | MAC-RAG examples TODO implementation plan (all W1–W12 completed) |
 | MEMORY-DB-DESIGN.md | Supabase-era memory DB extension design (superseded by PocketBase migration) |
 | revamp-plan-2026-06-22.md | Revamp plan snapshot (2026-06-22) |
