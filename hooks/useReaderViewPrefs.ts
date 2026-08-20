@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from 'react'
 
 export type ReaderMode = 'single' | 'bilingual' | 'aligned' | 'pdf'
 export type DisplayLang = 'source' | 'target'
-export type TargetLangChoice = 'en' | 'zh'
+export type TargetLangChoice = 'en' | 'zh' | 'ko' | 'vi' | string
 
 interface ReaderViewPrefs {
   mode: ReaderMode
@@ -39,7 +39,7 @@ function loadFromStorage(): ReaderViewPrefs {
           ? parsed.displayLang
           : DEFAULTS.displayLang,
       targetLangChoice:
-        parsed.targetLangChoice === 'en' || parsed.targetLangChoice === 'zh'
+        parsed.targetLangChoice && typeof parsed.targetLangChoice === 'string'
           ? parsed.targetLangChoice
           : DEFAULTS.targetLangChoice,
     }

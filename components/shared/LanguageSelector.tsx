@@ -11,6 +11,7 @@ const LANGUAGES: Record<string, string> = {
     en: 'English',
     zh: 'Chinese',
     ko: 'Korean',
+    vi: 'Vietnamese',
 }
 
 export default function LanguageSelector({ value, onChange, label }: LanguageSelectorProps) {

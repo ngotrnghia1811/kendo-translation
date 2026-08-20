@@ -10,7 +10,7 @@ interface TranslatorAlignedViewProps {
     targetLang: string
     /** When provided, the target column shows ZH text instead of EN. */
     zhByPosition?: Map<number, string>
-    targetLangChoice?: 'en' | 'zh'
+    targetLangChoice?: string
     /** Layout width from shared theme context. ('two-column' is N/A for table view → treated as 'full'). */
     layoutWidth?: LayoutWidth
 }
@@ -23,7 +23,7 @@ export default function TranslatorAlignedView({
     targetLangChoice = 'en',
     layoutWidth = 'narrow',
 }: TranslatorAlignedViewProps) {
-    const effectiveLang = targetLangChoice === 'zh' ? 'zh' : targetLang
+    const effectiveLang = targetLangChoice && targetLangChoice !== 'en' ? targetLangChoice : targetLang
 
     // 'two-column' doesn't make sense for a table view → treat as 'full'.
     const resolvedWidth = layoutWidth === 'two-column' ? 'full' : layoutWidth
@@ -81,8 +81,8 @@ export default function TranslatorAlignedView({
                                     }
                                 >
                                     {(() => {
-                                        const text = targetLangChoice === 'zh'
-                                            ? (zhByPosition?.get(segment.position) ?? '')
+                                        const text = targetLangChoice !== 'en' && zhByPosition
+                                            ? (zhByPosition?.get(segment.position) ?? segment.target_text ?? '')
                                             : (segment.target_text ?? '')
                                         return text ? (
                                             <span>{text}</span>

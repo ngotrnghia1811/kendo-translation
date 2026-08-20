@@ -57,8 +57,8 @@ export interface ReaderCollapsibleSidebarProps {
   onModeChange: (m: 'single' | 'bilingual' | 'aligned' | 'pdf') => void
   displayLang: 'source' | 'target'
   onDisplayLangChange: (l: 'source' | 'target') => void
-  targetLangChoice: 'en' | 'zh'
-  onTargetLangChoiceChange: (c: 'en' | 'zh') => void
+  targetLangChoice: string
+  onTargetLangChoiceChange: (c: any) => void
   sourceLang: string
   targetLang: string
   hasZh: boolean
@@ -533,8 +533,8 @@ function ViewLanguageSection({
   onModeChange: (m: 'single' | 'bilingual' | 'aligned' | 'pdf') => void
   displayLang: 'source' | 'target'
   onDisplayLangChange: (l: 'source' | 'target') => void
-  targetLangChoice: 'en' | 'zh'
-  onTargetLangChoiceChange: (c: 'en' | 'zh') => void
+  targetLangChoice: string
+  onTargetLangChoiceChange: (c: any) => void
   sourceLang: string
   targetLang: string
   hasZh: boolean
@@ -551,28 +551,35 @@ function ViewLanguageSection({
 
   /* ── Language options depend on mode ────────────────── */
   const langOptions = useMemo(() => {
+    const extraLangs = [
+      { code: 'en', label: targetLang.toUpperCase() },
+      { code: 'zh', label: 'ZH' },
+      { code: 'ko', label: 'KO' },
+      { code: 'vi', label: 'VI' },
+    ]
     if (mode === 'single') {
       const opts: { label: string; action: () => void; active: boolean }[] = [
         { label: sourceLang.toUpperCase(), action: () => onDisplayLangChange('source'), active: displayLang === 'source' },
-        { label: targetLang.toUpperCase(), action: () => { onDisplayLangChange('target'); onTargetLangChoiceChange('en') }, active: displayLang === 'target' && targetLangChoice === 'en' },
       ]
-      if (hasZh) {
-        opts.push({ label: 'ZH', action: () => { onDisplayLangChange('target'); onTargetLangChoiceChange('zh') }, active: displayLang === 'target' && targetLangChoice === 'zh' })
+      for (const lang of extraLangs) {
+        opts.push({
+          label: lang.label,
+          action: () => { onDisplayLangChange('target'); onTargetLangChoiceChange(lang.code) },
+          active: displayLang === 'target' && targetLangChoice === lang.code,
+        })
       }
       return opts
     }
     if (mode === 'bilingual') {
-      const opts: { label: string; action: () => void; active: boolean }[] = [
-        { label: `${sourceLang.toUpperCase()}+${targetLang.toUpperCase()}`, action: () => onTargetLangChoiceChange('en'), active: targetLangChoice === 'en' },
-      ]
-      if (hasZh) {
-        opts.push({ label: `${sourceLang.toUpperCase()}+ZH`, action: () => onTargetLangChoiceChange('zh'), active: targetLangChoice === 'zh' })
-      }
-      return opts
+      return extraLangs.map((lang) => ({
+        label: `${sourceLang.toUpperCase()}+${lang.label}`,
+        action: () => onTargetLangChoiceChange(lang.code),
+        active: targetLangChoice === lang.code,
+      }))
     }
     // Aligned / PDF — no language switching
     return []
-  }, [mode, displayLang, targetLangChoice, sourceLang, targetLang, hasZh, onDisplayLangChange, onTargetLangChoiceChange])
+  }, [mode, displayLang, targetLangChoice, sourceLang, targetLang, onDisplayLangChange, onTargetLangChoiceChange])
 
   const viewLabel = VIEW_OPTIONS.find((o) => o.value === mode)?.label ?? 'Single'
   const langLabel = langOptions.find((o) => o.active)?.label ?? '—'

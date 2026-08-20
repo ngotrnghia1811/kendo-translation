@@ -23,6 +23,7 @@ import ReaderBookmarksPanel from './ReaderBookmarksPanel'
 import ReaderSidebar from './ReaderSidebar'
 import ReaderKeyboardHelpModal from './ReaderKeyboardHelpModal'
 import MobileBottomBar from './MobileBottomBar'
+import LanguageSelector from '@/components/shared/LanguageSelector'
 
 type ThreeWayLang = 'jp' | 'bilingual' | 'en'
 import WordPopup, { type WordPopupData } from './WordPopup'
@@ -344,6 +345,48 @@ export default function ReaderView({ segments, zhSegments, settings, title, titl
         }))
     }, [allZhSegments])
 
+    // Dynamic target segment cache by target_lang code ('ko', 'vi', 'zh', etc.)
+    const targetLangCacheRef = useRef<Map<string, Map<number, Segment[]>>>(new Map())
+    const [targetCacheVersion, setTargetCacheVersion] = useState(0)
+
+    const fetchTargetLangPage = useCallback(async (lang: string, pageIndex: number) => {
+        if (lang === 'en') return
+        let langMap = targetLangCacheRef.current.get(lang)
+        if (!langMap) {
+            langMap = new Map()
+            targetLangCacheRef.current.set(lang, langMap)
+        }
+        if (langMap.has(pageIndex)) return
+
+        const pbUrl = process.env.NEXT_PUBLIC_POCKETBASE_URL ?? 'http://127.0.0.1:8090'
+        const pageNum = pageMetadataHint?.[pageIndex] ?? null
+        const offset = pageNum === null && pageMetadataHint === null
+            ? pageIndex * FALLBACK_CHUNK_SIZE
+            : 0
+        const limit = pageNum === null && pageMetadataHint === null
+            ? Math.min(FALLBACK_CHUNK_SIZE, (totalSegmentsHint ?? 50) - pageIndex * FALLBACK_CHUNK_SIZE)
+            : 0
+
+        const params = new URLSearchParams({
+            article_id: articleId,
+            target_lang: lang,
+        })
+        if (pageNum !== null) { params.set('page', String(pageNum)) }
+        else { params.set('offset', String(offset)); params.set('limit', String(limit)) }
+
+        try {
+            const res = await fetch(`${pbUrl}/api/custom/article-bilingual-window?${params}`)
+            if (res.ok) {
+                const data = await res.json()
+                const items = ((data.items ?? data ?? []) as Segment[])
+                langMap.set(pageIndex, items)
+                setTargetCacheVersion(v => v + 1)
+            }
+        } catch {
+            // Silently fail
+        }
+    }, [articleId, pageMetadataHint, totalSegmentsHint])
+
     const {
         mode,
         setMode,
@@ -370,6 +413,33 @@ export default function ReaderView({ segments, zhSegments, settings, title, titl
         totalSegmentsHint,
         pageMetadataHint ?? undefined,
     )
+
+    const targetByPosition = useMemo<Map<number, string>>(() => {
+        if (targetLangChoice === 'en') return new Map()
+        const langMap = targetLangCacheRef.current.get(targetLangChoice)
+        const result = new Map<number, string>()
+        if (langMap) {
+            for (const pageSegs of langMap.values()) {
+                for (const s of pageSegs) {
+                    if (s.target_text) result.set(s.position, s.target_text)
+                }
+            }
+        }
+        if (targetLangChoice === 'zh' && stableZhSegments) {
+            for (const s of stableZhSegments) {
+                if (s.target_text && !result.has(s.position)) {
+                    result.set(s.position, s.target_text)
+                }
+            }
+        }
+        return result
+    }, [targetLangChoice, targetCacheVersion, stableZhSegments])
+
+    useEffect(() => {
+        if (targetLangChoice !== 'en') {
+            fetchTargetLangPage(targetLangChoice, currentPageIndex)
+        }
+    }, [targetLangChoice, currentPageIndex, fetchTargetLangPage])
 
     // ── Lazy page loading: wrap goToPage to trigger fetch for unloaded pages ──
     const goToPage = useCallback((i: number) => {
@@ -723,7 +793,7 @@ export default function ReaderView({ segments, zhSegments, settings, title, titl
     // These produce the EXACT same DOM output as SingleLanguageView and
     // BilingualParagraphView did per-paragraph, but are called one-at-a-time
     // by VirtualizedReader.itemContent so only visible paragraphs mount.
-    const effectiveTargetLang = targetLangChoice === 'zh' ? 'zh' : targetLang
+    const effectiveTargetLang = targetLangChoice !== 'en' ? targetLangChoice : targetLang
 
     const readerWidthClass =
         layoutWidth === 'full'       ? 'max-w-full' :
@@ -1165,31 +1235,13 @@ export default function ReaderView({ segments, zhSegments, settings, title, titl
                                 ))}
                             </div>
 
-                            {/* ZH / EN toggle — shown when ZH data is available for this document */}
-                            {hasZh && mode !== 'pdf' && (
-                                <div
-                                    className="flex items-center rounded-lg overflow-hidden text-xs font-medium"
-                                    style={{ border: '1px solid var(--rt-border)' }}
-                                    title="Toggle target language between English and Traditional Chinese"
-                                >
-                                    {(['en', 'zh'] as const).map((lang) => (
-                                        <button
-                                            key={lang}
-                                            type="button"
-                                            onClick={() => setTargetLangChoice(lang)}
-                                            className="px-2.5 py-1 transition-colors"
-                                            style={targetLangChoice === lang ? {
-                                                backgroundColor: '#3b82f6',
-                                                color: '#fff',
-                                            } : {
-                                                backgroundColor: 'var(--rt-surface)',
-                                                color: 'var(--rt-text-muted)',
-                                            }}
-                                        >
-                                            {lang === 'en' ? 'EN' : '中文'}
-                                        </button>
-                                    ))}
-                                </div>
+                            {/* Target language selector */}
+                            {mode !== 'pdf' && (
+                                <LanguageSelector
+                                    value={targetLangChoice}
+                                    onChange={(lang) => setTargetLangChoice(lang as any)}
+                                    label="Target:"
+                                />
                             )}
 
                             {mode === 'single' && (

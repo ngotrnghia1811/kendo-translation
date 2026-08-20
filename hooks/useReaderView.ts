@@ -58,8 +58,8 @@ export function useReaderView(
 ) {
     const [mode, setMode] = useState<ReaderMode>('single')
     const [displayLang, setDisplayLang] = useState<'source' | 'target'>('target')
-    // 'zh' choice only available when zhSegments are provided
-    const [targetLangChoice, setTargetLangChoice] = useState<'en' | 'zh'>('en')
+    // Target language choice ('en', 'zh', 'ko', 'vi', etc.)
+    const [targetLangChoice, setTargetLangChoice] = useState<string>('en')
     const [currentPageIndex, setCurrentPageIndex] = useState(0)
     const sourceLang = settings?.source_lang || 'ja'
     const targetLang = settings?.target_lang || 'en'
@@ -192,16 +192,16 @@ export function useReaderView(
 
     // Get merged text for a paragraph
     const getParagraphText = (paragraph: Paragraph, lang: 'source' | 'target'): string => {
-        const langCode = lang === 'source' ? sourceLang
-            : targetLangChoice === 'zh' ? 'zh'
-            : targetLang
-        // CJK languages (Japanese, Chinese) do not use spaces between sentences.
+        const langCode = lang === 'source' ? sourceLang : (targetLangChoice || targetLang)
+        // CJK languages (Japanese, Chinese, Korean) do not use spaces between sentences.
         // All other languages default to a single space joiner.
         const joiner = /^(ja|zh|ko)/.test(langCode ?? '') ? '' : ' '
         return paragraph.segments
             .map(s => {
                 if (lang === 'source') return s.source_text
-                if (targetLangChoice === 'zh') return zhByPosition.get(s.position) ?? ''
+                if (targetLangChoice !== 'en' && zhByPosition.has(s.position)) {
+                    return zhByPosition.get(s.position) ?? ''
+                }
                 return s.target_text || ''
             })
             .filter(Boolean)

@@ -21,6 +21,7 @@ import MobileBottomBar from '@/components/reader/MobileBottomBar';
 import WordPopup, { type WordPopupData } from '@/components/reader/WordPopup';
 import TranslatorAlignedView from '@/components/reader/TranslatorAlignedView';
 import PdfPageView from '@/components/reader/PdfPageView';
+import LanguageSelector from '@/components/shared/LanguageSelector';
 import type { Segment } from '@/types/database';
 import type { PageContent, PageSegment } from '@/components/books/types';
 
@@ -126,31 +127,31 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
     targetLangChoice,
     setTargetLangChoice,
   } = useReaderViewPrefs();
-  // ZH position→target_text map for aligned mode (fetched on demand)
-  const [zhAlignedMap, setZhAlignedMap] = useState<Map<number, string> | null>(null);
+  // Target position→target_text map for non-EN languages (fetched on demand)
+  const [targetLangMap, setTargetLangMap] = useState<Map<number, string>>(new Map());
 
   const sourceLang = page.settings?.source_lang ?? 'ja';
   const targetLang = page.settings?.target_lang ?? 'en';
-  const effectiveTargetLang = targetLangChoice === 'zh' ? 'zh' : targetLang;
+  const effectiveTargetLang = targetLangChoice !== 'en' ? targetLangChoice : targetLang;
   const hasZh = page.has_zh ?? false;
   const canEdit = page.can_edit ?? false;
   const pairedPdfPath = page.settings?.paired_pdf_path ?? null;
   // PDF mode is only available for source_page-mode docs with a real paired PDF
   const pdfAvailable = !!(pairedPdfPath && page.mode === 'source_page');
 
-  // ── ZH segment fetch for aligned mode ─────────────────────────
+  // ── Target language segment fetch (KO / VI / ZH / etc.) ───────
   useEffect(() => {
-    if (mode !== 'aligned' || !hasZh) {
-      setZhAlignedMap(null);
+    if (targetLangChoice === 'en') {
+      setTargetLangMap(new Map());
       return;
     }
 
     let cancelled = false;
-    const fetchZh = async () => {
+    const fetchTarget = async () => {
       const pbUrl = process.env.NEXT_PUBLIC_POCKETBASE_URL ?? 'http://127.0.0.1:8090';
       const params = new URLSearchParams({
         article_id: articleId,
-        target_lang: 'zh',
+        target_lang: targetLangChoice,
       });
 
       if (page.mode === 'source_page') {
@@ -169,17 +170,17 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
         for (const item of items) {
           if (item.target_text) map.set(item.position, item.target_text);
         }
-        if (!cancelled) setZhAlignedMap(map);
+        if (!cancelled) setTargetLangMap(map);
       } catch {
-        // Silently fail — ZH overlay will be absent but aligned view works without it
+        // Silently fail
       }
     };
 
-    fetchZh();
+    fetchTarget();
     return () => {
       cancelled = true;
     };
-  }, [mode, hasZh, articleId, pageNumber, page.mode]);
+  }, [targetLangChoice, articleId, pageNumber, page.mode]);
 
   // Restore scroll position after mode/displayLang change
   useEffect(() => {
@@ -454,11 +455,15 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
     const seg = orderedSegments[index];
     if (!seg) return null;
 
+    const resolvedTargetText = targetLangChoice === 'en'
+      ? seg.target_text
+      : (targetLangMap.get(seg.position) ?? seg.target_text);
+
     if (mode === 'single') {
       // When displaying target lang, fall back to source text if target is empty.
       // This ensures every segment renders something — no "blank gaps" in the reader.
-      const preferredText = displayLang === 'source' ? seg.source_text : seg.target_text;
-      const fallbackText = displayLang === 'source' ? seg.target_text : seg.source_text;
+      const preferredText = displayLang === 'source' ? seg.source_text : resolvedTargetText;
+      const fallbackText = displayLang === 'source' ? resolvedTargetText : seg.source_text;
       const text = (preferredText?.trim() ? preferredText : fallbackText) || '';
       if (!text.trim()) return null;
 
@@ -485,7 +490,7 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
 
     // bilingual mode — each segment is rendered as its own side-by-side block
     const sourceText = seg.source_text;
-    const targetText = seg.target_text || '';
+    const targetText = resolvedTargetText || '';
     if (!sourceText.trim() && !targetText.trim()) return null;
 
     return (
@@ -629,21 +634,27 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
             </div>
           )}
 
-          {/* Minimal title header (shown only on mobile where sidebar is overlay) */}
+          {/* Minimal title header + Language selector */}
           {!focusMode && (
             <div
-              className="md:hidden shrink-0 px-4 py-2 flex items-center gap-2"
+              className="shrink-0 px-4 py-2 flex items-center justify-between gap-2"
               style={{
                 backgroundColor: 'var(--rt-bg)',
                 borderBottom: '1px solid var(--rt-border)',
               }}
             >
-              <Link href="/books" className="text-xs shrink-0" style={{ color: 'var(--rt-text-muted)' }}>
-                ← Books
-              </Link>
-              <span className="text-xs truncate font-medium flex-1" style={{ color: 'var(--rt-text)' }}>
-                {displayTitle}
-              </span>
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <Link href="/books" className="text-xs shrink-0" style={{ color: 'var(--rt-text-muted)' }}>
+                  ← Books
+                </Link>
+                <span className="text-xs truncate font-medium" style={{ color: 'var(--rt-text)' }}>
+                  {displayTitle}
+                </span>
+              </div>
+              <LanguageSelector
+                value={targetLangChoice}
+                onChange={(lang) => setTargetLangChoice(lang)}
+              />
             </div>
           )}
 
@@ -669,7 +680,7 @@ export default function PageReader({ pageContent, bookId, articleId }: PageReade
               segments={pageContent.segments as unknown as Segment[]}
               sourceLang={sourceLang}
               targetLang={targetLang}
-              zhByPosition={hasZh ? (zhAlignedMap ?? new Map()) : undefined}
+              zhByPosition={targetLangChoice !== 'en' ? targetLangMap : undefined}
               targetLangChoice={targetLangChoice}
               layoutWidth={layoutWidth}
             />
