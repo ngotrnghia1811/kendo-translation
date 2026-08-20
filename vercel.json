@@ -6,7 +6,7 @@
   "crons": [
     {
       "path": "/api/segments/cleanup-locks",
-      "schedule": "0 0 * * *"
+      "schedule": "*/15 * * * *"
     }
   ]
 }

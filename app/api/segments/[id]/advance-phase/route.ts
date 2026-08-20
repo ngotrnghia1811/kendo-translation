@@ -123,9 +123,41 @@ export async function POST(
         );
     }
 
-    // Phase-based auth (stopgap: translator||admin; see migration notes)
+    // Phase-based auth (role check + per-document assignment check)
     if (userRole !== 'admin' && userRole !== 'translator') {
         return NextResponse.json({ error: 'Forbidden: translator or admin role required' }, { status: 403 });
+    }
+
+    if (userRole === 'translator') {
+        const articleId = segment.article as string | undefined;
+        if (articleId) {
+            const STATUS_TO_PHASE: Record<string, string> = {
+                translated: 'translate',
+                edited: 'edit',
+                proofread: 'proofread',
+                qa_approved: 'qa',
+            };
+            const targetPhase = STATUS_TO_PHASE[to_status];
+            if (targetPhase) {
+                try {
+                    const assignments = await pb.collection('document_assignments').getFullList({
+                        filter: `document = "${articleId}"`,
+                    });
+                    if (assignments.length > 0) {
+                        const userAssignment = assignments.find((a) => a.user === userId);
+                        const allowedPhases = (userAssignment?.allowed_phases as string[]) ?? [];
+                        if (!userAssignment || !allowedPhases.includes(targetPhase)) {
+                            return NextResponse.json(
+                                { error: `Forbidden: not assigned to '${targetPhase}' phase on this document` },
+                                { status: 403 }
+                            );
+                        }
+                    }
+                } catch {
+                    // Fallback if assignment check fails
+                }
+            }
+        }
     }
 
     // Atomic status flip: update with filter matching current status.
