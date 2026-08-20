@@ -9,6 +9,7 @@ production at [kendotranslation.com](https://kendotranslation.com)).
 |------|-------------|
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Technical architecture overview — stack, data model, API design, deployment. |
 | [VISION.md](./VISION.md) | Product vision — cooperation-first co-translation platform for Japanese kendo literature. |
+| [OVERALL_ROADMAP_2026.md](./OVERALL_ROADMAP_2026.md) | Single source of truth for the complete Day 1 to 2026 future development roadmap. |
 | [active_users.md](./active_users.md) | Current PocketBase user accounts, credentials, and roles (production, 2026-08-10). |
 | [kendojidai-pipeline-reference.md](./kendojidai-pipeline-reference.md) | Data pipeline reference for importing articles from kendojidai.com into the app. |
 | [MAC-RAG.md](./MAC-RAG.md) | Generic 5-phase RAG pipeline design — translate, edit, proofread, QA-advisory tasks. |
