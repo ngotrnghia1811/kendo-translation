@@ -41,7 +41,23 @@ routerAdd("GET", "/api/custom/article-bilingual-window", (e) => {
     if (rawPage !== "") {
         const pageNum = parseInt(rawPage, 10);
         if (!isNaN(pageNum)) {
-            whereClause += ` AND CAST(json_extract(s.metadata, '$.page') AS INTEGER) = ${pageNum}`;
+            if (targetLang === 'en') {
+                whereClause += ` AND CAST(json_extract(s.metadata, '$.page') AS INTEGER) = ${pageNum}`;
+            } else {
+                // Non-EN languages: resolve this page's segment positions via the
+                // EN segments (which carry metadata.page), then match the target
+                // language's segments by position. Some pipelines (e.g. the ZH
+                // import for Kendojidai year books) store segments WITHOUT
+                // metadata.page, so the json_extract filter would return zero
+                // rows and the reader would silently fall back to English.
+                whereClause +=
+                    ` AND s.position IN (` +
+                    `  SELECT s2.position FROM segments s2` +
+                    `  WHERE s2.article = '${safeArticleId}'` +
+                    `    AND s2.target_lang = 'en'` +
+                    `    AND CAST(json_extract(s2.metadata, '$.page') AS INTEGER) = ${pageNum}` +
+                    ` )`;
+            }
         }
     }
 
