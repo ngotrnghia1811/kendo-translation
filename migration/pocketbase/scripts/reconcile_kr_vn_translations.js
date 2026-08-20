@@ -110,8 +110,10 @@ function isTruePlaceholder(text) {
     .replace(/\[cite_start\]|\[cite_end\]/g, "")
     .replace(/^【(?:Heading|連載|特報|特集|表紙(?:&|＆)インタビュー|剣談剣話|レポート|コラム)】\s*\n?/gi, "")
     .trim();
-  // Explicit allowlist of TRUE placeholders: image/photo/diagram/fragment references
-  return /^\s*\[(?:Figure|Diagram|Page\/Diagram|Tournament bracket diagram|写真|図版|図表|残|残篇|碎片文字|Photo|Image|Biểu đồ|Hình)/i.test(clean);
+  // Explicit allowlist of TRUE placeholders: image/photo/diagram/fragment references.
+  // Accept both half-width [ and full-width 【 bracket variants (some source pages
+  // use 【Figure/Diagram referenced in original】 instead of [Figure/Diagram...]).
+  return /^\s*[\[【](?:Figure|Diagram|Page\/Diagram|Tournament bracket diagram|写真|図版|図表|残|残篇|碎片文字|Photo|Image|Biểu đồ|Hình)/i.test(clean);
 }
 
 function detectSourceLang(text) {
