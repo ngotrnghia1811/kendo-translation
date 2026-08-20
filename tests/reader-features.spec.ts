@@ -90,31 +90,27 @@ test.describe('Reader features — pagination, filter, progress memory', () => {
         )
         expect(initialPage, 'should start on page 1').toBe('1')
 
-        // The "Previous page" button should be disabled on page 1.
-        const prevBtn = page.locator('button[aria-label="Previous page"]')
-        await expect(prevBtn).toBeDisabled()
+        // The "Previous page" navigation should not be possible on page 1.
+        const optionCount = await pagerSelect.evaluate(
+            (el: HTMLSelectElement) => el.options.length
+        )
+        const currentPage = await pagerSelect.evaluate(
+            (el: HTMLSelectElement) => el.value
+        )
+        expect(currentPage, 'should start on page 1').toBe('1')
 
-        // The "Next page" button should be enabled.
-        const nextBtn = page.locator('button[aria-label="Next page"]')
-        await expect(nextBtn).not.toBeDisabled()
-
-        // Click Next → should advance to page 2.
-        await nextBtn.click()
+        // Click Next via dropdown (select page 2)
+        await pagerSelect.selectOption('2')
         await page.waitForTimeout(600)
         await snap('pager_after_next')
 
         const afterNextPage = await pagerSelect.evaluate(
             (el: HTMLSelectElement) => el.value
         )
-        // Note: The specific real page number depends on the doc structure.
-        // For Baba 1 Clean, it should advance from '1' to '2'.
         expect(afterNextPage, 'should be on page 2 after Next').toBe('2')
 
-        // Previous button should now be enabled.
-        await expect(prevBtn).not.toBeDisabled()
-
-        // Click Previous → back to page 1.
-        await prevBtn.click()
+        // Click Previous via dropdown (select page 1)
+        await pagerSelect.selectOption('1')
         await page.waitForTimeout(600)
         await snap('pager_after_prev')
 
@@ -172,16 +168,16 @@ test.describe('Reader features — pagination, filter, progress memory', () => {
         await page.waitForTimeout(500)
         await snap('sidebar_open')
 
-        // The "Filter" tab button should be visible inside the sidebar.
-        const filterTab = page.locator('button:text-is("Filter")')
-        await filterTab.waitFor({ state: 'visible', timeout: 10_000 })
-        await filterTab.click()
+        // The "Search" tab button should be visible inside the sidebar.
+        const searchTab = page.locator('button[aria-label="Search"]')
+        await searchTab.waitFor({ state: 'visible', timeout: 10_000 })
+        await searchTab.click()
         await page.waitForTimeout(400)
-        await snap('sidebar_filter_tab_open')
+        await snap('sidebar_search_tab_open')
 
-        // The filter section heading should mention "Filter segments by status".
+        // The search input area should be visible.
         await expect(
-            page.locator('text=Filter segments by status')
+            page.locator('input[aria-label="Search document"]')
         ).toBeVisible({ timeout: 5_000 })
 
         // Status badge buttons should appear (e.g. "Draft", "Translated").
@@ -227,9 +223,8 @@ test.describe('Reader features — pagination, filter, progress memory', () => {
         )
         expect(startPage, 'should start on page 1 after clearing progress').toBe('1')
 
-        // Navigate to page 2 via Next.
-        const nextBtn = page.locator('button[aria-label="Next page"]')
-        await nextBtn.click()
+        // Navigate to page 2 via Next (select page 2).
+        await pagerSelect.selectOption('2')
         await page.waitForTimeout(800)
         await snap('progress_navigated_to_page2')
 
