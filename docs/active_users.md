@@ -1,4 +1,4 @@
-# PocketBase User Accounts — Current State (2026-08-10)
+# PocketBase User Accounts — Current State (2026-08-20)
 
 Live instance: `https://155-248-165-196.nip.io` (also reachable via production
 domain `https://kendotranslation.com`, same backend).

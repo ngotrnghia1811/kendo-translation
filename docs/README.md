@@ -9,8 +9,9 @@ production at [kendotranslation.com](https://kendotranslation.com)).
 |------|-------------|
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Technical architecture overview — stack, data model, PocketBase setup, API design, deployment. |
 | [VISION.md](./VISION.md) | Product vision — cooperation-first co-translation platform for Japanese kendo literature. |
-| [OVERALL_ROADMAP_2026.md](./OVERALL_ROADMAP_2026.md) | Single source of truth for the complete Day 1 to 2026 future development roadmap. |
-| [active_users.md](./active_users.md) | Current PocketBase user accounts, credentials, and roles (production, 2026-08-10). |
+| [OVERALL_ROADMAP_2026.md](./OVERALL_ROADMAP_2026.md) | High-level single source of truth for the complete Day 1 to 2026 future development roadmap. |
+| [DETAILED_DEVELOPMENT_PLAN_2026.md](./DETAILED_DEVELOPMENT_PLAN_2026.md) | Exhaustive, actionable, step-by-step development plan outlining current status and future phases. |
+| [active_users.md](./active_users.md) | Current PocketBase user accounts, credentials, and roles (production, 2026-08-20). |
 | [kendojidai-pipeline-reference.md](./kendojidai-pipeline-reference.md) | Data pipeline reference for importing articles from kendojidai.com into the app. |
 | [MAC-RAG.md](./MAC-RAG.md) | Generic 5-phase RAG pipeline design — translate, edit, proofread, QA-advisory tasks. |
 | [MAC-RAG-EXAMPLES.md](./MAC-RAG-EXAMPLES.md) | Detailed end-to-end walkthroughs for the MAC-RAG pipeline (all task types). |
