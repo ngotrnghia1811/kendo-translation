@@ -20,18 +20,21 @@
  *   - Idempotent per article: clears pre-existing KO/VI for that article
  *     before inserting (only touches child articles, never husk rows).
  *
+ * Credentials: supply via PB_EMAIL / PB_PASSWORD environment variables.
+ * Never hardcode superuser credentials in this file. The --pb-email /
+ * --pb-password flags exist as an override but should be avoided in shells
+ * that persist history.
+ *
  * Usage:
+ *   export PB_EMAIL='...' PB_PASSWORD='...'
+ *
  *   # Preview only (default)
  *   node migration/pocketbase/scripts/import_kr_vn_kendojidai.js \
- *     --pb-url https://155-248-165-196.nip.io \
- *     --pb-email admin@kendo-translation.local \
- *     --pb-password TempAdmin2026!
+ *     --pb-url https://<your-pocketbase-host>
  *
  *   # Real production write (explicit opt-in)
  *   node migration/pocketbase/scripts/import_kr_vn_kendojidai.js \
- *     --pb-url https://155-248-165-196.nip.io \
- *     --pb-email admin@kendo-translation.local \
- *     --pb-password TempAdmin2026! \
+ *     --pb-url https://<your-pocketbase-host> \
  *     --apply
  *
  *   # Limit to one year (optional)
@@ -46,7 +49,7 @@ const YEARS = [2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018];
 
 function parseArgs() {
   const args = {
-    pbUrl: "https://155-248-165-196.nip.io",
+    pbUrl: process.env.PB_URL || "",
     pbEmail: process.env.PB_EMAIL || "",
     pbPassword: process.env.PB_PASSWORD || "",
     sourceDir: "/Volumes/SSD2T/moving/universal-agent_v2/compiled_agents/gemini_kendo_book_translator_kr_vn",
@@ -67,7 +70,7 @@ function parseArgs() {
 import_kr_vn_kendojidai.js — KO/VI backfill for Kendojidai child articles
 
 Options:
-  --pb-url URL          PocketBase instance URL (default: https://155-248-165-196.nip.io)
+  --pb-url URL          PocketBase instance URL (or set PB_URL env var)
   --pb-email EMAIL      PocketBase superuser email
   --pb-password PASS    PocketBase superuser password
   --source-dir PATH     Path to KR/VN translation source directory
@@ -104,6 +107,36 @@ function isTruePlaceholder(text) {
   return /^\s*[\[【](?:Figure|Diagram|Page\/Diagram|Tournament bracket diagram|写真|図版|図表|残|残篇|碎片文字|Photo|Image|Biểu đồ|Hình)/i.test(clean);
 }
 
+/**
+ * Tail-anchored trilingual block parser (WU-2 fix for the language-column-shift bug).
+ *
+ * BUG BEING FIXED: the previous implementation guarded `lines.length >= 3` but then
+ * indexed FIXED slots `{ ja: lines[0], vn: lines[1], ko: lines[2] }`. Source blocks with
+ * 4+ lines (e.g. a JA sentence PLUS a JA photo caption, then VN, then KO) shifted every
+ * field by one: `vn` received Japanese, `ko` received Vietnamese, and the real Korean at
+ * lines[3] was silently discarded. This corrupted production KO/VI rows.
+ *
+ * FIX: anchor to the END of the block instead of the start, because the trailing two
+ * lines are reliably [Vietnamese, Korean] regardless of how many JA lines precede them:
+ *   ko = lines.at(-1), vn = lines.at(-2), ja = everything before those.
+ * Plus a Hangul assertion: a block whose ko field contains no Hangul is rejected rather
+ * than written, so a malformed block can never silently poison a ko row again.
+ *
+ * Returns { ja, vn, ko, raw } or null if the block is unusable.
+ */
+const HANGUL_RE = /[\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]/;
+
+function parseTrilingualBlock(lines, raw) {
+  if (!Array.isArray(lines) || lines.length < 3) return null;
+  const ko = lines[lines.length - 1];
+  const vn = lines[lines.length - 2];
+  const ja = lines.slice(0, lines.length - 2).join(" ");
+  if (!ko || !vn || !ja) return null;
+  // Hangul assertion: reject rather than write a ko field that isn't Korean.
+  if (!HANGUL_RE.test(ko)) return null;
+  return { ja, vn, ko, raw };
+}
+
 function parseSourceMd(filePath) {
   if (!fs.existsSync(filePath)) {
     return { mdPageBlocks: {}, error: `File not found: ${filePath}` };
@@ -121,9 +154,8 @@ function parseSourceMd(filePath) {
       if (!b) continue;
       if (isTruePlaceholder(b)) continue;
       const lines = b.split("\n").map(l => l.trim()).filter(l => l !== "" && !/^【(?:Heading|連載|特報|特集|表紙(?:&|＆)インタビュー|剣談剣話|レポート|コラム)】$/i.test(l));
-      if (lines.length >= 3) {
-        pageBlocks.push({ ja: lines[0], vn: lines[1], ko: lines[2], raw: b });
-      }
+      const parsed = parseTrilingualBlock(lines, b);
+      if (parsed) pageBlocks.push(parsed);
     }
     mdPageBlocks[pageNum] = pageBlocks;
   }
@@ -186,6 +218,9 @@ async function main() {
     totalViSegments: 0,
     totalSegmentsWritten: 0,
     perArticle: [],
+    // R3 fix: every failed create/delete is recorded here instead of being
+    // silently dropped, and drives a non-zero exit code at the end.
+    errors: [],
   };
 
   for (const book of yearBooks) {
@@ -326,8 +361,27 @@ async function main() {
         });
         if (existing.length > 0) {
           console.log(`      Clearing ${existing.length} existing KO/VI segments...`);
+          let deleteFailures = 0;
           for (let b = 0; b < existing.length; b += 300) {
-            await Promise.allSettled(existing.slice(b, b + 300).map(s => pb.collection("segments").delete(s.id)));
+            const delResults = await Promise.allSettled(
+              existing.slice(b, b + 300).map(s => pb.collection("segments").delete(s.id))
+            );
+            for (const r of delResults) {
+              if (r.status === "rejected") {
+                deleteFailures++;
+                if (deleteFailures <= 5) {
+                  console.error(`      ! delete failed: ${r.reason && r.reason.message ? r.reason.message : r.reason}`);
+                }
+              }
+            }
+          }
+          if (deleteFailures > 0) {
+            // Aborting is safer than importing on top of a partial clear: leftover
+            // rows would collide with the fresh KO/VI set and produce duplicates.
+            console.error(`   ! ${deleteFailures} delete(s) failed for ${child.title}. Skipping write to avoid duplicates.`);
+            summary.errors.push({ articleId: child.id, title: child.title, stage: "cleanup", failures: deleteFailures });
+            summary.perArticle.push({ articleId: child.id, title: child.title, status: "cleanup_partial_failure", deleteFailures });
+            continue;
           }
         }
       } catch (err) {
@@ -336,11 +390,40 @@ async function main() {
         continue;
       }
 
+      // R3 fix: previously this counted only fulfilled results and silently
+      // discarded rejections, so failed creates vanished without a trace (this
+      // is what produced the unexplained ko/vi count mismatch). Now every
+      // rejection is logged and surfaced in the summary, and the script exits
+      // non-zero at the end if any write failed.
       let writtenCount = 0;
+      let failedCount = 0;
       for (let b = 0; b < payloads.length; b += 300) {
         const chunk = payloads.slice(b, b + 300);
         const results = await Promise.allSettled(chunk.map(d => pb.collection("segments").create(d)));
-        writtenCount += results.filter(r => r.status === "fulfilled").length;
+        for (let ri = 0; ri < results.length; ri++) {
+          const r = results[ri];
+          if (r.status === "fulfilled") {
+            writtenCount++;
+          } else {
+            failedCount++;
+            const d = chunk[ri];
+            const msg = r.reason && r.reason.message ? r.reason.message : String(r.reason);
+            if (failedCount <= 10) {
+              console.error(`      ! write failed [${d.target_lang} pos=${d.position}]: ${msg}`);
+            }
+            summary.errors.push({
+              articleId: child.id,
+              title: child.title,
+              stage: "write",
+              targetLang: d.target_lang,
+              position: d.position,
+              error: msg,
+            });
+          }
+        }
+      }
+      if (failedCount > 0) {
+        console.error(`      ! ${failedCount} write(s) FAILED for ${child.title} (${writtenCount} succeeded).`);
       }
       console.log(`      ✓ Wrote ${writtenCount} segments.`);
       summary.perArticle.push({ articleId: child.id, title: child.title, cleanPages: cleanCount, fuzzyPages: fuzzyCount, skippedPages: mismatchCount, koCount, viCount, writtenCount, status: "write_success" });
@@ -361,6 +444,14 @@ async function main() {
   console.log(`Total KO segments:             ${summary.totalKoSegments}`);
   console.log(`Total VI segments:             ${summary.totalViSegments}`);
   console.log(`Grand total segments:          ${summary.totalSegmentsWritten}`);
+  if (summary.errors.length > 0) {
+    console.error(`FAILURES:                      ${summary.errors.length} (see above; details in summary.errors)`);
+    console.log("===============================================================================");
+    // Non-zero exit so a failed run can never be mistaken for a clean one.
+    process.exitCode = 1;
+    return;
+  }
+  console.log(`Failures:                      0`);
   console.log("===============================================================================");
 }
 

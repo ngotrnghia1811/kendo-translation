@@ -117,6 +117,28 @@ function isTruePlaceholder(text) {
 }
 
 // ── Source Markdown Parser ─────────────────────────────────────────
+/**
+ * Tail-anchored trilingual block parser (WU-2 fix for the language-column-shift bug).
+ *
+ * Previously this guarded `lines.length >= 3` then indexed fixed slots
+ * `{ ja: lines[0], vn: lines[1], ko: lines[2] }`. Blocks with 4+ lines (JA sentence +
+ * JA photo caption + VN + KO) shifted every field by one, putting Japanese in `vn`,
+ * Vietnamese in `ko`, and discarding the real Korean. Anchor to the END instead: the
+ * last two lines are reliably [Vietnamese, Korean] however many JA lines precede them.
+ * A Hangul assertion rejects any block whose ko field isn't actually Korean.
+ */
+const HANGUL_RE = /[\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]/;
+
+function parseTrilingualBlock(lines, raw) {
+  if (!Array.isArray(lines) || lines.length < 3) return null;
+  const ko = lines[lines.length - 1];
+  const vn = lines[lines.length - 2];
+  const ja = lines.slice(0, lines.length - 2).join(" ");
+  if (!ko || !vn || !ja) return null;
+  if (!HANGUL_RE.test(ko)) return null;
+  return { ja, vn, ko, raw };
+}
+
 function parseSourceMd(filePath) {
   if (!fs.existsSync(filePath)) {
     return { mdPageBlocks: {}, error: `File not found: ${filePath}` };
@@ -139,14 +161,8 @@ function parseSourceMd(filePath) {
       if (isTruePlaceholder(b)) continue;
 
       const lines = b.split("\n").map(l => l.trim()).filter(l => l !== "" && !/^【(?:Heading|連載|特報|特集|表紙(?:&|＆)インタビュー|剣談剣話|レポート|コラム)】$/i.test(l));
-      if (lines.length >= 3) {
-        pageBlocks.push({
-          ja: lines[0],
-          vn: lines[1],
-          ko: lines[2],
-          raw: b,
-        });
-      }
+      const parsed = parseTrilingualBlock(lines, b);
+      if (parsed) pageBlocks.push(parsed);
     }
     mdPageBlocks[pageNum] = pageBlocks;
   }

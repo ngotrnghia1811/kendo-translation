@@ -29,7 +29,7 @@ This document provides the living single source of truth for the kendo-translati
 ### Phase 4: Multi-Language Integration (KR/VN) & Test Consolidation (Mid-August 2026) [SHIPPED]
 - **Korean & Vietnamese (KR/VN) Integration**:
   - Phase 0 Reconciliation: Created `UNCATEGORIZED-BOOK` (id `ekdwoyn86cyx2pn`, 92 articles) and resolved alignment logic.
-  - Phase 1 Bulk Data Import: 42,274 KO+VI segment rows imported to production PocketBase (commits `d6fa925` & `a8b689d`).
+  - Phase 1 Bulk Data Import: 42,274 KO+VI segment rows imported to production PocketBase (commits `d6fa925` & `a8b689d`). Later expanded to ~266,934 KO+VI rows by the Kendojidai child-article backfill (commit `aa40488`, applied 2026-08-20).
   - Phase 2 Reader UI Enablement: Updated `LanguageSelector.tsx`, `PageReader.tsx`, `ReaderView.tsx`, `useReaderView.ts` for native KO/VI switching (`commit 4b5a1fd`).
 - **KR/VN Glossary & Terminology Collection**: Created dedicated `glossary` PocketBase collection (`pbc_4039856986`) and imported 382 trilingual terms from `kendo_dict.md` (commit `3194431`).
 - **Playwright Test Suite Consolidation (29 Specs → Unified Suites)**:

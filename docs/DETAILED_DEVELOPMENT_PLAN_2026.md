@@ -16,10 +16,10 @@ The **Kendo Translation Platform** is a cooperation-first co-translation system 
 - **Network & Security**: Cloudflare DNS & Proxy, Caddy reverse proxy with SSL, Resend SMTP for transactional auth emails.
 - **Database & Data Scale**:
   - `articles`: 798 total articles (787 mapped to books, 11 husk container rows hidden from UI).
-  - `segments`: 446,418 total bilingual/multilingual segments.
+  - `segments`: ~713,352 total multilingual segments (en 281,027 / zh 157,044 / ko 133,468 / vi 133,466 / ja 8,347) after the Kendojidai KO/VI backfill.
   - `books`: 40 total books (23 topic compilations, 16 year compilations 2010–2025, 1 `UNCATEGORIZED-BOOK`).
   - `glossary`: Dedicated collection (`pbc_4039856986`) containing 382 trilingual Japanese-English-Vietnamese-Korean kendo terminology entries.
-  - Multilingual Segments: 42,274 live Korean (`ko`) and Vietnamese (`vi`) target segments in production.
+  - Multilingual Segments: ~266,934 live Korean (`ko`) and Vietnamese (`vi`) target segments in production (16,491 each pre-backfill → 133,468 ko / 133,466 vi).
 
 ### 1.2 Test Suite & Quality Baseline
 - **Consolidated E2E Suite**: 4 unified spec files under `tests/`:
@@ -77,7 +77,7 @@ The **Kendo Translation Platform** is a cooperation-first co-translation system 
 #### Step 5.1: Execute Kendojidai KO/VI Segment Backfill
 - **Goal**: Run `migration/pocketbase/scripts/import_kr_vn_kendojidai.js --apply` to populate 233,954 KO/VI segment rows across 92 Kendojidai child articles.
 - **Action**: Execute via terminal against production PocketBase (`https://155-248-165-196.nip.io`).
-- **Verification**: Query `/api/collections/segments/records?filter=(target_lang='ko')` to verify live counts increase from 16,491 to ~133,468 per language.
+- **Verification**: [COMPLETE 2026-08-20] Live counts verified: ko 133,468 / vi 133,466 (up from 16,491 each). Production health 200; `article_bilingual_window` returns matching totals for en/zh/ko/vi.
 
 #### Step 5.2: Refine Assignment Authorization Rules (`segments_update_phase_assigned` RLS MVP)
 - **Goal**: Upgrade the stopgap phase-advancement check in `/api/segments/[id]/advance-phase` to cover direct segment text updates via `PATCH /api/segments/[id]`.
@@ -141,7 +141,7 @@ The **Kendo Translation Platform** is a cooperation-first co-translation system 
 - **Action**: Remove original spec files, keeping `tests/*-unified.spec.ts`.
 
 #### Step 8.2: Reader & Miller-Column Performance Optimization
-- **Goal**: Maintain sub-500ms page navigation latency across 446k segments.
+- **Goal**: Maintain sub-500ms page navigation latency across ~713k segments.
 - **Action**:
   - Cache `/api/books` and `/api/article_pages` responses at Cloudflare/Vercel edge.
   - Implement Virtuoso list windowing optimizations for 3,000+ segment articles.

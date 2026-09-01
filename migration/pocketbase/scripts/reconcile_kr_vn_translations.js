@@ -162,6 +162,28 @@ function normalizeJaText(text) {
 }
 
 // ── Source Markdown Parser ─────────────────────────────────────────
+/**
+ * Tail-anchored trilingual block parser (WU-2 fix for the language-column-shift bug).
+ *
+ * Previously callers indexed fixed slots `{ ja: lines[0], vn: lines[1], ko: lines[2] }`.
+ * Blocks with 4+ lines (JA sentence + JA photo caption + VN + KO) shifted every field by
+ * one, putting Japanese in `vn`, Vietnamese in `ko`, and discarding the real Korean.
+ * Anchor to the END instead: the last two lines are reliably [Vietnamese, Korean]
+ * however many JA lines precede them. A Hangul assertion rejects any block whose ko
+ * field isn't actually Korean.
+ */
+const HANGUL_RE = /[\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]/;
+
+function parseTrilingualBlock(lines, raw) {
+  if (!Array.isArray(lines) || lines.length < 3) return null;
+  const ko = lines[lines.length - 1];
+  const vn = lines[lines.length - 2];
+  const ja = lines.slice(0, lines.length - 2).join(" ");
+  if (!ko || !vn || !ja) return null;
+  if (!HANGUL_RE.test(ko)) return null;
+  return { ja, vn, ko, raw };
+}
+
 function parseSourceMd(filePath) {
   if (!fs.existsSync(filePath)) {
     return { pages: [], mdPageMap: {}, mdPageBlocks: {}, mdTotalTriplets: 0, mdTotalPlaceholders: 0, error: "File not found" };
@@ -195,22 +217,30 @@ function parseSourceMd(filePath) {
       }
 
       const lines = b.split("\n").map(l => l.trim()).filter(l => l !== "" && !/^【(?:Heading|連載|特報|特集|表紙(?:&|＆)インタビュー|剣談剣話|レポート|コラム)】$/i.test(l));
-      if (lines.length === 3) {
+      // WU-2 fix: tail-anchored extraction. Previously this only treated exactly-3-line
+      // blocks as valid triplets and, in the fallback branch, indexed fixed slots
+      // lines[0]/[1]/[2] — so a 4+-line block (JA sentence + JA caption + VN + KO) put
+      // Japanese in `vn`, Vietnamese in `ko`, and dropped the real Korean. The last two
+      // lines are reliably [Vietnamese, Korean] regardless of how many JA lines precede.
+      const parsed = parseTrilingualBlock(lines, b);
+      if (parsed) {
         validTriplets++;
         pageBlocks.push({
           index: pageBlocks.length,
-          ja: lines[0],
-          vn: lines[1],
-          ko: lines[2],
-          detected_source_lang: detectSourceLang(lines[0]),
+          ja: parsed.ja,
+          vn: parsed.vn,
+          ko: parsed.ko,
+          detected_source_lang: detectSourceLang(parsed.ja),
           raw: b
         });
       } else if (lines.length > 0) {
+        // Unusable/partial block: keep it visible to the reconciler (it drives the
+        // un_alignable disposition) but never claim it as a valid triplet.
         pageBlocks.push({
           index: pageBlocks.length,
           ja: lines[0],
-          vn: lines[1] || "",
-          ko: lines[2] || "",
+          vn: lines.length > 2 ? lines[lines.length - 2] : (lines[1] || ""),
+          ko: lines.length > 2 ? lines[lines.length - 1] : (lines[2] || ""),
           detected_source_lang: detectSourceLang(lines[0]),
           raw: b
         });
