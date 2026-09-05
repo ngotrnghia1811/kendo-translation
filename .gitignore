@@ -73,3 +73,8 @@ db_cluster-*.backup
 tm_archive.json.gz
 .playwright-cli/
 .opencode/browser-state/cf-profile/
+
+# KR/VN corruption scan report (1.5MB generated artifact, input to
+# repair_kr_vn_corruption.js). Kept in-repo so a reboot cannot force a
+# full 266,934-row re-scan, but not tracked in git history.
+migration/pocketbase/scripts/scan_kr_vn_report.json
