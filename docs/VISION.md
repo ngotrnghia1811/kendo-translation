@@ -3,6 +3,7 @@
 ## 1. Header
 
 - Status: approved by the owner in round 9: "Approve after this batch (Recommended)" `[user 2026-10-02 12:32]`. The approved file is `docs/VISION.md` on `v2/base`.
+- Revised in round 10 with the owner decisions of `[user 2026-10-02 13:40]`.
 - Commit plan: after owner approval, commit VISION.md on `v2/base` only, merge into both v2 branches, and do not push: "VISION.md on v2/base only (Recommended)" `[user 2026-10-02 11:43]`.
 - v1 is archived. No v1 decision carries into v2 `[user 2026-10-02 19:20]`.
 - Date note: tags `[user 2026-10-02 19:20]` to `[user 2026-10-02 20:55]` carry the date 2026-10-02, but they record answers given on 2026-10-01 local time. The owner chose "Add a note only" `[user 2026-10-02 01:15]`.
@@ -62,6 +63,7 @@ The owner stated three assumptions `[user, first message]`. This document keeps 
   - The higher box always writes its own version of everything: "Always rewrite" `[user 2026-10-02 01:15]`.
   - The lower output is a warning list only `[user 2026-10-02 01:15]`.
   - The stance starts at level 1, because level 0 has no lower LLM level: "Fix stance from level 1 (Recommended)" `[user 2026-10-02 12:32]`.
+  - `TS_0` takes the same stance toward the level -1 classic OCR result. `TS_0` writes its own transcription from the page image, and the classic OCR text is a warning list only: "Yes, same stance (Recommended)" `[user 2026-10-02 13:40]`.
 - **The chain-error assumption.** Verbatim: "The sequential process further create more errors" `[user, first message]`.
   - The owner accepted the second assumption `[user 2026-10-02 20:55]`.
 - **The lesson assumption.** Verbatim: "There errors are good insight for better model (high level) what not to do" `[user, first message]`.
@@ -98,6 +100,7 @@ The grid is a 4x4 array of agents. Rows are levels 0 to 3, with level 0 at the b
   - Its output is a warning list for the TS boxes `[user 2026-10-02 11:43]`.
   - Level -1 has no TL, ED, or QA box `[user 2026-10-02 11:43]`.
   - The page image and the level -1 classic OCR result form one paired input to the TS box on every level 0 to 3: "option 2. the input image and the classic OCR result are a pair, feeding to each TS level" `[user 2026-10-02 12:32]`.
+  - `TS_0` treats the classic OCR result with the worst-case stance, see section 4 `[user 2026-10-02 13:40]`.
 
 ### 5.3 Arrows and the three recurrence types
 
@@ -110,6 +113,22 @@ The grid is a 4x4 array of agents. Rows are levels 0 to 3, with level 0 at the b
   - The page type, in the owner's words: "in the same level, agent(current page| prev page)" `[user 2026-10-02 20:55]`.
   - The owner accepted the index `X(l, s, p)` for one run of a box, with level `l`, stage `s`, and page `p` `[user 2026-10-02 01:00]`.
 - A box on page p sees page p-1 only, in all four stages: "Page p-1 only, all stages (Recommended)" `[user 2026-10-02 01:00]`.
+
+#### Notation
+
+- The three recurrence types are written as one formula: `X(l, s, p) = agent(l, s)( X(l, s-1, p), X(l-1, s, p), X(l, s, p-1) )`. The owner approved it as notation: "Approve as notation (Recommended)" `[user 2026-10-02 13:40]`.
+- where:
+  - `l` is the level, 0 to 3 (level -1 is the classic OCR step for TS only).
+  - `s` is the stage: TS, TL, ED, or QA.
+  - `p` is the page index.
+  - `X(l, s, p)` is the (result, reasoning process) pair of one box.
+  - `agent(l, s)` is the agent of one (level, stage) cell. It has one prompt, so the grid has 16 prompts.
+- The formula records decisions that the owner already made. It is notation, not a design `[user 2026-10-02 13:40]`.
+- Edge cases, each from an earlier decision:
+  - For `s` = TS, the stage input is the (page image, classic OCR result) pair in place of `X(l, s-1, p)` `[user 2026-10-02 12:32]`.
+  - For `l` = 0, there is no lower LLM level, so `X(l-1, s, p)` is absent `[user 2026-10-02 12:32]`.
+  - For the first page, there is no previous page, so `X(l, s, p-1)` is absent `[user 2026-10-02 01:00]`.
+- The run order of the boxes and the content that crosses from page p-1 stay open, see section 12.
 
 ### 5.4 The (result, reasoning process) pair
 
@@ -142,6 +161,14 @@ The owner chose three properties of the TS output `[user 2026-10-02 11:43]`:
 - "Ruby bound to base text" `[user 2026-10-02 11:43]`.
 - "Captions + labels as fields" `[user 2026-10-02 11:43]`.
 - "Heads + page numbers as fields" `[user 2026-10-02 11:43]`.
+- The fields use the `NDLOCR-Lite` layout class names: "Use as field names (Recommended)" `[user 2026-10-02 13:40]`.
+  - `line_caption` (キャプション): captions and figure labels.
+  - `block_pillar` (柱): running heads.
+  - `block_folio` (ノンブル): page numbers.
+  - `block_rubi` (ルビ): ruby, bound to its base text.
+- The TS agent writes the text of every field `[user 2026-10-02 13:40]`.
+- In `NDLOCR-Lite`, every `block_*` class except `block_table` becomes an empty box with a position and a confidence, and no text. `line_caption` is a text line. The tool does not output ruby text and does not bind ruby to its base `[source: docs/research/summaries/NDLOCRLite_lossless.md]`.
+- So the level -1 boxes are position hints only `[user 2026-10-02 13:40]`.
 
 ### 5.8 Final output and QA direction
 
@@ -206,6 +233,14 @@ The owner asked for a concrete example per stage: "provide your detail understan
 - The owner accepted this reading: a critic writes text feedback, and an optimizer edits the prompt `[user 2026-10-02 01:00]`.
   - Prompts act as the parameters of the grid. Model weights do not change `[user 2026-10-02 01:00]`.
 - The feedback comes from QA verdicts and from the 313 human reference pairs: "QA verdicts and references (Recommended)" `[user 2026-10-02 01:00]`.
+- The prompt update rule follows SMART: "Prompt update rule (Recommended)" `[user 2026-10-02 13:40]`. Source: `docs/research/summaries/SMART_lossless.md`, "What MAC-RAG can adopt from SMART", items 7 and 14 (SMART sections 3.5, B.7, B.8, C.5).
+  - Each (level, stage) cell has one prompt, 16 in total.
+  - If the mean score of a cell is low, an optimizer rewrites its prompt from critiques of its worst cases.
+  - The critiques name failure modes. They do not hold corrected outputs.
+  - The rewrite keeps the role statement of the prompt.
+  - The prompts freeze after the training part. Memory keeps growing after that.
+  - The 313 reference pairs are corrected outputs, so a step turns each reference difference into a failure-mode critique.
+  - The score threshold, the number of worst cases, and the size of the training part are design-phase choices.
 - A rescue rerun is a later idea, to test after the base grid works. It is not part of the vision `[user 2026-10-02 11:43]`. Owner words: "option 1 and 2".
 
 ## 7. Data
@@ -219,11 +254,15 @@ The owner asked for a concrete example per stage: "provide your detail understan
     - The v2 alignment flags JA sentences with no EN counterpart and EN sentences that change a fact, and excludes them from scoring: "Flag and exclude from scoring (Recommended)" `[user 2026-10-02 12:32]`.
   - The pairs have a held-out split: "313 pairs with held-out split" `[user 2026-10-02 07:50]`.
   - Held-out test pairs must never be retrievable `[user 2026-10-02 11:43]`.
-- Provenance check of the 313 pairs `[check: aki-inspector 2026-10-02, 10 of 313 pairs]`. The owner chose "Check by sampling (Recommended)" `[user 2026-10-02 11:43]`.
-  - Sample rule: sort by `source_url_en`, then take positions 1, 32, ..., 280. Every EN URL year from 2019 to 2025 has at least one sampled pair `[check: aki-inspector 2026-10-02, 10 of 313 pairs]`.
-  - Result: 8 full translations, 2 partial translations, 0 rewrites or summaries, 0 different articles. The two partial pairs leave out a classical quotation (2023), and a committee list plus an anecdote (2025) `[check: aki-inspector 2026-10-02, 10 of 313 pairs]`.
-  - Not verified: the other 303 pairs.
-  - A larger sample check of the 313 pairs is queued as a research follow-up: "Check more of the 313 pairs" `[user 2026-10-02 12:32]`.
+- Provenance check of 40 of the 313 pairs `[check: aki-submain 2026-10-02, 40 of 313 pairs]`. The owner chose "Check by sampling (Recommended)" `[user 2026-10-02 11:43]` and "Check more of the 313 pairs" `[user 2026-10-02 12:32]`.
+  - Result: 20 full translations, 19 partial, 0 rewrites, 1 different article `[check: aki-submain 2026-10-02, 40 of 313 pairs]`.
+  - Record 308 pairs a Japanese report on the 2025 All Japan Police Kendo Championship with an English results list of the 73rd All Japan Kendo Championship. aki-main confirmed this with a GET request `[check: aki-main curl 2026-10-02]`.
+  - The English side often changes facts, mostly in author profile and credit blocks. Example: 「平成29年に定年退職」 becomes "In 2009, he retired" `[check: aki-main curl 2026-10-02]`.
+  - Details: `docs/drafts/pairs-provenance-sample.md`.
+  - Not verified: the other 273 pairs.
+- The agents build a clean paired dataset from the 313 pairs by hand: "From the 313 pairs, you can create a paired dataset yourself manually. design the best process to do this" `[user 2026-10-02 13:40]`.
+  - The process also handles the profile and credit blocks: "refer to previous answer" `[user 2026-10-02 13:40]`.
+  - The process design is in progress at `docs/drafts/paired-dataset-process.md`.
 - Level-0 baseline data `[user 2026-10-02 20:55]`
   - The `book-postprocessing` `triplet.json` files are Gemini level-0 machine output with no human edit: "Gemini output, no human edit (Recommended)" `[user 2026-10-02 20:55]`.
   - They are a baseline only, never a reference `[user 2026-10-02 20:55]`.
@@ -251,6 +290,11 @@ The owner asked for a concrete example per stage: "provide your detail understan
   - Source: `docs/drafts/translation-memory-definition.md`, section 4, and `docs/drafts/vision-articulation.md`, section 12.2.
 - Book memory entries are page-level translation units (TMX `segtype="block"`): "Page units in book memory" `[user 2026-10-02 12:32]`.
   - Analogy only: the page recurrence is the analog of a context match (101%) `[user 2026-10-02 12:32]`. Source: `docs/drafts/vision-articulation.md`, section 12.2.
+- Book memory includes a terminology pool, as in SMART: "Terminology pool (Recommended)" `[user 2026-10-02 13:40]`. Source: `docs/research/summaries/SMART_lossless.md`, adoption item 1 (SMART sections 3.3, B.2, B.4).
+  - Only accepted page outputs write entries: the `ED_3` text with the `QA_3` verdict `[user 2026-10-02 13:40]`.
+  - TL, ED, and QA boxes on all levels read it `[user 2026-10-02 13:40]`.
+  - It overlaps the kendo dictionary termbase. The RAG design decides how the two relate.
+- DelTA is a design reference for book memory only: "Book memory anchor only (Recommended)" `[user 2026-10-02 13:40]`. The page recurrence stays page p-1 only `[user 2026-10-02 01:00]`. Source: `docs/research/summaries/DelTA_lossless.md`.
 - The RAG design comes later: "We will design later" `[user 2026-10-02 19:20]`.
 
 ## 9. Baselines
@@ -259,6 +303,8 @@ A *baseline* is a fixed system that the full grid is measured against. The owner
 
 - "Gemini level-0 output" `[user 2026-10-02 07:50]`. This is the `triplet.json` data of section 7 `[user 2026-10-02 20:55]`.
 - "Grid without prompt updates" `[user 2026-10-02 07:50]`. This is the grid without the textual gradient of section 6.
+  - Definition, from SMART F.5: "The routing policy and agent prompts remain at their initial configurations throughout evaluation" `[source: docs/research/summaries/SMART_lossless.md]`. The owner chose it: "Baseline definition (Recommended)" `[user 2026-10-02 13:40]`.
+  - In this project: all 16 prompts stay at their first version. Memory, RAG, and the three recurrence types stay on `[user 2026-10-02 13:40]`.
 
 ## 10. Evaluation
 
@@ -290,7 +336,8 @@ The owner did not choose human error spans `[user 2026-10-02 07:50]`.
   - **DelTA** (Wang et al. 2025), "DelTA: An Online Document-Level Translation Agent Based on Multi-Level Memory", arXiv:2410.08143 `[source: docs/research/surveys.md]`.
   - Sasagawa, Kurita, Kawahara, "Evaluating Multimodal Large Language Models on Vertically Written Japanese Text", LREC 2026, arXiv 2511.15059 `[source: docs/research/surveys.md]`.
   - `NDLOCR-Lite` (NDL Lab), a tool, CC BY 4.0, https://github.com/ndl-lab/ndlocr-lite `[source: docs/research/surveys.md]`.
-- The four new tier 1 items have no lossless summary yet `[source: docs/research/surveys.md]`.
+- All five tier 1 items have lossless summaries in `docs/research/summaries/`: `SMART_lossless.md`, `WuBeyondHuman_lossless.md`, `DelTA_lossless.md`, `SasagawaVerticalJA_lossless.md`, `NDLOCRLite_lossless.md` `[check: aki-main wc 2026-10-02 13:18]`.
+- The Wu et al. 2025 author list uses the arXiv form "Longyue Wang". The ACL Anthology lists "Longyue Wan": "Use 'Longyue Wang' (Recommended)" `[user 2026-10-02 13:40]`.
 - The 25 candidates are placed, 10 in tier 2 and 15 in tier 3: "Place 25 candidates" `[user 2026-10-02 12:32]`.
   - Each placed item needs a lossless summary before use `[user 2026-10-02 12:32]`.
   - The list is in `docs/research/surveys.md`.
@@ -308,23 +355,16 @@ General rule: "We are not doing the design yet" `[user 2026-10-02 19:20]`.
 - Model choice per level. The owner chose one model tier per level `[user 2026-10-02 01:00]`. The owner record gives no answer on the models.
 - Judge model family for the "LLM judge": "Decide with the model choice" `[user 2026-10-02 07:50]`.
 - TS output format. The owner chose the three field properties of section 5.7 `[user 2026-10-02 11:43]`. The owner record gives no answer on the format.
-- Whether the worst-case stance also applies to the classic OCR result at `TS_0`. The owner record gives no answer.
 - Size of the TS gold set: "Decide in design phase (Recommended)" `[user 2026-10-02 12:32]`.
+- TS scoring protocol: "Defer to design phase" `[user 2026-10-02 13:40]`. The candidate is the Sasagawa et al. protocol: greedy decoding, NFKC normalization and whitespace removal on both sides, CER, and character BLEU. The paper does not state per-page CER or a separate reading-order check `[source: docs/research/summaries/SasagawaVerticalJA_lossless.md]`.
+- Approval of the paired-dataset process (section 7). The owner record gives no answer yet.
 - Shared output format with the Viewer: "Viewer shows Translator output (Recommended)" `[user 2026-10-02 19:40]`. The format is decided in the design phase `[user 2026-10-02 19:40]`.
 - Viewer switch date: production stays on v1 until the owner names a date `[user 2026-10-02 19:20]`.
 - Rescue rerun: a later idea, to test after the base grid works: "option 1 and 2" `[user 2026-10-02 11:43]`.
 
 ## 13. PROPOSALS (agent ideas, not decisions)
 
-No item below is an owner decision. Each item needs owner approval before it enters the body.
-
-The owner asked for a full explanation of each item below before a decision: "The other need more explanation." `[user 2026-10-02 12:32]`.
-
-- Read the three recurrence types as one formula, `X(l, s, p) = agent(l, s)( X(l, s-1, p), X(l-1, s, p), X(l, s, p-1) )`. This is a reading, not a design. Source: `docs/drafts/vision-articulation.md`, section 6.2.
-- Use the `NDLOCR-Lite` layout classes `line_caption`, `block_pillar`, `block_folio`, and `block_rubi` for the TS output fields. Source: `docs/research/surveys.md`, tier 1 entry, and `docs/drafts/transcription-research.md`.
-- Adopt the Sasagawa et al. protocol for TS scores: greedy decoding, NFKC normalization, whitespace removal, CER, and character BLEU. Report CER per page with a stated normalization, and check reading order apart from characters. Source: `docs/research/surveys.md`, tier 1 entry.
-- Adopt SMART ideas: the terminology pool (B.2, B.4), the prompt update rule (B.7, B.8), and the "w/o Self-Evolution" definition (F.5) for the baseline "Grid without prompt updates". Source: `docs/research/summaries/SMART_lossless.md`, "What MAC-RAG can adopt from SMART".
-- Use the DelTA multi-level memory for book memory and page recurrence. Source: `docs/research/surveys.md`, tier 1 entry.
+No open proposals. Round 10 decided all five earlier items `[user 2026-10-02 13:40]`.
 
 ## 14. Where to read more
 
@@ -338,3 +378,9 @@ The `docs/drafts/` and `docs/research/` files are untracked working files in the
 - `docs/drafts/survey-2026-05-to-09.md`: literature and tools, May to September 2026.
 - `docs/research/surveys.md`: the tier register.
 - `docs/research/summaries/SMART_lossless.md`: the SMART summary.
+- `docs/research/summaries/WuBeyondHuman_lossless.md`: the Wu et al. 2025 summary.
+- `docs/research/summaries/DelTA_lossless.md`: the DelTA summary.
+- `docs/research/summaries/SasagawaVerticalJA_lossless.md`: the Sasagawa et al. summary.
+- `docs/research/summaries/NDLOCRLite_lossless.md`: the `NDLOCR-Lite` summary.
+- `docs/drafts/pairs-provenance-sample.md`: the provenance check of 40 of the 313 pairs.
+- `docs/drafts/paired-dataset-process.md`: the paired-dataset process (in progress).
