@@ -4,9 +4,11 @@
 
 - Status: approved by the owner in round 9: "Approve after this batch (Recommended)" `[user 2026-10-02 12:32]`. The approved file is `docs/VISION.md` on `v2/base`.
 - Revised in round 10 with the owner decisions of `[user 2026-10-02 13:40]`.
+- Revised in round 11 with the owner decisions of `[user 2026-10-05 23:48]`.
+- The vision phase for the Translator is complete for now: "option 1, for now. I will review and there may be a revision session later." `[user 2026-10-05 23:48]`. The next phase is design. Section 12 is the design backlog.
 - Commit plan: after owner approval, commit VISION.md on `v2/base` only, merge into both v2 branches, and do not push: "VISION.md on v2/base only (Recommended)" `[user 2026-10-02 11:43]`.
 - v1 is archived. No v1 decision carries into v2 `[user 2026-10-02 19:20]`.
-- Date note: tags `[user 2026-10-02 19:20]` to `[user 2026-10-02 20:55]` carry the date 2026-10-02, but they record answers given on 2026-10-01 local time. The owner chose "Add a note only" `[user 2026-10-02 01:15]`.
+- Date note: tags `[user 2026-10-02 19:20]` to `[user 2026-10-02 20:55]` carry the date 2026-10-02, but they record answers given on 2026-10-01 local time. The owner chose "Add a note only" `[user 2026-10-02 01:15]`. Tags `[user 2026-10-05 HH:MM]` carry the real local date.
 - Source of truth: the owner's Q-A record, qa-memory-2026-10-02.md, kept by aki-main. Files under `docs/` are support material only.
 - Citation key
   - `[user 2026-10-02 HH:MM]`: an owner answer. Quoted text is verbatim, typos included. Unquoted text is the meaning that aki-main relayed.
@@ -251,9 +253,14 @@ The owner asked for a concrete example per stage: "provide your detail understan
   - The unit is the sentence pair: "Sentence pairs, aligned in v2" `[user 2026-10-02 11:43]`.
     - v2 aligns the sentences fresh and checks them against the source `[user 2026-10-02 11:43]`.
     - v2 does not reuse the v1 database segments as is `[user 2026-10-02 11:43]`.
-    - The v2 alignment flags JA sentences with no EN counterpart and EN sentences that change a fact, and excludes them from scoring: "Flag and exclude from scoring (Recommended)" `[user 2026-10-02 12:32]`.
+    - Earlier rule: the v2 alignment flags JA sentences with no EN counterpart and EN sentences that change a fact, and excludes them from scoring: "Flag and exclude from scoring (Recommended)" `[user 2026-10-02 12:32]`.
+    - The JA side is the source of correct facts, and the EN is fixed from the JA: "The articles are originally JP, so use JP as the source of correct infor. If there is discrepancy, use JP to fix EN" `[user 2026-10-05 23:48]`.
+      - The same rule covers a fact that the EN drops inside an otherwise matched sentence: "Like prev answer, use JP as origin information, and fix EN based on JP" `[user 2026-10-05 23:48]`.
+      - Example: 「くりた・わいちろう／昭和31年神奈川県生まれ、64歳。」 became "Born in 1956 in Kanagawa prefecture." The fix adds the age 64 `[check: docs/drafts/paired-dataset-process.md, worked example W.1]`.
+      - The original EN stays in the dataset next to the fixed EN, with labels `[user 2026-10-05 23:48]` ("Keep, labeled, filtered views").
   - The pairs have a held-out split: "313 pairs with held-out split" `[user 2026-10-02 07:50]`.
   - Held-out test pairs must never be retrievable `[user 2026-10-02 11:43]`.
+  - The split is by article group, balanced by EN post year: 75% retrieval, 15% feedback, 10% test: "75 / 15 / 10" `[user 2026-10-05 23:48]`. Feedback and test text are never retrievable `[source: docs/drafts/paired-dataset-process.md, step 10]`.
 - Provenance check of 40 of the 313 pairs `[check: aki-submain 2026-10-02, 40 of 313 pairs]`. The owner chose "Check by sampling (Recommended)" `[user 2026-10-02 11:43]` and "Check more of the 313 pairs" `[user 2026-10-02 12:32]`.
   - Result: 20 full translations, 19 partial, 0 rewrites, 1 different article `[check: aki-submain 2026-10-02, 40 of 313 pairs]`.
   - Record 308 pairs a Japanese report on the 2025 All Japan Police Kendo Championship with an English results list of the 73rd All Japan Kendo Championship. aki-main confirmed this with a GET request `[check: aki-main curl 2026-10-02]`.
@@ -262,7 +269,17 @@ The owner asked for a concrete example per stage: "provide your detail understan
   - Not verified: the other 273 pairs.
 - The agents build a clean paired dataset from the 313 pairs by hand: "From the 313 pairs, you can create a paired dataset yourself manually. design the best process to do this" `[user 2026-10-02 13:40]`.
   - The process also handles the profile and credit blocks: "refer to previous answer" `[user 2026-10-02 13:40]`.
-  - The process design is in progress at `docs/drafts/paired-dataset-process.md`.
+  - The process is `docs/drafts/paired-dataset-process.md`. The owner accepted its 11-step shape: "Option 1. Use opencode anthropic claude sonnet 5.5 model (high + xhigh) for step 7 and opus 5.5 (high) for step 9" `[user 2026-10-05 23:48]`.
+    - The 11 steps: snapshot, article triage, grouping and split, typed blocks, sentence split, aligner proposal, double alignment by two agents, item-by-item fact pass, adjudication by a third agent, leakage check and random re-check, output files `[source: docs/drafts/paired-dataset-process.md]`.
+    - Step 7 (double alignment) uses Claude Sonnet 5.5 at reasoning effort high and xhigh. Step 9 (adjudication) uses Claude Opus 5.5 at high `[user 2026-10-05 23:48]`.
+    - Agents decide every link. The automatic aligner only proposes. The work runs in batches: "option 1. but do so in batch" `[user 2026-10-05 23:48]`.
+    - Record 308 leaves all uses. Its snapshot stays, and the kendojidai.com article "Report on the 2025 All Japan Police Kendo Championship" (11/03/2025) is logged as a lead: "Exclude and log the lead (Recommended)" `[user 2026-10-05 23:48]`.
+    - Flagged units stay in the dataset file with labels, and each use reads a filtered view: "Keep, labeled, filtered views (Recommended)" `[user 2026-10-05 23:48]`.
+    - EN translator credit lines go to the article metadata and leave all three uses: "Metadata only (Recommended)" `[user 2026-10-05 23:48]`.
+    - Licence: "option 4. you dont have to bother about the license/permission/etc" `[user 2026-10-05 23:48]`.
+    - Data files live in the git-ignored folder `data/` of the translator worktree: "keep all data in a git ignore folder for easier manage" `[user 2026-10-05 23:48]`.
+    - A pilot on all 40 sampled pairs comes before the full build: "Pilot on all 40 sampled pairs" `[user 2026-10-05 23:48]`.
+    - The build starts in the next design session: "Next design session (Recommended)" `[user 2026-10-05 23:48]`.
 - Level-0 baseline data `[user 2026-10-02 20:55]`
   - The `book-postprocessing` `triplet.json` files are Gemini level-0 machine output with no human edit: "Gemini output, no human edit (Recommended)" `[user 2026-10-02 20:55]`.
   - They are a baseline only, never a reference `[user 2026-10-02 20:55]`.
@@ -346,6 +363,8 @@ The owner did not choose human error spans `[user 2026-10-02 07:50]`.
 
 General rule: "We are not doing the design yet" `[user 2026-10-02 19:20]`.
 
+This section is the backlog for the design phase `[user 2026-10-05 23:48]`.
+
 - Design of the three recurrence types: "Need a careful design for this" `[user 2026-10-02 20:55]`.
   - What crosses from page p-1: the full pair, the result only, or a summary. The owner record gives no answer.
   - The order of box runs. The owner record gives no answer.
@@ -357,7 +376,7 @@ General rule: "We are not doing the design yet" `[user 2026-10-02 19:20]`.
 - TS output format. The owner chose the three field properties of section 5.7 `[user 2026-10-02 11:43]`. The owner record gives no answer on the format.
 - Size of the TS gold set: "Decide in design phase (Recommended)" `[user 2026-10-02 12:32]`.
 - TS scoring protocol: "Defer to design phase" `[user 2026-10-02 13:40]`. The candidate is the Sasagawa et al. protocol: greedy decoding, NFKC normalization and whitespace removal on both sides, CER, and character BLEU. The paper does not state per-page CER or a separate reading-order check `[source: docs/research/summaries/SasagawaVerticalJA_lossless.md]`.
-- Approval of the paired-dataset process (section 7). The owner record gives no answer yet.
+- Paired-dataset details (section 7). Do fixed units score against the fixed EN? Do whole JA sentences with no EN get an agent-written EN? Which labels and thresholds hold after the 40-pair pilot? The owner record gives no answer.
 - Shared output format with the Viewer: "Viewer shows Translator output (Recommended)" `[user 2026-10-02 19:40]`. The format is decided in the design phase `[user 2026-10-02 19:40]`.
 - Viewer switch date: production stays on v1 until the owner names a date `[user 2026-10-02 19:20]`.
 - Rescue rerun: a later idea, to test after the base grid works: "option 1 and 2" `[user 2026-10-02 11:43]`.
@@ -368,9 +387,9 @@ No open proposals. Round 10 decided all five earlier items `[user 2026-10-02 13:
 
 ## 14. Where to read more
 
-The `docs/drafts/` and `docs/research/` files are untracked working files in the translator worktree and are not part of the commit of this file.
+The `docs/drafts/` and `docs/research/` files are committed on branch `v2/translator` only: "Commit, ignore sources/ (Recommended)" `[user 2026-10-05 23:48]`. The third-party copies in `docs/research/sources/` are git-ignored. On `v2/base` and `v2/viewer`, the links below do not resolve.
 
-- `docs/drafts/vision-articulation.md`: the full vision reading, with kendo examples (revision 6).
+- `docs/drafts/vision-articulation.md`: the full vision reading, with kendo examples (revision 7).
 - `docs/drafts/translation-memory-definition.md`: TM definitions and the RAG source mapping.
 - `docs/drafts/transcription-research.md`: the term and the research area of page transcription.
 - `docs/drafts/professional-workflow-research.md`: transcription in professional workflows.
@@ -383,4 +402,5 @@ The `docs/drafts/` and `docs/research/` files are untracked working files in the
 - `docs/research/summaries/SasagawaVerticalJA_lossless.md`: the Sasagawa et al. summary.
 - `docs/research/summaries/NDLOCRLite_lossless.md`: the `NDLOCR-Lite` summary.
 - `docs/drafts/pairs-provenance-sample.md`: the provenance check of 40 of the 313 pairs.
-- `docs/drafts/paired-dataset-process.md`: the paired-dataset process (in progress).
+- `docs/drafts/paired-dataset-process.md`: the paired-dataset process. Section 0 holds the owner decisions of round 11.
+- `docs/drafts/VISION.md`: frozen snapshot of the round 9 state (commit `098b8d0`).
