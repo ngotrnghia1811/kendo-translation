@@ -1,0 +1,7 @@
+# Third-party source copies, kept local only (owner 2026-10-07: "Commit with the Viewer vision (Recommended)", ignore rule first)
+docs/research/sources/
+# macOS metadata
+.DS_Store
+._*
+# Rejected drafts, kept local only (owner 2026-10-07 20:05: "Move to drafts/rejected/")
+docs/drafts/rejected/
