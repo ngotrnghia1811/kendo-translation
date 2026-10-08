@@ -2,31 +2,33 @@
 
 ## 1. Header
 
-- Status: approved by the owner in round 9: "Approve after this batch (Recommended)" `[user 2026-10-02 12:32]`. The approved file is `docs/VISION.md` on `v2/base`.
+- Status: approved by the owner in round 9: "Approve after this batch (Recommended)" `[accepted recommendation 2026-10-02 12:32]`. The approved file is `docs/VISION.md` on `v2/base`.
 - Revised in round 10 with the owner decisions of `[user 2026-10-02 13:40]`.
 - Revised in round 11 with the owner decisions of `[user 2026-10-05 23:48]`.
 - The vision phase for the Translator is complete for now: "option 1, for now. I will review and there may be a revision session later." `[user 2026-10-05 23:48]`. The next phase is design. Section 12 is the design backlog.
-- Commit plan: after owner approval, commit VISION.md on `v2/base` only, merge into both v2 branches, and do not push: "VISION.md on v2/base only (Recommended)" `[user 2026-10-02 11:43]`.
+- Commit plan: after owner approval, commit VISION.md on `v2/base` only, merge into both v2 branches, and do not push: "VISION.md on v2/base only (Recommended)" `[accepted recommendation 2026-10-02 11:43]`.
 - v1 is archived. No v1 decision carries into v2 `[user 2026-10-02 19:20]`.
-- Date note: tags `[user 2026-10-02 19:20]` to `[user 2026-10-02 20:55]` carry the date 2026-10-02, but they record answers given on 2026-10-01 local time. The owner chose "Add a note only" `[user 2026-10-02 01:15]`. Tags `[user 2026-10-05 HH:MM]` carry the real local date.
+- Date note: tags `[user 2026-10-02 19:20]` to `[user 2026-10-02 20:55]` carry the date 2026-10-02, but they record answers given on 2026-10-01 local time. The same note covers the tags `[accepted recommendation 2026-10-02 HH:MM]` and `[accepted option 2026-10-02 HH:MM]` with times 19:20 to 20:55. The owner chose "Add a note only (Recommended)" `[accepted recommendation 2026-10-02 01:15]`. Tags `[user 2026-10-05 HH:MM]` carry the real local date.
 - Source of truth: the owner's Q-A record, qa-memory-2026-10-02.md, kept by aki-main. Files under `docs/` are support material only.
 - Citation key
   - `[user 2026-10-02 HH:MM]`: an owner answer. Quoted text is verbatim, typos included. Unquoted text is the meaning that aki-main relayed.
+  - `[accepted recommendation 2026-10-02 HH:MM]`: an agent option label with "(Recommended)" that the owner picked. The quoted label is verbatim. It is not owner words.
+  - `[accepted option 2026-10-02 HH:MM]`: an agent option label without "(Recommended)" that the owner picked. The quoted label is verbatim. It is not owner words.
   - `[user, first message]` and `[user, sketch]`: the owner's first message and grid sketch.
   - `[check: ...]`: a fact that an agent checked with a tool, not an owner decision.
   - `[source: ...]`: a fact from a named standard or file.
   - `[constructed example]`: an agent wrote the example. It does not come from the kendo books.
-- Rule: every statement traces to the owner record or to a check. Agent ideas live only in section 13: "Doc traced to your quotes (Recommended)" `[user 2026-10-02 19:20]`.
+- Rule: every statement traces to the owner record or to a check. Agent ideas live only in section 13: "Doc traced to your quotes (Recommended)" `[accepted recommendation 2026-10-02 19:20]`.
 
 ## 2. Goal and deliverable
 
 - The goal is a "Comprehensive Translation Pipeline using Multiple agent" `[user, first message]`.
 - The deliverable is a "detailed academic blogpost describing the whole system (possiblely for future ACL conference paper submission)" `[user, first message]`.
-- The project is research first: "Research first (Recommended)" `[user 2026-10-02 19:40]`.
+- The project is research first: "Research first (Recommended)" `[accepted recommendation 2026-10-02 19:40]`.
   - The paper is the goal. The pipeline is the experiment `[user 2026-10-02 19:40]`.
   - The pipeline must be reproducible. It is not production-grade `[user 2026-10-02 19:40]`.
-- The readers are NLP and MT researchers, and the text is paper-like: "NLP/MT researchers, paper-like (Recommended)" `[user 2026-10-02 19:58]`.
-- The paper claims the combination of the parts and its empirical test: "Accept framing (Recommended)" `[user 2026-10-02 01:15]`.
+- The readers are NLP and MT researchers, and the text is paper-like: "NLP/MT researchers, paper-like (Recommended)" `[accepted recommendation 2026-10-02 19:58]`.
+- The paper claims the combination of the parts and its empirical test: "Accept framing (Recommended)" `[accepted recommendation 2026-10-02 01:15]`.
 - All four stages are research targets: "All stages are targets." `[user 2026-10-02 19:40]`.
 - The three parts of the idea `[user, first message]`:
   - **Multi-level agents**: "Leverage agents wil different capacity levels. Stronger models can use weaker model results as signal for bad results." `[user, first message]`
@@ -48,24 +50,24 @@
   - "Our main goal is to make OUR PROPOSAL work" `[user 2026-10-02 07:50]`
   - This document reports no scores of other systems `[user 2026-10-02 07:50]`.
 - The stages follow the professional translation process only: "this is professional translation process" `[user 2026-10-02 01:00]`.
-- The Viewer is in the backlog, after this document: "After Translator VISION.md (Recommended)" `[user 2026-10-02 11:43]`.
-  - The v2 Viewer is a new app and starts empty: "New app, live stays v1 (Recommended)" `[user 2026-10-02 19:20]`.
-  - Its audience is public readers: "Public readers (Recommended)" `[user 2026-10-02 19:40]`.
-  - It shows the Translator output: "Viewer shows Translator output (Recommended)" `[user 2026-10-02 19:40]`.
+- The Viewer is in the backlog, after this document: "After Translator VISION.md (Recommended)" `[accepted recommendation 2026-10-02 11:43]`.
+  - The v2 Viewer is a new app and starts empty: "New app, live stays v1 (Recommended)" `[accepted recommendation 2026-10-02 19:20]`.
+  - Its audience is public readers: "Public readers (Recommended)" `[accepted recommendation 2026-10-02 19:40]`.
+  - It shows the Translator output: "Viewer shows Translator output (Recommended)" `[accepted recommendation 2026-10-02 19:40]`.
 
 ## 4. The three assumptions
 
 The owner stated three assumptions `[user, first message]`. This document keeps them verbatim `[user 2026-10-02 19:40]`.
 
 - **The worst-case stance.** Verbatim: "Weaker model (lower level) are much more likely to made errors" `[user, first message]`.
-  - The owner rejected an earlier agent reading of this assumption: "Wrong reading" `[user 2026-10-02 20:55]`.
+  - The owner rejected an earlier agent reading of this assumption: "Wrong reading" `[accepted option 2026-10-02 20:55]`.
   - The owner's own reading: "When a higher level review results from lower level, it will always assume worst case - that the results from lower level need to be fixed" `[user 2026-10-02 20:55]`.
   - The owner accepted this stance `[user 2026-10-02 01:00]`.
-  - The stance covers the blue input only: "Blue input only (Recommended)" `[user 2026-10-02 01:00]`.
-  - The higher box always writes its own version of everything: "Always rewrite" `[user 2026-10-02 01:15]`.
+  - The stance covers the blue input only: "Blue input only (Recommended)" `[accepted recommendation 2026-10-02 01:00]`.
+  - The higher box always writes its own version of everything: "Always rewrite" `[accepted option 2026-10-02 01:15]`.
   - The lower output is a warning list only `[user 2026-10-02 01:15]`.
-  - The stance starts at level 1, because level 0 has no lower LLM level: "Fix stance from level 1 (Recommended)" `[user 2026-10-02 12:32]`.
-  - `TS_0` takes the same stance toward the level -1 classic OCR result. `TS_0` writes its own transcription from the page image, and the classic OCR text is a warning list only: "Yes, same stance (Recommended)" `[user 2026-10-02 13:40]`.
+  - The stance starts at level 1, because level 0 has no lower LLM level: "Fix stance from level 1 (Recommended)" `[accepted recommendation 2026-10-02 12:32]`.
+  - `TS_0` takes the same stance toward the level -1 classic OCR result. `TS_0` writes its own transcription from the page image, and the classic OCR text is a warning list only: "Yes, same stance (Recommended)" `[accepted recommendation 2026-10-02 13:40]`.
 - **The chain-error assumption.** Verbatim: "The sequential process further create more errors" `[user, first message]`.
   - The owner accepted the second assumption `[user 2026-10-02 20:55]`.
 - **The lesson assumption.** Verbatim: "There errors are good insight for better model (high level) what not to do" `[user, first message]`.
@@ -77,14 +79,14 @@ The grid is a 4x4 array of agents. Rows are levels 0 to 3, with level 0 at the b
 
 ### 5.1 Stages
 
-- The four stages are TS, TL, ED, and QA: "Option 1" `[user 2026-10-02 19:58]`. The first message names them "Transcription. Translation. Editor. Quality." `[user, first message]`.
-- The first message names "Transcription: Problem" and "Translation: Problem" `[user, first message]`. All four stages are research problems: "Research problem, all four (Recommended)" `[user 2026-10-02 12:32]`.
-- Transcription (TS) is *page transcription*: "Page transcription (Recommended)" `[user 2026-10-02 11:43]`.
-  - Definition: "A *page transcription* is the Japanese text of one page image, in reading order, produced by OCR or a vision-language model and checked against the page." The owner approved it: "Transcription definition (Recommended)" `[user 2026-10-02 12:32]`. Source: `docs/drafts/transcription-research.md`, section 1.
+- The four stages are TS, TL, ED, and QA: "Option 1. but Not enough. provide your detail understanding, customize for this project context, for each stage, with concrete example. do additional research/survey if needed" `[user 2026-10-02 19:58]`. The first message names them "Transcription. Translation. Editor. Quality." `[user, first message]`.
+- The first message names "Transcription: Problem" and "Translation: Problem" `[user, first message]`. All four stages are research problems: "Research problem, all four (Recommended)" `[accepted recommendation 2026-10-02 12:32]`.
+- Transcription (TS) is *page transcription*: "Page transcription (Recommended)" `[accepted recommendation 2026-10-02 11:43]`.
+  - Definition: "A *page transcription* is the Japanese text of one page image, in reading order, produced by OCR or a vision-language model and checked against the page." The owner approved it: "Transcription definition (Recommended)" `[accepted recommendation 2026-10-02 12:32]`. Source: `docs/drafts/transcription-research.md`, section 1.
   - The output of TS is a transcription `[user 2026-10-02 11:43]`.
   - The Japanese term is テキスト化 `[user 2026-10-02 11:43]`.
   - The paper abstract names OCR once `[user 2026-10-02 11:43]`.
-- The stages map to the professional translation process `[user 2026-10-02 07:50]`. The owner accepted this mapping: "Accept (Recommended)".
+- The stages map to the professional translation process `[user 2026-10-02 07:50]`. The owner accepted this mapping: "Accept (Recommended)" `[accepted recommendation 2026-10-02 07:50]`.
   - TS = source transcription: OCR or keyed input, then a second person proofreads against the page `[user 2026-10-02 07:50]`.
   - TL = translation plus the translator's check (ISO 17100) `[user 2026-10-02 07:50]`.
   - ED = bilingual revision `[user 2026-10-02 07:50]`.
@@ -94,10 +96,10 @@ The grid is a 4x4 array of agents. Rows are levels 0 to 3, with level 0 at the b
 ### 5.2 Levels
 
 - A *level* is one row of the grid. It holds agents of one capacity `[user, first message]` `[user, sketch]`.
-- Level 0 holds the weakest agents: "Level 0 weakest (Recommended)" `[user 2026-10-02 20:55]`.
-- Each level uses one model tier for all four stages: "One model tier per level (Recommended)" `[user 2026-10-02 01:00]`.
+- Level 0 holds the weakest agents: "Level 0 weakest (Recommended)" `[accepted recommendation 2026-10-02 20:55]`.
+- Each level uses one model tier for all four stages: "One model tier per level (Recommended)" `[accepted recommendation 2026-10-02 01:00]`.
 - Levels 0 to 3 are LLM agents `[user 2026-10-02 11:43]`.
-- Level -1 is a classic OCR engine, for example `NDLOCR-Lite`. The owner chose "Add as level below 0" `[user 2026-10-02 11:43]`.
+- Level -1 is a classic OCR engine, for example `NDLOCR-Lite`. The owner chose "Add as level below 0" `[accepted option 2026-10-02 11:43]`.
   - Level -1 serves TS only `[user 2026-10-02 11:43]`.
   - Its output is a warning list for the TS boxes `[user 2026-10-02 11:43]`.
   - Level -1 has no TL, ED, or QA box `[user 2026-10-02 11:43]`.
@@ -114,11 +116,11 @@ The grid is a 4x4 array of agents. Rows are levels 0 to 3, with level 0 at the b
 - The owner names three recurrence types: "so there are 3 type of recurrent: page - stage - level" `[user 2026-10-02 20:55]`.
   - The page type, in the owner's words: "in the same level, agent(current page| prev page)" `[user 2026-10-02 20:55]`.
   - The owner accepted the index `X(l, s, p)` for one run of a box, with level `l`, stage `s`, and page `p` `[user 2026-10-02 01:00]`.
-- A box on page p sees page p-1 only, in all four stages: "Page p-1 only, all stages (Recommended)" `[user 2026-10-02 01:00]`.
+- A box on page p sees page p-1 only, in all four stages: "Page p-1 only, all stages (Recommended)" `[accepted recommendation 2026-10-02 01:00]`.
 
 #### Notation
 
-- The three recurrence types are written as one formula: `X(l, s, p) = agent(l, s)( X(l, s-1, p), X(l-1, s, p), X(l, s, p-1) )`. The owner approved it as notation: "Approve as notation (Recommended)" `[user 2026-10-02 13:40]`.
+- The three recurrence types are written as one formula: `X(l, s, p) = agent(l, s)( X(l, s-1, p), X(l-1, s, p), X(l, s, p-1) )`. The owner approved it as notation: "Approve as notation (Recommended)" `[accepted recommendation 2026-10-02 13:40]`.
 - where:
   - `l` is the level, 0 to 3 (level -1 is the classic OCR step for TS only).
   - `s` is the stage: TS, TL, ED, or QA.
@@ -137,18 +139,18 @@ The grid is a 4x4 array of agents. Rows are levels 0 to 3, with level 0 at the b
 - Every agent outputs a result and its reasoning process `[user 2026-10-02 01:00]`.
   - Owner words: "NOTE: agent is require to output both the output is its reasoning process. higher level agent take both (results, reasoning process) from lower level as input" `[user 2026-10-02 01:00]`.
 - The blue arrow carries the pair (result, reasoning process) `[user 2026-10-02 01:00]`.
-- Both arrows carry the pair: "Yes, both arrows (Recommended)" `[user 2026-10-02 01:15]`.
+- Both arrows carry the pair: "Yes, both arrows (Recommended)" `[accepted recommendation 2026-10-02 01:15]`.
   - Owner words: "basically the output of each agent is a pair (output, reasoning) forward and upward in the network" `[user 2026-10-02 12:32]`.
   - Forward is the red arrow to the next stage on the same level. Upward is the blue arrow to the same stage on the next level `[user 2026-10-02 12:32]`.
-- The bar "|" means "Given" `[user 2026-10-02 01:00]`.
+- The bar "|" means ""Given" (Recommended)" `[accepted recommendation 2026-10-02 01:00]`.
 - The sketch formula is `ED_1(TL_1 | ED_0) -> QA_1` and `-> Reasoning -> ED_2` `[user, sketch]`.
   - With the bar read as given, `ED_1` works on `TL_1`, given `ED_0`. Its output then goes to `QA_1` `[user, sketch]` `[user 2026-10-02 01:00]`.
   - The reasoning of `ED_1` goes up to `ED_2` `[user, sketch]` `[user 2026-10-02 12:32]`.
 
 ### 5.5 Source access
 
-- Only TS sees the page image. TL, ED, and QA get the Japanese text: "Image to TS, JP text to all (Recommended)" `[user 2026-10-02 01:00]`.
-- For a text-only source, TS passes the text through unchanged: "Pass through unchanged (Recommended)" `[user 2026-10-02 01:00]`.
+- Only TS sees the page image. TL, ED, and QA get the Japanese text: "Image to TS, JP text to all (Recommended)" `[accepted recommendation 2026-10-02 01:00]`.
+- For a text-only source, TS passes the text through unchanged: "Pass through unchanged (Recommended)" `[accepted recommendation 2026-10-02 01:00]`.
 
 ### 5.6 The TS blue arrow as a proofing check
 
@@ -160,10 +162,10 @@ The grid is a 4x4 array of agents. Rows are levels 0 to 3, with level 0 at the b
 
 The owner chose three properties of the TS output `[user 2026-10-02 11:43]`:
 
-- "Ruby bound to base text" `[user 2026-10-02 11:43]`.
-- "Captions + labels as fields" `[user 2026-10-02 11:43]`.
-- "Heads + page numbers as fields" `[user 2026-10-02 11:43]`.
-- The fields use the `NDLOCR-Lite` layout class names: "Use as field names (Recommended)" `[user 2026-10-02 13:40]`.
+- "Ruby bound to base text" `[accepted option 2026-10-02 11:43]`.
+- "Captions + labels as fields" `[accepted option 2026-10-02 11:43]`.
+- "Heads + page numbers as fields" `[accepted option 2026-10-02 11:43]`.
+- The fields use the `NDLOCR-Lite` layout class names: "Use as field names (Recommended)" `[accepted recommendation 2026-10-02 13:40]`.
   - `line_caption` (キャプション): captions and figure labels.
   - `block_pillar` (柱): running heads.
   - `block_folio` (ノンブル): page numbers.
@@ -174,7 +176,7 @@ The owner chose three properties of the TS output `[user 2026-10-02 11:43]`:
 
 ### 5.8 Final output and QA direction
 
-- The final output of a page is the `ED_3` text with the `QA_3` verdict: "ED_3 text, QA_3 verdict (Recommended)" `[user 2026-10-02 01:00]`.
+- The final output of a page is the `ED_3` text with the `QA_3` verdict: "ED_3 text, QA_3 verdict (Recommended)" `[accepted recommendation 2026-10-02 01:00]`.
 - `QA_3` gives a verdict and does not edit `[user 2026-10-02 01:00]`.
 - QA sends up only. It sends no redo request on its own level `[user 2026-10-02 01:00]`.
   - Owner words: "option 1. In case of update, the textual gradient update will improve the process" `[user 2026-10-02 01:00]`.
@@ -231,11 +233,11 @@ The owner asked for a concrete example per stage: "provide your detail understan
 ## 6. Optimization
 
 - A *textual gradient* is written feedback that tells how to change a prompt. Owner words: "All agents are currently optimizied through prompt textual gradient" `[user 2026-10-02 20:55]`.
-- "Currently" means the v2 plan: "The v2 plan (Recommended)" `[user 2026-10-02 01:00]`.
+- "Currently" means the v2 plan: "The v2 plan (Recommended)" `[accepted recommendation 2026-10-02 01:00]`.
 - The owner accepted this reading: a critic writes text feedback, and an optimizer edits the prompt `[user 2026-10-02 01:00]`.
   - Prompts act as the parameters of the grid. Model weights do not change `[user 2026-10-02 01:00]`.
-- The feedback comes from QA verdicts and from the 313 human reference pairs: "QA verdicts and references (Recommended)" `[user 2026-10-02 01:00]`.
-- The prompt update rule follows SMART: "Prompt update rule (Recommended)" `[user 2026-10-02 13:40]`. Source: `docs/research/summaries/SMART_lossless.md`, "What MAC-RAG can adopt from SMART", items 7 and 14 (SMART sections 3.5, B.7, B.8, C.5).
+- The feedback comes from QA verdicts and from the 313 human reference pairs: "QA verdicts and references (Recommended)" `[accepted recommendation 2026-10-02 01:00]`.
+- The prompt update rule follows SMART: "Prompt update rule (Recommended)" `[accepted recommendation 2026-10-02 13:40]`. Source: `docs/research/summaries/SMART_lossless.md`, "What MAC-RAG can adopt from SMART", items 7 and 14 (SMART sections 3.5, B.7, B.8, C.5).
   - Each (level, stage) cell has one prompt, 16 in total.
   - If the mean score of a cell is low, an optimizer rewrites its prompt from critiques of its worst cases.
   - The critiques name failure modes. They do not hold corrected outputs.
@@ -249,19 +251,19 @@ The owner asked for a concrete example per stage: "provide your detail understan
 
 - Human reference pairs `[user 2026-10-02 19:40]`
   - Owner words: "There are human paired japanese-english. We will use them as reference" `[user 2026-10-02 19:40]`.
-  - The pairs are the 313 kendojidai articles, EN on kendojidai.com and JA on kendojidai.net: "Yes, these are the pairs (Recommended)" `[user 2026-10-02 20:55]`.
-  - The unit is the sentence pair: "Sentence pairs, aligned in v2" `[user 2026-10-02 11:43]`.
+  - The pairs are the 313 kendojidai articles, EN on kendojidai.com and JA on kendojidai.net: "Yes, these are the pairs (Recommended)" `[accepted recommendation 2026-10-02 20:55]`.
+  - The unit is the sentence pair: "Sentence pairs, aligned in v2" `[accepted option 2026-10-02 11:43]`.
     - v2 aligns the sentences fresh and checks them against the source `[user 2026-10-02 11:43]`.
     - v2 does not reuse the v1 database segments as is `[user 2026-10-02 11:43]`.
-    - Earlier rule: the v2 alignment flags JA sentences with no EN counterpart and EN sentences that change a fact, and excludes them from scoring: "Flag and exclude from scoring (Recommended)" `[user 2026-10-02 12:32]`.
+    - Earlier rule: the v2 alignment flags JA sentences with no EN counterpart and EN sentences that change a fact, and excludes them from scoring: "Flag and exclude from scoring (Recommended)" `[accepted recommendation 2026-10-02 12:32]`.
     - The JA side is the source of correct facts, and the EN is fixed from the JA: "The articles are originally JP, so use JP as the source of correct infor. If there is discrepancy, use JP to fix EN" `[user 2026-10-05 23:48]`.
       - The same rule covers a fact that the EN drops inside an otherwise matched sentence: "Like prev answer, use JP as origin information, and fix EN based on JP" `[user 2026-10-05 23:48]`.
       - Example: 「くりた・わいちろう／昭和31年神奈川県生まれ、64歳。」 became "Born in 1956 in Kanagawa prefecture." The fix adds the age 64 `[check: docs/drafts/paired-dataset-process.md, worked example W.1]`.
-      - The original EN stays in the dataset next to the fixed EN, with labels `[user 2026-10-05 23:48]` ("Keep, labeled, filtered views").
-  - The pairs have a held-out split: "313 pairs with held-out split" `[user 2026-10-02 07:50]`.
+      - The original EN stays in the dataset next to the fixed EN, with labels `[accepted recommendation 2026-10-05 23:48]` ("Keep, labeled, filtered views (Recommended)").
+  - The pairs have a held-out split: "313 pairs with held-out split (Recommended)" `[accepted recommendation 2026-10-02 07:50]`.
   - Held-out test pairs must never be retrievable `[user 2026-10-02 11:43]`.
-  - The split is by article group, balanced by EN post year: 75% retrieval, 15% feedback, 10% test: "75 / 15 / 10" `[user 2026-10-05 23:48]`. Feedback and test text are never retrievable `[source: docs/drafts/paired-dataset-process.md, step 10]`.
-- Provenance check of 40 of the 313 pairs `[check: aki-submain 2026-10-02, 40 of 313 pairs]`. The owner chose "Check by sampling (Recommended)" `[user 2026-10-02 11:43]` and "Check more of the 313 pairs" `[user 2026-10-02 12:32]`.
+  - The split is by article group, balanced by EN post year: 75% retrieval, 15% feedback, 10% test: "75 / 15 / 10" `[accepted option 2026-10-05 23:48]`. Feedback and test text are never retrievable `[source: docs/drafts/paired-dataset-process.md, step 10]`.
+- Provenance check of 40 of the 313 pairs `[check: aki-submain 2026-10-02, 40 of 313 pairs]`. The owner chose "Check by sampling (Recommended)" `[accepted recommendation 2026-10-02 11:43]` and "Check more of the 313 pairs" `[accepted option 2026-10-02 12:32]`.
   - Result: 20 full translations, 19 partial, 0 rewrites, 1 different article `[check: aki-submain 2026-10-02, 40 of 313 pairs]`.
   - Record 308 pairs a Japanese report on the 2025 All Japan Police Kendo Championship with an English results list of the 73rd All Japan Kendo Championship. aki-main confirmed this with a GET request `[check: aki-main curl 2026-10-02]`.
   - The English side often changes facts, mostly in author profile and credit blocks. Example: 「平成29年に定年退職」 becomes "In 2009, he retired" `[check: aki-main curl 2026-10-02]`.
@@ -273,65 +275,65 @@ The owner asked for a concrete example per stage: "provide your detail understan
     - The 11 steps: snapshot, article triage, grouping and split, typed blocks, sentence split, aligner proposal, double alignment by two agents, item-by-item fact pass, adjudication by a third agent, leakage check and random re-check, output files `[source: docs/drafts/paired-dataset-process.md]`.
     - Step 7 (double alignment) uses Claude Sonnet 5.5 at reasoning effort high and xhigh. Step 9 (adjudication) uses Claude Opus 5.5 at high `[user 2026-10-05 23:48]`.
     - Agents decide every link. The automatic aligner only proposes. The work runs in batches: "option 1. but do so in batch" `[user 2026-10-05 23:48]`.
-    - Record 308 leaves all uses. Its snapshot stays, and the kendojidai.com article "Report on the 2025 All Japan Police Kendo Championship" (11/03/2025) is logged as a lead: "Exclude and log the lead (Recommended)" `[user 2026-10-05 23:48]`.
-    - Flagged units stay in the dataset file with labels, and each use reads a filtered view: "Keep, labeled, filtered views (Recommended)" `[user 2026-10-05 23:48]`.
-    - EN translator credit lines go to the article metadata and leave all three uses: "Metadata only (Recommended)" `[user 2026-10-05 23:48]`.
+    - Record 308 leaves all uses. Its snapshot stays, and the kendojidai.com article "Report on the 2025 All Japan Police Kendo Championship" (11/03/2025) is logged as a lead: "Exclude and log the lead (Recommended)" `[accepted recommendation 2026-10-05 23:48]`.
+    - Flagged units stay in the dataset file with labels, and each use reads a filtered view: "Keep, labeled, filtered views (Recommended)" `[accepted recommendation 2026-10-05 23:48]`.
+    - EN translator credit lines go to the article metadata and leave all three uses: "Metadata only (Recommended)" `[accepted recommendation 2026-10-05 23:48]`.
     - Licence: "option 4. you dont have to bother about the license/permission/etc" `[user 2026-10-05 23:48]`.
     - Data files live in the git-ignored folder `data/` of the translator worktree: "keep all data in a git ignore folder for easier manage" `[user 2026-10-05 23:48]`.
-    - A pilot on all 40 sampled pairs comes before the full build: "Pilot on all 40 sampled pairs" `[user 2026-10-05 23:48]`.
-    - The build starts in the next design session: "Next design session (Recommended)" `[user 2026-10-05 23:48]`.
+    - A pilot on all 40 sampled pairs comes before the full build: "Pilot on all 40 sampled pairs" `[accepted option 2026-10-05 23:48]`.
+    - The build starts in the next design session: "Next design session (Recommended)" `[accepted recommendation 2026-10-05 23:48]`.
 - Level-0 baseline data `[user 2026-10-02 20:55]`
-  - The `book-postprocessing` `triplet.json` files are Gemini level-0 machine output with no human edit: "Gemini output, no human edit (Recommended)" `[user 2026-10-02 20:55]`.
+  - The `book-postprocessing` `triplet.json` files are Gemini level-0 machine output with no human edit: "Gemini output, no human edit (Recommended)" `[accepted recommendation 2026-10-02 20:55]`.
   - They are a baseline only, never a reference `[user 2026-10-02 20:55]`.
 - Page images `[user 2026-10-02 20:55]`
   - Owner words: "1. in gemini-agent folders" `[user 2026-10-02 20:55]`.
   - Path: `/Volumes/NghiaHDD2T/universal-agent_v2/compiled_agents/gemini_kendo_book_translator/pages/<book>/page_NNN.pdf`, in 36 book directories `[check: aki-submain ls 2026-10-02]`.
 - Image evaluation `[user 2026-10-02 01:00]`
-  - A small human TS gold set measures TS on page images: "Small human TS gold set (Recommended)" `[user 2026-10-02 01:00]`.
-  - The text chain is measured on the 313 pairs: "Text chain on 313 pairs (Recommended)" `[user 2026-10-02 01:00]`.
+  - A small human TS gold set measures TS on page images: "Small human TS gold set (Recommended)" `[accepted recommendation 2026-10-02 01:00]`.
+  - The text chain is measured on the 313 pairs: "Text chain on 313 pairs (Recommended)" `[accepted recommendation 2026-10-02 01:00]`.
 
 ## 8. RAG and translation memory
 
 - The owner chose three RAG sources `[user 2026-10-02 07:50]`:
-  - "Kendo dictionary" `[user 2026-10-02 07:50]`.
-  - "313 pairs with held-out split" `[user 2026-10-02 07:50]`.
-  - "Book memory of accepted outputs" `[user 2026-10-02 07:50]`.
+  - "Kendo dictionary (Recommended)" `[accepted recommendation 2026-10-02 07:50]`.
+  - "313 pairs with held-out split (Recommended)" `[accepted recommendation 2026-10-02 07:50]`.
+  - "Book memory of accepted outputs (Recommended)" `[accepted recommendation 2026-10-02 07:50]`.
 - The owner asked: "Do you know what `translation memory` official description is?" `[user 2026-10-02 07:50]`.
 - A *translation memory* (TM), per JIS Y 5001:2020, 3.5.6 `[source: JIS Y 5001:2020 3.5.6]`:
   - Definition: "原文言語のテキストと訳文言語のテキストとを一対として蓄積するデータベース。" `[source: JIS Y 5001:2020 3.5.6]`
   - Note: "翻訳メモリーの目的は，過去に翻訳されたコンテンツを容易に検索・利用できるようにすることである。" `[source: JIS Y 5001:2020 3.5.6]`
-- Standard names for the three RAG sources: "Standard names for RAG (Recommended)" `[user 2026-10-02 12:32]`.
+- Standard names for the three RAG sources: "Standard names for RAG (Recommended)" `[accepted recommendation 2026-10-02 12:32]`.
   - Kendo dictionary = termbase `[user 2026-10-02 12:32]`.
   - 313 pairs = aligned translation memory `[user 2026-10-02 12:32]`.
   - Book memory = project translation memory `[user 2026-10-02 12:32]`.
   - Source: `docs/drafts/translation-memory-definition.md`, section 4, and `docs/drafts/vision-articulation.md`, section 12.2.
-- Book memory entries are page-level translation units (TMX `segtype="block"`): "Page units in book memory" `[user 2026-10-02 12:32]`.
+- Book memory entries are page-level translation units (TMX `segtype="block"`): "Page units in book memory" `[accepted option 2026-10-02 12:32]`.
   - Analogy only: the page recurrence is the analog of a context match (101%) `[user 2026-10-02 12:32]`. Source: `docs/drafts/vision-articulation.md`, section 12.2.
-- Book memory includes a terminology pool, as in SMART: "Terminology pool (Recommended)" `[user 2026-10-02 13:40]`. Source: `docs/research/summaries/SMART_lossless.md`, adoption item 1 (SMART sections 3.3, B.2, B.4).
+- Book memory includes a terminology pool, as in SMART: "Terminology pool (Recommended)" `[accepted recommendation 2026-10-02 13:40]`. Source: `docs/research/summaries/SMART_lossless.md`, adoption item 1 (SMART sections 3.3, B.2, B.4).
   - Only accepted page outputs write entries: the `ED_3` text with the `QA_3` verdict `[user 2026-10-02 13:40]`.
   - TL, ED, and QA boxes on all levels read it `[user 2026-10-02 13:40]`.
   - It overlaps the kendo dictionary termbase. The RAG design decides how the two relate.
-- DelTA is a design reference for book memory only: "Book memory anchor only (Recommended)" `[user 2026-10-02 13:40]`. The page recurrence stays page p-1 only `[user 2026-10-02 01:00]`. Source: `docs/research/summaries/DelTA_lossless.md`.
+- DelTA is a design reference for book memory only: "Book memory anchor only (Recommended)" `[accepted recommendation 2026-10-02 13:40]`. The page recurrence stays page p-1 only `[user 2026-10-02 01:00]`. Source: `docs/research/summaries/DelTA_lossless.md`.
 - The RAG design comes later: "We will design later" `[user 2026-10-02 19:20]`.
 
 ## 9. Baselines
 
 A *baseline* is a fixed system that the full grid is measured against. The owner chose two `[user 2026-10-02 07:50]`:
 
-- "Gemini level-0 output" `[user 2026-10-02 07:50]`. This is the `triplet.json` data of section 7 `[user 2026-10-02 20:55]`.
-- "Grid without prompt updates" `[user 2026-10-02 07:50]`. This is the grid without the textual gradient of section 6.
-  - Definition, from SMART F.5: "The routing policy and agent prompts remain at their initial configurations throughout evaluation" `[source: docs/research/summaries/SMART_lossless.md]`. The owner chose it: "Baseline definition (Recommended)" `[user 2026-10-02 13:40]`.
+- "Gemini level-0 output (Recommended)" `[accepted recommendation 2026-10-02 07:50]`. This is the `triplet.json` data of section 7 `[user 2026-10-02 20:55]`.
+- "Grid without prompt updates (Recommended)" `[accepted recommendation 2026-10-02 07:50]`. This is the grid without the textual gradient of section 6.
+  - Definition, from SMART F.5: "The routing policy and agent prompts remain at their initial configurations throughout evaluation" `[source: docs/research/summaries/SMART_lossless.md]`. The owner chose it: "Baseline definition (Recommended)" `[accepted recommendation 2026-10-02 13:40]`.
   - In this project: all 16 prompts stay at their first version. Memory, RAG, and the three recurrence types stay on `[user 2026-10-02 13:40]`.
 
 ## 10. Evaluation
 
 The owner chose five measures `[user 2026-10-02 07:50]`:
 
-- "Character error rate" `[user 2026-10-02 07:50]`.
-- "Reference-based MT metrics" `[user 2026-10-02 07:50]`.
-- "Error flow across the grid" `[user 2026-10-02 07:50]`.
-- "LLM judge" `[user 2026-10-02 07:50]`. Its model family: "Decide with the model choice" `[user 2026-10-02 07:50]`.
-- "Term consistency across pages" `[user 2026-10-02 07:50]`.
+- "Character error rate (Recommended)" `[accepted recommendation 2026-10-02 07:50]`.
+- "Reference-based MT metrics (Recommended)" `[accepted recommendation 2026-10-02 07:50]`.
+- "Error flow across the grid (Recommended)" `[accepted recommendation 2026-10-02 07:50]`.
+- "LLM judge" `[accepted option 2026-10-02 07:50]`. Its model family: "Decide with the model choice" `[accepted option 2026-10-02 07:50]`.
+- "Term consistency across pages" `[accepted option 2026-10-02 07:50]`.
 
 The owner did not choose human error spans `[user 2026-10-02 07:50]`.
 
@@ -341,21 +343,21 @@ The owner did not choose human error spans `[user 2026-10-02 07:50]`.
   - "These are simply for references/adoptation to make MAC-RAG works. We dont care about comparison with others" `[user 2026-10-02 07:50]`
   - "We simple want to refer, and if relevant, adopt from their work." `[user 2026-10-02 07:50]`
 - Tier rules `[user 2026-10-02 07:50]` `[user 2026-10-02 11:43]`
-  - Tier 1 is the closest prior work, with a cap of 5: "Tier 1 = closest prior work (Recommended)" `[user 2026-10-02 07:50]`.
+  - Tier 1 is the closest prior work, with a cap of 5: "Tier 1 = closest prior work (Recommended)" `[accepted recommendation 2026-10-02 07:50]`.
   - Tier 2 holds items with an idea that the project plans to adopt, with a cap of 10 `[user 2026-10-02 11:43]`.
-  - Tier 3 holds items that give context only, with a cap of 20 `[user 2026-10-02 11:43]`. Owner words: "Adopt vs background".
+  - Tier 3 holds items that give context only, with a cap of 20 `[user 2026-10-02 11:43]`. The owner picked "Adopt vs background" `[accepted option 2026-10-02 11:43]`.
   - Tiers cover papers, projects, and tools `[user 2026-10-02 07:50]`.
   - Every placed item needs a lossless summary on disk `[user 2026-10-02 07:50]`.
   - The v1 tier definitions are not used `[user 2026-10-02 11:43]`.
-- Tier 1 is full: SMART plus "Wu 2025 book MT, DelTA memory, Sasagawa vertical JA, NDLOCR-Lite" `[user 2026-10-02 11:43]`. SMART went to tier 1 at `[user 2026-10-02 01:15]`: "That paper is tier 1 paper".
+- Tier 1 is full: SMART plus "Wu 2025 book MT, DelTA memory, Sasagawa vertical JA, NDLOCR-Lite" `[accepted option 2026-10-02 11:43]`. SMART went to tier 1 at `[user 2026-10-02 01:15]`: "That paper is tier 1 paper".
   - **SMART**, "Breaking Babel: A Self-Evolving Multi-Agent System for Long-Form Subtitle Translation", arXiv:2609.38660v2, bib key `jin2026smart`, summary `docs/research/summaries/SMART_lossless.md` `[source: docs/research/surveys.md]`.
   - **Wu et al. 2025**, "(Perhaps) Beyond Human Translation: Harnessing Multi-Agent Collaboration for Translating Ultra-Long Literary Texts", Transactions of the Association for Computational Linguistics, 13:901–922 `[source: docs/research/surveys.md]`.
   - **DelTA** (Wang et al. 2025), "DelTA: An Online Document-Level Translation Agent Based on Multi-Level Memory", arXiv:2410.08143 `[source: docs/research/surveys.md]`.
   - Sasagawa, Kurita, Kawahara, "Evaluating Multimodal Large Language Models on Vertically Written Japanese Text", LREC 2026, arXiv 2511.15059 `[source: docs/research/surveys.md]`.
   - `NDLOCR-Lite` (NDL Lab), a tool, CC BY 4.0, https://github.com/ndl-lab/ndlocr-lite `[source: docs/research/surveys.md]`.
 - All five tier 1 items have lossless summaries in `docs/research/summaries/`: `SMART_lossless.md`, `WuBeyondHuman_lossless.md`, `DelTA_lossless.md`, `SasagawaVerticalJA_lossless.md`, `NDLOCRLite_lossless.md` `[check: aki-main wc 2026-10-02 13:18]`.
-- The Wu et al. 2025 author list uses the arXiv form "Longyue Wang". The ACL Anthology lists "Longyue Wan": "Use 'Longyue Wang' (Recommended)" `[user 2026-10-02 13:40]`.
-- The 25 candidates are placed, 10 in tier 2 and 15 in tier 3: "Place 25 candidates" `[user 2026-10-02 12:32]`.
+- The Wu et al. 2025 author list uses the arXiv form "Longyue Wang". The ACL Anthology lists "Longyue Wan": "Use 'Longyue Wang' (Recommended)" `[accepted recommendation 2026-10-02 13:40]`.
+- The 25 candidates are placed, 10 in tier 2 and 15 in tier 3: "Place 25 candidates" `[accepted option 2026-10-02 12:32]`.
   - Each placed item needs a lossless summary before use `[user 2026-10-02 12:32]`.
   - The list is in `docs/research/surveys.md`.
 
@@ -372,12 +374,12 @@ This section is the backlog for the design phase `[user 2026-10-05 23:48]`.
 - RAG design: "We will design later" `[user 2026-10-02 19:20]`.
   - The content of the kendo dictionary. The owner record gives no answer.
 - Model choice per level. The owner chose one model tier per level `[user 2026-10-02 01:00]`. The owner record gives no answer on the models.
-- Judge model family for the "LLM judge": "Decide with the model choice" `[user 2026-10-02 07:50]`.
+- Judge model family for the "LLM judge": "Decide with the model choice" `[accepted option 2026-10-02 07:50]`.
 - TS output format. The owner chose the three field properties of section 5.7 `[user 2026-10-02 11:43]`. The owner record gives no answer on the format.
-- Size of the TS gold set: "Decide in design phase (Recommended)" `[user 2026-10-02 12:32]`.
-- TS scoring protocol: "Defer to design phase" `[user 2026-10-02 13:40]`. The candidate is the Sasagawa et al. protocol: greedy decoding, NFKC normalization and whitespace removal on both sides, CER, and character BLEU. The paper does not state per-page CER or a separate reading-order check `[source: docs/research/summaries/SasagawaVerticalJA_lossless.md]`.
+- Size of the TS gold set: "Decide in design phase (Recommended)" `[accepted recommendation 2026-10-02 12:32]`.
+- TS scoring protocol: "Defer to design phase" `[accepted option 2026-10-02 13:40]`. The candidate is the Sasagawa et al. protocol: greedy decoding, NFKC normalization and whitespace removal on both sides, CER, and character BLEU. The paper does not state per-page CER or a separate reading-order check `[source: docs/research/summaries/SasagawaVerticalJA_lossless.md]`.
 - Paired-dataset details (section 7). Do fixed units score against the fixed EN? Do whole JA sentences with no EN get an agent-written EN? Which labels and thresholds hold after the 40-pair pilot? The owner record gives no answer.
-- Shared output format with the Viewer: "Viewer shows Translator output (Recommended)" `[user 2026-10-02 19:40]`. The format is decided in the design phase `[user 2026-10-02 19:40]`.
+- Shared output format with the Viewer: "Viewer shows Translator output (Recommended)" `[accepted recommendation 2026-10-02 19:40]`. The format is decided in the design phase `[user 2026-10-02 19:40]`.
 - Viewer switch date: production stays on v1 until the owner names a date `[user 2026-10-02 19:20]`.
 - Rescue rerun: a later idea, to test after the base grid works: "option 1 and 2" `[user 2026-10-02 11:43]`.
 
@@ -387,7 +389,7 @@ No open proposals. Round 10 decided all five earlier items `[user 2026-10-02 13:
 
 ## 14. Where to read more
 
-The `docs/drafts/` and `docs/research/` files are committed on branch `v2/translator` only: "Commit, ignore sources/ (Recommended)" `[user 2026-10-05 23:48]`. The third-party copies in `docs/research/sources/` are git-ignored. On `v2/base` and `v2/viewer`, the links below do not resolve.
+The `docs/drafts/` and `docs/research/` files are committed on branch `v2/translator` only: "Commit, ignore sources/ (Recommended)" `[accepted recommendation 2026-10-05 23:48]`. The third-party copies in `docs/research/sources/` are git-ignored. On `v2/base` and `v2/viewer`, the links below do not resolve.
 
 - `docs/drafts/vision-articulation.md`: the full vision reading, with kendo examples (revision 7).
 - `docs/drafts/translation-memory-definition.md`: TM definitions and the RAG source mapping.
