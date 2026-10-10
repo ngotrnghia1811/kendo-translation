@@ -2,10 +2,12 @@
 
 ## 1. Header
 
-- Status: approved by the owner, untracked until the commit `[accepted option 2026-10-08 11:48]` "Approve as is".
+- Status: approved by the owner `[accepted option 2026-10-08 11:48]` "Approve as is". Committed in `8a9dced` on `v2/viewer` and `v2/base`.
   - Round 18 added content to sections 3, 4, 6, 11, 13, and 14. The owner sees those lines before the commit `[file: .opencode/reminders/qa/qa-memory-2026-10-08.md:58]`.
+  - Round 20 added content to sections 6 and 13 `[file: .opencode/reminders/qa/qa-memory-2026-10-09.md:20]`.
   - This draft is the next Viewer document `[accepted recommendation 2026-10-08 07:00]` "Draft VISION-viewer.md next (Recommended)".
-  - The file stays untracked until the owner approves it `[file: .opencode/reminders/plan/evolving-plan-2026-10-08.md:11]`.
+  - The file stayed untracked until the owner approved it `[file: .opencode/reminders/plan/evolving-plan-2026-10-08.md:11]`.
+  - Round 21 validated the three meanings in section 6 and asked for this header fix `[accepted recommendation 2026-10-09 19:49]` "Correct, fix and commit (Recommended)".
 - Commit plan: after owner approval, commit this file and `docs/VISION.md` in one commit on `v2/viewer`, fast-forward `v2/base`, merge into `v2/translator`, and do not push `[accepted recommendation 2026-10-08 11:48]` "Commit after approval (Recommended)".
   - The order of branches comes from the round 18 record `[file: .opencode/reminders/qa/qa-memory-2026-10-08.md:48]`.
   - The file reaches `v2/base` as a separate file `[accepted recommendation 2026-10-07 10:55]` "Separate file on v2/base (Recommended)".
@@ -18,7 +20,8 @@
   - The owner Q-A record in the project folder `/Users/nghiango-mbp/projects/kendo-translation` `[file: .opencode/reminders/qa/qa-memory-2026-10-07.md:3]`:
     - `.opencode/reminders/qa/qa-memory-2026-10-02.md`, rounds 1 to 11 (round 11 carries the date 2026-10-05).
     - `.opencode/reminders/qa/qa-memory-2026-10-07.md`, rounds 12 to 16.
-    - `.opencode/reminders/qa/qa-memory-2026-10-08.md`, rounds 17 and 18.
+    - `.opencode/reminders/qa/qa-memory-2026-10-08.md`, rounds 17 to 19.
+    - `.opencode/reminders/qa/qa-memory-2026-10-09.md`, rounds 20 and 21.
   - The articulation draft `docs/drafts/viewer-vision-articulation.md`, revision 2, Part A `[file: docs/drafts/viewer-vision-articulation.md:16]`.
 - Legend
   - `[user YYYY-MM-DD HH:MM]`: words that the owner typed. The quote is verbatim, typos and double spaces included.
@@ -26,6 +29,7 @@
   - `[accepted option YYYY-MM-DD HH:MM]`: an agent option label without "(Recommended)" that the owner picked. The quote is the label. It is not owner words.
   - `[validated reading YYYY-MM-DD HH:MM]`: an aki-main reading that the owner marked correct. The quote is the owner answer.
   - `[file: path:line]`: a fact from a project file. Paths that start with `.opencode/` are in the project folder.
+  - `[agent inference]`: an agent reading that the owner did not validate.
 - Conventions
   - A tag without a quote shares the quote of the nearest earlier tag with the same name, date, and time in the same section.
   - A literal `\n` or `\"` in a quote is how the Q-A memory stores the answer `[file: docs/drafts/viewer-vision-articulation.md:124]`.
@@ -152,6 +156,19 @@
   - Pair 252, record `b5106cae-44f6-4a27-a91f-8c75312fcce9`. The JA sentence holds 世界選手権大会団体優勝4回.
   - The translator sees the `ED_0` to `ED_3` EN texts of that sentence, one under the other, and the `QA_3` verdict in words.
   - The EN-trans-human text says "team title 3 times". Its fact mark shows the JA fact 4.
+- Viewing types added for "etc" `[user 2026-10-08 14:04]` "Option 1. when i write `etc`, it means you should suggest any relevant appropriate options to add."
+  - The owner picked three types and one wish from the agent suggestions `[file: .opencode/reminders/qa/qa-memory-2026-10-09.md:20]`.
+  - Print and export view `[accepted option 2026-10-09 09:26]` "Print and export view".
+    - A clean page of the chosen components, for print or for export to a file `[validated reading 2026-10-09 19:49]` "Correct, fix and commit (Recommended)".
+  - Version history view `[accepted option 2026-10-09 09:26]` "Version history view".
+    - Earlier versions of a page text with their dates, tied to the change log (section 10) `[validated reading 2026-10-09 19:49]`.
+  - Vertical JA view `[accepted recommendation 2026-10-09 09:26]` "Vertical JA view (Recommended)".
+    - The JA text set in vertical writing (tategaki), as in the printed source `[validated reading 2026-10-09 19:49]`.
+  - Linked page image, an owner wish `[user 2026-10-09 09:26]` "I want to do option 2. but LLM-based TS doesnt have region position".
+    - A tap on a sentence shows its region on the page image, and the reverse `[file: .opencode/reminders/qa/qa-memory-2026-10-09.md:21]`.
+    - Open point: LLM-based TS output has no region positions `[user 2026-10-09 09:26]`.
+    - The link needs a source of region positions `[agent inference]`.
+    - The Translator design topic on the TS output format decides this point (section 13) `[accepted recommendation 2026-10-09 09:26]` "TS output format (Recommended)".
 
 ## 7. Reader customization
 
@@ -243,7 +260,8 @@
 
 ## 13. Open, decided later
 
-- What "etc" covers in the list of viewing types is not decided `[user 2026-10-07 14:05]` "single language viewing, bilingual viewing, raw data view, translation viewing, etc".
+- Resolved: section 6 lists the viewing types added for "etc" `[user 2026-10-08 14:04]` "Option 1. when i write `etc`, it means you should suggest any relevant appropriate options to add."
+- Region positions for the linked page image, decided with the TS output format (section 6) `[accepted recommendation 2026-10-09 09:26]` "TS output format (Recommended)".
 - VI and KO definitions for the supplement terms of the kendo dictionary `[accepted recommendation 2026-10-07 23:47]` "State the gap, decide later (Recommended)".
 - Design-phase items `[user 2026-10-07 14:05]` "Work on viewer vision -> desgin of both -> then code".
   - The shared output format of the Translator and the Viewer `[validated reading 2026-10-07 20:05]` "Correct reading (Recommended)".
