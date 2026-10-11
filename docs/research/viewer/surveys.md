@@ -14,7 +14,7 @@ sources:
 
 # Surveys
 
-This file is the grounding register for the v2 Viewer of kendo-translation. It lists the papers, projects, and tools that ground the Viewer research. The bibliography is `docs/research/references.bib`. The survey draft that produced the candidates is `docs/drafts/viewer-survey-2026-05-to-09.md`.
+This file is the grounding register for the v2 Viewer of kendo-translation. It lists the papers, projects, and tools that ground the Viewer research. The bibliography is `docs/research/viewer/references.bib`. The survey draft that produced the candidates is `docs/drafts/viewer-survey-2026-05-to-09.md`.
 
 This register is new for the Viewer. It copies the file format of the Translator register (`kendo-translation-translator/docs/research/surveys.md`, version 5). It copies no Translator entry. No v1 entry carries over: "No v1 read" `[user 2026-10-07 10:55]`.
 

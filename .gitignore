@@ -1,5 +1,11 @@
+# Third-party source copies, kept local only (owner 2026-10-05)
 # Third-party source copies, kept local only (owner 2026-10-07: "Commit with the Viewer vision (Recommended)", ignore rule first)
 docs/research/sources/
+# Dataset files, kept local only (owner 2026-10-05: "keep all data in a git ignore folder")
+# Exception: track the scripts only (owner 2026-10-07 20:05: "Track data/scripts/ only (Recommended)")
+data/*
+!data/scripts/
+data/scripts/__pycache__/
 # macOS metadata
 .DS_Store
 ._*

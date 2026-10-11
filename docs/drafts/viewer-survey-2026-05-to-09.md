@@ -7,7 +7,7 @@
 | Date | 2026-10-07 |
 | Author | aki-research |
 | Scope | Public apps, tools, projects, research, and rules that show translated or bilingual text to public readers. Focus on work from May to September 2026. Older items appear only as closest prior work, with their dates. Organized by the four owner topics. |
-| Register | `docs/research/surveys.md` (Viewer register, version 1) and `docs/research/references.bib` |
+| Register | `docs/research/viewer/surveys.md` (Viewer register, version 1) and `docs/research/viewer/references.bib` |
 | Local source copies | `docs/research/sources/` (verbatim excerpts, see "Limits of this unit") |
 
 **Owner decisions this draft rests on** (verbatim, with dates):
