@@ -4,7 +4,7 @@
 
 - Status: approved by the owner in round 9: "Approve after this batch (Recommended)" `[accepted recommendation 2026-10-02 12:32]`. The approved file is `docs/VISION.md` on `v2/base`.
 - Revised in round 10 with the owner decisions of `[user 2026-10-02 13:40]`.
-- Revised in round 11 with the owner decisions of `[user 2026-10-05 23:48]`.
+- Revised in round 11 with the owner decisions of `[user 2026-10-05 23:48]`. Revised in round 24 with the decisions "No gold set" `[accepted option 2026-10-11 05:38]` and agreement between TS levels `[user 2026-10-13 17:00]` (lines 292, 379, 380, 392), approved with "Approve and commit (Recommended)" `[accepted recommendation 2026-10-20 08:27]`.
 - The vision phase for the Translator is complete for now: "option 1, for now. I will review and there may be a revision session later." `[user 2026-10-05 23:48]`. The next phase is design. Section 12 is the design backlog.
 - Commit plan: after owner approval, commit VISION.md on `v2/base` only, merge into both v2 branches, and do not push: "VISION.md on v2/base only (Recommended)" `[accepted recommendation 2026-10-02 11:43]`.
 - v1 is archived. No v1 decision carries into v2 `[user 2026-10-02 19:20]`.
@@ -289,7 +289,7 @@ The owner asked for a concrete example per stage: "provide your detail understan
   - Owner words: "1. in gemini-agent folders" `[user 2026-10-02 20:55]`.
   - Path: `/Volumes/NghiaHDD2T/universal-agent_v2/compiled_agents/gemini_kendo_book_translator/pages/<book>/page_NNN.pdf`, in 36 book directories `[check: aki-submain ls 2026-10-02]`.
 - Image evaluation `[user 2026-10-02 01:00]`
-  - A small human TS gold set measures TS on page images: "Small human TS gold set (Recommended)" `[accepted recommendation 2026-10-02 01:00]`.
+  - No human TS gold set exists: "No gold set" `[accepted option 2026-10-11 05:38]`. This replaces "Small human TS gold set (Recommended)" `[accepted recommendation 2026-10-02 01:00]`. Agreement between TS levels measures TS quality, under the worst-case stance of section 4 `[user 2026-10-13 17:00]`.
   - The text chain is measured on the 313 pairs: "Text chain on 313 pairs (Recommended)" `[accepted recommendation 2026-10-02 01:00]`.
 
 ## 8. RAG and translation memory
@@ -376,8 +376,8 @@ This section is the backlog for the design phase `[user 2026-10-05 23:48]`.
 - Model choice per level. The owner chose one model tier per level `[user 2026-10-02 01:00]`. The owner record gives no answer on the models.
 - Judge model family for the "LLM judge": "Decide with the model choice" `[accepted option 2026-10-02 07:50]`.
 - TS output format. The owner chose the three field properties of section 5.7 `[user 2026-10-02 11:43]`. The owner record gives no answer on the format.
-- Size of the TS gold set: "Decide in design phase (Recommended)" `[accepted recommendation 2026-10-02 12:32]`.
-- TS scoring protocol: "Defer to design phase" `[accepted option 2026-10-02 13:40]`. The candidate is the Sasagawa et al. protocol: greedy decoding, NFKC normalization and whitespace removal on both sides, CER, and character BLEU. The paper does not state per-page CER or a separate reading-order check `[source: docs/research/summaries/SasagawaVerticalJA_lossless.md]`.
+- Size of the TS gold set: decided, no gold set: "No gold set" `[accepted option 2026-10-11 05:38]`. The earlier answer was "Decide in design phase (Recommended)" `[accepted recommendation 2026-10-02 12:32]`.
+- TS scoring protocol: decided, agreement between TS levels under the worst-case stance: "option 1. follow the similar assumption of higher level ALWAYS assume errors in lower level and try to improve" `[user 2026-10-13 17:00]`. The earlier answer was "Defer to design phase" `[accepted option 2026-10-02 13:40]`. The earlier candidate was the Sasagawa et al. protocol: greedy decoding, NFKC normalization and whitespace removal on both sides, CER, and character BLEU. The paper does not state per-page CER or a separate reading-order check `[source: docs/research/summaries/SasagawaVerticalJA_lossless.md]`.
 - Paired-dataset details (section 7). Do fixed units score against the fixed EN? Do whole JA sentences with no EN get an agent-written EN? Which labels and thresholds hold after the 40-pair pilot? The owner record gives no answer.
 - Shared output format with the Viewer: "Viewer shows Translator output (Recommended)" `[accepted recommendation 2026-10-02 19:40]`. The format is decided in the design phase `[user 2026-10-02 19:40]`.
 - Viewer switch date: production stays on v1 until the owner names a date `[user 2026-10-02 19:20]`.
@@ -389,7 +389,7 @@ No open proposals. Round 10 decided all five earlier items `[user 2026-10-02 13:
 
 ## 14. Where to read more
 
-The `docs/drafts/` and `docs/research/` files are committed on branch `v2/translator` only: "Commit, ignore sources/ (Recommended)" `[accepted recommendation 2026-10-05 23:48]`. The third-party copies in `docs/research/sources/` are git-ignored. On `v2/base` and `v2/viewer`, the links below do not resolve.
+The Translator files in `docs/drafts/` and `docs/research/` are committed on branch `v2/translator` only: "Commit, ignore sources/ (Recommended)" `[accepted recommendation 2026-10-05 23:48]`. On `v2/base` and `v2/viewer`, the links below do not resolve `[check: aki-execute git ls-tree 2026-10-13]`. The Viewer research files are on all v2 branches: "Move Viewer register (Recommended)" `[accepted recommendation 2026-10-11 05:38]`, then "Merge now with union .gitignore (Recommended)" `[accepted recommendation 2026-10-13 17:00]`. They are the register and references in `docs/research/viewer/`, five summaries in `docs/research/summaries/`, and two Viewer drafts in `docs/drafts/` `[check: aki-execute git ls-tree 2026-10-13]`. The third-party copies in `docs/research/sources/` are git-ignored.
 
 - `docs/drafts/vision-articulation.md`: the full vision reading, with kendo examples (revision 7).
 - `docs/drafts/translation-memory-definition.md`: TM definitions and the RAG source mapping.
