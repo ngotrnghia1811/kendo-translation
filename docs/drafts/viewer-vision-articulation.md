@@ -227,7 +227,7 @@ Part C. Where to read more
   - The live site stays v1 until the owner names a switch date.
   - The order is Viewer vision, then design (Translator first, then Viewer), then code.
   - The shared output format is decided in the design phase.
-    - Translator vision cross-reference: `[file: docs/VISION.md:382]` and `[file: docs/VISION.md:383]`.
+    - Translator vision cross-reference: `[file: docs/VISION.md:384]` and `[file: docs/VISION.md:385]`.
 - Example: none shown to the owner.
 
 ### 4.3 Open in this point
@@ -588,7 +588,7 @@ Q-A memory paths: `qa-07` = `.opencode/reminders/qa/qa-memory-2026-10-07.md`, `q
 - Round 16 answer 5 says "option 4". The Q-A memory does not record which option was number 4.
 - All `[aki-main check]` facts: aki-execute did not repeat these checks. aki-execute read only lines 668 and 669 of supplement 1.
 - v1 facts: aki-execute did not read any v1 worktree.
-- Translator vision cross-reference: `docs/VISION.md:53` to `docs/VISION.md:56` and `docs/VISION.md:382` tagged accepted recommendations as `[user ...]` when this draft was written. A later unit (2026-10-08) retagged them as `[accepted recommendation ...]`, after the owner rule of 2026-10-07 20:05.
+- Translator vision cross-reference: `docs/VISION.md:53` to `docs/VISION.md:56` and `docs/VISION.md:384` tagged accepted recommendations as `[user ...]` when this draft was written. A later unit (2026-10-08) retagged them as `[accepted recommendation ...]`, after the owner rule of 2026-10-07 20:05.
 
 ### 18.2 Change log
 
