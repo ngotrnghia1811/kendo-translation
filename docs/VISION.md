@@ -4,7 +4,7 @@
 
 - Status: approved by the owner in round 9: "Approve after this batch (Recommended)" `[accepted recommendation 2026-10-02 12:32]`. The approved file is `docs/VISION.md` on `v2/base`.
 - Revised in round 10 with the owner decisions of `[user 2026-10-02 13:40]`.
-- Revised in round 11 with the owner decisions of `[user 2026-10-05 23:48]`. Revised in round 24 with the decisions "No gold set" `[accepted option 2026-10-11 05:38]` and agreement between TS levels `[user 2026-10-13 17:00]` (lines 292, 379, 380, 392), approved with "Approve and commit (Recommended)" `[accepted recommendation 2026-10-20 08:27]`.
+- Revised in round 11 with the owner decisions of `[user 2026-10-05 23:48]`. Revised in round 24 with the decisions "No gold set" `[accepted option 2026-10-11 05:38]` and agreement between TS levels `[user 2026-10-13 17:00]` (lines 292, 379, 380, 392), approved with "Approve and commit (Recommended)" `[accepted recommendation 2026-10-20 08:27]`. Revised in round 26 with the tier caps "Two named papers, caps plus one (Recommended)" `[accepted recommendation 2026-10-20 08:27]`: tier 1 cap 6 with TextResNet, tier 2 cap 11 with TEP (lines 346, 347, 352, 358, 359, 364), approved with "Fix all, shared route (Recommended)" `[accepted recommendation 2026-10-20 17:38]`. The two new lines move the round 24 lines 379, 380, and 392 to 381, 382, and 394.
 - The vision phase for the Translator is complete for now: "option 1, for now. I will review and there may be a revision session later." `[user 2026-10-05 23:48]`. The next phase is design. Section 12 is the design backlog.
 - Commit plan: after owner approval, commit VISION.md on `v2/base` only, merge into both v2 branches, and do not push: "VISION.md on v2/base only (Recommended)" `[accepted recommendation 2026-10-02 11:43]`.
 - v1 is archived. No v1 decision carries into v2 `[user 2026-10-02 19:20]`.
@@ -343,23 +343,25 @@ The owner did not choose human error spans `[user 2026-10-02 07:50]`.
   - "These are simply for references/adoptation to make MAC-RAG works. We dont care about comparison with others" `[user 2026-10-02 07:50]`
   - "We simple want to refer, and if relevant, adopt from their work." `[user 2026-10-02 07:50]`
 - Tier rules `[user 2026-10-02 07:50]` `[user 2026-10-02 11:43]`
-  - Tier 1 is the closest prior work, with a cap of 5: "Tier 1 = closest prior work (Recommended)" `[accepted recommendation 2026-10-02 07:50]`.
-  - Tier 2 holds items with an idea that the project plans to adopt, with a cap of 10 `[user 2026-10-02 11:43]`.
+  - Tier 1 is the closest prior work, with a cap of 6: "Tier 1 = closest prior work (Recommended)" `[accepted recommendation 2026-10-02 07:50]`. The cap was 5 `[user 2026-10-02 07:50]` and became 6 `[accepted recommendation 2026-10-20 08:27]`.
+  - Tier 2 holds items with an idea that the project plans to adopt `[user 2026-10-02 11:43]`, with a cap of 11. The cap was 10 `[user 2026-10-02 11:43]` and became 11 `[accepted recommendation 2026-10-20 08:27]`.
   - Tier 3 holds items that give context only, with a cap of 20 `[user 2026-10-02 11:43]`. The owner picked "Adopt vs background" `[accepted option 2026-10-02 11:43]`.
   - Tiers cover papers, projects, and tools `[user 2026-10-02 07:50]`.
   - Every placed item needs a lossless summary on disk `[user 2026-10-02 07:50]`.
   - The v1 tier definitions are not used `[user 2026-10-02 11:43]`.
-- Tier 1 is full: SMART plus "Wu 2025 book MT, DelTA memory, Sasagawa vertical JA, NDLOCR-Lite" `[accepted option 2026-10-02 11:43]`. SMART went to tier 1 at `[user 2026-10-02 01:15]`: "That paper is tier 1 paper".
+- Tier 1 is full: SMART plus "Wu 2025 book MT, DelTA memory, Sasagawa vertical JA, NDLOCR-Lite" `[accepted option 2026-10-02 11:43]`. SMART went to tier 1 at `[user 2026-10-02 01:15]`: "That paper is tier 1 paper". TextResNet went to tier 1 at `[accepted recommendation 2026-10-20 08:27]`: "Two named papers, caps plus one (Recommended)".
   - **SMART**, "Breaking Babel: A Self-Evolving Multi-Agent System for Long-Form Subtitle Translation", arXiv:2609.38660v2, bib key `jin2026smart`, summary `docs/research/summaries/SMART_lossless.md` `[source: docs/research/surveys.md]`.
   - **Wu et al. 2025**, "(Perhaps) Beyond Human Translation: Harnessing Multi-Agent Collaboration for Translating Ultra-Long Literary Texts", Transactions of the Association for Computational Linguistics, 13:901–922 `[source: docs/research/surveys.md]`.
   - **DelTA** (Wang et al. 2025), "DelTA: An Online Document-Level Translation Agent Based on Multi-Level Memory", arXiv:2410.08143 `[source: docs/research/surveys.md]`.
   - Sasagawa, Kurita, Kawahara, "Evaluating Multimodal Large Language Models on Vertically Written Japanese Text", LREC 2026, arXiv 2511.15059 `[source: docs/research/surveys.md]`.
   - `NDLOCR-Lite` (NDL Lab), a tool, CC BY 4.0, https://github.com/ndl-lab/ndlocr-lite `[source: docs/research/surveys.md]`.
-- All five tier 1 items have lossless summaries in `docs/research/summaries/`: `SMART_lossless.md`, `WuBeyondHuman_lossless.md`, `DelTA_lossless.md`, `SasagawaVerticalJA_lossless.md`, `NDLOCRLite_lossless.md` `[check: aki-main wc 2026-10-02 13:18]`.
+  - **TextResNet** (Huang et al. 2026), "TextResNet: Decoupling and Routing Optimization Signals in Compound AI Systems via Deep Residual Tuning", arXiv:2602.08306, bib key `huang2026textresnet`, summary `docs/research/summaries/TextResNet_lossless.md` `[source: docs/research/surveys.md]`. Reason: owner pointer "Check this work: https://arxiv.org/pdf/2602.08306" `[user 2026-10-13 17:00]`, and placement "Two named papers, caps plus one (Recommended)" `[accepted recommendation 2026-10-20 08:27]`.
+- All six tier 1 items have lossless summaries in `docs/research/summaries/`: `SMART_lossless.md`, `WuBeyondHuman_lossless.md`, `DelTA_lossless.md`, `SasagawaVerticalJA_lossless.md`, `NDLOCRLite_lossless.md`, `TextResNet_lossless.md` `[check: aki-main wc 2026-10-02 13:18]` `[check: aki-execute wc 2026-10-20 17:49]`.
 - The Wu et al. 2025 author list uses the arXiv form "Longyue Wang". The ACL Anthology lists "Longyue Wan": "Use 'Longyue Wang' (Recommended)" `[accepted recommendation 2026-10-02 13:40]`.
 - The 25 candidates are placed, 10 in tier 2 and 15 in tier 3: "Place 25 candidates" `[accepted option 2026-10-02 12:32]`.
   - Each placed item needs a lossless summary before use `[user 2026-10-02 12:32]`.
   - The list is in `docs/research/surveys.md`.
+  - Round 25 placed TEP (arXiv 2601.21064, bib key `chen2026tep`, summary `TEP_lossless.md`) in tier 2: "Two named papers, caps plus one (Recommended)" `[accepted recommendation 2026-10-20 08:27]`. Tier 2 holds 11 of 11.
 
 ## 12. Open, decided later
 
