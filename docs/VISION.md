@@ -239,7 +239,7 @@ The owner asked for a concrete example per stage: "provide your detail understan
 - The feedback comes from QA verdicts and from the 313 human reference pairs: "QA verdicts and references (Recommended)" `[accepted recommendation 2026-10-02 01:00]`.
 - The prompt update rule follows SMART: "Prompt update rule (Recommended)" `[accepted recommendation 2026-10-02 13:40]`. Source: `docs/research/summaries/SMART_lossless.md`, "What MAC-RAG can adopt from SMART", items 7 and 14 (SMART sections 3.5, B.7, B.8, C.5).
   - Each (level, stage) cell has one prompt, 16 in total.
-  - If the mean score of a cell is low, an optimizer rewrites its prompt from critiques of its worst cases.
+  - When the count of critiques of a box type since its last rewrite reaches N, an optimizer rewrites its prompt from the hard themes of those critiques `[accepted option 2026-10-20 08:27]` `[accepted recommendation 2026-10-25 02:53]`.
   - The critiques name failure modes. They do not hold corrected outputs.
   - The rewrite keeps the role statement of the prompt.
   - The prompts freeze after the training part. Memory keeps growing after that.
@@ -332,7 +332,7 @@ The owner chose five measures `[user 2026-10-02 07:50]`:
 - "Character error rate (Recommended)" `[accepted recommendation 2026-10-02 07:50]`.
 - "Reference-based MT metrics (Recommended)" `[accepted recommendation 2026-10-02 07:50]`.
 - "Error flow across the grid (Recommended)" `[accepted recommendation 2026-10-02 07:50]`.
-- "LLM judge" `[accepted option 2026-10-02 07:50]`. Its model family: "Decide with the model choice" `[accepted option 2026-10-02 07:50]`.
+- "LLM judge" `[accepted option 2026-10-02 07:50]`. The frozen QA_3 box is the LLM judge of the write-up: "QA_3 is the judge (Recommended)" `[accepted recommendation 2026-10-25 00:27]`.
 - "Term consistency across pages" `[accepted option 2026-10-02 07:50]`.
 
 The owner did not choose human error spans `[user 2026-10-02 07:50]`.
@@ -376,7 +376,7 @@ This section is the backlog for the design phase `[user 2026-10-05 23:48]`.
 - RAG design: "We will design later" `[user 2026-10-02 19:20]`.
   - The content of the kendo dictionary. The owner record gives no answer.
 - Model choice per level. The owner chose one model tier per level `[user 2026-10-02 01:00]`. The owner record gives no answer on the models.
-- Judge model family for the "LLM judge": "Decide with the model choice" `[accepted option 2026-10-02 07:50]`.
+- Judge model family for the "LLM judge": the frozen QA_3 box is the LLM judge of the write-up `[accepted recommendation 2026-10-25 00:27]`. Its model comes with the model choice per role, after the role design.
 - TS output format. The owner chose the three field properties of section 5.7 `[user 2026-10-02 11:43]`. The owner record gives no answer on the format.
 - Size of the TS gold set: decided, no gold set: "No gold set" `[accepted option 2026-10-11 05:38]`. The earlier answer was "Decide in design phase (Recommended)" `[accepted recommendation 2026-10-02 12:32]`.
 - TS scoring protocol: decided, agreement between TS levels under the worst-case stance: "option 1. follow the similar assumption of higher level ALWAYS assume errors in lower level and try to improve" `[user 2026-10-13 17:00]`. The earlier answer was "Defer to design phase" `[accepted option 2026-10-02 13:40]`. The earlier candidate was the Sasagawa et al. protocol: greedy decoding, NFKC normalization and whitespace removal on both sides, CER, and character BLEU. The paper does not state per-page CER or a separate reading-order check `[source: docs/research/summaries/SasagawaVerticalJA_lossless.md]`.
