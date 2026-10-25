@@ -242,7 +242,7 @@ The owner asked for a concrete example per stage: "provide your detail understan
   - When the count of critiques of a box type since its last rewrite reaches N, an optimizer rewrites its prompt from the hard themes of those critiques `[accepted option 2026-10-20 08:27]` `[accepted recommendation 2026-10-25 02:53]`.
   - The critiques name failure modes. They do not hold corrected outputs.
   - The rewrite keeps the role statement of the prompt.
-  - The prompts freeze after the training part. Memory keeps growing after that.
+  - The prompts update in phases 2 and 3. In phase 4, the box types stop updates one by one. Memory keeps growing after that `[accepted recommendation 2026-10-25 10:21]`.
   - The 313 reference pairs are corrected outputs, so a step turns each reference difference into a failure-mode critique.
   - The score threshold, the number of worst cases, and the size of the training part are design-phase choices.
 - A rescue rerun is a later idea, to test after the base grid works. It is not part of the vision `[user 2026-10-02 11:43]`. Owner words: "option 1 and 2".
