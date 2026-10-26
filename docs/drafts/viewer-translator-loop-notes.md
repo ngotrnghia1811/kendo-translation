@@ -47,22 +47,22 @@
   - Readers never see the research layer `[validated reading 2026-10-07 20:05]` `[file: docs/VISION-viewer.md:229]`.
 - Translation viewing is a group of read-only components for the translator and admin roles only `[validated reading 2026-10-08 11:48]` `[file: docs/VISION-viewer.md:141-143]`.
 - Only the admin role opens the admin pages `[accepted recommendation 2026-10-08 11:48]` `[file: docs/VISION-viewer.md:89]`.
-- The Translator design names the person in the loop "the owner" in its approval steps `[file: translator-design.md:2033-2035]`.
+- The Translator design names the person in the loop "the owner" in its approval steps `[file: translator-design.md:2033-2035]` (now l2132-2134 at HEAD 2cdb7b3).
   - Which Viewer role acts as "the owner" in each step was open. Decided in round 40 answer 10: the translator role and the admin role both act as "the owner" `[accepted recommendation 2026-10-25 22:43]` "Translator and admin (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:34]`.
 
 ## 4. Phase 1: setup
 
-- Phase 1 runs once. Each QA box proposes changes to the starting rubric table. The owner approves each table `[file: translator-design.md:2341-2344]`.
+- Phase 1 runs once. Each QA box proposes changes to the starting rubric table. The owner approves each table `[file: translator-design.md:2341-2344]` (now l2562-2565 at HEAD 2cdb7b3).
 - The person views:
-  - The starting rubric table: 8 rows, each with a weight, and cell values 0, 5, and 10 `[file: translator-design.md:1925-1934]`.
+  - The starting rubric table: 8 rows, each with a weight, and cell values 0, 5, and 10 `[file: translator-design.md:1925-1934]` (now l1998-2007 at HEAD 2cdb7b3).
   - The FAIL rule and the issue fields that start with the table `[file: translator-process-diagrams.md:633]`.
-  - Four proposed tables, one per QA box, shown side by side `[file: translator-process-diagrams.md:637-642]` `[file: translator-design.md:2034]`.
-  - The reason for each proposed change `[file: translator-design.md:2034]`.
-  - The role that wrote the proposal: rubric-proposal-judge, which is a QA_l box in setup mode `[file: translator-design.md:2196]`.
+  - Four proposed tables, one per QA box, shown side by side `[file: translator-process-diagrams.md:637-642]` `[file: translator-design.md:2034]` (now l2133 at HEAD 2cdb7b3).
+  - The reason for each proposed change `[file: translator-design.md:2034]` (now l2133 at HEAD 2cdb7b3).
+  - The role that wrote the proposal: rubric-proposal-judge, which is a QA_l box in setup mode `[file: translator-design.md:2196]` (now l2273 and l2397 at HEAD 2cdb7b3).
 - Interaction points that the Translator design already decides:
-  - The owner approves each table `[accepted recommendation 2026-10-25 00:27]` "You approve each table (Recommended)" `[file: translator-design.md:2033]`.
-  - The owner accepts or rejects each change of each table `[accepted recommendation 2026-10-25 00:27]` `[file: translator-design.md:2035]`.
-  - The tables can still change in phases 2 and 3 `[user 2026-10-25 10:21]` "Mostlt correct. but the rubric tables are only locked at start of phase 4" `[file: translator-design.md:2043]`.
+  - The owner approves each table `[accepted recommendation 2026-10-25 00:27]` "You approve each table (Recommended)" `[file: translator-design.md:2033]` (now l2132 at HEAD 2cdb7b3).
+  - The owner accepts or rejects each change of each table `[accepted recommendation 2026-10-25 00:27]` `[file: translator-design.md:2035]` (now l2134 at HEAD 2cdb7b3).
+  - The tables can still change in phases 2 and 3 `[user 2026-10-25 10:21]` "Mostlt correct. but the rubric tables are only locked at start of phase 4" `[file: translator-design.md:2043]` (now l2142-2143 at HEAD 2cdb7b3).
 - Interaction points that are proposals only:
   - Show the old and the new value of each changed row side by side `[agent inference]`.
   - Keep a dated record of each accept and each reject `[agent inference]`.
@@ -70,7 +70,7 @@
 
 ## 5. Phase 2: training on the paired dataset
 
-- The grid runs on the 40 `train-feedback` articles, article by article `[file: translator-design.md:2346]` `[file: translator-process-diagrams.md:160-161]`.
+- The grid runs on the 40 `train-feedback` articles, article by article `[file: translator-design.md:2346]` (now l2566-2567 at HEAD 2cdb7b3) `[file: translator-process-diagrams.md:160-161]`.
 - The person views:
   - Inputs:
     - The JA text of the article, cut into A4 pages (section 11) `[file: translator-process-diagrams.md:249]`.
@@ -78,11 +78,11 @@
     - The instruction text of each of the 16 box types that the run uses `[file: translator-process-diagrams.md:338]`.
   - Outputs:
     - The result and the reasoning of each of the 16 boxes (section 9) `[file: translator-design.md:603]`.
-    - The final EN, which is the `ED_3` text, with the `QA_3` verdict `[file: translator-design.md:2364]`.
+    - The final EN, which is the `ED_3` text, with the `QA_3` verdict `[file: translator-design.md:2364]` (now l2585 at HEAD 2cdb7b3).
     - The cells, the penalty, the page score, and the verdict of each QA box `[file: translator-process-diagrams.md:402-415]`.
     - The QA issues and the marks on the issues of the QA box below `[file: translator-process-diagrams.md:408-409]`.
   - Diffs:
-    - The final EN against the human EN. The reference-diff-critic compares these two texts after each feedback article `[file: translator-design.md:2136]`. Chosen in round 40 answer 13 `[accepted option 2026-10-25 22:43]` "Final EN vs human EN (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:37]`. A human EN exists only for the dataset web articles, not for book pages `[agent inference]`.
+    - The final EN against the human EN. The reference-diff-critic compares these two texts after each feedback article `[file: translator-design.md:2136]` (now l2569 at HEAD 2cdb7b3). Chosen in round 40 answer 13 `[accepted option 2026-10-25 22:43]` "Final EN vs human EN (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:37]`. A human EN exists only for the dataset web articles, not for book pages `[agent inference]`.
     - The `ED_0` to `ED_3` texts, one under the other. The Viewer already lists them as level versions `[accepted recommendation 2026-10-08 11:48]` `[file: docs/VISION-viewer.md:148-149]`. Chosen in round 40 answer 13 `[accepted option 2026-10-25 22:43]` "ED_0 to ED_3 texts (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:37]`.
     - The old and the new rubric table after a table change `[file: qa-memory-2026-10-25.md:115]`. Chosen in round 40 answer 13 `[accepted option 2026-10-25 22:43]` "Old vs new rubric table (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:37]`.
     - The old and the new instruction text after an update point (section 10) `[file: translator-process-diagrams.md:567-569]`. Chosen in round 40 answer 13 `[accepted option 2026-10-25 22:43]` "Old vs new instruction (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:37]`.
@@ -108,11 +108,11 @@
 
 ## 6. Write-up after phase 2
 
-- The write-up runs once, after phase 2, on the 27 `test` articles. It uses the frozen instruction texts of the end of phase 2 `[accepted recommendation 2026-10-25 10:21]` "After phase 2 (Recommended)" `[file: translator-design.md:2400-2401]`.
+- The write-up runs once, after phase 2, on the 27 `test` articles. It uses the frozen instruction texts of the end of phase 2 `[accepted recommendation 2026-10-25 10:21]` "After phase 2 (Recommended)" `[file: translator-design.md:2400-2401]` (now l2621-2622 at HEAD 2cdb7b3).
 - The person views:
   - Inputs:
     - The JA text of the 27 test articles `[file: translator-process-diagrams.md:695]`.
-    - The instruction texts and the rubric table that the write-up uses. Which table is open `[file: translator-design.md:2050]`.
+    - The instruction texts and the rubric table that the write-up uses. Which table is open `[file: translator-design.md:2050]` (now l2149, closed at l2169-2170 at HEAD 2cdb7b3).
   - Outputs:
     - The `ED_3` EN text of each page `[file: translator-process-diagrams.md:698]`.
     - The page scores of the frozen `QA_3` box in write-up mode, and the article score `[file: translator-process-diagrams.md:698-699]`.
@@ -131,17 +131,17 @@
 
 ## 7. Phase 3: warm initialization per target book
 
-- Phase 3 runs on pages 1 to 20 of one target book, on the whole grid TS to QA, with freeze off `[file: translator-design.md:2352]`.
-- It starts from the instruction texts at the end of phase 2 `[accepted recommendation 2026-10-25 10:21]` "End of phase 2 (Recommended)" `[file: translator-design.md:2391-2392]`.
-- The update signal comes from judge feedback only. No label exists `[user 2026-10-25 02:53]` `[file: translator-design.md:2327]`.
+- Phase 3 runs on pages 1 to 20 of one target book, on the whole grid TS to QA, with freeze off `[file: translator-design.md:2352]` (now l2573 at HEAD 2cdb7b3).
+- It starts from the instruction texts at the end of phase 2 `[accepted recommendation 2026-10-25 10:21]` "End of phase 2 (Recommended)" `[file: translator-design.md:2391-2392]` (now l2612-2613 at HEAD 2cdb7b3).
+- The update signal comes from judge feedback only. No label exists `[user 2026-10-25 02:53]` `[file: translator-design.md:2327]` (now l2576 at HEAD 2cdb7b3).
 - The person views:
   - Inputs:
     - The page image of the book. The page image feeds TS at every level `[file: translator-design.md:657]`.
-    - The NDLOCR-Lite output (TS level -1), with its boxes and box types `[file: translator-process-diagrams.md:247]` `[file: translator-design.md:2272-2277]`.
+    - The NDLOCR-Lite output (TS level -1), with its boxes and box types `[file: translator-process-diagrams.md:247]` `[file: translator-design.md:2272-2277]` (target not found at HEAD 2cdb7b3 for the boxes and box types, TS level -1 is at l2482).
     - The link between each TS line and its OCR line, with a flag when the score is below 0.5 `[file: translator-process-diagrams.md:248]`.
-    - The start instruction texts of the 16 box types `[file: translator-design.md:2353]`.
+    - The start instruction texts of the 16 box types `[file: translator-design.md:2353]` (now l2574 at HEAD 2cdb7b3).
   - Outputs:
-    - The same outputs as phase 2 (section 5), page by page `[file: translator-design.md:2356]`.
+    - The same outputs as phase 2 (section 5), page by page `[file: translator-design.md:2356]` (now l2577 at HEAD 2cdb7b3).
     - The TS fields of the book page: captions, running heads, page numbers, and ruby `[accepted option 2026-10-08 11:48]` `[file: docs/VISION-viewer.md:152-153]`.
     - The QA issues that point to TS, in the rows "JA text" and "Page structure" `[file: translator-process-diagrams.md:500-501]`.
   - Diffs:
@@ -162,26 +162,26 @@
 
 ## 8. Phase 4: production run
 
-- Phase 4 runs on the same book from page 1, with the instruction texts of phase 3. Freeze is on `[file: translator-design.md:2359-2363]`.
-- The book translation memory of the phase 3 pages is empty at the start. The rubric tables lock at the start `[accepted recommendation 2026-10-25 10:21]` "Empty it at phase 4 start (Recommended)" `[file: translator-design.md:2393-2394]` `[file: translator-design.md:2361]`.
+- Phase 4 runs on the same book from page 1, with the instruction texts of phase 3. Freeze is on `[file: translator-design.md:2359-2363]` (now l2579-2584 at HEAD 2cdb7b3).
+- The book translation memory of the phase 3 pages is empty at the start. The rubric tables lock at the start `[accepted recommendation 2026-10-25 10:21]` "Empty it at phase 4 start (Recommended)" `[file: translator-design.md:2393-2394]` (now l2614-2615 at HEAD 2cdb7b3) `[file: translator-design.md:2361]` (now l2581-2582 at HEAD 2cdb7b3).
 - The person views:
   - Inputs:
     - The same inputs as phase 3, page by page.
     - The book translation memory pairs that each box saw. A `QA_3` PASS adds the page `[file: translator-process-diagrams.md:191]`.
   - Outputs:
-    - The `ED_3` text with the `QA_3` verdict for each page `[file: translator-design.md:2364]`.
-    - The locked rubric tables and the cells of each page `[file: translator-design.md:2044]`.
+    - The `ED_3` text with the `QA_3` verdict for each page `[file: translator-design.md:2364]` (now l2585 at HEAD 2cdb7b3).
+    - The locked rubric tables and the cells of each page `[file: translator-design.md:2044]` (now l2143 at HEAD 2cdb7b3).
   - Diffs:
     - Changes of the instruction text after each update point, for the box types that are still open.
-    - The pages 1 to 20 of phase 3 against the same pages in phase 4 `[agent inference]`. Phase 4 translates them again `[file: translator-design.md:2395]`.
+    - The pages 1 to 20 of phase 3 against the same pages in phase 4 `[agent inference]`. Phase 4 translates them again `[file: translator-design.md:2395]` (now l2616 at HEAD 2cdb7b3).
   - Freeze state:
     - Each box type is frozen or open. The box-freeze-check writes the state `[file: translator-process-diagrams.md:1381]`.
     - The test is "No hard theme K times, K=3" `[accepted recommendation 2026-10-25 13:56]` `[file: qa-memory-2026-10-25.md:117]`. The exact meaning of the label is Not verified.
     - After the freeze of a box type, no update point starts for it `[file: translator-process-diagrams.md:547]`.
-    - After the lock, only the instruction text changes `[agent inference]` `[file: translator-design.md:2047]`.
+    - After the lock, only the instruction text changes `[agent inference]` `[file: translator-design.md:2047]` (now l2146 at HEAD 2cdb7b3).
 - Interaction points that the Translator design already decides:
   - The owner reads the change list before the lock and can undo a change `[accepted recommendation 2026-10-25 13:56]` `[file: qa-memory-2026-10-25.md:115]`.
-  - The optimizer reads the freeze state of the box types `[user 2026-10-25 10:21]` `[file: translator-design.md:2396]`. The person has no step here.
+  - The optimizer reads the freeze state of the box types `[user 2026-10-25 10:21]` `[file: translator-design.md:2396]` (now l2620 at HEAD 2cdb7b3). The person has no step here.
 - Interaction points of the Viewer that touch the output of phase 4:
   - Only an admin records that a human checked a page `[user 2026-10-07 20:05]` "Correct, admin only records" `[file: docs/VISION-viewer.md:247]`.
   - The record lives on the admin pages `[accepted recommendation 2026-10-08 11:48]` `[file: docs/VISION-viewer.md:90]`.
@@ -214,8 +214,8 @@
     - The dictionary entries that each box saw `[file: translator-process-diagrams.md:264]`.
     - The book translation memory pairs that each box saw `[file: translator-process-diagrams.md:265]`.
 - Costs per call and per page:
-  - Unit COST1 writes a cost estimate at `docs/drafts/translator-cost-estimate.md` in the Translator worktree. Its status is in progress `[file: qa-memory-2026-10-25.md:121]`.
-  - The file did not exist at 14:12 `[check: V-NOTE cp 2026-10-25 14:12]`. This note holds no cost value.
+  - Unit COST1 writes a cost estimate at `docs/drafts/translator-cost-estimate.md` in the Translator worktree. Its status is in progress `[file: qa-memory-2026-10-25.md:121]`. The file exists now (see the next line).
+  - The file did not exist at 14:12 `[check: V-NOTE cp 2026-10-25 14:12]`. This note holds no cost value. The file exists now: `/Users/nghiango-mbp/git_repo/git_upload/reimplementation-folder/kendo-translation-translator/docs/drafts/translator-cost-estimate.md`, commit `10da9d5` `[check: VS git log 2026-10-26 13:04]`.
   - A cost line for each call and each page is a view item `[agent inference]`.
 - The Viewer research layer holds no reasoning text `[validated reading 2026-10-07 20:05]` `[file: docs/VISION-viewer.md:235]`. The page view above shows reasoning. The conflict is decided: the Translator loop pages show the reasoning text of each box, and the research layer stays without it. Round 40 answer 12 `[accepted recommendation 2026-10-25 22:43]` "Loop pages show it (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:36]`.
 
@@ -236,7 +236,7 @@
     - The old text and the new text with a diff `[agent inference]`. The version tag rises by one when a new text goes live `[file: translator-process-diagrams.md:568]`.
     - All versions of the text of a box type, each with its diff to the version before `[agent inference]`.
   - Audit:
-    - The five checks of the prompt-audit-judge: keeps the role statement, no copied answers, covers each hard critique group, drops no earlier rule, and no conflict with fixed rules `[file: translator-design.md:2208-2213]`.
+    - The five checks of the prompt-audit-judge: keeps the role statement, no copied answers, covers each hard critique group, drops no earlier rule, and no conflict with fixed rules `[file: translator-design.md:2208-2213]` (now l2427-2432 at HEAD 2cdb7b3).
     - The verdict. The values ACCEPT and REJECT are an `[agent inference]` `[file: translator-process-diagrams.md:591]`.
     - After a REJECT, one quick retry `[accepted option 2026-10-25 13:56]` "One quick retry" `[file: qa-memory-2026-10-25.md:119]`. The optimizer gets the audit reasons and writes the text once more at once. If the audit rejects again, the old text and the critiques stay `[file: qa-memory-2026-10-25.md:119]`. The text after "One quick retry" in that line is an aki-main note.
   - Freeze state:
@@ -248,7 +248,7 @@
 - Interaction points that the Translator design already decides:
   - The owner reads the change list at the end of phase 2 and before each phase 4 lock `[accepted recommendation 2026-10-25 13:56]` `[file: qa-memory-2026-10-25.md:115]`.
   - The owner can undo a table change `[accepted recommendation 2026-10-25 13:56]` `[file: qa-memory-2026-10-25.md:115]`.
-  - The audit is the last step before a new instruction text goes live `[accepted recommendation 2026-10-25 10:21]` "Remove, keep the audit (Recommended)" `[file: translator-design.md:2232]`.
+  - The audit is the last step before a new instruction text goes live `[accepted recommendation 2026-10-25 10:21]` "Remove, keep the audit (Recommended)" `[file: translator-design.md:2232]` (now l2433 at HEAD 2cdb7b3).
 - Interaction points that are proposals only:
   - Pause before an update point and release it by hand. `[agent inference]`
   - Edit an instruction text before the audit. `[agent inference]`
@@ -263,11 +263,11 @@
   - The check: 40 x 36 = 1,440 `[check: V-NOTE arithmetic 2026-10-25 14:12]`.
   - The Viewer shares the page `[file: qa-memory-2026-10-25.md:114]`. The words "shared with Viewer" are an aki-main note.
 - The Viewer rule `[user 2026-10-07 20:05]` "option 1. But for articles with no page number, pagify the original content based on A4 size number of lines." `[file: docs/VISION-viewer.md:252]`.
-  - The rule applies to every article without printed page numbers. Today these are the 313 kendojidai articles `[validated reading 2026-10-07 23:47]` `[file: docs/VISION-viewer.md:254]`.
+  - The rule applies to every article without printed page numbers. Today these are the 313 kendojidai articles `[validated reading 2026-10-07 23:47]` `[file: docs/VISION-viewer.md:254]`. 313 pairs were collected. Dataset 1.1.0 holds 311 articles after 2 exclusions `[file: /Users/nghiango-mbp/git_repo/git_upload/reimplementation-folder/kendo-translation-translator/data/full/dataset/dataset-summary.json:4-8]` `[check: VS grep 2026-10-26 13:04]`.
   - Books keep their printed pages `[validated reading 2026-10-07 23:47]` `[file: docs/VISION-viewer.md:255]`.
   - The page is the unit for the AI label, the admin human-check record, and the research layer `[validated reading 2026-10-07 23:47]` `[file: docs/VISION-viewer.md:257]`.
   - Each translation follows the JA page breaks `[validated reading 2026-10-07 23:47]` `[file: docs/VISION-viewer.md:258]`.
-- The Translator uses the same rule for a web article page `[user 2026-10-25 10:21]` "option 1. We talked about this already right?" `[file: translator-design.md:2384]` `[file: translator-design.md:2389]`.
+- The Translator uses the same rule for a web article page `[user 2026-10-25 10:21]` "option 1. We talked about this already right?" `[file: translator-design.md:2384]` (now l2605 at HEAD 2cdb7b3) `[file: translator-design.md:2389]` (now l2610 at HEAD 2cdb7b3).
 - Link to this part of the Viewer `[agent inference]`:
   - A page number in the translator page view equals the page number in the reader view of the same article.
   - A page of a web article holds at most 1,440 characters of JA text, so the person reads one page in one view.
@@ -302,11 +302,11 @@
   - Which diffs does "diff" mean? Section 5 lists four. Decided: all five, the four of section 5 and the OCR text against the TS text `[accepted option 2026-10-25 22:43]` `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:37]`.
   - Does this part live inside translation viewing, on the admin pages, or on its own pages?
   - Which proposals of sections 4 to 10 does the owner keep?
-- Open points that sit in the Translator design:
+- Open points that sit in the Translator design: (Partly decided, see l306-309.)
   - The value of N `[file: translator-design.md:772]`. Pilot value: N = 2. The owner wrote "For pilot, set N to 2" `[user 2026-10-25 22:43]` `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:33]`. The production value stays open (design section 5.4.2).
   - The meaning of K=3 in the freeze test `[file: qa-memory-2026-10-25.md:117]`. Decided: a box type freezes when 3 update points of that box type in a row give no hard critique group. The freeze runs in phase 4 only (design section 7.6.2) `[accepted recommendation 2026-10-25 13:56]`. An update point whose audit rejects twice does not count `[accepted recommendation 2026-10-25 15:45]` `[file: qa-memory-2026-10-25.md:149]`.
-  - Which rubric table the write-up uses `[file: translator-design.md:2050]`. Decided: the rubric tables as they stand at the end of phase 2 (design section 7.5.5) `[accepted recommendation 2026-10-25 13:56]` `[file: qa-memory-2026-10-25.md:116]`. Open in design section 7.8: whether that write-up is the final write-up for the paper `[agent inference]`.
-  - Whether phases 3 and 4 repeat for each new book `[file: translator-design.md:2409]`. Decided: each target book runs its own phase 3 and phase 4 (design section 7.8, reading 1) `[validated reading 2026-10-25 13:56]` `[file: qa-memory-2026-10-25.md:120]`. This matches line 156. Which books are target books is closed in part (design section 7.7) `[reading pending owner check]`.
+  - Which rubric table the write-up uses `[file: translator-design.md:2050]` (now l2149, closed at l2169-2170 at HEAD 2cdb7b3). Decided: the rubric tables as they stand at the end of phase 2 (design section 7.5.5) `[accepted recommendation 2026-10-25 13:56]` `[file: qa-memory-2026-10-25.md:116]`. Open in design section 7.8: whether that write-up is the final write-up for the paper `[agent inference]`.
+  - Whether phases 3 and 4 repeat for each new book `[file: translator-design.md:2409]` (now l2630 and l2640 at HEAD 2cdb7b3). Decided: each target book runs its own phase 3 and phase 4 (design section 7.8, reading 1) `[validated reading 2026-10-25 13:56]` `[file: qa-memory-2026-10-25.md:120]`. This matches line 156. Which books are target books is closed in part (design section 7.7) `[reading pending owner check]`.
 - Open points of the A4 decision (section 11): the character count rule and the display size. Round 38 answer 10 sets the cut of the Translator page: lines of 40 characters, each JA block on a new line, 36 lines, and a page break at a line end (design section 7.8) `[accepted recommendation 2026-10-25 15:45]` `[file: qa-memory-2026-10-25.md:147]`. What counts as a character and the display size stay open (lines 276 and 278).
 - Closed point of the term "theme": round 38 answer 8 gives "critique group" `[file: qa-memory-2026-10-25.md:145]`. The older line is an aki-main note `[file: qa-memory-2026-10-25.md:131]`.
 - The cost estimate of unit COST1 is in progress. This note needs it for the cost view. The cost file exists now: `docs/drafts/translator-cost-estimate.md` on `v2/translator`, commit `10da9d5` `[check: VF git log 2026-10-26 10:53]`. It is a draft, and its numbers wait for the pilot measures `[file: translator-cost-estimate.md:4]`.
@@ -314,10 +314,10 @@
 ## 14. Not verified
 
 - The Translator files changed after the copy of 14:12. Unit V-NOTE did not read later versions. Unit VF read the committed design at `263a9ba` for lines 306 to 312 and 317 only `[check: VF git show 2026-10-26 10:53]`.
-- The copies of the Translator design do not yet record round 37. For example, `translator-design.md:2048` still lists "who approves a table change in phases 2 and 3" as open. The committed design now records round 37. Section 7.5.5 marks that point "Replaced by round 37 answer 9" `[check: VF git show 2026-10-26 10:53]`.
-  - The rule of round 37 answer 9 comes from `qa-memory-2026-10-25.md:115` only.
+- The copies of the Translator design do not yet record round 37. For example, `translator-design.md:2048` (now l2147 at HEAD 2cdb7b3) still lists "who approves a table change in phases 2 and 3" as open. The committed design now records round 37. Section 7.5.5 marks that point "Replaced by round 37 answer 9" `[check: VF git show 2026-10-26 10:53]`.
+  - The rule of round 37 answer 9 comes from `qa-memory-2026-10-25.md:115` only. The committed design now records the answer in section 7.5.5 `[file: translator-design.md:2150-2155]` `[check: VS git show HEAD 2cdb7b3 2026-10-26 13:04]`.
 - The option text of round 37 answer 9 comes from the aki-main parenthesis in `qa-memory-2026-10-25.md:115`. The full text that the owner saw is Not verified.
-- The cost values per call and per page. The cost file did not exist at 14:12.
-- The Translator branch and the commit `ff956ef`. Unit V-NOTE read working files and ran no git command in the Translator worktree.
-- Whether the phase 3 and phase 4 rubric tables are shared across books. The sources that unit V-NOTE read do not say.
+- The cost values per call and per page. The cost file did not exist at 14:12. The file exists now: `/Users/nghiango-mbp/git_repo/git_upload/reimplementation-folder/kendo-translation-translator/docs/drafts/translator-cost-estimate.md`, commit `10da9d5` `[check: VS git log 2026-10-26 13:04]`.
+- The Translator branch and the commit `ff956ef`. Unit V-NOTE read working files and ran no git command in the Translator worktree. The branch `v2/translator` holds `ff956ef` `[check: VS git branch --contains ff956ef 2026-10-26 13:04]`. Unit VS read the design at HEAD 2cdb7b3 `[check: VS git show 2026-10-26 13:04]`.
+- Whether the phase 3 and phase 4 rubric tables are shared across books. The sources that unit V-NOTE read do not say. The question is still open in the design at HEAD 2cdb7b3 `[check: VS grep of translator-design.md 2026-10-26 13:04]`. Section 7.5.5 says each target book has its own phase 4 `[file: translator-design.md:2158]`.
 - The read of long Translator sections is partial. Unit V-NOTE read sections 3, 4.2, 5, 7.1, 7.2, 7.5, 7.6, and 7.8 of the design, and diagrams 1 to 8 and the update cards. It did not read the worked examples or the prompt templates in full.
