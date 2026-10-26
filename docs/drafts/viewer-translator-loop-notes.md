@@ -48,7 +48,7 @@
 - Translation viewing is a group of read-only components for the translator and admin roles only `[validated reading 2026-10-08 11:48]` `[file: docs/VISION-viewer.md:141-143]`.
 - Only the admin role opens the admin pages `[accepted recommendation 2026-10-08 11:48]` `[file: docs/VISION-viewer.md:89]`.
 - The Translator design names the person in the loop "the owner" in its approval steps `[file: translator-design.md:2033-2035]`.
-  - Which Viewer role acts as "the owner" in each step is open (section 13).
+  - Which Viewer role acts as "the owner" in each step was open. Decided in round 40 answer 10: the translator role and the admin role both act as "the owner" `[accepted recommendation 2026-10-25 22:43]` "Translator and admin (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:34]`.
 
 ## 4. Phase 1: setup
 
@@ -82,11 +82,11 @@
     - The cells, the penalty, the page score, and the verdict of each QA box `[file: translator-process-diagrams.md:402-415]`.
     - The QA issues and the marks on the issues of the QA box below `[file: translator-process-diagrams.md:408-409]`.
   - Diffs:
-    - The final EN against the human EN. The reference-diff-critic compares these two texts after each feedback article `[file: translator-design.md:2136]`.
-    - The `ED_0` to `ED_3` texts, one under the other. The Viewer already lists them as level versions `[accepted recommendation 2026-10-08 11:48]` `[file: docs/VISION-viewer.md:148-149]`.
-    - The old and the new rubric table after a table change `[file: qa-memory-2026-10-25.md:115]`.
-    - The old and the new instruction text after an update point (section 10) `[file: translator-process-diagrams.md:567-569]`.
-    - The owner did not say which diffs "diff" means `[agent inference]`. The list above is a reading, not a decision.
+    - The final EN against the human EN. The reference-diff-critic compares these two texts after each feedback article `[file: translator-design.md:2136]`. Chosen in round 40 answer 13 `[accepted option 2026-10-25 22:43]` "Final EN vs human EN (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:37]`. A human EN exists only for the dataset web articles, not for book pages `[agent inference]`.
+    - The `ED_0` to `ED_3` texts, one under the other. The Viewer already lists them as level versions `[accepted recommendation 2026-10-08 11:48]` `[file: docs/VISION-viewer.md:148-149]`. Chosen in round 40 answer 13 `[accepted option 2026-10-25 22:43]` "ED_0 to ED_3 texts (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:37]`.
+    - The old and the new rubric table after a table change `[file: qa-memory-2026-10-25.md:115]`. Chosen in round 40 answer 13 `[accepted option 2026-10-25 22:43]` "Old vs new rubric table (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:37]`.
+    - The old and the new instruction text after an update point (section 10) `[file: translator-process-diagrams.md:567-569]`. Chosen in round 40 answer 13 `[accepted option 2026-10-25 22:43]` "Old vs new instruction (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:37]`.
+    - Before round 40, the owner did not say which diffs "diff" means `[agent inference]`. The list above was a reading, not a decision. Round 40 answer 13 decides it: the owner chose all five diffs, the four above and the OCR text against the TS text (section 7) `[accepted option 2026-10-25 22:43]` `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:37]`.
   - More:
     - The critiques from the box-critic after each page and from the reference-diff-critic after each feedback article `[file: translator-process-diagrams.md:1231]` `[file: translator-process-diagrams.md:1253]`.
     - The critique count of each box type against the trigger N. The value of N is open `[file: translator-design.md:772]`.
@@ -145,7 +145,7 @@
     - The TS fields of the book page: captions, running heads, page numbers, and ruby `[accepted option 2026-10-08 11:48]` `[file: docs/VISION-viewer.md:152-153]`.
     - The QA issues that point to TS, in the rows "JA text" and "Page structure" `[file: translator-process-diagrams.md:500-501]`.
   - Diffs:
-    - The OCR text against the TS text `[agent inference]`. The TS text is the JA text that TS read from the image and the OCR pair.
+    - The OCR text against the TS text `[agent inference]`. The TS text is the JA text that TS read from the image and the OCR pair. Chosen in round 40 answer 13 `[accepted option 2026-10-25 22:43]` "OCR text vs TS text (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:37]`.
     - The old and the new instruction text, and the old and the new rubric table (section 10).
     - No human EN exists, so the person sees no diff against a human EN. The reference-diff-critic does not run in phase 3 `[file: translator-process-diagrams.md:181]`.
   - More:
@@ -217,7 +217,7 @@
   - Unit COST1 writes a cost estimate at `docs/drafts/translator-cost-estimate.md` in the Translator worktree. Its status is in progress `[file: qa-memory-2026-10-25.md:121]`.
   - The file did not exist at 14:12 `[check: V-NOTE cp 2026-10-25 14:12]`. This note holds no cost value.
   - A cost line for each call and each page is a view item `[agent inference]`.
-- The Viewer research layer holds no reasoning text `[validated reading 2026-10-07 20:05]` `[file: docs/VISION-viewer.md:235]`. The page view above shows reasoning. The conflict is open (section 13).
+- The Viewer research layer holds no reasoning text `[validated reading 2026-10-07 20:05]` `[file: docs/VISION-viewer.md:235]`. The page view above shows reasoning. The conflict is decided: the Translator loop pages show the reasoning text of each box, and the research layer stays without it. Round 40 answer 12 `[accepted recommendation 2026-10-25 22:43]` "Loop pages show it (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:36]`.
 
 ## 10. Update point view
 
@@ -294,12 +294,12 @@
 ## 13. Open items
 
 - Owner questions:
-  - Which role acts as "the owner" in the steps of sections 4 to 10: the translator, the admin, or both?
-  - Does "interacts" include actions on Translator state, for example undo of a table change?
+  - Which role acts as "the owner" in the steps of sections 4 to 10: the translator, the admin, or both? Decided: both `[accepted recommendation 2026-10-25 22:43]` "Translator and admin (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:34]`.
+  - Does "interacts" include actions on Translator state, for example undo of a table change? Decided: yes. Approve and undo buttons for Translator state are allowed on the Translator loop pages, and the rule "No editing in the Viewer" covers text only `[accepted recommendation 2026-10-25 22:43]` "Rule covers text only (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:35]`.
     - The Viewer has no editing for every role. The rule covers the text of works `[accepted option 2026-10-08 07:00]` `[file: docs/VISION-viewer.md:68-69]`.
     - The translation viewing components are read-only `[validated reading 2026-10-08 11:48]` `[file: docs/VISION-viewer.md:141]`.
-  - Does this part show reasoning text? The research layer holds none `[validated reading 2026-10-07 20:05]` `[file: docs/VISION-viewer.md:235]`.
-  - Which diffs does "diff" mean? Section 5 lists four.
+  - Does this part show reasoning text? The research layer holds none `[validated reading 2026-10-07 20:05]` `[file: docs/VISION-viewer.md:235]`. Decided: yes, the Translator loop pages show the reasoning text of each box `[accepted recommendation 2026-10-25 22:43]` "Loop pages show it (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:36]`.
+  - Which diffs does "diff" mean? Section 5 lists four. Decided: all five, the four of section 5 and the OCR text against the TS text `[accepted option 2026-10-25 22:43]` `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:37]`.
   - Does this part live inside translation viewing, on the admin pages, or on its own pages?
   - Which proposals of sections 4 to 10 does the owner keep?
 - Open points that sit in the Translator design:

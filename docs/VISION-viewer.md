@@ -62,11 +62,11 @@
   - No v1 code or v1 decision carries over, except the three roles of section 4 `[validated reading 2026-10-07 20:05]`.
   - The live site stays v1 until the owner names a switch date `[validated reading 2026-10-07 20:05]`.
 - Order of work `[user 2026-10-07 14:05]` "Work on viewer vision -> desgin of both -> then code".
-  - The design phase starts with the Translator `[accepted option 2026-10-07 14:58]` "Translator design first".
+  - The design phase starts with the Translator `[accepted option 2026-10-07 14:58]` "Translator design first". Round 39 update: the owner asked for Viewer work during the Translator tests and design polish `[user 2026-10-25 21:47]` "We should start working on viewer while testing Translator and polishing its design" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:13]`. Round 40 decision: the owner picked option 1 `[user 2026-10-25 22:43]` "OPtion 1." `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:38]`. Option 1 is "Design now, code later (Recommended)". The Viewer design starts now, in parallel with the Translator tests and the Translator design polish. Viewer code waits until both designs are done.
   - The shared output format of the two apps is decided in the design phase `[validated reading 2026-10-07 20:05]`.
 - Exclusions:
   - The Viewer has no editing, for every role `[accepted option 2026-10-08 07:00]` "No editing in the Viewer".
-    - The rule covers the text of works. Only the admin role opens the admin pages (section 4) `[accepted recommendation 2026-10-08 11:48]` "Admin pages in the Viewer (Recommended)".
+    - The rule covers the text of works. Only the admin role opens the admin pages (section 4) `[accepted recommendation 2026-10-08 11:48]` "Admin pages in the Viewer (Recommended)". Round 40 answer 11: the rule covers text only `[accepted recommendation 2026-10-25 22:43]` "Rule covers text only (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:35]`. Nobody edits the text of works in the Viewer. Approve and undo buttons for Translator state, for example rubric table changes and instruction text changes, are allowed on the Translator loop pages. Where these pages live stays open (section 13 of `docs/drafts/viewer-translator-loop-notes.md`). Round 40 answer 10: the translator role and the admin role both act as "the owner" in the Translator loop steps, for example approving a change list and undo `[accepted recommendation 2026-10-25 22:43]` "Translator and admin (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:34]`.
   - No licence work. The round 11 licence answer covers the Viewer `[accepted recommendation 2026-10-07 14:58]` "Same answer covers the Viewer (Recommended)".
     - Round 11 licence answer `[user 2026-10-05 23:48]` "option 4. you dont have to bother about the license/permission/etc".
   - No link to the blog post now `[accepted recommendation 2026-10-07 14:58]` "No link now (Recommended)".
@@ -232,7 +232,7 @@
     - the `QA_3` verdict `[accepted recommendation 2026-10-07 14:05]`,
     - the `ED` text of levels 0 to 3 `[accepted recommendation 2026-10-07 14:58]` "ED text per level (Recommended)",
     - the numeric scores `[validated reading 2026-10-07 20:05]`.
-  - The layer holds no reasoning text `[validated reading 2026-10-07 20:05]`.
+  - The layer holds no reasoning text `[validated reading 2026-10-07 20:05]`. Round 40 answer 12: the Translator loop pages show the reasoning text of each box `[accepted recommendation 2026-10-25 22:43]` "Loop pages show it (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:36]`. The research layer stays as validated, with no reasoning text.
 - Numeric scores `[user 2026-10-07 14:05]` "only show to translator and admin".
 - The AI label is item metadata `[validated reading 2026-10-08 07:00]` "Correct reading (Recommended)".
   - Owner words `[user 2026-10-07 23:47]` "This should be the item metadata, together with item's title, author, origin language, etc".
