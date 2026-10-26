@@ -3,7 +3,7 @@
 - Status: Notes for the later Viewer design. Not a validated vision. The owner validates each point in the Viewer design rounds.
 - File name `viewer-translator-loop-notes.md` is an `[agent inference]`. The owner did not name the file.
 - Author and time: aki-execute for aki-main, unit V-NOTE, 2026-10-25 `[check: V-NOTE date 2026-10-25 14:12]`.
-- Branch: `v2/viewer`. The file is not committed. aki-main asks the owner for commit approval in round 38.
+- Branch: `v2/viewer`. Commit `8974f9a` added the file after round 38 answer 16 `[file: .opencode/reminders/qa/qa-memory-2026-10-25.md:153]`. Commit `5a21d02` added the decisions of round 40 `[check: VF git log 2026-10-26 10:53]`.
 - Round 38 answer 8 renames theme to critique group. Quoted older text keeps the old word.
 - Scope: a note of what the person views and does. The note holds no screen design, no data schema, and no API.
 
@@ -297,24 +297,24 @@
   - Which role acts as "the owner" in the steps of sections 4 to 10: the translator, the admin, or both? Decided: both `[accepted recommendation 2026-10-25 22:43]` "Translator and admin (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:34]`.
   - Does "interacts" include actions on Translator state, for example undo of a table change? Decided: yes. Approve and undo buttons for Translator state are allowed on the Translator loop pages, and the rule "No editing in the Viewer" covers text only `[accepted recommendation 2026-10-25 22:43]` "Rule covers text only (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:35]`.
     - The Viewer has no editing for every role. The rule covers the text of works `[accepted option 2026-10-08 07:00]` `[file: docs/VISION-viewer.md:68-69]`.
-    - The translation viewing components are read-only `[validated reading 2026-10-08 11:48]` `[file: docs/VISION-viewer.md:141]`.
+    - The translation viewing components are read-only `[validated reading 2026-10-08 11:48]` `[file: docs/VISION-viewer.md:141]`. They stay read-only for the text of works. The Translator loop pages can hold approve and undo buttons for Translator state `[accepted recommendation 2026-10-25 22:43]` `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:35]`. Where those pages live stays open (line 303).
   - Does this part show reasoning text? The research layer holds none `[validated reading 2026-10-07 20:05]` `[file: docs/VISION-viewer.md:235]`. Decided: yes, the Translator loop pages show the reasoning text of each box `[accepted recommendation 2026-10-25 22:43]` "Loop pages show it (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:36]`.
   - Which diffs does "diff" mean? Section 5 lists four. Decided: all five, the four of section 5 and the OCR text against the TS text `[accepted option 2026-10-25 22:43]` `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:37]`.
   - Does this part live inside translation viewing, on the admin pages, or on its own pages?
   - Which proposals of sections 4 to 10 does the owner keep?
 - Open points that sit in the Translator design:
-  - The value of N `[file: translator-design.md:772]`.
-  - The meaning of K=3 in the freeze test `[file: qa-memory-2026-10-25.md:117]`.
-  - Which rubric table the write-up uses `[file: translator-design.md:2050]`.
-  - Whether phases 3 and 4 repeat for each new book `[file: translator-design.md:2409]`.
-- Open points of the A4 decision (section 11): the character count rule and the display size.
+  - The value of N `[file: translator-design.md:772]`. Pilot value: N = 2. The owner wrote "For pilot, set N to 2" `[user 2026-10-25 22:43]` `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:33]`. The production value stays open (design section 5.4.2).
+  - The meaning of K=3 in the freeze test `[file: qa-memory-2026-10-25.md:117]`. Decided: a box type freezes when 3 update points of that box type in a row give no hard critique group. The freeze runs in phase 4 only (design section 7.6.2) `[accepted recommendation 2026-10-25 13:56]`. An update point whose audit rejects twice does not count `[accepted recommendation 2026-10-25 15:45]` `[file: qa-memory-2026-10-25.md:149]`.
+  - Which rubric table the write-up uses `[file: translator-design.md:2050]`. Decided: the rubric tables as they stand at the end of phase 2 (design section 7.5.5) `[accepted recommendation 2026-10-25 13:56]` `[file: qa-memory-2026-10-25.md:116]`. Open in design section 7.8: whether that write-up is the final write-up for the paper `[agent inference]`.
+  - Whether phases 3 and 4 repeat for each new book `[file: translator-design.md:2409]`. Decided: each target book runs its own phase 3 and phase 4 (design section 7.8, reading 1) `[validated reading 2026-10-25 13:56]` `[file: qa-memory-2026-10-25.md:120]`. This matches line 156. Which books are target books is closed in part (design section 7.7) `[reading pending owner check]`.
+- Open points of the A4 decision (section 11): the character count rule and the display size. Round 38 answer 10 sets the cut of the Translator page: lines of 40 characters, each JA block on a new line, 36 lines, and a page break at a line end (design section 7.8) `[accepted recommendation 2026-10-25 15:45]` `[file: qa-memory-2026-10-25.md:147]`. What counts as a character and the display size stay open (lines 276 and 278).
 - Closed point of the term "theme": round 38 answer 8 gives "critique group" `[file: qa-memory-2026-10-25.md:145]`. The older line is an aki-main note `[file: qa-memory-2026-10-25.md:131]`.
-- The cost estimate of unit COST1 is in progress. This note needs it for the cost view.
+- The cost estimate of unit COST1 is in progress. This note needs it for the cost view. The cost file exists now: `docs/drafts/translator-cost-estimate.md` on `v2/translator`, commit `10da9d5` `[check: VF git log 2026-10-26 10:53]`. It is a draft, and its numbers wait for the pilot measures `[file: translator-cost-estimate.md:4]`.
 
 ## 14. Not verified
 
-- The Translator files changed after the copy of 14:12. Unit V-NOTE did not read later versions.
-- The copies of the Translator design do not yet record round 37. For example, `translator-design.md:2048` still lists "who approves a table change in phases 2 and 3" as open.
+- The Translator files changed after the copy of 14:12. Unit V-NOTE did not read later versions. Unit VF read the committed design at `263a9ba` for lines 306 to 312 and 317 only `[check: VF git show 2026-10-26 10:53]`.
+- The copies of the Translator design do not yet record round 37. For example, `translator-design.md:2048` still lists "who approves a table change in phases 2 and 3" as open. The committed design now records round 37. Section 7.5.5 marks that point "Replaced by round 37 answer 9" `[check: VF git show 2026-10-26 10:53]`.
   - The rule of round 37 answer 9 comes from `qa-memory-2026-10-25.md:115` only.
 - The option text of round 37 answer 9 comes from the aki-main parenthesis in `qa-memory-2026-10-25.md:115`. The full text that the owner saw is Not verified.
 - The cost values per call and per page. The cost file did not exist at 14:12.
