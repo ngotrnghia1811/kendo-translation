@@ -2,7 +2,8 @@ import "server-only";
 import { readJson, exists } from "./json";
 import { runFoldersOf, bookTitle } from "./books";
 import { stripDataPrefix, isSafeSegment, PathError } from "./safe-path";
-import type { BoxItem, CritiqueCount, PageData, QaIssue, QaMark, QaStage, StageText } from "./types";
+import { parseQaMarks } from "./page-labels";
+import type { BoxItem, CritiqueCount, PageData, QaIssue, QaStage, StageText } from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type J = any;
@@ -64,16 +65,7 @@ function qaStage(box: string, q: J): QaStage {
     reason: String(x.reason ?? ""),
     suspectedStage: String(x.suspected_stage ?? ""),
   }));
-  const marks: QaMark[] = ((mr.marks ?? []) as J[]).map((x) => ({
-    target: String(x.lower_issue_id ?? ""),
-    mark: String(x.mark ?? ""),
-    reason: String(x.reason ?? ""),
-  }));
-  const programMarks: QaMark[] = ((mr.program_result_marks ?? []) as J[]).map((x) => ({
-    target: String(x.item_id ?? x.check ?? ""),
-    mark: String(x.mark ?? ""),
-    reason: String(x.reason ?? ""),
-  }));
+  const { marks, programMarks } = parseQaMarks(mr);
   return {
     box,
     verdict: score.verdict ?? null,

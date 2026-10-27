@@ -1,6 +1,7 @@
 import "server-only";
 import { listDir, readJson, readJsonl, readText } from "./json";
 import { isSafeSegment, PathError } from "./safe-path";
+import { enFormSummary, jsonRepairKind } from "./page-labels";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type J = any;
@@ -36,6 +37,7 @@ export async function loadExtra(runRel: string, part: ExtraPart, stage: number):
           flag: r.flag ?? null,
           reasoningNameSent: r.reasoning_name_sent ?? null,
           jsonRepair: r.json_repair ?? null,
+          jsonRepairKind: jsonRepairKind(r.json_repair),
           tokens: r.tokens ?? null,
         }));
     }
@@ -74,6 +76,8 @@ export async function loadExtra(runRel: string, part: ExtraPart, stage: number):
       const structure = await readJson<J>(`${runRel}/programs/page_structure_check.ED_${n}.json`);
       const sItems = (structure?.items ?? []) as J[];
       return {
+        // Round 47 answer 13: the summary counts follows, breaks, and notes. An old file has no notes, so notes is 0.
+        enFormSummary: enForm ? enFormSummary(enForm) : null,
         enForm: enForm
           ? ((enForm.items ?? []) as J[]).map((i) => ({ term: i.term, enForm: i.en_form, use: i.use, required: i.required, result: i.result, detail: i.detail, row: i.row_id }))
           : null,

@@ -2,6 +2,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { PageData } from "@/lib/types";
 import { EXTRAS, type ExtraKey } from "./extras-store";
+import { enFormBadge, enFormTone } from "@/lib/page-labels";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -104,7 +105,7 @@ function Calls({ rows }: { rows: any[] }) {
               <td className={td + " text-xs"}>
                 {r.ok === false ? <span className="text-red-700">failed: {r.error}</span> : "ok"}
                 {r.flag ? <span className="ml-1 text-amber-700">flag: {String(r.flag)}</span> : null}
-                {r.jsonRepair ? <span className="ml-1 text-amber-700">JSON repaired</span> : null}
+                {r.jsonRepairKind ? <span className="ml-1 text-amber-700">JSON repaired: {r.jsonRepairKind}</span> : null}
               </td>
             </tr>
           ))}
@@ -216,15 +217,23 @@ function Programs({ d }: { d: any }) {
         ) : d.enForm.length === 0 ? (
           <Empty>No term to check.</Empty>
         ) : (
-          <ul className="space-y-1">
-            {d.enForm.map((i: any, k: number) => (
-              <li key={k} className={i.result === "ok" ? "text-muted" : "text-red-800"}>
-                <span className="font-ja">{i.term}</span> → <span className="font-serif">{i.enForm}</span> <span className="text-xs">({i.use})</span>{" "}
-                <span className="font-semibold">{i.result}</span>
-                {i.detail && i.detail !== "none" ? <span className="text-xs">: {i.detail}</span> : null}
-              </li>
-            ))}
-          </ul>
+          <>
+            {d.enFormSummary ? (
+              <p className="mb-1 text-xs">
+                <span className="font-semibold">{d.enFormSummary.follows}</span> follows / <span className="font-semibold text-red-800">{d.enFormSummary.breaks}</span> breaks /{" "}
+                <span className="font-semibold text-amber-800">{d.enFormSummary.notes}</span> notes
+              </p>
+            ) : null}
+            <ul className="space-y-1">
+              {d.enForm.map((i: any, k: number) => (
+                <li key={k} className={enFormTone(i.result)}>
+                  <span className="font-ja">{i.term}</span> → <span className="font-serif">{i.enForm}</span> <span className="text-xs">({i.use})</span>{" "}
+                  <span className={"rounded px-1.5 text-xs font-semibold " + enFormBadge(i.result)}>{String(i.result)}</span>
+                  {i.detail && i.detail !== "none" ? <span className="text-xs">: {i.detail}</span> : null}
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </div>
       <div>

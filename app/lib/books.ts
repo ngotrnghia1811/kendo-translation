@@ -1,6 +1,7 @@
 import "server-only";
 import { listDir, readJson, readJsonl } from "./json";
 import { folderToPageId } from "./format";
+import { chaptersOf, parseChapterRows } from "./chapters";
 import type { BookPage, BookRow } from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -23,6 +24,11 @@ async function loadMetadata(): Promise<Map<string, J>> {
   return m;
 }
 
+/** Rows of item-metadata/magazine-chapters.jsonl (unit M1). An absent file gives an empty list. A bad line is skipped by readJsonl. */
+async function loadChapters() {
+  return parseChapterRows(await readJsonl<unknown>("item-metadata/magazine-chapters.jsonl"));
+}
+
 /**
  * Round 44 answer 13 (Q-A l142), tab Books: every book from book-slugs.json with metadata
  * and the pages that have run folders. Web articles with runs go to the group "article".
@@ -30,6 +36,7 @@ async function loadMetadata(): Promise<Map<string, J>> {
 export async function listBooks(): Promise<BookRow[]> {
   const slugs = await readJson<J>("pilot-sample/book-slugs.json");
   const meta = await loadMetadata();
+  const allChapters = await loadChapters();
 
   // Scan pilot-run/<slug>_pNNN/ once.
   const byId = new Map<string, BookPage[]>();
@@ -68,6 +75,9 @@ export async function listBooks(): Promise<BookRow[]> {
       confidence: m?.confidence ?? "",
       pages: b.pages ?? m?.pages ?? null,
       pagesWithRuns: byId.get(String(b.slug)) ?? [],
+      meta: m ?? null,
+      // Round 47 answer 13 (Q-A 2026-10-27 l35): month chapters for a magazine year. Null means the chapter file is absent or empty.
+      chapters: b.magazine_year && allChapters.length > 0 ? chaptersOf(allChapters, String(b.slug)) : null,
     });
   }
   // Web articles (and any other ID) that have run folders.
@@ -85,6 +95,8 @@ export async function listBooks(): Promise<BookRow[]> {
       confidence: m?.confidence ?? "",
       pages: m?.pages ?? null,
       pagesWithRuns: pages,
+      meta: m ?? null,
+      chapters: null,
     });
   }
   return rows;

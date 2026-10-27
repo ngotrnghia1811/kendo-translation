@@ -62,6 +62,36 @@ export interface BookRow {
   confidence: string;
   pages: number | null;
   pagesWithRuns: BookPage[];
+  /** The whole metadata row of items.filled.jsonl (or items.draft.jsonl). Null when the item has no row. */
+  meta: Record<string, unknown> | null;
+  /** Month chapters of a magazine year. Null when the file magazine-chapters.jsonl is absent or empty. Other groups: null. */
+  chapters: ChapterRow[] | null;
+}
+
+export interface ChapterArticle {
+  order: number | null;
+  seriesJa: string;
+  titleJa: string;
+  titleEn: string;
+  titleEnStatus: string; // "draft" or another status text
+  pageStart: number | null;
+  pageEnd: number | null;
+  pageGuess: boolean;
+}
+
+export interface ChapterRow {
+  book: string; // item_id of the magazine year
+  bookTitleEn: string;
+  year: number | null;
+  month: number | null; // null for the front chapter
+  chapter: string;
+  chapterTitleEn: string;
+  chapterTitleJa: string;
+  pageStart: number | null;
+  pageEnd: number | null;
+  pageCount: number | null;
+  articleCount: number;
+  articles: ChapterArticle[];
 }
 
 export interface BoxItem {
@@ -91,8 +121,10 @@ export interface QaIssue {
 
 export interface QaMark {
   target: string;
-  mark: string;
+  mark: string; // confirmed, false_alarm (old), still_in_ed, not_in_ed (new), or any other text
   reason: string;
+  /** Issue ID of the QA box itself for a still_in_ed mark. Null for old marks and program marks. */
+  ownIssueId: string | null;
 }
 
 export interface QaStage {
