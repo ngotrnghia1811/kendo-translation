@@ -2,6 +2,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 
 // Round 43 answer 7 (Q-A l111): the 7 extra items are a checklist "Saved per account (Recommended)".
+// Round 48 answer 9 (Q-A 2026-10-27 l55) adds 2 items for chain runs: "chain" and "critic_only". They are off at start like the others.
 // No sign-in exists yet, so the ticks live in the browser (localStorage). This is "per account after sign-in":
 // when sign-in arrives, move this store to the account. All items are off by default.
 export const EXTRAS = [
@@ -12,6 +13,8 @@ export const EXTRAS = [
   { key: "programs", label: "Program check results", help: "EN form check, term marks, page structure check." },
   { key: "critiques", label: "Critiques with the note for the next critic", help: "What the box critic found and what the next critic must check." },
   { key: "counts", label: "Critique counts against N", help: "Critiques per critique group compared with N." },
+  { key: "chain", label: "Chain inputs", help: "Previous page, previous page pair, book translation memory pairs and earlier term marks that the boxes of a chain page received." },
+  { key: "critic_only", label: "Critic-only runs", help: "Critiques from the command critic-only, stored in a subfolder of this run folder." },
 ] as const;
 export type ExtraKey = (typeof EXTRAS)[number]["key"];
 

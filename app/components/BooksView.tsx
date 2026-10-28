@@ -1,15 +1,16 @@
 import { Fragment } from "react";
 import Link from "next/link";
-import type { BookRow, ChapterRow } from "@/lib/types";
+import type { BookRow } from "@/lib/types";
 import { pageHref } from "@/lib/format";
-import { pageRange } from "@/lib/chapters";
-import { describeValue, groupMetadata } from "@/lib/meta-fields";
 import { VerdictPill } from "./Pills";
+import BookDetails from "./BookDetails";
 
 // Round 44 answer 13 (Q-A l142), tab Books: every book with metadata (title, author, publisher, year, confidence, page count)
 // and the pages that have run folders. Web articles with runs sit in the separate group "Articles".
 // Round 47 answer 13 (Q-A 2026-10-27 l35): "Books tab shows all metadata". Each row has a closed details part with every key of its
 // metadata row, in groups. A magazine year also lists its month chapters, and each chapter opens to its articles. The tab stays read only.
+// Round 48 answer 9 (Q-A 2026-10-27 l55): the details part loads on request (components/BookDetails.tsx, /api/books/<id>), so this page stays small.
+// A chapter also shows the web candidates and the link_status of the web articles that point at it.
 // [agent inference] Rows with runs come first, so the owner finds the readable pages without scrolling past 30 empty books.
 export default function BooksView({ rows }: { rows: BookRow[] }) {
   const books = rows.filter((r) => r.group !== "article");
@@ -89,7 +90,7 @@ function BookTable({ rows }: { rows: BookRow[] }) {
             </tr>
             <tr>
               <td colSpan={8} className="px-3 pb-2 pt-0">
-                <Details row={r} />
+                <BookDetails id={r.id} group={r.group} hasMeta={r.hasMeta} chapterCount={r.chapterCount} />
               </td>
             </tr>
             </Fragment>
@@ -97,134 +98,6 @@ function BookTable({ rows }: { rows: BookRow[] }) {
         </tbody>
       </table>
     </div>
-  );
-}
-
-const DASH = <span className="text-muted">–</span>;
-
-function Details({ row }: { row: BookRow }) {
-  return (
-    <details className="rounded border border-line bg-stone-50/60">
-      <summary className="cursor-pointer select-none px-3 py-1 text-xs text-muted hover:text-foreground">
-        Details of {row.id}
-        {row.group === "magazine" ? " and month chapters" : ""}
-      </summary>
-      <div className="space-y-4 border-t border-line p-3">
-        {row.meta ? <MetaGroups meta={row.meta} /> : <p className="text-sm text-muted">No metadata row for this item.</p>}
-        {row.group === "magazine" ? <Chapters rows={row.chapters} /> : null}
-      </div>
-    </details>
-  );
-}
-
-function MetaGroups({ meta }: { meta: Record<string, unknown> }) {
-  return (
-    <div className="grid gap-4 md:grid-cols-2">
-      {groupMetadata(meta).map((g) => (
-        <section key={g.id}>
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">{g.label}</h3>
-          <dl className="space-y-1 text-sm">
-            {g.entries.map((e) => (
-              <div key={e.key} className="grid grid-cols-[9rem_minmax(0,1fr)] gap-2">
-                <dt className="font-mono text-xs text-muted">{e.key}</dt>
-                <dd className="min-w-0 break-words">
-                  <Value value={e.value} />
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-      ))}
-    </div>
-  );
-}
-
-function Value({ value }: { value: unknown }) {
-  const d = describeValue(value);
-  switch (d.kind) {
-    case "empty":
-      return DASH;
-    case "text":
-      return <span className="whitespace-pre-wrap">{d.text}</span>;
-    case "list":
-      return (
-        <ul className="list-disc pl-4">
-          {d.items.map((x, k) => (
-            <li key={k}>{x}</li>
-          ))}
-        </ul>
-      );
-    case "json":
-      return (
-        <details>
-          <summary className="cursor-pointer text-xs text-muted">{d.count} entries</summary>
-          <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap rounded border border-line bg-white p-2 text-xs">{d.text}</pre>
-        </details>
-      );
-  }
-}
-
-// Month chapters of a magazine year (file item-metadata/magazine-chapters.jsonl from unit M1).
-function Chapters({ rows }: { rows: ChapterRow[] | null }) {
-  if (rows === null) return <p className="text-sm text-muted">No chapter file yet.</p>;
-  if (rows.length === 0) return <p className="text-sm text-muted">The chapter file has no row for this magazine year.</p>;
-  const title = rows.find((c) => c.bookTitleEn)?.bookTitleEn;
-  return (
-    <section>
-      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Month chapters ({rows.length})</h3>
-      {title ? <p className="mb-2 text-sm font-medium">{title}</p> : null}
-      <ul className="space-y-1">
-        {rows.map((c) => (
-          <li key={c.chapter} className="rounded border border-line bg-white">
-            <details>
-              <summary className="cursor-pointer px-3 py-1 text-sm">
-                <span className="font-medium">{c.chapterTitleEn || c.chapter}</span>
-                {c.chapterTitleJa ? <span className="font-ja ml-2 text-xs text-muted">{c.chapterTitleJa}</span> : null}
-                <span className="ml-3 text-xs text-muted">
-                  {pageRange(c.pageStart, c.pageEnd)}, {c.articleCount} {c.articleCount === 1 ? "article" : "articles"}
-                </span>
-              </summary>
-              <Articles chapter={c} />
-            </details>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function Articles({ chapter }: { chapter: ChapterRow }) {
-  if (chapter.articles.length === 0) return <p className="border-t border-line px-3 py-2 text-xs text-muted">No article in this chapter.</p>;
-  return (
-    <table className="w-full border-t border-line text-xs">
-      <thead className="text-left uppercase tracking-wide text-muted">
-        <tr>
-          <th className="px-3 py-1">Order</th>
-          <th className="px-3 py-1">Series</th>
-          <th className="px-3 py-1">Title</th>
-          <th className="px-3 py-1">Pages</th>
-        </tr>
-      </thead>
-      <tbody>
-        {chapter.articles.map((a, k) => (
-          <tr key={k} className="border-t border-line align-top">
-            <td className="px-3 py-1 tabular-nums">{a.order ?? "–"}</td>
-            <td className="px-3 py-1 font-ja">{a.seriesJa || DASH}</td>
-            <td className="px-3 py-1">
-              <div className="font-ja">{a.titleJa || DASH}</div>
-              <div className="text-muted">
-                {a.titleEn || DASH}
-                {a.titleEnStatus === "draft" ? <span className="ml-1.5 rounded bg-amber-100 px-1.5 text-amber-800">draft</span> : a.titleEnStatus ? <span className="ml-1.5">({a.titleEnStatus})</span> : null}
-              </div>
-            </td>
-            <td className="px-3 py-1 whitespace-nowrap">
-              {pageRange(a.pageStart, a.pageEnd)}
-              {a.pageGuess ? <span className="ml-1.5 rounded bg-stone-200 px-1.5 text-stone-700">guess</span> : null}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
   );
 }
 

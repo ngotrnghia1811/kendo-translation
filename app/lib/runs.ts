@@ -4,6 +4,7 @@ import path from "node:path";
 import { listDir, readJson, exists } from "./json";
 import { resolveInside, stripDataPrefix, isSafeSegment, PathError } from "./safe-path";
 import { pageHref } from "./format";
+import { failureList, firstBool, firstNumber, firstString, listKindOf, parseBookMemory, parseChains } from "./chain";
 import type { RunDetail, RunPageRow, RunSummary } from "./types";
 
 const LISTS = "pilot-run/lists";
@@ -16,8 +17,20 @@ function num(v: unknown, d = 0): number {
   return typeof v === "number" && Number.isFinite(v) ? v : d;
 }
 
-function summarize(stamp: string, p: J): RunSummary {
+/** list.json holds critic_mode and the chains table. A missing or broken file gives null. */
+async function readListFiles(stamp: string): Promise<{ listJson: J; summaryJson: J }> {
   return {
+    listJson: await readJson<J>(`${LISTS}/${stamp}/list.json`),
+    summaryJson: await readJson<J>(`${LISTS}/${stamp}/list-summary.json`),
+  };
+}
+
+function summarize(stamp: string, p: J, listJson: J = null, summaryJson: J = null): RunSummary {
+  return {
+    // Round 48 answer 9 (Q-A 2026-10-27 l55): the list kind, the critic mode, and the book jobs show in the Runs table and the run view.
+    listKind: listKindOf(p, listJson, summaryJson),
+    criticMode: firstString("critic_mode", listJson, summaryJson),
+    bookJobs: firstNumber("book_jobs", p, listJson, summaryJson),
     stamp,
     state: String(p.state ?? "unknown"),
     pagesDone: num(p.pages_done),
@@ -40,7 +53,10 @@ export async function listRuns(): Promise<RunSummary[]> {
   const out: RunSummary[] = [];
   for (const stamp of names) {
     const p = await readJson<J>(`${LISTS}/${stamp}/progress.json`);
-    if (p) out.push(summarize(stamp, p));
+    if (p) {
+      const { listJson } = await readListFiles(stamp);
+      out.push(summarize(stamp, p, listJson));
+    }
   }
   return out;
 }
@@ -54,9 +70,16 @@ export async function getRun(stamp: string): Promise<RunDetail | null> {
   if (!isSafeSegment(stamp)) throw new PathError("Bad list name.");
   const p = await readJson<J>(`${LISTS}/${stamp}/progress.json`);
   if (!p) return null;
+  const { listJson, summaryJson } = await readListFiles(stamp);
+  // Page rows of list-summary.json hold the failure lists and the key book_memory. progress.json has neither.
+  const summaryRows = new Map<string, J>();
+  for (const r of (Array.isArray(summaryJson?.pages) ? summaryJson.pages : []) as J[]) {
+    if (r && typeof r.page_id === "string") summaryRows.set(r.page_id, r);
+  }
   const now = Date.now() / 1000;
   const rows: RunPageRow[] = [];
   for (const pg of (p.pages ?? []) as J[]) {
+    const sr = summaryRows.get(String(pg.page_id));
     const folderRel = pg.folder ? stripDataPrefix(String(pg.folder)) : "";
     let qa3Verdict: string | null = null;
     let qa3Score: number | null = null;
@@ -88,10 +111,18 @@ export async function getRun(stamp: string): Promise<RunDetail | null> {
       qa3Verdict,
       qa3Score,
       href: pageHref(String(pg.page_id), folderName || undefined),
+      skippedReason: typeof pg.skipped_reason === "string" && pg.skipped_reason !== "" ? pg.skipped_reason : null,
+      forwardFailures: failureList(sr?.forward_failures),
+      criticFailures: failureList(sr?.critic_failures),
+      bookMemory: parseBookMemory(sr?.book_memory),
     });
   }
   return {
-    ...summarize(stamp, p),
+    ...summarize(stamp, p, listJson, summaryJson),
+    noCritic: firstBool("no_critic", listJson, summaryJson),
+    noVoyage: firstBool("no_voyage", listJson, summaryJson),
+    // list.json is the file that run-chain --resume reads, so it comes first. The list summary is the fallback.
+    chains: parseChains(listJson?.chains) ?? parseChains(summaryJson?.chains),
     elapsedBeforeSeconds: num(p.elapsed_before),
     pauseSecondsTotal: num(p.pause_seconds_total),
     pausedSinceUtc: p.paused_since_utc ?? null,

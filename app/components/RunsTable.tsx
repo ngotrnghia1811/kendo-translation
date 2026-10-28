@@ -7,6 +7,7 @@ import { LiveBadge, useLive } from "./useLive";
 
 // Round 44 answer 13 (Q-A l142), tab Runs: "runs with state and cost". Newest first.
 // Viewer goals: fast lookup (one table, state and cost in one row) and few steps (one click opens a run).
+// Round 48 answer 9 (Q-A 2026-10-27 l55): the table also shows the list kind, the critic mode and the book jobs.
 export default function RunsTable({ initial }: { initial: RunSummary[] }) {
   const { data, live } = useLive<RunSummary[]>("/api/runs", initial, (d) => d.some((r) => isLive(r.state)));
   return (
@@ -24,6 +25,7 @@ export default function RunsTable({ initial }: { initial: RunSummary[] }) {
             <thead className="bg-stone-50 text-left text-xs uppercase tracking-wide text-muted">
               <tr>
                 <th className="px-3 py-2">List</th>
+                <th className="px-3 py-2">Kind</th>
                 <th className="px-3 py-2">State</th>
                 <th className="px-3 py-2 text-right">Pages</th>
                 <th className="px-3 py-2 text-right">Calls</th>
@@ -42,6 +44,13 @@ export default function RunsTable({ initial }: { initial: RunSummary[] }) {
                     <Link href={`/runs/${r.stamp}`} className="font-mono text-accent underline-offset-2 hover:underline">
                       {r.stamp}
                     </Link>
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    {r.listKind === "chain" ? <span className="rounded bg-blue-50 px-1.5 py-0.5 font-medium text-blue-800">chain</span> : <span className="text-muted">list</span>}
+                    <div className="mt-0.5 text-muted">
+                      {r.criticMode ? `critic ${r.criticMode}` : "critic mode not stored"}
+                      {r.bookJobs !== null ? `, ${r.bookJobs} book jobs` : ""}
+                    </div>
                   </td>
                   <td className="px-3 py-2">
                     <StatePill state={r.state} />

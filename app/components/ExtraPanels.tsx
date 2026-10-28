@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
 import type { PageData } from "@/lib/types";
+import Link from "next/link";
 import { EXTRAS, type ExtraKey } from "./extras-store";
 import { enFormBadge, enFormTone } from "@/lib/page-labels";
 
@@ -63,6 +64,10 @@ function Remote({ runRel, part, stage }: { runRel: string; part: string; stage: 
       return <Programs d={data} />;
     case "critiques":
       return <Critiques rows={data} />;
+    case "chain":
+      return <ChainInputs d={data} />;
+    case "critic_only":
+      return <CriticOnly rows={data} stage={stage} />;
   }
   return null;
 }
@@ -74,7 +79,7 @@ function Empty({ children }: { children: ReactNode }) {
   return <p className="text-sm text-muted">{children}</p>;
 }
 
-function Calls({ rows }: { rows: any[] }) {
+export function Calls({ rows }: { rows: any[] }) {
   if (rows.length === 0) return <Empty>No model call for this stage.</Empty>;
   const cost = rows.reduce((s, r) => s + (r.costUsd ?? 0), 0);
   const sec = rows.reduce((s, r) => s + (r.seconds ?? 0), 0);
@@ -103,6 +108,14 @@ function Calls({ rows }: { rows: any[] }) {
               <td className={td + " text-right tabular-nums"}>{r.seconds ?? "–"}</td>
               <td className={td + " text-right tabular-nums"}>{r.retries}</td>
               <td className={td + " text-xs"}>
+                {r.sessionTurn !== null && r.sessionTurn !== undefined ? (
+                  <span className="mr-1 rounded bg-stone-100 px-1.5 text-stone-700" title={r.sessionId ?? ""}>
+                    session turn {r.sessionTurn}
+                    {r.sessionId ? `, ${r.sessionId}` : ""}
+                    {r.sessionFirstMessage ? ", first message" : ""}
+                  </span>
+                ) : null}
+                {r.sessionRestart ? <span className="mr-1 text-amber-700">session restart: {String(r.sessionRestart)}</span> : null}
                 {r.ok === false ? <span className="text-red-700">failed: {r.error}</span> : "ok"}
                 {r.flag ? <span className="ml-1 text-amber-700">flag: {String(r.flag)}</span> : null}
                 {r.jsonRepairKind ? <span className="ml-1 text-amber-700">JSON repaired: {r.jsonRepairKind}</span> : null}
@@ -318,5 +331,92 @@ function Counts({ page }: { page: PageData }) {
         ))}
       </tbody>
     </table>
+  );
+}
+
+// Round 48 answer 9 (Q-A 2026-10-27 l55), Extra detail item "Chain inputs": what the four forward boxes of the stage received from the book chain.
+// The three blocks are cut from messages/<box>.txt. A page outside a chain, or the first page of a chain, has little or nothing to show.
+const CHAIN_BLOCK_LABELS: { key: string; label: string }[] = [
+  { key: "previous_page_pair", label: "Previous page pair" },
+  { key: "book_translation_memory", label: "Book translation memory" },
+  { key: "earlier_term_marks", label: "Earlier term marks" },
+];
+
+export function ChainInputs({ d }: { d: any }) {
+  if (!d.boxes || d.boxes.length === 0) return <Empty>No saved message for the boxes of this stage.</Empty>;
+  if (!d.hasAny) return <Empty>These messages hold none of the three chain blocks. This page did not run in a book chain, or its messages come from before the book chain.</Empty>;
+  return (
+    <div className="space-y-4 text-sm">
+      {d.previous ? (
+        <p>
+          <span className="text-muted">Previous page: </span>
+          {d.previous.href ? (
+            <Link href={d.previous.href} className="font-mono text-accent underline-offset-2 hover:underline">
+              {d.previous.pageId}
+            </Link>
+          ) : (
+            <span className="font-mono">{d.previous.pageId}</span>
+          )}
+          <span className="ml-2 text-xs text-muted">
+            Each box reads the pair of the same box on that page. {d.previous.note}
+          </span>
+        </p>
+      ) : (
+        <Empty>No previous page pair in these messages. This is the first page of its chain, or the page ran outside a chain.</Empty>
+      )}
+      {d.boxes.map((b: any) => (
+        <div key={b.box}>
+          <div className="mb-1 font-mono text-xs font-semibold">{b.box}</div>
+          <div className="space-y-1.5">
+            {CHAIN_BLOCK_LABELS.map((cb) => {
+              const text: string | null = b.blocks[cb.key];
+              const extra = cb.key === "book_translation_memory" && b.pairsFound !== null ? `${b.pairsFound} pairs found` : cb.key === "earlier_term_marks" && b.pagesRead !== null ? `${b.pagesRead} pages read` : "";
+              return (
+                <details key={cb.key} className="rounded border border-line">
+                  <summary className="cursor-pointer px-3 py-1.5 text-sm">
+                    {cb.label}{" "}
+                    <span className="text-muted">
+                      {text === null ? "(no block in this message)" : `(${text.length.toLocaleString("en-US")} characters${extra ? ", " + extra : ""})`}
+                    </span>
+                  </summary>
+                  {text !== null ? <pre className="max-h-96 overflow-auto whitespace-pre-wrap border-t border-line bg-stone-50 p-3 text-xs leading-relaxed">{text}</pre> : null}
+                </details>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Round 48 answer 9, Extra detail item "Critic-only runs": one block per critic-<mode>-<stamp> subfolder of the run folder.
+// The counts cover the whole page. The critique list covers the boxes of the selected stage.
+export function CriticOnly({ rows, stage }: { rows: any[]; stage: number }) {
+  if (rows.length === 0) return <Empty>This run folder has no critic-only subfolder.</Empty>;
+  return (
+    <div className="space-y-4">
+      {rows.map((r) => (
+        <div key={r.folder} className="rounded border border-line p-3 text-sm">
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <span className="font-mono text-xs font-semibold">{r.folder}</span>
+            <span className="rounded bg-stone-100 px-1.5 text-xs">mode {r.mode || "unknown"}</span>
+            {r.plan ? <span className="rounded bg-amber-100 px-1.5 text-xs text-amber-800">plan only, no model call</span> : null}
+            {r.hasSummary ? <span className="text-xs text-muted">status {r.status || "unknown"}</span> : <span className="text-xs text-red-700">no summary.json (the run did not finish)</span>}
+          </div>
+          {r.hasSummary ? (
+            <p className="mt-1 text-xs">
+              <span className="font-semibold">{r.critiquesTotal ?? "–"}</span> critiques
+              {r.byBoxType.length > 0 ? ` (${r.byBoxType.map((b: any) => `${b.boxType} ${b.critiques}`).join(", ")})` : ""}, {r.modelCalls ?? "–"} calls,{" "}
+              {r.failedCalls.length > 0 ? <span className="text-red-700">{r.failedCalls.length} failed ({r.failedCalls.join(", ")})</span> : "0 failed"}, USD{" "}
+              {r.costUsd === null ? "–" : r.costUsd.toFixed(4)}, {r.seconds ?? "–"} s
+              {r.session ? `, session: ${r.session.turns ?? "?"} turns, ${r.session.sessionIds.length} session, ${r.session.restarts} restarts, turn message ${r.session.turnMessage || "–"}` : ""}
+            </p>
+          ) : null}
+          <h4 className="mt-3 mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Critiques of stage {stage}</h4>
+          <Critiques rows={r.critiques} />
+        </div>
+      ))}
+    </div>
   );
 }

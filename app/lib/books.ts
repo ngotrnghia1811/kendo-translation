@@ -2,7 +2,9 @@ import "server-only";
 import { listDir, readJson, readJsonl } from "./json";
 import { folderToPageId } from "./format";
 import { chaptersOf, parseChapterRows } from "./chapters";
-import type { BookPage, BookRow } from "./types";
+import { parseWebRows, webRowsOfChapter } from "./chain";
+import { isSafeSegment, PathError } from "./safe-path";
+import type { BookDetail, BookPage, BookRow, ChapterWeb } from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type J = any;
@@ -75,9 +77,9 @@ export async function listBooks(): Promise<BookRow[]> {
       confidence: m?.confidence ?? "",
       pages: b.pages ?? m?.pages ?? null,
       pagesWithRuns: byId.get(String(b.slug)) ?? [],
-      meta: m ?? null,
-      // Round 47 answer 13 (Q-A 2026-10-27 l35): month chapters for a magazine year. Null means the chapter file is absent or empty.
-      chapters: b.magazine_year && allChapters.length > 0 ? chaptersOf(allChapters, String(b.slug)) : null,
+      // Round 48 answer 9 (Q-A 2026-10-27 l55): the row itself (meta, chapters, web candidates) loads on request, see getBookDetail.
+      hasMeta: !!m,
+      chapterCount: b.magazine_year && allChapters.length > 0 ? chaptersOf(allChapters, String(b.slug)).length : null,
     });
   }
   // Web articles (and any other ID) that have run folders.
@@ -95,8 +97,8 @@ export async function listBooks(): Promise<BookRow[]> {
       confidence: m?.confidence ?? "",
       pages: m?.pages ?? null,
       pagesWithRuns: pages,
-      meta: m ?? null,
-      chapters: null,
+      hasMeta: !!m,
+      chapterCount: null,
     });
   }
   return rows;
@@ -106,4 +108,40 @@ export async function bookTitle(slug: string): Promise<string> {
   const meta = await loadMetadata();
   const m = meta.get(slug);
   return m?.title_en || m?.title_ja || "";
+}
+
+/**
+ * Round 48 answer 9 (Q-A 2026-10-27 l55): the Details part of one Books row, loaded on request (/api/books/<id>).
+ * It holds the whole metadata row (round 47 answer 13), the month chapters of a magazine year, and the web candidates per chapter (unit M2).
+ * Null when the ID is neither a book of book-slugs.json nor an article with run folders, the same rule as listBooks.
+ */
+export async function getBookDetail(id: string): Promise<BookDetail | null> {
+  if (!isSafeSegment(id)) throw new PathError("Bad book name.");
+  const slugs = await readJson<J>("pilot-sample/book-slugs.json");
+  const entry = ((slugs?.books ?? []) as J[]).find((b) => String(b.slug) === id);
+  let group: BookDetail["group"] | null = entry ? (entry.magazine_year ? "magazine" : "book") : null;
+  if (!group) {
+    for (const name of await listDir(PILOT)) {
+      if (folderToPageId(name)?.slug === id && (await runFoldersOf(name)).length > 0) {
+        group = "article";
+        break;
+      }
+    }
+  }
+  if (!group) return null;
+  const meta = (await loadMetadata()).get(id) ?? null;
+  let chapters: BookDetail["chapters"] = null;
+  const web: Record<string, ChapterWeb> = {};
+  let webFileFound = false;
+  if (group === "magazine") {
+    const all = await loadChapters();
+    chapters = all.length > 0 ? chaptersOf(all, id) : null;
+    const webRows = parseWebRows(await readJsonl<unknown>("item-metadata/web-magazine-candidates.jsonl"));
+    webFileFound = webRows.length > 0;
+    for (const c of chapters ?? []) {
+      const w = webRowsOfChapter(webRows, c.chapter);
+      if (w.linked.length > 0 || w.other.length > 0) web[c.chapter] = w;
+    }
+  }
+  return { id, group, meta, chapters, web, webFileFound };
 }

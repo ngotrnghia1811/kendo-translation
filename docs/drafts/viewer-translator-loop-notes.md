@@ -340,3 +340,8 @@
 - Open item: the metadata database for items (round 43 answer 6). See `docs/VISION-viewer.md` section 15.7.
 - Admin access and role-to-view map, round 44 answer 9. The admin opens every view, which are reader pages, human-translation-view, agent-translation-monitor, and admin pages `[accepted recommendation 2026-10-26 21:33]` "Yes, admins see all (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:138]`. The map is in `docs/VISION-viewer.md` section 15.2. Unit VR2 wrote this line `[check: VR2 2026-10-26 21:40]`.
 - Not verified: the full option text of round 44 answers 5 to 9. The Q-A file holds the labels and the notes of aki-main only.
+- Round 48 answer 9: chain run screens. Unit V2 added them to the agent-translation-monitor `[check: V2 2026-10-27 16:44]`. The details sit in `docs/VISION-viewer.md` section 15.9 and in `app/README.md`.
+  - Line 333 keeps the decision of seven extra items. The Viewer now has nine items. Items 8 (Chain inputs) and 9 (Critic-only runs) are not decided by the owner `[reading pending owner check]`.
+  - The placement of the new parts on the run view, the page view, and the Books tab is an `[agent inference]`.
+  - The compare table of the two critic modes reads `critic-compare/<name>/compare.json`. The script names the folder by the time of the compare, not by the list name. The Viewer finds the compare through the paths in `inputs` `[agent inference]`.
+  - Not verified: the screens against a real chain run. No real chain run exists yet. The tests used plan-mode files and fixture files.

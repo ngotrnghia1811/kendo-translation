@@ -1,5 +1,6 @@
 import "server-only";
-import { readJson, exists } from "./json";
+import { readJson, exists, listDir } from "./json";
+import { criticOnlyFolders, parseBookMemory, parseCriticSession } from "./chain";
 import { runFoldersOf, bookTitle } from "./books";
 import { stripDataPrefix, isSafeSegment, PathError } from "./safe-path";
 import { parseQaMarks } from "./page-labels";
@@ -145,5 +146,10 @@ export async function getPage(slug: string, pageName: string, run?: string): Pro
     critiqueCounts,
     imagePath,
     bookTitle: await bookTitle(slug),
+    // Round 48 answer 9 (Q-A 2026-10-27 l55): the critic mode and the session turn show on the page view. An old summary has no such key.
+    criticMode: typeof summary?.critic_mode === "string" ? summary.critic_mode : null,
+    criticSession: parseCriticSession(summary?.critic_session),
+    bookMemory: parseBookMemory(summary?.book_memory),
+    criticOnlyFolders: criticOnlyFolders(await listDir(rel)),
   };
 }

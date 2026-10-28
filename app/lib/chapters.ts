@@ -1,4 +1,4 @@
-import type { ChapterArticle, ChapterRow } from "./types";
+import type { ChapterArticle, ChapterRow, WebLink } from "./types";
 
 // Pure parsing for item-metadata/magazine-chapters.jsonl (unit M1, round 47). No file access here, so a test can call it.
 // Unknown extra keys do no harm. A row without a string "book" is skipped.
@@ -14,8 +14,15 @@ function str(v: unknown): string {
   return typeof v === "string" ? v : v === null || v === undefined ? "" : String(v);
 }
 
+/** Key web_link of an article row (unit M2): {record_id, title_ja, title_en, url, total, status} or null. An old file has no key. */
+function webLink(w: J): WebLink | null {
+  if (!w || typeof w !== "object" || typeof w.record_id !== "string") return null;
+  return { recordId: w.record_id, titleJa: str(w.title_ja), titleEn: str(w.title_en), url: str(w.url), total: num(w.total), status: str(w.status) };
+}
+
 function article(a: J): ChapterArticle {
   return {
+    webLink: webLink(a?.web_link),
     order: num(a?.order),
     seriesJa: str(a?.series_ja),
     titleJa: str(a?.title_ja),

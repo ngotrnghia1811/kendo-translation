@@ -76,6 +76,10 @@ export default function PageView({ data }: { data: PageData }) {
               <VerdictPill verdict={qa3?.verdict ?? null} score={qa3?.score ?? null} />
             </dd>
           </div>
+          {/* Round 48 answer 9 (Q-A 2026-10-27 l55): critic mode, session turns, book memory write, critic-only runs. An old summary has no critic mode key, so that fact reads "not stored". The other two facts stay hidden without data. */}
+          <Fact label="Critic mode" value={data.criticMode ? criticModeText(data) : "not stored"} />
+          {data.bookMemory ? <Fact label="Book memory" value={bookMemoryText(data.bookMemory)} /> : null}
+          {data.criticOnlyFolders.length > 0 ? <Fact label="Critic-only runs" value={String(data.criticOnlyFolders.length)} /> : null}
         </dl>
         {data.failures.length > 0 ? (
           <div className="mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">
@@ -152,6 +156,19 @@ export default function PageView({ data }: { data: PageData }) {
       <ExtraPanels page={data} stage={stage} ticks={ticks} />
     </section>
   );
+}
+
+function criticModeText(d: PageData): string {
+  const s = d.criticSession;
+  if (!s) return d.criticMode ?? "";
+  const sessions = s.sessionIds.length === 1 ? "1 session" : `${s.sessionIds.length} sessions`;
+  const restarts = s.restarts > 0 ? `, ${s.restarts} ${s.restarts === 1 ? "restart" : "restarts"}` : "";
+  return `${d.criticMode}, ${s.turns ?? "?"} turns in ${sessions}${restarts}, ${s.turnMessage || "no"} turn message`;
+}
+
+function bookMemoryText(m: NonNullable<PageData["bookMemory"]>): string {
+  if (m.written) return `${m.verdict ?? "–"}, ${m.pairs ?? "?"} pairs written`;
+  return `${m.verdict ?? "no verdict"}, nothing written`;
 }
 
 function Fact({ label, value }: { label: string; value: string }) {

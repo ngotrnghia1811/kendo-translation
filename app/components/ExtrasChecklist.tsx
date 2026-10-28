@@ -1,7 +1,7 @@
 "use client";
 import { EXTRAS, type ExtraKey } from "./extras-store";
 
-// Round 43 answer 7 (Q-A l111): checklist of 7 extra items, all off by default.
+// Round 43 answer 7 (Q-A l111): checklist of 7 extra items, all off by default. Round 48 answer 9 adds 2 more, also off by default.
 // Controls stay hidden until needed: the checklist sits in a closed menu.
 export default function ExtrasChecklist({ ticks, toggle }: { ticks: Partial<Record<ExtraKey, boolean>>; toggle: (k: ExtraKey) => void }) {
   const on = EXTRAS.filter((e) => ticks[e.key]).length;

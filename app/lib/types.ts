@@ -16,6 +16,12 @@ export interface RunSummary {
   startedEpoch: number | null;
   updatedEpoch: number | null;
   pausedSinceEpoch: number | null;
+  /** "chain" for a list from run-chain (key kind in progress.json). Every other list is "list". */
+  listKind: "chain" | "list";
+  /** Critic mode from list.json. Null when the key is absent (a list from before the critic mode). */
+  criticMode: string | null;
+  /** Count of books that run at the same time (key book_jobs). Null when the key is absent. */
+  bookJobs: number | null;
 }
 
 export interface RunPageRow {
@@ -32,9 +38,39 @@ export interface RunPageRow {
   qa3Verdict: string | null;
   qa3Score: number | null;
   href: string;
+  /** Text of skipped_reason in progress.json. Null when the page was not skipped. */
+  skippedReason: string | null;
+  /** Failure lists of the page row in list-summary.json. Null when the file has no such key (old file). */
+  forwardFailures: string[] | null;
+  criticFailures: string[] | null;
+  /** Key book_memory of the page row in list-summary.json (chain pages only). */
+  bookMemory: PageBookMemory | null;
+}
+
+export interface PageBookMemory {
+  verdict: string | null;
+  written: boolean | null;
+  pairs: number | null;
+  marks: number | null;
+}
+
+/** One row of the chains table in list.json (or list-summary.json). */
+export interface ChainRow {
+  book: string;
+  pages: string[];
+  state: string;
+  accepted: string[];
+  memoryFile: string;
+  memoryPairs: number | null;
+  /** Count of failed box-critic calls (unit T4). Null when the key is absent. */
+  criticFailures: number | null;
 }
 
 export interface RunDetail extends RunSummary {
+  noCritic: boolean | null;
+  noVoyage: boolean | null;
+  /** The chains table. Null when the list is not a chain list or has no chains key. */
+  chains: ChainRow[] | null;
   elapsedBeforeSeconds: number;
   pauseSecondsTotal: number;
   pausedSinceUtc: string | null;
@@ -62,10 +98,67 @@ export interface BookRow {
   confidence: string;
   pages: number | null;
   pagesWithRuns: BookPage[];
-  /** The whole metadata row of items.filled.jsonl (or items.draft.jsonl). Null when the item has no row. */
+  /** True when items.filled.jsonl (or items.draft.jsonl) has a row for the item. The row itself loads on request (/api/books/<id>). */
+  hasMeta: boolean;
+  /** Count of month chapters of a magazine year. Null for every other group. */
+  chapterCount: number | null;
+}
+
+/** Key web_link of an article row in magazine-chapters.jsonl (unit M2). */
+export interface WebLink {
+  recordId: string;
+  titleJa: string;
+  titleEn: string;
+  url: string;
+  total: number | null;
+  status: string;
+}
+
+/** One candidate of a web row in web-magazine-candidates.jsonl. */
+export interface WebCandidate {
+  book: string;
+  chapter: string;
+  order: number | null;
+  titleJa: string;
+  titleEn: string;
+  pageStart: number | null;
+  pageEnd: number | null;
+  pageGuess: boolean;
+  total: number | null;
+}
+
+/** One row of web-magazine-candidates.jsonl. link and linkStatus come from unit M2. An old file has neither. */
+export interface WebRow {
+  recordId: string;
+  titleJa: string;
+  titleEn: string;
+  url: string;
+  stampText: string;
+  status: string;
+  candidates: WebCandidate[];
+  /** Key link: the one table of contents entry of the best match. Null when the row has no link or the key is absent. */
+  link: { book: string; chapter: string; order: number | null; titleJa: string; total: number | null } | null;
+  /** Key link_status. Null when the key is absent. */
+  linkStatus: string | null;
+}
+
+/** What /api/books/<id> returns: the Details part of one Books row. */
+export interface BookDetail {
+  id: string;
+  group: "book" | "magazine" | "article";
   meta: Record<string, unknown> | null;
   /** Month chapters of a magazine year. Null when the file magazine-chapters.jsonl is absent or empty. Other groups: null. */
   chapters: ChapterRow[] | null;
+  /** Web rows that point at one chapter, by chapter ID. Empty for other groups. */
+  web: Record<string, ChapterWeb>;
+  /** True when the web candidate file exists and has rows. */
+  webFileFound: boolean;
+}
+
+/** The web rows of one chapter. linked: rows whose link points at the chapter. other: rows with a candidate in the chapter but no link there. */
+export interface ChapterWeb {
+  linked: WebRow[];
+  other: WebRow[];
 }
 
 export interface ChapterArticle {
@@ -77,6 +170,8 @@ export interface ChapterArticle {
   pageStart: number | null;
   pageEnd: number | null;
   pageGuess: boolean;
+  /** Key web_link (unit M2). Null when the key is absent or null. */
+  webLink: WebLink | null;
 }
 
 export interface ChapterRow {
@@ -168,4 +263,20 @@ export interface PageData {
   critiqueCounts: CritiqueCount[];
   imagePath: string | null;
   bookTitle: string;
+  /** Key critic_mode of summary.json. Null in an old file. */
+  criticMode: string | null;
+  /** Key critic_session of summary.json (session mode only). */
+  criticSession: CriticSession | null;
+  /** Key book_memory of summary.json (chain pages only). */
+  bookMemory: PageBookMemory | null;
+  /** Folder names critic-<mode>-<stamp> inside the run folder (output of the command critic-only), newest first. */
+  criticOnlyFolders: string[];
+}
+
+export interface CriticSession {
+  criticMode: string;
+  turnMessage: string;
+  sessionIds: string[];
+  restarts: number;
+  turns: number | null;
 }

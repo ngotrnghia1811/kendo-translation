@@ -44,10 +44,17 @@ The file `viewer.config.json` in the app folder holds the settings. It has one k
 
 The title bar shows agent-translation-monitor and two tabs, Runs and Books.
 
-- Runs tab (`/`): one row for each list folder, newest first. Columns: list, state, pages, calls, failed, flagged, cost (models), cost (listed), started, updated. The table refreshes every 3 seconds while a list has the state `running` or `paused`.
+- Runs tab (`/`): one row for each list folder, newest first. Columns: list, kind, state, pages, calls, failed, flagged, cost (models), cost (listed), started, updated. The table refreshes every 3 seconds while a list has the state `running` or `paused`.
+  - The kind column shows `chain` for a list from `run-chain` and `list` for every other list. Below it, the table shows the critic mode and the number of book jobs. A list from before the critic mode shows "critic mode not stored".
 - Run page (`/runs/<list>`): click a list name to open it. It shows the totals of the list and one row for each page. Columns: page, kind, state, calls, USD, minutes, QA_3 verdict.
+  - The totals also show the list kind, the critic mode (or "not stored"), and the book jobs.
   - The Pause button writes a pause file. The button shows only if the list has the state `running` or `paused`. After a pause, the same button reads Resume.
   - Click a page ID to open the page view.
+  - A page that did not run shows the state `skipped` and the line `Skipped:` with the text of `skipped_reason` from `progress.json`.
+  - If the page row in `list-summary.json` has the keys `forward_failures` and `critic_failures`, the state cell shows each list apart, in a closed part. An old file has no such keys, so the cell shows nothing.
+  - Chain lists only: the section "Chain state per book" is a table of the books. Columns: book, pages, state, accepted pages, memory pairs, critic failures. The state `stopped: ...` shows in red. The page table gets one more column, "Book memory", that shows the `book_memory` key of the page row.
+  - Chain lists only: the section "Book translation memory" has one closed line for each book. Open a line to read the pairs of that book, grouped by page. Each pair shows pair ID, part, JA text, EN text, run ID, and written at. The pairs load when you open the line.
+  - Compare of critic modes: the page looks for `critic-compare/<name>/compare.json` files that belong to the list. It shows the totals per variant: pages, critiques, critiques by stage (TS, TL, ED, QA), critiques that cite issues, critiques that cite another QA level, calls, failed calls, cost, and seconds. If the compare has more than one variant, a second table shows the pages that every variant covers. A chain list without a compare shows a short note. Another list shows nothing.
 - Page view (`/page/<book>/<page>`): the JA text sits next to the EN text of one stage. It opens at the last stage, ED_3.
   - Stage tabs ED_0 to ED_3: each tab shows the QA verdict of its stage.
   - Read and Compare stages: Read shows one stage. Compare stages shows all stages one under the other, and a line that did not change shows "same as ED_k".
@@ -58,7 +65,8 @@ The title bar shows agent-translation-monitor and two tabs, Runs and Books.
     - The values `still_in_ed` (red) and `not_in_ed` (green) are new. The old values `confirmed` and `false_alarm` and any other value show as plain text.
   - Reasoning button: it shows the explanation text of one box. A box is one cell of the Translator grid, for example ED_3. The text stays hidden until you press the button.
   - Run folder list: it shows when a page has more than one run folder.
-  - Extra detail menu: 7 items, all off at start. A tick shows the item below the text. The items are:
+  - Header facts of a chain run: "Critic mode" shows the mode from `summary.json`. In session mode it also shows the turns, the sessions, the restarts, and the turn message. An old page reads "not stored". "Book memory" shows the QA_3 verdict and the pairs written. "Critic-only runs" shows the number of `critic-<mode>-<stamp>` subfolders.
+  - Extra detail menu: 9 items, all off at start. A tick shows the item below the text. The items are:
     1. Cost and seconds per call. If a reply needed a JSON repair, the row shows `JSON repaired:` and the kind as text. A kind for several repairs shows joined with `+`.
     2. Exact text sent
     3. Dictionary and aligned memory hits
@@ -66,10 +74,10 @@ The title bar shows agent-translation-monitor and two tabs, Runs and Books.
     5. Program check results. The EN form check shows a count line `follows / breaks / notes` and one label for each term: `follows`, `breaks`, or `note`. A note has its own color. An old file has no `notes` count, so the line shows 0 notes.
     6. Critiques with the note for the next critic
     7. Critique counts against N
-- Books tab (`/books`): a table of books and magazine years, then a table of web articles that have run folders. Columns: book, title (JA, with EN below), author, publisher, year, confidence, pages, pages with runs. Click a page in the last column to open its page view.
+- Books tab (`/books`): a table of books and magazine years, then a table of web articles that have run folders. Columns: book, title (JA, with EN below), author, publisher, year, confidence, pages, pages with runs. Click a page in the last column to open its page view. The page carries no metadata row. The Details part loads on request, so the page stays small.
   - The tab reads `item-metadata/items.filled.jsonl`. If that file has no rows, it reads `item-metadata/items.draft.jsonl`.
   - The table uses these fields: `title_ja`, `title_en`, `author_ja` (or `author_en` if `author_ja` is empty), `publisher`, `publish_year`, `confidence`, `pages`.
-  - Details part: each item has a closed line "Details of <item>". Click it to open all metadata of the item. The tab only reads. It writes nothing.
+  - Details part: each item has a closed line "Details of <item>". Click it to open all metadata of the item. The part asks the route `/api/books/<item>` once, at the first click. The tab only reads. It writes nothing.
     - The part shows every key of the metadata row in these groups: Main, Text, Check state, Draft fields.
     - Main: `title_ja`, `title_en`, `title_en_source`, `title_alternatives`, `author_ja`, `author_en`, `author_en_source`, `publisher`, `publish_year`, `publish_date_text`, `isbn`, `pages`, `kind`, `folder`.
     - Text: `synopsis`, `synopsis_source`, `notes`.
@@ -82,6 +90,10 @@ The title bar shows agent-translation-monitor and two tabs, Runs and Books.
     - Click a chapter to see its articles: order, series, title (JA, with EN below), and page range.
     - The label `draft` marks an EN title with `title_en_status` "draft". The label `guess` marks a page range with `page_guess` true.
     - If the chapter file is absent or empty, the part shows "No chapter file yet.". A bad line in the file is skipped.
+  - Web articles: an article row with the key `web_link` shows the title, the score, the status, and the URL of its web article in the column "Web article". A row without the key, or with `null`, shows "–".
+    - Below the article table, "Web candidates of this chapter" lists the web rows of `item-metadata/web-magazine-candidates.jsonl` whose key `link` points at the chapter. Each row shows the `link_status` text and a closed list of its candidates, with the score of each.
+    - A second closed part lists the web articles that have a candidate in the chapter but no link there. Only the best web match of a web article links to a table of contents entry.
+    - An old file has no `link` and no `link_status`. The row then shows "no link_status".
 
 ## Data files
 
@@ -101,7 +113,14 @@ The app reads these files. All paths are relative to `translatorDataDir`.
   - `critiques/queue-<box>.jsonl`
 - `pilot-sample/book-slugs.json`: the list of books for the Books tab.
 - `item-metadata/items.filled.jsonl` and `item-metadata/items.draft.jsonl`: item metadata.
-- `item-metadata/magazine-chapters.jsonl`: month chapters and articles of the magazine years (Books tab).
+- `item-metadata/magazine-chapters.jsonl`: month chapters and articles of the magazine years (Books tab). An article row can hold `web_link`.
+- `item-metadata/web-magazine-candidates.jsonl`: the web articles with their candidate chapters, `link`, and `link_status` (Books tab, Details part).
+- Chain lists:
+  - `pilot-run/lists/<list>/list.json`: also the keys `kind`, `book_jobs`, `no_critic`, `no_voyage`, `critic_mode`, and the table `chains`.
+  - `pilot-run/lists/<list>/list-summary.json`: page rows with `forward_failures`, `critic_failures`, and `book_memory`. The Viewer falls back to its `chains` table if `list.json` has none.
+  - `pilot-run/lists/<list>/book-memory/<book>.jsonl`: the book translation memory pairs of one book (Run page).
+  - `pilot-run/<book>_pNNN/<run folder>/critic-<mode>-<stamp>/`: output of the command `critic-only` (Extra detail item 9). The Viewer reads `summary.json` and `critiques/queue-<box>.jsonl` there.
+  - `critic-compare/<name>/compare.json`: output of `critic_compare.py` (Run page). The compare belongs to a list if the folder name equals the list name, or if one path in `inputs` ends with the list name.
 
 ## Not done yet
 
@@ -109,6 +128,8 @@ The app reads these files. All paths are relative to `translatorDataDir`.
 - No human-translation-view and no editor for a human translation.
 - No screen to approve or undo rubric table changes.
 - No other screens. The reader pages of the vision docs do not exist.
+- The Viewer cannot start a chain run, a `critic-only` run, or a compare. It reads the files that these commands write.
+- No real chain run exists yet. The panels for chain runs were tested only with data from the plan mode.
 - The only write is the pause file. The Pause button creates `PAUSE` in the list folder, and Resume deletes it.
 - The ticks of the Extra detail menu stay in the browser. They are not saved with an account.
 

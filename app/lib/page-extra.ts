@@ -1,15 +1,20 @@
 import "server-only";
 import { listDir, readJson, readJsonl, readText } from "./json";
-import { isSafeSegment, PathError } from "./safe-path";
+import { isSafeSegment, PathError, stripDataPrefix } from "./safe-path";
 import { enFormSummary, jsonRepairKind } from "./page-labels";
+import { criticOnlyFolders, cutChainBlocks, pagesRead, pairsFound, parseCriticOnlySummary, previousPageOf, sessionFields, CHAIN_BLOCKS } from "./chain";
+import { pageHref } from "./format";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type J = any;
 
-export const EXTRA_PARTS = ["calls", "messages", "lookup", "failed", "programs", "critiques"] as const;
+export const EXTRA_PARTS = ["calls", "messages", "lookup", "failed", "programs", "critiques", "chain", "critic_only"] as const;
 export type ExtraPart = (typeof EXTRA_PARTS)[number];
 
-/** Round 43 answer 7 (Q-A l111): the 7 extra items. This module loads 6 of them on request. The 7th (critique counts) is in the core page data. */
+/**
+ * Round 43 answer 7 (Q-A l111): the 7 extra items. This module loads 6 of them on request. The 7th (critique counts) is in the core page data.
+ * Round 48 answer 9 (Q-A 2026-10-27 l55): two more items, "chain" (chain inputs of the stage) and "critic_only" (runs of the command critic-only).
+ */
 export async function loadExtra(runRel: string, part: ExtraPart, stage: number): Promise<unknown> {
   // runRel is "pilot-run/<slug>_pNNN/<run folder>". Check every segment.
   const segs = runRel.split("/");
@@ -39,6 +44,8 @@ export async function loadExtra(runRel: string, part: ExtraPart, stage: number):
           jsonRepair: r.json_repair ?? null,
           jsonRepairKind: jsonRepairKind(r.json_repair),
           tokens: r.tokens ?? null,
+          // Session mode keys (translator_run.py l1079, l603). The separate mode and old files have none, so every field is null.
+          ...sessionFields(r),
         }));
     }
     case "messages": {
@@ -107,5 +114,79 @@ export async function loadExtra(runRel: string, part: ExtraPart, stage: number):
       }
       return out;
     }
+    case "chain":
+      return loadChainInputs(runRel, n);
+    case "critic_only": {
+      const out: J[] = [];
+      for (const folder of criticOnlyFolders(await listDir(runRel))) {
+        const sub = `${runRel}/${folder}`;
+        const summary = parseCriticOnlySummary(folder, await readJson<J>(`${sub}/summary.json`));
+        out.push({ ...summary, critiques: await readCritiques(sub, n) });
+      }
+      return out;
+    }
   }
+}
+
+/** Critiques of the boxes of one stage in a run folder or a critic-only subfolder: critiques/queue-<box>.jsonl. */
+async function readCritiques(base: string, n: number): Promise<J[]> {
+  const out: J[] = [];
+  for (const b of [`TS_${n}`, `TL_${n}`, `ED_${n}`, `QA_${n}`]) {
+    for (const r of await readJsonl<J>(`${base}/critiques/queue-${b}.jsonl`)) {
+      const c = r.critique ?? {};
+      out.push({
+        reviewedBox: r.reviewed_box ?? b,
+        id: c.critique_id,
+        failureMode: c.failure_mode,
+        reason: c.reason,
+        evidence: c.evidence ?? null,
+        noteForNext: c.note_for_next_step ?? null,
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * The chain inputs of the four forward boxes of one stage: the blocks previous_page_pair, book_translation_memory and earlier_term_marks,
+ * cut from messages/<box>.txt. The previous page links to the same list: the list whose progress.json holds this run folder
+ * names the run folder of the previous page.
+ */
+async function loadChainInputs(runRel: string, n: number): Promise<unknown> {
+  const boxes: { box: string; blocks: Record<string, string | null>; pairsFound: number | null; pagesRead: number | null }[] = [];
+  for (const st of ["TS", "TL", "ED", "QA"]) {
+    const box = `${st}_${n}`;
+    const text = await readText(`${runRel}/messages/${box}.txt`);
+    if (text === null) continue;
+    const blocks = cutChainBlocks(text);
+    boxes.push({ box, blocks, pairsFound: pairsFound(blocks.book_translation_memory), pagesRead: pagesRead(blocks.earlier_term_marks) });
+  }
+  const hasAny = boxes.some((b) => CHAIN_BLOCKS.some((k) => b.blocks[k] !== null));
+  const first = boxes.map((b) => previousPageOf(b.blocks.previous_page_pair)).find((x) => x !== null) ?? null;
+  // Each box reads the pair of the same box on the page before ("from: <box> on page <page ID>"), so the link names the page only.
+  let previous: { pageId: string; href: string | null; note: string } | null = null;
+  if (first) {
+    const link = await previousPageLink(runRel, first.pageId);
+    previous = { pageId: first.pageId, href: link.href, note: link.note };
+  }
+  return { boxes, hasAny, previous };
+}
+
+async function previousPageLink(runRel: string, prevPageId: string): Promise<{ href: string | null; note: string }> {
+  const [, folder, runFolder] = runRel.split("/");
+  const m = /^(.+)_(p\d+)$/.exec(folder);
+  if (!m) return { href: null, note: "The page folder name has no page number." };
+  const thisPageId = `${m[1]}/${m[2]}`;
+  for (const stamp of (await listDir("pilot-run/lists")).filter(isSafeSegment).sort().reverse()) {
+    const prog = await readJson<J>(`pilot-run/lists/${stamp}/progress.json`);
+    const rows: J[] = Array.isArray(prog?.pages) ? prog.pages : [];
+    const base = (f: unknown) => (typeof f === "string" && f ? stripDataPrefix(f).split("/").pop() : undefined);
+    const mine = rows.find((r) => r?.page_id === thisPageId && base(r.folder) === runFolder);
+    if (!mine) continue;
+    const prev = rows.find((r) => r?.page_id === prevPageId);
+    const prevRun = prev ? base(prev.folder) : undefined;
+    if (prevRun && isSafeSegment(prevRun)) return { href: pageHref(prevPageId, prevRun), note: `Same list: ${stamp}.` };
+    return { href: null, note: `List ${stamp} has no run folder for ${prevPageId}.` };
+  }
+  return { href: null, note: "No list folder holds this run folder, so the Viewer cannot tell which run of the previous page to open." };
 }
