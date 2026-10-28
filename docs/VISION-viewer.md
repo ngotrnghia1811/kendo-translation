@@ -887,7 +887,7 @@ page_runs
   - (1) One Save writes one record for every row of the page, empty rows included. All records get the same version number, the highest number of the page plus 1 (recommended). Benefit: a page version is complete, and a restore needs one number. Cost: page `kendojidai_2014/p0839` writes 21 records per Save. The version rule of section 15.12.2 changes from "per group" to "per page". The unique index of P1 still fits.
   - (2) One Save writes one record for each row that holds text, with the same page number. Benefit: fewer records. Cost: a row that the translator clears has no record, so the clear is not saved.
   - (3) One Save writes one record for each changed row, with its own number for each row. Benefit: the fewest records. Cost: one Save is no longer one version, and the version list of the page needs the time of each record.
-- Not verified: whether one Save of several records is one all-or-nothing call in PocketBase 0.39.10. With separate calls, a failure can leave a part of the rows saved.
+- Not verified: whether one Save of several records is one all-or-nothing call in PocketBase 0.39.10. With separate calls, a failure can leave a part of the rows saved. Checked in round 54 by unit H1: the batch API of PocketBase 0.39.10 saves all records or none. It stays off until the migration `1793300002_v2_batch.js` turns it on (section 15.13.2).
 
 ##### Question 2: where H1 reads run data before the sync command S2
 
@@ -960,16 +960,119 @@ page_runs
   - The live security steps of answers 2 and 3. The owner reports later.
   - The files of unit P1. Whether they match section 15.12.2.
   - The JSON field limit of PocketBase (about 1 MB) and the effect of `maxSize`.
-  - Whether PocketBase 0.39.10 has an all-or-nothing call for several records, and the token expiry of PocketBase.
+  - Whether PocketBase 0.39.10 has an all-or-nothing call for several records, and the token expiry of PocketBase. Checked in round 54 by unit H1: yes, the batch API. A user token lives 432000 seconds (section 15.13.5).
   - The size facts of 12:31. Unit H1D did not run them again.
   - The notice wording of section 15.12.4. It is a proposal.
   - Any screen. No code for these parts exists.
 - Open items for the owner. The recommended default comes first in each item.
   - Item 1, use of the v1 schema (answer 9). (1) Confirm the reading of aki-main: the v2 repo holds no v1 file, and the words "with the v1 setup files" in section 15.11.6 are replaced (recommended). (2) Keep round 51 answer 2 as written: copy the v1 schema file into the v2 repo.
-  - Item 2, list rule of `users`. The rule lets every signed-in user list all users. (1) Keep it, so that shared comments can show the name of the writer (recommended, `[agent inference]`). (2) Limit the list to the own record and the admin. Cost: shared comments then show no writer name, unless a view is added.
-  - Item 3, who fills `catalog_items`, `magazine_chapters`, and `page_runs`. Only a superuser writes them. (1) Leave them empty until the sync command S2, and let H1 read files (recommended). (2) Plan an import script before H1.
-  - Item 4, group of one item. The key reads `T01-T01`. (1) Keep the key rule as written (recommended). (2) Write `T01` for a group of one item. Cost: a second form of the key.
-  - Item 5, the panel and section 4 of the TL_3 message (box header). (1) Hide it with the fixed text (recommended). (2) Show it.
-  - Item 6, the eight questions of section 15.12.6.
+  - Item 2, list rule of `users`. The rule lets every signed-in user list all users. (1) Keep it, so that shared comments can show the name of the writer (recommended, `[agent inference]`). (2) Limit the list to the own record and the admin. Cost: shared comments then show no writer name, unless a view is added. Decided in round 54 answer 10: option (1) `[accepted recommendation 2026-10-28 15:01]` "Users list for signed-in (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:129]`.
+  - Item 3, who fills `catalog_items`, `magazine_chapters`, and `page_runs`. Only a superuser writes them. (1) Leave them empty until the sync command S2, and let H1 read files (recommended). (2) Plan an import script before H1. Decided in round 54 answer 10: option (1) `[accepted recommendation 2026-10-28 15:01]` "Three collections empty for now (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:129]`.
+  - Item 4, group of one item. The key reads `T01-T01`. (1) Keep the key rule as written (recommended). (2) Write `T01` for a group of one item. Cost: a second form of the key. Decided in round 54 answer 9: option (1) `[accepted recommendation 2026-10-28 15:01]` "One-item group key T01-T01 (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:128]`.
+  - Item 5, the panel and section 4 of the TL_3 message (box header). (1) Hide it with the fixed text (recommended). (2) Show it. Decided in round 54 answer 9: option (1) `[accepted recommendation 2026-10-28 15:01]` "Hide TL_3 box header (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:128]`.
+  - Item 6, the eight questions of section 15.12.6. Decided in round 54 answers 7 to 10 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:126-129]`. Section 15.13 holds the code state.
+
+Status: open.
+
+### 15.13 H1 code state (round 54)
+
+- Source: owner answers 2, 7, 8, 9, and 10 of round 54 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:119-134]`. Unit H1 wrote the code and this section `[check: H1 2026-10-28 15:34]`.
+  - The Q-A file stores the label of each accepted option. The full option texts are Not verified.
+  - Round 54 answer 2 `[user 2026-10-28 15:01]` "+ Do we need to do any of this? can we just proceed with v2?" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:121]`. Unit H1 used no v1 code and no v1 file. It opened no v1 folder.
+  - The code state is the first version of the human-translation-view. It runs on this Mac against a local PocketBase.
+
+#### 15.13.1 Files
+
+- Run reads (one module): `app/lib/htv-runs.ts`. It lists finished runs, picks the shown run, and builds the rows, the term marks, the panel, and the termbase entries of a page.
+- PocketBase calls (one module): `app/lib/pb.ts`. It uses plain `fetch` and the token of the signed-in user.
+- Pure code, loadable with Node type stripping: `app/lib/htv-groups.ts` (sentence groups, ED_3 text of a row, place of the term marks) and `app/lib/htv-panel.ts` (parser of `messages/TL_3.txt`).
+- Sign-in and routes: `app/lib/htv-session.ts`, `app/lib/htv-api.ts`, `app/lib/htv-types.ts`, `app/lib/htv-format.ts`.
+- Routes: `app/app/api/htv/login`, `logout`, `refresh`, `save`, `version`, `comments`, `comments/[id]`, and `mark`.
+- Pages: `app/app/translate/page.tsx` (list), `app/app/translate/sign-in/page.tsx`, and `app/app/translate/[slug]/[page]/page.tsx`.
+- Components: `HtvList`, `HtvEditor`, `HtvComments`, `HtvMarkedText`, `HtvPanel`, `HtvBar`, and `HtvSignIn` in `app/components/`. The file `Nav.tsx` has a third tab.
+- Changed files: `app/lib/config.ts` (key `pocketbaseUrl`), `app/scripts/smoke.mjs` (mode `htv`), `app/README.md`, and `data/scripts/pocketbase/test_local.py` (batch checks).
+- New migration: `data/scripts/pocketbase/pb_migrations/1793300002_v2_batch.js`.
+
+#### 15.13.2 Round 54 decisions as built
+
+- Answer 7, one Save `[accepted recommendation 2026-10-28 15:01]` "Every row, one page number (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:126]`.
+  - One Save writes one `own_translations` record for every row of the page, empty rows included. All records get the version number: the highest version of this user on this page plus 1.
+  - The call is `POST /api/batch`. PocketBase 0.39.10 has the batch API off by default (status 403 "Batch requests are not allowed."). The migration `1793300002_v2_batch.js` turns it on with `maxRequests` 200 and `timeout` 10. Its down function turns the API off and keeps the other values.
+  - The batch saves all records or none `[check: H1 2026-10-28 15:18 python3 test_local.py checks 17c and 17d]`. A duplicate record or a record for another user makes the call fail, and no record of that call stays.
+  - The rules of the collection apply to each request of the batch. A reader fails, and an anonymous call fails.
+  - A batch of 200 requests works. A batch of 201 requests fails. The app refuses a page with more than 200 rows with a plain message.
+  - If two tabs take the same number, the unique index rejects one batch. The app reads the highest number again and tries up to 3 times `[check: H1 2026-10-28 15:28 refresh_check.py, three parallel saves gave versions 1, 2, and 3]`.
+- Answer 8, run data `[user 2026-10-28 15:01]` "option 1 for dev. but these data will be uploaded for deployment right?" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:127]`.
+  - All run reads sit in `app/lib/htv-runs.ts`. The switch to `page_runs` after the sync command S2 changes that file only.
+- Answer 9, five screen details `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:128]`.
+  - A saved text or a comment can have a key with no row in the shown run. It shows in a box below the rows. The label is "Saved for lines that this run cuts in another way".
+  - The notice shows on every run difference, with no text compare.
+  - Only the human-translation-view needs sign-in. The monitor, the pause route, and the existing API routes stay open.
+  - The panel hides section 4 of the TL_3 message.
+  - A one-item group repeats the ID: `kendojidai_2014/p0794/ts3/T01-T01`.
+- Answer 10, five technical details `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:129]`.
+  - Server routes call PocketBase with plain `fetch`. The login route sets the httpOnly cookie `htv_token`. Page scripts never see the token. No new npm dependency.
+  - Newest finished run: the finished run with the largest `started_utc` of `run.json`. An admin run mark in `run_marks` (one for each page) comes first.
+  - The key `pocketbaseUrl` of `viewer.config.json` names the PocketBase address. The default is `http://127.0.0.1:8090`.
+  - The list rule of `users` stays at signed-in. Shared comments show the name of the writer, or the email if the name is empty.
+  - `catalog_items`, `magazine_chapters`, and `page_runs` stay empty. The unit did not fill them.
+
+#### 15.13.3 Unit defaults
+
+- Each item below is a choice of unit H1. The docs leave the detail open. The owner has not decided any of them.
+  - Routes: `/translate` (list), `/translate/<book>/<page>` (one page), and `/translate/sign-in`. A page ID has two parts, so the page route has two segments.
+  - Reader: a read-only view with the JA text, the ED_3 text, and the panel. It has no own box, no comments, and no saved data. Section 15.2 says that the reader opens the reader pages `[agent inference]`, so this default is open.
+  - Session: the app checks the token on each request with the user record. It treats a disabled account as not signed in. A page refreshes the token when less than 3 days are left.
+  - Times show in UTC, so that the server and the browser agree.
+  - A panel block with more than 40 lines starts closed.
+  - A saved text gets the run notice only if the text is not empty. The page also shows one line above the rows when any row has a notice.
+  - The notice text is the proposal of section 15.12.4.
+  - The admin run mark control sits on the page view, with a list of the finished runs and two buttons. The page list shows the word "marked".
+  - The panel sits in a column of 26 rem at the right of the rows. The view is for desktop only (round 44 answer 8).
+  - The top bar title reads "human-translation-view" on the paths under `/translate`.
+  - Loading an older version puts it in the boxes. The boxes then count as saved, because the older version stays in PocketBase. A new Save keeps it as a new version.
+  - The warning on unsaved text covers a reload, a close, a typed address, and a click on a link of the app. It does not cover the back button of the browser.
+  - The term pop-up shows the result of the EN form check as one line, and it closes on scroll.
+  - Rows come from body lines and titles only (the book memory rule). Pillar, caption, folio, and figure items make no row.
+  - The version history lists the versions of the user on the page. The list reads the records of the user on that page.
+
+#### 15.13.4 Test results
+
+- All tests ran in a copy of the app folder against a throwaway PocketBase on port 8092 `[check: H1 2026-10-28 15:33]`.
+  - `npx tsc --noEmit` and `npm run lint` in `app/`: no error.
+  - `npm run build` in the copy: success, 24 routes.
+  - `node scripts/smoke.mjs smoke`: 70 PASS, 0 FAIL, 0 SKIP. The count equals the earlier count of 70 `[file: .opencode/reminders/plan/evolving-plan-2026-10-28.md:9]`.
+  - `node scripts/smoke.mjs htv`: 98 PASS, 0 FAIL.
+  - Group parity with `translator.book_memory`: 37 finished runs, 278 groups, 0 differences. The check includes the ED_3 text of each row against `cut_pairs`.
+  - Mark places: 916 marks. 854 JA marks and 741 EN marks sit in rows, and 0 of them point at wrong text. 62 JA marks sit on pillar and caption items, which make no row.
+  - TL_3 panel parser: 9 PASS. Page `kendojidai_2014/p0839` gives 536 of 721 lines.
+  - Token refresh, token expiry, and three parallel saves: 12 PASS.
+  - Chrome headless (hydration, typing, copy button, leave warning, Save, version load, comments, term pop-up, panel toggle, sign out): 27 PASS, 0 console errors.
+  - P1 test `test_local.py`, shape fresh: 110 PASS, 0 FAIL. The run used port 8093 because the unit must not use port 8091.
+- Port 3000 after the last edit: `/` and `/books` gave 200, and `/translate` gave 307 to the sign-in page.
+
+#### 15.13.5 Facts found
+
+- The run status sits in `summary.json`. The file `run.json` has no key `status`. The finished-run rule of section 15.12.4 stays right.
+- A user token of PocketBase 0.39.10 lives 432000 seconds (5 days). The shortest value that the collection accepts is 10 seconds.
+- An expired token gives 307 on the pages and 401 on the routes. `auth-refresh` of a fresh token returns the same token inside one second.
+- One group has no ED_3 text: `kendojidai_2014/p0794/ts3/L11-L13` in the run `20261026T205247Z-r41`. The newest run of that page has ED_3 text for all groups.
+- The unit did not start the local PocketBase on port 8090. A server that started before the file `1793300002_v2_batch.js` existed has the batch API off. It needs one restart.
+
+#### 15.13.6 Not verified and open items
+
+- Not verified:
+  - A browser other than Chrome headless.
+  - Load with many users at the same time.
+  - A deploy on https. The cookie flag Secure follows the request scheme in code, and no test used https.
+  - The effect of the migration on the live PocketBase server.
+- Open items for the owner. The recommended default comes first in each item.
+  - Item 1, reader access. (1) Keep the read-only view (recommended). Benefit: a reader can read the panel and the agent text. Cost: it differs from the reading of section 15.2. (2) Close the view to the reader. Cost: one check in the page route.
+  - Item 2, pillar, caption, folio, and figure items. (1) Keep them out of the rows (recommended, book memory rule). Cost: 62 JA marks have no highlight. (2) Add a read-only block below the rows. Cost: a new layout part.
+  - Item 3, the local PocketBase on port 8090. (1) Restart it once, so that it loads the batch migration (recommended). Cost: a short break. (2) Turn the batch API on in the dashboard. Cost: the setting is not in the repository.
+  - Item 4, `data/scripts/pocketbase/README.md` names two migrations and port 8091. (1) Update it in the next P unit (recommended). (2) Leave it.
+  - Item 5, the browser back button with unsaved text. (1) Leave as is (recommended). (2) Add a guard. Cost: more client code and history handling.
+  - Item 6, a column "your latest version" in the page list. (1) Leave it out (recommended). (2) Add it. Cost: one more PocketBase call for each list view.
+  - Item 7, the window title of the app. It reads "agent-translation-monitor" on all pages. (1) Keep it (recommended). (2) Set a title for each view.
 
 Status: open.

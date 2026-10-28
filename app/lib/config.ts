@@ -9,7 +9,11 @@ import path from "node:path";
  */
 export interface ViewerConfig {
   translatorDataDir: string;
+  /** Round 54 answer 10 (Q-A 2026-10-28 l129): "pocketbaseUrl in config file (Recommended)". Default http://127.0.0.1:8090. */
+  pocketbaseUrl: string;
 }
+
+export const DEFAULT_POCKETBASE_URL = "http://127.0.0.1:8090";
 
 export function configPath(): string {
   return process.env.VIEWER_CONFIG
@@ -23,7 +27,8 @@ export async function loadConfig(): Promise<ViewerConfig> {
   if (!cfg.translatorDataDir || typeof cfg.translatorDataDir !== "string") {
     throw new Error("viewer.config.json needs the key translatorDataDir.");
   }
-  return { translatorDataDir: path.resolve(cfg.translatorDataDir) };
+  const pb = typeof cfg.pocketbaseUrl === "string" && cfg.pocketbaseUrl.trim() ? cfg.pocketbaseUrl.trim() : DEFAULT_POCKETBASE_URL;
+  return { translatorDataDir: path.resolve(cfg.translatorDataDir), pocketbaseUrl: pb.replace(/\/+$/, "") };
 }
 
 export async function dataRoot(): Promise<string> {

@@ -1,6 +1,6 @@
 # Viewer app
 
-This is the Viewer of the kendo translation project. It reads Translator run data and item metadata from files on disk. The Viewer docs decide two views, the human-translation-view and the agent-translation-monitor, and only the agent-translation-monitor exists now.
+This is the Viewer of the kendo translation project. It reads Translator run data and item metadata from files on disk. The Viewer docs decide two views, the human-translation-view and the agent-translation-monitor, and both views exist now. The human-translation-view needs a PocketBase server (see the section Human-translation-view at the end).
 
 ## Requirements
 
@@ -63,7 +63,7 @@ Mode `pause` sends POST requests to `/api/pause` and creates and deletes a `PAUS
 
 ## Configuration
 
-The file `viewer.config.json` in the app folder holds the settings. It has one key, `translatorDataDir`.
+The file `viewer.config.json` in the app folder holds the settings. It has two keys, `translatorDataDir` and `pocketbaseUrl`. The key `pocketbaseUrl` is optional (see the section Human-translation-view at the end).
 
 ```json
 {
@@ -78,7 +78,7 @@ The file `viewer.config.json` in the app folder holds the settings. It has one k
 
 ## Screens
 
-The title bar shows agent-translation-monitor and two tabs, Runs and Books.
+The title bar shows agent-translation-monitor and two tabs, Runs and Books, and a third tab, Human translation (see the section Human-translation-view at the end).
 
 - Runs tab (`/`): one row for each list folder, newest first. Columns: list, kind, state, pages, calls, failed, flagged, cost (models), cost (listed), started, updated. The table refreshes every 3 seconds while a list has the state `running` or `paused`.
   - The kind column shows `chain` for a list from `run-chain` and `list` for every other list. Below it, the table shows the critic mode and the number of book jobs. A list from before the critic mode shows "critic mode not stored".
@@ -162,16 +162,90 @@ The app reads these files. All paths are relative to `translatorDataDir`.
 
 ## Not done yet
 
-- No sign-in and no roles. Every visitor sees every screen.
-- No human-translation-view and no editor for a human translation.
+- Sign-in and roles exist on the human-translation-view only. Every visitor sees every screen of the agent-translation-monitor.
+- The human-translation-view is a first version. Its open items are in section 15.13 of `docs/VISION-viewer.md`.
 - No screen to approve or undo rubric table changes.
 - No other screens. The reader pages of the vision docs do not exist.
 - The Viewer cannot start a chain run, a `critic-only` run, or a compare. It reads the files that these commands write.
 - No real chain run exists yet. The panels for chain runs were tested only with data from the plan mode.
-- The only write is the pause file. The Pause button creates `PAUSE` in the list folder, and Resume deletes it.
+- The only file write is the pause file. The Pause button creates `PAUSE` in the list folder, and Resume deletes it. The human-translation-view writes to PocketBase only.
 - The ticks of the Extra detail menu stay in the browser. They are not saved with an account.
 
 ## Where to read more
 
 - `docs/VISION-viewer.md` (in the repository root): the decided vision of the Viewer.
 - `docs/drafts/viewer-translator-loop-notes.md` (in the repository root): design notes for the agent-translation-monitor.
+
+## Human-translation-view
+
+The human-translation-view lets a translator write own translations next to the agent text. It sits under the tab Human translation (`/translate`). It needs a PocketBase server for sign-in and for the data. Round 54 (unit H1) built it. The sources are the sections 15.10 to 15.13 of `docs/VISION-viewer.md`.
+
+### Start
+
+1. Start PocketBase as `data/scripts/pocketbase/README.md` says (section 2). The server listens on `http://127.0.0.1:8090`.
+2. Make sure that the server loads the migration `data/scripts/pocketbase/pb_migrations/1793300002_v2_batch.js`. The migration turns on the batch API. A server that started before the file existed must restart once.
+3. Add the users with `pb_users.py`. The roles are `admin`, `translator`, and `reader`.
+4. Start the app (`npm run dev`) and open http://localhost:3000/translate.
+5. To use another PocketBase address, add the key `pocketbaseUrl` to `viewer.config.json`. The default is `http://127.0.0.1:8090`.
+
+```json
+{
+  "translatorDataDir": "/path/to/translator/data",
+  "pocketbaseUrl": "http://127.0.0.1:8090"
+}
+```
+
+### Sign in
+
+- The sign-in page is `/translate/sign-in`. A page of the view sends a visitor who is not signed in to this page.
+- The login route sets the cookie `htv_token` (httpOnly, SameSite=Lax, Secure on https only). Page scripts never see the token.
+- A token lives 5 days. A page refreshes it when less than 3 days are left.
+- Only the human-translation-view needs sign-in. The agent-translation-monitor and its routes stay open.
+
+### Roles
+
+- The admin and the translator write own translations and comments.
+- The reader sees the JA text, the ED_3 text, and the TL_3 information panel. The reader sees no own box and no comments.
+- The admin can set and clear the run mark of a page. A translator or reader cannot.
+
+### Screens
+
+- List (`/translate`): one row for each page with a finished run, FAIL pages included. A run is finished when `summary.json` holds a QA_3 verdict and the files `results/TS_3.json` and `results/ED_3.json` exist. The status text does not matter.
+- Page (`/translate/<book>/<page>`): the shown run is the run that the admin marked. If no run is marked, it is the finished run with the largest `started_utc` in `run.json`.
+  - One row for each sentence group (same cut as the book translation memory). A row shows the JA text, the ED_3 text of the shown run, an own box, and a button that copies the ED_3 text into the box. A row with no ED_3 text shows a note.
+  - Save writes every row, empty rows included, as one saved version. All records of one Save get the same version number. A failed Save writes no row.
+  - Version history: a table of saved versions with the time and the run ID. A button loads an older version into the boxes. A new Save keeps it as a new version.
+  - A saved text from another run than the shown run gets a notice on its row. The notice shows on every run difference and compares no text.
+  - The box "Saved for lines that this run cuts in another way" shows saved texts and comments whose group key has no row in the shown run.
+  - Comments: each row has a comment list. A new comment starts private. The writer can edit it, share it, and delete it. The admin can delete any comment.
+  - TL_3 information panel: the input blocks of the TL_3 message for the whole page. The panel hides `grid_place`, the fixed text, and the box header. A button hides and shows the panel.
+  - Term highlight: a click on a highlighted term opens the termbase entry. The pop-up shows the first definition of each language. A button shows the full entry.
+  - A warning shows when the user leaves with unsaved text (reload, close, and a click on a link of the app).
+
+### Where the code sits
+
+- `lib/htv-runs.ts`: all reads of run folders for this view. A later switch to the collection `page_runs` changes this file only.
+- `lib/pb.ts`: all PocketBase calls (plain `fetch`, the token of the signed-in user).
+- `lib/htv-groups.ts` and `lib/htv-panel.ts`: pure code for the sentence groups, the term marks, and the TL_3 message.
+- `lib/htv-session.ts` and `lib/htv-api.ts`: cookie, sign-in check, and route guard.
+- `app/translate/` (pages) and `app/api/htv/` (routes).
+
+### Smoke test, mode `htv`
+
+Mode `htv` writes versions, comments, and run marks into PocketBase. Use a throwaway PocketBase on port 8092 and never the real server.
+
+1. Start a throwaway PocketBase on `127.0.0.1:8092` with a temporary data folder and the migrations of `data/scripts/pocketbase/pb_migrations/`. Make a temporary superuser.
+2. Add four users with random passwords: an admin, two translators, and a reader.
+3. Copy the app as the section Smoke test says. Set `pocketbaseUrl` to `http://127.0.0.1:8092` in the file `viewer.config.json` of the copy.
+4. Set the env variables `HTV_ADMIN_EMAIL`, `HTV_ADMIN_PASSWORD`, `HTV_TR1_EMAIL`, `HTV_TR1_PASSWORD`, `HTV_TR2_EMAIL`, `HTV_TR2_PASSWORD`, `HTV_READER_EMAIL`, and `HTV_READER_PASSWORD`.
+5. Build the copy and run: `node scripts/smoke.mjs htv`
+6. Stop the throwaway server and delete its data folder.
+
+The script never prints a password or a token. It checks these parts:
+
+- Sign-in, the list, and the rows of `mental_full/p014`.
+- Save and the version numbers.
+- Comments of two translators, and the limits of the reader.
+- The run mark and the notice.
+- The panel line count of `kendojidai_2014/p0839`.
+- An old run folder with missing files.

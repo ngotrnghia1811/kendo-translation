@@ -27,6 +27,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 sys.dont_write_bytecode = True
@@ -429,6 +430,53 @@ def check_comments(ctx):
     ctx.check("8p tr1 delete of own comment works", is_ok(status), "status " + str(status))
 
 
+def batch_request(ctx, key, group, version, text="batch text", user_key=None):
+    """One request of a batch call: create an own translation."""
+    body = translation_body(ctx, key, version=version, group=group, user_key=user_key)
+    body["text"] = text
+    return {"method": "POST", "url": "/api/collections/own_translations/records", "body": body}
+
+
+def count_version(ctx, page_id, version):
+    status, data = http("GET", "/api/collections/own_translations/records?perPage=1&filter=" +
+                        urllib.parse.quote('page_id="' + page_id + '" && version=' + str(version)), token=ctx.su_token)
+    return data.get("totalItems") if is_ok(status) else None
+
+
+def check_batch(ctx):
+    """Unit H1, round 54 answer 7: one Save writes every row in one batch call. The migration 1793300002 turns batch on."""
+    path = "/api/batch"
+    t = ctx.token
+    page = "kendojidai_2014/p0839"
+    status, settings = http("GET", "/api/settings", token=ctx.su_token)
+    batch = settings.get("batch", {}) if is_ok(status) else {}
+    ctx.check("17a batch API is on, with maxRequests >= 200 and timeout >= 10",
+              batch.get("enabled") is True and batch.get("maxRequests", 0) >= 200 and batch.get("timeout", 0) >= 10, "batch " + str(batch))
+    ok_calls = {"requests": [batch_request(ctx, "tr1", g, 5) for g in ("B01-B01", "B02-B02", "B03-B03")]}
+    status, data = http("POST", path, ok_calls, t["tr1"])
+    ctx.check("17b tr1 batch of 3 own translations with one version works", is_ok(status) and isinstance(data, list) and len(data) == 3
+              and all(item.get("status") == 200 for item in data), "status " + str(status))
+    ctx.check("17b the 3 records are saved", count_version(ctx, page, 5) == 3, "count " + str(count_version(ctx, page, 5)))
+    bad_dup = {"requests": [batch_request(ctx, "tr1", "B04-B04", 6), batch_request(ctx, "tr1", "B01-B01", 5)]}
+    status, _ = http("POST", path, bad_dup, t["tr1"])
+    ctx.check("17c batch with one duplicate record fails", is_denied(status), "status " + str(status))
+    ctx.check("17c nothing of the failed batch is saved (all or nothing)", count_version(ctx, page, 6) == 0, "count " + str(count_version(ctx, page, 6)))
+    bad_user = {"requests": [batch_request(ctx, "tr1", "B05-B05", 7), batch_request(ctx, "tr1", "B06-B06", 7, user_key="tr2")]}
+    status, _ = http("POST", path, bad_user, t["tr1"])
+    ctx.check("17d batch with a record for another user fails", is_denied(status), "status " + str(status))
+    ctx.check("17d nothing of that batch is saved", count_version(ctx, page, 7) == 0, "count " + str(count_version(ctx, page, 7)))
+    status, _ = http("POST", path, {"requests": [batch_request(ctx, "rd1", "B07-B07", 1)]}, t["rd1"])
+    ctx.check("17e rd1 batch fails (the create rule applies to each request)", is_denied(status), "status " + str(status))
+    status, _ = http("POST", path, {"requests": [batch_request(ctx, "tr1", "B07-B07", 1)]})
+    ctx.check("17e anonymous batch fails", is_denied(status), "status " + str(status))
+    many = {"requests": [batch_request(ctx, "tr1", "M%03d-M%03d" % (n, n), 8) for n in range(200)]}
+    status, data = http("POST", path, many, t["tr1"])
+    ctx.check("17f batch of 200 records works", is_ok(status) and isinstance(data, list) and len(data) == 200, "status " + str(status))
+    over = {"requests": [batch_request(ctx, "tr1", "N%03d-N%03d" % (n, n), 9) for n in range(201)]}
+    status, _ = http("POST", path, over, t["tr1"])
+    ctx.check("17f batch of 201 records is refused", is_denied(status), "status " + str(status))
+
+
 def check_run_marks(ctx):
     path = "/api/collections/run_marks/records"
     t = ctx.token
@@ -601,6 +649,19 @@ def users_auth_rule(shape_dir):
     return "(users missing)"
 
 
+def batch_enabled_db(shape_dir):
+    """Value of settings.batch.enabled from data.db. The server must be stopped."""
+    connection = sqlite3.connect("file:" + os.path.join(shape_dir, "pb_data", "data.db") + "?mode=ro", uri=True)
+    try:
+        row = connection.execute("SELECT value FROM _params WHERE id = 'settings'").fetchone()
+    finally:
+        connection.close()
+    if not row:
+        return None
+    value = row[0].decode("utf-8") if isinstance(row[0], bytes) else row[0]
+    return json.loads(value).get("batch", {}).get("enabled")
+
+
 def run_cli(server, args, answer="y\n"):
     result = subprocess.run([PB_BIN] + args + server.base_args(), input=answer, capture_output=True, text=True, timeout=120)
     return result.returncode, (result.stdout + result.stderr)
@@ -620,7 +681,7 @@ def check_restart(ctx, server, shape_dir, counts):
     ctx.check("13a records survive the restart", count_records(ctx) == counts, "counts differ")
     server.stop()
     removed = forget_v2_history(shape_dir)
-    ctx.check("13b v2 history rows removed for the test (2 expected)", removed == 2, "removed " + str(removed))
+    ctx.check("13b v2 history rows removed for the test (3 expected)", removed == 3, "removed " + str(removed))
     try:
         server.start()
         ok, reason = True, ""
@@ -642,8 +703,9 @@ def check_restart(ctx, server, shape_dir, counts):
 
 def check_down_up(ctx, server, shape_dir):
     server.stop()
-    code, output = run_cli(server, ["migrate", "down", "2"])
-    ctx.check("15a migrate down 2 exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
+    code, output = run_cli(server, ["migrate", "down", "3"])
+    ctx.check("15a migrate down 3 exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
+    ctx.check("15g down turns the batch API off", batch_enabled_db(shape_dir) is False, "batch " + repr(batch_enabled_db(shape_dir)))
     ctx.check("15b down sets users authRule to empty", users_auth_rule(shape_dir) == "", "authRule " + repr(users_auth_rule(shape_dir)))
     names = {row["name"] for row in read_collections_db(shape_dir)}
     kept = {"own_translations", "comments", "run_marks", "page_runs"}
@@ -652,6 +714,7 @@ def check_down_up(ctx, server, shape_dir):
               kept <= names and not (gone & names), "kept " + str(sorted(kept & names)) + " empty-left " + str(sorted(gone & names)))
     code, output = run_cli(server, ["migrate", "up"])
     ctx.check("15d migrate up exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
+    ctx.check("15h up turns the batch API on again", batch_enabled_db(shape_dir) is True, "batch " + repr(batch_enabled_db(shape_dir)))
     ctx.check("15e up sets users authRule again", users_auth_rule(shape_dir) == "disabled = false",
               "authRule " + repr(users_auth_rule(shape_dir)))
     names = {row["name"] for row in read_collections_db(shape_dir)}
@@ -673,6 +736,7 @@ def run_shape(shape, v1_dir, res):
         create_users(ctx)
         check_users(ctx)
         check_own_translations(ctx)
+        check_batch(ctx)
         check_comments(ctx)
         check_run_marks(ctx)
         check_page_runs(ctx)
