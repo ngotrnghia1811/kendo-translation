@@ -1,8 +1,11 @@
-// Smoke tests for the Viewer app. Round 44 unit APP.
+// Smoke tests for the Viewer app. Round 44 unit APP, updated in round 49 unit V3.
 // Usage:
-//   node scripts/smoke.mjs smoke                       real config, read-only requests
+//   node scripts/smoke.mjs smoke                       real config, GET requests only
 //   node scripts/smoke.mjs pause --config FILE --fixture DIR   pause test, fixture folder only
 // The script starts `next start` on a free port and stops it at the end.
+// Run `npm run build` first. Run the script in a copy of the app, not in the folder of the dev server.
+// Mode `pause` sends POST requests. Never run it with the real data folder.
+// A check prints PASS, FAIL, or SKIP. A SKIP names the reason and does not count as a failure.
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { promises as fs } from "node:fs";
@@ -41,9 +44,32 @@ async function get(url, init) {
   return { status: res.status, body, ms, type: res.headers.get("content-type") ?? "" };
 }
 
+let skips = 0;
+
 function check(name, ok, detail = "") {
   if (!ok) failures++;
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? "  " + detail : ""}`);
+}
+
+function skip(name, reason) {
+  skips++;
+  console.log(`SKIP  ${name}  ${reason}`);
+}
+
+// Text that a reader sees: no script blocks, no tags, one space between words.
+function visibleText(html) {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/g, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+function parseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 async function startServer() {
@@ -78,6 +104,13 @@ async function smoke() {
 
   r = await get("/books");
   check("Books page 200, groups Books and Articles", r.status === 200 && r.body.includes("lifelong_full") && r.body.includes("Articles") && r.body.includes("18d4ac29"), `${Math.round(r.ms)} ms`);
+  // Round 48 unit V2: the list rows carry hasMeta and chapterCount only. The Details part loads from /api/books/<id>.
+  const booksText = visibleText(r.body);
+  check("Books page is small (under 500 KB, no inline metadata)", r.body.length < 500_000, `${Math.round(r.body.length / 1024)} KB`);
+  check("Books page rows carry hasMeta and chapterCount", r.body.includes("hasMeta") && r.body.includes("chapterCount"));
+  check("Books page: a magazine year shows its chapter count", /Details of kendojidai_2014 and month chapters \(13\)/.test(booksText));
+  check("Books page: an article without a metadata row says so", /Details of 18d4ac29 \(no metadata row\)/.test(booksText));
+  check("Books page holds no chapter rows (they load on request)", !r.body.includes("kendojidai_2014/2014-01"));
 
   const run = JSON.parse((await get(`/api/runs/${stamp}`)).body);
   check("Run API gives 22 page rows", run.pages.length === 22, String(run.pages.length));
@@ -131,6 +164,63 @@ async function smoke() {
   check("Path test: bad list name page gives 404", x4.status === 404, `status ${x4.status}`);
   const x5 = await get("/api/file?path=" + encodeURIComponent("pilot-run/lists/" + stamp + "/progress.json"));
   check("Inside the folder a json file reads fine", x5.status === 200);
+
+  // Round 49 unit V3: Books Details route.
+  const bk = await get("/api/books/kendojidai_2014");
+  const bkJson = parseJson(bk.body);
+  const chapters = bkJson?.chapters ?? [];
+  check("Books API: kendojidai_2014 gives 200 and 13 chapters (front chapter included)", bk.status === 200 && bk.type.includes("json") && Array.isArray(chapters) && chapters.length === 13, `status ${bk.status}, ${chapters.length} chapters, ${Math.round(bk.ms)} ms`);
+  check("Books API: kendojidai_2014 has its metadata row", bkJson?.group === "magazine" && bkJson?.meta?.item_id === "kendojidai_2014");
+  // The API names the key `webLink` (camel case). The file item-metadata/magazine-chapters.jsonl names it `web_link`.
+  const articles = Array.isArray(chapters) ? chapters.flatMap((c) => c.articles ?? []) : [];
+  const linked = articles.filter((a) => a.webLink);
+  check("Books API: every article of kendojidai_2014 carries the key webLink", articles.length > 0 && articles.every((a) => "webLink" in a), `${articles.length} articles`);
+  // The links come from the data. If the data holds no link now, the check cannot run.
+  if (linked.length > 0) check("Books API: kendojidai_2014 has an article with a web link that holds a URL", typeof linked[0].webLink.url === "string", `${linked.length} of ${articles.length} articles`);
+  else skip("Books API: kendojidai_2014 has an article with a web link that holds a URL", `the data holds no web link for kendojidai_2014 now (0 of ${articles.length} articles)`);
+  const bkArticle = await get("/api/books/18d4ac29");
+  const bkArticleJson = parseJson(bkArticle.body);
+  check("Books API: a web article without a metadata row gives 200 and meta null", bkArticle.status === 200 && bkArticleJson?.group === "article" && bkArticleJson?.meta === null);
+  const bk403 = await get("/api/books/..%2Fx");
+  check("Books API: bad item name gives 403", bk403.status === 403, `status ${bk403.status}`);
+  const bk404 = await get("/api/books/zzz_none");
+  check("Books API: unknown item gives 404", bk404.status === 404, `status ${bk404.status}`);
+
+  // Pilot list: memory and compare routes.
+  const memNone = await get(`/api/runs/${stamp}/memory`);
+  check("Memory API without a book name gives 403", memNone.status === 403, `status ${memNone.status}`);
+  const memPilot = await get(`/api/runs/${stamp}/memory?book=lifelong_full`);
+  check("Memory API: a list that is not a chain list gives 404", memPilot.status === 404, `status ${memPilot.status}`);
+  const cmp = await get(`/api/runs/${stamp}/compare`);
+  check("Compare API for the pilot list gives 200 and a JSON array", cmp.status === 200 && Array.isArray(parseJson(cmp.body)), `status ${cmp.status}, ${cmp.body.slice(0, 20)}`);
+  const cmpBad = await get("/api/runs/..%2Fx/compare");
+  check("Compare API: bad list name gives 403", cmpBad.status === 403, `status ${cmpBad.status}`);
+
+  // Chain list S1. It can still run, so no check reads a count that changes.
+  const chainStamp = "20261028T023006Z";
+  const chainBooks = ["mental_full", "left_foot_full", "kendojidai_2014"];
+  const chainApi = await get(`/api/runs/${chainStamp}`);
+  if (chainApi.status !== 200) {
+    const why = `list ${chainStamp} not readable (status ${chainApi.status})`;
+    for (const name of ["Chain list: Runs page shows the list", "Chain list: run view shows kind, books, and critic mode", "Chain list: run API gives 200", "Chain list: memory API gives 200 for the first book"]) skip(name, why);
+  } else {
+    const home = visibleText((await get("/")).body);
+    check("Chain list: Runs page shows the list as chain with critic session", home.includes(chainStamp) && /chain critic session/.test(home));
+    const view = await get(`/runs/${chainStamp}`);
+    const text = visibleText(view.body);
+    check("Chain list: run view shows kind chain, three books, and critic mode session", view.status === 200 && /List kind chain/.test(text) && /Critic mode session/.test(text) && chainBooks.every((b) => text.includes(b)), `status ${view.status}`);
+    const api = parseJson(chainApi.body);
+    check("Chain list: run API gives 200 with kind chain and critic mode session", api?.listKind === "chain" && api?.criticMode === "session" && api?.stamp === chainStamp);
+    const mem = await get(`/api/runs/${chainStamp}/memory?book=${chainBooks[0]}`);
+    const memJson = parseJson(mem.body);
+    check("Chain list: memory API gives 200 for the first book", mem.status === 200 && memJson?.book === chainBooks[0] && Array.isArray(memJson?.pages), `status ${mem.status}`);
+    const memBad = await get(`/api/runs/${chainStamp}/memory?book=zzz_none`);
+    check("Chain list: memory API gives 404 for a book outside the list", memBad.status === 404, `status ${memBad.status}`);
+    const memTrav = await get(`/api/runs/${chainStamp}/memory?book=..%2Fx`);
+    check("Chain list: memory API gives 403 for a bad book name", memTrav.status === 403, `status ${memTrav.status}`);
+    const cmpChain = await get(`/api/runs/${chainStamp}/compare`);
+    check("Chain list: compare API gives 200 and a JSON array", cmpChain.status === 200 && Array.isArray(parseJson(cmpChain.body)), `status ${cmpChain.status}`);
+  }
 }
 
 async function listing(dir) {
@@ -227,6 +317,6 @@ try {
 const total = timings.reduce((s, t) => s + t.ms, 0);
 const sorted = [...timings].sort((a, b) => a.ms - b.ms);
 console.log(`\nRequests: ${timings.length}, total ${total} ms, median ${sorted[Math.floor(sorted.length / 2)]?.ms} ms, max ${sorted.at(-1)?.ms} ms`);
-console.log(`Failures: ${failures}`);
-await fs.writeFile(`smoke-output.json`, JSON.stringify({ mode, timings, failures }, null, 1));
+console.log(`Failures: ${failures}, skipped: ${skips}`);
+await fs.writeFile(`smoke-output.json`, JSON.stringify({ mode, timings, failures, skips }, null, 1));
 process.exit(failures ? 1 : 0);

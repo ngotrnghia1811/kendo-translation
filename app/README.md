@@ -25,6 +25,42 @@ If the terminal says that another dev server already runs for this folder, open 
 
 Use `npm run build && npm run start` to do both steps in one line.
 
+## Smoke test
+
+The script `scripts/smoke.mjs` tests the built app. It starts `next start` on a free port at 127.0.0.1, sends requests, and stops the server. Round 49 answer 8 (Q-A 2026-10-28 l11) set the copy method below.
+
+Never run `npm run build` or the smoke script in the app folder while `npm run dev` runs there. The build and the dev server both write the folder `.next`. Work in a copy.
+
+1. Copy the app folder. On macOS use an APFS clone: `cp -cR app /tmp/app-copy`
+2. Delete the folder `.next` in the copy only.
+3. Go to the copy: `cd /tmp/app-copy`
+4. Build the copy: `npm run build`
+5. Run the checks: `node scripts/smoke.mjs smoke`
+
+The copy reads the `data` folder that `viewer.config.json` names. A relative path in the file counts from the folder where you start the script. The script writes `smoke-output.json` in that folder.
+
+Mode `smoke` sends GET requests only. It is safe for the real `data` folder. Each check prints PASS, FAIL, or SKIP. A SKIP names its reason and does not count as a failure. The exit code is 1 if one check fails.
+
+The checks of mode `smoke`:
+
+- Runs page and run view of the pilot list `20261026T182511Z` (22 pages, state "completed with failures").
+- Run API and all 22 page views, with the QA_3 verdict of each page.
+- Page view: ED_3 text, JA text, the 8 cell names, and no Reasoning text before the owner asks.
+- The 6 extra items, the page image, and the path tests (`../`, absolute paths, bad list names).
+- Books page: the groups Books and Articles, a size under 500 KB, the keys `hasMeta` and `chapterCount`, and no chapter rows.
+- Books API `/api/books/<id>`: 13 chapters for `kendojidai_2014`, the key `webLink` on each article, status 403 for a bad name, status 404 for an unknown item.
+- Memory API and compare API for the pilot list and for the chain list `20261028T023006Z`. The chain list checks read no count, because the run changes the counts. If that list is missing or not readable, the checks print SKIP.
+- One check prints SKIP if the data holds no web link for `kendojidai_2014`.
+
+The data decides some checks. A change of the pilot list, the chain list, or the Books data can make a check fail. Update the script then.
+
+Mode `pause` sends POST requests to `/api/pause` and creates and deletes a `PAUSE` file. It needs a fixture. Never run it with the real `data` folder, because a `PAUSE` file pauses a real run.
+
+1. Copy a `data` folder into a fixture folder, so that the fixture holds `data/pilot-run/lists/`.
+2. Add the list folders `20261026T182511Z` (completed) and `20261027T000000Z` (state `running`) to the fixture.
+3. Write a config file with `translatorDataDir` set to the `data` folder of the fixture.
+4. Run: `node scripts/smoke.mjs pause --config FILE --fixture DIR`
+
 ## Configuration
 
 The file `viewer.config.json` in the app folder holds the settings. It has one key, `translatorDataDir`.
