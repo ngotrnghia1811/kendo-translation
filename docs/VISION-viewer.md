@@ -513,9 +513,9 @@ Status: open.
 - Real message for the check: page left_foot_full/p047, run folder `kendo-translation-translator/data/pilot-run/left_foot_full_p047/20261028T025716Z-r41`. The file `messages/TL_3.txt` holds 637 lines and 46883 characters `[check: D3 2026-10-28 08:40 wc -lc messages/TL_3.txt]`.
   - The message holds six sections: role statement, fixed rules, instruction text version v0, box header, input blocks, and output format `[check: D3 2026-10-28 08:40 python3 re.findall of [SECTION n: name]]`.
   - Section 5 holds eight input blocks: `grid_place`, `ja_text`, `lower_pair`, `previous_page_pair`, `earlier_term_marks`, `dictionary_lookup`, `book_translation_memory`, and `aligned_translation_memory` `[check: D3 2026-10-28 08:40 python3 re.findall of [BLOCK name]]`.
-  - The panel covers these eight input blocks. Sections 1 to 4 and 6 are fixed text of the box and do not change from page to page `[agent inference]`. Whether the panel shows them is open (section 15.11.8).
+  - The panel covers these eight input blocks. Sections 1 to 4 and 6 are fixed text of the box and do not change from page to page `[agent inference]`. Decided in round 53 answer 5: the panel hides them `[accepted recommendation 2026-10-28 12:34]` "Hide the fixed text (Recommended)" (section 15.12.5).
   - Older messages hold fewer blocks. Of 65 TL_3 messages under `data/pilot-run`, 8 hold all eight blocks, 3 lack `previous_page_pair`, and 54 lack `grid_place` and `previous_page_pair` `[check: D3 2026-10-28 08:40 python3 re.findall of [BLOCK name] in */*/messages/TL_3.txt]`. A reader of the message text must accept a missing block `[agent inference]`.
-- Default of the panel `[reading pending owner check]`: all blocks except `grid_place`. The owner wrote "the same information as TL_3 agent ... including the retrieved information". The block `grid_place` describes the place of the agent in the grid and holds no page content. Whether `grid_place` and `lower_pair` (the TL_2 agent draft) belong in the panel is open (section 15.11.8).
+- Default of the panel `[reading pending owner check]`: all blocks except `grid_place`. The owner wrote "the same information as TL_3 agent ... including the retrieved information". The block `grid_place` describes the place of the agent in the grid and holds no page content. Round 52 answer 12 decided that the panel hides `grid_place`. `lower_pair` (the TL_2 agent draft) stays in the default `[reading pending owner check]` (section 15.11.8).
 - The blocks, in the order of the message. Paths below start at the run folder `kendo-translation-translator/data/pilot-run/left_foot_full_p047/20261028T025716Z-r41` unless the path names another folder.
 
   - `grid_place` (message l48-70). Content: the place of the box TL_3 in the grid, the boxes that feed it, and the source of each input block. Panel default: hidden.
@@ -572,7 +572,7 @@ Status: open.
   - The Viewer keeps every saved version. It deletes none.
   - The version history view of section 6 lists the versions with their dates `[accepted option 2026-10-09 09:26]` "Version history view". The decision of round 51 answer 7 agrees with it.
   - Whether the version history of the own translation is the same list as the change log of section 10 is open `[reading pending owner check]`.
-  - The own translation of a row refers to the TS_3 lines of its sentence group. A different run can cut other groups. A version must record the run ID of the ED_3 text that the translator saw `[agent inference]`. The open item is in section 15.11.8.
+  - The own translation of a row refers to the TS_3 lines of its sentence group. A different run can cut other groups. A version must record the run ID of the ED_3 text that the translator saw `[agent inference]`. Decided in round 53 answer 7: each version keeps the run ID and the row shows a notice (section 15.12.4).
 
 #### 15.11.4 Run choice
 
@@ -583,7 +583,7 @@ Status: open.
   - The folder holds `results/ED_3.json`.
   - A folder with a name that starts with `plan-` is a plan run. It has no `summary.json` and no `run.json`, so it is not finished `[check: D3 2026-10-28 08:40 ls left_foot_full_p046/plan-20261026T070259Z]`.
   - A folder `critic-separate-<time>` sits inside a run folder. It is not a run.
-  - The `status` text can be `completed` or `completed with failures`. The run `ogawa_lecture_part2_p089/20261026T185029Z-r41` has `completed with failures` because of one critic failure, and it holds the QA_3 verdict PASS `[check: D3 2026-10-28 08:40 python3 read of summary.json]`. The rule above counts it as finished. This is open (section 15.11.8).
+  - The `status` text can be `completed` or `completed with failures`. The run `ogawa_lecture_part2_p089/20261026T185029Z-r41` has `completed with failures` because of one critic failure, and it holds the QA_3 verdict PASS `[check: D3 2026-10-28 08:40 python3 read of summary.json]`. The rule above counts it as finished. Decided in round 53 answer 8 `[accepted recommendation 2026-10-28 12:34]` "Count it if QA_3 gave a verdict (Recommended)" (section 15.12.4).
 - Newest `[agent inference]`: the largest `started_utc` in `run.json`. Folder names end in `-r41`, `-test13`, or `-test13b`, so a sort by folder name is not safe.
 - Check on `data/pilot-run/left_foot_full_p046/` `[check: D3 2026-10-28 08:40 ls and python3 read of summary.json and run.json]`:
   - `20261026T182512Z-r41`: finished, QA_3 PASS, `started_utc` 2026-10-26T18:25:12Z.
@@ -592,7 +592,7 @@ Status: open.
   - The rule picks `20261028T023007Z-r41`.
 - Second check, a page where the newest run is a FAIL: `mental_full_p014` holds `20261028T023007Z-r41` (FAIL, started 2026-10-28T02:30:07Z) and `20261026T195046Z-r41` (PASS, started 2026-10-26T19:50:46Z). The rule picks the FAIL run. The admin can mark the PASS run instead `[check: D3 2026-10-28 08:40 python3 read of summary.json and run.json]`.
 - Page list, answer 13: the list holds all pages with at least one finished run, FAIL pages included `[accepted recommendation 2026-10-28 08:21]` "All finished pages (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:58]`. By the rule above, 30 page folders under `data/pilot-run` hold at least one finished run, and 5 of them hold more than one `[check: D3 2026-10-28 08:40 python3 glob of */*/summary.json]`.
-- The mark of the admin lives in the Viewer database, not in the run folder, because the agent files never change `[agent inference]`. The database design is open (unit DB1).
+- The mark of the admin lives in the Viewer database, not in the run folder, because the agent files never change `[agent inference]`. The database design is in section 15.12.2 (round 53).
 
 #### 15.11.5 Comments
 
@@ -601,8 +601,8 @@ Status: open.
   - Shared comment: translators and the admin read it `[reading pending owner check]`.
   - Private comment: the writer and the admin read it. The admin reads all comments, also private ones `[user 2026-10-28 08:21]` "option 2. this is just a translation app. you dont need to tell writer about it" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:56]`.
   - The writer is not told that the admin reads private comments. The owner wrote "you dont need to tell writer about it". The screen gives no notice and no wording that private means only the writer `[agent inference]`.
-  - The writer deletes own comments `[reading pending owner check]`. The owner words say "Writer edits" and say nothing on delete. The v1 collection `segment_comments` lets the writer or an admin delete (section 15.10.2).
-  - The writer can change a comment from private to shared `[reading pending owner check]`. Round 50 answer 10 says the writer chooses per comment whether to share.
+  - The writer deletes own comments `[accepted recommendation 2026-10-28 10:12]` (round 52 answer 12), and the admin deletes any comment `[accepted option 2026-10-28 12:34]` "Writer and admin" (round 53 answer 10, section 15.12.1). The owner words say "Writer edits" and say nothing on delete. The v1 collection `segment_comments` lets the writer or an admin delete (section 15.10.2).
+  - The writer can change a comment from private to shared `[accepted recommendation 2026-10-28 10:12]` "Writer deletes, can share later (Recommended)" (round 52 answer 12). Round 50 answer 10 says the writer chooses per comment whether to share.
 
 #### 15.11.6 Storage and sign-in
 
@@ -610,7 +610,7 @@ Status: open.
 - Sign-in: PocketBase runs locally on this machine with the v1 setup files (migrations). The four v1 test accounts are created again: admin@, translator@, reader@, and wenqian@kendo-translation.local `[user 2026-10-28 08:21]` "option 2. Also what is the process for replacing v1 with v2 on https://kendotranslation.com/? We should do it soon" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:47]`.
   - The v1 schema migration is `kendo-translation-viewer-v1/migration/pocketbase/pb_migrations/1753123456_initial_schema.js` (section 15.10.4).
   - The v1 seed migration holds a plain password for the admin account `[file: .opencode/reminders/plan/evolving-plan-2026-10-28.md:19]`. The code unit must not print that password or copy it into a file. The owner changes passwords with the script below.
-  - The role of the account wenqian@kendo-translation.local is Not verified.
+  - Round 53 answer 12: the role of the account wenqian@kendo-translation.local is translator `[accepted recommendation 2026-10-28 12:34]` "Translator (Recommended)".
 - User management script: a script creates accounts, sets passwords, and sets roles in PocketBase. The owner runs it when a password must change `[user 2026-10-28 08:21]` "write a user management script. I will run it to change the passwords whne needed" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:48]`. No password goes into a file or a report `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:66]`.
 - Deployment: the owner asks for the process to replace v1 with v2 on https://kendotranslation.com/ soon, and wants to set up deployment soon `[user 2026-10-28 08:21]` "option 2. Also what is the process for replacing v1 with v2 on https://kendotranslation.com/? We should do it soon" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:47]` `[user 2026-10-28 08:21]` "Option 3? Have we design any database yet? we need to setup for deployment soon" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:51]`. The database design and the replacement process are open (unit DB1).
 
@@ -630,18 +630,346 @@ Status: open.
   - The rule that picks the 3 pairs of the block `book_translation_memory`.
   - Whether the termbase file equals the termbase at the time of the run.
   - Whether the older TL_3 messages hold the same text inside each block. Unit D3 checked the block names only.
-  - The cause of a missing EN text (unit S1R), the v2 database design, and the process to replace v1 (unit DB1).
-  - Whether the v1 PocketBase server on Oracle Cloud still runs, and the role of the account wenqian@kendo-translation.local.
+  - The cause of a missing EN text (unit S1R), the v2 database design (written in section 15.12.2), and the process to replace v1 (unit DB1).
+  - Whether the v1 PocketBase server on Oracle Cloud still runs, and the role of the account wenqian@kendo-translation.local (decided in round 53 answer 12: translator).
 - Open items for the owner. The recommended default comes first in each item.
-  - Panel blocks `grid_place` and `lower_pair`. (1) Hide `grid_place`, show `lower_pair` (recommended). (2) Hide both. (3) Show both.
-  - Fixed text of TL_3 (sections 1 to 3 of the message: role, rules, instruction text). (1) Hide it in the panel (recommended). The agent-translation-monitor already has the extra item for the exact text sent to each box. (2) Show it.
-  - Panel scope. (1) The panel shows the blocks of the page (recommended). (2) The panel filters dictionary entries and memory pairs by the row.
-  - Source of the panel text. (1) Parse `messages/TL_3.txt` (recommended). (2) Read the structured files and rebuild the three parts that have no stored selection.
-  - Unit of a saved version. (1) One version for the whole page on each click on Save (recommended). (2) One version for each changed row.
-  - Row identity when the run changes. (1) A version records the run ID, and the translator sees a notice when the shown run differs (recommended). (2) Rows follow the sentence group text, and the Viewer matches them again.
-  - Delete of a comment, and a change from private to shared. (1) The writer deletes own comments and can change private to shared (recommended). (2) The writer edits only.
-  - Status `completed with failures`. (1) Count a run as finished when the QA_3 verdict exists (recommended). (2) Count only status `completed`.
-  - Unsaved text. (1) Show a warning when the user leaves a page with unsaved text (recommended). (2) Show no warning.
-  - The seed migration of v1 holds a plain password. (1) Apply the schema migration only and create the accounts with the user management script (recommended). (2) Apply all v1 migrations and change the password at once.
+  - Panel blocks `grid_place` and `lower_pair`. Decided in round 52 answer 12: the panel hides `grid_place`. (1) Hide `grid_place`, show `lower_pair` (recommended). (2) Hide both. (3) Show both.
+  - Fixed text of TL_3 (sections 1 to 3 of the message: role, rules, instruction text). Decided in round 53 answer 5: option (1). (1) Hide it in the panel (recommended). The agent-translation-monitor already has the extra item for the exact text sent to each box. (2) Show it.
+  - Panel scope. Decided in round 53 answer 6: option (1). (1) The panel shows the blocks of the page (recommended). (2) The panel filters dictionary entries and memory pairs by the row.
+  - Source of the panel text. Decided in round 52 answer 12 (the panel reads the TL_3 message): option (1). (1) Parse `messages/TL_3.txt` (recommended). (2) Read the structured files and rebuild the three parts that have no stored selection.
+  - Unit of a saved version. Round 52 answer 12 chose "One version per Save". The mapping to records is open (section 15.12.6, question 1). (1) One version for the whole page on each click on Save (recommended). (2) One version for each changed row.
+  - Row identity when the run changes. Decided in round 53 answer 7: option (1). (1) A version records the run ID, and the translator sees a notice when the shown run differs (recommended). (2) Rows follow the sentence group text, and the Viewer matches them again.
+  - Delete of a comment, and a change from private to shared. Decided in round 52 answer 12 and round 53 answer 10: option (1), and the admin also deletes any comment. (1) The writer deletes own comments and can change private to shared (recommended). (2) The writer edits only.
+  - Status `completed with failures`. Decided in round 53 answer 8: option (1). (1) Count a run as finished when the QA_3 verdict exists (recommended). (2) Count only status `completed`.
+  - Unsaved text. Decided in round 52 answer 12: option (1). (1) Show a warning when the user leaves a page with unsaved text (recommended). (2) Show no warning.
+  - The seed migration of v1 holds a plain password. Round 52 answer 10 chose to skip the v1 seed file and to use a Python user script. The use of v1 files stays open (section 15.12.3). (1) Apply the schema migration only and create the accounts with the user management script (recommended). (2) Apply all v1 migrations and change the password at once.
+
+Status: open.
+
+### 15.12 Round 53 decisions (PocketBase base and human-translation-view details)
+
+- Source: owner answers 2, 3, and 5 to 14 of round 53 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:94-108]`. The batch was asked at 10:37 and answered at 12:34. Unit H1D wrote this section `[check: H1D 2026-10-28 12:55]`.
+  - The Q-A file stores the label of each accepted option and short notes in parentheses. The meaning of each answer comes from those notes and from the brief of unit H1D. The full option texts are Not verified.
+  - Answers 1 and 4 belong to other units (P1 and T7). They are not in this section.
+  - The design process of round 42 answer 9 applies: design a topic, then code it `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:85]`. Round 50 answer 13: the code unit asks clarifying questions before code `[user 2026-10-27 20:54]` "option 2. ask clarifying question if needed" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:34]`. Section 15.12.6 holds those questions.
+  - Unit P1 builds the collections of section 15.12.2 at the same time. Unit H1D did not read the files of P1. Whether P1 matches section 15.12.2 is Not verified.
+  - This section settles open items of section 15.11.8. The lines of section 15.11 carry the change in place, and the old state stays as history.
+- Earlier decisions that stay valid:
+  - Round 52 answer 12: the panel hides the grid place, the panel reads the TL_3 message, the writer deletes and can share later, one version per Save, FAIL-list pages count, and a warning shows when the user leaves with unsaved text `[accepted recommendation 2026-10-28 10:12]` "Accept and commit D3 (Recommended), Panel hides grid place (Recommended), Panel reads TL_3 message (Recommended), Writer deletes, can share later (Recommended), One version per Save (Recommended), FAIL-list pages count (Recommended), Warn on unsaved leave (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:83]`.
+  - Round 52 answers 9 to 11: v2 goes live first on a subdomain, on the same PocketBase with new collections. The monitor stays on the Mac and syncs snapshots. The v1 seed file is skipped. A Python script manages the users `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:80-82]`.
+
+#### 15.12.1 Decisions table
+
+| Answer | Topic | Owner words (exact) | Tag | Q-A line | Meaning |
+| --- | --- | --- | --- | --- | --- |
+| 2 | Live security steps | "Change all live passwords (Recommended), Fix live users rules now (Recommended), Read live PocketBase version (Recommended), Make the repo private (Recommended)" | `[accepted recommendation 2026-10-28 12:34]` | l96 | The owner does these steps on the live v1 system now. Status: Not verified. The owner reports later. |
+| 3 | Old password file | "Leave file and history as is" | `[accepted option 2026-10-28 12:34]` | l97 | The owner leaves the file and its git history as they are. |
+| 5 | TL_3 panel fixed text | "Hide the fixed text (Recommended)" | `[accepted recommendation 2026-10-28 12:34]` | l99 | The panel does not show the fixed parts of the TL_3 message (role, rules, instruction text). The agent-translation-monitor already shows the exact text sent to each box. |
+| 6 | TL_3 panel scope | "Whole page blocks (Recommended)" | `[accepted recommendation 2026-10-28 12:34]` | l100 | The panel shows the blocks of the whole page. It does not filter the entries for each row. |
+| 7 | Saved rows when the shown run changes | "Keep run ID, show a notice (Recommended)" | `[accepted recommendation 2026-10-28 12:34]` | l101 | Each saved version stores the run ID. If the shown run differs from the run of the saved version, the row shows a notice. |
+| 8 | Runs with status `completed with failures` | "Count it if QA_3 gave a verdict (Recommended)" | `[accepted recommendation 2026-10-28 12:34]` | l102 | A run with that status counts as finished if QA_3 gave a verdict. |
+| 9 | Folder for v1 migration copies | "What exactly are you trying to do here? Why would we want anything from v1 schema to copy to v2?" | `[user 2026-10-28 12:34]` | l103 | The owner questions the copies. The decision is open (section 15.12.3). |
+| 10 | Admin delete of comments | "Writer and admin" | `[accepted option 2026-10-28 12:34]` | l104 | The writer deletes own comments. The admin deletes any comment. |
+| 11 | Run snapshot in `page_runs` | "JSON field (Recommended)" | `[accepted recommendation 2026-10-28 12:34]` | l105 | The snapshot of one page run sits in one JSON field of the collection `page_runs`. |
+| 12 | Role of local wenqian@kendo-translation.local | "Translator (Recommended)" | `[accepted recommendation 2026-10-28 12:34]` | l106 | The local account wenqian@kendo-translation.local has the role translator. This closes the open role of round 52 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:91]`. |
+| 13 | Test method for P1 | "Throwaway test in <TMP> (Recommended)" | `[accepted recommendation 2026-10-28 12:34]` | l107 | Unit P1 tests the migrations with a throwaway test in the temporary work folder. The test is not part of the v2 repo `[agent inference]`. |
+| 14 | Start of v2 deploy steps | "After H1 works locally (Recommended)" | `[accepted recommendation 2026-10-28 12:34]` | l108 | The steps to put v2 on v2.kendotranslation.com start after the human-translation-view works on this Mac. |
+
+- Status of answers 2 and 3: the owner does the live steps and reports later. Unit H1D checked none of them. Not verified.
+- Answer 10 extends round 52 answer 12 (the writer deletes own comments) `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:83]`. It differs from the earlier DB1 survey recommendation (the writer only) `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:116]`.
+- Where each decision lands:
+  - Answers 2, 3, and 14: this table only.
+  - Answers 5 and 6: section 15.12.5.
+  - Answers 7 and 8: section 15.12.4.
+  - Answers 10 to 13: section 15.12.2.
+  - Answer 9: section 15.12.3.
+
+#### 15.12.2 PocketBase collections for v2
+
+- Source: round 52 answers 9 to 11 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:80-82]` and round 53 answers 10 to 12. Unit P1 builds exactly this design `[check: brief of H1D 2026-10-28 12:37]`.
+- The v2 app uses the same live PocketBase as v1, with new collections. The first live place is the subdomain v2.kendotranslation.com (round 52 answer 9).
+- Role map. A role is a value of the field `role` in the collection `users`.
+  - `admin`: the researcher (the owner), as set in round 43 `[user 2026-10-26 15:17]` `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:113]`.
+  - `translator`: a human translator.
+  - `reader`: a reader of the reader pages that come later.
+  - `qa`: a v1 value with no meaning in v2. The v2 app treats it as `reader` `[agent inference]`.
+
+##### Collection users (reuse)
+
+- The migration adds the select field `role` (admin, translator, reader) only if it is missing. It keeps the v1 values on the live server, `qa` included. It adds the bool field `disabled` only if it is missing.
+- Rules:
+
+```
+listRule   = '@request.auth.id != ""'
+viewRule   = '@request.auth.id != ""'
+createRule = null
+updateRule = '(id = @request.auth.id && @request.body.role:isset = false && @request.body.disabled:isset = false) || @request.auth.role = "admin"'
+deleteRule = '@request.auth.role = "admin"'
+authRule   = 'disabled = false'
+```
+
+- `null` means superuser only. A signed-in user cannot create users, and cannot change the own `role` or `disabled`.
+
+##### New collections
+
+| Collection | Purpose | Fields | Indexes |
+| --- | --- | --- | --- |
+| own_translations | one record per Save of a human translator | user, item_id, page_id, group_key, ts_ids (json), part, ja_text, run_id, ed3_text, text, version, created | unique (user, page_id, group_key, version), (page_id, group_key) |
+| comments | comment per sentence row | user, page_id, group_key, run_id, text, shared (false at start), created, updated | (page_id, group_key), (user) |
+| run_marks | admin pick of the run shown for a page | page_id, run_id, marked_by, note, created, updated | unique (page_id) |
+| catalog_items | books, magazine years, web items | item_id, kind, folder, pages, title_ja, title_en, author_ja, author_en, publisher, publish_year, row (json) | unique (item_id) |
+| magazine_chapters | month chapters and articles | chapter, book, year, month, chapter_title_ja, chapter_title_en, page_start, page_end, first_page_id, last_page_id, article_count, articles (json) | unique (chapter), (book) |
+| page_runs | snapshot of one finished page run (filled later by sync command S2) | page_id, item_id, run_id, verdict, qa3_page_score, finished, snapshot (json, maxSize raised) | unique (page_id, run_id), (page_id) |
+
+##### Rules of the new collections
+
+```
+own_translations
+  listRule = viewRule = '@request.auth.id != "" && (user = @request.auth.id || @request.auth.role = "admin")'
+  createRule = '@request.auth.id != "" && @request.body.user = @request.auth.id && (@request.auth.role = "translator" || @request.auth.role = "admin")'
+  updateRule = null
+  deleteRule = null
+comments
+  listRule = viewRule = '@request.auth.id != "" && (user = @request.auth.id || @request.auth.role = "admin" || (shared = true && @request.auth.role = "translator"))'
+  createRule = '@request.auth.id != "" && @request.body.user = @request.auth.id && (@request.auth.role = "translator" || @request.auth.role = "admin")'
+  updateRule = 'user = @request.auth.id && @request.body.user:changed = false && @request.body.page_id:changed = false && @request.body.group_key:changed = false'
+  deleteRule = 'user = @request.auth.id || @request.auth.role = "admin"'
+run_marks
+  listRule = viewRule = '@request.auth.id != ""'
+  createRule = updateRule = deleteRule = '@request.auth.role = "admin"'
+catalog_items, magazine_chapters
+  listRule = viewRule = '@request.auth.id != ""'
+  createRule = updateRule = deleteRule = null
+page_runs
+  listRule = viewRule = '@request.auth.role = "translator" || @request.auth.role = "admin"'
+  createRule = updateRule = deleteRule = null
+```
+
+- What the rules mean, one fact each `[agent inference]`:
+  - An own translation can be created, never changed, never deleted. A new text is a new record with a higher version.
+  - The writer and the admin read own translations. No other translator reads them. This matches round 52 answer 10 "Own translations: writer and admin (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:81]`.
+  - A private comment is read by the writer and the admin. A shared comment is read by all translators. This matches round 51 answers 10 and 11.
+  - The writer deletes own comments, and the admin deletes any comment (round 53 answer 10).
+  - The writer can change the text and the field `shared` of a comment. The writer cannot change `user`, `page_id`, or `group_key`.
+  - Only translators and the admin read `page_runs`. Only a superuser writes `page_runs`, `catalog_items`, and `magazine_chapters`.
+
+##### Group key, version, and snapshot
+
+- Group key: `<page_id>/ts3/<first short ID>-<last short ID>`. Example: `kendojidai_2014/p0839/ts3/L01-L05`.
+  - Rows are the sentence groups of `sentence_groups(ts)` in `kendo-translation-translator/data/scripts/translator/book_memory.py:82`. The input is the key `after_program_step` of `results/TS_3.json`.
+  - A group of one item gives the same ID twice. The title group of `kendojidai_2014/p0794` is `kendojidai_2014/p0794/ts3/T01-T01` `[check: H1D 2026-10-28 12:47 python3 -B, book_memory.sentence_groups on results/TS_3.json]`.
+  - The key is stable inside one run only. Another run can cut other lines. For this reason each version also stores `ts_ids`, `ja_text`, and `run_id`.
+- Version number: the app reads the highest version for (`user`, `page_id`, `group_key`) and writes that number plus 1. The unique index rejects a duplicate from a second tab. Question 1 of section 15.12.6 asks how this rule fits "One version per Save".
+- Snapshot of `page_runs`: one JSON object in the field `snapshot` with these keys:
+  - `groups`: for each group the `group_key`, `part`, `ts_ids`, `ja`, `ed3_text`, `ed_index`, and `marks`.
+  - `tl3_blocks`: the blocks of the TL_3 message.
+  - `en_form_check`: the items of the EN form check.
+  - `termbase`: the termbase entries that the marks cite.
+  - `verdict`: the QA_3 verdict.
+- Size facts `[check: aki-main 2026-10-28 12:31]`: the source files of one run have 34,780 to 155,327 bytes over 33 runs. The smallest is `eiga_full_p159/20261026T202055Z-r41`. The largest is `kendojidai_2014_p0839/20261026T205441Z-r41`. Unit H1D did not run this check again.
+  - The JSON field limit is about 1 MB unless `maxSize` is raised `[check: brief of H1D 2026-10-28 12:37]`. Not verified by unit H1D.
+- Local PocketBase `[check: H1D 2026-10-28 12:49 ./data/pocketbase/pocketbase --version]`:
+  - The binary is version 0.39.10. It sits in `data/pocketbase/`, which git ignores (`.gitignore` line 6 holds `data/*`).
+  - The server listens on 127.0.0.1:8090 `[check: brief of H1D 2026-10-28 12:37]`.
+  - The migrations sit in the tracked folder `data/scripts/pocketbase/pb_migrations/`. The user script is `pb_users.py`. The owner sets all passwords.
+  - The local accounts are admin@, translator@, reader@, and wenqian@kendo-translation.local. The account wenqian@ has the role translator (round 53 answer 12).
+  - Unit H1D did not read the folder `data/scripts/pocketbase/`. Not verified.
+
+#### 15.12.3 Use of the v1 schema (answer 9, open)
+
+- The owner asked `[user 2026-10-28 12:34]` "What exactly are you trying to do here? Why would we want anything from v1 schema to copy to v2?" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:103]`.
+- The problem in one example. Round 51 answer 2 chose a local PocketBase "with the v1 setup files". Then the v1 schema file `1753123456_initial_schema.js` sits in a folder of the v2 repo. The v2 collections of section 15.12.2 hold none of its collections.
+- Conflicting lines:
+  - Round 51 answer 2 `[user 2026-10-28 08:21]` "option 2. Also what is the process for replacing v1 with v2 on https://kendotranslation.com/? We should do it soon" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:47]`. Option 2 was "Local PocketBase, v1 setup" (install PocketBase, apply the v1 setup files, create the four test accounts again).
+  - Section 15.11.6, first sign-in line: "PocketBase runs locally on this machine with the v1 setup files (migrations)" `[file: docs/VISION-viewer.md:610]`.
+  - Section 3, line 62: "No v1 code or v1 decision carries over, except the three roles of section 4" `[validated reading 2026-10-07 20:05]` `[file: docs/VISION-viewer.md:62]`.
+- Reading of aki-main `[reading pending owner check]` `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:115]`:
+  - The v2 repo needs nothing from v1. The v2 migrations are self-contained.
+  - The v1 schema files are read in place only. The throwaway test of unit P1 reads them to make sure that the v2 migrations apply on the live shape. The live server holds 25 v1 collections and the v1 users fields.
+  - No v1 collection clashes with a v2 name. v1 has `segment_comments`, and v2 has `comments` `[file: .opencode/reminders/plan/evolving-plan-2026-10-28.md:45]`.
+- Unit H1D did not change the words of section 15.11.6 about "v1 setup files". The words stay until the owner decides.
+- Status: open. The owner decides in the next batch (section 15.12.7, item 1).
+
+#### 15.12.4 Run choice and saved rows (answers 7 and 8)
+
+##### Finished run
+
+- Rule after answer 8 `[accepted recommendation 2026-10-28 12:34]` "Count it if QA_3 gave a verdict (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:102]`. A run folder is finished when all of these hold:
+  - The folder sits directly under `data/pilot-run/<page folder>/`, and its name starts with a time stamp.
+  - The file `summary.json` holds `qa.QA_3.verdict` with the value PASS or FAIL.
+  - The file `results/ED_3.json` exists.
+  - The value of `status` does not matter. Both `completed` and `completed with failures` count.
+- Example: `ogawa_lecture_part2_p089/20261026T185029Z-r41` `[check: H1D 2026-10-28 12:46 python3 read of summary.json]`.
+  - `status` is `completed with failures`.
+  - `failures` holds one entry: "box-critic.TS_3: invalid JSON: Expecting ',' delimiter: line 1 column 913 (char 912)". `failed_calls` holds `box-critic.TS_3`.
+  - `qa.QA_3` has `verdict` PASS and `page_score` 10.0.
+  - The rule counts this run as finished. The failed call was a critic call, and QA_3 still gave a verdict.
+- Count over `data/pilot-run` (plan folders and `smoke-r41` left out) `[check: H1D 2026-10-28 12:47 python3 over */*/summary.json and results/ED_3.json]`:
+  - 39 run folders exist, and 37 are finished.
+  - Two folders are not finished: `men0_p005/20261026T001543Z` and `18d4ac29_p001/20261026T005532Z`. Both have status `completed with failures`, no QA_3 verdict, and no `results/ED_3.json`.
+  - 30 page folders hold at least one finished run, and 5 hold more than one.
+  - Two of the four runs with a status other than `completed` count: `ogawa_lecture_part2_p089/20261026T185029Z-r41` and `men0_p005/20261025T232811Z-test13` (PASS).
+- Newest finished run: the largest `started_utc` in `run.json` (section 15.11.4). On the 5 pages with more than one run, the order by `started_utc` equals the order by folder name `[check: H1D 2026-10-28 12:47 python3 over run.json]`.
+
+##### Worked example: saved rows and a run change
+
+- Page `mental_full/p014`. Two finished runs exist `[check: H1D 2026-10-28 12:46 python3 -B, book_memory.sentence_groups and cut_pairs on results/TS_3.json and results/ED_3.json]`:
+  - `20261026T195046Z-r41`: status `completed`, QA_3 PASS, `started_utc` 2026-10-26T19:50:46Z.
+  - `20261028T023007Z-r41`: status `completed`, QA_3 FAIL, `started_utc` 2026-10-28T02:30:07Z.
+- Both runs cut the same 3 sentence groups:
+
+| Group key | JA starts with | JA characters |
+| --- | --- | --- |
+| `mental_full/p014/ts3/L01-L08` | `はめた場合、普段の稽古への取り組み方を考える大きなヒントにな` | 304 |
+| `mental_full/p014/ts3/L09-L13` | `たとえ、今日はうまくできなくても、明日はできるかもしれません` | 170 |
+| `mental_full/p014/ts3/L14-L15` | `大事なのは、「できる」と思って挑戦すること。そして、自分自身` | 75 |
+
+- The ED_3 text of group 1 differs between the runs:
+  - Run `20261026T195046Z-r41`: `If applied, it becomes a great hint for thinking about how to approach everyday Keiko (practice).`
+  - Run `20261028T023007Z-r41`: `If you apply this, it becomes a great hint for thinking about how to approach your everyday Keiko (practice).`
+  - Both texts go on after this first sentence. Only the first sentence is shown here.
+- The case, step by step:
+  - The admin marks run `20261026T195046Z-r41` for this page. A translator opens the page and writes an own translation for group 1.
+  - The translator clicks Save. The version stores `run_id` `20261026T195046Z-r41`, `group_key` `mental_full/p014/ts3/L01-L08`, the `ts_ids` L01 to L08, the `ja_text`, and the `ed3_text` of that run.
+  - The admin removes the mark. The newest finished run, `20261028T023007Z-r41`, is now the shown run.
+  - The row for `mental_full/p014/ts3/L01-L08` still exists in the new run. The row shows the saved own translation and a notice.
+- The notice in plain words `[agent inference]`. The owner decided only that a notice shows (answer 7). The wording is a proposal:
+  - "You saved this text while the page showed run 20261026T195046Z-r41. The page now shows run 20261028T023007Z-r41. The agent text of this row can differ."
+- The notice is needed. Between the two runs of `left_foot_full/p046`, 4 of 5 rows have other ED_3 text `[check: H1D 2026-10-28 12:49 python3 -B, book_memory.cut_pairs]`.
+- The key alone does not show a change. On the 5 pages with more than one run, the group keys are equal across all runs `[check: H1D 2026-10-28 12:47 python3 -B, book_memory.sentence_groups]`.
+  - On `men0_p005`, two groups have the same key but another JA text. The runs `20261025T235047Z-test13b` and `20261026T182512Z-r41` differ from run `20261025T232811Z-test13` in 2 groups `[check: H1D 2026-10-28 12:48 python3 -B, book_memory.sentence_groups]`.
+  - Example: the group `men0/p005/ts3/L01-L04`. Run `20261025T232811Z-test13` reads `…気持ちを失いませんでした。 つまり極限な状況にあっても…` with a space after the end mark. Run `20261025T235047Z-test13b` reads `…失いませんでした。つまり極限な状況にあっても…` with no space `[check: H1D 2026-10-28 12:47 python3 -B, book_memory.sentence_groups]`.
+  - For this reason each version stores `ja_text` and `run_id`.
+- Open: a saved version whose key has no row in the shown run. No such case exists in the data today. A later run can cut other lines. See question 5 of section 15.12.6.
+
+#### 15.12.5 TL_3 panel details (answers 5 and 6)
+
+- Rule of answer 5 `[accepted recommendation 2026-10-28 12:34]` "Hide the fixed text (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:99]`. The panel does not show the fixed parts of the TL_3 message. These are the role statement, the fixed rules, and the instruction text.
+- Rule of answer 6 `[accepted recommendation 2026-10-28 12:34]` "Whole page blocks (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:100]`. The panel shows each input block of the page in full. It does not filter dictionary entries or memory pairs for the row.
+- Worked example: page `kendojidai_2014/p0839`, run `20261026T205441Z-r41`. The file `messages/TL_3.txt` has 721 lines `[check: H1D 2026-10-28 12:46 grep -n of [SECTION and [BLOCK in messages/TL_3.txt]`.
+  - The folder is `kendo-translation-translator/data/pilot-run/kendojidai_2014_p0839/20261026T205441Z-r41`.
+  - The sections start at these lines: section 1 at l1, section 2 at l6, section 3 at l30, section 4 at l37, section 5 at l45, section 6 at l588.
+
+| Block | Message lines | Lines | Panel | Content in this run |
+| --- | --- | --- | --- | --- |
+| `ja_text` | l46-186 | 141 | shown | the TS_3 items of the page |
+| `lower_pair` | l188-193 | 6 | shown | the TL_2 result and rationale |
+| `earlier_term_marks` | l195-200 | 6 | shown | `pages_read: 0` and `none` |
+| `dictionary_lookup` | l202-560 | 359 | shown | 32 entries for 25 requested words |
+| `book_translation_memory` | l562-566 | 5 | shown | `pairs_found: 0` |
+| `aligned_translation_memory` | l568-586 | 19 | shown | 3 pairs |
+
+- The panel shows 536 of the 721 lines `[check: H1D 2026-10-28 12:47 python3 over the block markers]`.
+- The panel hides these lines:
+  - l1-36: section 1 (role statement), section 2 (fixed rules), and section 3 (instruction text, version v0). This is the fixed text of answer 5.
+  - l37-44: section 4 (box header with `box_type`, `level`, `mode`, `book_id`, `page_id`, `page_index`). The owner words name the fixed text. Section 4 is fixed text by structure `[agent inference]`. Item 5 of section 15.12.7 asks the owner.
+  - l45: the heading of section 5.
+  - l587-721: section 6 (output format).
+  - The blank lines between the blocks.
+- This run has no block `previous_page_pair` and no block `grid_place` `[check: H1D 2026-10-28 12:50 grep -c grid_place and previous_page_pair gave 0]`. This run is the first page of the book in the list. A chain run adds `previous_page_pair` `[file: kendo-translation-translator/data/scripts/translator/messages.py:511]`. The panel must accept a missing block (section 15.11.2).
+- Whole page blocks. The row `kendojidai_2014/p0839/ts3/L01-L05` is the first sentence group of the page. The panel still shows all 32 dictionary entries and all 3 aligned pairs. It does not cut the list to the words of that row.
+- Section 15.11.2 stays as written. Answers 5 and 6 settle its open items on the fixed text and on the panel scope.
+
+#### 15.12.6 Questions to ask before H1 code
+
+- Source: round 50 answer 13 `[user 2026-10-27 20:54]` "option 2. ask clarifying question if needed" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:34]`. The code unit H1 asks these questions first. The recommended default comes first in each question.
+- Evidence for the app today `[check: H1D 2026-10-28 12:46 reads of app/package.json, app/lib/config.ts, app/lib/page.ts, app/lib/books.ts, app/lib/safe-path.ts]`:
+  - `app/package.json` lists `next`, `react`, and `react-dom` as dependencies. It lists no PocketBase library.
+  - The app has no sign-in. The comments in `app/app/api/pause/route.ts:7` and `app/components/extras-store.ts:6-7` say so.
+  - The server code reads the Translator run folders from disk. The path of the Translator data folder sits in `app/viewer.config.json` under the key `translatorDataDir` `[file: app/lib/config.ts:10-31]`.
+
+##### Question 1: how one Save maps to records
+
+- Problem. Round 52 answer 12 says "One version per Save". The collection `own_translations` holds one record per sentence group, and a record is never changed.
+- Example. The page `mental_full/p014` has 3 rows. The translator writes rows 1 and 2, leaves row 3 empty, and clicks Save once.
+- The version rule of section 15.12.2 gives a number for each (`user`, `page_id`, `group_key`). Row 1 and row 2 can get version 1, and row 3 gets none. A later Save that adds row 3 gives row 3 version 1 and rows 1 and 2 version 2. One Save then does not map to one number.
+- Options:
+  - (1) One Save writes one record for every row of the page, empty rows included. All records get the same version number, the highest number of the page plus 1 (recommended). Benefit: a page version is complete, and a restore needs one number. Cost: page `kendojidai_2014/p0839` writes 21 records per Save. The version rule of section 15.12.2 changes from "per group" to "per page". The unique index of P1 still fits.
+  - (2) One Save writes one record for each row that holds text, with the same page number. Benefit: fewer records. Cost: a row that the translator clears has no record, so the clear is not saved.
+  - (3) One Save writes one record for each changed row, with its own number for each row. Benefit: the fewest records. Cost: one Save is no longer one version, and the version list of the page needs the time of each record.
+- Not verified: whether one Save of several records is one all-or-nothing call in PocketBase 0.39.10. With separate calls, a failure can leave a part of the rows saved.
+
+##### Question 2: where H1 reads run data before the sync command S2
+
+- Problem. The collection `page_runs` is empty until S2 exists. Round 52 answer 13 did not choose S2 for now `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:84]`.
+- Example. The page `mental_full/p014` needs the TS_3 groups, the ED_3 text, and the TL_3 blocks of run `20261028T023007Z-r41`. The files sit in `data/pilot-run/mental_full_p014/20261028T023007Z-r41/` on this Mac.
+- Options:
+  - (1) Read the run folders with the server code of the agent-translation-monitor (recommended). The function `getPage` in `app/lib/page.ts:87` reads `results/TS_n.json` and `results/ED_n.json`. The path comes from `viewer.config.json`. Benefit: no new unit, fresh data, tested code. Cost: this works on the Mac only. H1 must keep the reading in one module, so the later change to `page_runs` touches one file.
+  - (2) Read `page_runs` in the local PocketBase. Benefit: the same path as the deploy. Cost: S2 must exist first, and S2 is not chosen now.
+  - (3) Both, with a fallback from `page_runs` to the files. Benefit: smooth change later. Cost: two paths to test.
+- Fact for H1: `getPage` picks `runFolders[0]`, the newest folder name, with no check that the run is finished `[file: app/lib/page.ts:91-92]` `[file: app/lib/books.ts:15-18]`. The list `listBooks` does the same with `runs[0]` `[file: app/lib/books.ts:50]`. Today the newest folder is finished on every page `[check: H1D 2026-10-28 12:47 python3 over */*/summary.json]`. The two unfinished folders (`men0_p005/20261026T001543Z` and `18d4ac29_p001/20261026T005532Z`) are not the newest. A future failed run will be the newest. H1 needs the finished-run rule of section 15.12.4 in its own code.
+
+##### Question 3: how the Next app talks to PocketBase
+
+- Problem. The app has no PocketBase code and no sign-in today. H1 must sign users in and read and write records.
+- Example. A translator signs in as translator@kendo-translation.local, opens `kendojidai_2014/p0839`, and clicks Save for 21 rows. The save call must carry the user token, so that the rules of section 15.12.2 apply.
+- Options:
+  - (1) Server routes of the Next app call PocketBase with plain `fetch`. A login route sets an httpOnly cookie with the token (recommended). Benefit: no new dependency, and page scripts cannot read the token. The app already uses server routes (`app/api/*/route.ts`). Cost: H1 writes the small sign-in, error, and token code. Token expiry and refresh are Not verified.
+  - (2) The PocketBase JS library in the browser. The library keeps the token in `localStorage`. Benefit: less code. Cost: a new dependency, a token that page scripts can read, and origin settings on the live PocketBase server `[agent inference]`.
+  - (3) The PocketBase JS library on the server only, with the cookie of option 1. Benefit: typed calls. Cost: a new dependency that must match PocketBase 0.39.10 (Not verified).
+- The v1 app used a login route that sets an auth cookie `[file: docs/VISION-viewer.md:421]`. No v1 code carries over (section 3). The fact is a reference only.
+- Fact: the file `app/AGENTS.md` says that this Next version has breaking changes and that H1 reads `node_modules/next/dist/docs/` before code. Unit H1D did not read those docs.
+
+##### Question 4: how "newest finished run" sorts
+
+- Problem. Section 15.11.4 says: the largest `started_utc` in `run.json`. The existing code sorts by folder name.
+- Example. The page `men0_p005` has run folders `20261025T232811Z-test13`, `20261025T235047Z-test13b`, `20261026T001543Z` (unfinished), and `20261026T182512Z-r41`. Both sorts give `20261026T182512Z-r41`.
+- Options:
+  - (1) Sort by `started_utc` of finished runs (recommended). Benefit: the name of the folder does not matter. Cost: one more file read for each run.
+  - (2) Sort by folder name of finished runs. Benefit: the code exists in `runFoldersOf`. Cost: a folder name that does not start with a time stamp breaks the order. The names end in `-r41`, `-test13`, or `-test13b`, but all start with a time stamp today.
+- Fact: on the 5 pages with more than one run, both sorts give the same order `[check: H1D 2026-10-28 12:47 python3 over run.json]`.
+
+##### Question 5: a saved version or comment with no row in the shown run
+
+- Problem. The group key is stable inside one run only. A saved version or a comment can have a key that the shown run does not cut.
+- Example. A translator saved a version for `mental_full/p014/ts3/L09-L13`. A later run cuts the lines L09 to L12 as one group and the line L13 as another group. The shown run has no row with the saved key. No such case exists in the data today `[check: H1D 2026-10-28 12:47 python3 -B, book_memory.sentence_groups over 5 pages with several runs]`.
+- Options:
+  - (1) Show the saved text in a box below the rows, with the label "Saved for lines that this run cuts in another way". The box shows `ja_text`, `run_id`, and the saved text (recommended). Benefit: nothing is lost, and the translator can copy the text into a new row. Cost: one more box in the layout.
+  - (2) Show these versions only in the version history view. Benefit: simple. Cost: the translator can miss the text.
+  - (3) Match by the JA text with a tolerance. Benefit: the text moves to a row. Cost: the match is a guess. Answer 7 chose the run ID and a notice, not a match.
+
+##### Question 6: when the notice shows
+
+- Problem. Answer 7 says the row shows a notice when the shown run differs from the run of the saved version.
+- Example. Between the two runs of `left_foot_full/p046`, 4 of 5 rows have other ED_3 text. One row has the same text `[check: H1D 2026-10-28 12:49 python3 -B, book_memory.cut_pairs]`.
+- Options:
+  - (1) Show the notice on every run difference, with no text compare (recommended). Benefit: it follows the owner words. Cost: the row with the same text also shows the notice.
+  - (2) Show the notice on every run difference. The notice also says whether the ED_3 text of the row changed. Benefit: the translator knows if a new read is needed. Cost: a text compare, and a rule for white space (see `men0_p005`, section 15.12.4).
+
+##### Question 7: sign-in on the agent-translation-monitor
+
+- Problem. Round 44 answer 6 says only the admin role opens the agent-translation-monitor and uses approve, undo, and pause `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:135]`. The monitor has no sign-in today. The route `app/api/pause/route.ts` writes a file and checks only the origin.
+- Example. After H1, a translator signs in. The monitor page `/runs/<stamp>` still opens for anyone who reaches port 3000.
+- Options:
+  - (1) H1 adds the sign-in and the role check to the human-translation-view only. The monitor stays open on this Mac and gets the admin check in the deploy unit (recommended). Benefit: H1 stays small, and the app runs on 127.0.0.1 only for now. Cost: the monitor stays open until that unit.
+  - (2) H1 also adds the admin check to the monitor pages and to the pause route. Benefit: it follows round 44 answer 6 at once. Cost: H1 touches the existing pages, and the smoke script `app/scripts/smoke.mjs` must sign in. Not verified how the script reads pages.
+- Related: the store of the extra items still lives in `localStorage` `[file: app/components/extras-store.ts:6-7]`. A move of that store to the account is not part of this question.
+
+##### Question 8: where H1 reads the PocketBase address
+
+- Problem. The file `app/lib/config.ts` reads one key, `translatorDataDir`. It throws an error if that key is missing.
+- Example. H1 needs `http://127.0.0.1:8090` on this Mac and the live address later.
+- Options:
+  - (1) Add the key `pocketbaseUrl` to `viewer.config.json`, with a default of `http://127.0.0.1:8090` (recommended). Benefit: one configuration file, as in round 44 answer 13. Cost: a change in `loadConfig`, and the live server needs its own file or the variable `VIEWER_CONFIG`.
+  - (2) Use an environment variable. Benefit: usual for a deploy. Cost: a second place for settings.
+
+#### 15.12.7 Not verified and open items
+
+- Not verified:
+  - The full option texts of round 53 answers 2, 3, and 5 to 14. The Q-A file stores labels and short notes.
+  - The live security steps of answers 2 and 3. The owner reports later.
+  - The files of unit P1. Whether they match section 15.12.2.
+  - The JSON field limit of PocketBase (about 1 MB) and the effect of `maxSize`.
+  - Whether PocketBase 0.39.10 has an all-or-nothing call for several records, and the token expiry of PocketBase.
+  - The size facts of 12:31. Unit H1D did not run them again.
+  - The notice wording of section 15.12.4. It is a proposal.
+  - Any screen. No code for these parts exists.
+- Open items for the owner. The recommended default comes first in each item.
+  - Item 1, use of the v1 schema (answer 9). (1) Confirm the reading of aki-main: the v2 repo holds no v1 file, and the words "with the v1 setup files" in section 15.11.6 are replaced (recommended). (2) Keep round 51 answer 2 as written: copy the v1 schema file into the v2 repo.
+  - Item 2, list rule of `users`. The rule lets every signed-in user list all users. (1) Keep it, so that shared comments can show the name of the writer (recommended, `[agent inference]`). (2) Limit the list to the own record and the admin. Cost: shared comments then show no writer name, unless a view is added.
+  - Item 3, who fills `catalog_items`, `magazine_chapters`, and `page_runs`. Only a superuser writes them. (1) Leave them empty until the sync command S2, and let H1 read files (recommended). (2) Plan an import script before H1.
+  - Item 4, group of one item. The key reads `T01-T01`. (1) Keep the key rule as written (recommended). (2) Write `T01` for a group of one item. Cost: a second form of the key.
+  - Item 5, the panel and section 4 of the TL_3 message (box header). (1) Hide it with the fixed text (recommended). (2) Show it.
+  - Item 6, the eight questions of section 15.12.6.
 
 Status: open.
