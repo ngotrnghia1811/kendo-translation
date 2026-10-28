@@ -110,6 +110,8 @@ The title bar shows agent-translation-monitor and two tabs, Runs and Books.
     5. Program check results. The EN form check shows a count line `follows / breaks / notes` and one label for each term: `follows`, `breaks`, or `note`. A note has its own color. An old file has no `notes` count, so the line shows 0 notes.
     6. Critiques with the note for the next critic
     7. Critique counts against N
+    8. Chain inputs. It shows what the four forward boxes of the stage received from the book chain: the previous page, the previous page pair, the book translation memory pairs, and the earlier term marks.
+    9. Critic-only runs. It shows the critiques of the command `critic-only`, stored in a `critic-<mode>-<stamp>` subfolder of the run folder.
 - Books tab (`/books`): a table of books and magazine years, then a table of web articles that have run folders. Columns: book, title (JA, with EN below), author, publisher, year, confidence, pages, pages with runs. Click a page in the last column to open its page view. The page carries no metadata row. The Details part loads on request, so the page stays small.
   - The tab reads `item-metadata/items.filled.jsonl`. If that file has no rows, it reads `item-metadata/items.draft.jsonl`.
   - The table uses these fields: `title_ja`, `title_en`, `author_ja` (or `author_en` if `author_ja` is empty), `publisher`, `publish_year`, `confidence`, `pages`.

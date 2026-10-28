@@ -345,3 +345,10 @@
   - The placement of the new parts on the run view, the page view, and the Books tab is an `[agent inference]`.
   - The compare table of the two critic modes reads `critic-compare/<name>/compare.json`. The script names the folder by the time of the compare, not by the list name. The Viewer finds the compare through the paths in `inputs` `[agent inference]`.
   - Not verified: the screens against a real chain run. No real chain run exists yet. The tests used plan-mode files and fixture files.
+- Round 50 answers 8 to 13: three parts of the human-translation-view. Unit D2 wrote the detail in `docs/VISION-viewer.md` section 15.10 `[check: D2 2026-10-27 21:10]`. This file keeps one line for each decision.
+  - Answer 8, own-translation editor: one box per JA sentence, with the sentence groups of the book translation memory as rows `[accepted recommendation 2026-10-27 20:54]` `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:29]`.
+  - Answer 9, editor start: the box starts empty, and a button copies the agent ED_3 text of the row `[accepted recommendation 2026-10-27 20:54]` `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:30]`.
+  - Answer 10, comments: a comment attaches to one sentence row, and the writer chooses per comment whether to share it `[user 2026-10-27 20:54]` `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:31]`.
+  - Answer 11, kendo term look-up: highlight the terms that the run found (stored marks), and open the termbase entry on a click `[accepted recommendation 2026-10-27 20:54]` `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:32]`.
+  - Answer 12, sign-in: real sign-in, and reuse of the v1 test users. The method is open `[user 2026-10-27 20:54]` `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:33]`.
+  - Answer 13, code timing: code after the docs in the same round, with clarifying questions `[user 2026-10-27 20:54]` `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:34]`.
