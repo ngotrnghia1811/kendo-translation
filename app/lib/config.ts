@@ -8,7 +8,13 @@ import path from "node:path";
  * points to another file (the pause test uses it for a fixture folder).
  */
 export interface ViewerConfig {
+  /** Folder of the Translator data. Empty only when runSource is "pocketbase" (the monitor tabs then have no folder to read). */
   translatorDataDir: string;
+  /**
+   * Source of the human-translation-view (unit S2C, round 56): "files" (default) reads the run folders on this Mac.
+   * "pocketbase" reads the snapshots that the sync command S2 uploaded into the collection page_runs. The monitor tabs always read files.
+   */
+  runSource: "files" | "pocketbase";
   /** Round 54 answer 10 (Q-A 2026-10-28 l129): "pocketbaseUrl in config file (Recommended)". Default http://127.0.0.1:8090. */
   pocketbaseUrl: string;
 }
@@ -24,13 +30,20 @@ export function configPath(): string {
 export async function loadConfig(): Promise<ViewerConfig> {
   const raw = await fs.readFile(configPath(), "utf-8");
   const cfg = JSON.parse(raw) as Partial<ViewerConfig>;
-  if (!cfg.translatorDataDir || typeof cfg.translatorDataDir !== "string") {
+  if (cfg.runSource !== undefined && cfg.runSource !== "files" && cfg.runSource !== "pocketbase") {
+    throw new Error('viewer.config.json: the key runSource must be "files" or "pocketbase".');
+  }
+  const runSource = cfg.runSource ?? "files";
+  const hasDir = typeof cfg.translatorDataDir === "string" && cfg.translatorDataDir !== "";
+  if (!hasDir && runSource === "files") {
     throw new Error("viewer.config.json needs the key translatorDataDir.");
   }
   const pb = typeof cfg.pocketbaseUrl === "string" && cfg.pocketbaseUrl.trim() ? cfg.pocketbaseUrl.trim() : DEFAULT_POCKETBASE_URL;
-  return { translatorDataDir: path.resolve(cfg.translatorDataDir), pocketbaseUrl: pb.replace(/\/+$/, "") };
+  return { translatorDataDir: hasDir ? path.resolve(cfg.translatorDataDir as string) : "", runSource, pocketbaseUrl: pb.replace(/\/+$/, "") };
 }
 
 export async function dataRoot(): Promise<string> {
-  return (await loadConfig()).translatorDataDir;
+  const dir = (await loadConfig()).translatorDataDir;
+  if (!dir) throw new Error("viewer.config.json has no translatorDataDir. The agent-translation-monitor needs it.");
+  return dir;
 }

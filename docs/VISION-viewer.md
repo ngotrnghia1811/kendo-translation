@@ -895,7 +895,7 @@ page_runs
 - Example. The page `mental_full/p014` needs the TS_3 groups, the ED_3 text, and the TL_3 blocks of run `20261028T023007Z-r41`. The files sit in `data/pilot-run/mental_full_p014/20261028T023007Z-r41/` on this Mac.
 - Options:
   - (1) Read the run folders with the server code of the agent-translation-monitor (recommended). The function `getPage` in `app/lib/page.ts:87` reads `results/TS_n.json` and `results/ED_n.json`. The path comes from `viewer.config.json`. Benefit: no new unit, fresh data, tested code. Cost: this works on the Mac only. H1 must keep the reading in one module, so the later change to `page_runs` touches one file.
-  - (2) Read `page_runs` in the local PocketBase. Benefit: the same path as the deploy. Cost: S2 must exist first, and S2 is not chosen now. Round 55 answer 8 chose the S2 design (section 15.14). The S2 code is not built.
+  - (2) Read `page_runs` in the local PocketBase. Benefit: the same path as the deploy. Cost: S2 must exist first, and S2 is not chosen now. Round 55 answer 8 chose the S2 design (section 15.14). The S2 code is not built. Round 56: the S2 code and the switch exist on this Mac (section 15.15).
   - (3) Both, with a fallback from `page_runs` to the files. Benefit: smooth change later. Cost: two paths to test.
 - Fact for H1: `getPage` picks `runFolders[0]`, the newest folder name, with no check that the run is finished `[file: app/lib/page.ts:91-92]` `[file: app/lib/books.ts:15-18]`. The list `listBooks` does the same with `runs[0]` `[file: app/lib/books.ts:50]`. Today the newest folder is finished on every page `[check: H1D 2026-10-28 12:47 python3 over */*/summary.json]`. The two unfinished folders (`men0_p005/20261026T001543Z` and `18d4ac29_p001/20261026T005532Z`) are not the newest. A future failed run will be the newest. H1 needs the finished-run rule of section 15.12.4 in its own code.
 
@@ -1424,4 +1424,152 @@ Status: open.
 - The superuser email of the own v2 PocketBase.
 - The owner has not validated this design.
 
-Status: open.
+Status: questions 1 to 12 decided in round 56 answers 3 to 5, question 13 in answer 6 (section 15.15).
+
+### 15.15 S2 code state (round 56)
+
+- Source: owner answers 3 to 6 of round 56 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:163-166]` and answer 10 "S2 code + switch, local (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:170]`. Unit S2C built the code `[check: S2C 2026-10-28 20:09]`.
+- Scope. The unit builds the sync command S2, the migration 1793300003, and the switch to `page_runs`. It tests all three on this Mac only. It contacts no server outside 127.0.0.1.
+- Size rule. Every size in this section is in MB. One MB is 1,048,576 bytes. The limit of the field `snapshot` is 5 MB.
+- Words. "Dry run" is a run that writes nothing. "Idempotent" means safe to run twice.
+
+#### 15.15.1 Commands
+
+- Files. The command is `app/scripts/sync-runs.mjs`. It uses `app/lib/htv-build.ts`, the file that the app uses to build a page. So the rules exist once.
+  - `app/scripts/ts-resolve-hook.mjs` lets plain Node load the app files. The app files import each other without the extension `.ts`. The hook adds it. No app import line changed.
+  - Node v24.6.0 loads the `.ts` files by type stripping. Older Node versions are Not verified.
+- Dry run. It is the default. It builds every snapshot, signs in as superuser, compares each snapshot with the stored record, and writes nothing. Open a terminal in the app folder and run:
+
+```
+cd /Users/nghiango-mbp/git_repo/git_upload/reimplementation-folder/kendo-translation-viewer/app
+node scripts/sync-runs.mjs --superuser superuser@kendo-translation.local
+```
+
+- Apply. The option `--apply` writes. One request goes out for each record.
+
+```
+node scripts/sync-runs.mjs --superuser superuser@kendo-translation.local --apply
+```
+
+- Filters. Without a filter the command takes every page with a finished run (30 pages, 37 runs today).
+  - `--page mental_full/p014` takes one page. The option can repeat.
+  - `--list PATH` takes the pages of a list. PATH is a list folder with `list.json` (key `pages`), a `.json` file, or a text file with one page ID per line.
+  - Example: `--list /Users/nghiango-mbp/git_repo/git_upload/reimplementation-folder/kendo-translation-translator/data/pilot-run/lists/20261028T023006Z`
+- Other options. `--url URL` names the server (default `http://127.0.0.1:8090`, plain http only for 127.0.0.1 and localhost). `--superuser EMAIL` or the env variable `PB_SUPERUSER_EMAIL` names the account. `--data DIR` names the Translator data folder. `--offline` runs a dry run with no sign-in. `--help` shows the text.
+- Password. A hidden prompt asks for it. If stdin is not a terminal, the command reads one line from stdin. The command never reads a password from an option, an env variable, or a file. It never prints the password or the token.
+- Choice of the unit. A dry run signs in by default, because the compare with the server needs it. The option `--offline` skips the compare and prints "not compared".
+- Safety before any write: the URL rule, the key `snapshot_format`, and the size of each snapshot below 5 MB. If one check fails, the command writes nothing and exits with code 1. A failed write gives exit code 1 and the PocketBase message `[check: S2C 2026-10-28 20:08 run_screen.py smoke]`.
+
+#### 15.15.2 What the counts mean
+
+- `created`: the record did not exist. The command made it.
+- `updated`: the record existed and differed from the new snapshot or from a column. The command wrote the new values.
+- `unchanged`: the record equals the new data. The command wrote nothing.
+- `failed`: the write got an error. The line names the run and the PocketBase message.
+- `skipped (no finished run)`: a page in the selection has no finished run, or has no run folder.
+- `on the server only`: a record has no finished run folder on this Mac. The command keeps the record and never deletes. With a filter, the line lists only the pages of the filter.
+- `would create` and `would update` replace `created` and `updated` in a dry run.
+- The compare uses the columns and the snapshot with sorted keys. The date `finished` is compared as a point in time.
+
+#### 15.15.3 The migration 1793300003
+
+- File: `data/scripts/pocketbase/pb_migrations/1793300003_v2_page_runs_columns.js`.
+- It adds the text fields `started_utc` and `status` to `page_runs`, only if they are missing.
+- It sets `listRule` and `viewRule` of `page_runs` to `@request.auth.id != ""`. Round 56 answer 5 chose "Keep reader read-only". `createRule`, `updateRule`, and `deleteRule` stay `null` (superuser only).
+- The down function puts back the old list and view rules (translator or admin). It keeps the fields and all data. The up direction ran twice in test check 13b without error. The down direction sets fixed values, so a second run changes nothing `[agent inference]`.
+- The field `finished` is computed. S2 adds `wall_seconds` of `summary.json` to `started_utc`. The result is an estimate of the end time.
+- The P1 test now checks 120 PASS and 0 FAIL, shape `fresh` `[check: S2C 2026-10-28 20:04 python3 -B run_p1_test.py]`. The new checks: an anonymous list fails, a reader lists and views `page_runs`, a reader and a translator cannot create, update, or delete, the superuser creates and updates, the new fields exist, and the down and up steps change the rules. The test of the shape `live-shape` needs the v1 files and did not run.
+- The local server on port 8090 restarted once to load the file. The new PID is 59793 `[check: S2C 2026-10-28 20:04 pgrep -fl 'pocketbase serve']`.
+
+#### 15.15.4 The switch `runSource`
+
+- Key in `viewer.config.json`: `runSource`. The value `files` is the default. It reads the run folders and works as in H1. The value `pocketbase` reads `page_runs` and `catalog_items`.
+- The tracked `app/viewer.config.json` does not hold the key. The dev server on port 3000 keeps the value `files`.
+- With `runSource` `pocketbase`, the key `translatorDataDir` is optional. The agent-translation-monitor (tabs Runs and Books) still reads files. Without the key it shows an error.
+- Changed code: `app/lib/htv-runs.ts`, `app/lib/config.ts`, `app/lib/pb.ts`, and the four callers `app/app/translate/page.tsx`, `app/app/translate/[slug]/[page]/page.tsx`, `app/app/api/htv/mark/route.ts`, and `app/app/api/htv/save/route.ts`. The functions `finishedRuns`, `listFinishedPages`, `loadHtvPage`, and `rowsForSave` take the user token.
+- In `pocketbase` mode:
+  - The run list is a request on `page_runs` with the fields `page_id`, `run_id`, `verdict`, `qa3_page_score`, `started_utc`, and `status`. It has no snapshot. It sorts by `-started_utc,-run_id`.
+  - The page list is one request on all `page_runs`, grouped by `page_id`. The titles come from `catalog_items`.
+  - The page view reads the snapshot of the shown run. A snapshot with another `snapshot_format` gives a plain error that tells you to run S2 again.
+- How to test it on this Mac, without a change in the dev server:
+  1. Copy the app as `app/README.md` says (`cp -cR`) and build the copy.
+  2. Start a throwaway PocketBase on port 8092 with the four migrations.
+  3. Run S2 with `--apply` into it.
+  4. Write a config file with `"runSource": "pocketbase"` and `"pocketbaseUrl": "http://127.0.0.1:8092"`.
+  5. Run `node scripts/smoke.mjs htv --config FILE` in the copy.
+
+#### 15.15.5 Worked example
+
+- Page `mental_full/p014` has two finished runs. S2 makes two records `[check: S2C 2026-10-28 20:08 python3 -B p014.py]`.
+
+| Run ID | Verdict | Score | started_utc | finished (computed) | Snapshot size |
+| --- | --- | --- | --- | --- | --- |
+| `20261026T195046Z-r41` | PASS | 10.0 | 2026-10-26T19:50:46Z | 2026-10-26 20:28:29.100Z | 0.03 MB |
+| `20261028T023007Z-r41` | FAIL | 8.5 | 2026-10-28T02:30:07Z | 2026-10-28 02:56:57.600Z | 0.03 MB |
+
+- Both records have `item_id` `mental_full` and `status` `completed`. Each snapshot holds 3 rows and 6 termbase entries.
+- The first row of both has the key `mental_full/p014/ts3/L01-L08`. Run `20261026T195046Z-r41` marks 8 JA terms and 6 EN terms in it. Run `20261028T023007Z-r41` marks 8 JA terms and 7 EN terms.
+- The page shows the newest run (FAIL) first. The admin can mark the older run in `run_marks`. A test passes the older run ID as the mark. Both sources then show the run `20261026T195046Z-r41` with PASS and 10.
+
+#### 15.15.6 Results
+
+- Upload into the local server on port 8090 `[check: S2C 2026-10-28 20:05 sync-runs.mjs]`:
+
+| Step | page_runs | catalog_items |
+| --- | --- | --- |
+| Dry run before | would create 37 | would create 12 |
+| First apply | created 37, failed 0 | created 12, failed 0 |
+| Second apply | unchanged 37, created 0, updated 0 | unchanged 12 |
+| Dry run after | unchanged 37 | unchanged 12 |
+
+- Sizes of the 37 snapshots: min 0.02 MB (`eiga_full/p159`), median 0.05 MB, max 0.13 MB (`kendojidai_2014/p0839`), total 2.01 MB. The max is about 2.6 percent of the 5 MB limit. The total is 0.01 MB above the draft of 15.14.4, because each row now holds `shortKey`.
+- Parity, data level (script `parity_data.mjs`, real `htv-runs.ts` of an app copy, reader token, local server on port 8090) `[check: S2C 2026-10-28 20:06 node parity_data.mjs]`:
+  - 37 runs, 30 pages, 278 sentence groups, 1 group with no ED_3 text.
+  - The H1 code and the new files mode give equal pages for all 37 runs: 0 differences.
+  - The files mode and the `pocketbase` mode give equal `rows`, `panel`, `terms`, `notes`, `verdict`, `score`, `runId`, `startedUtc`, and `status`: 0 differences. The whole page object also has 0 differences.
+  - The page list has 30 pages in both modes and is equal. A marked run and a stale mark give equal results.
+- Parity, group rule: `parity.py` compares the groups in the stored snapshots with `translator.book_memory`: 37 runs, 278 groups, 0 differences `[check: S2C 2026-10-28 20:07 python3 -B parity.py]`.
+- Screen level, throwaway server on port 8092 `[check: S2C 2026-10-28 20:08 run_screen.py]`: smoke mode `htv` with `runSource` `files`: 98 PASS, 0 FAIL. The same with `runSource` `pocketbase`: 98 PASS, 0 FAIL. Smoke mode `smoke`: 70 PASS, 0 FAIL. A control run with `pocketbase` and an empty `page_runs` fails, so the second run reads the collection.
+- S2 checks on the throwaway server: a changed record gives `would update` 1, then `updated` 1. A record with no run folder is listed as "on the server only" and stays. A wrong password gives exit code 1. A write error gives exit code 1 and the PocketBase message.
+- `npx tsc --noEmit` and `npm run lint` in `app` give no output.
+
+#### 15.15.7 The catalog choice
+
+- S2 writes one `catalog_items` record for each item with a finished run. The `item_id` is the book slug, the same value that the app writes in `own_translations`. The whole metadata row goes into the field `row`.
+- 11 of the 12 items have a metadata row with the same `item_id`. They get their titles.
+- The web article `18d4ac29` has no row under this ID. The row has the long ID `18d4ac29-12d5-4753-b032-35337361fee5`. S2 makes the record with `item_id` `18d4ac29` and empty titles. It invents no ID rule. This matches the title in the files mode, which is empty too.
+- A missing value in a text field is stored as an empty text. `publish_year` is empty for `100_practice_full`, `lifelong_full`, and `18d4ac29`.
+- `magazine_chapters` stays empty.
+
+#### 15.15.8 Not verified
+
+- Node versions before v24.6.0 with the hook.
+- How PocketBase stores a null in a text field. S2 sends an empty text instead.
+- A run with no page score. The column `qa3_page_score` holds 0 for it. All 37 runs have a score today. The shown run takes its score from the snapshot, so only the run list can show 0.
+- Anything on the Oracle server, in Vercel, and in DNS.
+- The upload of a large set over https. The batch API is not used by S2.
+- The finish time in `finished`. It is an estimate.
+- The live-shape test of the migrations.
+- A signed-in page view in the owner dev server on port 3000 with the new code. Only the status codes were seen after the change: `/` 200, `/books` 200, and `/translate` 307 `[check: S2C 2026-10-28 20:11 curl]`. The unit did not restart the dev server.
+
+#### 15.15.9 Open items
+
+- Title of the web article `18d4ac29`.
+  - Option 1 (recommended): keep the empty title. Benefit: no new rule. Cost: the list shows no title for this page.
+  - Option 2: match the short ID to the start of the long ID. Benefit: a title. Cost: an ID rule that no owner decision names.
+  - Option 3: add a small map file from short ID to long ID. Benefit: exact. Cost: a new file to keep.
+- Run with no page score.
+  - Option 1 (recommended): keep it. No run has this case.
+  - Option 2: add a flag field in a new migration. Cost: another migration.
+- Hook for plain Node.
+  - Option 1 (recommended): keep the hook. Benefit: no change to `package.json` and no change to the app imports. Cost: Node must support type stripping.
+  - Option 2: add `"type": "module"` to `app/package.json`. Cost: the effect on Next is Not verified.
+- Superuser of the own v2 PocketBase. `pb_users.py` manages users only. The superuser comes from `pocketbase superuser upsert` on the server. This belongs to the deploy unit.
+
+#### 15.15.10 Old lines that this section makes stale
+
+- Section 15.14.8 says that the switch changes `htv-runs.ts` only. It changes this file and four callers (see 15.15.4). The header of `htv-runs.ts` now says so.
+- Section 15.14.4 gives a draft total of 2.00 MB. The real total is 2.01 MB.
+- The questions of 15.14.11 are decided. Questions 1 to 12 follow round 56 answers 3 to 5. Question 13 follows round 56 answer 6: the app on `v2.kendotranslation.com` and the PocketBase on `pb-v2.kendotranslation.com`.
+
+Status: decided for the code. The owner has not yet run S2 by hand.

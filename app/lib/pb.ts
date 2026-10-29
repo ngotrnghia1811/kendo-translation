@@ -1,6 +1,6 @@
 import "server-only";
 import { loadConfig } from "./config";
-import type { CommentView, Role, SavedRow, SessionUser, VersionInfo } from "./htv-types";
+import type { CommentView, HtvRun, Role, SavedRow, SessionUser, VersionInfo } from "./htv-types";
 
 /*
  * ALL PocketBase calls of the app sit in this one module (round 54 answer 10, Q-A 2026-10-28 l129:
@@ -313,4 +313,49 @@ export async function clearRunMark(token: string, pageId: string): Promise<void>
   if (!id) return;
   const r = await pbFetch("DELETE", `/api/collections/run_marks/records/${encodeURIComponent(String(id))}`, { token });
   if (!ok(r)) throw failure(r, "The run mark was not cleared.");
+}
+
+// ---------------------------------------------------------------- page runs and catalog (filled by the sync command S2)
+
+export interface PageRunRow extends HtvRun {
+  pageId: string;
+}
+
+/**
+ * The finished runs in page_runs, newest first, without the snapshot field (a list of 37 snapshots is 2 MB).
+ * With a page ID the list holds the runs of that page. Without it the list holds all runs.
+ * Any signed-in user can read page_runs (migration 1793300003). Unit S2C, round 56.
+ */
+export async function pageRunRows(token: string, pageId?: string): Promise<PageRunRow[]> {
+  const params: Record<string, string> = { sort: "-started_utc,-run_id", fields: "page_id,run_id,verdict,qa3_page_score,started_utc,status" };
+  if (pageId) params.filter = `page_id=${q(pageId)}`;
+  const recs = await listAll(token, "page_runs", params);
+  const out: PageRunRow[] = [];
+  for (const r of recs) {
+    if (r.verdict !== "PASS" && r.verdict !== "FAIL") continue;
+    out.push({
+      pageId: String(r.page_id),
+      runId: String(r.run_id),
+      startedUtc: String(r.started_utc ?? ""),
+      status: String(r.status ?? ""),
+      verdict: r.verdict,
+      score: typeof r.qa3_page_score === "number" ? r.qa3_page_score : null,
+    });
+  }
+  return out;
+}
+
+/** The snapshot JSON of one run, or null when the record is missing. */
+export async function pageRunSnapshot(token: string, pageId: string, runId: string): Promise<J | null> {
+  const r = await pbFetch("GET", `/api/collections/page_runs/records?perPage=1&skipTotal=1&fields=snapshot&filter=${encodeURIComponent(`page_id=${q(pageId)} && run_id=${q(runId)}`)}`, { token });
+  if (!ok(r)) throw failure(r, "PocketBase could not read the snapshot of " + pageId + " run " + runId + ".");
+  return r.data.items?.[0]?.snapshot ?? null;
+}
+
+/** Book titles from catalog_items: item ID to title_en, or title_ja when title_en is empty. With a slug the list holds that item only. */
+export async function catalogTitles(token: string, slug?: string): Promise<Map<string, string>> {
+  const params: Record<string, string> = { fields: "item_id,title_en,title_ja" };
+  if (slug) params.filter = `item_id=${q(slug)}`;
+  const recs = await listAll(token, "catalog_items", params);
+  return new Map(recs.map((r) => [String(r.item_id), String(r.title_en || r.title_ja || "")]));
 }

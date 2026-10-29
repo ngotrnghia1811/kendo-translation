@@ -25,7 +25,7 @@ export default async function TranslatePage({ params }: { params: Promise<{ slug
     if (!(e instanceof PbError)) throw e;
     pbNote = "The run mark could not be read: " + e.message;
   }
-  const data = await loadHtvPage(slug, page, marked);
+  const data = await loadHtvPage(slug, page, marked, s.token);
   if (!data) notFound();
 
   // A reader has no own boxes and no comments (unit default), so the page loads no saved data for a reader.

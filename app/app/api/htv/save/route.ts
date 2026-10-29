@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       sent.set(o.groupKey, o.text);
     }
     // The shown run is decided on the server (admin mark first, else newest). The run ID from the browser must match it.
-    const run = await rowsForSave(slug, page, await runMarkOf(g.token, pageId));
+    const run = await rowsForSave(slug, page, await runMarkOf(g.token, pageId), g.token);
     if (!run || run.runId !== runId) return jsonResponse({ error: "The page now shows another run. Reload the page before you save." }, 409);
     const same = run.rows.length === sent.size && run.rows.every((r) => sent.has(r.key));
     if (!same) return jsonResponse({ error: "The list of rows differs from the run. Reload the page before you save." }, 409);

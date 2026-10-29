@@ -9,7 +9,7 @@ This folder holds the tracked source files for the v2 PocketBase. The binary and
 - `pb_users.py` lists users, adds users, sets passwords, sets roles, and disables or enables users.
 - `test_local.py` is a throwaway test. It starts a temp PocketBase on port 8091 and checks every rule. It deletes the temp data at the end.
 
-- `pb_migrations/1793300002_v2_batch.js` turns on the batch API (`POST /api/batch`) with `maxRequests` 200 and `timeout` 10. The Save of the human-translation-view uses it (`app/lib/pb.ts` line 226), so that a page saves all records or none. All three migrations are safe to run twice. Each one adds only what is missing or sets the same values again.
+- `pb_migrations/1793300002_v2_batch.js` turns on the batch API (`POST /api/batch`) with `maxRequests` 200 and `timeout` 10. The Save of the human-translation-view uses it (`app/lib/pb.ts` line 226), so that a page saves all records or none. All four migrations are safe to run twice (see section 7). Each one adds only what is missing or sets the same values again.
 
 ## 2. Local server
 
@@ -94,7 +94,7 @@ Shape `live-shape` is optional. The deploy does not need it. It applies the v1 m
 python3 -B data/scripts/pocketbase/test_local.py --v1-migrations ../kendo-translation-viewer-v1/migration/pocketbase/pb_migrations
 ```
 
-Each check prints `PASS` or `FAIL`. The exit code is 1 if one check fails. Add `--keep` to keep the temp folders for a look. Last run on 2026-10-28 at 16:37, shape `fresh`: `Total: 110 PASS, 0 FAIL`. The run took about 3 seconds.
+Each check prints `PASS` or `FAIL`. The exit code is 1 if one check fails. Add `--keep` to keep the temp folders for a look. Last run on 2026-10-28 at 20:04, shape `fresh`: `Total: 120 PASS, 0 FAIL`. The run took about 3 seconds.
 
 ## 4. Live server note
 
@@ -127,3 +127,13 @@ Do not use a password that you need later in the `superuser upsert` command. The
 ## 6. Not verified
 
 The installer link form `http://127.0.0.1:8090/_/#/pbinstal/...` was never verified. Use `superuser upsert` from step 10 instead.
+
+## 7. Migration 1793300003 and the S2 upload
+
+- `pb_migrations/1793300003_v2_page_runs_columns.js` adds the text fields `started_utc` and `status` to `page_runs`, only if they are missing.
+- The migration sets the list rule and the view rule of `page_runs` to `@request.auth.id != ""`. Every signed-in user can read the records, a reader too. Create, update, and delete stay with the superuser.
+- The down function puts back the old rules (translator or admin). It keeps the fields and all data.
+- A server that started before this file existed must restart once. Run the commands of section 2, steps 8, 9, and 3.
+- Start the server in a normal terminal. A server that a tool shell started can stop when that shell ends.
+- The sync command S2 fills `page_runs`. See the section Sync command S2 in `app/README.md`.
+- The test `test_local.py` checks the four migrations. It removes 4 history rows in check 13b and runs `migrate down 4` in check 15a.

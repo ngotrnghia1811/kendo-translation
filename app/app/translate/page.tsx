@@ -19,7 +19,7 @@ export default async function TranslateList() {
     if (!(e instanceof PbError)) throw e;
     note = "The run marks could not be read: " + e.message + " The list shows the newest finished runs.";
   }
-  const rows = await listFinishedPages(marks);
+  const rows = await listFinishedPages(marks, s.token);
   return (
     <>
       <HtvBar name={s.user.name} email={s.user.email} role={s.user.role} />

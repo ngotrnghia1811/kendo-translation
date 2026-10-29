@@ -63,7 +63,7 @@ Mode `pause` sends POST requests to `/api/pause` and creates and deletes a `PAUS
 
 ## Configuration
 
-The file `viewer.config.json` in the app folder holds the settings. It has two keys, `translatorDataDir` and `pocketbaseUrl`. The key `pocketbaseUrl` is optional (see the section Human-translation-view at the end).
+The file `viewer.config.json` in the app folder holds the settings. It has three keys, `translatorDataDir`, `pocketbaseUrl`, and `runSource`. The keys `pocketbaseUrl` and `runSource` are optional (see the section Human-translation-view at the end).
 
 ```json
 {
@@ -183,7 +183,7 @@ The human-translation-view lets a translator write own translations next to the 
 ### Start
 
 1. Start PocketBase as `data/scripts/pocketbase/README.md` says (section 2). The server listens on `http://127.0.0.1:8090`.
-2. Make sure that the server loads the migration `data/scripts/pocketbase/pb_migrations/1793300002_v2_batch.js`. The migration turns on the batch API. A server that started before the file existed must restart once.
+2. Make sure that the server loads the migrations `data/scripts/pocketbase/pb_migrations/1793300002_v2_batch.js` and `1793300003_v2_page_runs_columns.js`. The first turns on the batch API. The second adds the run columns of `page_runs`. A server that started before the file existed must restart once.
 3. Add the users with `pb_users.py`. The roles are `admin`, `translator`, and `reader`.
 4. Start the app (`npm run dev`) and open http://localhost:3000/translate.
 5. To use another PocketBase address, add the key `pocketbaseUrl` to `viewer.config.json`. The default is `http://127.0.0.1:8090`.
@@ -224,7 +224,7 @@ The human-translation-view lets a translator write own translations next to the 
 
 ### Where the code sits
 
-- `lib/htv-runs.ts`: all reads of run folders for this view. A later switch to the collection `page_runs` changes this file only.
+- `lib/htv-runs.ts`: all reads of run folders for this view. The config key `runSource` switches it to the collection `page_runs`. `lib/htv-build.ts` holds the pure build code that this file and the sync command S2 share.
 - `lib/pb.ts`: all PocketBase calls (plain `fetch`, the token of the signed-in user).
 - `lib/htv-groups.ts` and `lib/htv-panel.ts`: pure code for the sentence groups, the term marks, and the TL_3 message.
 - `lib/htv-session.ts` and `lib/htv-api.ts`: cookie, sign-in check, and route guard.
@@ -249,3 +249,37 @@ The script never prints a password or a token. It checks these parts:
 - The run mark and the notice.
 - The panel line count of `kendojidai_2014/p0839`.
 - An old run folder with missing files.
+
+## Sync command S2
+
+The command `scripts/sync-runs.mjs` copies the finished page runs from the run folders on this Mac into the PocketBase collection `page_runs`. It also fills `catalog_items` with the book titles. The deployed app reads these records, because it cannot read this Mac. Section 15.15 of `docs/VISION-viewer.md` holds the details.
+
+Run it in the app folder. The first command is a dry run. It signs in, compares, and writes nothing:
+
+```
+cd /Users/nghiango-mbp/git_repo/git_upload/reimplementation-folder/kendo-translation-viewer/app
+node scripts/sync-runs.mjs --superuser superuser@kendo-translation.local
+```
+
+The second command writes. Run the dry run first and read the plan:
+
+```
+node scripts/sync-runs.mjs --superuser superuser@kendo-translation.local --apply
+```
+
+- The command asks for the password in a hidden prompt. It never takes the password from an option, an env variable, or a file.
+- The default server is `http://127.0.0.1:8090`. Use `--url` for another server. Plain http works for 127.0.0.1 and localhost only.
+- `--page mental_full/p014` limits the run to one page. The option can repeat.
+- `--list PATH` limits the run to the pages of a list folder, a `list.json` file, or a text file with one page ID per line.
+- `--offline` runs a dry run with no sign-in. The plan then shows "not compared".
+- A record is created if it is missing, updated if it differs, and left alone if it is equal. A second run changes nothing.
+- A record whose run folder is gone stays on the server. The report lists it as "on the server only".
+- The report prints every size in MB (1 MB is 1,048,576 bytes). Each snapshot must stay below 5 MB.
+- The exit code is 1 if a check or a write fails. The message names the run and the PocketBase error.
+
+The config key `runSource` in `viewer.config.json` picks the source of the human-translation-view:
+
+- `files` is the default. The view reads the run folders.
+- `pocketbase` makes the view read `page_runs` and `catalog_items`. The key `translatorDataDir` is then optional. The agent-translation-monitor still reads files and needs the key.
+
+Do not add `"runSource": "pocketbase"` to the tracked `viewer.config.json`. To test the source, copy the app as the section Smoke test says. Write a config file for the copy and start the smoke test with `node scripts/smoke.mjs htv --config FILE`.

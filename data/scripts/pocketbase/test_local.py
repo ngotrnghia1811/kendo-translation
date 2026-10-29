@@ -86,7 +86,8 @@ EXPECTED_RULES = {
     "run_marks": {"listRule": SIGNED, "viewRule": SIGNED, "createRule": ADMIN, "updateRule": ADMIN, "deleteRule": ADMIN},
     "catalog_items": {"listRule": SIGNED, "viewRule": SIGNED, "createRule": None, "updateRule": None, "deleteRule": None},
     "magazine_chapters": {"listRule": SIGNED, "viewRule": SIGNED, "createRule": None, "updateRule": None, "deleteRule": None},
-    "page_runs": {"listRule": STAFF, "viewRule": STAFF, "createRule": None, "updateRule": None, "deleteRule": None},
+    # Migration 1793300003 (unit S2C, round 56 answer 5): every signed-in user reads page_runs. Writes stay with the superuser.
+    "page_runs": {"listRule": SIGNED, "viewRule": SIGNED, "createRule": None, "updateRule": None, "deleteRule": None},
 }
 NEW_COLLECTIONS = [name for name in EXPECTED_RULES if name != "users"]
 
@@ -498,18 +499,39 @@ def snapshot_of(size):
 def check_page_runs(ctx):
     path = "/api/collections/page_runs/records"
     t = ctx.token
-    status, data = http("GET", path, token=t["rd1"])
-    ctx.check("10a rd1 list of page_runs fails or is empty", is_denied(status) or data.get("totalItems", 1) == 0,
+    status, data = http("GET", path)
+    ctx.check("10a anonymous list of page_runs fails or is empty", is_denied(status) or data.get("totalItems", 1) == 0,
               "status " + str(status))
+    collection = get_collection(ctx, "page_runs") or {}
+    names = [f["name"] for f in collection.get("fields", [])]
+    ctx.check("10a1 page_runs has the text fields started_utc and status (migration 1793300003)",
+              all(n in names for n in ("started_utc", "status")), "fields " + ", ".join(names))
     snapshot = snapshot_of(200 * 1024)
     body = {"page_id": "kendojidai_2014/p0839", "item_id": "kendojidai_2014", "run_id": "run-1", "verdict": "PASS",
-            "qa3_page_score": 0.9, "finished": "2026-10-28 10:00:00.000Z", "snapshot": snapshot}
+            "qa3_page_score": 0.9, "finished": "2026-10-28 10:00:00.000Z", "started_utc": "2026-10-28T09:59:00Z",
+            "status": "completed", "snapshot": snapshot}
     status, record = http("POST", path, body, ctx.su_token)
     ctx.check("10b superuser creates page run with 200 KB snapshot", is_ok(status), "status " + str(status))
     status, back = http("GET", path + "/" + record.get("id", "x"), token=t["tr1"])
     ctx.check("10c tr1 reads the snapshot back with the same content", is_ok(status) and back.get("snapshot") == snapshot,
               "status " + str(status))
     ctx.check("10d snapshot size matches", len(json.dumps(back.get("snapshot"))) == len(json.dumps(snapshot)), "size differs")
+    ctx.check("10d1 started_utc and status are stored", back.get("started_utc") == body["started_utc"] and back.get("status") == "completed",
+              "started_utc " + repr(back.get("started_utc")) + " status " + repr(back.get("status")))
+    status, listing = http("GET", path + "?perPage=1&fields=run_id,started_utc,status", token=t["rd1"])
+    ctx.check("10d2 rd1 (reader) lists page_runs and sees the record", is_ok(status) and listing.get("items", [{}])[0].get("run_id") == "run-1",
+              "status " + str(status))
+    status, one = http("GET", path + "/" + record.get("id", "x"), token=t["rd1"])
+    ctx.check("10d3 rd1 (reader) views one page run with its snapshot", is_ok(status) and one.get("snapshot") == snapshot,
+              "status " + str(status))
+    status, _ = http("POST", path, dict(body, run_id="run-8"), t["rd1"])
+    ctx.check("10d4 rd1 (reader) creates page run fails", is_denied(status), "status " + str(status))
+    status, _ = http("PATCH", path + "/" + record.get("id", "x"), {"status": "x"}, t["tr1"])
+    ctx.check("10d5 tr1 updates page run fails", is_denied(status), "status " + str(status))
+    status, _ = http("DELETE", path + "/" + record.get("id", "x"), token=t["tr1"])
+    ctx.check("10d6 tr1 deletes page run fails", is_denied(status), "status " + str(status))
+    status, upd = http("PATCH", path + "/" + record.get("id", "x"), {"status": "completed with failures", "qa3_page_score": 0.8}, ctx.su_token)
+    ctx.check("10d7 superuser updates a page run", is_ok(status) and upd.get("status") == "completed with failures", "status " + str(status))
     status, _ = http("POST", path, dict(body, run_id="run-9"), t["tr1"])
     ctx.check("10e tr1 creates page run fails", is_denied(status), "status " + str(status))
     status, _ = http("POST", path, body, ctx.su_token)
@@ -681,7 +703,7 @@ def check_restart(ctx, server, shape_dir, counts):
     ctx.check("13a records survive the restart", count_records(ctx) == counts, "counts differ")
     server.stop()
     removed = forget_v2_history(shape_dir)
-    ctx.check("13b v2 history rows removed for the test (3 expected)", removed == 3, "removed " + str(removed))
+    ctx.check("13b v2 history rows removed for the test (4 expected)", removed == 4, "removed " + str(removed))
     try:
         server.start()
         ok, reason = True, ""
@@ -703,8 +725,8 @@ def check_restart(ctx, server, shape_dir, counts):
 
 def check_down_up(ctx, server, shape_dir):
     server.stop()
-    code, output = run_cli(server, ["migrate", "down", "3"])
-    ctx.check("15a migrate down 3 exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
+    code, output = run_cli(server, ["migrate", "down", "4"])
+    ctx.check("15a migrate down 4 exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
     ctx.check("15g down turns the batch API off", batch_enabled_db(shape_dir) is False, "batch " + repr(batch_enabled_db(shape_dir)))
     ctx.check("15b down sets users authRule to empty", users_auth_rule(shape_dir) == "", "authRule " + repr(users_auth_rule(shape_dir)))
     names = {row["name"] for row in read_collections_db(shape_dir)}
@@ -712,6 +734,10 @@ def check_down_up(ctx, server, shape_dir):
     gone = {"catalog_items", "magazine_chapters"}
     ctx.check("15c down keeps collections with records and drops empty ones",
               kept <= names and not (gone & names), "kept " + str(sorted(kept & names)) + " empty-left " + str(sorted(gone & names)))
+    down_runs = next((row for row in read_collections_db(shape_dir) if row["name"] == "page_runs"), {})
+    ctx.check("15i down puts back the old page_runs list and view rules (translator or admin)",
+              down_runs.get("listRule") == STAFF and down_runs.get("viewRule") == STAFF,
+              "listRule " + repr(down_runs.get("listRule")) + " viewRule " + repr(down_runs.get("viewRule")))
     code, output = run_cli(server, ["migrate", "up"])
     ctx.check("15d migrate up exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
     ctx.check("15h up turns the batch API on again", batch_enabled_db(shape_dir) is True, "batch " + repr(batch_enabled_db(shape_dir)))
@@ -719,6 +745,10 @@ def check_down_up(ctx, server, shape_dir):
               "authRule " + repr(users_auth_rule(shape_dir)))
     names = {row["name"] for row in read_collections_db(shape_dir)}
     ctx.check("15f up creates the 6 collections again", set(NEW_COLLECTIONS) <= names, "missing " + str(sorted(set(NEW_COLLECTIONS) - names)))
+    up_runs = next((row for row in read_collections_db(shape_dir) if row["name"] == "page_runs"), {})
+    ctx.check("15j up sets the page_runs list and view rules to every signed-in user",
+              up_runs.get("listRule") == SIGNED and up_runs.get("viewRule") == SIGNED,
+              "listRule " + repr(up_runs.get("listRule")) + " viewRule " + repr(up_runs.get("viewRule")))
 
 
 # ---------------------------------------------------------------- one shape

@@ -13,7 +13,7 @@ export async function PUT(req: Request) {
     const b = await readBody(req);
     const { slug, page, pageId } = parsePageId(b.pageId);
     const runId = typeof b.runId === "string" ? b.runId : "";
-    const runs = await finishedRuns(`${slug}_${page}`);
+    const runs = await finishedRuns(`${slug}_${page}`, g.token);
     if (!runs.some((r) => r.runId === runId)) return jsonResponse({ error: "This run is not a finished run of the page." }, 400);
     await setRunMark(g.token, g.user, pageId, runId);
     return jsonResponse({ ok: true, runId });
