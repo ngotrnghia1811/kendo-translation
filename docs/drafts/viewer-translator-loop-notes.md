@@ -424,3 +424,12 @@
 - Web article. The row of `18d4ac29-12d5-4753-b032-35337361fee5` in `items.filled.jsonl` has `pages` null. S2 looks up the short ID, so `catalog_items` holds `pages` 0 and an empty title for `18d4ac29` `[file: app/scripts/sync-runs.mjs:368-381]`.
 - Magazine months. `magazine-chapters.jsonl` has 103 rows with `page_start` and `page_end`. PocketBase holds none of them today. October 2014 is p778 to p868 in `kendojidai_2014`.
 - Not verified: the Translator side has not read this list. No Translator file changed.
+
+## Round 59
+
+- Unit UXC built the four screen needs of round 57 (steps A to E of `docs/VISION-viewer.md` section 15.16.7). The code state is in section 15.17.
+- Open for the owner: the book list (constant `BOOK_LIST_MODE`) and the default theme (constant `DEFAULT_THEME`). Both are not decided.
+- Translator side: no file changed. The panel cards read the lines of `messages/TL_3.txt` as they are. The old runs `18d4ac29_p001/20261025T230942Z-test13` and `plan-` runs hold other `result` shapes in the lower pair. The panel shows these as raw text.
+- The paid chain added runs while the unit worked. The count of finished runs went from 37 to 40.
+- The owner must run S2 with `--apply` to put the 3 new runs and the 103 magazine chapters into the local PocketBase.
+- Not verified: other browsers than Chrome, and a book with many tagged pages.

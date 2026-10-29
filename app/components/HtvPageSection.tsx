@@ -1,27 +1,31 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import type { CommentView, HtvPageData, HtvRow, Role, SavedRow, VersionInfo } from "@/lib/htv-types";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { CommentView, HtvBookPage, HtvPageData, HtvRow, Role, SavedRow, VersionInfo } from "@/lib/htv-types";
 import { utcTime } from "@/lib/htv-format";
 import { VerdictPill } from "./Pills";
 import { MarkedText, TermPopup, type PickedTerm } from "./HtvMarkedText";
 import RowComments from "./HtvComments";
-import Tl3Panel from "./HtvPanel";
+import { Pane, PaneCog, useJaShare, usePaneSetting } from "./PaneSettings";
 
-// Human-translation-view, one page. Rounds 50 to 54 (Q-A 2026-10-28 l29-60, l94-108, l119-134), VISION-viewer 15.10 to 15.12.
+// Human-translation-view, one page section of the book screen. Rounds 50 to 54 (Q-A 2026-10-28 l29-60, l94-108, l119-134), VISION-viewer 15.10 to 15.12.
 // Per sentence group: JA text, ED_3 text of the shown run, an own box, a copy button, and comments.
-// Round 51 answer 7 (l52): nothing saves without a click on Save. Round 52 answer 12 (l83): warn on unsaved leave.
+// Round 51 answer 7 (l52): nothing saves without a click on Save.
+// Unit UXC step D (round 59 answer 4, l222): "Save per page section". Each section has its own Save, own version numbers, own run notice,
+// own comments, and own admin run mark. The book screen (HtvBook.tsx) holds the leave warning for all sections.
 
 const NOTICE_SAVED = "Saved for lines that this run cuts in another way"; // round 54 answer 9 (l128), exact label
 
 interface Props {
+  page: HtvBookPage;
   data: HtvPageData;
   user: { name: string; email: string; role: Role };
-  versions: VersionInfo[];
-  initialRows: SavedRow[];
-  initialComments: CommentView[];
-  /** Plain note when PocketBase could not give the saved data. */
-  pbNote: string;
+  /** True when the TL_3 information panel is pinned to this page. */
+  pinned: boolean;
+  onPin: (n: number) => void;
+  /** The section tells the book screen when it has unsaved text. */
+  onDirty: (n: number, dirty: boolean) => void;
+  /** The section asks the book screen to load the page again (after a change of the run mark). */
+  onReload: (n: number) => Promise<void>;
 }
 
 async function api<T = Record<string, unknown>>(method: string, url: string, body?: unknown): Promise<{ ok: boolean; status: number; data: T & { error?: string } }> {
@@ -35,8 +39,9 @@ async function api<T = Record<string, unknown>>(method: string, url: string, bod
   return { ok: r.ok, status: r.status, data };
 }
 
-export default function HtvEditor({ data, user, versions: versionsIn, initialRows, initialComments, pbNote }: Props) {
-  const router = useRouter();
+export default function HtvPageSection({ page, data, user, pinned, onPin, onDirty, onReload }: Props) {
+  const { versions: versionsIn, rows: initialRows, comments: initialComments, pbNote } = page;
+  const n = page.n;
   const readOnly = user.role === "reader";
   const keys = useMemo(() => data.rows.map((r) => r.key), [data.rows]);
   const keySet = useMemo(() => new Set(keys), [keys]);
@@ -46,78 +51,57 @@ export default function HtvEditor({ data, user, versions: versionsIn, initialRow
   const fromRows = useCallback(
     (rows: SavedRow[]) => {
       const text: Record<string, string> = {};
+      const agree: Record<string, boolean> = {};
       const run: Record<string, string> = {};
-      for (const k of keys) text[k] = "";
+      for (const k of keys) {
+        text[k] = "";
+        agree[k] = false;
+      }
       for (const r of rows) {
         if (keySet.has(r.groupKey)) {
           text[r.groupKey] = r.text;
+          agree[r.groupKey] = r.agree;
           run[r.groupKey] = r.runId;
         }
       }
-      return { text, run };
+      return { text, agree, run };
     },
     [keys, keySet],
   );
   const initial = useMemo(() => fromRows(initialRows), [fromRows, initialRows]);
   const [texts, setTexts] = useState<Record<string, string>>(initial.text);
   const [baseline, setBaseline] = useState<Record<string, string>>(initial.text);
+  // Round 58 answer 4 (Q-A l202): the agree tick of each row. Round 59 answer 5 (l223): a tick and own text exclude each other.
+  const [agrees, setAgrees] = useState<Record<string, boolean>>(initial.agree);
+  const [baseAgree, setBaseAgree] = useState<Record<string, boolean>>(initial.agree);
   const [rowRun, setRowRun] = useState<Record<string, string>>(initial.run);
   // Saved rows whose key has no row in the shown run (round 54 answer 9, l128).
-  const [orphans, setOrphans] = useState<SavedRow[]>(initialRows.filter((r) => !keySet.has(r.groupKey) && r.text.trim()));
+  const [orphans, setOrphans] = useState<SavedRow[]>(initialRows.filter((r) => !keySet.has(r.groupKey) && (r.text.trim() || r.agree)));
   const [comments, setComments] = useState<CommentView[]>(initialComments);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
-  const [panelOpen, setPanelOpen] = useState(true);
   const [picked, setPicked] = useState<PickedTerm | null>(null);
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
   const [markRun, setMarkRun] = useState(data.runs[0]?.runId ?? "");
   const [markBusy, setMarkBusy] = useState(false);
   const closePopup = useCallback(() => setPicked(null), []);
 
-  const dirty = useMemo(() => keys.some((k) => (texts[k] ?? "") !== (baseline[k] ?? "")), [keys, texts, baseline]);
-  const dirtyRef = useRef(dirty);
+  const dirty = useMemo(
+    () => keys.some((k) => (texts[k] ?? "") !== (baseline[k] ?? "") || !!agrees[k] !== !!baseAgree[k]),
+    [keys, texts, baseline, agrees, baseAgree],
+  );
   useEffect(() => {
-    dirtyRef.current = dirty;
-  }, [dirty]);
-
-  // Token refresh, once on load.
-  useEffect(() => {
-    void api("POST", "/api/htv/refresh", {});
-  }, []);
-
-  // Round 52 answer 12 (Q-A l83): "Warn on unsaved leave". The browser warns on a reload, a close, and a typed address.
-  // A click on a link inside the app asks first (capture phase, before the Next.js link handler).
-  useEffect(() => {
-    const before = (e: BeforeUnloadEvent) => {
-      if (dirtyRef.current) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    };
-    const click = (e: MouseEvent) => {
-      if (!dirtyRef.current || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-      const a = (e.target as HTMLElement | null)?.closest("a[href]") as HTMLAnchorElement | null;
-      if (!a || a.target === "_blank" || a.hasAttribute("download")) return;
-      const url = new URL(a.href, window.location.href);
-      if (url.origin !== window.location.origin) return;
-      if (url.pathname === window.location.pathname && url.search === window.location.search) return;
-      if (!window.confirm("You have unsaved text on this page. Leave without saving?")) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    };
-    window.addEventListener("beforeunload", before);
-    document.addEventListener("click", click, true);
-    return () => {
-      window.removeEventListener("beforeunload", before);
-      document.removeEventListener("click", click, true);
-    };
-  }, []);
+    onDirty(n, dirty);
+  }, [n, dirty, onDirty]);
+  useEffect(() => () => onDirty(n, false), [n, onDirty]);
 
   const noticeFor = (k: string): string => {
     const r = rowRun[k];
-    if (!r || r === data.runId || !(baseline[k] ?? "").trim()) return "";
-    return `You saved this text while the page showed run ${r}. The page now shows run ${data.runId}. The agent text of this row can differ.`;
+    if (!r || r === data.runId) return "";
+    // Round 58 answer 4: the notice shows when the saved text is not empty or the saved tick is on.
+    if ((baseline[k] ?? "").trim()) return `You saved this text while the page showed run ${r}. The page now shows run ${data.runId}. The agent text of this row can differ.`;
+    if (baseAgree[k]) return `You ticked this row while the page showed run ${r}. The page now shows run ${data.runId}. The agent text of this row can differ.`;
+    return "";
   };
   const anyNotice = keys.some((k) => noticeFor(k));
 
@@ -127,7 +111,7 @@ export default function HtvEditor({ data, user, versions: versionsIn, initialRow
     const r = await api<{ version: number; created: string; count: number }>("POST", "/api/htv/save", {
       pageId: data.pageId,
       runId: data.runId,
-      rows: keys.map((k) => ({ groupKey: k, text: texts[k] ?? "" })),
+      rows: keys.map((k) => ({ groupKey: k, text: texts[k] ?? "", agree: !!agrees[k] })),
     });
     setSaving(false);
     if (!r.ok) {
@@ -136,9 +120,10 @@ export default function HtvEditor({ data, user, versions: versionsIn, initialRow
     }
     const v = r.data.version;
     setBaseline({ ...texts });
+    setBaseAgree({ ...agrees });
     setRowRun(Object.fromEntries(keys.map((k) => [k, data.runId])));
     setLoadedVersion(v);
-    setVersions((l) => [{ version: v, created: r.data.created, runId: data.runId, rows: r.data.count }, ...l]);
+    setVersions((l) => [{ version: v, created: r.data.created, runId: data.runId, rows: r.data.count, agreed: keys.filter((k) => agrees[k]).length }, ...l]);
     setMessage({ kind: "ok", text: `Saved as version ${v} at ${utcTime(r.data.created) || "this moment"}. ${r.data.count} rows.` });
   }
 
@@ -149,24 +134,26 @@ export default function HtvEditor({ data, user, versions: versionsIn, initialRow
     if (!r.ok) return setMessage({ kind: "error", text: r.data.error ?? "The version did not load." });
     const next = fromRows(r.data.rows);
     setTexts(next.text);
+    setAgrees(next.agree);
     // The loaded text counts as unsaved: the boxes differ from the newest saved version unless the user saves.
     setBaseline(next.text);
+    setBaseAgree(next.agree);
     setRowRun(next.run);
-    setOrphans(r.data.rows.filter((x) => !keySet.has(x.groupKey) && x.text.trim()));
+    setOrphans(r.data.rows.filter((x) => !keySet.has(x.groupKey) && (x.text.trim() || x.agree)));
     setLoadedVersion(v);
     setMessage({ kind: "ok", text: `Version ${v} is in the boxes. Click Save to keep it as a new version.` });
   }
 
   async function setMark(on: boolean) {
-    if (dirty && !window.confirm("You have unsaved text. The page reloads with the other run. Continue?")) return;
+    if (dirty && !window.confirm("You have unsaved text on this page. The page loads again with the other run. Continue?")) return;
     setMarkBusy(true);
     setMessage(null);
     const r = on ? await api("PUT", "/api/htv/mark", { pageId: data.pageId, runId: markRun }) : await api("DELETE", "/api/htv/mark", { pageId: data.pageId });
     setMarkBusy(false);
     if (!r.ok) return setMessage({ kind: "error", text: r.data.error ?? "The run mark did not change." });
-    setBaseline({ ...texts }); // the page reloads, so the leave warning must not block it
-    dirtyRef.current = false;
-    router.refresh();
+    setBaseline({ ...texts }); // the section loads again, so the leave warning must not block it
+    setBaseAgree({ ...agrees });
+    await onReload(n);
   }
 
   const patchComments = useCallback((next: (l: CommentView[]) => CommentView[]) => setComments(next), []);
@@ -180,10 +167,19 @@ export default function HtvEditor({ data, user, versions: versionsIn, initialRow
     <div>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            {data.pageId}
+          <h2 className="text-lg font-semibold tracking-tight">
+            <button
+              type="button"
+              onClick={() => onPin(n)}
+              aria-pressed={pinned}
+              title={pinned ? "The TL_3 information panel is pinned to this page. Click to follow the page in view." : "Click to show the TL_3 information panel of this page"}
+              className={"underline-offset-2 hover:underline " + (pinned ? "text-accent" : "")}
+              data-pin={data.pageId}
+            >
+              {data.pageId}
+            </button>
             {data.bookTitle ? <span className="ml-3 text-base font-normal text-muted">{data.bookTitle}</span> : null}
-          </h1>
+          </h2>
           <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
             <span className="flex items-center gap-1.5">
               QA_3 verdict <VerdictPill verdict={data.verdict} score={data.score} />
@@ -197,23 +193,16 @@ export default function HtvEditor({ data, user, versions: versionsIn, initialRow
           </div>
           {data.markNote ? <p className="mt-1 text-sm text-amber-800">{data.markNote}</p> : null}
         </div>
-        <div className="flex flex-col items-end gap-2">
-          {!readOnly ? (
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-muted">
-                {dirty ? "Unsaved changes" : loadedVersion ? `Version ${loadedVersion} is in the boxes` : "No saved version yet"}
-              </span>
-              <button type="button" onClick={save} disabled={saving} className="rounded bg-accent px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50">
-                {saving ? "Saving…" : "Save"}
-              </button>
-            </div>
-          ) : (
-            <span className="text-sm text-muted">This account can read only. It has no own boxes and no comments.</span>
-          )}
-          <button type="button" onClick={() => setPanelOpen((v) => !v)} className="text-sm text-accent underline">
-            {panelOpen ? "Hide the TL_3 information panel" : "Show the TL_3 information panel"}
-          </button>
-        </div>
+        {!readOnly ? (
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted">
+              {dirty ? "Unsaved changes" : loadedVersion ? `Version ${loadedVersion} is in the boxes` : "No saved version yet"}
+            </span>
+            <button type="button" onClick={save} disabled={saving} className="rounded bg-accent px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50" data-save={data.pageId}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {message ? (
@@ -253,7 +242,8 @@ export default function HtvEditor({ data, user, versions: versionsIn, initialRow
       ) : null}
 
       {!readOnly && versions.length > 0 ? (
-        <details className="mt-3 rounded border border-line bg-white/60 p-2 text-sm">
+        <Pane id="versions" className="mt-3 rounded border border-line bg-white/60 text-sm">
+        <details className="p-2">
           <summary className="cursor-pointer select-none font-medium">Version history ({versions.length})</summary>
           <table className="mt-2 w-full text-left text-sm">
             <thead className="text-xs uppercase tracking-wide text-muted">
@@ -262,6 +252,7 @@ export default function HtvEditor({ data, user, versions: versionsIn, initialRow
                 <th className="pr-3">Saved</th>
                 <th className="pr-3">Run</th>
                 <th className="pr-3">Rows</th>
+                <th className="pr-3">Agreed</th>
                 <th />
               </tr>
             </thead>
@@ -275,6 +266,7 @@ export default function HtvEditor({ data, user, versions: versionsIn, initialRow
                     {v.runId !== data.runId ? <span className="ml-1 text-amber-800">(not the shown run)</span> : null}
                   </td>
                   <td className="pr-3">{v.rows}</td>
+                  <td className="pr-3">{v.agreed}</td>
                   <td>
                     {loadedVersion === v.version && !dirty ? (
                       <span className="text-muted">in the boxes</span>
@@ -289,17 +281,30 @@ export default function HtvEditor({ data, user, versions: versionsIn, initialRow
             </tbody>
           </table>
         </details>
+        </Pane>
       ) : null}
 
-      <div className="mt-4 flex items-start gap-6">
-        <div className="min-w-0 flex-1 space-y-4">
+      <div className="mt-4">
+        <div className="space-y-4">
           {data.rows.map((row) => (
             <RowCard
               key={row.key}
               row={row}
               readOnly={readOnly}
               text={texts[row.key] ?? ""}
-              onText={(t) => setTexts((s) => ({ ...s, [row.key]: t }))}
+              onText={(t) => {
+                setTexts((s) => ({ ...s, [row.key]: t }));
+                // Round 59 answer 5 (l223): typing in the own box clears the tick.
+                if (t !== "") setAgrees((s) => (s[row.key] ? { ...s, [row.key]: false } : s));
+              }}
+              agree={!!agrees[row.key]}
+              onAgree={(on) => {
+                if (on && (texts[row.key] ?? "").trim() !== "") {
+                  if (!window.confirm("Clear your own text in this row?")) return;
+                  setTexts((s) => ({ ...s, [row.key]: "" }));
+                }
+                setAgrees((s) => ({ ...s, [row.key]: on }));
+              }}
               notice={noticeFor(row.key)}
               onPick={setPicked}
               comments={commentsOf(row.key)}
@@ -326,7 +331,14 @@ export default function HtvEditor({ data, user, versions: versionsIn, initialRow
                       .map((o) => (
                         <div key={o.runId + o.groupKey} className="mt-1">
                           {o.jaText ? <div className="font-ja text-muted">{o.jaText}</div> : null}
-                          <div className="whitespace-pre-wrap">{o.text}</div>
+                          {o.agree ? (
+                            <div data-orphan-agree>
+                              <div className="text-xs text-muted">You agreed to this agent text:</div>
+                              <div className="whitespace-pre-wrap">{o.ed3Text || "(no agent text was saved)"}</div>
+                            </div>
+                          ) : (
+                            <div className="whitespace-pre-wrap">{o.text}</div>
+                          )}
                           <div className="text-xs text-muted">Saved while the page showed run {o.runId}</div>
                         </div>
                       ))}
@@ -348,11 +360,6 @@ export default function HtvEditor({ data, user, versions: versionsIn, initialRow
           ) : null}
         </div>
 
-        {panelOpen ? (
-          <aside className="sticky top-3 max-h-[calc(100vh-1.5rem)] w-[26rem] shrink-0 overflow-auto rounded border border-line bg-white/60 p-3" data-panel>
-            <Tl3Panel panel={data.panel} />
-          </aside>
-        ) : null}
       </div>
       {picked ? <TermPopup picked={picked} entry={data.terms[picked.mark.entryId]} onClose={closePopup} /> : null}
     </div>
@@ -364,6 +371,8 @@ function RowCard({
   readOnly,
   text,
   onText,
+  agree,
+  onAgree,
   notice,
   onPick,
   comments,
@@ -378,6 +387,8 @@ function RowCard({
   readOnly: boolean;
   text: string;
   onText: (t: string) => void;
+  agree: boolean;
+  onAgree: (on: boolean) => void;
   notice: string;
   onPick: (p: PickedTerm) => void;
   comments: CommentView[];
@@ -388,6 +399,8 @@ function RowCard({
   role: Role;
   onComments: (next: (l: CommentView[]) => CommentView[]) => void;
 }) {
+  const share = useJaShare();
+  const own = usePaneSetting("own");
   return (
     <article className="rounded border border-line bg-white/70 p-3" data-row={row.key}>
       <div className="mb-1.5 flex items-center gap-2 text-xs text-muted">
@@ -395,13 +408,13 @@ function RowCard({
         {row.part === "block_title" ? <span className="rounded bg-stone-200 px-1.5 text-stone-700">Title</span> : null}
         <span>{Array.from(row.ja).length} JA characters</span>
       </div>
-      <div className="grid grid-cols-2 gap-6">
-        <div className="font-ja text-[1.05rem] leading-relaxed" lang="ja">
+      <div className="grid gap-6" style={{ gridTemplateColumns: `${share}fr ${100 - share}fr` }}>
+        <Pane id="ja" className="font-ja text-[1.05rem] leading-relaxed" lang="ja">
           <MarkedText text={row.ja} marks={row.jaMarks} onPick={onPick} />
-        </div>
-        <div className="font-serif text-[1.05rem] leading-relaxed" data-ed3>
+        </Pane>
+        <Pane id="agent" className="font-serif text-[1.05rem] leading-relaxed" dataAttr={{ "data-ed3": "" }}>
           {row.ed3 ? <MarkedText text={row.ed3} marks={row.edMarks} onPick={onPick} /> : <span className="text-muted">No agent text for this row.</span>}
-        </div>
+        </Pane>
       </div>
       {!readOnly ? (
         <div className="mt-2">
@@ -410,15 +423,25 @@ function RowCard({
               {notice}
             </p>
           ) : null}
+          <div className="relative">
+          <div className="absolute right-1 top-1 z-10 opacity-70 hover:opacity-100 focus-within:opacity-100">
+            <PaneCog id="own" />
+          </div>
           <textarea
             aria-label={`Own translation for ${row.shortKey}`}
+            style={own.style}
             value={text}
             onChange={(e) => onText(e.target.value)}
             rows={Math.max(2, Math.min(12, Math.ceil(Array.from(row.ed3 || row.ja).length / 60)))}
             placeholder="Your own translation"
-            className="w-full rounded border border-line bg-white p-2 font-serif text-[1.05rem] leading-relaxed"
+            className="w-full rounded border border-line bg-white p-2 pr-9 font-serif text-[1.05rem] leading-relaxed placeholder:text-muted"
           />
+          </div>
           <div className="mt-1 flex items-center gap-4 text-sm">
+            <label className="flex items-center gap-1.5">
+              <input type="checkbox" data-agree={row.key} checked={agree} disabled={!row.ed3} onChange={(e) => onAgree(e.target.checked)} />
+              Agree with the agent text
+            </label>
             <button type="button" disabled={!row.ed3} onClick={() => onText(row.ed3)} className="text-accent underline disabled:text-muted disabled:no-underline">
               Copy the agent text into the box
             </button>

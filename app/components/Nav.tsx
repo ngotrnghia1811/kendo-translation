@@ -1,6 +1,8 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import ThemeSwitch from "./ThemeSwitch";
+import type { ThemeName } from "@/lib/htv-settings";
 
 // Round 43 answer 6 (Q-A l110): first view "Two tabs". Runs first, Books second, full width, one click switches.
 const TABS = [
@@ -11,7 +13,7 @@ const TABS = [
 ];
 
 // Round 58 answer 7 (Q-A 2026-10-28 l205): with the monitor off, only the tab Human translation shows.
-export default function Nav({ monitor }: { monitor: boolean }) {
+export default function Nav({ monitor, theme }: { monitor: boolean; theme: ThemeName }) {
   const path = usePathname() ?? "/";
   const tabs = monitor ? TABS : TABS.filter((t) => !t.monitor);
   return (
@@ -35,6 +37,7 @@ export default function Nav({ monitor }: { monitor: boolean }) {
           );
         })}
       </nav>
+      <ThemeSwitch theme={theme} />
     </header>
   );
 }

@@ -105,13 +105,19 @@ export interface VersionInfo {
   created: string;
   runId: string;
   rows: number;
+  /** Count of rows with the agree tick (round 58 answer 4). */
+  agreed: number;
 }
 
 export interface SavedRow {
   groupKey: string;
   text: string;
+  /** True when the translator ticked "Agree with the agent text" for this row. */
+  agree: boolean;
   runId: string;
   jaText: string;
+  /** Agent text (ED_3) of the run that the row was saved for. */
+  ed3Text: string;
 }
 
 export interface CommentView {
@@ -125,4 +131,61 @@ export interface CommentView {
   shared: boolean;
   created: string;
   updated: string;
+}
+
+// ---------------------------------------------------------------- book screen (unit UXC, round 59)
+
+/** One row of the book list. */
+export interface HtvBookRow {
+  slug: string;
+  title: string;
+  /** Page count of the book (catalog_items.pages or items.filled.jsonl). */
+  pages: number;
+  /** Count of pages with a finished run. */
+  tagged: number;
+}
+
+/** Tag of a page with an agent translation: the shown run, its verdict and score. Pages without a tag have no entry. */
+export interface HtvPageTag {
+  /** Page number, for example 48 for p048. */
+  n: number;
+  verdict: "PASS" | "FAIL";
+  score: number | null;
+  shownRunId: string;
+  marked: boolean;
+}
+
+/** A month heading of a magazine year (collection magazine_chapters or magazine-chapters.jsonl). */
+export interface ChapterHead {
+  chapter: string;
+  /** Month number 1 to 12, or null for the front chapter. */
+  month: number | null;
+  year: number | null;
+  titleEn: string;
+  pageStart: number;
+  pageEnd: number;
+}
+
+/** The page index of a book: the data that the server sends at once. */
+export interface HtvBookIndex {
+  slug: string;
+  title: string;
+  /** Count of page sections. */
+  pages: number;
+  /** Digits of a page ID: 3, or 4 when the book has more than 999 pages (pages.py id_digits). */
+  digits: number;
+  tags: HtvPageTag[];
+  chapters: ChapterHead[];
+}
+
+/** The loaded data of one page section: the page data (null when the page has no finished run) and the saved data of the user. */
+export interface HtvBookPage {
+  n: number;
+  pageId: string;
+  data: HtvPageData | null;
+  versions: VersionInfo[];
+  rows: SavedRow[];
+  comments: CommentView[];
+  /** Plain note when PocketBase did not give the saved data. */
+  pbNote: string;
 }

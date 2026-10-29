@@ -10,7 +10,7 @@ Shapes:
               This runs only if --v1-migrations is given.
 
 The test uses 127.0.0.1:8091 only. It never contacts the live server.
-Every temp folder lives in WORK_ROOT. The test deletes it at the end unless --keep is set.
+Every temp folder lives in WORK_ROOT. The env variable PB_TEST_WORK_ROOT replaces the default folder. The test deletes it at the end unless --keep is set.
 All passwords are random, held in memory and never printed.
 """
 
@@ -38,7 +38,7 @@ import pb_users  # noqa: E402  (same folder)
 V2_ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 PB_BIN = os.path.join(V2_ROOT, "data", "pocketbase", "pocketbase")
 V2_MIGRATIONS = os.path.join(HERE, "pb_migrations")
-WORK_ROOT = "/var/folders/sz/2hvwvpb16c77mfzqnvkb5gbc0000gn/T/opencode/r53/P1"
+WORK_ROOT = os.environ.get("PB_TEST_WORK_ROOT", "/var/folders/sz/2hvwvpb16c77mfzqnvkb5gbc0000gn/T/opencode/r53/P1")
 PORT = 8091
 BASE = "http://127.0.0.1:" + str(PORT)
 
@@ -68,6 +68,7 @@ SELF = '@request.auth.id != "" && @request.body.user = @request.auth.id && ' + W
 SIGNED = '@request.auth.id != ""'
 ADMIN = '@request.auth.role = "admin"'
 STAFF = '@request.auth.role = "translator" || @request.auth.role = "admin"'
+OWN_ONLY = '@request.auth.id != "" && user = @request.auth.id'
 # Expected rules, written again here on purpose so that the test does not trust the migration file.
 EXPECTED_RULES = {
     "users": {
@@ -88,6 +89,10 @@ EXPECTED_RULES = {
     "magazine_chapters": {"listRule": SIGNED, "viewRule": SIGNED, "createRule": None, "updateRule": None, "deleteRule": None},
     # Migration 1793300003 (unit S2C, round 56 answer 5): every signed-in user reads page_runs. Writes stay with the superuser.
     "page_runs": {"listRule": SIGNED, "viewRule": SIGNED, "createRule": None, "updateRule": None, "deleteRule": None},
+    # Migration 1793300005 (unit UXC, round 59 answer 6): a user reads and changes the own settings record only. Nobody deletes.
+    "user_settings": {"listRule": OWN_ONLY, "viewRule": OWN_ONLY,
+                      "createRule": '@request.auth.id != "" && @request.body.user = @request.auth.id',
+                      "updateRule": 'user = @request.auth.id && @request.body.user:changed = false', "deleteRule": None},
 }
 NEW_COLLECTIONS = [name for name in EXPECTED_RULES if name != "users"]
 
@@ -630,9 +635,88 @@ def check_long_text(ctx):
               "status " + str(status))
 
 
+def check_agree(ctx):
+    """Migration 1793300004 (unit UXC, round 58 answer 4): the bool field agree of own_translations."""
+    path = "/api/collections/own_translations/records"
+    t = ctx.token
+    collection = get_collection(ctx, "own_translations") or {}
+    field = next((f for f in collection.get("fields", []) if f["name"] == "agree"), None)
+    ctx.check("17a own_translations has the field agree of type bool (migration 1793300004)", bool(field) and field["type"] == "bool",
+              "field " + repr(field))
+    page = "mental_full/p014"
+    base = {"user": ctx.id["tr1"], "item_id": "mental_full", "page_id": page, "group_key": page + "/ts3/L01-L08", "ts_ids": ["x"],
+            "part": "lines", "ja_text": "ja", "run_id": "run-agree", "ed3_text": "agent text", "text": "", "version": 1}
+    status, ticked = http("POST", path, dict(base, agree=True), t["tr1"])
+    ctx.check("17b tr1 creates a record with agree true and an empty text", is_ok(status) and ticked.get("agree") is True and ticked.get("text") == "",
+              "status " + str(status))
+    status, plain = http("POST", path, dict(base, group_key=page + "/ts3/L09-L13", text="own text"), t["tr1"])
+    ctx.check("17c a record without agree reads back agree false (the default)", is_ok(status) and plain.get("agree") is False, "status " + str(status) + " " + repr(plain.get("agree")))
+    status, back = http("GET", path + "/" + ticked.get("id", "x"), token=t["tr1"])
+    ctx.check("17d tr1 reads agree true back", is_ok(status) and back.get("agree") is True, "status " + str(status))
+    status, _ = http("PATCH", path + "/" + ticked.get("id", "x"), {"agree": False}, t["tr1"])
+    ctx.check("17e tr1 cannot change agree later (the records never change)", is_denied(status), "status " + str(status))
+    status, _ = http("POST", path, dict(base, agree=True, user=ctx.id["tr2"], group_key=page + "/ts3/L14-L15"), t["tr1"])
+    ctx.check("17f the create rule still refuses user = tr2 for tr1 (rules unchanged)", is_denied(status), "status " + str(status))
+    status, _ = http("POST", path, dict(base, agree=True, group_key=page + "/ts3/L14-L15", user=ctx.id["rd1"]), t["rd1"])
+    ctx.check("17g rd1 (reader) cannot create a ticked record (rules unchanged)", is_denied(status), "status " + str(status))
+    status, data = http("GET", path + "?filter=" + urllib.parse.quote('page_id="' + page + '" && agree=true'), token=t["tr2"])
+    ctx.check("17h tr2 does not see the ticked record of tr1", is_ok(status) and data.get("totalItems") == 0, "status " + str(status))
+    status, data = http("GET", path + "?filter=" + urllib.parse.quote('page_id="' + page + '" && agree=true'), token=t["tr1"])
+    ctx.check("17i tr1 filters the own ticked records (1 found)", is_ok(status) and data.get("totalItems") == 1, "status " + str(status) + " " + str(data.get("totalItems")))
+
+
+def check_user_settings(ctx):
+    """Migration 1793300005 (unit UXC, round 59 answer 6): the collection user_settings, own record only."""
+    path = "/api/collections/user_settings/records"
+    t = ctx.token
+    collection = get_collection(ctx, "user_settings") or {}
+    fields = {f["name"]: f for f in collection.get("fields", [])}
+    ctx.check("18a user_settings has user (relation, required), theme (select light/dark), panes (json, 20000 bytes)",
+              fields.get("user", {}).get("type") == "relation" and fields["user"].get("required") is True and fields["user"].get("maxSelect") == 1
+              and fields.get("theme", {}).get("type") == "select" and fields["theme"].get("values") == ["light", "dark"]
+              and fields.get("panes", {}).get("type") == "json" and fields["panes"].get("maxSize") == 20000, "fields " + ", ".join(fields))
+    ctx.check("18b user_settings has created and updated autodate fields and the unique index on user",
+              fields.get("created", {}).get("type") == "autodate" and fields.get("updated", {}).get("type") == "autodate"
+              and any("UNIQUE" in i.upper() and "user" in i for i in collection.get("indexes", [])), "indexes " + repr(collection.get("indexes")))
+    panes = {"v": 1, "panes": {"tl3": {"font": "sans", "size": 15, "width": 520}}}
+    status, mine = http("POST", path, {"user": ctx.id["tr1"], "theme": "dark", "panes": panes}, t["tr1"])
+    ctx.check("18c tr1 creates the own settings record", is_ok(status) and mine.get("theme") == "dark" and mine.get("panes") == panes, "status " + str(status))
+    status, _ = http("POST", path, {"user": ctx.id["tr2"], "theme": "dark"}, t["tr1"])
+    ctx.check("18d tr1 creates a record for tr2 fails", is_denied(status), "status " + str(status))
+    status, _ = http("POST", path, {"user": ctx.id["tr1"], "theme": "light"}, t["tr1"])
+    ctx.check("18e a second record for tr1 fails (unique index)", is_denied(status), "status " + str(status))
+    status, _ = http("POST", path, {"user": ctx.id["tr2"], "theme": "purple"}, t["tr2"])
+    ctx.check("18f a theme other than light or dark fails", is_denied(status), "status " + str(status))
+    status, _ = http("POST", path, {"user": ctx.id["tr2"], "panes": {"v": 1, "pad": "x" * 21000}}, t["tr2"])
+    ctx.check("18g panes above 20000 bytes fail", is_denied(status), "status " + str(status))
+    status, rd = http("POST", path, {"user": ctx.id["rd1"], "theme": "dark"}, t["rd1"])
+    ctx.check("18h rd1 (reader) creates the own settings record (no role limit)", is_ok(status), "status " + str(status))
+    status, data = http("GET", path, token=t["tr2"])
+    ctx.check("18i tr2 list shows no record", is_ok(status) and data.get("totalItems") == 0, "status " + str(status) + " " + str(data.get("totalItems")))
+    status, _ = http("GET", path + "/" + mine.get("id", "x"), token=t["tr2"])
+    ctx.check("18j tr2 view of the record of tr1 fails", is_denied(status), "status " + str(status))
+    status, _ = http("PATCH", path + "/" + mine.get("id", "x"), {"theme": "light"}, t["tr2"])
+    ctx.check("18k tr2 update of the record of tr1 fails", is_denied(status), "status " + str(status))
+    status, _ = http("DELETE", path + "/" + mine.get("id", "x"), token=t["tr2"])
+    ctx.check("18l tr2 delete of the record of tr1 fails", is_denied(status), "status " + str(status))
+    status, upd = http("PATCH", path + "/" + mine.get("id", "x"), {"theme": "light"}, t["tr1"])
+    ctx.check("18m tr1 updates the own record (theme light)", is_ok(status) and upd.get("theme") == "light", "status " + str(status))
+    status, _ = http("PATCH", path + "/" + mine.get("id", "x"), {"user": ctx.id["tr2"]}, t["tr1"])
+    ctx.check("18n tr1 cannot give the record to tr2 (the user cannot change)", is_denied(status), "status " + str(status))
+    status, _ = http("DELETE", path + "/" + mine.get("id", "x"), token=t["tr1"])
+    ctx.check("18o tr1 delete of the own record fails (the delete rule is null)", is_denied(status), "status " + str(status))
+    status, _ = http("DELETE", path + "/" + mine.get("id", "x"), token=t["admin1"])
+    ctx.check("18p admin1 delete fails too (only the superuser deletes)", is_denied(status), "status " + str(status))
+    status, data = http("GET", path, token=t["admin1"])
+    ctx.check("18q admin1 list shows no record of other users (own record only, no admin rule)", is_ok(status) and data.get("totalItems") == 0, "status " + str(status) + " " + str(data.get("totalItems")))
+    status, data = http("GET", path)
+    ctx.check("18r anonymous list fails or is empty", is_denied(status) or data.get("totalItems", 1) == 0, "status " + str(status))
+    ctx.check("18s rd1 reads back the own record", is_ok(http("GET", path + "/" + rd.get("id", "x"), token=t["rd1"])[0]), "read failed")
+
+
 def count_records(ctx):
     counts = {}
-    for name in ("own_translations", "comments", "run_marks", "page_runs"):
+    for name in ("own_translations", "comments", "run_marks", "page_runs", "user_settings"):
         _, data = http("GET", "/api/collections/" + name + "/records?perPage=1", token=ctx.su_token)
         counts[name] = data.get("totalItems")
     return counts
@@ -703,7 +787,7 @@ def check_restart(ctx, server, shape_dir, counts):
     ctx.check("13a records survive the restart", count_records(ctx) == counts, "counts differ")
     server.stop()
     removed = forget_v2_history(shape_dir)
-    ctx.check("13b v2 history rows removed for the test (4 expected)", removed == 4, "removed " + str(removed))
+    ctx.check("13b v2 history rows removed for the test (6 expected)", removed == 6, "removed " + str(removed))
     try:
         server.start()
         ok, reason = True, ""
@@ -720,17 +804,19 @@ def check_restart(ctx, server, shape_dir, counts):
     log = open(server.log_path, "rb").read().decode("utf-8", "replace")
     exists_lines = len(re.findall(r"v2 migration: collection \w+ exists, left as it is", log))
     ctx.info("13b log lines 'collection ... exists, left as it is': " + str(exists_lines))
-    ctx.check("13b the second run reports the 6 existing collections", exists_lines == 6, "lines " + str(exists_lines))
+    ctx.check("13b the second run reports the 7 existing collections (6 of 1793300001 and user_settings)", exists_lines == 7, "lines " + str(exists_lines))
+    agree_lines = len(re.findall(r"v2 migration: field agree exists, left as it is", log))
+    ctx.check("13b the second run reports that the field agree exists (migration 1793300004)", agree_lines == 1, "lines " + str(agree_lines))
 
 
 def check_down_up(ctx, server, shape_dir):
     server.stop()
-    code, output = run_cli(server, ["migrate", "down", "4"])
-    ctx.check("15a migrate down 4 exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
+    code, output = run_cli(server, ["migrate", "down", "6"])
+    ctx.check("15a migrate down 6 exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
     ctx.check("15g down turns the batch API off", batch_enabled_db(shape_dir) is False, "batch " + repr(batch_enabled_db(shape_dir)))
     ctx.check("15b down sets users authRule to empty", users_auth_rule(shape_dir) == "", "authRule " + repr(users_auth_rule(shape_dir)))
     names = {row["name"] for row in read_collections_db(shape_dir)}
-    kept = {"own_translations", "comments", "run_marks", "page_runs"}
+    kept = {"own_translations", "comments", "run_marks", "page_runs", "user_settings"}
     gone = {"catalog_items", "magazine_chapters"}
     ctx.check("15c down keeps collections with records and drops empty ones",
               kept <= names and not (gone & names), "kept " + str(sorted(kept & names)) + " empty-left " + str(sorted(gone & names)))
@@ -738,13 +824,16 @@ def check_down_up(ctx, server, shape_dir):
     ctx.check("15i down puts back the old page_runs list and view rules (translator or admin)",
               down_runs.get("listRule") == STAFF and down_runs.get("viewRule") == STAFF,
               "listRule " + repr(down_runs.get("listRule")) + " viewRule " + repr(down_runs.get("viewRule")))
+    own = next((row for row in read_collections_db(shape_dir) if row["name"] == "own_translations"), {})
+    ctx.check("15k down keeps the field agree of own_translations (migration 1793300004, soft down)",
+              any(f.get("name") == "agree" for f in json.loads(own.get("fields") or "[]")), "fields missing agree")
     code, output = run_cli(server, ["migrate", "up"])
     ctx.check("15d migrate up exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
     ctx.check("15h up turns the batch API on again", batch_enabled_db(shape_dir) is True, "batch " + repr(batch_enabled_db(shape_dir)))
     ctx.check("15e up sets users authRule again", users_auth_rule(shape_dir) == "disabled = false",
               "authRule " + repr(users_auth_rule(shape_dir)))
     names = {row["name"] for row in read_collections_db(shape_dir)}
-    ctx.check("15f up creates the 6 collections again", set(NEW_COLLECTIONS) <= names, "missing " + str(sorted(set(NEW_COLLECTIONS) - names)))
+    ctx.check("15f up creates the 7 collections again", set(NEW_COLLECTIONS) <= names, "missing " + str(sorted(set(NEW_COLLECTIONS) - names)))
     up_runs = next((row for row in read_collections_db(shape_dir) if row["name"] == "page_runs"), {})
     ctx.check("15j up sets the page_runs list and view rules to every signed-in user",
               up_runs.get("listRule") == SIGNED and up_runs.get("viewRule") == SIGNED,
@@ -774,6 +863,8 @@ def run_shape(shape, v1_dir, res):
         check_schema(ctx, live=(shape == "live-shape"))
         check_long_text(ctx)
         check_user_script(ctx)
+        check_agree(ctx)
+        check_user_settings(ctx)
         counts = count_records(ctx)
         check_restart(ctx, server, shape_dir, counts)
         check_down_up(ctx, server, shape_dir)

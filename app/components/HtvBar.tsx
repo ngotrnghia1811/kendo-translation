@@ -18,7 +18,7 @@ export default function HtvBar({ name, email, role, backHref }: { name: string; 
   }
   return (
     <div className="mb-3 flex items-center justify-between border-b border-line pb-2 text-sm">
-      <div>{backHref ? <Link href={backHref} className="text-accent underline">All pages</Link> : null}</div>
+      <div>{backHref ? <Link href={backHref} className="text-accent underline">All books</Link> : null}</div>
       <div className="flex items-center gap-3">
         <span data-user>
           Signed in as <span className="font-medium">{name || email}</span> ({ROLE_LABEL[role]})

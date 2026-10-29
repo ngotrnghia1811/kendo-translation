@@ -32,3 +32,55 @@ body {
 a {
   color: inherit;
 }
+
+/* Unit UXC step C (round 59). Round 58 answer 6 (Q-A 2026-10-28 l204): "Whole app, per account (Recommended)". A switch Light / High-contrast dark.
+   Round 59 answer 7 (l225): "v1 dark colors (Recommended)". The base colors come from the v1 block [data-reader-theme="high-contrast"]:
+   background #000000, text #ffffff, muted #aaaaaa, accent #ffff00, border #444444.
+   The server writes data-theme on <html> from the cookie "theme", so the first paint has no jump.
+   The block overrides the Tailwind color variables. Every class such as bg-green-100 or text-red-700 then gets a dark value with no change in the components.
+   The pairs are in VISION-viewer 15.16.5. A new color class must follow the pairing rule. The script scripts/contrast-dark.mjs tests every pair (7 to 1 or more). */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #000000;
+  --foreground: #ffffff;
+  --muted: #aaaaaa;
+  --line: #444444;
+  --accent: #ffff00;
+
+  --color-white: #1a1a1a;
+  --color-stone-50: #111111;
+  --color-stone-100: #1c1917;
+  --color-stone-200: #292524;
+  --color-stone-600: #d6d3d1;
+  --color-stone-700: #e7e5e4;
+  --color-amber-50: #2a1d00;
+  --color-amber-100: #4a3600;
+  --color-amber-200: #664b00;
+  --color-amber-300: #b88a00;
+  --color-amber-600: #f59e0b;
+  --color-amber-700: #fbbf24;
+  --color-amber-800: #fcd34d;
+  --color-amber-900: #fef3c7;
+  --color-red-50: #2a0a0a;
+  --color-red-100: #450a0a;
+  --color-red-200: #7f1d1d;
+  --color-red-700: #fca5a5;
+  --color-red-800: #fecaca;
+  --color-green-100: #052e16;
+  --color-green-700: #86efac;
+  --color-green-800: #bbf7d0;
+  --color-blue-50: #0b1b3a;
+  --color-blue-100: #172554;
+  --color-blue-800: #bfdbfe;
+  --color-sky-100: #082f49;
+  --color-sky-800: #bae6fd;
+  --color-orange-100: #431407;
+  --color-orange-800: #fed7aa;
+}
+
+/* The edge of a box needs 3 to 1 on its surface. #777777 gives 3.89 to 1 on #1a1a1a and 4.69 to 1 on black. */
+[data-theme="dark"] :is(textarea, select, input:not([type="checkbox"]):not([type="radio"])) {
+  border-color: #777777;
+}

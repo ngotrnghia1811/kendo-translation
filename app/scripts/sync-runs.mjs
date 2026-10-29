@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 // Sync command S2 (unit S2C, round 56, VISION-viewer 15.14 and 15.15).
 // It uploads one snapshot for each finished page run from the run folders on this Mac into the PocketBase collection page_runs.
-// It also fills catalog_items with one record for each item that has a finished run (the book titles).
+// It also fills catalog_items with one record for each item that has a finished run (the book titles and page counts).
+// Unit UXC (round 59 answer 4, Q-A 2026-10-28 l222): it also fills magazine_chapters with the 103 month chapters of
+// item-metadata/magazine-chapters.jsonl (the month headings of the book screen). The chapters do not depend on --page or --list.
+// The same safety rules apply to all three collections: dry run by default, compare then skip or update, never delete.
 // The deployed app cannot read the run folders, so it reads these records (config key runSource "pocketbase").
 //
 // Dry run is the default and writes nothing. Only --apply writes. The command is safe to run twice:
@@ -39,7 +42,7 @@ function fail(message) {
   process.exit(2);
 }
 
-const HELP = `Sync command S2: upload finished page runs from the run folders into PocketBase (page_runs and catalog_items).
+const HELP = `Sync command S2: upload finished page runs from the run folders into PocketBase (page_runs, catalog_items, and magazine_chapters).
 
 Usage (run it in the app folder):
   node scripts/sync-runs.mjs [options]
@@ -59,6 +62,7 @@ Options:
   --help             Show this text.
 
 Without --page and --list the command syncs every page with a finished run.
+The collection magazine_chapters always gets all rows of item-metadata/magazine-chapters.jsonl (the month headings of the book screen).
 The password comes from a hidden prompt on the terminal. If stdin is not a terminal, the command reads one line from stdin.
 The command never takes a password from an option, an env variable, or a file. It never prints the password or the token.
 Sizes are in MB (1 MB = 1,048,576 bytes).
@@ -289,6 +293,16 @@ function catalogRecordEqual(stored, want) {
   return Number(stored.pages ?? 0) === want.pages && same(stored.row ?? null, want.row);
 }
 
+function chapterRecordEqual(stored, want) {
+  for (const k of ["chapter", "book", "chapter_title_ja", "chapter_title_en", "first_page_id", "last_page_id"]) {
+    if (String(stored[k] ?? "") !== want[k]) return false;
+  }
+  for (const k of ["year", "month", "page_start", "page_end", "article_count"]) {
+    if (Number(stored[k] ?? 0) !== want[k]) return false;
+  }
+  return same(stored.articles ?? null, want.articles);
+}
+
 // ---------------------------------------------------------------- read the run folders
 
 async function readJsonFile(file) {
@@ -363,6 +377,39 @@ async function loadMetadata(dataDir) {
     source = "items.draft.jsonl";
   }
   return { map: new Map(rows.map((r) => [String(r.item_id), r])), source };
+}
+
+/** One record for each row of magazine-chapters.jsonl. A missing number is 0 (month 0 is the front chapter). */
+async function loadChapters(dataDir) {
+  const text = await readTextFile(path.join(dataDir, "item-metadata/magazine-chapters.jsonl"));
+  const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+  const str = (v) => (v === null || v === undefined ? "" : String(v));
+  const out = [];
+  for (const line of (text ?? "").split("\n")) {
+    if (!line.trim()) continue;
+    let r;
+    try {
+      r = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (!r || typeof r.chapter !== "string" || !r.chapter) continue;
+    out.push({
+      chapter: r.chapter,
+      book: str(r.book),
+      year: num(r.year),
+      month: num(r.month),
+      chapter_title_ja: str(r.chapter_title_ja),
+      chapter_title_en: str(r.chapter_title_en),
+      page_start: num(r.page_start),
+      page_end: num(r.page_end),
+      first_page_id: str(r.first_page_id),
+      last_page_id: str(r.last_page_id),
+      article_count: num(r.article_count),
+      articles: Array.isArray(r.articles) ? r.articles : [],
+    });
+  }
+  return out;
 }
 
 function catalogBody(slug, row) {
@@ -458,10 +505,13 @@ for (const slug of slugs) {
   items.push({ slug, row, body: catalogBody(slug, row) });
 }
 
+const chapters = await loadChapters(dataDir);
+
 // 3. Compare with the server.
 const pb = new Pb(base);
 let serverRuns = null;
 let serverItems = null;
+let serverChapters = null;
 if (!o.offline) {
   if (!o.superuser) fail("Name the superuser with --superuser EMAIL or the env variable PB_SUPERUSER_EMAIL.");
   let password = await readPassword(`Password for ${o.superuser}: `);
@@ -479,6 +529,7 @@ if (!o.offline) {
     if (missing.length) fail(`The collection page_runs has no field ${missing.join(", ")}. Restart PocketBase so that migration 1793300003 runs.`);
     serverRuns = new Map((await pb.listAll("page_runs")).map((r) => [`${r.page_id}|${r.run_id}`, r]));
     serverItems = new Map((await pb.listAll("catalog_items")).map((r) => [String(r.item_id), r]));
+    serverChapters = new Map((await pb.listAll("magazine_chapters")).map((r) => [String(r.chapter), r]));
   } catch (e) {
     console.error("Error: " + e.message);
     process.exit(1);
@@ -496,6 +547,12 @@ const itemPlan = items.map((it) => {
   const stored = serverItems.get(it.slug);
   if (!stored) return { it, action: "create" };
   return { it, action: catalogRecordEqual(stored, it.body) ? "unchanged" : "update", id: stored.id };
+});
+const chapterPlan = chapters.map((c) => {
+  if (!serverChapters) return { c, action: "not compared" };
+  const stored = serverChapters.get(c.chapter);
+  if (!stored) return { c, action: "create" };
+  return { c, action: chapterRecordEqual(stored, c) ? "unchanged" : "update", id: stored.id };
 });
 const serverOnly = serverRuns
   ? [...serverRuns.values()].filter((r) => !localAll.has(`${r.page_id}|${r.run_id}`) && (!filtered || filter.has(String(r.page_id))))
@@ -518,6 +575,13 @@ console.log("");
 console.log("catalog_items | title | action");
 for (const p of itemPlan) console.log(`${p.it.slug} | ${p.it.body.title_en || p.it.body.title_ja || "(no title: no metadata row has this item_id)"} | ${p.action}`);
 console.log("");
+console.log("magazine_chapters | rows | create | update | unchanged");
+for (const book of [...new Set(chapters.map((c) => c.book))].sort()) {
+  const mine = chapterPlan.filter((p) => p.c.book === book);
+  const n = (a) => (serverChapters ? mine.filter((p) => p.action === a).length : "-");
+  console.log(`${book} | ${mine.length} | ${n("create")} | ${n("update")} | ${n("unchanged")}`);
+}
+console.log("");
 if (problems.length) {
   console.log("Snapshot checks FAILED:");
   for (const m of problems) console.log("  " + m);
@@ -530,6 +594,7 @@ if (sizes.length) console.log(`Snapshot sizes: min ${mb(sizes[0])}, median ${mb(
 // 5. Apply.
 const done = { created: [], updated: [], unchanged: [], failed: [] };
 const itemDone = { created: [], updated: [], unchanged: [], failed: [] };
+const chapterDone = { created: [], updated: [], unchanged: [], failed: [] };
 if (o.apply) {
   for (const p of plan) {
     const x = p.x;
@@ -559,7 +624,21 @@ if (o.apply) {
       itemDone.failed.push(`${p.it.slug}: ${e.message}`);
     }
   }
+  for (const p of chapterPlan) {
+    if (p.action === "unchanged") {
+      chapterDone.unchanged.push(p.c.chapter);
+      continue;
+    }
+    try {
+      if (p.action === "create") await pb.call("POST", "/api/collections/magazine_chapters/records", p.c);
+      else await pb.call("PATCH", `/api/collections/magazine_chapters/records/${encodeURIComponent(p.id)}`, p.c);
+      (p.action === "create" ? chapterDone.created : chapterDone.updated).push(p.c.chapter);
+    } catch (e) {
+      chapterDone.failed.push(`${p.c.chapter}: ${e.message}`);
+    }
+  }
 } else {
+  for (const p of chapterPlan) if (p.action !== "not compared") (p.action === "create" ? chapterDone.created : p.action === "update" ? chapterDone.updated : chapterDone.unchanged).push(p.c.chapter);
   for (const p of plan) if (p.action !== "not compared") (p.action === "create" ? done.created : p.action === "update" ? done.updated : done.unchanged).push(`${p.x.pageId} ${p.x.run.runId}`);
   for (const p of itemPlan) if (p.action !== "not compared") (p.action === "create" ? itemDone.created : p.action === "update" ? itemDone.updated : itemDone.unchanged).push(p.it.slug);
 }
@@ -585,6 +664,12 @@ compared(word[0], itemDone.created);
 compared(word[1], itemDone.updated);
 compared(word[2], itemDone.unchanged);
 if (o.apply) line("failed", itemDone.failed);
+console.log("magazine_chapters");
+const chapterLine = (name, list) => (o.offline ? console.log(`  ${name}: not compared`) : console.log(`  ${name}: ${list.length}`));
+chapterLine(word[0], chapterDone.created);
+chapterLine(word[1], chapterDone.updated);
+chapterLine(word[2], chapterDone.unchanged);
+if (o.apply) console.log(`  failed: ${chapterDone.failed.length}${chapterDone.failed.length ? " (" + chapterDone.failed.join(", ") + ")" : ""}`);
 console.log(`Total snapshot size: ${mb(total)} for ${selected.length} run(s)`);
 if (!o.apply) console.log("Nothing was written. Add --apply to write.");
-process.exit(done.failed.length || itemDone.failed.length ? 1 : 0);
+process.exit(done.failed.length || itemDone.failed.length || chapterDone.failed.length ? 1 : 0);

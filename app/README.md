@@ -211,7 +211,7 @@ The human-translation-view lets a translator write own translations next to the 
 ### Screens
 
 - List (`/translate`): one row for each page with a finished run, FAIL pages included. A run is finished when `summary.json` holds a QA_3 verdict and the files `results/TS_3.json` and `results/ED_3.json` exist. The status text does not matter.
-- Page (`/translate/<book>/<page>`): the shown run is the run that the admin marked. If no run is marked, it is the finished run with the largest `started_utc` in `run.json`.
+- Page section of the book screen (`/translate/<book>`, old route `/translate/<book>/<page>` redirects): the shown run is the run that the admin marked. If no run is marked, it is the finished run with the largest `started_utc` in `run.json`.
   - One row for each sentence group (same cut as the book translation memory). A row shows the JA text, the ED_3 text of the shown run, an own box, and a button that copies the ED_3 text into the box. A row with no ED_3 text shows a note.
   - Save writes every row, empty rows included, as one saved version. All records of one Save get the same version number. A failed Save writes no row.
   - Version history: a table of saved versions with the time and the run ID. A button loads an older version into the boxes. A new Save keeps it as a new version.
@@ -356,3 +356,44 @@ The mode `deploy` tests the deploy shape: no config file, settings from env vari
 6. Run: `node scripts/smoke.mjs deploy`
 
 The script never prints a password or a token. It fails if the config file exists or if the address of PocketBase is not `http://127.0.0.1:8092`.
+
+## Book screen, agree tick, panel cards, dark theme, and settings cog (unit UXC, round 59)
+
+Design: `docs/VISION-viewer.md` section 15.16. Code state: section 15.17.
+
+### Book screen
+
+- `/translate` lists the books. `/translate/<book>` shows one book with all pages. A page with a finished run shows its rows. A page without one shows the page ID and the tag "No agent translation".
+- The old route `/translate/<book>/<page>` redirects (307) to `/translate/<book>?at=<page>#<page>`.
+- The server sends the page index at once. The browser asks `GET /api/htv/page?ids=<page ID>,...` (8 pages at most) for the rows of the pages near the screen.
+- Each page section has its own Save, version numbers, run notice, comments, and run mark control (admin only).
+- The left index lists the pages with their tags. The box "Go to page" takes `48`, `p048`, or `839` and jumps to the page.
+- A magazine year shows month headings. In runSource `files` they come from `item-metadata/magazine-chapters.jsonl`. In runSource `pocketbase` they come from the collection `magazine_chapters`.
+- The constant `BOOK_LIST_MODE` in `lib/htv-books.ts` picks the books of the list. The constant `DEFAULT_THEME` in `lib/htv-settings.ts` picks the first theme. The owner has not decided these two.
+
+### Agree tick
+
+- A row has the box "Agree with the agent text". A tick and own text exclude each other. Save writes the field `agree` for every row.
+- The save route refuses a tick with own text, and a tick on a row without an agent text (400).
+
+### TL_3 information panel
+
+- `lib/htv-panel-cards.ts` turns the lines of the TL_3 message into cards when the panel shows. The snapshot format stays 1.
+- The panel hides `entry_id`, `store`, `source`, the line `stance`, and the block of the JA text. A drag on the left edge changes the width (280 to 720 px).
+
+### Theme
+
+- The switch in the top bar sets the cookie `theme`. The root layout writes `data-theme` on `<html>`. A signed-in user also keeps the theme in the account.
+- `node scripts/contrast-dark.mjs` tests the dark colors (7 to 1 or more) and finds palette colors without a dark value. A new color class must follow the pairing rule of `app/globals.css`.
+
+### Settings cog
+
+- Each of the 7 panes has a cog: book list, JA column, agent column, own box, TL_3 information panel, comments, and version history. The monitor panes have none.
+- The cog sets font, size, line height, text color, background color, width, and Reset. A custom color belongs to one theme. A warning shows below a contrast of 4.5 to 1.
+- The settings stay in the account (collection `user_settings`, route `/api/htv/settings`).
+
+### Sync command S2 and tests
+
+- S2 also fills `magazine_chapters` (103 rows). Dry run, compare, skip or update, and never delete, as for `catalog_items`. The chapters do not depend on `--page` or `--list`.
+- Make sure that the server loads the migrations `1793300004_v2_own_translations_agree.js` and `1793300005_v2_user_settings.js` before you run S2. See `data/scripts/pocketbase/README.md` section 8.
+- Smoke test results of unit UXC: `smoke` 70 PASS, `htv` 208 PASS (files and pocketbase), `deploy` 34 PASS.

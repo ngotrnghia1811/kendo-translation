@@ -2,6 +2,7 @@
 import { useState } from "react";
 import type { CommentView, Role } from "@/lib/htv-types";
 import { utcTime } from "@/lib/htv-format";
+import { Pane } from "./PaneSettings";
 
 // Round 50 answer 10 (Q-A 2026-10-28 l31): a comment attaches to one sentence row, and the writer chooses whether it is shared.
 // Round 51 answer 10 (l55): the writer edits own comments, and a new comment starts private.
@@ -77,7 +78,7 @@ export default function RowComments({
   }
 
   return (
-    <div className="mt-2 border-t border-line/60 pt-2 text-sm">
+    <Pane id="comments" className="mt-2 border-t border-line/60 pt-2 text-sm">
       {comments.length === 0 ? <div className="text-muted">No comments for this row.</div> : null}
       <ul className="space-y-2">
         {comments.map((c) => (
@@ -145,6 +146,6 @@ export default function RowComments({
           {error ? <span role="alert" className="text-red-700">{error}</span> : null}
         </div>
       </div>
-    </div>
+    </Pane>
   );
 }

@@ -2088,7 +2088,7 @@ const OWN_ONLY = '@request.auth.id != "" && user = @request.auth.id';
 
 - Each question names a real case. The first option is the recommended default. Benefit and cost follow each option.
 
-##### Question 1: what an untranslated page shows
+##### Question 1: what an untranslated page shows (decided: round 59 answer 3, option 1)
 
 - Case: `left_foot_full/p045` has no run, so it has no sentence group and no row. The book screen shows its heading and nothing below it. A translator who wants to see the page cannot.
 - Option 1 (recommended): the page number, the tag "No agent translation", and one note line. Benefit: needs only the page count that the deploy has. Cost: the translator sees no content of the page.
@@ -2096,87 +2096,87 @@ const OWN_ONLY = '@request.auth.id != "" && user = @request.auth.id';
 - Option 3: add the JA text of the earlier pipeline (0.61 MB for the 120 pages of `left_foot_full`, JA lines only). Benefit: the translator reads the text on the screen. Cost: the text is from an earlier pipeline, the v2 Translator did not check it, and an upload step is needed. `kendojidai_2014` has 1,043 of 1,051 pages and `Men 0` has none.
 - Option 4: one free own box for a page with no run. Benefit: the translator can translate any page. Cost: no sentence group exists, so a new key rule is needed. The rows can differ when a run arrives later.
 
-##### Question 2: which books the list shows
+##### Question 2: which books the list shows (not decided: unit UXC uses option 1 in the constant BOOK_LIST_MODE)
 
 - Case: 12 items have a finished run. The folder `BOOKS_DIR` holds 36 folders (13,278 pages).
 - Option 1 (recommended): the 12 items with a finished run. Benefit: each book has data, and S2 fills `catalog_items` for exactly these items `[file: app/scripts/sync-runs.mjs:4]`. Cost: a translator cannot open the other 24 folders.
 - Option 2: all 36 folders. Benefit: the whole library is visible. Cost: 24 books show only "No agent translation", and S2 must fill `catalog_items` for them.
 - Option 3: the 12 items, and a switch "Show all books". Benefit: both views. Cost: one more control and a change in S2.
 
-##### Question 3: Save per page section
+##### Question 3: Save per page section (decided: round 59 answer 4, option 1)
 
 - Case: a translator edits p046 and p047 of `left_foot_full`. Today each page has one Save and one version number `[file: app/lib/pb.ts:206-208]`.
 - Option 1 (recommended): each page section keeps its own Save. Benefit: the round 54 rule stays (one version for each Save and page). A failure hits one page only. Cost: two edited pages need two clicks.
 - Option 2: Option 1 plus a button "Save all changed pages". Benefit: fewer clicks. Cost: it is not one step for all pages. One batch call writes one page, with at most 200 rows `[file: app/lib/pb.ts:184,203]`. A failure can leave some pages saved and some not.
 - Option 3: one Save for the whole screen with one version number. Benefit: one click. Cost: it changes the version rule. A book of 255 pages holds about 1,800 rows `[agent inference]`, so one Save needs many batch calls.
 
-##### Question 4: tick and own text in one row
+##### Question 4: tick and own text in one row (decided: round 59 answer 5, option 1)
 
 - Case: `mental_full/p014`, row L14-L15. The translator ticks "Agree with the agent text" and also has own text in the box.
 - Option 1 (recommended): they exclude each other. A typed character clears the tick. A tick on a row with own text asks "Clear your own text in this row?". Benefit: `agree` true always means "the agent text as it is". Cost: one question box. Unsaved own text can go. Saved versions keep the old text.
 - Option 2: both can exist. The tick means "the agent text is acceptable" and the own text is an alternative. Benefit: no friction. Cost: the meaning of a row with both is not clear for later use of the data.
 - Option 3: a tick copies the agent text into the box. Benefit: the own text is always complete. Cost: two equal texts. It also conflicts with the answer "the own box can stay empty".
 
-##### Question 5: which panes get a cog
+##### Question 5: which panes get a cog (decided: round 59 answer 6, option 1)
 
 - Case: the owner wrote "Every pane should have a setting cog button". The human-translation-view has 7 panes in 15.16.4. The monitor has about 10 more.
 - Option 1 (recommended): the human-translation-view only. Benefit: the smallest change, and the monitor is hidden on the deploy. Cost: the monitor has no pane settings.
 - Option 2: the human-translation-view and the monitor, with the monitor settings in the browser. Benefit: every pane. Cost: more panes to build and test. The monitor has no account, so the settings stay in one browser.
 
-##### Question 6: which settings a cog offers
+##### Question 6: which settings a cog offers (decided: round 59 answer 6, option 1)
 
 - Case: the owner wrote "customizable font and panel size/color/etc."
 - Option 1 (recommended): font family, font size, line height, text color, background color, width (panels), and reset. Benefit: it covers the words of the owner. Cost: a custom color can make text unreadable, so the box shows the contrast ratio and a warning below 4.5 to 1.
 - Option 2: font family, font size, and width only. Benefit: no color risk. Cost: it does not cover "color".
 - Option 3: Option 1 plus the v1 extras furigana, tap-to-reveal, and focus mode. Benefit: the same list as v1. Cost: the owner did not ask for them, and each one needs new data or new code `[agent inference]`.
 
-##### Question 7: where pane settings live
+##### Question 7: where pane settings live (decided: round 59 answer 6, option 1)
 
 - Case: a translator sets the panel to 520 px on the laptop and signs in on the desktop later.
 - Option 1 (recommended): the account, in the new collection `user_settings`. Benefit: all devices, and only the own record is readable. Cost: a new collection, and one more PocketBase request for each page.
 - Option 2: the account, in two fields of `users`. Benefit: no new collection. Cost: every signed-in user can read the `users` records, so the settings of all users are visible.
 - Option 3: the browser only. Benefit: no migration. Cost: it breaks the earlier answer "Per account, all devices". The server cannot read it, so the first paint can jump.
 
-##### Question 8: the default theme
+##### Question 8: the default theme (not decided: unit UXC uses option 1 in the constant DEFAULT_THEME)
 
 - Case: a new account has no saved theme.
 - Option 1 (recommended): Light is the default. Benefit: no change for today users, and it matches the two options of the owner. Cost: a user who wants dark must click once on each device. The sign-in copies the account choice.
 - Option 2: follow the system setting until the user chooses. Benefit: dark at night with no click. Cost: a third state that the owner did not name.
 - Option 3: dark is the default. Benefit: none that the owner words name. Cost: it changes the paper look for everyone.
 
-##### Question 9: dark colors, borders, and method
+##### Question 9: dark colors, borders, and method (decided: round 59 answer 7, option 1)
 
 - Case: the PASS pill is `#016630` on `#dcfce7` in light. The table in 15.16.5 gives `#bbf7d0` on `#052e16` (12.30 to 1) in dark. The FAIL pill gives `#fecaca` on `#450a0a` (11.16 to 1).
 - Option 1 (recommended): the table of 15.16.5, the variable override, borders `#444444` as in v1, and an edge of `#777777` on boxes. Benefit: no class change, every dark pair at 7.49 to 1 or more. Cost: a new class must follow the pairing rule.
 - Option 2: as option 1, with all borders `#777777`. Benefit: clearer lines. Cost: a heavier look, and a value that differs from v1.
 - Option 3: named roles and a change of the 174 class uses. Benefit: clear names. Cost: a diff in 25 files and more risk.
 
-##### Question 10: migration files
+##### Question 10: migration files (decided: round 59 answer 7, option 1)
 
 - Case: the owner named the number 1793300004 for the field `agree`.
 - Option 1 (recommended): two files, `1793300004` for `agree` and `1793300005` for `user_settings`. Benefit: the tick can ship alone, and each file undoes alone. Cost: two files to run on the server.
 - Option 2: one file `1793300004` for both. Benefit: one step on the server. Cost: the tick cannot ship without the settings table.
 
-##### Question 11: a way to jump in the book screen
+##### Question 11: a way to jump in the book screen (decided: round 59 answer 4, option 1)
 
 - Case: `kendojidai_2014/p0839` is 838 sections below the top. Scroll alone is slow.
 - Option 1 (recommended): a left index with the page numbers, a mark on tagged pages, and a box "Go to page". Benefit: any page in one step. Cost: a new component.
 - Option 2: scroll and the URL `?at=p0839` only. Benefit: the smallest change. Cost: the translator scrolls through hundreds of sections.
 - Option 3: Option 1 plus a switch "Agent-translated pages only". Benefit: the translator moves between the 6 tagged pages of `kendojidai_2014`. Cost: one more control. When it is on, it hides the all-pages view that the owner asked for.
 
-##### Question 12: month headings for a magazine year
+##### Question 12: month headings for a magazine year (decided: round 59 answer 4, option 1)
 
 - Case: `kendojidai_2014` has 1,051 pages. October 2014 is p778 to p868 `[check: UXD 2026-10-28 22:28 python3 -B read of magazine-chapters.jsonl]`.
 - Option 1 (recommended): group by month chapter. S2 or a new command fills the 103 rows of `magazine_chapters`. Benefit: a reader finds "October 2014" at once. Cost: a new fill step. The article titles in the file have the status draft.
 - Option 2: page numbers only. Benefit: no new data. Cost: 1,051 flat sections.
 
-##### Question 13: a tick for all rows of a page
+##### Question 13: a tick for all rows of a page (decided: round 59 answer 4, option 1)
 
 - Case: `kendojidai_2014/p0839` has 21 rows. A translator who agrees with all of them needs 21 clicks.
 - Option 1 (recommended): no bulk control now. Benefit: it follows the owner answer (one tick for each row). Cost: 21 clicks on that page.
 - Option 2: a button "Tick all rows of this page" in the page heading. Benefit: one click. Cost: a control that the owner did not name. A translator can tick a FAIL page by mistake (p0839 is FAIL 8.25).
 
-##### Question 14: two panel details that this design chose
+##### Question 14: two panel details that this design chose (decided: round 59 answer 6, option 1)
 
 - Case: the lower pair block holds the same line `stance` in 65 of 65 messages. The block `previous_page_pair` is not in the owner order.
 - Option 1 (recommended): hide `stance`, and place `previous_page_pair` after the lower pair. Benefit: less noise. Cost: a translator cannot see the stance line.
@@ -2205,3 +2205,113 @@ const OWN_ONLY = '@request.auth.id != "" && user = @request.auth.id';
 - The page-by-page wish of 2026-10-07 (section 6) is about load speed of the original page view. It does not conflict with the book screen, because the book screen loads pages in a window `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:193]`.
 
 Status: open.
+
+### 15.17 UXC code state (round 59)
+
+- Source: owner answers 3 to 7 of round 59 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:218-235]`. Unit UXC built steps A to E of section 15.16.7 in the Viewer worktree `[check: UXC 2026-10-28 23:56 git status --short -uall]`.
+- Sizes use MB. One MB is 1,048,576 bytes.
+- When the design of 15.16 and a round 59 answer differ, the answer wins. Section 15.17.3 lists every difference.
+
+#### 15.17.1 What was built, step by step
+
+- Step A, agree tick.
+  - Migration `data/scripts/pocketbase/pb_migrations/1793300004_v2_own_translations_agree.js` (36 lines) adds the bool field `agree` to `own_translations`. The rules stay. The down function keeps the field and the data.
+  - `app/lib/pb.ts:154-240` reads and writes `agree` and counts the ticks of a version. `app/lib/htv-types.ts:102-121` holds the new fields `agreed`, `agree`, and `ed3Text`.
+  - `app/app/api/htv/save/route.ts` takes `agree` for each row. A missing `agree` counts as false.
+  - The server refuses a row with a tick and own text (400). It also refuses a tick on a row with no agent text (400). Both rules go beyond the design.
+  - `app/components/HtvPageSection.tsx` shows the tick "Agree with the agent text" and the column "Agreed" in the version history.
+  - A tick on a row with own text asks "Clear your own text in this row?". Typing in the own box clears the tick.
+  - The run notice shows for a saved text or a saved tick. A ticked saved row with no row in the shown run appears in the box "Saved for lines that this run cuts in another way", with the agent text that the user agreed to.
+  - The own box placeholder uses `text-muted` (5.70 to 1 on white).
+- Step B, panel cards.
+  - `app/lib/htv-panel-cards.ts` (297 lines) is a pure parser of `PanelPart.lines`. The function `rawLines()` rebuilds the raw lines of each card. `SNAPSHOT_FORMAT` stays 1 and S2 did not change for this step.
+  - `app/components/HtvPanel.tsx` (256 lines) shows dictionary cards, memory pairs with a page chip, plain EN lines of the lower pair with short IDs, and a table of the earlier term marks.
+  - The panel hides `entry_id`, `store`, `source`, the line `stance`, the block `ja_text`, and the run of a memory pair. EN text is 15 px sans-serif. Only JA text uses the JA font.
+  - Block order: dictionary lookup, book translation memory, aligned translation memory, lower pair, previous page pair, earlier term marks. A block with more than 40 lines starts closed.
+  - The lines before the first item of a dictionary or memory block (`store`, `lookup_source`, `requested_words`, `entries_found`, `pairs_found`, `book_id`) show as a small note card.
+  - `app/components/HtvPanelFrame.tsx` (70 lines) gives the drag handle (280 to 720 px, default 416 px, arrow keys change it by 16 px) and the button "Close the panel".
+- Step C, theme.
+  - `app/app/globals.css:36-86` holds the block `[data-theme="dark"]` with the 29 Tailwind color variables of 15.16.5, the v1 base colors, `color-scheme: dark`, and the box edge `#777777`. It also holds the line `@custom-variant dark`.
+  - `app/lib/theme.ts` (33 lines) reads the cookie `theme`. `app/app/layout.tsx` writes `data-theme` on `<html>`, so the first paint has no jump.
+  - `app/components/ThemeSwitch.tsx` (38 lines) is the switch "Light" and "High-contrast dark". It sits in `app/components/Nav.tsx`, so it shows on every page, the sign-in page included.
+  - `app/app/api/theme/route.ts` (36 lines) sets the cookie. A signed-in user also keeps the theme in `user_settings`. `app/app/api/htv/login/route.ts` copies the account theme into the cookie at sign-in.
+  - `app/scripts/contrast-dark.mjs` (103 lines) tests 31 text and background pairs (7 to 1 or more) and finds the palette colors without a dark value (29 colors used, 0 without).
+- Step D, book screen.
+  - `app/lib/htv-books.ts` (164 lines) builds the book list, the page index, and the data of page sections. `app/app/translate/page.tsx` shows the book list. `app/app/translate/[slug]/page.tsx` shows one book.
+  - `app/components/HtvBook.tsx` (464 lines) holds the screen: one section for each page, the window load, the panel that follows the page in view, the pin, the leave warning for all sections, and the jump. `app/components/HtvIndex.tsx` (114 lines) is the left index with "Go to page" and the month headings.
+  - `app/components/HtvPageSection.tsx` (457 lines) is the old `HtvEditor.tsx` for one page. The old file is gone.
+  - `app/app/api/htv/page/route.ts` (29 lines) answers `GET /api/htv/page?ids=...` for 8 pages at most.
+  - `app/app/translate/[slug]/[page]/page.tsx` redirects (307) to `/translate/<book>?at=<page>#<page>`.
+  - `app/scripts/sync-runs.mjs:296-304,383-413` fills `magazine_chapters` with the 103 rows of `magazine-chapters.jsonl`. It uses the same rules as `catalog_items`: dry run by default, compare, skip or update, never delete.
+  - A page with no agent translation shows its page ID and the tag "No agent translation" only.
+- Step E, settings cog.
+  - Migration `1793300005_v2_user_settings.js` (79 lines) creates `user_settings` with the rules of 15.16.6. The down function deletes the collection only when it holds 0 records.
+  - `app/lib/htv-settings.ts` (198 lines) holds the pane names, fonts, limits, the clean-up function `sanitizeSettings`, and the contrast formula. `app/app/api/htv/settings/route.ts` (36 lines) reads and writes the record of the signed-in user.
+  - `app/components/PaneSettings.tsx` (345 lines) holds the provider, the cog, and the wrapper `Pane`. A change applies at once and saves 800 ms after the last change. The cog warns when the contrast is below 4.5 to 1.
+  - The 7 panes are the book list, the JA column, the agent column, the own box, the TL_3 information panel, the comments, and the version history. The monitor panes get no cog.
+
+#### 15.17.2 Two constants that the owner has not decided
+
+- `BOOK_LIST_MODE` sits in `app/lib/htv-books.ts:25`. The value `"with-runs"` shows the 12 books that have a finished run. The value `"all"` shows every book of `book-slugs.json` (runSource files) or every row of `catalog_items` (runSource pocketbase). A third option "12 plus a Show all books switch" needs a small new control. Not built.
+- `DEFAULT_THEME` sits in `app/lib/htv-settings.ts:12`. The value is `"light"`. The value `"dark"` makes dark the default. A "follow the computer setting" mode needs a third state. Not built.
+
+#### 15.17.3 Differences between the design and the code
+
+- The switch sits in `Nav` only. The design also named `HtvBar`. `Nav` shows on every page of the view, so a second switch gives no gain.
+- The cog of the own box sits in the top right corner of each box. The cog of the JA column and the agent column also sits in each row. All rows share one setting.
+- The share of the row for the JA column is one value. A change in the cog of the agent column stores the rest and clears the share of the JA column.
+- The panel line count "Panel lines: N of M" counts the shown blocks only. For `kendojidai_2014/p0839` the count is 395 of 721. It was 536 of 721 with the JA text block.
+- Sections that are far from the screen unload when they are clean. The unit chose 8 pages as the limit. The design named only the load window of 2 pages.
+- After a jump the target section stays at the top for 5 seconds unless the user scrolls. Sections above the target load and grow in that time. Without this rule a jump ends on another page.
+- The book list in `"with-runs"` mode takes the page count of a web article as the last tagged page, at least 1 (the web article `18d4ac29` has `pages` 0 in `catalog_items`).
+- The server refuses a tick with own text, and a tick on a row without an agent text (400).
+- The sign-in route copies the account theme into the cookie. A theme change on a second device shows after the next sign-in.
+
+#### 15.17.4 Tests
+
+- All counts below come from runs in the copy `<TMP>/r59/UXC/app-copy` against the throwaway PocketBase on 127.0.0.1:8092 `[check: UXC 2026-10-28 23:56 run_all.py]`.
+
+| Test | Result |
+|---|---|
+| `npx tsc --noEmit` and `npm run lint` in `app/` | exit 0 and exit 0 |
+| `npm run build` in the copy | exit 0, 0 lines "Dynamic filesystem access" |
+| `node scripts/smoke.mjs smoke` | 70 PASS, 0 FAIL |
+| `node scripts/smoke.mjs htv`, runSource files | 208 PASS, 0 FAIL |
+| `node scripts/smoke.mjs htv`, runSource pocketbase, after the S2 upload | 208 PASS, 0 FAIL |
+| `node scripts/smoke.mjs deploy` | 34 PASS (29 old and 5 new, the brief named 27 old), 0 FAIL |
+| `python3 -B data/scripts/pocketbase/test_local.py` | Total: 151 PASS, 0 FAIL |
+| Chrome headless checks (`browser_all.mjs`) | 45 PASS, 0 FAIL |
+| Parity files mode against pocketbase mode | 40 finished runs, 30 pages, 294 groups, 0 differences. Book list and 12 book indexes equal |
+| Group parity against `translator.book_memory` | 40 runs, 294 groups, 0 differences |
+| S2 dry run after the upload | 40 page runs, 12 catalog items, 103 magazine chapters, all unchanged. Snapshots 2.23 MB in total (0.02 MB smallest, 0.13 MB largest) |
+
+- Card parser over the TL_3 messages of finished runs: 68 messages, 1,255 entries, 234 pairs, 1,907 parts, 0 lost lines.
+- The count of finished runs grew from 37 to 40 while the unit worked, because the paid Translator chain added runs `[check: UXC 2026-10-28 23:53 parity_data.mjs]`.
+- Changed old checks: 9 checks of the mode `htv` and `deploy` changed text, and about 30 checks changed their URL from `/translate/<book>/<page>` to `/translate/<book>?at=<page>`. The old route is covered by the new redirect checks.
+
+#### 15.17.5 Measures at `kendojidai_2014/p0839`
+
+- Unit UX0 measured the old screen and unit UXC measured the new screen at 1500 by 1000 px `[check: UX0 2026-10-28 21:24 measure.json]` `[check: UXC 2026-10-28 23:51 browser_all.mjs]`.
+
+| Measure | Before (UX0) | After (UXC) |
+|---|---|---|
+| Panel width | 416 px | 416 px, changes by drag between 280 and 720 px |
+| EN text | 12 px Mincho | 15 px sans-serif |
+| JA text | 12 px Mincho | Mincho, 18.75 px for the headword |
+| Scroll length, default blocks | 7.0 screens | 6.0 screens |
+| Scroll length, all blocks open | 21.3 screens | 15.5 screens |
+
+- Screenshots sit in `<TMP>/r59/UXC/shots/` (20 files, light and dark, 1500 by 1000 and 1280 by 800).
+
+#### 15.17.6 Not verified
+
+- The book screen was tested in Chrome headless only. Safari and Firefox are Not verified.
+- The window load and the unload of sections were tested on `left_foot_full` (120 pages). A book of 1,051 pages with many tagged pages is Not verified.
+- The effect of `color-scheme: dark` on scroll bars in each browser.
+- The system fonts "Hiragino Kaku Gothic ProN" and "Yu Gothic" on a translator machine.
+- The first paint of the theme in a browser with a slow network. The server writes the attribute, so a jump is not expected.
+- The owner dev server on port 3000 ran the new code with hot reload. Its screens were not checked by this unit.
+- The S2 upload of `magazine_chapters` and of the 3 new runs into the local PocketBase on port 8090. The owner runs S2 by hand.
+- The size of the Oracle server disk.
+
+Status: code built, owner check open.

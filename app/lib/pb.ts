@@ -1,6 +1,7 @@
 import "server-only";
 import { loadConfig } from "./config";
-import type { CommentView, HtvRun, Role, SavedRow, SessionUser, VersionInfo } from "./htv-types";
+import type { ChapterHead, CommentView, HtvRun, Role, SavedRow, SessionUser, VersionInfo } from "./htv-types";
+import type { PaneSettings } from "./htv-settings";
 
 /*
  * ALL PocketBase calls of the app sit in this one module (round 54 answer 10, Q-A 2026-10-28 l129:
@@ -155,17 +156,19 @@ export async function savedVersions(token: string, userId: string, pageId: strin
   const recs = await listAll(token, "own_translations", {
     filter: `user=${q(userId)} && page_id=${q(pageId)}`,
     sort: "-version",
-    fields: "version,created,run_id",
+    fields: "version,created,run_id,agree",
   });
   const byVersion = new Map<number, VersionInfo>();
   for (const r of recs) {
     const v = Number(r.version);
     const hit = byVersion.get(v);
+    const agreed = r.agree === true ? 1 : 0;
     if (hit) {
       hit.rows++;
+      hit.agreed += agreed;
       if (String(r.created) < hit.created) hit.created = String(r.created);
     } else {
-      byVersion.set(v, { version: v, created: String(r.created ?? ""), runId: String(r.run_id ?? ""), rows: 1 });
+      byVersion.set(v, { version: v, created: String(r.created ?? ""), runId: String(r.run_id ?? ""), rows: 1, agreed });
     }
   }
   return [...byVersion.values()].sort((a, b) => b.version - a.version);
@@ -176,9 +179,16 @@ export async function savedRows(token: string, userId: string, pageId: string, v
   const recs = await listAll(token, "own_translations", {
     filter: `user=${q(userId)} && page_id=${q(pageId)} && version=${Math.trunc(version)}`,
     sort: "created",
-    fields: "group_key,text,run_id,ja_text",
+    fields: "group_key,text,run_id,ja_text,ed3_text,agree",
   });
-  return recs.map((r) => ({ groupKey: String(r.group_key), text: String(r.text ?? ""), runId: String(r.run_id ?? ""), jaText: String(r.ja_text ?? "") }));
+  return recs.map((r) => ({
+    groupKey: String(r.group_key),
+    text: String(r.text ?? ""),
+    agree: r.agree === true,
+    runId: String(r.run_id ?? ""),
+    jaText: String(r.ja_text ?? ""),
+    ed3Text: String(r.ed3_text ?? ""),
+  }));
 }
 
 const MAX_BATCH_ROWS = 200;
@@ -190,6 +200,8 @@ export interface SaveRow {
   jaText: string;
   ed3Text: string;
   text: string;
+  /** Round 58 answer 4 (Q-A l202): true when the translator ticked "Agree with the agent text". The text is then empty. */
+  agree: boolean;
 }
 
 /**
@@ -220,6 +232,7 @@ export async function saveVersion(token: string, user: SessionUser, pageId: stri
         run_id: runId,
         ed3_text: r.ed3Text,
         text: r.text,
+        agree: r.agree,
         version,
       },
     }));
@@ -358,4 +371,55 @@ export async function catalogTitles(token: string, slug?: string): Promise<Map<s
   if (slug) params.filter = `item_id=${q(slug)}`;
   const recs = await listAll(token, "catalog_items", params);
   return new Map(recs.map((r) => [String(r.item_id), String(r.title_en || r.title_ja || "")]));
+}
+
+/**
+ * Title and page count of the items in catalog_items (unit UXC, round 59). With a slug the map holds that item only.
+ * The field pages is 0 for a web article (S2 looks up the short ID, the metadata row has the long ID).
+ */
+export async function catalogInfo(token: string, slug?: string): Promise<Map<string, { title: string; pages: number }>> {
+  const params: Record<string, string> = { fields: "item_id,title_en,title_ja,pages" };
+  if (slug) params.filter = `item_id=${q(slug)}`;
+  const recs = await listAll(token, "catalog_items", params);
+  return new Map(recs.map((r) => [String(r.item_id), { title: String(r.title_en || r.title_ja || ""), pages: typeof r.pages === "number" ? r.pages : 0 }]));
+}
+
+/** The month chapters of one magazine year from magazine_chapters (filled by the sync command S2). Front chapter first, then by month. */
+export async function magazineChapters(token: string, book: string): Promise<ChapterHead[]> {
+  const recs = await listAll(token, "magazine_chapters", { filter: `book=${q(book)}`, sort: "month,page_start", fields: "chapter,year,month,chapter_title_en,page_start,page_end" });
+  return recs.map((r) => ({
+    chapter: String(r.chapter),
+    month: typeof r.month === "number" && r.month > 0 ? r.month : null,
+    year: typeof r.year === "number" && r.year > 0 ? r.year : null,
+    titleEn: String(r.chapter_title_en ?? ""),
+    pageStart: Number(r.page_start ?? 0),
+    pageEnd: Number(r.page_end ?? 0),
+  }));
+}
+
+// ---------------------------------------------------------------- user settings (theme and pane settings)
+
+export interface UserSettings {
+  theme: "light" | "dark" | null;
+  panes: PaneSettings | null;
+}
+
+/** The settings record of this user, or nulls when the user has none (or the collection does not exist yet). */
+export async function userSettings(token: string, userId: string): Promise<UserSettings> {
+  const r = await pbFetch("GET", `/api/collections/user_settings/records?perPage=1&skipTotal=1&filter=${encodeURIComponent(`user=${q(userId)}`)}`, { token });
+  if (!ok(r)) return { theme: null, panes: null };
+  const rec = r.data.items?.[0];
+  if (!rec) return { theme: null, panes: null };
+  return { theme: rec.theme === "light" || rec.theme === "dark" ? rec.theme : null, panes: rec.panes && typeof rec.panes === "object" ? (rec.panes as PaneSettings) : null };
+}
+
+/** Save the theme, the pane settings, or both. The record of the user is created at the first save. */
+export async function saveUserSettings(token: string, userId: string, changes: { theme?: "light" | "dark"; panes?: PaneSettings }): Promise<void> {
+  const found = await pbFetch("GET", `/api/collections/user_settings/records?perPage=1&skipTotal=1&fields=id&filter=${encodeURIComponent(`user=${q(userId)}`)}`, { token });
+  if (!ok(found)) throw failure(found, "PocketBase did not read the settings.");
+  const id = found.data.items?.[0]?.id;
+  const r = id
+    ? await pbFetch("PATCH", `/api/collections/user_settings/records/${encodeURIComponent(String(id))}`, { token, body: changes })
+    : await pbFetch("POST", "/api/collections/user_settings/records", { token, body: { user: userId, ...changes } });
+  if (!ok(r)) throw failure(r, "The settings were not saved.");
 }
