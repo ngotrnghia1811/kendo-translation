@@ -1,17 +1,17 @@
 import HtvBar from "@/components/HtvBar";
 import HtvList from "@/components/HtvList";
 import { listBookRows } from "@/lib/htv-books";
-import { requireSession } from "@/lib/htv-session";
+import { requireStaff } from "@/lib/htv-session";
 import { PbError, runMarks } from "@/lib/pb";
 import { PaneSettingsProvider } from "@/components/PaneSettings";
 import { loadPaneSettings, readTheme } from "@/lib/theme";
 
 export const dynamic = "force-dynamic";
 
-// Human-translation-view, list of books. Round 59 answer 4 (Q-A 2026-10-28 l222): the list shows the books that have a finished run.
+// Unit RC1 (round 63 answer 4): a reader goes to /read (requireStaff). Human-translation-view, list of books. Round 59 answer 4 (Q-A 2026-10-28 l222): the list shows the books that have a finished run.
 // Round 54 answer 9 (l128): sign-in on this view only.
 export default async function TranslateList() {
-  const s = await requireSession("/translate");
+  const s = await requireStaff("/translate");
   if ("down" in s) return <p role="alert" className="text-red-700">{s.down}</p>;
   let marks = new Map<string, string>();
   let note = "";

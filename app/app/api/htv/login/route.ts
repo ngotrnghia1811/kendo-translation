@@ -3,7 +3,8 @@ import { htvError, readBody } from "@/lib/htv-api";
 import { foreignOrigin } from "@/lib/htv-origin";
 import { setTokenCookie } from "@/lib/htv-session";
 import { pbSignIn, userSettings } from "@/lib/pb";
-import { writeTheme } from "@/lib/theme";
+import { DEFAULT_THEME_READER } from "@/lib/htv-settings";
+import { hasThemeCookie, writeTheme } from "@/lib/theme";
 
 export const dynamic = "force-dynamic";
 
@@ -25,10 +26,12 @@ export async function POST(req: Request) {
     try {
       const saved = (await userSettings(r.token, r.user.id)).theme;
       if (saved) await writeTheme(req, saved);
+      // Unit RC1 (round 63 answer 7): a reader with no saved theme and no cookie starts in the default theme of the reader pages.
+      else if (r.user.role === "reader" && !(await hasThemeCookie())) await writeTheme(req, DEFAULT_THEME_READER);
     } catch {
       /* the sign-in does not depend on the settings */
     }
-    return jsonResponse({ ok: true, user: { email: r.user.email, name: r.user.name, role: r.user.role } });
+    return jsonResponse({ ok: true, user: { email: r.user.email, name: r.user.name, role: r.user.role, approved: r.user.approved } });
   } catch (e) {
     return htvError(e);
   }

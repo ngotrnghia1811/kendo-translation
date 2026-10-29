@@ -1,7 +1,9 @@
 import "server-only";
 import { loadConfig } from "./config";
-import type { ChapterHead, CommentView, HtvRun, Role, SavedRow, SessionUser, VersionInfo } from "./htv-types";
-import type { PaneSettings } from "./htv-settings";
+import type { ChapterHead, CommentView, HtvRun, Role, SavedRow, SessionUser, TermEntry, VersionInfo } from "./htv-types";
+import type { BookmarkView, ReaderBookFacts, ReaderExtra, ReaderMark, ReaderPageRecord } from "./reader-types";
+import type { PaneSettings, ThemeName } from "./htv-settings";
+import { isTheme } from "./htv-settings";
 
 /*
  * ALL PocketBase calls of the app sit in this one module (round 54 answer 10, Q-A 2026-10-28 l129:
@@ -97,6 +99,8 @@ function toUser(rec: J): SessionUser {
     email: String(rec.email ?? ""),
     name: String(rec.name ?? ""),
     role: normalizeRole(rec.role),
+    // Staff always read. A reader reads after an admin sets approved (round 63 answer 4).
+    approved: normalizeRole(rec.role) !== "reader" || rec.approved === true,
   };
 }
 
@@ -399,7 +403,7 @@ export async function magazineChapters(token: string, book: string): Promise<Cha
 // ---------------------------------------------------------------- user settings (theme and pane settings)
 
 export interface UserSettings {
-  theme: "light" | "dark" | null;
+  theme: ThemeName | null;
   panes: PaneSettings | null;
 }
 
@@ -409,11 +413,11 @@ export async function userSettings(token: string, userId: string): Promise<UserS
   if (!ok(r)) return { theme: null, panes: null };
   const rec = r.data.items?.[0];
   if (!rec) return { theme: null, panes: null };
-  return { theme: rec.theme === "light" || rec.theme === "dark" ? rec.theme : null, panes: rec.panes && typeof rec.panes === "object" ? (rec.panes as PaneSettings) : null };
+  return { theme: isTheme(rec.theme) ? rec.theme : null, panes: rec.panes && typeof rec.panes === "object" ? (rec.panes as PaneSettings) : null };
 }
 
 /** Save the theme, the pane settings, or both. The record of the user is created at the first save. */
-export async function saveUserSettings(token: string, userId: string, changes: { theme?: "light" | "dark"; panes?: PaneSettings }): Promise<void> {
+export async function saveUserSettings(token: string, userId: string, changes: { theme?: ThemeName; panes?: PaneSettings }): Promise<void> {
   const found = await pbFetch("GET", `/api/collections/user_settings/records?perPage=1&skipTotal=1&fields=id&filter=${encodeURIComponent(`user=${q(userId)}`)}`, { token });
   if (!ok(found)) throw failure(found, "PocketBase did not read the settings.");
   const id = found.data.items?.[0]?.id;
@@ -421,4 +425,299 @@ export async function saveUserSettings(token: string, userId: string, changes: {
     ? await pbFetch("PATCH", `/api/collections/user_settings/records/${encodeURIComponent(String(id))}`, { token, body: changes })
     : await pbFetch("POST", "/api/collections/user_settings/records", { token, body: { user: userId, ...changes } });
   if (!ok(r)) throw failure(r, "The settings were not saved.");
+}
+
+// ---------------------------------------------------------------- reader pages (unit RC1, round 63)
+// Sign-up, the reader collections, bookmarks, reading progress, and the admin calls. The PocketBase rules decide who reads what
+// (migrations 1793300006 to 1793300009). A not approved reader gets empty lists from reader_pages and reader_versions.
+
+/**
+ * Public sign-up (round 63 answer 4). The body names the role reader and holds no approved key, so the field stays false.
+ * The create rule of users refuses any other role (migration 1793300006). No secret is needed.
+ * emailVisibility is true, so that an admin sees the email on the approval page. Only translators and admins read other user records (same migration).
+ */
+export async function pbSignUp(name: string, email: string, password: string): Promise<{ ok: true } | { ok: false; status: number; message: string }> {
+  const r = await pbFetch("POST", "/api/collections/users/records", { body: { name, email, password, passwordConfirm: password, role: "reader", emailVisibility: true } });
+  if (ok(r)) return { ok: true };
+  const f = r.data?.data ?? {};
+  if (f.email?.code === "validation_not_unique") return { ok: false, status: 400, message: "This email is already used. Sign in instead." };
+  if (f.email) return { ok: false, status: 400, message: "Enter a valid email." };
+  if (f.password) return { ok: false, status: 400, message: "The password must have 8 characters or more." };
+  if (r.status === 503) return { ok: false, status: 503, message: "The sign-in server is not reachable. Try again later." };
+  return { ok: false, status: r.status === 400 ? 400 : 502, message: "The account was not created. Check the fields and try again." };
+}
+
+function toMarks(v: J): ReaderMark[] {
+  return Array.isArray(v) ? (v as J[]).map((m) => ({ start: Number(m.start), end: Number(m.end), markId: String(m.markId ?? ""), entryId: String(m.entryId ?? ""), surface: String(m.surface ?? "") })) : [];
+}
+
+function toReaderPage(r: J): ReaderPageRecord {
+  const rows = (Array.isArray(r.rows) ? r.rows : []) as J[];
+  return {
+    pageId: String(r.page_id),
+    itemId: String(r.item_id ?? ""),
+    n: Number(r.n ?? 0),
+    runId: String(r.run_id ?? ""),
+    rows: rows.map((x) => ({ key: String(x.key), shortKey: String(x.shortKey ?? ""), part: x.part === "block_title" ? "block_title" : "lines", ja: String(x.ja ?? ""), ed3: String(x.ed3 ?? ""), jaMarks: toMarks(x.jaMarks), edMarks: toMarks(x.edMarks) })),
+    terms: r.terms && typeof r.terms === "object" ? (r.terms as Record<string, TermEntry>) : {},
+    extras: (Array.isArray(r.extras) ? r.extras : []) as ReaderExtra[],
+    agree: (Array.isArray(r.agree) ? r.agree : []).map(String),
+  };
+}
+
+/** The reader_pages records of some pages (full records). */
+export async function readerPageRecords(token: string, pageIds: string[]): Promise<ReaderPageRecord[]> {
+  if (pageIds.length === 0) return [];
+  const recs = await listAll(token, "reader_pages", { filter: pageIds.map((id) => `page_id=${q(id)}`).join(" || ") });
+  return recs.map(toReaderPage);
+}
+
+/** Page numbers of a book that have reader text (no rows are read). */
+export async function readerTextPages(token: string, slug: string): Promise<number[]> {
+  const recs = await listAll(token, "reader_pages", { filter: `item_id=${q(slug)}`, fields: "n", sort: "n" });
+  return recs.map((r) => Number(r.n)).filter((n) => Number.isFinite(n) && n > 0);
+}
+
+/** Count of pages with reader text for each book. */
+export async function readerTextCounts(token: string): Promise<Map<string, number>> {
+  const recs = await listAll(token, "reader_pages", { fields: "item_id" });
+  const out = new Map<string, number>();
+  for (const r of recs) out.set(String(r.item_id), (out.get(String(r.item_id)) ?? 0) + 1);
+  return out;
+}
+
+/** The human version that an admin chose for some pages: page ID to version. */
+export async function readerVersionRecords(token: string, pageIds: string[]): Promise<Map<string, ReaderHumanVersion>> {
+  const out = new Map<string, ReaderHumanVersion>();
+  if (pageIds.length === 0) return out;
+  const recs = await listAll(token, "reader_versions", { filter: pageIds.map((id) => `page_id=${q(id)}`).join(" || ") });
+  for (const r of recs) {
+    out.set(String(r.page_id), {
+      pageId: String(r.page_id),
+      version: Number(r.version ?? 0),
+      runId: String(r.run_id ?? ""),
+      rows: ((Array.isArray(r.rows) ? r.rows : []) as J[]).map((x) => ({ key: String(x.key), text: String(x.text ?? ""), agree: x.agree === true, ed3Text: String(x.ed3Text ?? ""), jaText: String(x.jaText ?? "") })),
+    });
+  }
+  return out;
+}
+
+/** Page checks of a book: page number to the date (YYYY-MM-DD) of the check. */
+export async function pageCheckDates(token: string, slug: string): Promise<Map<string, string>> {
+  const recs = await listAll(token, "page_checks", { filter: `page_id~${q(slug + "/")}`, fields: "page_id,created" });
+  return new Map(recs.filter((r) => String(r.page_id).startsWith(slug + "/")).map((r) => [String(r.page_id), String(r.created ?? "").slice(0, 10)]));
+}
+
+/** Title, author, year, pages, and the synopsis of the books. The research fields of the metadata row stay out (sources, confidence, notes). */
+export async function catalogFacts(token: string, slug?: string): Promise<ReaderBookFacts[]> {
+  const params: Record<string, string> = { fields: "item_id,title_en,title_ja,author_en,author_ja,publisher,publish_year,pages,row", sort: "item_id" };
+  if (slug) params.filter = `item_id=${q(slug)}`;
+  const recs = await listAll(token, "catalog_items", params);
+  const text = (v: unknown) => (typeof v === "string" ? v : v === null || v === undefined ? "" : String(v));
+  return recs.map((r) => ({
+    slug: String(r.item_id),
+    titleEn: text(r.title_en),
+    titleJa: text(r.title_ja),
+    author: text(r.author_en) || text(r.author_ja),
+    publisher: text(r.publisher),
+    year: text(r.publish_year),
+    isbn: text(r.row?.isbn),
+    pages: typeof r.pages === "number" ? r.pages : 0,
+    synopsis: text(r.row?.synopsis),
+  }));
+}
+
+// ---- reading progress and bookmarks (own records only)
+
+export async function readingProgress(token: string, userId: string): Promise<Map<string, string>> {
+  const recs = await listAll(token, "reader_progress", { filter: `user=${q(userId)}`, fields: "item_id,page_id" });
+  return new Map(recs.map((r) => [String(r.item_id), String(r.page_id)]));
+}
+
+export async function saveReadingProgress(token: string, userId: string, itemId: string, pageId: string): Promise<void> {
+  const found = await pbFetch("GET", `/api/collections/reader_progress/records?perPage=1&skipTotal=1&fields=id&filter=${encodeURIComponent(`user=${q(userId)} && item_id=${q(itemId)}`)}`, { token });
+  if (!ok(found)) throw failure(found, "PocketBase could not read the saved place.");
+  const id = found.data.items?.[0]?.id;
+  const r = id
+    ? await pbFetch("PATCH", `/api/collections/reader_progress/records/${encodeURIComponent(String(id))}`, { token, body: { page_id: pageId } })
+    : await pbFetch("POST", "/api/collections/reader_progress/records", { token, body: { user: userId, item_id: itemId, page_id: pageId } });
+  if (!ok(r)) throw failure(r, "The place was not saved.");
+}
+
+export async function listBookmarks(token: string, userId: string, itemId: string): Promise<BookmarkView[]> {
+  const recs = await listAll(token, "reader_bookmarks", { filter: `user=${q(userId)} && item_id=${q(itemId)}`, sort: "page_id" });
+  return recs.map((r) => ({ id: String(r.id), pageId: String(r.page_id), n: parseInt(String(r.page_id).slice(String(r.page_id).lastIndexOf("/p") + 2), 10) || 0, note: String(r.note ?? ""), created: String(r.created ?? "") }));
+}
+
+export async function addBookmark(token: string, userId: string, pageId: string, itemId: string, note: string): Promise<BookmarkView> {
+  const r = await pbFetch("POST", "/api/collections/reader_bookmarks/records", { token, body: { user: userId, page_id: pageId, item_id: itemId, note } });
+  if (!ok(r)) throw failure(r, "The bookmark was not saved.");
+  return { id: String(r.data.id), pageId, n: parseInt(pageId.slice(pageId.lastIndexOf("/p") + 2), 10) || 0, note, created: String(r.data.created ?? "") };
+}
+
+export async function removeBookmark(token: string, id: string): Promise<void> {
+  const r = await pbFetch("DELETE", `/api/collections/reader_bookmarks/records/${encodeURIComponent(id)}`, { token });
+  if (!ok(r)) throw failure(r, "The bookmark was not removed.");
+}
+
+// ---- admin: readers, human versions, page checks (the PocketBase rules allow an admin only)
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  approved: boolean;
+  disabled: boolean;
+  created: string;
+}
+
+export async function adminUsers(token: string): Promise<AdminUser[]> {
+  const recs = await listAll(token, "users", { sort: "created" });
+  return recs.map((r) => ({ id: String(r.id), name: String(r.name ?? ""), email: String(r.email ?? ""), role: normalizeRole(r.role), approved: r.approved === true, disabled: r.disabled === true, created: String(r.created ?? "") }));
+}
+
+/** Approve, or remove the approval of, or disable or enable an account. Only an admin passes the update rule. */
+export async function adminUpdateUser(token: string, id: string, changes: { approved?: boolean; disabled?: boolean }): Promise<void> {
+  if (!/^[A-Za-z0-9]+$/.test(id)) throw new PbError(400, "Bad user.");
+  const r = await pbFetch("PATCH", `/api/collections/users/records/${id}`, { token, body: changes });
+  if (!ok(r)) throw failure(r, "The account was not changed.");
+}
+
+/** The saved versions of a page by all translators (an admin reads all own_translations). Newest first. */
+export async function adminVersionsOfPage(token: string, pageId: string): Promise<AdminVersion[]> {
+  const recs = await listAll(token, "own_translations", { filter: `page_id=${q(pageId)}`, fields: "user,version,created,run_id,agree,text,expand.user.name,expand.user.email", expand: "user" });
+  const by = new Map<string, AdminVersion>();
+  for (const r of recs) {
+    const key = `${r.user}|${r.version}`;
+    const hit = by.get(key);
+    const agreed = r.agree === true ? 1 : 0;
+    const written = String(r.text ?? "").trim() ? 1 : 0;
+    if (hit) {
+      hit.rows++;
+      hit.agreed += agreed;
+      hit.written += written;
+      if (String(r.created) < hit.created) hit.created = String(r.created);
+    } else {
+      const u = r.expand?.user;
+      by.set(key, { userId: String(r.user), userName: String(u?.name || u?.email || "Translator"), version: Number(r.version), created: String(r.created ?? ""), runId: String(r.run_id ?? ""), rows: 1, agreed, written });
+    }
+  }
+  return [...by.values()].sort((a, b) => (a.created < b.created ? 1 : a.created > b.created ? -1 : b.version - a.version));
+}
+
+/** The rows of one saved version of one translator (admin). */
+export async function adminVersionRows(token: string, pageId: string, userId: string, version: number): Promise<ReaderHumanRow[]> {
+  const recs = await listAll(token, "own_translations", { filter: `page_id=${q(pageId)} && user=${q(userId)} && version=${Math.trunc(version)}`, sort: "created", fields: "group_key,text,agree,ed3_text,ja_text" });
+  return recs.map((r) => ({ key: String(r.group_key), text: String(r.text ?? ""), agree: r.agree === true, ed3Text: String(r.ed3_text ?? ""), jaText: String(r.ja_text ?? "") }));
+}
+
+/** The chosen human version of a page, or null. */
+export async function chosenVersionOf(token: string, pageId: string): Promise<(ReaderHumanVersion & { id: string; userId: string }) | null> {
+  const r = await pbFetch("GET", `/api/collections/reader_versions/records?perPage=1&skipTotal=1&filter=${encodeURIComponent(`page_id=${q(pageId)}`)}`, { token });
+  if (!ok(r)) throw failure(r, "PocketBase could not read the chosen version.");
+  const rec = r.data.items?.[0];
+  if (!rec) return null;
+  return {
+    id: String(rec.id),
+    userId: String(rec.user ?? ""),
+    pageId,
+    version: Number(rec.version ?? 0),
+    runId: String(rec.run_id ?? ""),
+    rows: ((Array.isArray(rec.rows) ? rec.rows : []) as J[]).map((x) => ({ key: String(x.key), text: String(x.text ?? ""), agree: x.agree === true, ed3Text: String(x.ed3Text ?? ""), jaText: String(x.jaText ?? "") })),
+  };
+}
+
+/** Choose a human version for a page. A second choice replaces the first (one record for each page). */
+export async function chooseVersion(token: string, admin: SessionUser, pageId: string, v: { userId: string; version: number; runId: string; rows: ReaderHumanRow[] }): Promise<void> {
+  const found = await pbFetch("GET", `/api/collections/reader_versions/records?perPage=1&skipTotal=1&fields=id&filter=${encodeURIComponent(`page_id=${q(pageId)}`)}`, { token });
+  if (!ok(found)) throw failure(found, "PocketBase could not read the chosen version.");
+  const id = found.data.items?.[0]?.id;
+  const body = { page_id: pageId, user: v.userId, version: v.version, run_id: v.runId, chosen_by: admin.id, rows: v.rows.map((x) => ({ key: x.key, text: x.text, agree: x.agree, ed3Text: x.ed3Text, jaText: x.jaText })) };
+  const r = id
+    ? await pbFetch("PATCH", `/api/collections/reader_versions/records/${encodeURIComponent(String(id))}`, { token, body })
+    : await pbFetch("POST", "/api/collections/reader_versions/records", { token, body });
+  if (!ok(r)) throw failure(r, "The choice was not saved.");
+}
+
+export async function clearChosenVersion(token: string, pageId: string): Promise<void> {
+  const found = await pbFetch("GET", `/api/collections/reader_versions/records?perPage=1&skipTotal=1&fields=id&filter=${encodeURIComponent(`page_id=${q(pageId)}`)}`, { token });
+  if (!ok(found)) throw failure(found, "PocketBase could not read the chosen version.");
+  const id = found.data.items?.[0]?.id;
+  if (!id) return;
+  const r = await pbFetch("DELETE", `/api/collections/reader_versions/records/${encodeURIComponent(String(id))}`, { token });
+  if (!ok(r)) throw failure(r, "The choice was not removed.");
+}
+
+/** The page check of a page: the date and the note, or null. */
+export async function pageCheckOf(token: string, pageId: string): Promise<{ date: string; note: string } | null> {
+  const r = await pbFetch("GET", `/api/collections/page_checks/records?perPage=1&skipTotal=1&filter=${encodeURIComponent(`page_id=${q(pageId)}`)}`, { token });
+  if (!ok(r)) throw failure(r, "PocketBase could not read the page check.");
+  const rec = r.data.items?.[0];
+  return rec ? { date: String(rec.created ?? "").slice(0, 10), note: String(rec.note ?? "") } : null;
+}
+
+export async function setPageCheck(token: string, admin: SessionUser, pageId: string, note: string): Promise<void> {
+  const found = await pbFetch("GET", `/api/collections/page_checks/records?perPage=1&skipTotal=1&fields=id&filter=${encodeURIComponent(`page_id=${q(pageId)}`)}`, { token });
+  if (!ok(found)) throw failure(found, "PocketBase could not read the page check.");
+  const id = found.data.items?.[0]?.id;
+  const body = { page_id: pageId, checked_by: admin.id, note };
+  const r = id
+    ? await pbFetch("PATCH", `/api/collections/page_checks/records/${encodeURIComponent(String(id))}`, { token, body })
+    : await pbFetch("POST", "/api/collections/page_checks/records", { token, body });
+  if (!ok(r)) throw failure(r, "The page check was not saved.");
+}
+
+export async function clearPageCheck(token: string, pageId: string): Promise<void> {
+  const found = await pbFetch("GET", `/api/collections/page_checks/records?perPage=1&skipTotal=1&fields=id&filter=${encodeURIComponent(`page_id=${q(pageId)}`)}`, { token });
+  if (!ok(found)) throw failure(found, "PocketBase could not read the page check.");
+  const id = found.data.items?.[0]?.id;
+  if (!id) return;
+  const r = await pbFetch("DELETE", `/api/collections/page_checks/records/${encodeURIComponent(String(id))}`, { token });
+  if (!ok(r)) throw failure(r, "The page check was not removed.");
+}
+
+/** The pages of a book that have reader text, with the run (for the admin page). */
+export async function readerPagesOfBook(token: string, slug: string): Promise<{ pageId: string; n: number; runId: string }[]> {
+  const recs = await listAll(token, "reader_pages", { filter: `item_id=${q(slug)}`, fields: "page_id,n,run_id", sort: "n" });
+  return recs.map((r) => ({ pageId: String(r.page_id), n: Number(r.n), runId: String(r.run_id) }));
+}
+
+export interface ReaderHumanRow {
+  key: string;
+  text: string;
+  agree: boolean;
+  ed3Text: string;
+  jaText: string;
+}
+
+export interface ReaderHumanVersion {
+  pageId: string;
+  version: number;
+  runId: string;
+  rows: ReaderHumanRow[];
+}
+
+export interface AdminVersion {
+  userId: string;
+  userName: string;
+  version: number;
+  created: string;
+  runId: string;
+  rows: number;
+  agreed: number;
+  written: number;
+}
+
+/** All pages that have reader text: page ID and run ID (for the admin page of human versions). */
+export async function readerAllPages(token: string): Promise<{ pageId: string; runId: string }[]> {
+  const recs = await listAll(token, "reader_pages", { fields: "page_id,run_id", sort: "page_id" });
+  return recs.map((r) => ({ pageId: String(r.page_id), runId: String(r.run_id) }));
+}
+
+/** Page IDs with a chosen human version and page IDs with a page check (for the admin page). */
+export async function adminMarks(token: string): Promise<{ chosen: Map<string, { userId: string; version: number }>; checked: Set<string> }> {
+  const v = await listAll(token, "reader_versions", { fields: "page_id,user,version" });
+  const c = await listAll(token, "page_checks", { fields: "page_id" });
+  return { chosen: new Map(v.map((r) => [String(r.page_id), { userId: String(r.user ?? ""), version: Number(r.version ?? 0) }])), checked: new Set(c.map((r) => String(r.page_id))) };
 }

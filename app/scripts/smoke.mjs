@@ -10,6 +10,9 @@
 //                                                      VIEWER_RUN_SOURCE=pocketbase, VIEWER_POCKETBASE_URL (throwaway server on port 8092 only), VIEWER_MONITOR=off,
 //                                                      HTV_TR1_EMAIL, HTV_TR1_PASSWORD, HTV_READER_EMAIL, HTV_READER_PASSWORD. Needs the S2 upload in that server.
 //                                                      GET requests, one sign-in per account, and one refused POST. The script never prints a password or a token.
+//   node scripts/smoke.mjs read                        reader pages (unit RC1, round 63). Needs a throwaway PocketBase after the S2 upload (reader_pages), a saved version of
+//                                                      translator tr1 on left_foot_full/p048 (run_all.py prepares it), and the env variables HTV_ADMIN_*, HTV_TR1_*, HTV_READER_*
+//                                                      (approved) and HTV_READER2_* (not approved). It writes sign-up, approval, choice, check, bookmark, and progress records.
 // The script starts `next start` on a free port and stops it at the end.
 // Run `npm run build` first. Run the script in a copy of the app, not in the folder of the dev server.
 // Mode `pause` sends POST requests. Never run it with the real data folder.
@@ -493,7 +496,8 @@ async function settingsChecks({ c1, c2, ca, cr, anon, accounts, pbUrl }) {
   r = await cr.req("/api/htv/settings", { method: "PUT", json: { panes: { v: 1, panes: { agent: { size: 24 } } } } });
   check("Reader: PUT /api/htv/settings works (200), the reader keeps settings too", r.status === 200 && r.json?.panes?.panes?.agent?.size === 24, `status ${r.status}`);
   r = await cr.req(URL14);
-  check("Reader: the agent pane has the font size 24 px, and the cogs are Japanese, Agent translation, book index, and TL_3 panel (1 each), not Your translation, Comments, or Version history", /font-size:\s*24px/.test(r.body) && countOf(r.body, /data-cog="ja"/g) === 1 && countOf(r.body, /data-cog="agent"/g) === 1 && countOf(r.body, /data-cog="tl3"/g) === 1 && countOf(r.body, /data-cog="list"/g) === 1 && countOf(r.body, /data-cog="own"/g) === 0 && countOf(r.body, /data-cog="comments"/g) === 0 && countOf(r.body, /data-cog="versions"/g) === 0 && countOf(r.body, /data-cog=/g) === 4);
+  // Unit RC1 (round 63 answer 4): a reader goes to /read. The older check of the read-only view changed into a redirect check.
+  check("Reader: /translate/mental_full?at=p014 sends the reader to /read (the old check of the agent pane font size and the cogs ended)", r.go === "/read", `status ${r.status}, go ${r.go}`);
 
   // the theme in the account (step C and step E)
   const th = await c1.req("/api/theme", { method: "PUT", json: { theme: "dark" } });
@@ -550,7 +554,7 @@ async function uxc2Checks({ c2, cr, anon, accounts, pbUrl, dataDir }) {
   r = await c2.req(`/translate/${LF}?view=scroll&at=p048`);
   check("?view=scroll keeps the scroll view: 120 page sections, the switch has Scroll view pressed, no Previous page button", countOf(r.body, /data-section="p\d+"/g) === 120 && /data-view-switch[^>]*data-view-now="scroll"/.test(r.body) && !/data-page-prev/.test(r.body) && /data-pin="left_foot_full\/p048"/.test(r.body));
   r = await cr.req(`/translate/${LF}?view=page&at=p048`);
-  check("Page view for the reader: the rows, the buttons, and the page number box show, but no own box, no tick, and no Save", r.status === 200 && keysOf(r.body).size === 5 && /data-page-prev/.test(r.body) && !/aria-label="Own translation for /.test(r.body) && !/data-agree=/.test(r.body) && !/data-save=/.test(r.body));
+  check("Page view address for the reader: /translate/<book>?view=page&at=p048 sends the reader to /read (the old read-only page view ended)", r.go === "/read" && !/data-row=/.test(r.body), `status ${r.status}, go ${r.go}`);
 
   // --- the view choice in the account: URL first, then the account, then the scroll view
   r = await c2.req("/api/htv/settings");
@@ -777,9 +781,9 @@ async function bookScreenChecks({ c1, ca, cr, anon }) {
   r = await cr.req(`/translate/${LF}?at=p048`);
   html = r.body;
   text = htvText(html);
-  check("Reader on the book screen: rows, JA and agent text, the panel, and the tags, but no own box, no tick, no Save, no comments, no saved data", r.status === 200 && keysOf(html).size >= 5 && !/aria-label="Own translation for /.test(html) && !/data-agree=/.test(html) && !/data-save=/.test(html) && !/Comments \(\d+\)/.test(text) && !/Version history/.test(text) && countOf(text, /can read only/g) === 1 && /data-panel-page="p048"/.test(html));
+  check("Reader on the book screen address: /translate/<book>?at=p048 sends the reader to /read and shows no row, no panel, no own box", r.go === "/read" && !/data-row=/.test(html) && !/data-panel-page=/.test(html), `status ${r.status}, go ${r.go}`);
   r = await cr.req(`/api/htv/page?ids=${LF}/p048`);
-  check("Reader: GET /api/htv/page gives the rows but no versions, no saved rows, no comments", r.status === 200 && r.json?.pages?.[0]?.data?.rows?.length >= 1 && r.json.pages[0].versions.length === 0 && r.json.pages[0].rows.length === 0 && r.json.pages[0].comments.length === 0);
+  check("Reader: GET /api/htv/page answers 403 (the human-translation-view API is for translators and admins)", r.status === 403, `status ${r.status}`);
 }
 
 async function htvTest() {
@@ -1010,7 +1014,7 @@ async function htvTest() {
   check("reader login gives 200 and the role reader", rd.r.status === 200 && rd.r.json?.user?.role === "reader");
   r = await cr.req(P14URL);
   text = htvText(r.body);
-  check("reader sees JA, ED_3 and the panel, but no own box and no comments", r.status === 200 && r.body.includes("If you apply this") && /TL_3 information panel/.test(text) && !/aria-label="Own translation for /.test(r.body) && !/Comments \(\d+\)/.test(text) && /can read only/.test(text));
+  check("reader: /translate/mental_full?at=p014 sends the reader to /read and shows no row, no panel, no comments", r.go === "/read" && !r.body.includes("If you apply this") && !/TL_3 information panel/.test(text), `status ${r.status}, go ${r.go}`);
   check("reader sees no tick box", !/data-agree=/.test(r.body));
   r = await save(cr, rows3("r", "r", "r"));
   check("reader cannot save (403)", r.status === 403, `status ${r.status}`);
@@ -1309,10 +1313,449 @@ async function deployTest() {
   r = await cr.req("/api/htv/login", { method: "POST", json: rd });
   check("Deploy: reader sign-in gives 200 and the role reader", r.status === 200 && r.json?.user?.role === "reader", `status ${r.status}`);
   r = await cr.req("/translate/left_foot_full?at=p048");
-  const rtext = htvText(r.body);
-  check("Deploy: reader sees the read-only view (rows, no own box, no comments)", r.status === 200 && /data-row="/.test(r.body) && !/aria-label="Own translation for /.test(r.body) && !/Comments \(\d+\)/.test(rtext) && /can read only/.test(rtext), `status ${r.status}`);
+  check("Deploy: reader at /translate/left_foot_full?at=p048 goes to /read and sees no row", r.go === "/read" && !/data-row="/.test(r.body), `status ${r.status}, go ${r.go}`);
   r = await cr.req("/api/htv/save", { method: "POST", json: { pageId: P, runId: "x", rows: [] } });
   check("Deploy: reader cannot save (403)", r.status === 403, `status ${r.status}`);
+}
+
+// ---------------------------------------------------------------- mode read (unit RC1, round 63)
+// Reader pages: sign-up and approval, book list, book screen, page view, text modes, scroll view, focus mode, term pop-up, AI label,
+// agree tag, admin choice of a human version, page check, bookmarks, resume, themes, and the closed research layer.
+// The server reads PocketBase (runSource pocketbase) after the S2 upload. The prepared data (run_all.py): translator tr1 saved version 1 of
+// left_foot_full/p048 (row L01-L05 ticked agree, row L06-L10 and T01 with own text), and S2 ran again so that reader_pages holds the agree list.
+// Needs: HTV_ADMIN_*, HTV_TR1_*, HTV_READER_* (approved), HTV_READER2_* (not approved) and the throwaway PocketBase on 8092.
+
+async function readTest() {
+  const accounts = { admin: envPair("ADMIN"), tr1: envPair("TR1"), reader: envPair("READER"), reader2: envPair("READER2") };
+  const pbUrl = (process.env.VIEWER_POCKETBASE_URL ?? (JSON.parse(await fs.readFile(configFile ? path.resolve(configFile) : path.resolve("viewer.config.json"), "utf-8")).pocketbaseUrl ?? "")).replace(/\/+$/, "");
+  check("Read: the app uses the throwaway PocketBase (port 8092)", pbUrl === "http://127.0.0.1:8092", pbUrl);
+  const LF = "left_foot_full";
+  const P48 = `${LF}/p048`;
+  const JA_START = "わたしは剣先を相手の中墨から外さず攻めつづけ、";
+  const EN_START = "I keep applying Seme without letting my Kensen leave the Ai-te's Chūzumi (centerline),";
+  const countOf = (html, re) => (html.match(re) ?? []).length;
+  // A term mark splits a text into parts, and the text of the page has a space at each split. Compare without spaces.
+  const squash = (t) => t.replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/\s+/g, "");
+  const login = async (who, label) => {
+    const c = new Client(label ?? who);
+    const r = await c.req("/api/htv/login", { method: "POST", json: accounts[who] });
+    return { c, r };
+  };
+  // words and keys of the research layer. None may reach a reader.
+  const LEAK_HTML = /"verdict"|\\"verdict\\"|qa3_page_score|"score"|\\"score\\"|\bQA_3\b|\bTL_3\b|"panel"|\\"panel\\"|reasoning|"enFormCheck"|EN form check/;
+  const LEAK_KEYS = new Set(["verdict", "score", "panel", "reasoning", "qa", "qa3_page_score", "result", "detail", "tsIds", "tl3Message"]);
+  const walkKeys = (v, out = new Set()) => {
+    if (Array.isArray(v)) v.forEach((x) => walkKeys(x, out));
+    else if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) {
+      out.add(k);
+      walkKeys(x, out);
+    }
+    return out;
+  };
+  const leakKeys = (json) => [...walkKeys(json)].filter((k) => LEAK_KEYS.has(k));
+  const put = (c, reader) => c.req("/api/read/settings", { method: "PUT", json: { reader } });
+
+  // --- public pages and sign-up
+  const anon = new Client("anon");
+  let r = await anon.req("/sign-up");
+  check("Sign-up page: 200, the form, a link to sign in", r.status === 200 && /data-sign-up/.test(r.body) && /href="\/sign-in"/.test(r.body), `status ${r.status}`);
+  r = await anon.req("/sign-in");
+  check("Sign-in page of the reader pages: 200, the form, a link to sign up", r.status === 200 && /Sign in to read/.test(r.body) && /href="\/sign-up"/.test(r.body), `status ${r.status}`);
+  check("Default theme of the reader pages: a visitor with no cookie gets the marker solarized-light, and the transient theme of <html> is light until the script runs", /data-reader-default-theme="solarized-light"/.test(r.body) && /data-theme-explicit="no"/.test(r.body));
+  r = await anon.req("/translate/sign-in");
+  check("Default theme of the human-translation-view stays light (data-theme=\"light\", no reader marker)", /<html[^>]*data-theme="light"/.test(r.body) && !/data-reader-default-theme/.test(r.body));
+  r = await anon.req("/read");
+  check("/read without sign-in redirects to /sign-in?next=%2Fread", r.go === "/sign-in?next=%2Fread", `status ${r.status}, go ${r.go}`);
+  r = await anon.req(`/read/${LF}?at=p048`);
+  check("/read/<book> without sign-in redirects to /sign-in", /^\/sign-in\?next=/.test(r.go), `go ${r.go}`);
+  r = await anon.req("/admin/readers");
+  check("/admin/readers without sign-in redirects to /sign-in", /^\/sign-in\?next=/.test(r.go), `go ${r.go}`);
+  r = await anon.req(`/api/read/page?ids=${P48}`);
+  check("GET /api/read/page without sign-in gives 401", r.status === 401, `status ${r.status}`);
+
+  const email = `new-reader-${Date.now()}@rc1-test.local`;
+  const pw = "Aa1-" + Math.random().toString(36).slice(2, 14);
+  const bad = (json) => anon.req("/api/read/sign-up", { method: "POST", json });
+  r = await bad({ name: "N", email, password: "short" });
+  check("Sign-up route: a password under 8 characters gives 400", r.status === 400, `status ${r.status}`);
+  r = await bad({ name: "N", email: "not-an-email", password: pw });
+  check("Sign-up route: a bad email gives 400", r.status === 400, `status ${r.status}`);
+  r = await bad({ name: "", email, password: pw });
+  check("Sign-up route: an empty name gives 400", r.status === 400, `status ${r.status}`);
+  r = await anon.req("/api/read/sign-up", { method: "POST", json: { name: "N", email, password: pw }, headers: { origin: "https://evil.example" } });
+  check("Sign-up route: a foreign origin gives 403", r.status === 403, `status ${r.status}`);
+  r = await bad({ name: "New Reader", email, password: pw, role: "admin", approved: true });
+  check("Sign-up route: a body with role admin and approved true still creates a reader that waits (the route ignores both keys)", r.status === 200, `status ${r.status}`);
+  r = await bad({ name: "New Reader", email, password: pw });
+  check("Sign-up route: the same email twice gives 400 with a plain message", r.status === 400 && /already used/.test(r.json?.error ?? ""), `status ${r.status}`);
+  const direct = await pbCall(pbUrl, "POST", "/api/collections/users/records", "", { email: `x-${email}`, password: pw, passwordConfirm: pw, role: "admin" });
+  check("PocketBase: a sign-up body with role admin is refused (create rule)", direct.status === 400 || direct.status === 403, `status ${direct.status}`);
+  const direct2 = await pbCall(pbUrl, "POST", "/api/collections/users/records", "", { email: `y-${email}`, password: pw, passwordConfirm: pw, role: "reader", approved: true });
+  check("PocketBase: a sign-up body with approved true is refused (create rule)", direct2.status === 400 || direct2.status === 403, `status ${direct2.status}`);
+
+  // --- the new reader waits for approval
+  const nr = new Client("new reader");
+  r = await nr.req("/api/htv/login", { method: "POST", json: { email, password: pw } });
+  check("The new account signs in: role reader, approved false", r.status === 200 && r.json?.user?.role === "reader" && r.json?.user?.approved === false, `status ${r.status}`);
+  check("The sign-in of a reader with no saved theme sets the cookie theme=solarized-light (default of the reader pages)", r.setCookies.some((x) => /^theme=solarized-light/.test(x)));
+  r = await nr.req("/read");
+  let text = htvText(r.body);
+  check("Waiting reader: /read shows the line 'Your account waits for approval by an admin.' and the 37 books", r.status === 200 && text.includes("Your account waits for approval by an admin.") && countOf(r.body, /data-book="/g) === 37, `books ${countOf(r.body, /data-book="/g)}`);
+  check("Waiting reader: the book cards show no progress line", !/data-progress/.test(r.body));
+  r = await nr.req(`/read/${LF}`);
+  text = htvText(r.body);
+  check("Waiting reader: the book screen shows the title, the author, and the waiting line, and no page list", r.status === 200 && /data-waiting/.test(r.body) && text.includes("The Secret of Kendo and the Left Foot") && !/data-index-page=/.test(r.body) && !/data-book-screen/.test(r.body), `status ${r.status}`);
+  r = await nr.req(`/read/${LF}?view=page&at=p048`);
+  text = htvText(r.body);
+  check("Waiting reader: ?at=p048 shows no page text (no Japanese line, no English line, no row)", r.status === 200 && !text.includes("Kensen") && !r.body.includes(JA_START) && !/data-row=/.test(r.body) && /data-waiting/.test(r.body));
+  r = await nr.req(`/api/read/page?ids=${P48}`);
+  check("Waiting reader: GET /api/read/page gives 403", r.status === 403, `status ${r.status}`);
+  const nrList = await pbCall(pbUrl, "GET", "/api/collections/reader_pages/records", nr.token());
+  check("Waiting reader: PocketBase gives no reader_pages record (rule)", nrList.status === 403 || (nrList.status === 200 && (nrList.json?.items ?? []).length === 0), `status ${nrList.status}`);
+  const nrBm = await nr.req("/api/read/bookmarks", { method: "POST", json: { pageId: P48 } });
+  check("Waiting reader: a bookmark is refused (403)", nrBm.status === 403, `status ${nrBm.status}`);
+  r = await nr.req("/admin/readers");
+  check("Waiting reader: /admin/readers goes to /read", r.go === "/read", `go ${r.go}`);
+  r = await nr.req("/api/admin/readers", { method: "POST", json: { id: "abc", approved: true } });
+  check("Waiting reader: POST /api/admin/readers gives 403", r.status === 403, `status ${r.status}`);
+
+  // --- admin approval
+  const ad = (await login("admin")).c;
+  const adminToken = ad.token();
+  r = await ad.req("/admin/readers");
+  text = htvText(r.body);
+  check("Admin page /admin/readers lists the waiting reader with Approve", r.status === 200 && r.body.includes(`data-waiting-user="${email}"`) && /data-approve/.test(r.body), `status ${r.status}`);
+  const u = await pbCall(pbUrl, "GET", `/api/collections/users/records?filter=${encodeURIComponent(`email="${email}"`)}`, adminToken);
+  const newId = u.json?.items?.[0]?.id;
+  check("PocketBase: the new account has approved false", u.json?.items?.[0]?.approved === false);
+  r = await ad.req("/api/admin/readers", { method: "POST", json: { id: newId, approved: true } });
+  check("Admin approves the reader (POST /api/admin/readers, 200)", r.status === 200, `status ${r.status}`);
+  r = await ad.req("/api/admin/readers", { method: "POST", json: { id: newId } });
+  check("Admin route: a body with no change gives 400", r.status === 400, `status ${r.status}`);
+  const tr1c = (await login("tr1")).c;
+  r = await tr1c.req("/api/admin/readers", { method: "POST", json: { id: newId, approved: false } });
+  check("A translator cannot use the admin route (403)", r.status === 403, `status ${r.status}`);
+  r = await tr1c.req("/admin/readers");
+  check("A translator at /admin/readers goes to /read", r.go === "/read", `go ${r.go}`);
+  r = await ad.req("/api/admin/readers", { method: "POST", json: { id: newId, approved: true }, headers: { origin: "https://evil.example" } });
+  check("Admin route: a foreign origin gives 403", r.status === 403, `status ${r.status}`);
+  r = await nr.req(`/api/read/page?ids=${P48}`);
+  check("After approval the same reader gets the page API (200) without a new sign-in", r.status === 200, `status ${r.status}`);
+
+  // --- approved reader: book list
+  const rd = await login("reader");
+  const cr = rd.c;
+  check("Approved reader signs in: role reader, approved true", rd.r.status === 200 && rd.r.json?.user?.approved === true);
+  r = await cr.req("/read");
+  text = htvText(r.body);
+  const leakList = LEAK_HTML.test(r.body);
+  check("Book list: 37 cards, no waiting line", r.status === 200 && countOf(r.body, /data-book="/g) === 37 && !text.includes("waits for approval"), `books ${countOf(r.body, /data-book="/g)}`);
+  check("Book list: the left_foot_full card shows the English title, the Japanese title, the author, the year, the page count, and the AI note on the synopsis", /The Secret of Kendo and the Left Foot/.test(text) && /Mitsuru Kobayashi/.test(text) && /2017/.test(text) && /120 pages/.test(text) && /Written by an AI agent/.test(text));
+  check("Book list: the card shows 'AI translation: 6 of 120 pages'", /AI translation: 6 of 120 pages/.test(text));
+  check("Book list: a field that is empty does not show the word unknown", !/unknown/i.test(text));
+  check("Book list: no research field of the metadata row (sources, confidence, filled_by, confirmed_by)", !/confidence|filled_by|confirmed_by|"sources"/.test(r.body));
+  check("Book list HTML holds no verdict, score, QA, TL_3, or reasoning", !leakList);
+  check("Book list: the link of the web article card exists with a fallback title", /data-book="18d4ac29"/.test(r.body));
+
+  // --- book screen
+  r = await cr.req(`/read/${LF}`);
+  text = htvText(r.body);
+  check("Book screen: metadata block, the AI label summary 'AI translation: 6 of 120 pages. Human check: 0 of 6 pages.'", r.status === 200 && /data-book-screen/.test(r.body) && /AI translation: 6 of 120 pages\. Human check: 0 of 6 pages\./.test(text), `status ${r.status}`);
+  check("Book screen: 120 pages are listed, 6 have reader text, 114 show 'No agent translation yet'", countOf(r.body, /data-index-page="p\d+"/g) === 120 && countOf(r.body, /data-has-text="yes"/g) === 6 && countOf(text, /No agent translation yet/g) === 114, `pages ${countOf(r.body, /data-index-page=/g)}, yes ${countOf(r.body, /data-has-text="yes"/g)}, none ${countOf(text, /No agent translation yet/g)}`);
+  check("Book screen: the page name is the file number 'Page 48'", /Page 48/.test(text));
+  check("Book screen: the synopsis has the note 'Written by an AI agent'", /data-synopsis/.test(r.body) && /Written by an AI agent/.test(text));
+  check("Book screen: 'Start reading at Page 46' (no saved place yet)", /data-continue/.test(r.body) && /Start reading at Page 46/.test(text));
+  check("Book screen HTML holds no verdict, score, QA, TL_3, or reasoning", !LEAK_HTML.test(r.body));
+  r = await cr.req("/read/kendojidai_2014");
+  text = htvText(r.body);
+  check("Magazine year: month headings show (kendojidai_2014 has chapters), e.g. a heading with a month name and 2014", r.status === 200 && countOf(r.body, /data-index-chapter="/g) >= 1 && /(January|February|March|April|May|June|July|August|September|October|November|December) 2014/.test(text), `headings ${countOf(r.body, /data-index-chapter="/g)}`);
+  check("Magazine year: page 839 has only FAIL runs and shows 'No agent translation yet' (4-digit page names)", /data-index-page="p0839"[^>]*data-has-text="no"/.test(r.body));
+  r = await cr.req("/read/kendojidai_2014?view=page&at=p0839");
+  text = htvText(r.body);
+  check("Page with only FAIL runs: the page view shows 'No agent translation yet' and no row", r.status === 200 && /data-no-text/.test(r.body) && !/data-row=/.test(r.body) && /Page 839/.test(text));
+  r = await cr.req("/read/does_not_exist");
+  check("An unknown book gives 404", r.missing, `status ${r.status}`);
+  r = await cr.req("/read/..%2Fetc");
+  check("A bad book name gives 404", r.missing, `status ${r.status}`);
+  r = await cr.req(`/read/${LF}?at=p999`);
+  check("A page outside the book shows the book screen with a plain note", r.status === 200 && /No such page: p999/.test(htvText(r.body)) && /data-book-screen/.test(r.body));
+
+  // --- page view, text modes
+  await put(cr, { text: "en", en: "agent", view: "page", focus: false });
+  r = await cr.req(`/read/${LF}?view=page&at=p048`);
+  text = htvText(r.body);
+  const rowKeys = [...new Set([...r.body.matchAll(/data-row="([^"]+)"/g)].map((m) => m[1]))];
+  check("Page view p048: 5 rows (T01, T02, L01-L05, L06-L10, L11-L12)", r.status === 200 && rowKeys.length === 5 && rowKeys.some((k) => k.endsWith("/T01-T01")) && rowKeys.some((k) => k.endsWith("/L01-L05")) && rowKeys.some((k) => k.endsWith("/L11-L12")), rowKeys.join(","));
+  check("Page view p048: the English text starts with the ED_3 sentence, the Japanese text is not shown in the EN mode", squash(text).includes(squash(EN_START)) && !squash(text).includes(squash(JA_START)) && countOf(r.body, /\sdata-en(?:=|\s|>)/g) === 5);
+  check("Page view p048: the page name 'Page 48' and the AI label 'AI translation, not yet checked by a person'", /data-page-name[^>]*>Page 48</.test(r.body) && /AI translation, not yet checked by a person/.test(text));
+  check("Page view p048: the titles show 'Unification of the Hidari-te, Left Hip, and Left Foot' and 'All Datotsu Are Decided by the Left'", text.includes("Unification of the Hidari-te, Left Hip, and Left Foot") && text.includes("All Datotsu Are Decided by the Left"));
+  check("Page view p048: the term highlight buttons exist (data-term), for the pop-up", countOf(r.body, /data-term="/g) >= 9, `terms ${countOf(r.body, /data-term="/g)}`);
+  check("Page view p048: previous and next links, the page box, the bookmark button, the Focus button, the Settings button", /data-page-prev/.test(r.body) && /data-page-next/.test(r.body) && /data-page-box/.test(r.body) && /data-bookmark-toggle/.test(r.body) && /data-focus-enter/.test(r.body) && /data-settings-open/.test(r.body));
+  check("Page view p048: captions of the page show in a block 'Photo captions' (6 captions and the running head)", /data-extras/.test(r.body) && countOf(r.body, /data-extra="C0\d"/g) === 6 && /Apply Seme with the Left Hip/.test(text) && /The Gokui \(deepest secrets\) of Kendō and the Left Foot/.test(text), `captions ${countOf(r.body, /data-extra="C0\d"/g)}`);
+  check("Page view p048: the page HTML holds no verdict, score, QA, TL_3, reasoning, or EN form check", !LEAK_HTML.test(r.body));
+  check("Page view p048: no own box, no tick box, no Save, no comment box (the reader pages are read only)", !/aria-label="Own translation for /.test(r.body) && !/data-agree=/.test(r.body) && !/data-save=/.test(r.body) && !/Comments \(\d+\)/.test(text));
+  check("Page view p048: no 'EN form check' line and no 'Version history'", !/EN form check/.test(text) && !/Version history/.test(text));
+  r = await put(cr, { text: "ja" });
+  check("Settings route: PUT /api/read/settings text ja is saved (200)", r.status === 200 && r.json?.reader?.text === "ja", `status ${r.status}`);
+  r = await cr.req(`/read/${LF}?view=page&at=p048`);
+  text = htvText(r.body);
+  check("Single language JA: the Japanese lines show (starts with the p048 sentence), no English line", squash(text).includes(squash(JA_START)) && countOf(r.body, /\sdata-ja(?:=|\s|>)/g) === 5 && countOf(r.body, /\sdata-en(?:=|\s|>)/g) === 0 && !text.includes("I keep applying"));
+  r = await put(cr, { text: "pair" });
+  r = await cr.req(`/read/${LF}?view=page&at=p048`);
+  text = htvText(r.body);
+  check("Bilingual pairing: each of the 5 rows has a pair of Japanese and English (red bar and blue bar), JA above EN on a phone", countOf(r.body, /\sdata-pair(?:=|\s|>)/g) === 5 && squash(text).includes(squash(JA_START)) && squash(text).includes(squash(EN_START)) && /md:grid-cols-2/.test(r.body) && /border-red-700/.test(r.body) && /border-blue-800/.test(r.body));
+  r = await put(cr, { text: "en", size: 20, line: 1.9, width: "wide", fontEn: "sans", fontJa: "gothic" });
+  r = await cr.req(`/read/${LF}?view=page&at=p048`);
+  check("Settings: size 20 px, line height 1.9, and the sans font reach the text", /font-size:\s*20px/.test(r.body) && /line-height:\s*1\.9/.test(r.body) && /Helvetica/.test(r.body), `size ${/font-size:\s*20px/.test(r.body)}`);
+  r = await put(cr, { size: 99, text: "bad" });
+  check("Settings route: a size above 28 is clamped to 28, a bad text value is dropped", r.status === 200 && r.json?.reader?.size === 28 && r.json?.reader?.text === "en", JSON.stringify(r.json));
+  r = await put(cr, { nonsense: 1 });
+  check("Settings route: a body with no valid key gives 400", r.status === 400, `status ${r.status}`);
+  r = await cr.req("/api/read/settings", { method: "PUT", json: { reader: { size: 18 } }, headers: { origin: "https://evil.example" } });
+  check("Settings route: a foreign origin gives 403", r.status === 403, `status ${r.status}`);
+  await put(cr, { size: 18, line: 1.7, width: "narrow", fontEn: "serif", fontJa: "mincho" });
+  const st = await cr.req("/api/htv/settings");
+  check("The account keeps the reader key next to panes (GET /api/htv/settings returns reader.size 18 and reader.view)", st.status === 200 && st.json?.panes?.reader?.size === 18 && st.json?.panes?.reader?.text === "en", JSON.stringify(st.json?.panes?.reader));
+  const atr = await tr1c.req("/api/htv/settings", { method: "PUT", json: { panes: { v: 1, panes: { agent: { size: 21 } } } } });
+  check("A translator saves pane settings and the reader key of that account stays (no reader key lost)", atr.status === 200);
+  // reader key survives a pane-settings save of the same account
+  const keep = await cr.req("/api/htv/settings", { method: "PUT", json: { panes: { v: 1, panes: { agent: { size: 22 } } } } });
+  const after = await cr.req("/api/htv/settings");
+  check("A save of the pane settings keeps the reader settings of the account", keep.status === 200 && after.json?.panes?.reader?.size === 18 && after.json?.panes?.panes?.agent?.size === 22, JSON.stringify(after.json?.panes));
+
+  // --- scroll view and focus mode
+  r = await cr.req(`/read/${LF}?view=scroll&at=p048`);
+  const secs = [...new Set([...r.body.matchAll(/data-section="([^"]+)"/g)].map((m) => m[1]))];
+  check("Scroll view: all 120 pages are sections, 5 pages near p048 hold text (p046 to p050), p075 loads later, and the other pages say 'No agent translation yet'", r.status === 200 && /data-view="scroll"/.test(r.body) && secs.length === 120 && countOf(r.body, /data-lazy="75"/g) === 1 && countOf(r.body, /data-row="/g) >= 25 && countOf(htvText(r.body), /No agent translation yet/g) === 114, `sections ${secs.length}, lazy75 ${countOf(r.body, /data-lazy="75"/g)}`);
+  r = await cr.req(`/api/read/page?ids=${LF}/p075`);
+  check("Scroll view lazy load: GET /api/read/page for p075 gives the page with text", r.status === 200 && r.json?.pages?.[0]?.hasText === true && r.json.pages[0].rows.length === 13, `rows ${r.json?.pages?.[0]?.rows?.length}`);
+  r = await cr.req(`/api/read/page?ids=${LF}/p051`);
+  check("GET /api/read/page for p051 (no text) gives hasText false", r.status === 200 && r.json?.pages?.[0]?.hasText === false && r.json.pages[0].rows.length === 0);
+  r = await cr.req(`/api/read/page?ids=${LF}/p046,mental_full/p014`);
+  check("GET /api/read/page for two books in one call gives 400", r.status === 400, `status ${r.status}`);
+  r = await cr.req(`/api/read/page?ids=${LF}/p001,${LF}/p002,${LF}/p003,${LF}/p004,${LF}/p005,${LF}/p006,${LF}/p007,${LF}/p008,${LF}/p009`);
+  check("GET /api/read/page for 9 pages gives 400 (8 at most)", r.status === 400, `status ${r.status}`);
+  r = await cr.req("/api/read/page?ids=a/b");
+  check("GET /api/read/page with a bad page ID gives 403 (path rule)", r.status === 403 || r.status === 400, `status ${r.status}`);
+  await put(cr, { focus: true });
+  r = await cr.req(`/read/${LF}?view=page&at=p048`);
+  check("Focus mode: text only (data-focus-mode), no toolbar, no index, no bottom bar, a button to leave (Esc), the column is 72 characters wide", /data-focus-mode/.test(r.body) && !/data-toolbar-top/.test(r.body) && !/data-index\b/.test(r.body) && !/data-bottom-bar/.test(r.body) && /data-focus-leave/.test(r.body) && /max-width:\s*72ch/.test(r.body));
+  await put(cr, { focus: false });
+
+  // --- agree tag (the translator ticked L01-L05 and left the box empty)
+  r = await cr.req(`/api/read/page?ids=${P48}`);
+  const page = r.json?.pages?.[0];
+  const rowOf = (suffix) => page?.rows?.find((x) => x.key.endsWith("/" + suffix));
+  check("Agree tag: row L01-L05 is agreed by a translator (agreedByTranslator true), the other rows are not, and the data holds no translator name", rowOf("L01-L05")?.agent?.agreedByTranslator === true && rowOf("L06-L10")?.agent?.agreedByTranslator === false && !/"user"|"userName"|"email"|"translator"/.test(JSON.stringify(page)), JSON.stringify(rowOf("L01-L05")?.agent?.agreedByTranslator));
+  check("Agree tag: the page API has the keys of ReaderPageData only (no verdict, score, panel, reasoning, result, detail, tsIds)", leakKeys(r.json).length === 0, leakKeys(r.json).join(","));
+  r = await cr.req(`/read/${LF}?view=page&at=p048`);
+  text = htvText(r.body);
+  check("Agree tag: the screen shows 'AI translation, checked by a translator' once, on the ticked row, in the agent text", countOf(text, /AI translation, checked by a translator/g) === 1 && /data-row-tag/.test(r.body));
+
+  // --- admin choice of a human version
+  r = await ad.req(`/api/admin/versions?pageId=${P48}`);
+  const v1 = r.json?.versions?.[0];
+  check("Admin versions: the saved versions of p048 list the translator, the version 1, the date, and the row count (3 rows, 1 written... agreed 1)", r.status === 200 && r.json?.versions?.length === 1 && v1?.version === 1 && v1?.rows === 3 && v1?.agreed === 1 && v1?.written === 2 && typeof v1?.userName === "string" && v1.userName !== "", JSON.stringify(r.json?.versions));
+  check("Admin versions: no version is chosen yet and no page check", r.json?.chosen === null && r.json?.check === null);
+  r = await ad.req(`/api/admin/versions?pageId=${P48}&userId=${v1?.userId}&version=1`);
+  const prev = r.json?.rows ?? [];
+  check("Admin preview: 5 rows, L01-L05 'agree', L06-L10 'own', T01 'own', and the others 'agent'", r.status === 200 && prev.length === 5 && prev.find((x) => x.key.endsWith("/L01-L05"))?.kind === "agree" && prev.find((x) => x.key.endsWith("/L06-L10"))?.kind === "own" && prev.find((x) => x.key.endsWith("/T01-T01"))?.kind === "own" && prev.find((x) => x.key.endsWith("/L11-L12"))?.kind === "agent", prev.map((x) => x.kind).join(","));
+  r = await cr.req(`/api/admin/versions?pageId=${P48}`);
+  check("A reader cannot read the admin version list (403)", r.status === 403, `status ${r.status}`);
+  r = await tr1c.req("/api/admin/versions", { method: "POST", json: { action: "choose", pageId: P48, userId: v1?.userId, version: 1 } });
+  check("A translator cannot choose a version (403)", r.status === 403, `status ${r.status}`);
+  r = await ad.req("/api/admin/versions", { method: "POST", json: { action: "choose", pageId: "left_foot_full/p051", userId: v1?.userId, version: 1 } });
+  check("Choosing a version for a page without reader text gives 404", r.status === 404, `status ${r.status}`);
+  r = await ad.req("/api/admin/versions", { method: "POST", json: { action: "choose", pageId: P48, userId: v1?.userId, version: 9 } });
+  check("Choosing a version that does not exist gives 404", r.status === 404, `status ${r.status}`);
+  const pre = await cr.req(`/api/read/page?ids=${P48}`);
+  check("Before the choice the page has no human version (hasHuman false, human null on every row)", pre.json?.pages?.[0]?.hasHuman === false && pre.json.pages[0].rows.every((x) => x.human === null));
+  r = await ad.req("/api/admin/versions", { method: "POST", json: { action: "choose", pageId: P48, userId: v1?.userId, version: 1 } });
+  check("Admin chooses version 1 of the translator for p048 (200, 3 rows copied)", r.status === 200 && r.json?.rows === 3, `status ${r.status}`);
+  r = await ad.req("/api/admin/versions", { method: "POST", json: { action: "choose", pageId: P48, userId: v1?.userId, version: 1 } });
+  check("A second choice for the same page replaces the first (200, one record for each page)", r.status === 200);
+  const rvList = await pbCall(pbUrl, "GET", `/api/collections/reader_versions/records?filter=${encodeURIComponent(`page_id="${P48}"`)}`, adminToken);
+  check("PocketBase: exactly one reader_versions record for p048", rvList.json?.totalItems === 1, `total ${rvList.json?.totalItems}`);
+  const hum = await cr.req(`/api/read/page?ids=${P48}`);
+  const hp = hum.json?.pages?.[0];
+  const hrow = (sfx) => hp?.rows?.find((x) => x.key.endsWith("/" + sfx))?.human;
+  check("Reader data after the choice: hasHuman true; L06-L10 own text; L01-L05 the agreed agent text (kind agree); T02 and L11-L12 the agent text (kind agent)", hp?.hasHuman === true && hrow("L06-L10")?.kind === "own" && /My own words for the second row/.test(hrow("L06-L10")?.text ?? "") && hrow("L01-L05")?.kind === "agree" && (hrow("L01-L05")?.text ?? "").startsWith(EN_START) && hrow("T02-T02")?.kind === "agent" && hrow("L11-L12")?.kind === "agent", JSON.stringify(hp?.rows?.map((x) => x.human?.kind)));
+  check("Reader data after the choice: the data holds no translator name, no user ID, no version number", !/translator|"user"|userId|"version"|chosen_by|chosenBy/.test(JSON.stringify(hum.json)), "");
+  await put(cr, { en: "agent" });
+  r = await cr.req(`/read/${LF}?view=page&at=p048`);
+  text = htvText(r.body);
+  check("EN switch, default Agent: the agent text shows with the AI label, and the English switch is active", squash(text).includes(squash(EN_START)) && /AI translation, not yet checked by a person/.test(text) && !/No human version for this page/.test(text));
+  await put(cr, { en: "human" });
+  r = await cr.req(`/read/${LF}?view=page&at=p048`);
+  text = htvText(r.body);
+  check("EN switch Human: the page label reads 'Human translation. Chosen by an admin.' and the own text of the translator shows", /Human translation\. Chosen by an admin\./.test(text) && /My own words for the second row/.test(text) && !/AI translation, not yet checked by a person/.test(text));
+  check("EN switch Human: the agreed row shows the agent text with the tag 'AI translation, checked by a translator', and the agent-kind rows carry the tag 'AI translation'", squash(text).includes(squash(EN_START)) && /AI translation, checked by a translator/.test(text) && countOf(r.body, /data-row-tag/g) >= 3, `tags ${countOf(r.body, /data-row-tag/g)}`);
+  check("EN switch Human: the human page shows no translator name", !new RegExp(v1?.userName ?? "@@@").test(text));
+  r = await cr.req(`/read/${LF}?view=page&at=p049`);
+  check("EN switch on a page with no human version: the agent text shows and the switch is disabled with the note 'No human version for this page'", /No human version for this page/.test(htvText(r.body)) && /AI translation, not yet checked by a person/.test(htvText(r.body)));
+  r = await ad.req("/api/admin/versions", { method: "POST", json: { action: "clear", pageId: P48 } });
+  check("Admin removes the choice (200)", r.status === 200);
+  const gone = await cr.req(`/api/read/page?ids=${P48}`);
+  check("After the removal the page has no human version again", gone.json?.pages?.[0]?.hasHuman === false);
+  await put(cr, { en: "agent" });
+
+  // --- page check
+  r = await tr1c.req("/api/admin/checks", { method: "POST", json: { action: "set", pageId: P48 } });
+  check("A translator cannot add a page check (403)", r.status === 403, `status ${r.status}`);
+  r = await ad.req("/api/admin/checks", { method: "POST", json: { action: "set", pageId: P48, note: "Read by a person." } });
+  check("Admin adds a page check on p048 (200)", r.status === 200, `status ${r.status}`);
+  r = await ad.req("/api/admin/checks", { method: "POST", json: { action: "set", pageId: "left_foot_full/p051" } });
+  check("A page check on a page without reader text gives 404", r.status === 404, `status ${r.status}`);
+  r = await cr.req(`/read/${LF}?view=page&at=p048`);
+  text = htvText(r.body);
+  check("With a page check the label reads 'AI translation, checked by a person' (and the date)", /AI translation, checked by a person \(\d{4}-\d\d-\d\d\)/.test(text) && !/not yet checked by a person/.test(text));
+  r = await cr.req(`/read/${LF}`);
+  check("Book screen after the check: 'Human check: 1 of 6 pages.'", /Human check: 1 of 6 pages\./.test(htvText(r.body)));
+  const wr = await pbCall(pbUrl, "POST", "/api/collections/page_checks/records", cr.token(), { page_id: "x/p001", checked_by: "x" });
+  check("PocketBase: a reader cannot write page_checks directly", wr.status === 400 || wr.status === 403, `status ${wr.status}`);
+  const wv = await pbCall(pbUrl, "POST", "/api/collections/reader_versions/records", tr1c.token(), { page_id: "x/p001" });
+  check("PocketBase: a translator cannot write reader_versions directly", wv.status === 400 || wv.status === 403, `status ${wv.status}`);
+  r = await ad.req("/api/admin/checks", { method: "POST", json: { action: "clear", pageId: P48 } });
+  r = await cr.req(`/read/${LF}?view=page&at=p048`);
+  check("After the page check is removed, the label is 'AI translation, not yet checked by a person' again", /AI translation, not yet checked by a person/.test(htvText(r.body)));
+  r = await ad.req("/admin/versions?page=" + encodeURIComponent(P48));
+  check("Admin page /admin/versions: the page list has the pages with reader text and the panel of p048", r.status === 200 && new Set([...r.body.matchAll(/href="\/admin\/versions\?page=([^"]+)"/g)].map((m) => m[1])).size === 29 && r.body.includes(`data-version-panel="${P48}"`), `links ${new Set([...r.body.matchAll(/href="\/admin\/versions\?page=([^"]+)"/g)].map((m) => m[1])).size}`);
+  r = await cr.req("/admin/versions");
+  check("A reader at /admin/versions goes to /read", r.go === "/read", `go ${r.go}`);
+
+  // --- bookmarks
+  r = await cr.req("/api/read/bookmarks", { method: "POST", json: { pageId: P48, note: "" } });
+  const bmId = r.json?.bookmark?.id;
+  check("Bookmark: add p048 (200)", r.status === 200 && bmId && r.json.bookmark.n === 48, `status ${r.status}`);
+  r = await cr.req("/api/read/bookmarks", { method: "POST", json: { pageId: P48 } });
+  check("Bookmark: a second bookmark on the same page gives 400", r.status === 400, `status ${r.status}`);
+  r = await cr.req("/api/read/bookmarks", { method: "POST", json: { pageId: "bad" } });
+  check("Bookmark: a bad page ID is refused", r.status === 403 || r.status === 400, `status ${r.status}`);
+  r = await cr.req(`/read/${LF}?view=page&at=p048`);
+  check("Bookmark: the page shows the bookmark in the panel and the button reads 'Remove bookmark'", /data-bookmark="left_foot_full\/p048"/.test(r.body) && /Remove bookmark/.test(htvText(r.body)));
+  r = await cr.req(`/read/${LF}`);
+  check("Bookmark: the book screen lists the bookmark 'Page 48'", /data-bookmarks/.test(r.body) && /Page 48/.test(htvText(r.body)));
+  const other = await pbCall(pbUrl, "GET", "/api/collections/reader_bookmarks/records", tr1c.token());
+  check("PocketBase: another user does not see the bookmark of the reader (own records only)", other.status === 200 && (other.json?.items ?? []).every((x) => x.page_id !== P48), `items ${other.json?.items?.length}`);
+  const delOther = await pbCall(pbUrl, "DELETE", `/api/collections/reader_bookmarks/records/${bmId}`, tr1c.token());
+  check("PocketBase: another user cannot delete the bookmark", delOther.status === 403 || delOther.status === 404, `status ${delOther.status}`);
+  r = await cr.req("/api/read/bookmarks", { method: "DELETE", json: { id: bmId } });
+  check("Bookmark: remove (200)", r.status === 200, `status ${r.status}`);
+  r = await cr.req(`/read/${LF}?view=page&at=p048`);
+  check("Bookmark: after the removal the panel says 'None yet.'", /None yet\./.test(htvText(r.body)));
+
+  // --- resume at the last page
+  r = await cr.req("/api/read/progress", { method: "PUT", json: { pageId: `${LF}/p049` } });
+  check("Resume: PUT /api/read/progress p049 (200)", r.status === 200, `status ${r.status}`);
+  r = await cr.req("/api/read/progress", { method: "PUT", json: { pageId: `${LF}/p050` } });
+  check("Resume: a second PUT updates the same record (200)", r.status === 200);
+  const prog = await pbCall(pbUrl, "GET", `/api/collections/reader_progress/records?filter=${encodeURIComponent(`item_id="${LF}"`)}`, cr.token());
+  check("PocketBase: exactly one reading_progress record for the reader and the book, page p050", prog.json?.totalItems === 1 && prog.json.items[0].page_id === `${LF}/p050`, `total ${prog.json?.totalItems}`);
+  const rd2 = await login("reader", "reader again");
+  r = await rd2.c.req("/read");
+  check("Resume after a new sign-in: the book card says 'Continue at Page 50'", /data-resume/.test(r.body) && /Continue at Page 50/.test(htvText(r.body)));
+  r = await rd2.c.req(`/read/${LF}`);
+  check("Resume after a new sign-in: the book screen button says 'Continue at Page 50'", /data-continue[^>]*>Continue at Page 50</.test(r.body));
+  r = await rd2.c.req("/api/read/progress", { method: "PUT", json: { pageId: `${LF}/p050` }, headers: { origin: "https://evil.example" } });
+  check("Progress route: a foreign origin gives 403", r.status === 403, `status ${r.status}`);
+  const prog2 = await pbCall(pbUrl, "GET", "/api/collections/reader_progress/records", tr1c.token());
+  check("PocketBase: another user does not see the progress of the reader", (prog2.json?.items ?? []).every((x) => x.item_id !== LF || x.user !== prog.json.items[0].user));
+
+  // --- themes
+  for (const t of ["sepia", "solarized-light", "solarized-dark", "dark", "light"]) {
+    r = await cr.req("/api/theme", { method: "PUT", json: { theme: t } });
+    const cookie = r.setCookies.find((x) => x.startsWith("theme=")) ?? "";
+    check(`Theme ${t}: PUT /api/theme gives 200, the cookie, and account true`, r.status === 200 && cookie.startsWith(`theme=${t}`) && r.json?.account === true, `status ${r.status}`);
+  }
+  r = await cr.req("/api/theme", { method: "PUT", json: { theme: "neon" } });
+  check("Theme: an unknown theme gives 400", r.status === 400, `status ${r.status}`);
+  await cr.req("/api/theme", { method: "PUT", json: { theme: "sepia" } });
+  r = await cr.req("/api/htv/settings");
+  check("Theme: the account keeps sepia (GET /api/htv/settings)", r.json?.theme === "sepia", JSON.stringify(r.json?.theme));
+  const second = await login("reader", "second device");
+  const cookie2 = second.r.setCookies.find((x) => x.startsWith("theme=")) ?? "";
+  check("Theme: a sign-in on a second device sets the cookie theme=sepia from the account", /^theme=sepia/.test(cookie2));
+  r = await second.c.req(`/read/${LF}?view=page&at=p048`);
+  check("Theme: the first HTML on the second device has data-theme=\"sepia\" and the reader marker is explicit", /<html[^>]*data-theme="sepia"/.test(r.body) && /data-theme-explicit="yes"/.test(r.body));
+  const pbTheme = await pbCall(pbUrl, "GET", "/api/collections/user_settings/records", second.c.token());
+  check("PocketBase: user_settings.theme holds sepia", pbTheme.json?.items?.[0]?.theme === "sepia");
+  await cr.req("/api/theme", { method: "PUT", json: { theme: "solarized-light" } });
+
+  // --- the research layer stays closed
+  const runsApi = await pbCall(pbUrl, "GET", "/api/collections/page_runs/records", cr.token());
+  check("PocketBase: an approved reader gets no page_runs record (verdict, score, and TL_3 panel stay closed)", runsApi.status === 403 || (runsApi.json?.items ?? []).length === 0, `status ${runsApi.status}`);
+  const runsApi2 = await pbCall(pbUrl, "GET", `/api/collections/page_runs/records?filter=${encodeURIComponent('page_id="left_foot_full/p048"')}&fields=verdict,qa3_page_score,snapshot`, cr.token());
+  check("PocketBase: a reader cannot read verdict, score, or snapshot of p048", (runsApi2.json?.items ?? []).length === 0, JSON.stringify(runsApi2.json).slice(0, 100));
+  const trRuns = await pbCall(pbUrl, "GET", "/api/collections/page_runs/records?perPage=1", tr1c.token());
+  check("PocketBase: a translator still reads page_runs", trRuns.status === 200 && (trRuns.json?.items ?? []).length === 1);
+  const rpList = await pbCall(pbUrl, "GET", "/api/collections/reader_pages/records?perPage=500", cr.token());
+  const rpKeys = [...walkKeys(rpList.json)].filter((k) => LEAK_KEYS.has(k));
+  check("PocketBase: the reader_pages records (29) hold no key verdict, score, panel, reasoning, result, detail, tsIds", rpList.json?.totalItems === 29 && rpKeys.length === 0, `total ${rpList.json?.totalItems}, keys ${rpKeys.join(",")}`);
+  const htvApi = await cr.req(`/api/htv/page?ids=${P48}`);
+  check("The human-translation-view API gives a reader 403 and no page data", htvApi.status === 403 && !LEAK_HTML.test(htvApi.body), `status ${htvApi.status}`);
+  for (const u of ["/translate", `/translate/${LF}`, `/translate/${LF}/p048`, "/translate/mental_full?at=p014"]) {
+    r = await cr.req(u);
+    check(`Reader at ${u} goes to /read`, r.go === "/read", `status ${r.status}, go ${r.go}`);
+  }
+  r = await cr.req("/api/htv/version?pageId=" + P48);
+  check("The version route gives a reader no saved version", r.status !== 200 || (r.json?.versions ?? []).length === 0, `status ${r.status}`);
+  for (const [name, res] of [["list", await cr.req("/read")], ["book", await cr.req(`/read/${LF}`)], ["page EN", await cr.req(`/read/${LF}?view=page&at=p048`)], ["scroll", await cr.req(`/read/${LF}?view=scroll&at=p048`)]]) {
+    check(`No research text in the reader HTML (${name}): no verdict, score, QA_3, TL_3, reasoning, EN form check`, !LEAK_HTML.test(res.body) && !/qa3|TL_3/.test(htvText(res.body)));
+  }
+  r = await cr.req("/api/read/page?ids=" + [46, 47, 48, 49, 50].map((n) => `${LF}/p0${n}`).join(","));
+  check("No research key in the page API answer for p046 to p050", r.status === 200 && r.json.pages.length === 5 && leakKeys(r.json).length === 0, leakKeys(r.json).join(","));
+
+  // --- parity: the rows of reader_pages equal the rows of the human-translation-view build, without the research fields
+  await parityReaderRows(pbUrl, adminToken);
+  // --- a translator and an admin read the reader pages too, and the sign-in page sends a signed-in person on
+  r = await tr1c.req(`/read/${LF}?view=page&at=p048`);
+  check("A translator reads the reader pages (200, rows) without the approved flag", r.status === 200 && countOf(r.body, /data-row="/g) >= 5);
+  r = await tr1c.req("/sign-in");
+  check("The sign-in page sends a signed-in translator to /translate", r.go === "/translate", `go ${r.go}`);
+  r = await cr.req("/sign-in");
+  check("The sign-in page sends a signed-in reader to /read", r.go === "/read", `go ${r.go}`);
+  r = await cr.req("/sign-up");
+  check("The sign-up page sends a signed-in person to /read", r.go === "/read", `go ${r.go}`);
+  r = await ad.req(`/read/${LF}?view=page&at=p048`);
+  check("The admin sees the links Readers and Human versions in the reader bar", (r.body.match(/data-admin-link/g) ?? []).length === 2);
+  r = await cr.req(`/read/${LF}?view=page&at=p048`);
+  check("A reader sees no admin link and no link to the human-translation-view", !/data-admin-link/.test(r.body) && !/href="\/translate"/.test(r.body));
+}
+
+// Parity of the reader_pages rows with the build of the human-translation-view (VISION-viewer 15.19.10).
+async function parityReaderRows(pbUrl, adminToken) {
+  const { pathToFileURL } = await import("node:url");
+  const { register } = await import("node:module");
+  register(pathToFileURL(path.resolve("scripts/ts-resolve-hook.mjs")).href, pathToFileURL(path.resolve(".") + path.sep).href);
+  const build = await import(pathToFileURL(path.resolve("lib/htv-build.ts")).href);
+  const cfg = JSON.parse(await fs.readFile(configFile ? path.resolve(configFile) : path.resolve("viewer.config.json"), "utf-8"));
+  const dataDir = path.resolve(cfg.translatorDataDir);
+  const tb = build.parseTermbase(await fs.readFile(path.join(dataDir, "termbase/termbase.draft.jsonl"), "utf-8"));
+  const rj = async (f) => JSON.parse(await fs.readFile(f, "utf-8").catch(() => "null"));
+  const rt = (f) => fs.readFile(f, "utf-8").catch(() => null);
+  const recs = (await pbCall(pbUrl, "GET", "/api/collections/reader_pages/records?perPage=500", adminToken)).json?.items ?? [];
+  let same = 0;
+  const diffs = [];
+  for (const rec of recs) {
+    const d = path.join(dataDir, "pilot-run", rec.page_id.replace("/", "_"), rec.run_id);
+    const built = build.buildRun(rec.page_id, { ts3: await rj(path.join(d, "results/TS_3.json")), ed3: await rj(path.join(d, "results/ED_3.json")), termMarks: await rj(path.join(d, "programs/term_marks.ED_3.json")), enFormCheck: await rj(path.join(d, "programs/en_form_check.ED_3.json")), tl3Message: await rt(path.join(d, "messages/TL_3.txt")), termbase: tb });
+    const want = build.readerRows(built.rows);
+    // PocketBase may keep the order of keys of a JSON field in its own way, so the compare sorts the keys.
+    const sortKeys = (v) => (Array.isArray(v) ? v.map(sortKeys) : v && typeof v === "object" ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sortKeys(v[k])])) : v);
+    const canon = (v) => JSON.stringify(sortKeys(v));
+    const rowsOk = canon(rec.rows) === canon(want);
+    // The rows of the human-translation-view build, with the research fields taken away by hand (a second path to the same result).
+    const dropResearch = (m) => Object.fromEntries(Object.entries(m).filter(([k]) => k !== "result" && k !== "detail"));
+    const byHand = built.rows.map((r) => ({ key: r.key, shortKey: r.shortKey, part: r.part, ja: r.ja, ed3: r.ed3, jaMarks: r.jaMarks.map(dropResearch), edMarks: r.edMarks.map(dropResearch) }));
+    const handOk = canon(rec.rows) === canon(byHand);
+    const termsOk = canon(rec.terms) === canon(built.terms);
+    if (rowsOk && handOk && termsOk) same++;
+    else diffs.push(`${rec.page_id} rows ${rowsOk} hand ${handOk} terms ${termsOk}`);
+  }
+  check(`Parity: for each of the ${recs.length} reader_pages records the rows (key, part, JA, ED_3 text, marks without result and detail) and the term entries equal the build of the human-translation-view (htv-build.ts) of the same run`, recs.length === 29 && same === recs.length, diffs.join("; "));
+  const p48 = recs.find((x) => x.page_id === "left_foot_full/p048");
+  check("Parity: p048 uses the run 20261029T061734Z-r41 (newest PASS) with 5 rows", p48?.run_id === "20261029T061734Z-r41" && p48.rows.length === 5);
+  check("Parity: a record holds the keys page_id, item_id, n, run_id, rows, terms, extras, agree (and PocketBase fields), and no verdict or score", ["page_id", "item_id", "n", "run_id", "rows", "terms", "extras", "agree"].every((k) => k in (p48 ?? {})) && !("verdict" in p48) && !("score" in p48) && !("panel" in p48));
 }
 
 const server = await startServer();
@@ -1320,6 +1763,7 @@ try {
   if (mode === "pause") await pauseTest();
   else if (mode === "htv") await htvTest();
   else if (mode === "deploy") await deployTest();
+  else if (mode === "read") await readTest();
   else await smoke();
 } finally {
   server.kill("SIGTERM");

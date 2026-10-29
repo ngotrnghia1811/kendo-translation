@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import HtvBar from "@/components/HtvBar";
 import HtvBook from "@/components/HtvBook";
 import { loadBookIndex, loadBookPages, pageName, windowAround } from "@/lib/htv-books";
-import { requireSession } from "@/lib/htv-session";
+import { requireStaff } from "@/lib/htv-session";
 import { isSafeSegment } from "@/lib/safe-path";
 import { PbError, runMarks } from "@/lib/pb";
 import { PaneSettingsProvider } from "@/components/PaneSettings";
@@ -20,7 +20,7 @@ export default async function TranslateBook({ params, searchParams }: { params: 
   if (!isSafeSegment(slug)) notFound();
   const atRaw = Array.isArray(q.at) ? q.at[0] : q.at;
   const viewRaw = Array.isArray(q.view) ? q.view[0] : q.view;
-  const s = await requireSession(`/translate/${slug}`);
+  const s = await requireStaff(`/translate/${slug}`);
   if ("down" in s) return <p role="alert" className="text-red-700">{s.down}</p>;
 
   let pbNote = "";

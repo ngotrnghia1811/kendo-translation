@@ -19,7 +19,7 @@ export function parsePageId(pageId: unknown): { slug: string; page: string; page
  * Guard for a route. A request that changes data must come from the same origin and carry JSON (same rule as /api/pause).
  * Returns the session, or a response with status 401 (not signed in) or 403 (role).
  */
-export async function guard(req: Request, opts: { mutating: boolean; write?: boolean; admin?: boolean }): Promise<Session | Response> {
+export async function guard(req: Request, opts: { mutating: boolean; write?: boolean; admin?: boolean; staff?: boolean }): Promise<Session | Response> {
   if (opts.mutating) {
     const foreign = foreignOrigin(req);
     if (foreign) return foreign;
@@ -28,6 +28,8 @@ export async function guard(req: Request, opts: { mutating: boolean; write?: boo
   const s = await getSession();
   if (!s) return jsonResponse({ error: "Sign in first." }, 401);
   if (opts.admin && s.user.role !== "admin") return jsonResponse({ error: "Only the admin can do this." }, 403);
+  // Unit RC1 (round 63 answer 4): the data of the human-translation-view is for translators and admins. Readers use /read.
+  if (opts.staff && s.user.role === "reader") return jsonResponse({ error: "This view is for translators and admins. Use the reader pages at /read." }, 403);
   if (opts.write && s.user.role === "reader") return jsonResponse({ error: "Your account can read only." }, 403);
   return s;
 }
@@ -52,4 +54,16 @@ export async function readBody(req: Request): Promise<Record<string, unknown>> {
   } catch {
     return {};
   }
+}
+
+/**
+ * Guard for the routes /api/read/* that return page text or save a place (unit RC1, round 63 answer 4).
+ * Same checks as guard(), and a reader who waits for approval gets 403 with the plain line of the screen.
+ * The PocketBase rules block such a reader as well, so this is a clear answer and not the only lock.
+ */
+export async function guardReader(req: Request, opts: { mutating: boolean }): Promise<Session | Response> {
+  const g = await guard(req, { mutating: opts.mutating });
+  if (isResponse(g)) return g;
+  if (!g.user.approved) return jsonResponse({ error: "Your account waits for approval by an admin." }, 403);
+  return g;
 }

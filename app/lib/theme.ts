@@ -17,6 +17,11 @@ export async function readTheme(): Promise<ThemeName> {
   return isTheme(v) ? v : DEFAULT_THEME;
 }
 
+/** True when the browser sent a theme cookie, that is, the person or the account chose a theme. */
+export async function hasThemeCookie(): Promise<boolean> {
+  return isTheme((await cookies()).get(THEME_COOKIE)?.value);
+}
+
 /** Set the theme cookie. Call only in a route handler. */
 export async function writeTheme(req: Request, theme: ThemeName): Promise<void> {
   const https = new URL(req.url).protocol === "https:" || req.headers.get("x-forwarded-proto") === "https";

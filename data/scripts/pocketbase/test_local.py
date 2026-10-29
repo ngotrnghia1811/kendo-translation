@@ -69,12 +69,19 @@ SIGNED = '@request.auth.id != ""'
 ADMIN = '@request.auth.role = "admin"'
 STAFF = '@request.auth.role = "translator" || @request.auth.role = "admin"'
 OWN_ONLY = '@request.auth.id != "" && user = @request.auth.id'
+# Migrations 1793300006 to 1793300009 (unit RC1, round 63). READ_OK = signed in, and approved or a translator or an admin.
+READ_OK = '@request.auth.id != "" && (@request.auth.approved = true || @request.auth.role = "translator" || @request.auth.role = "admin")'
+SEE_USERS = '@request.auth.id != "" && (id = @request.auth.id || @request.auth.role = "admin" || @request.auth.role = "translator")'
+THEMES = ["light", "dark", "sepia", "solarized-light", "solarized-dark"]
 # Expected rules, written again here on purpose so that the test does not trust the migration file.
 EXPECTED_RULES = {
     "users": {
-        "listRule": SIGNED, "viewRule": SIGNED, "createRule": None,
+        # Migration 1793300006 (unit RC1, round 63 answer 4): a public sign-up creates a reader with approved false. A reader sees only the own record.
+        "listRule": SEE_USERS, "viewRule": SEE_USERS,
+        "createRule": '@request.body.role = "reader" && @request.body.disabled:isset = false && '
+                      '(@request.body.approved:isset = false || @request.body.approved = false)',
         "updateRule": '(id = @request.auth.id && @request.body.role:isset = false && '
-                      '@request.body.disabled:isset = false) || @request.auth.role = "admin"',
+                      '@request.body.disabled:isset = false && @request.body.approved:isset = false) || @request.auth.role = "admin"',
         "deleteRule": ADMIN, "authRule": "disabled = false",
     },
     "own_translations": {"listRule": OWN, "viewRule": OWN, "createRule": SELF, "updateRule": None, "deleteRule": None},
@@ -87,8 +94,19 @@ EXPECTED_RULES = {
     "run_marks": {"listRule": SIGNED, "viewRule": SIGNED, "createRule": ADMIN, "updateRule": ADMIN, "deleteRule": ADMIN},
     "catalog_items": {"listRule": SIGNED, "viewRule": SIGNED, "createRule": None, "updateRule": None, "deleteRule": None},
     "magazine_chapters": {"listRule": SIGNED, "viewRule": SIGNED, "createRule": None, "updateRule": None, "deleteRule": None},
-    # Migration 1793300003 (unit S2C, round 56 answer 5): every signed-in user reads page_runs. Writes stay with the superuser.
-    "page_runs": {"listRule": SIGNED, "viewRule": SIGNED, "createRule": None, "updateRule": None, "deleteRule": None},
+    # Migration 1793300003 (unit S2C) opened page_runs to every signed-in user. Migration 1793300009 (unit RC1, round 63 answer 3) closes it again:
+    # only translators and admins read page_runs (verdict, score, and TL_3 panel are not for readers). Writes stay with the superuser.
+    "page_runs": {"listRule": STAFF, "viewRule": STAFF, "createRule": None, "updateRule": None, "deleteRule": None},
+    # Migrations 1793300007 and 1793300008 (unit RC1, round 63 answers 3, 6, and 7).
+    "reader_pages": {"listRule": READ_OK, "viewRule": READ_OK, "createRule": None, "updateRule": None, "deleteRule": None},
+    "reader_versions": {"listRule": READ_OK, "viewRule": READ_OK, "createRule": ADMIN, "updateRule": ADMIN, "deleteRule": ADMIN},
+    "page_checks": {"listRule": SIGNED, "viewRule": SIGNED, "createRule": ADMIN, "updateRule": ADMIN, "deleteRule": ADMIN},
+    "reader_bookmarks": {"listRule": READ_OK + " && user = @request.auth.id", "viewRule": READ_OK + " && user = @request.auth.id",
+                         "createRule": READ_OK + " && @request.body.user = @request.auth.id", "updateRule": None,
+                         "deleteRule": READ_OK + " && user = @request.auth.id"},
+    "reader_progress": {"listRule": READ_OK + " && user = @request.auth.id", "viewRule": READ_OK + " && user = @request.auth.id",
+                        "createRule": READ_OK + " && @request.body.user = @request.auth.id",
+                        "updateRule": READ_OK + " && user = @request.auth.id && @request.body.user:changed = false", "deleteRule": None},
     # Migration 1793300005 (unit UXC, round 59 answer 6): a user reads and changes the own settings record only. Nobody deletes.
     "user_settings": {"listRule": OWN_ONLY, "viewRule": OWN_ONLY,
                       "createRule": '@request.auth.id != "" && @request.body.user = @request.auth.id',
@@ -524,10 +542,10 @@ def check_page_runs(ctx):
     ctx.check("10d1 started_utc and status are stored", back.get("started_utc") == body["started_utc"] and back.get("status") == "completed",
               "started_utc " + repr(back.get("started_utc")) + " status " + repr(back.get("status")))
     status, listing = http("GET", path + "?perPage=1&fields=run_id,started_utc,status", token=t["rd1"])
-    ctx.check("10d2 rd1 (reader) lists page_runs and sees the record", is_ok(status) and listing.get("items", [{}])[0].get("run_id") == "run-1",
-              "status " + str(status))
+    ctx.check("10d2 rd1 (reader) lists page_runs and sees no record (closed to readers by migration 1793300009)",
+              is_denied(status) or listing.get("totalItems", 1) == 0 or not listing.get("items"), "status " + str(status))
     status, one = http("GET", path + "/" + record.get("id", "x"), token=t["rd1"])
-    ctx.check("10d3 rd1 (reader) views one page run with its snapshot", is_ok(status) and one.get("snapshot") == snapshot,
+    ctx.check("10d3 rd1 (reader) cannot view one page run (no snapshot, no verdict, no score)", is_denied(status) and "snapshot" not in one,
               "status " + str(status))
     status, _ = http("POST", path, dict(body, run_id="run-8"), t["rd1"])
     ctx.check("10d4 rd1 (reader) creates page run fails", is_denied(status), "status " + str(status))
@@ -671,9 +689,9 @@ def check_user_settings(ctx):
     t = ctx.token
     collection = get_collection(ctx, "user_settings") or {}
     fields = {f["name"]: f for f in collection.get("fields", [])}
-    ctx.check("18a user_settings has user (relation, required), theme (select light/dark), panes (json, 20000 bytes)",
+    ctx.check("18a user_settings has user (relation, required), theme (select with the 5 theme names), panes (json, 20000 bytes)",
               fields.get("user", {}).get("type") == "relation" and fields["user"].get("required") is True and fields["user"].get("maxSelect") == 1
-              and fields.get("theme", {}).get("type") == "select" and fields["theme"].get("values") == ["light", "dark"]
+              and fields.get("theme", {}).get("type") == "select" and fields["theme"].get("values") == THEMES
               and fields.get("panes", {}).get("type") == "json" and fields["panes"].get("maxSize") == 20000, "fields " + ", ".join(fields))
     ctx.check("18b user_settings has created and updated autodate fields and the unique index on user",
               fields.get("created", {}).get("type") == "autodate" and fields.get("updated", {}).get("type") == "autodate"
@@ -686,7 +704,7 @@ def check_user_settings(ctx):
     status, _ = http("POST", path, {"user": ctx.id["tr1"], "theme": "light"}, t["tr1"])
     ctx.check("18e a second record for tr1 fails (unique index)", is_denied(status), "status " + str(status))
     status, _ = http("POST", path, {"user": ctx.id["tr2"], "theme": "purple"}, t["tr2"])
-    ctx.check("18f a theme other than light or dark fails", is_denied(status), "status " + str(status))
+    ctx.check("18f a theme that is not one of the 5 theme names fails", is_denied(status), "status " + str(status))
     status, _ = http("POST", path, {"user": ctx.id["tr2"], "panes": {"v": 1, "pad": "x" * 21000}}, t["tr2"])
     ctx.check("18g panes above 20000 bytes fail", is_denied(status), "status " + str(status))
     status, rd = http("POST", path, {"user": ctx.id["rd1"], "theme": "dark"}, t["rd1"])
@@ -712,6 +730,125 @@ def check_user_settings(ctx):
     status, data = http("GET", path)
     ctx.check("18r anonymous list fails or is empty", is_denied(status) or data.get("totalItems", 1) == 0, "status " + str(status))
     ctx.check("18s rd1 reads back the own record", is_ok(http("GET", path + "/" + rd.get("id", "x"), token=t["rd1"])[0]), "read failed")
+
+
+def check_reader_pages(ctx):
+    """Migrations 1793300006 to 1793300009 (unit RC1, round 63): the sign-up rule, the approval, the reader collections, and the closed page_runs."""
+    users = "/api/collections/users/records"
+    su = ctx.su_token
+
+    def sign_up(key, extra):
+        pw = secrets.token_urlsafe(18)
+        body = {"email": addr(key), "password": pw, "passwordConfirm": pw, "name": key}
+        body.update(extra)
+        status, data = http("POST", users, body)
+        return status, data, pw
+
+    status, data, pw1 = sign_up("su1", {"role": "reader"})
+    ctx.check("19a a public sign-up with role reader works and the account has approved false", is_ok(status) and data.get("approved") is False, "status " + str(status))
+    ctx.check("19b a sign-up with role admin fails", is_denied(sign_up("su2", {"role": "admin"})[0]), "")
+    ctx.check("19c a sign-up with role translator fails", is_denied(sign_up("su3", {"role": "translator"})[0]), "")
+    ctx.check("19d a sign-up with approved true fails", is_denied(sign_up("su4", {"role": "reader", "approved": True})[0]), "")
+    ctx.check("19e a sign-up with no role fails", is_denied(sign_up("su5", {})[0]), "")
+    ctx.check("19f a sign-up that sets disabled fails", is_denied(sign_up("su6", {"role": "reader", "disabled": False})[0]), "")
+    ctx.check("19g a sign-up with approved false works", is_ok(sign_up("su7", {"role": "reader", "approved": False})[0]), "")
+    status, tok = user_sign_in(addr("su1"), pw1)
+    ctx.check("19h the new reader signs in", status == 200, "status " + str(status))
+    ctx.token["su1"] = tok
+    ctx.id["su1"] = http("GET", users + "?filter=" + urllib.parse.quote('email="' + addr("su1") + '"'), token=su)[1]["items"][0]["id"]
+    t = ctx.token
+    status, _ = http("PATCH", users + "/" + ctx.id["su1"], {"approved": True}, t["su1"])
+    ctx.check("19i a reader cannot approve the own account", is_denied(status), "status " + str(status))
+    status, _ = http("PATCH", users + "/" + ctx.id["su1"], {"role": "admin"}, t["su1"])
+    ctx.check("19j a reader cannot change the own role", is_denied(status), "status " + str(status))
+    status, _ = http("PATCH", users + "/" + ctx.id["su1"], {"name": "new name"}, t["su1"])
+    ctx.check("19k a reader can change the own name", is_ok(status), "status " + str(status))
+    status, _ = http("PATCH", users + "/" + ctx.id["tr1"], {"approved": True}, t["tr1"])
+    ctx.check("19l a translator cannot set approved on the own record", is_denied(status), "status " + str(status))
+    status, data = http("GET", users, token=t["su1"])
+    ctx.check("19m a reader lists only the own user record (no other name, role, or email)", is_ok(status) and [u["id"] for u in data.get("items", [])] == [ctx.id["su1"]], "status " + str(status))
+    status, _ = http("GET", users + "/" + ctx.id["tr1"], token=t["su1"])
+    ctx.check("19n a reader cannot view the user record of a translator", is_denied(status), "status " + str(status))
+    status, data = http("GET", users, token=t["tr1"])
+    ctx.check("19o a translator lists all users (the comment view needs the user names)", is_ok(status) and data.get("totalItems", 0) >= 5, "status " + str(status))
+    # an approved reader made by the superuser
+    pw2 = secrets.token_urlsafe(18)
+    ctx.id["rd2"] = pb_users.add_user(BASE, su, addr("rd2"), "reader", pw2, name="rd2")["id"]
+    ctx.check("19p an account that the superuser makes has approved false", http("GET", users + "/" + ctx.id["rd2"], token=su)[1].get("approved") is False, "")
+    status, data = http("PATCH", users + "/" + ctx.id["rd2"], {"approved": True}, t["admin1"])
+    ctx.check("19q an admin approves a reader", is_ok(status) and data.get("approved") is True, "status " + str(status))
+    ctx.token["rd2"] = user_sign_in(addr("rd2"), pw2)[1]
+    # seed data by the superuser
+    status, page = http("POST", "/api/collections/reader_pages/records", {"page_id": "rc1/p001", "item_id": "rc1", "n": 1, "run_id": "r1", "rows": [{"key": "rc1/p001/ts3/L01"}], "terms": {}, "extras": [], "agree": []}, su)
+    ctx.check("19r the superuser creates a reader_pages record", is_ok(status), "status " + str(status) + " " + str(page)[:200])
+    status, run = http("POST", "/api/collections/page_runs/records", {"page_id": "rc1/p001", "run_id": "r1", "verdict": "PASS", "snapshot": {"x": 1}}, su)
+    ctx.check("19s the superuser creates a page_runs record", is_ok(status), "status " + str(status))
+    rp = "/api/collections/reader_pages/records"
+    status, data = http("GET", rp, token=t["su1"])
+    ctx.check("19t a not approved reader gets no reader_pages record", is_denied(status) or data.get("totalItems", 1) == 0, "status " + str(status))
+    status, _ = http("GET", rp + "/" + page.get("id", "x"), token=t["su1"])
+    ctx.check("19u a not approved reader cannot view a reader_pages record", is_denied(status), "status " + str(status))
+    status, data = http("GET", rp, token=t["rd2"])
+    ctx.check("19v an approved reader lists the reader_pages record", is_ok(status) and data.get("totalItems") == 1, "status " + str(status))
+    status, data = http("GET", rp, token=t["tr1"])
+    ctx.check("19w a translator lists the reader_pages record", is_ok(status) and data.get("totalItems") == 1, "status " + str(status))
+    ctx.check("19x the reader_pages record has no verdict, score, panel, or reasoning field",
+              not any(k in (data.get("items") or [{}])[0] for k in ("verdict", "score", "panel", "reasoning", "qa3_page_score", "snapshot")), "")
+    for who in ("su1", "rd2", "tr1", "admin1"):
+        status, _ = http("POST", rp, {"page_id": "rc1/p002", "run_id": "r2"}, t[who])
+        ctx.check("19y " + who + " cannot write reader_pages (only the superuser)", is_denied(status), "status " + str(status))
+    pr = "/api/collections/page_runs/records"
+    for who in ("su1", "rd2"):
+        status, data = http("GET", pr, token=t[who])
+        ctx.check("19z " + who + " (reader) gets no page_runs record: verdict, score, and TL_3 panel stay closed", is_denied(status) or data.get("totalItems", 1) == 0, "status " + str(status))
+        status, _ = http("GET", pr + "/" + run.get("id", "x"), token=t[who])
+        ctx.check("19z " + who + " cannot view a page_runs record", is_denied(status), "status " + str(status))
+    for who in ("tr1", "admin1"):
+        status, data = http("GET", pr, token=t[who])
+        ctx.check("19z " + who + " reads page_runs", is_ok(status) and data.get("totalItems", 0) >= 1, "status " + str(status))
+    # reader_versions and page_checks: only the admin writes
+    version_body = {"page_id": "rc1/p001", "user": ctx.id["tr1"], "version": 1, "run_id": "r1", "rows": [{"key": "k", "text": "x"}], "chosen_by": ctx.id["admin1"]}
+    for who in ("rd2", "tr1"):
+        ctx.check("20a " + who + " cannot write reader_versions", is_denied(http("POST", "/api/collections/reader_versions/records", version_body, t[who])[0]), "")
+        ctx.check("20b " + who + " cannot write page_checks", is_denied(http("POST", "/api/collections/page_checks/records", {"page_id": "rc1/p001", "checked_by": ctx.id[who]}, t[who])[0]), "")
+    status, ver = http("POST", "/api/collections/reader_versions/records", version_body, t["admin1"])
+    ctx.check("20c admin writes reader_versions", is_ok(status), "status " + str(status) + " " + str(ver)[:200])
+    ctx.check("20d a second reader_versions record for the same page fails (unique index)", is_denied(http("POST", "/api/collections/reader_versions/records", version_body, t["admin1"])[0]), "")
+    status, chk = http("POST", "/api/collections/page_checks/records", {"page_id": "rc1/p001", "checked_by": ctx.id["admin1"], "note": "ok"}, t["admin1"])
+    ctx.check("20e admin writes page_checks", is_ok(status), "status " + str(status))
+    ctx.check("20f an approved reader reads reader_versions", http("GET", "/api/collections/reader_versions/records", token=t["rd2"])[1].get("totalItems") == 1, "")
+    status, data = http("GET", "/api/collections/reader_versions/records", token=t["su1"])
+    ctx.check("20g a not approved reader gets no reader_versions record", is_denied(status) or data.get("totalItems", 1) == 0, "status " + str(status))
+    ctx.check("20h a not approved reader reads page_checks (titles level)", http("GET", "/api/collections/page_checks/records", token=t["su1"])[1].get("totalItems") == 1, "")
+    ctx.check("20i a reader cannot delete page_checks", is_denied(http("DELETE", "/api/collections/page_checks/records/" + chk.get("id", "x"), token=t["rd2"])[0]), "")
+    # bookmarks and reading progress: own records only
+    bm, pg = "/api/collections/reader_bookmarks/records", "/api/collections/reader_progress/records"
+    status, mine = http("POST", bm, {"user": ctx.id["rd2"], "page_id": "rc1/p001", "item_id": "rc1", "note": "n"}, t["rd2"])
+    ctx.check("21a an approved reader adds a bookmark", is_ok(status), "status " + str(status))
+    ctx.check("21b the same bookmark twice fails (unique index)", is_denied(http("POST", bm, {"user": ctx.id["rd2"], "page_id": "rc1/p001", "item_id": "rc1"}, t["rd2"])[0]), "")
+    ctx.check("21c a not approved reader cannot add a bookmark", is_denied(http("POST", bm, {"user": ctx.id["su1"], "page_id": "rc1/p001", "item_id": "rc1"}, t["su1"])[0]), "")
+    ctx.check("21d a reader cannot add a bookmark for another user", is_denied(http("POST", bm, {"user": ctx.id["tr1"], "page_id": "rc1/p009", "item_id": "rc1"}, t["rd2"])[0]), "")
+    http("POST", bm, {"user": ctx.id["tr1"], "page_id": "rc1/p005", "item_id": "rc1"}, t["tr1"])
+    status, data = http("GET", bm, token=t["rd2"])
+    ctx.check("21e a reader lists the own bookmarks only", is_ok(status) and [x["user"] for x in data.get("items", [])] == [ctx.id["rd2"]], "")
+    ctx.check("21f another user cannot view or delete the bookmark", is_denied(http("GET", bm + "/" + mine.get("id", "x"), token=t["tr1"])[0]) and is_denied(http("DELETE", bm + "/" + mine.get("id", "x"), token=t["tr1"])[0]), "")
+    ctx.check("21g a bookmark cannot be updated", is_denied(http("PATCH", bm + "/" + mine.get("id", "x"), {"note": "z"}, t["rd2"])[0]), "")
+    status, prog = http("POST", pg, {"user": ctx.id["rd2"], "item_id": "rc1", "page_id": "rc1/p003"}, t["rd2"])
+    ctx.check("21h an approved reader saves the last page of a book", is_ok(status), "status " + str(status))
+    ctx.check("21i a second progress record for the same book fails (unique index)", is_denied(http("POST", pg, {"user": ctx.id["rd2"], "item_id": "rc1", "page_id": "rc1/p004"}, t["rd2"])[0]), "")
+    status, upd = http("PATCH", pg + "/" + prog.get("id", "x"), {"page_id": "rc1/p007"}, t["rd2"])
+    ctx.check("21j a reader updates the own progress", is_ok(status) and upd.get("page_id") == "rc1/p007", "status " + str(status))
+    ctx.check("21k a reader cannot change the user of a progress record", is_denied(http("PATCH", pg + "/" + prog.get("id", "x"), {"user": ctx.id["tr1"]}, t["rd2"])[0]), "")
+    ctx.check("21l another user cannot update or delete the progress", is_denied(http("PATCH", pg + "/" + prog.get("id", "x"), {"page_id": "rc1/p008"}, t["tr1"])[0]) and is_denied(http("DELETE", pg + "/" + prog.get("id", "x"), token=t["rd2"])[0]), "")
+    status, data = http("GET", pg, token=t["tr1"])
+    ctx.check("21m another user lists none of the progress records of the reader", is_ok(status) and all(x["user"] == ctx.id["tr1"] for x in data.get("items", [])), "")
+    # the five theme names, and cleanup so that the down check sees empty collections
+    for coll in ("reader_pages", "reader_versions", "page_checks", "reader_bookmarks", "reader_progress", "page_runs"):
+        _, listing = http("GET", "/api/collections/" + coll + "/records?perPage=200", token=su)
+        for item in listing.get("items", []):
+            if coll != "page_runs" or item.get("page_id") == "rc1/p001":
+                http("DELETE", "/api/collections/" + coll + "/records/" + item["id"], token=su)
+    ctx.check("22a the reader test records are removed again", all(http("GET", "/api/collections/" + c + "/records?perPage=1", token=su)[1].get("totalItems") == 0 for c in ("reader_pages", "reader_versions", "page_checks", "reader_bookmarks", "reader_progress")), "")
 
 
 def count_records(ctx):
@@ -787,7 +924,7 @@ def check_restart(ctx, server, shape_dir, counts):
     ctx.check("13a records survive the restart", count_records(ctx) == counts, "counts differ")
     server.stop()
     removed = forget_v2_history(shape_dir)
-    ctx.check("13b v2 history rows removed for the test (6 expected)", removed == 6, "removed " + str(removed))
+    ctx.check("13b v2 history rows removed for the test (10 expected)", removed == 10, "removed " + str(removed))
     try:
         server.start()
         ok, reason = True, ""
@@ -804,39 +941,50 @@ def check_restart(ctx, server, shape_dir, counts):
     log = open(server.log_path, "rb").read().decode("utf-8", "replace")
     exists_lines = len(re.findall(r"v2 migration: collection \w+ exists, left as it is", log))
     ctx.info("13b log lines 'collection ... exists, left as it is': " + str(exists_lines))
-    ctx.check("13b the second run reports the 7 existing collections (6 of 1793300001 and user_settings)", exists_lines == 7, "lines " + str(exists_lines))
+    ctx.check("13b the second run reports the 12 existing collections (6 of 1793300001, user_settings, 3 of 1793300007, 2 of 1793300008)", exists_lines == 12, "lines " + str(exists_lines))
+    approved_lines = len(re.findall(r"v2 migration: field approved exists, data left as it is", log))
+    ctx.check("13b the second run reports that the field approved exists and leaves the data (migration 1793300006)", approved_lines == 1, "lines " + str(approved_lines))
+    status, data = http("GET", "/api/collections/users/records?filter=" + urllib.parse.quote('email="' + addr("su1") + '"'), token=ctx.su_token)
+    ctx.check("13b a sign-up that waits stays not approved after the second run (the migration does not approve new accounts)",
+              is_ok(status) and data.get("items") and data["items"][0].get("approved") is False, "status " + str(status))
     agree_lines = len(re.findall(r"v2 migration: field agree exists, left as it is", log))
     ctx.check("13b the second run reports that the field agree exists (migration 1793300004)", agree_lines == 1, "lines " + str(agree_lines))
 
 
 def check_down_up(ctx, server, shape_dir):
     server.stop()
-    code, output = run_cli(server, ["migrate", "down", "6"])
-    ctx.check("15a migrate down 6 exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
+    code, output = run_cli(server, ["migrate", "down", "10"])
+    ctx.check("15a migrate down 10 exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
     ctx.check("15g down turns the batch API off", batch_enabled_db(shape_dir) is False, "batch " + repr(batch_enabled_db(shape_dir)))
     ctx.check("15b down sets users authRule to empty", users_auth_rule(shape_dir) == "", "authRule " + repr(users_auth_rule(shape_dir)))
     names = {row["name"] for row in read_collections_db(shape_dir)}
     kept = {"own_translations", "comments", "run_marks", "page_runs", "user_settings"}
-    gone = {"catalog_items", "magazine_chapters"}
+    gone = {"catalog_items", "magazine_chapters", "reader_pages", "reader_versions", "page_checks", "reader_bookmarks", "reader_progress"}
     ctx.check("15c down keeps collections with records and drops empty ones",
               kept <= names and not (gone & names), "kept " + str(sorted(kept & names)) + " empty-left " + str(sorted(gone & names)))
     down_runs = next((row for row in read_collections_db(shape_dir) if row["name"] == "page_runs"), {})
     ctx.check("15i down puts back the old page_runs list and view rules (translator or admin)",
               down_runs.get("listRule") == STAFF and down_runs.get("viewRule") == STAFF,
               "listRule " + repr(down_runs.get("listRule")) + " viewRule " + repr(down_runs.get("viewRule")))
+    users_row = next((row for row in read_collections_db(shape_dir) if row["name"] == "users"), {})
+    ctx.check("15m down sets the users create rule back to null and keeps the field approved (migration 1793300006, soft down)",
+              users_row.get("createRule") is None and any(f.get("name") == "approved" for f in json.loads(users_row.get("fields") or "[]")),
+              "createRule " + repr(users_row.get("createRule")))
     own = next((row for row in read_collections_db(shape_dir) if row["name"] == "own_translations"), {})
     ctx.check("15k down keeps the field agree of own_translations (migration 1793300004, soft down)",
               any(f.get("name") == "agree" for f in json.loads(own.get("fields") or "[]")), "fields missing agree")
     code, output = run_cli(server, ["migrate", "up"])
     ctx.check("15d migrate up exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
     ctx.check("15h up turns the batch API on again", batch_enabled_db(shape_dir) is True, "batch " + repr(batch_enabled_db(shape_dir)))
+    users_up = next((row for row in read_collections_db(shape_dir) if row["name"] == "users"), {})
+    ctx.check("15n up sets the users create rule for the sign-up again", users_up.get("createRule") == EXPECTED_RULES["users"]["createRule"], "createRule " + repr(users_up.get("createRule")))
     ctx.check("15e up sets users authRule again", users_auth_rule(shape_dir) == "disabled = false",
               "authRule " + repr(users_auth_rule(shape_dir)))
     names = {row["name"] for row in read_collections_db(shape_dir)}
-    ctx.check("15f up creates the 7 collections again", set(NEW_COLLECTIONS) <= names, "missing " + str(sorted(set(NEW_COLLECTIONS) - names)))
+    ctx.check("15f up creates the collections again (12 with the reader collections)", set(NEW_COLLECTIONS) <= names, "missing " + str(sorted(set(NEW_COLLECTIONS) - names)))
     up_runs = next((row for row in read_collections_db(shape_dir) if row["name"] == "page_runs"), {})
-    ctx.check("15j up sets the page_runs list and view rules to every signed-in user",
-              up_runs.get("listRule") == SIGNED and up_runs.get("viewRule") == SIGNED,
+    ctx.check("15j up sets the page_runs list and view rules to translator or admin (migration 1793300009)",
+              up_runs.get("listRule") == STAFF and up_runs.get("viewRule") == STAFF,
               "listRule " + repr(up_runs.get("listRule")) + " viewRule " + repr(up_runs.get("viewRule")))
 
 
@@ -865,6 +1013,7 @@ def run_shape(shape, v1_dir, res):
         check_user_script(ctx)
         check_agree(ctx)
         check_user_settings(ctx)
+        check_reader_pages(ctx)
         counts = count_records(ctx)
         check_restart(ctx, server, shape_dir, counts)
         check_down_up(ctx, server, shape_dir)

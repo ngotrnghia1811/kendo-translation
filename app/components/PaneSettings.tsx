@@ -20,6 +20,8 @@ import {
   type PaneSettings,
   type ThemeName,
   type UiSettings,
+  colorKey,
+  THEME_LABELS,
 } from "@/lib/htv-settings";
 import { THEME_EVENT } from "./ThemeSwitch";
 
@@ -173,15 +175,15 @@ function Row({ label, children, htmlFor }: { label: string; children: React.Reac
 
 function ColorRow({ id, label, field }: { id: PaneId; label: string; field: "color" | "bg" }) {
   const { settings, theme, update } = usePaneCtx();
-  const set = settings.panes[id]?.[field]?.[theme];
+  const set = settings.panes[id]?.[field]?.[colorKey(theme)];
   const fallback = field === "color" ? THEME_DEFAULT_COLORS[theme].text : THEME_DEFAULT_COLORS[theme].bg;
   return (
-    <Row label={`${label} (${theme === "dark" ? "dark theme" : "light theme"})`} htmlFor={`cog-${id}-${field}`}>
+    <Row label={`${label} (${THEME_LABELS[theme] + " theme"})`} htmlFor={`cog-${id}-${field}`}>
       <input
         id={`cog-${id}-${field}`}
         type="color"
         value={set ?? fallback}
-        onChange={(e) => update(id, (s) => ({ ...s, [field]: { ...(s[field] ?? {}), [theme]: e.target.value } }))}
+        onChange={(e) => update(id, (s) => ({ ...s, [field]: { ...(s[field] ?? {}), [colorKey(theme)]: e.target.value } }))}
         className="h-7 w-10 cursor-pointer rounded border border-line bg-white p-0"
       />
       <span className="font-mono text-xs">{set ?? "theme color"}</span>
@@ -191,7 +193,7 @@ function ColorRow({ id, label, field }: { id: PaneId; label: string; field: "col
           onClick={() =>
             update(id, (s) => {
               const rest = { ...(s[field] ?? {}) };
-              delete rest[theme];
+              delete rest[colorKey(theme)];
               const next = { ...s };
               if (rest.light || rest.dark) next[field] = rest;
               else delete next[field];

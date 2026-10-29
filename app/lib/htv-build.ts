@@ -8,7 +8,8 @@
 import { edForGroups, groupKey, placeMarks, sentenceGroups } from "./htv-groups";
 import { parseTl3Message } from "./htv-panel";
 import type { PanelData } from "./htv-panel";
-import type { HtvRow, HtvRun, TermEntry, TermLang } from "./htv-types";
+import type { HtvRow, HtvRun, TermEntry, TermLang, TermMark } from "./htv-types";
+import type { ReaderExtra, ReaderMark, ReaderRow } from "./reader-types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type J = any;
@@ -189,4 +190,58 @@ export function readSnapshot(raw: J, pageId: string, runId: string): { ok: true;
     return { ok: false, error: `The snapshot of ${pageId} run ${runId} lacks rows, panel, or terms.` };
   }
   return { ok: true, snap: raw as Snapshot };
+}
+
+// ---------------------------------------------------------------- reader pages (unit RC1, round 63)
+// The sync command S2 turns the built run of a page into one record of the collection reader_pages.
+// The record holds reader data only: no verdict, no score, no TL_3 panel, no reasoning, and no EN form check result (round 63 answer 3).
+
+/** Format number of the record in reader_pages. Change it when the shape changes. */
+export const READER_FORMAT = 1;
+
+function readerMark(m: TermMark): ReaderMark {
+  return { start: m.start, end: m.end, markId: m.markId, entryId: m.entryId, surface: m.surface };
+}
+
+/** The rows of a built run without the research fields: the ts_ids and the result and detail of every mark. */
+export function readerRows(rows: HtvRow[]): ReaderRow[] {
+  return rows.map((r) => ({ key: r.key, shortKey: r.shortKey, part: r.part, ja: r.ja, ed3: r.ed3, jaMarks: r.jaMarks.map(readerMark), edMarks: r.edMarks.map(readerMark) }));
+}
+
+/**
+ * Items that make no row: the photo captions (line_caption) and the running head (block_pillar), with their JA text.
+ * Round 63 answer 5 (Q-A 2026-10-28 l309): "Copy captions (Recommended)". The folio and the figure items stay out. Order: captions by ID, then the running head.
+ */
+export function readerExtras(ts3: J, ed3: J): ReaderExtra[] {
+  const ts = parts(ts3);
+  const ed = parts(ed3);
+  const ja = new Map<string, string>();
+  for (const part of ["line_caption", "block_pillar"]) for (const it of (ts[part] ?? []) as J[]) ja.set(String(it.item_id), String(it.text ?? ""));
+  const out: ReaderExtra[] = [];
+  for (const [part, kind] of [["line_caption", "caption"], ["block_pillar", "running_head"]] as const) {
+    const items = ((ed[part] ?? []) as J[]).map((it) => ({ it, id: String(it.item_id).slice(String(it.item_id).lastIndexOf("/") + 1) }));
+    items.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    for (const { it, id } of items) {
+      const en = String(it.text ?? "");
+      if (!en.trim()) continue;
+      const refs = ((it.ja_refs ?? []) as J[]).map((r) => ja.get(String(r)) ?? "").join("");
+      out.push({ id, kind, ja: refs, en });
+    }
+  }
+  return out;
+}
+
+/** The body of one reader_pages record (field names as in the collection). `agree` is the list of group keys with the translator tick. */
+export function makeReaderPage(pageId: string, itemId: string, runId: string, built: BuiltRun, extras: ReaderExtra[], agree: string[]) {
+  const n = parseInt(pageId.slice(pageId.lastIndexOf("/p") + 2), 10);
+  return {
+    page_id: pageId,
+    item_id: itemId,
+    n: Number.isFinite(n) ? n : 0,
+    run_id: runId,
+    rows: readerRows(built.rows),
+    terms: built.terms,
+    extras,
+    agree: [...agree].sort(),
+  };
 }

@@ -49,7 +49,8 @@ function AgentTag() {
 }
 
 /** Pop-up with the termbase entry of a clicked mark. Closes on Escape, on a click outside, and on scroll. */
-export function TermPopup({ picked, entry, onClose }: { picked: PickedTerm; entry: TermEntry | undefined; onClose: () => void }) {
+// Unit RC1 (round 63): `hideCheck` hides the line "EN form check". It is research data, and the reader pages never show it (VISION-viewer 15.19.4).
+export function TermPopup({ picked, entry, onClose, hideCheck = false }: { picked: PickedTerm; entry: TermEntry | undefined; onClose: () => void; hideCheck?: boolean }) {
   const [full, setFull] = useState(false);
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -93,7 +94,7 @@ export function TermPopup({ picked, entry, onClose }: { picked: PickedTerm; entr
       {entry ? (
         <div className="mt-2 space-y-2">
           {entry.common ? <div className="text-xs text-muted">Kind: {entry.common}</div> : null}
-          {picked.mark.result ? (
+          {!hideCheck && picked.mark.result ? (
             <div className="text-xs text-muted">
               EN form check: {picked.mark.result}
               {picked.mark.detail && picked.mark.detail !== "none" ? ` (${picked.mark.detail})` : ""}

@@ -6,7 +6,11 @@
 // item-metadata/magazine-chapters.jsonl (the month headings of the book screen). The chapters do not depend on --page or --list.
 // Unit UXC2 (round 61 answer 6, Q-A 2026-10-29 l266): catalog_items also gets the 36 book folders of pilot-sample/book-slugs.json, with or without a run.
 // The titles and page counts come from item-metadata/items.filled.jsonl. The other rows of that file (311 web articles) stay out.
-// The same safety rules apply to all three collections: dry run by default, compare then skip or update, never delete.
+// Unit RC1 (round 63 answer 3, Q-A 2026-10-28 l309): it also fills reader_pages, one record for each page that has an agent translation to show readers.
+// The shown run of a page is the run of the admin run mark (collection run_marks), else the newest PASS run. A page with only FAIL runs gets no record.
+// A record holds the rows (JA text, agent EN text, term marks), the term entries that the marks cite, the captions and the running head (extras),
+// and the group keys that a translator ticked "agree" for exactly this agent text (agree, without any name). It holds no verdict, no score, no TL_3 panel, and no reasoning.
+// The same safety rules apply to all four collections: dry run by default, compare then skip or update, never delete.
 // The deployed app cannot read the run folders, so it reads these records (config key runSource "pocketbase").
 //
 // Dry run is the default and writes nothing. Only --apply writes. The command is safe to run twice:
@@ -22,7 +26,7 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.resolve(here, "..");
 register("./ts-resolve-hook.mjs", import.meta.url);
-const { buildRun, finishedRunOf, makeSnapshot, parseTermbase, RUN_FOLDER_RULE, SNAPSHOT_FORMAT, sortRuns } = await import("../lib/htv-build.ts");
+const { buildRun, finishedRunOf, makeReaderPage, makeSnapshot, parseTermbase, readerExtras, RUN_FOLDER_RULE, SNAPSHOT_FORMAT, sortRuns } = await import("../lib/htv-build.ts");
 const { folderToPageId } = await import("../lib/format.ts");
 
 // ---------------------------------------------------------------- constants and small helpers
@@ -31,6 +35,7 @@ const DEFAULT_URL = "http://127.0.0.1:8090";
 const LOCAL_HOSTS = ["127.0.0.1", "localhost"];
 const MB = 1048576; // 1 MB = 1,048,576 bytes. The limit of the snapshot field is 5 MB.
 const SNAPSHOT_LIMIT = 5 * MB;
+const READER_FIELD_LIMIT = 5 * MB; // the limit of each JSON field of reader_pages (migration 1793300007)
 const PILOT = "pilot-run";
 
 /** Size in MB with two decimals. A size that would show 0.00 gets four decimals. */
@@ -44,7 +49,7 @@ function fail(message) {
   process.exit(2);
 }
 
-const HELP = `Sync command S2: upload finished page runs from the run folders into PocketBase (page_runs, catalog_items, and magazine_chapters).
+const HELP = `Sync command S2: upload finished page runs from the run folders into PocketBase (page_runs, catalog_items, magazine_chapters, and reader_pages).
 
 Usage (run it in the app folder):
   node scripts/sync-runs.mjs [options]
@@ -65,6 +70,8 @@ Options:
 
 Without --page and --list the command syncs every page with a finished run.
 The collection magazine_chapters always gets all rows of item-metadata/magazine-chapters.jsonl (the month headings of the book screen).
+The collection reader_pages gets one record for each selected page with an agent translation to show: the run of the admin run mark, else the newest PASS run.
+A page with only FAIL runs gets no record. The record holds no verdict, no score, no TL_3 panel, and no reasoning. The report lists the count and the sizes in MB.
 The collection catalog_items always gets the 36 book folders of pilot-sample/book-slugs.json, plus the item of each selected run (for example the web article 18d4ac29).
 The password comes from a hidden prompt on the terminal. If stdin is not a terminal, the command reads one line from stdin.
 The command never takes a password from an option, an env variable, or a file. It never prints the password or the token.
@@ -296,6 +303,13 @@ function catalogRecordEqual(stored, want) {
   return Number(stored.pages ?? 0) === want.pages && same(stored.row ?? null, want.row);
 }
 
+function readerRecordEqual(stored, want) {
+  for (const k of ["page_id", "item_id", "run_id"]) {
+    if (String(stored[k] ?? "") !== want[k]) return false;
+  }
+  return Number(stored.n ?? 0) === want.n && same(stored.rows ?? null, want.rows) && same(stored.terms ?? null, want.terms) && same(stored.extras ?? null, want.extras) && same(stored.agree ?? null, want.agree);
+}
+
 function chapterRecordEqual(stored, want) {
   for (const k of ["chapter", "book", "chapter_title_ja", "chapter_title_en", "first_page_id", "last_page_id"]) {
     if (String(stored[k] ?? "") !== want[k]) return false;
@@ -492,9 +506,11 @@ const items = [];
 const problems = [];
 for (const x of selected) {
   const d = x.dir;
+  const ts3File = await readJsonFile(path.join(d, "results/TS_3.json"));
+  const ed3File = await readJsonFile(path.join(d, "results/ED_3.json"));
   const built = buildRun(x.pageId, {
-    ts3: await readJsonFile(path.join(d, "results/TS_3.json")),
-    ed3: await readJsonFile(path.join(d, "results/ED_3.json")),
+    ts3: ts3File,
+    ed3: ed3File,
     termMarks: await readJsonFile(path.join(d, "programs/term_marks.ED_3.json")),
     enFormCheck: await readJsonFile(path.join(d, "programs/en_form_check.ED_3.json")),
     tl3Message: await readTextFile(path.join(d, "messages/TL_3.txt")),
@@ -503,6 +519,8 @@ for (const x of selected) {
   const snapshot = makeSnapshot(x.pageId, x.run, built);
   const bytes = Buffer.byteLength(JSON.stringify(snapshot), "utf-8");
   x.snapshot = snapshot;
+  x.built = built;
+  x.extras = readerExtras(ts3File, ed3File);
   x.bytes = bytes;
   x.body = {
     page_id: x.pageId,
@@ -534,6 +552,9 @@ const pb = new Pb(base);
 let serverRuns = null;
 let serverItems = null;
 let serverChapters = null;
+let serverReader = null;
+let marks = new Map(); // page ID to the run ID of the admin run mark
+let ownRows = []; // all saved own translations, for the agree ticks (names are not copied)
 if (!o.offline) {
   if (!o.superuser) fail("Name the superuser with --superuser EMAIL or the env variable PB_SUPERUSER_EMAIL.");
   let password = await readPassword(`Password for ${o.superuser}: `);
@@ -552,6 +573,15 @@ if (!o.offline) {
     serverRuns = new Map((await pb.listAll("page_runs")).map((r) => [`${r.page_id}|${r.run_id}`, r]));
     serverItems = new Map((await pb.listAll("catalog_items")).map((r) => [String(r.item_id), r]));
     serverChapters = new Map((await pb.listAll("magazine_chapters")).map((r) => [String(r.chapter), r]));
+    // Unit RC1 (round 63): reader_pages, the run marks, and the agree ticks.
+    try {
+      await pb.call("GET", "/api/collections/reader_pages");
+    } catch {
+      fail("The collection reader_pages is missing. Restart PocketBase so that the migrations 1793300006 to 1793300009 run.");
+    }
+    serverReader = new Map((await pb.listAll("reader_pages")).map((r) => [String(r.page_id), r]));
+    marks = new Map((await pb.listAll("run_marks")).map((r) => [String(r.page_id), String(r.run_id)]));
+    ownRows = await pb.listAll("own_translations");
   } catch (e) {
     console.error("Error: " + e.message);
     process.exit(1);
@@ -580,6 +610,54 @@ const serverOnly = serverRuns
   ? [...serverRuns.values()].filter((r) => !localAll.has(`${r.page_id}|${r.run_id}`) && (!filtered || filter.has(String(r.page_id))))
   : [];
 
+// 3b. reader_pages: the shown run of each selected page. The run mark of the admin wins. Else the newest PASS run. Only FAIL runs: no record.
+const newestFirst = (a, b) => (a.run.startedUtc < b.run.startedUtc ? 1 : a.run.startedUtc > b.run.startedUtc ? -1 : a.run.runId < b.run.runId ? 1 : a.run.runId > b.run.runId ? -1 : 0);
+const runsByPage = new Map();
+for (const x of selected) {
+  if (!runsByPage.has(x.pageId)) runsByPage.set(x.pageId, []);
+  runsByPage.get(x.pageId).push(x);
+}
+// Agree ticks: the newest saved version of each translator on a page. A row counts when the tick is set and the translator saw exactly this agent text.
+const newestVersion = new Map();
+for (const r of ownRows) {
+  const k = `${r.page_id}|${r.user}`;
+  newestVersion.set(k, Math.max(newestVersion.get(k) ?? 0, Number(r.version)));
+}
+const agreedTexts = new Map(); // "pageId|groupKey" -> Set of ed3_text that a translator agreed with
+for (const r of ownRows) {
+  if (r.agree !== true || Number(r.version) !== newestVersion.get(`${r.page_id}|${r.user}`)) continue;
+  const k = `${r.page_id}|${r.group_key}`;
+  if (!agreedTexts.has(k)) agreedTexts.set(k, new Set());
+  agreedTexts.get(k).add(String(r.ed3_text ?? ""));
+}
+const readerPlan = [];
+const readerSkipped = [];
+for (const [pageId, xs] of [...runsByPage].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+  xs.sort(newestFirst);
+  const markedId = marks.get(pageId);
+  let pick = markedId ? xs.find((x) => x.run.runId === markedId) : undefined;
+  let why = "run mark";
+  if (!pick) {
+    pick = xs.find((x) => x.run.verdict === "PASS");
+    why = markedId ? "newest PASS (the marked run has no finished folder here)" : "newest PASS";
+  }
+  if (!pick) {
+    readerSkipped.push(`${pageId}: only FAIL runs`);
+    continue;
+  }
+  const agree = pick.built.rows.filter((r) => agreedTexts.get(`${pageId}|${r.key}`)?.has(r.ed3)).map((r) => r.key);
+  const body = makeReaderPage(pageId, pick.slug, pick.run.runId, pick.built, pick.extras, agree);
+  const bytes = Buffer.byteLength(JSON.stringify(body), "utf-8");
+  for (const f of ["rows", "terms", "extras", "agree"]) {
+    const fb = Buffer.byteLength(JSON.stringify(body[f]), "utf-8");
+    if (fb >= READER_FIELD_LIMIT) problems.push(`${pageId} reader_pages.${f}: ${mb(fb)}. The limit is 5 MB.`);
+  }
+  const stored = serverReader?.get(pageId);
+  const action = !serverReader ? "not compared" : !stored ? "create" : readerRecordEqual(stored, body) ? "unchanged" : "update";
+  readerPlan.push({ pageId, x: pick, why, body, bytes, action, id: stored?.id });
+}
+const readerServerOnly = serverReader ? [...serverReader.keys()].filter((id) => !readerPlan.some((p) => p.pageId === id) && (!filtered || filter.has(id))) : [];
+
 // 4. Print the plan.
 const total = selected.reduce((s, x) => s + x.bytes, 0);
 console.log(`Mode: ${o.apply ? "APPLY (writes to the server)" : "DRY RUN (writes nothing)"}`);
@@ -605,6 +683,9 @@ for (const book of [...new Set(chapters.map((c) => c.book))].sort()) {
   console.log(`${book} | ${mine.length} | ${n("create")} | ${n("update")} | ${n("unchanged")}`);
 }
 console.log("");
+console.log("reader_pages | page_id | run_id | why | size | rows | agree | action");
+for (const p of readerPlan) console.log(`reader_pages | ${p.pageId} | ${p.x.run.runId} | ${p.why} | ${mb(p.bytes)} | ${p.body.rows.length} | ${p.body.agree.length} | ${p.action}`);
+console.log("");
 if (problems.length) {
   console.log("Snapshot checks FAILED:");
   for (const m of problems) console.log("  " + m);
@@ -614,10 +695,16 @@ if (problems.length) {
 const sizes = selected.map((x) => x.bytes).sort((a, b) => a - b);
 if (sizes.length) console.log(`Snapshot sizes: min ${mb(sizes[0])}, median ${mb(sizes[Math.floor(sizes.length / 2)])}, max ${mb(sizes[sizes.length - 1])}, total ${mb(total)} (limit 5 MB each, 1 MB = 1,048,576 bytes)`);
 
+const readerSizes = readerPlan.map((p) => p.bytes).sort((a, b) => a - b);
+const readerTotal = readerSizes.reduce((t, n) => t + n, 0);
+if (readerSizes.length) console.log(`reader_pages sizes: ${readerSizes.length} record(s), min ${mb(readerSizes[0])}, median ${mb(readerSizes[Math.floor(readerSizes.length / 2)])}, max ${mb(readerSizes[readerSizes.length - 1])}, total ${mb(readerTotal)} (limit 5 MB for each JSON field)`);
+else console.log("reader_pages sizes: 0 records");
+
 // 5. Apply.
 const done = { created: [], updated: [], unchanged: [], failed: [] };
 const itemDone = { created: [], updated: [], unchanged: [], failed: [] };
 const chapterDone = { created: [], updated: [], unchanged: [], failed: [] };
+const readerDone = { created: [], updated: [], unchanged: [], failed: [] };
 if (o.apply) {
   for (const p of plan) {
     const x = p.x;
@@ -660,7 +747,21 @@ if (o.apply) {
       chapterDone.failed.push(`${p.c.chapter}: ${e.message}`);
     }
   }
+  for (const p of readerPlan) {
+    if (p.action === "unchanged") {
+      readerDone.unchanged.push(p.pageId);
+      continue;
+    }
+    try {
+      if (p.action === "create") await pb.call("POST", "/api/collections/reader_pages/records", p.body);
+      else await pb.call("PATCH", `/api/collections/reader_pages/records/${encodeURIComponent(p.id)}`, p.body);
+      (p.action === "create" ? readerDone.created : readerDone.updated).push(p.pageId);
+    } catch (e) {
+      readerDone.failed.push(`${p.pageId}: ${e.message}`);
+    }
+  }
 } else {
+  for (const p of readerPlan) if (p.action !== "not compared") (p.action === "create" ? readerDone.created : p.action === "update" ? readerDone.updated : readerDone.unchanged).push(p.pageId);
   for (const p of chapterPlan) if (p.action !== "not compared") (p.action === "create" ? chapterDone.created : p.action === "update" ? chapterDone.updated : chapterDone.unchanged).push(p.c.chapter);
   for (const p of plan) if (p.action !== "not compared") (p.action === "create" ? done.created : p.action === "update" ? done.updated : done.unchanged).push(`${p.x.pageId} ${p.x.run.runId}`);
   for (const p of itemPlan) if (p.action !== "not compared") (p.action === "create" ? itemDone.created : p.action === "update" ? itemDone.updated : itemDone.unchanged).push(p.it.slug);
@@ -693,6 +794,14 @@ chapterLine(word[0], chapterDone.created);
 chapterLine(word[1], chapterDone.updated);
 chapterLine(word[2], chapterDone.unchanged);
 if (o.apply) console.log(`  failed: ${chapterDone.failed.length}${chapterDone.failed.length ? " (" + chapterDone.failed.join(", ") + ")" : ""}`);
+console.log("reader_pages");
+compared(word[0], readerDone.created);
+compared(word[1], readerDone.updated);
+compared(word[2], readerDone.unchanged);
+if (o.apply) line("failed", readerDone.failed);
+line("skipped (no PASS run and no run mark)", readerSkipped);
+line("on the server only (kept)", readerServerOnly);
 console.log(`Total snapshot size: ${mb(total)} for ${selected.length} run(s)`);
+console.log(`Total reader_pages size: ${mb(readerTotal)} for ${readerPlan.length} record(s)`);
 if (!o.apply) console.log("Nothing was written. Add --apply to write.");
-process.exit(done.failed.length || itemDone.failed.length || chapterDone.failed.length ? 1 : 0);
+process.exit(done.failed.length || itemDone.failed.length || chapterDone.failed.length || readerDone.failed.length ? 1 : 0);

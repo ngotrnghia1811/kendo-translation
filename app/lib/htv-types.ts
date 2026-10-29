@@ -9,6 +9,11 @@ export interface SessionUser {
   email: string;
   name: string;
   role: Role;
+  /**
+   * True when the person can read the page text of the reader pages: a translator, an admin, or a reader that an admin approved
+   * (round 63 answer 4, Q-A 2026-10-28 l308). A new sign-up is a reader with approved false.
+   */
+  approved: boolean;
 }
 
 /** One finished run of a page. */

@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { requireSession } from "@/lib/htv-session";
+import { requireStaff } from "@/lib/htv-session";
 import { isSafeSegment } from "@/lib/safe-path";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function OldTranslatePage({ params }: { params: Promise<{ slug: string; page: string }> }) {
   const { slug, page } = await params;
   if (!isSafeSegment(slug) || !/^p\d+$/.test(page)) notFound();
-  const s = await requireSession(`/translate/${slug}/${page}`);
+  const s = await requireStaff(`/translate/${slug}/${page}`);
   if ("down" in s) return <p role="alert" className="text-red-700">{s.down}</p>;
   redirect(`/translate/${encodeURIComponent(slug)}?at=${page}#${page}`);
 }

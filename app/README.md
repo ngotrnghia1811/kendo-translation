@@ -437,3 +437,43 @@ Round 61 answers 3 to 7 (Q-A 2026-10-29 l263 to l267) set these parts.
 - `app/translate/layout.tsx` sets the browser title "human-translation-view".
 - `next.config.ts` keeps the loader `@tailwindcss/turbopack`. The build and the dark theme contrast check pass with it. A switch to `@tailwindcss/postcss` needs a change of the build and a new contrast check.
 - The lines `export const dynamic = "force-dynamic"` stay (27 lines in 27 files, none added, none removed).
+
+## Reader pages (unit RC1, round 63)
+
+The reader pages are the book reading site for readers. Design: `docs/VISION-viewer.md` section 15.19. Code state: section 15.20.
+
+### Routes
+
+- `/sign-up` makes an account. The account is a reader that waits for approval. The person signs in at once.
+- `/sign-in` signs in every role. A reader goes to `/read`. A translator and an admin go to `/translate`. `/translate/sign-in` stays.
+- `/read` shows 37 book cards. `/read/<book>` shows the book screen. `?view=page&at=p048` shows one page. `?view=scroll&at=p048` shows all pages in one scroll.
+- `/admin/readers` lists the readers that wait for approval. `/admin/versions?page=left_foot_full/p048` chooses the human version and the page check. Only the admin role opens them.
+- `/translate` sends a reader to `/read`. `GET /api/htv/page` answers a reader with 403.
+
+### Rules for the data
+
+- A reader that waits for approval sees the book list and the line "Your account waits for approval by an admin." PocketBase gives it no `reader_pages` record.
+- A reader never gets the verdict, the score, the QA fields, the TL_3 panel, the run list, or the reasoning. `page_runs` is closed to readers. The pages read `reader_pages`.
+- The reader pages read PocketBase only. With `runSource` files, run `node scripts/sync-runs.mjs` first. Without a `reader_pages` record a page shows "No agent translation yet".
+- The AI label is always on the page. "AI translation, not yet checked by a person" or "AI translation, checked by a person (date)". The human version shows "Human translation. Chosen by an admin."
+
+### Settings and themes
+
+- The settings of the reader are in `user_settings.panes` under the key `reader`. `sanitizeSettings` keeps the key. A save of the pane settings keeps it too.
+- Defaults: text EN, EN text agent, page view, serif and Mincho, 18 px, line height 1.7, narrow, focus off. See `READER_DEFAULTS` in `lib/htv-settings.ts`.
+- Themes: `light`, `dark` (High-contrast dark), `sepia`, `solarized-light`, `solarized-dark`. The colors are in `app/globals.css`.
+- The default theme of each page group is one constant: `DEFAULT_THEME_HTV` and `DEFAULT_THEME_READER` in `lib/htv-settings.ts`. To change the default of the reader pages, change one line.
+- `node scripts/contrast-dark.mjs` tests every text pair of the five themes. Lowest pair: light 4.73, dark 7.49, sepia 6.11, solarized-light 6.03, solarized-dark 6.96 (to 1).
+
+### S2 and reader_pages
+
+- S2 builds one `reader_pages` record for each page with an agent translation. The run is the run mark of the admin, else the newest PASS run. A page with only FAIL runs gets no record.
+- The record holds rows, term entries, captions (extras), and the group keys with a translator tick (agree). It holds no name.
+- Dry run is the default. `--apply` writes. A second run changes nothing. The report lists the count and the sizes in MB.
+- Last test on a throwaway server: 29 records, min 0.01 MB, median 0.03 MB, max 0.06 MB, total 0.78 MB.
+- Run S2 again after an admin marks a run, a translator ticks agree, or a new run ends. The reader pages change at that time.
+
+### Tests
+
+- `node scripts/smoke.mjs read` runs 166 checks. It needs the setup of `run_all.py` in the work folder of the unit (S2 upload, one saved version of a translator, an approved reader, and a reader that waits).
+- The checks of the human-translation-view for a reader changed into redirect checks. The list is in the report of unit RC1.

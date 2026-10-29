@@ -12,6 +12,9 @@ import type { SessionUser } from "./htv-types";
 
 export const COOKIE_NAME = "htv_token";
 export const SIGN_IN_PATH = "/translate/sign-in";
+/** Sign-in and sign-up pages of the reader pages (unit RC1, round 63 answer 4). */
+export const READER_SIGN_IN_PATH = "/sign-in";
+export const SIGN_UP_PATH = "/sign-up";
 
 /** Refresh the token when less than this many seconds are left (the PocketBase token of a user lives 432000 s = 5 days). [unit default] */
 const REFRESH_BELOW_SECONDS = 3 * 86400;
@@ -33,7 +36,7 @@ export async function getSession(): Promise<Session | null> {
  * For pages: no session sends the visitor to the sign-in page, which returns to `nextPath` after sign-in.
  * If PocketBase is not reachable, the answer is `{ down: message }` and the page shows the message.
  */
-export async function requireSession(nextPath: string): Promise<Session | { down: string }> {
+export async function requireSession(nextPath: string, signInPath: string = SIGN_IN_PATH): Promise<Session | { down: string }> {
   let s: Session | null = null;
   try {
     s = await getSession();
@@ -41,13 +44,37 @@ export async function requireSession(nextPath: string): Promise<Session | { down
     if (e instanceof PbError && e.status === 503) return { down: e.message };
     throw e;
   }
-  if (!s) redirect(`${SIGN_IN_PATH}?next=${encodeURIComponent(nextPath)}`);
+  if (!s) redirect(`${signInPath}?next=${encodeURIComponent(nextPath)}`);
   return s;
 }
 
-/** True for a path inside the human-translation-view. Used to check the `next` value after sign-in. */
+/**
+ * For the pages of the human-translation-view: a reader goes to /read (round 63 answer 4: "/translate sends reader to /read").
+ * A reader has no data there, because page_runs is closed to readers (migration 1793300009).
+ */
+export async function requireStaff(nextPath: string): Promise<Session | { down: string }> {
+  const s = await requireSession(nextPath);
+  if ("down" in s) return s;
+  if (s.user.role === "reader") redirect("/read");
+  return s;
+}
+
+/** For the pages of /read: the sign-in page of the reader pages. */
+export async function requireReaderSession(nextPath: string): Promise<Session | { down: string }> {
+  return requireSession(nextPath, READER_SIGN_IN_PATH);
+}
+
+/** For the pages of /admin: only the admin role. Another signed-in role goes to /read. */
+export async function requireAdmin(nextPath: string): Promise<Session | { down: string }> {
+  const s = await requireSession(nextPath, READER_SIGN_IN_PATH);
+  if ("down" in s) return s;
+  if (s.user.role !== "admin") redirect("/read");
+  return s;
+}
+
+/** True for a path inside the human-translation-view, the reader pages, or the admin pages. Used to check the `next` value after sign-in. */
 export function isSafeNext(next: string | null | undefined): next is string {
-  return typeof next === "string" && /^\/translate(\/[A-Za-z0-9._-]+)*$/.test(next) && !next.includes("..");
+  return typeof next === "string" && /^\/(translate|read|admin)(\/[A-Za-z0-9._-]+)*$/.test(next) && !next.includes("..");
 }
 
 /** Cookie options. Secure only on https (a plain http page on this Mac must keep the cookie). */

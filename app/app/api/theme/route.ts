@@ -17,7 +17,7 @@ export async function PUT(req: Request) {
     if (foreign) return foreign;
     if (!(req.headers.get("content-type") ?? "").includes("application/json")) return jsonResponse({ error: "Send JSON." }, 415);
     const body = await readBody(req);
-    if (!isTheme(body.theme)) return jsonResponse({ error: "The theme must be light or dark." }, 400);
+    if (!isTheme(body.theme)) return jsonResponse({ error: "The theme must be light, dark, sepia, solarized-light, or solarized-dark." }, 400);
     await writeTheme(req, body.theme);
     let account = false;
     try {

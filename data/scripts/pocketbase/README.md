@@ -150,3 +150,26 @@ The installer link form `http://127.0.0.1:8090/_/#/pbinstal/...` was never verif
 - The sync command S2 now also fills `magazine_chapters` with the 103 month chapters. See the section Book screen in `app/README.md`.
 - Round 61 (unit UXC2): no new migration. The column `panes` of `user_settings` also holds the key `ui` (view, book index state, TL_3 panel state). The shape is in `docs/VISION-viewer.md` section 15.18.3. `test_local.py` gave `Total: 151 PASS, 0 FAIL`.
 - Round 61 (unit UXC2): S2 now fills `catalog_items` with 37 rows (36 book folders and the web article). See `app/README.md`.
+
+## 9. Migrations 1793300006 to 1793300009 (unit RC1, round 63)
+
+Reader pages. Owner answers 3, 4, 5, 6, and 7 of round 63. Every file creates only what is missing, is safe to run twice, and has a down function.
+
+- `1793300006_v2_users_approved.js` adds the bool field `approved` to `users`. A new field gets true for all existing users. A second run never approves a sign-up.
+- Create rule of `users`: `@request.body.role = "reader" && @request.body.disabled:isset = false && (@request.body.approved:isset = false || @request.body.approved = false)`.
+- Update rule of `users`: the first branch also needs `@request.body.approved:isset = false`. An admin can still change any record.
+- List and view rule of `users`: `@request.auth.id != "" && (id = @request.auth.id || @request.auth.role = "admin" || @request.auth.role = "translator")`.
+- Down: the create rule goes back to null. The field, the data, and the stricter update, list, and view rules stay.
+- `1793300007_v2_reader_collections.js` creates `reader_pages`, `reader_versions`, and `page_checks`.
+- `reader_pages`: list and view for READ_OK. No other rule (only the superuser writes, that is S2). One record for each `page_id` (unique).
+- `reader_versions`: list and view for READ_OK. Create, update, and delete for the admin. One record for each `page_id` (unique).
+- `page_checks`: list and view for every signed-in user. Create, update, and delete for the admin. One record for each `page_id` (unique).
+- READ_OK is `@request.auth.id != "" && (@request.auth.approved = true || @request.auth.role = "translator" || @request.auth.role = "admin")`.
+- `1793300008_v2_reader_user_data.js` creates `reader_bookmarks` (list, view, create, delete) and `reader_progress` (list, view, create, update) for own records only, with READ_OK.
+- The names differ from `bookmarks` and `reading_progress`. The live server holds v1 collections with those names, and "create only if absent" would skip the v2 files.
+- `1793300009_v2_reader_rules.js` sets the list and view rule of `page_runs` to `@request.auth.role = "translator" || @request.auth.role = "admin"`. It adds the theme names `sepia`, `solarized-light`, and `solarized-dark` to `user_settings.theme`.
+- Down of 1793300009: `page_runs` goes back to every signed-in user (the state of 1793300003). The theme values stay.
+- A server that started before these files existed must restart once. Start it in a normal terminal or with Python `subprocess.Popen(..., start_new_session=True)`.
+- `pb_users.py` makes users with `approved` false. A translator and an admin read anyway (READ_OK). A reader that `pb_users.py` makes must be approved on `/admin/readers`.
+- The test `test_local.py` now checks ten migrations. Check 13b removes 10 history rows. Check 15a runs `migrate down 10`. The new checks 19 to 22 cover the sign-up rule, the approval, the closed `page_runs`, and the reader collections. Checks 10d2 and 10d3 changed: a reader no longer reads `page_runs`.
+- The last run of unit RC1 gave `Total: 219 PASS, 0 FAIL` (shape fresh). The live shape was not run.

@@ -39,7 +39,7 @@ a {
    The server writes data-theme on <html> from the cookie "theme", so the first paint has no jump.
    The block overrides the Tailwind color variables. Every class such as bg-green-100 or text-red-700 then gets a dark value with no change in the components.
    The pairs are in VISION-viewer 15.16.5. A new color class must follow the pairing rule. The script scripts/contrast-dark.mjs tests every pair (7 to 1 or more). */
-@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *, [data-theme=solarized-dark], [data-theme=solarized-dark] *));
 
 [data-theme="dark"] {
   color-scheme: dark;
@@ -83,4 +83,127 @@ a {
 /* The edge of a box needs 3 to 1 on its surface. #777777 gives 3.89 to 1 on #1a1a1a and 4.69 to 1 on black. */
 [data-theme="dark"] :is(textarea, select, input:not([type="checkbox"]):not([type="radio"])) {
   border-color: #777777;
+}
+
+/* Sepia (round 63 answer 7, Q-A 2026-10-28 l311): warm paper, dark brown ink. Body text 7 to 1 or more, every other pair 4.5 to 1 or more. The script scripts/contrast-dark.mjs tests every pair. */
+[data-theme="sepia"] {
+  --background: #f4ecd8;
+  --foreground: #2b2118;
+  --muted: #5e4f3a;
+  --line: #cdbd98;
+  --accent: #7a1f1f;
+
+  --color-white: #fbf5e6;
+  --color-stone-50: #efe6cf;
+  --color-stone-100: #ebe0c5;
+  --color-stone-200: #ddd0ad;
+  --color-stone-600: #52432f;
+  --color-stone-700: #3b2f20;
+  --color-amber-50: #f7e8c0;
+  --color-amber-100: #f2dc9a;
+  --color-amber-200: #e6c96a;
+  --color-amber-300: #d4a72c;
+  --color-amber-600: #8a5a00;
+  --color-amber-700: #7a4e00;
+  --color-amber-800: #5f3d00;
+  --color-amber-900: #4a2f00;
+  --color-red-50: #f8e3de;
+  --color-red-100: #f3d0c8;
+  --color-red-200: #e8b0a4;
+  --color-red-700: #8f1d1d;
+  --color-red-800: #731616;
+  --color-green-100: #dbe7c4;
+  --color-green-700: #2f6012;
+  --color-green-800: #244a0e;
+  --color-blue-50: #e3e9ee;
+  --color-blue-100: #d2dde8;
+  --color-blue-800: #1f3f66;
+  --color-sky-100: #d3e3e8;
+  --color-sky-800: #1d4a5c;
+  --color-orange-100: #f3d9bc;
+  --color-orange-800: #7a3300;
+}
+
+/* Solarized light, high contrast (round 63 answer 7): the Solarized paper colors with the dark base02 ink. Body text 7 to 1 or more, every other pair 4.5 to 1 or more. The script scripts/contrast-dark.mjs tests every pair. */
+[data-theme="solarized-light"] {
+  --background: #fdf6e3;
+  --foreground: #002b36;
+  --muted: #44595f;
+  --line: #c9c2a8;
+  --accent: #a31d1a;
+
+  --color-white: #eee8d5;
+  --color-stone-50: #f6efdb;
+  --color-stone-100: #eae3cd;
+  --color-stone-200: #ddd5ba;
+  --color-stone-600: #3f545a;
+  --color-stone-700: #1f3d47;
+  --color-amber-50: #f6e9c0;
+  --color-amber-100: #f0dc9c;
+  --color-amber-200: #e5cb70;
+  --color-amber-300: #cfa42a;
+  --color-amber-600: #845500;
+  --color-amber-700: #744a00;
+  --color-amber-800: #5a3a00;
+  --color-amber-900: #472d00;
+  --color-red-50: #f7e0d8;
+  --color-red-100: #f1cdc2;
+  --color-red-200: #e4ab9c;
+  --color-red-700: #8f1a17;
+  --color-red-800: #6f1210;
+  --color-green-100: #dce6bf;
+  --color-green-700: #2f5d00;
+  --color-green-800: #234600;
+  --color-blue-50: #e1e9ec;
+  --color-blue-100: #cfdde4;
+  --color-blue-800: #14425e;
+  --color-sky-100: #cfe3e6;
+  --color-sky-800: #0d4a58;
+  --color-orange-100: #f1d6b8;
+  --color-orange-800: #783000;
+}
+
+/* Solarized dark, high contrast (round 63 answer 7): the Solarized dark page with base3 ink. Body text 7 to 1 or more, every other pair 4.5 to 1 or more. The script scripts/contrast-dark.mjs tests every pair. */
+[data-theme="solarized-dark"] {
+  color-scheme: dark;
+  --background: #002b36;
+  --foreground: #fdf6e3;
+  --muted: #b4c0c0;
+  --line: #4f7580;
+  --accent: #ffd24a;
+
+  --color-white: #073642;
+  --color-stone-50: #04323d;
+  --color-stone-100: #0a3d49;
+  --color-stone-200: #14505e;
+  --color-stone-600: #d6dcd6;
+  --color-stone-700: #eae6d6;
+  --color-amber-50: #2a2a00;
+  --color-amber-100: #4a3f00;
+  --color-amber-200: #594a00;
+  --color-amber-300: #b89a00;
+  --color-amber-600: #f5b50b;
+  --color-amber-700: #fbc934;
+  --color-amber-800: #fcd966;
+  --color-amber-900: #fdeeb5;
+  --color-red-50: #3a1316;
+  --color-red-100: #521a1d;
+  --color-red-200: #7f2a2d;
+  --color-red-700: #ffb0aa;
+  --color-red-800: #ffd0cc;
+  --color-green-100: #06331c;
+  --color-green-700: #8fe0a0;
+  --color-green-800: #c4f0cd;
+  --color-blue-50: #0a2f4a;
+  --color-blue-100: #123e60;
+  --color-blue-800: #c2defa;
+  --color-sky-100: #0b3d52;
+  --color-sky-800: #bfe6f7;
+  --color-orange-100: #4a2208;
+  --color-orange-800: #ffd9b5;
+}
+
+/* The edge of a box on the Solarized dark page. #7d9ea8 gives 3 to 1 or more on both surfaces. */
+[data-theme="solarized-dark"] :is(textarea, select, input:not([type="checkbox"]):not([type="radio"])) {
+  border-color: #7d9ea8;
 }

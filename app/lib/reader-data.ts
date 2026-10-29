@@ -1,0 +1,166 @@
+import "server-only";
+import { idDigits, pageName } from "./htv-books";
+import {
+  catalogFacts,
+  magazineChapters,
+  PbError,
+  readerPageRecords,
+  readerTextCounts,
+  readerTextPages,
+  readerVersionRecords,
+  pageCheckDates,
+  readingProgress,
+  listBookmarks,
+  type ReaderHumanVersion,
+} from "./pb";
+import {
+  LABEL_AGENT_CHECKED,
+  LABEL_AGENT_UNCHECKED,
+  LABEL_HUMAN,
+  pageLabel,
+  type BookmarkView,
+  type ReaderBookCard,
+  type ReaderBookFacts,
+  type ReaderBookIndex,
+  type ReaderPageData,
+  type ReaderPageRecord,
+  type ReaderViewRow,
+} from "./reader-types";
+import type { SessionUser } from "./htv-types";
+
+/*
+ * Data of the reader pages (unit RC1, round 63). VISION-viewer 15.19.
+ * Every read uses the token of the signed-in user, so the PocketBase rules apply (migrations 1793300006 to 1793300009).
+ * A reader who waits for approval gets empty lists from reader_pages and reader_versions, so the screen shows titles and no text.
+ * Nothing here reads page_runs. The reader pages hold no verdict, no score, no TL_3 panel, and no reasoning.
+ */
+
+/** Page number of a page ID such as "left_foot_full/p048". */
+export function numberOf(pageId: string): number {
+  return parseInt(pageId.slice(pageId.lastIndexOf("/p") + 2), 10) || 0;
+}
+
+/** Short synopsis for the book card: the first sentences, at most `max` characters, cut at a word end. */
+export function shortSynopsis(text: string, max = 220): string {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  const stop = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("。"));
+  if (stop > max * 0.5) return cut.slice(0, stop + 1);
+  return cut.slice(0, cut.lastIndexOf(" ") > 0 ? cut.lastIndexOf(" ") : max) + "…";
+}
+
+/** Result of a read that the rules may refuse. A refusal gives the fallback and no error. */
+async function soft<T>(fallback: T, f: () => Promise<T>): Promise<T> {
+  try {
+    return await f();
+  } catch (e) {
+    if (e instanceof PbError && (e.status === 403 || e.status === 404)) return fallback;
+    throw e;
+  }
+}
+
+/** The cards of the book list: the 37 catalog rows, the count of pages with text, and the saved place of the user. */
+export async function loadBookCards(token: string, user: SessionUser): Promise<ReaderBookCard[]> {
+  const facts = await catalogFacts(token);
+  const counts = await soft(new Map<string, number>(), () => readerTextCounts(token));
+  const progress = await soft(new Map<string, string>(), () => readingProgress(token, user.id));
+  return facts.map((f) => {
+    const at = progress.get(f.slug);
+    return { ...f, withText: counts.get(f.slug) ?? 0, resumeAt: at ? numberOf(at) || null : null };
+  });
+}
+
+function factsOf(slug: string, f: ReaderBookFacts | undefined): ReaderBookFacts {
+  return f ?? { slug, titleEn: "", titleJa: "", author: "", publisher: "", year: "", isbn: "", pages: 0, synopsis: "" };
+}
+
+/** The index of one book, or null when the book is not in catalog_items. */
+export async function loadReaderIndex(token: string, user: SessionUser, slug: string): Promise<ReaderBookIndex | null> {
+  const f = (await catalogFacts(token, slug))[0];
+  if (!f) return null;
+  const textPages = await soft<number[]>([], () => readerTextPages(token, slug));
+  const checks = await pageCheckDates(token, slug).catch(() => new Map<string, string>());
+  const chapters = (await magazineChapters(token, slug)).filter((c) => c.pageStart > 0);
+  const progress = await soft(new Map<string, string>(), () => readingProgress(token, user.id));
+  const at = progress.get(slug);
+  const pages = Math.max(f.pages, ...textPages, 1);
+  return {
+    ...factsOf(slug, f),
+    pages,
+    digits: idDigits(pages),
+    textPages,
+    checkedPages: [...checks.keys()].map(numberOf).filter((n) => n > 0).sort((a, b) => a - b),
+    chapters,
+    resumeAt: at ? numberOf(at) || null : null,
+  };
+}
+
+/**
+ * The rows of the screen: the agent rows of the shown run, and the human row for each of them when an admin chose a version.
+ * Row rules for a chosen version (VISION-viewer 15.19.5):
+ *   - the translator wrote a text: the own text, no AI label
+ *   - the translator ticked agree and left the box empty: the agent text that the translator accepted, with the tag "AI translation, checked by a translator"
+ *   - else the agent text of the shown run for the same group key
+ * A group key that the agent rows do not have goes to the end of the page, with its JA text from the saved row.
+ */
+export function mergeRows(rec: ReaderPageRecord, human: ReaderHumanVersion | null): ReaderViewRow[] {
+  const agreed = new Set(rec.agree);
+  const byKey = new Map((human?.rows ?? []).map((r) => [r.key, r]));
+  const rows: ReaderViewRow[] = rec.rows.map((r) => {
+    const h = byKey.get(r.key);
+    let humanRow: ReaderViewRow["human"] = null;
+    if (human) {
+      if (h && h.text.trim()) humanRow = { text: h.text, marks: [], kind: "own" };
+      else if (h && h.agree) humanRow = { text: h.ed3Text, marks: h.ed3Text === r.ed3 ? r.edMarks : [], kind: "agree" };
+      else humanRow = { text: r.ed3, marks: r.edMarks, kind: "agent" };
+    }
+    return { key: r.key, shortKey: r.shortKey, part: r.part, ja: r.ja, jaMarks: r.jaMarks, agent: { text: r.ed3, marks: r.edMarks, agreedByTranslator: agreed.has(r.key) }, human: humanRow };
+  });
+  if (human) {
+    const have = new Set(rec.rows.map((r) => r.key));
+    for (const h of human.rows) {
+      if (have.has(h.key)) continue;
+      const shortKey = h.key.slice(h.key.lastIndexOf("/") + 1);
+      const kind = h.text.trim() ? "own" : h.agree ? "agree" : "agent";
+      const text = h.text.trim() ? h.text : h.agree ? h.ed3Text : "";
+      rows.push({ key: h.key, shortKey, part: "lines", ja: h.jaText, jaMarks: [], agent: { text: "", marks: [], agreedByTranslator: false }, human: { text, marks: [], kind } });
+    }
+  }
+  return rows;
+}
+
+function noText(n: number): ReaderPageData {
+  return { pageId: "", n, name: pageLabel(n), hasText: false, rows: [], terms: {}, extras: [], hasHuman: false, label: { agent: "", human: "" }, checked: false };
+}
+
+/** The data of some pages of a book. A page without reader text answers hasText false. */
+export async function loadReaderPages(token: string, slug: string, nums: number[], digits: number): Promise<ReaderPageData[]> {
+  const ids = nums.map((n) => `${slug}/${pageName(n, digits)}`);
+  const recs = new Map((await soft<ReaderPageRecord[]>([], () => readerPageRecords(token, ids))).map((r) => [r.pageId, r]));
+  const versions = await soft(new Map<string, ReaderHumanVersion>(), () => readerVersionRecords(token, [...recs.keys()]));
+  const checks = await pageCheckDates(token, slug).catch(() => new Map<string, string>());
+  return nums.map((n, i) => {
+    const id = ids[i];
+    const rec = recs.get(id);
+    if (!rec) return { ...noText(n), pageId: id };
+    const human = versions.get(id) ?? null;
+    const checkedOn = checks.get(id);
+    return {
+      pageId: id,
+      n,
+      name: pageLabel(n),
+      hasText: true,
+      rows: mergeRows(rec, human),
+      terms: rec.terms,
+      extras: rec.extras,
+      hasHuman: human !== null,
+      label: { agent: checkedOn ? `${LABEL_AGENT_CHECKED} (${checkedOn})` : LABEL_AGENT_UNCHECKED, human: LABEL_HUMAN },
+      checked: Boolean(checkedOn),
+    };
+  });
+}
+
+export async function loadBookmarks(token: string, user: SessionUser, slug: string): Promise<BookmarkView[]> {
+  return soft<BookmarkView[]>([], () => listBookmarks(token, user.id, slug));
+}

@@ -27,6 +27,11 @@ export async function PUT(req: Request) {
     const body = await readBody(req);
     if (body.panes === undefined) return jsonResponse({ error: "Send the key panes." }, 400);
     const panes = sanitizeSettings(body.panes);
+    // Unit RC1 (round 63): the settings of the reader pages sit in the same JSON (key reader). A save of the pane settings keeps them.
+    if (!panes.reader) {
+      const old = sanitizeSettings((await userSettings(g.token, g.user.id)).panes);
+      if (old.reader) panes.reader = old.reader;
+    }
     if (JSON.stringify(panes).length > PANES_MAX_BYTES) return jsonResponse({ error: "The settings are too large." }, 400);
     await saveUserSettings(g.token, g.user.id, { panes });
     return jsonResponse({ ok: true, panes });

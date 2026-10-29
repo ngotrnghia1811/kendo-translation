@@ -3086,4 +3086,73 @@ Open items:
 - Print and export, Version history view, Vertical JA view, and Linked page image `[file: docs/VISION-viewer.md:162-175]` are not in answer 8. They stay out of the first version `[agent inference]`.
 - The rule for a PDF size limit of 1 GB belongs to unit PC1.
 
-Status: open.
+Status: open. The code of this design is in section 15.20 (unit RC1).
+
+### 15.20 Reader pages code state (round 63, unit RC1)
+
+- Source: the design of section 15.19 and the 13 owner answers of round 63 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:304-318]`. Unit RC1 wrote the code.
+- Scope: Viewer app, four PocketBase migrations, the sync command S2, the tests, and the docs. No git write. The unit used throwaway servers on ports 8091 and 8092. It restarted the local PocketBase on port 8090 once, so that it loads the new migrations.
+- Terms: "reader pages", "agent translation", "own translation", and "human-translation-view" keep the meaning of section 15.19.
+- Evidence tags: `[check: RC1 2026-10-29 HH:MM command]` marks a result of the unit. `[agent inference]` marks a guess. "Not verified" marks a fact without evidence.
+- Sizes use MB (1 MB is 1,048,576 bytes).
+
+#### 15.20.1 What was built
+
+- Public pages `/sign-up` and `/sign-in`. A sign-up makes a reader with `approved` false. The person signs in at once and sees the book list and the line "Your account waits for approval by an admin."
+- Reader pages `/read` (37 book cards) and `/read/<book>` (book screen). `?view=page&at=p048` is the page view. `?view=scroll&at=p048` is the scroll view.
+- Text modes: single language EN, single language JA, and bilingual pairing (side by side on a wide screen, stacked on a phone). The EN text is the agent text or the human version that an admin chose.
+- Settings per account: text mode, EN text, view, fonts, size, line height, width, focus mode, and index state. The key is `reader` in `user_settings.panes`. The theme stays in `user_settings.theme`.
+- Five themes: Light, High-contrast dark, Sepia, Solarized light, and Solarized dark. Constants for the default of each page group: `DEFAULT_THEME_HTV` (light) and `DEFAULT_THEME_READER` (solarized-light) `[file: app/lib/htv-settings.ts:31-32]`.
+- Focus mode (text only, 72 characters wide, Esc leaves), term pop-up without the line "EN form check", photo captions and the running head, bookmarks, and resume at the last page.
+- Admin pages `/admin/readers` (approve, remove approval, disable, enable) and `/admin/versions` (saved human versions, preview, choose, remove the choice, add or remove a page check).
+- `/translate` sends a reader to `/read`. The route `/api/htv/page` answers a reader with 403. The page views of translators and admins did not change.
+- The sync command S2 builds `reader_pages`. Report: 29 records, min 0.01 MB, median 0.03 MB, max 0.06 MB, total 0.78 MB `[check: RC1 2026-10-29 13:10 node scripts/sync-runs.mjs --apply on port 8092]`.
+
+#### 15.20.2 Migrations
+
+- `1793300006_v2_users_approved.js`: field `approved` on `users`. All existing users get true when the field is new. A second run never approves a sign-up.
+- Create rule of `users`: `@request.body.role = "reader" && @request.body.disabled:isset = false && (@request.body.approved:isset = false || @request.body.approved = false)`.
+- Update rule of `users`: the first branch also forbids the key `approved`. So a reader cannot approve the own account.
+- List and view rule of `users`: a reader sees the own record only. A translator and an admin see all records. Reason: a public sign-up must not show names, roles, and emails to strangers. This is a unit default (section 15.20.6).
+- `1793300007_v2_reader_collections.js`: `reader_pages` (S2 writes), `reader_versions` (admin writes), and `page_checks` (admin writes).
+- `1793300008_v2_reader_user_data.js`: `reader_bookmarks` and `reader_progress` (own records only). The names differ from the brief (section 15.20.6).
+- `1793300009_v2_reader_rules.js`: `page_runs` list and view go back to translator or admin. `user_settings.theme` takes the five theme names.
+- Every file is safe to run twice and has a down function. The rules are written out in `data/scripts/pocketbase/README.md` section 9.
+
+#### 15.20.3 Where the agree tag comes from
+
+- Decision: S2 copies it. The record `reader_pages.agree` is a list of group keys. It holds no name.
+- Reason: a PocketBase rule cannot hide the field `user` of `own_translations` and also let a reader read the record. A copy by S2 holds only the facts that a reader can see.
+- Rule: a row counts when the newest saved version of a translator has the tick and the saved agent text equals the agent text of the shown run. So a new run drops the tag until a translator agrees again.
+- Cost: the tag changes at the next S2 run, not at once.
+
+#### 15.20.4 Test results
+
+- `npx tsc --noEmit` and `npm run lint` in the copy: no error and no warning. `npm run build`: exit 0 and no "Dynamic filesystem" warning.
+- `node scripts/smoke.mjs smoke`: 70 PASS. `htv` with files: 262 PASS. `htv` with PocketBase: 262 PASS. `deploy`: 34 PASS. New mode `read`: 166 PASS.
+- Chrome headless (`browser_rc1.mjs`): 63 PASS, 29 screenshots at 1500x1000, 1280x800, and 390x844 in Solarized light and in two dark themes.
+- `test_local.py` (fresh): 219 PASS, 0 FAIL. Rule test of the new migrations: 63 PASS, 0 FAIL.
+- Lowest contrast pair for each theme: light 4.73, dark 7.49, sepia 6.11, solarized-light 6.03, solarized-dark 6.96 (to 1). Body text reaches 7 to 1 or more in the four non-light themes.
+- Checks that changed because a reader goes to /read: four in `htv` (files), five in `htv` (PocketBase), and one in `deploy`. The list is in the report of unit RC1.
+
+#### 15.20.5 Not verified
+
+- Safari, Firefox, and a real phone. The 390 px test used Chrome device emulation.
+- The rate limit of PocketBase for the public sign-up route.
+- The test `test_local.py` in the live shape (the v1 migrations). The unit ran the fresh shape only.
+- A full S2 run against the live server and the behavior with the real number of readers.
+- The speed of the scroll view in a book of 1,000 pages or more.
+
+#### 15.20.6 Unit defaults and open items
+
+- Unit default: the collections are `reader_bookmarks` and `reader_progress`. The live server holds the v1 collections `bookmarks` and `reading_progress`, and the rule "create only if absent" would skip the v2 files.
+- Unit default: `users` list and view rules limit a reader to the own record. This closes the open item of section 15.19.12 for names and roles.
+- Unit default: the sign-up route sets `emailVisibility` true, so that an admin sees the email on the approval page.
+- Unit default: a reader with no saved theme and no cookie gets the cookie `theme=solarized-light` at sign-in. A visitor with no cookie sees the default after the page script runs.
+- Unit default: the page view saves the place at each page. The scroll view saves it 1.2 seconds after the page in view changes.
+- Open item: the owner check of the default theme reading (Solarized light for the reader pages only).
+- Open item: `catalog_items.row` holds research fields that every signed-in user can read through the API. The app never sends them to a page.
+- Open item: the title of the web article `18d4ac29`. The card shows "Web article 18d4ac29".
+- Open item: `pb_users.py` makes readers with `approved` false. The admin page approves them.
+
+Status: built in unit RC1, owner check pending.

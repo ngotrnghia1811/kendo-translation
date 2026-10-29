@@ -1,21 +1,45 @@
-// Contrast test of the high-contrast dark theme (unit UXC step C, round 59).
+// Contrast test of the themes (unit UXC step C, round 59. Unit RC1, round 63: all five themes).
 // Usage: node scripts/contrast-dark.mjs
-// 1. It reads the block [data-theme="dark"] of app/globals.css.
-// 2. It tests every text and background pair of the app. Each pair must reach 7 to 1 (WCAG AAA). A lower ratio is a FAIL.
-// 3. It scans the source files for palette classes (bg-green-100, text-red-700, and so on). A palette color without a dark value is a FAIL,
-//    because the class keeps its light color on the black page. Two colors stay as they are by design: blue-500 and black.
+// 1. It reads the block [data-theme="..."] of app/globals.css for the themes dark, sepia, solarized-light, and solarized-dark.
+//    The theme light has no block. It uses :root of globals.css and the Tailwind default palette (hex values of the Tailwind 3 palette, which Tailwind 4 matches to the eye).
+// 2. It tests every text and background pair of the app.
+//      dark:                                    every pair must reach 7 to 1 (WCAG AAA), as before.
+//      sepia, solarized-light, solarized-dark:  the body text pairs must reach 7 to 1, every other pair 4.5 to 1 (round 63 answer 7).
+//      light:                                   every pair must reach 4.5 to 1 (report only: the lowest pair is printed).
+// 3. It scans the source files for palette classes (bg-green-100, text-red-700, and so on). A palette color without a value in a theme block is a FAIL,
+//    because the class keeps its light color on the dark page. Two colors stay as they are by design: blue-500 and black.
+// 4. It prints the lowest pair of each theme.
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
 const css = await fs.readFile(path.join(root, "app/globals.css"), "utf-8");
-const block = /\[data-theme="dark"\]\s*\{([\s\S]*?)\n\}/.exec(css);
-if (!block) {
-  console.log("FAIL  globals.css has no [data-theme=\"dark\"] block");
-  process.exit(1);
+
+// Hex values of the Tailwind default palette for the colors that the app uses (theme light).
+const TAILWIND = {
+  "color-white": "#ffffff", "color-stone-50": "#fafaf9", "color-stone-100": "#f5f5f4", "color-stone-200": "#e7e5e4", "color-stone-600": "#57534e", "color-stone-700": "#44403c",
+  "color-amber-50": "#fffbeb", "color-amber-100": "#fef3c7", "color-amber-200": "#fde68a", "color-amber-300": "#fcd34d", "color-amber-600": "#d97706", "color-amber-700": "#b45309", "color-amber-800": "#92400e", "color-amber-900": "#78350f",
+  "color-red-50": "#fef2f2", "color-red-100": "#fee2e2", "color-red-200": "#fecaca", "color-red-700": "#b91c1c", "color-red-800": "#991b1b",
+  "color-green-100": "#dcfce7", "color-green-700": "#15803d", "color-green-800": "#166534",
+  "color-blue-50": "#eff6ff", "color-blue-100": "#dbeafe", "color-blue-800": "#1e40af", "color-sky-100": "#e0f2fe", "color-sky-800": "#075985", "color-orange-100": "#ffedd5", "color-orange-800": "#9a3412",
+};
+
+function readVars(text) {
+  const m = new Map();
+  for (const v of text.matchAll(/--([a-z0-9-]+):\s*(#[0-9a-fA-F]{6});/g)) m.set(v[1], v[2].toLowerCase());
+  return m;
 }
-const dark = new Map();
-for (const m of block[1].matchAll(/--([a-z0-9-]+):\s*(#[0-9a-fA-F]{6});/g)) dark.set(m[1], m[2].toLowerCase());
+const rootBlock = /:root\s*\{([\s\S]*?)\n\}/.exec(css);
+const themes = new Map();
+themes.set("light", new Map([...Object.entries(TAILWIND), ...readVars(rootBlock ? rootBlock[1] : "")]));
+for (const name of ["dark", "sepia", "solarized-light", "solarized-dark"]) {
+  const block = new RegExp(`\\[data-theme="${name}"\\]\\s*\\{([\\s\\S]*?)\\n\\}`).exec(css);
+  if (!block) {
+    console.log(`FAIL  globals.css has no [data-theme="${name}"] block`);
+    process.exit(1);
+  }
+  themes.set(name, readVars(block[1]));
+}
 
 const lum = (hex) => {
   const n = parseInt(hex.slice(1), 16);
@@ -26,14 +50,15 @@ const ratio = (a, b) => {
   const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
   return (x + 0.05) / (y + 0.05);
 };
-const val = (name) => dark.get(name === "page" ? "background" : name.startsWith("color-") || ["foreground", "muted", "accent", "background", "line"].includes(name) ? name : "color-" + name);
+const BASE = ["foreground", "muted", "accent", "background", "line"];
+const val = (vars, name) => vars.get(name === "page" ? "background" : name.startsWith("color-") || BASE.includes(name) ? name : "color-" + name);
 
-// [use, text variable, background variable]
+// [use, text variable, background variable, body text (7 to 1 in every theme except light)]
 const PAIRS = [
-  ["Body text on page", "foreground", "page"],
+  ["Body text on page", "foreground", "page", true],
+  ["Body text on card", "foreground", "white", true],
   ["Muted text on page", "muted", "page"],
   ["Muted text on card", "muted", "white"],
-  ["Body text on card", "foreground", "white"],
   ["Link on page", "accent", "page"],
   ["Link on card", "accent", "white"],
   ["Save button: text-white on bg-accent", "white", "accent"],
@@ -53,8 +78,8 @@ const PAIRS = [
   ["Mark note on page", "amber-800", "page"],
   ["Warn text on page", "amber-700", "page"],
   ["Run notice and row notice", "amber-900", "amber-50"],
-  ["Term highlight", "foreground", "amber-100"],
-  ["Term highlight, hover", "foreground", "amber-200"],
+  ["Term highlight", "foreground", "amber-100", true],
+  ["Term highlight, hover", "foreground", "amber-200", true],
   ["Resume button", "white", "green-700"],
   ["Resume button, hover", "white", "green-800"],
   ["Pause button", "amber-800", "white"],
@@ -64,19 +89,27 @@ const PAIRS = [
 ];
 
 let fails = 0;
-console.log("Dark theme pairs (limit 7 to 1):");
-for (const [use, fg, bg] of PAIRS) {
-  const a = val(fg);
-  const b = val(bg);
-  if (!a || !b) {
-    fails++;
-    console.log(`FAIL  ${use}: no dark value for ${!a ? fg : bg}`);
-    continue;
+const lowest = [];
+for (const [name, vars] of themes) {
+  const limitOf = (body) => (name === "dark" ? 7 : name === "light" ? 4.5 : body ? 7 : 4.5);
+  console.log(`\nTheme ${name} (limits: body text ${name === "light" ? 4.5 : 7} to 1, other pairs ${name === "dark" ? 7 : 4.5} to 1):`);
+  let low = { r: Infinity, use: "" };
+  for (const [use, fg, bg, body] of PAIRS) {
+    const a = val(vars, fg);
+    const b = val(vars, bg);
+    if (!a || !b) {
+      fails++;
+      console.log(`FAIL  ${use}: no value for ${!a ? fg : bg}`);
+      continue;
+    }
+    const r = ratio(a, b);
+    const limit = limitOf(body);
+    const ok = r >= limit;
+    if (!ok) fails++;
+    if (r < low.r) low = { r, use };
+    console.log(`${ok ? "PASS" : "FAIL"}  ${use}: ${a} on ${b} = ${r.toFixed(2)} to 1 (limit ${limit})`);
   }
-  const r = ratio(a, b);
-  const ok = r >= 7;
-  if (!ok) fails++;
-  console.log(`${ok ? "PASS" : "FAIL"}  ${use}: ${a} on ${b} = ${r.toFixed(2)} to 1`);
+  lowest.push(`${name}: ${low.r.toFixed(2)} to 1 (${low.use})`);
 }
 
 // Scan the source for palette classes.
@@ -96,8 +129,13 @@ async function walk(dir) {
 }
 for (const d of ["app", "components", "lib"]) await walk(path.join(root, d));
 const KEEP = new Set(["blue-500"]);
-const missing = [...used.keys()].filter((k) => !dark.has("color-" + k) && !KEEP.has(k)).sort();
-console.log(`\nPalette colors used in the source: ${used.size}. Without a dark value: ${missing.length}${missing.length ? " (" + missing.join(", ") + ")" : ""}`);
-if (missing.length) fails++;
+for (const name of ["dark", "sepia", "solarized-light", "solarized-dark"]) {
+  const vars = themes.get(name);
+  const missing = [...used.keys()].filter((k) => !vars.has("color-" + k) && !KEEP.has(k)).sort();
+  console.log(`\nPalette colors used in the source: ${used.size}. Without a value in the theme ${name}: ${missing.length}${missing.length ? " (" + missing.join(", ") + ")" : ""}`);
+  if (missing.length) fails++;
+}
+console.log("\nLowest pair of each theme:");
+for (const l of lowest) console.log("  " + l);
 console.log(`\nFailures: ${fails}`);
 process.exit(fails ? 1 : 0);

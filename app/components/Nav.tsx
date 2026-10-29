@@ -15,10 +15,12 @@ const TABS = [
 // Round 58 answer 7 (Q-A 2026-10-28 l205): with the monitor off, only the tab Human translation shows.
 export default function Nav({ monitor, theme }: { monitor: boolean; theme: ThemeName }) {
   const path = usePathname() ?? "/";
-  const tabs = monitor ? TABS : TABS.filter((t) => !t.monitor);
+  // Unit RC1 (round 63): the reader pages, the sign-in and sign-up pages, and the admin pages have their own bar. They show no monitor tab.
+  const reader = /^\/(read|admin|sign-in|sign-up)(\/|$)/.test(path);
+  const tabs = reader ? [] : monitor ? TABS : TABS.filter((t) => !t.monitor);
   return (
     <header className="border-b border-line bg-white/70 px-6 flex items-end gap-8">
-      <div className="py-3 font-semibold tracking-tight">{path.startsWith("/translate") ? "human-translation-view" : "agent-translation-monitor"}</div>
+      <div className="py-3 font-semibold tracking-tight">{reader ? "Kendo books" : path.startsWith("/translate") ? "human-translation-view" : "agent-translation-monitor"}</div>
       <nav className="flex gap-1" aria-label="Main tabs">
         {tabs.map((t) => {
           const on = t.match(path);
