@@ -607,7 +607,7 @@ Status: open.
 #### 15.11.6 Storage and sign-in
 
 - Storage: PocketBase records store the own translations (with their versions), the comments, and the mark of the admin on a run `[user 2026-10-28 08:21]` "Option 3? Have we design any database yet? we need to setup for deployment soon" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:51]`. The agent files stay on disk and stay read-only `[agent inference]`.
-- Sign-in: PocketBase runs locally on this machine with the v1 setup files (migrations). The four v1 test accounts are created again: admin@, translator@, reader@, and wenqian@kendo-translation.local `[user 2026-10-28 08:21]` "option 2. Also what is the process for replacing v1 with v2 on https://kendotranslation.com/? We should do it soon" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:47]`.
+- Sign-in: PocketBase runs locally on this machine with the v1 setup files (migrations). The four v1 test accounts are created again: admin@, translator@, reader@, and wenqian@kendo-translation.local `[user 2026-10-28 08:21]` "option 2. Also what is the process for replacing v1 with v2 on https://kendotranslation.com/? We should do it soon" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:47]`. History: the words "with the v1 setup files" are replaced in round 54 answer 2 and round 55 answer 5 (section 15.12.3). The local PocketBase uses the v2 migrations only.
   - The v1 schema migration is `kendo-translation-viewer-v1/migration/pocketbase/pb_migrations/1753123456_initial_schema.js` (section 15.10.4).
   - The v1 seed migration holds a plain password for the admin account `[file: .opencode/reminders/plan/evolving-plan-2026-10-28.md:19]`. The code unit must not print that password or copy it into a file. The owner changes passwords with the script below.
   - Round 53 answer 12: the role of the account wenqian@kendo-translation.local is translator `[accepted recommendation 2026-10-28 12:34]` "Translator (Recommended)".
@@ -656,7 +656,7 @@ Status: open.
   - This section settles open items of section 15.11.8. The lines of section 15.11 carry the change in place, and the old state stays as history.
 - Earlier decisions that stay valid:
   - Round 52 answer 12: the panel hides the grid place, the panel reads the TL_3 message, the writer deletes and can share later, one version per Save, FAIL-list pages count, and a warning shows when the user leaves with unsaved text `[accepted recommendation 2026-10-28 10:12]` "Accept and commit D3 (Recommended), Panel hides grid place (Recommended), Panel reads TL_3 message (Recommended), Writer deletes, can share later (Recommended), One version per Save (Recommended), FAIL-list pages count (Recommended), Warn on unsaved leave (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:83]`.
-  - Round 52 answers 9 to 11: v2 goes live first on a subdomain, on the same PocketBase with new collections. The monitor stays on the Mac and syncs snapshots. The v1 seed file is skipped. A Python script manages the users `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:80-82]`.
+  - Round 52 answers 9 to 11: v2 goes live first on a subdomain, on the same PocketBase with new collections. The monitor stays on the Mac and syncs snapshots. The v1 seed file is skipped. A Python script manages the users `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:80-82]`. Replaced in round 55 answer 5: the part "on the same PocketBase with new collections" is history. v2 gets its own new PocketBase `[user 2026-10-28 16:29]` "option 1. Will it be easy to replace v1 with v2 later?" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:150]` (section 15.14.9).
 
 #### 15.12.1 Decisions table
 
@@ -687,16 +687,16 @@ Status: open.
 #### 15.12.2 PocketBase collections for v2
 
 - Source: round 52 answers 9 to 11 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:80-82]` and round 53 answers 10 to 12. Unit P1 builds exactly this design `[check: brief of H1D 2026-10-28 12:37]`.
-- The v2 app uses the same live PocketBase as v1, with new collections. The first live place is the subdomain v2.kendotranslation.com (round 52 answer 9).
+- The v2 app uses the same live PocketBase as v1, with new collections. The first live place is the subdomain v2.kendotranslation.com (round 52 answer 9). Replaced in round 55 answer 5: v2 gets its own new PocketBase on the same Oracle server, behind v2.kendotranslation.com, with only the v2 migrations and fresh accounts `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:150]` `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:158]`. The first sentence of this line is history.
 - Role map. A role is a value of the field `role` in the collection `users`.
   - `admin`: the researcher (the owner), as set in round 43 `[user 2026-10-26 15:17]` `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:113]`.
   - `translator`: a human translator.
   - `reader`: a reader of the reader pages that come later.
   - `qa`: a v1 value with no meaning in v2. The v2 app treats it as `reader` `[agent inference]`.
 
-##### Collection users (reuse)
+##### Collection users (reuse of the v1 collection is replaced in round 55 answer 5: the own v2 PocketBase has its own users)
 
-- The migration adds the select field `role` (admin, translator, reader) only if it is missing. It keeps the v1 values on the live server, `qa` included. It adds the bool field `disabled` only if it is missing.
+- The migration adds the select field `role` (admin, translator, reader) only if it is missing. It keeps the v1 values on the live server, `qa` included. It adds the bool field `disabled` only if it is missing. Replaced in round 55 answer 5: the own v2 PocketBase holds no v1 value, so the keep rule for `qa` has no case to keep `[agent inference]` `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:158]`.
 - Rules:
 
 ```
@@ -775,7 +775,7 @@ page_runs
   - The local accounts are admin@, translator@, reader@, and wenqian@kendo-translation.local. The account wenqian@ has the role translator (round 53 answer 12).
   - Unit H1D did not read the folder `data/scripts/pocketbase/`. Not verified.
 
-#### 15.12.3 Use of the v1 schema (answer 9, open)
+#### 15.12.3 Use of the v1 schema (answer 9, closed by round 54 answer 2 and round 55 answer 5)
 
 - The owner asked `[user 2026-10-28 12:34]` "What exactly are you trying to do here? Why would we want anything from v1 schema to copy to v2?" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:103]`.
 - The problem in one example. Round 51 answer 2 chose a local PocketBase "with the v1 setup files". Then the v1 schema file `1753123456_initial_schema.js` sits in a folder of the v2 repo. The v2 collections of section 15.12.2 hold none of its collections.
@@ -785,10 +785,10 @@ page_runs
   - Section 3, line 62: "No v1 code or v1 decision carries over, except the three roles of section 4" `[validated reading 2026-10-07 20:05]` `[file: docs/VISION-viewer.md:62]`.
 - Reading of aki-main `[reading pending owner check]` `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:115]`:
   - The v2 repo needs nothing from v1. The v2 migrations are self-contained.
-  - The v1 schema files are read in place only. The throwaway test of unit P1 reads them to make sure that the v2 migrations apply on the live shape. The live server holds 25 v1 collections and the v1 users fields.
+  - The v1 schema files are read in place only. The throwaway test of unit P1 reads them to make sure that the v2 migrations apply on the live shape. The live server holds 25 v1 collections and the v1 users fields. Round 55 answer 5: the live-shape test is no longer needed for the deploy, because v2 gets its own PocketBase `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:158]`.
   - No v1 collection clashes with a v2 name. v1 has `segment_comments`, and v2 has `comments` `[file: .opencode/reminders/plan/evolving-plan-2026-10-28.md:45]`.
-- Unit H1D did not change the words of section 15.11.6 about "v1 setup files". The words stay until the owner decides.
-- Status: open. The owner decides in the next batch (section 15.12.7, item 1).
+- Unit H1D did not change the words of section 15.11.6 about "v1 setup files". The words stay until the owner decides. Round 54 answer 2 and round 55 answer 5 replace them: the local PocketBase uses the v2 migrations only `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:121]` `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:150]`.
+- Status: closed by round 54 answer 2 `[user 2026-10-28 15:01]` "+ Do we need to do any of this? can we just proceed with v2?" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:121]` and by round 55 answer 5 `[user 2026-10-28 16:29]` "option 1. Will it be easy to replace v1 with v2 later?" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:150]`. The reading that the v2 repo holds no v1 file is the reading of aki-main `[reading pending owner check]` `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:138]`. Old text: "Status: open. The owner decides in the next batch (section 15.12.7, item 1)."
 
 #### 15.12.4 Run choice and saved rows (answers 7 and 8)
 
@@ -891,11 +891,11 @@ page_runs
 
 ##### Question 2: where H1 reads run data before the sync command S2
 
-- Problem. The collection `page_runs` is empty until S2 exists. Round 52 answer 13 did not choose S2 for now `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:84]`.
+- Problem. The collection `page_runs` is empty until S2 exists. Round 52 answer 13 did not choose S2 for now `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:84]`. Replaced in round 55 answer 8: the owner chose the S2 design `[accepted recommendation 2026-10-28 16:29]` "S2 design + P3 README (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:153]` (section 15.14).
 - Example. The page `mental_full/p014` needs the TS_3 groups, the ED_3 text, and the TL_3 blocks of run `20261028T023007Z-r41`. The files sit in `data/pilot-run/mental_full_p014/20261028T023007Z-r41/` on this Mac.
 - Options:
   - (1) Read the run folders with the server code of the agent-translation-monitor (recommended). The function `getPage` in `app/lib/page.ts:87` reads `results/TS_n.json` and `results/ED_n.json`. The path comes from `viewer.config.json`. Benefit: no new unit, fresh data, tested code. Cost: this works on the Mac only. H1 must keep the reading in one module, so the later change to `page_runs` touches one file.
-  - (2) Read `page_runs` in the local PocketBase. Benefit: the same path as the deploy. Cost: S2 must exist first, and S2 is not chosen now.
+  - (2) Read `page_runs` in the local PocketBase. Benefit: the same path as the deploy. Cost: S2 must exist first, and S2 is not chosen now. Round 55 answer 8 chose the S2 design (section 15.14). The S2 code is not built.
   - (3) Both, with a fallback from `page_runs` to the files. Benefit: smooth change later. Cost: two paths to test.
 - Fact for H1: `getPage` picks `runFolders[0]`, the newest folder name, with no check that the run is finished `[file: app/lib/page.ts:91-92]` `[file: app/lib/books.ts:15-18]`. The list `listBooks` does the same with `runs[0]` `[file: app/lib/books.ts:50]`. Today the newest folder is finished on every page `[check: H1D 2026-10-28 12:47 python3 over */*/summary.json]`. The two unfinished folders (`men0_p005/20261026T001543Z` and `18d4ac29_p001/20261026T005532Z`) are not the newest. A future failed run will be the newest. H1 needs the finished-run rule of section 15.12.4 in its own code.
 
@@ -965,7 +965,7 @@ page_runs
   - The notice wording of section 15.12.4. It is a proposal.
   - Any screen. No code for these parts exists.
 - Open items for the owner. The recommended default comes first in each item.
-  - Item 1, use of the v1 schema (answer 9). (1) Confirm the reading of aki-main: the v2 repo holds no v1 file, and the words "with the v1 setup files" in section 15.11.6 are replaced (recommended). (2) Keep round 51 answer 2 as written: copy the v1 schema file into the v2 repo.
+  - Item 1, use of the v1 schema (answer 9). (1) Confirm the reading of aki-main: the v2 repo holds no v1 file, and the words "with the v1 setup files" in section 15.11.6 are replaced (recommended). (2) Keep round 51 answer 2 as written: copy the v1 schema file into the v2 repo. Closed by round 54 answer 2 and round 55 answer 5 (section 15.12.3).
   - Item 2, list rule of `users`. The rule lets every signed-in user list all users. (1) Keep it, so that shared comments can show the name of the writer (recommended, `[agent inference]`). (2) Limit the list to the own record and the admin. Cost: shared comments then show no writer name, unless a view is added. Decided in round 54 answer 10: option (1) `[accepted recommendation 2026-10-28 15:01]` "Users list for signed-in (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:129]`.
   - Item 3, who fills `catalog_items`, `magazine_chapters`, and `page_runs`. Only a superuser writes them. (1) Leave them empty until the sync command S2, and let H1 read files (recommended). (2) Plan an import script before H1. Decided in round 54 answer 10: option (1) `[accepted recommendation 2026-10-28 15:01]` "Three collections empty for now (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:129]`.
   - Item 4, group of one item. The key reads `T01-T01`. (1) Keep the key rule as written (recommended). (2) Write `T01` for a group of one item. Cost: a second form of the key. Decided in round 54 answer 9: option (1) `[accepted recommendation 2026-10-28 15:01]` "One-item group key T01-T01 (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:128]`.
@@ -1065,7 +1065,7 @@ Status: open.
   - A browser other than Chrome headless.
   - Load with many users at the same time.
   - A deploy on https. The cookie flag Secure follows the request scheme in code, and no test used https.
-  - The effect of the migration on the live PocketBase server.
+  - The effect of the migration on the live PocketBase server. Round 55 answer 5: the v2 migrations go to the own v2 PocketBase, and not to the live v1 server (section 15.14.9).
 - Open items for the owner. The recommended default comes first in each item.
   - Item 1, reader access. (1) Keep the read-only view (recommended). Benefit: a reader can read the panel and the agent text. Cost: it differs from the reading of section 15.2. (2) Close the view to the reader. Cost: one check in the page route.
   - Item 2, pillar, caption, folio, and figure items. (1) Keep them out of the rows (recommended, book memory rule). Cost: 62 JA marks have no highlight. (2) Add a read-only block below the rows. Cost: a new layout part.
@@ -1074,5 +1074,354 @@ Status: open.
   - Item 5, the browser back button with unsaved text. (1) Leave as is (recommended). (2) Add a guard. Cost: more client code and history handling.
   - Item 6, a column "your latest version" in the page list. (1) Leave it out (recommended). (2) Add it. Cost: one more PocketBase call for each list view.
   - Item 7, the window title of the app. It reads "agent-translation-monitor" on all pages. (1) Keep it (recommended). (2) Set a title for each view.
+
+Status: open.
+
+### 15.14 Sync command S2 design (round 55)
+
+- Source: owner answers 5 and 8 of round 55 and the notes of aki-main `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:145-158]`. Unit S2D wrote this section `[check: S2D 2026-10-28 16:47]`.
+  - The unit writes docs only. It writes no code and it changes no repo file except the two doc files of this round.
+  - The Q-A file stores the label of each accepted option. The full option texts are Not verified.
+  - The design process of round 42 answer 9 applies: the owner states the need, aki-main restates it with project examples, the owner validates, then a docs unit writes the design, then a code unit builds it `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:85]`. This section is the docs unit. The owner has not validated it.
+- The origin of S2. Round 52 answer 10 chose "Monitor on Mac, sync snapshots (Recommended)". The full answer reads `[accepted recommendation 2026-10-28 10:12]` "Same PocketBase, new collections (Recommended), Monitor on Mac, sync snapshots (Recommended), Own translations: writer and admin (Recommended), Skip the v1 seed file (Recommended), Python user script (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:81]`.
+  - The part "Same PocketBase, new collections" is replaced. Round 55 answer 5 reads `[user 2026-10-28 16:29]` "option 1. Will it be easy to replace v1 with v2 later?" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:150]`. Option 1 was "Own new PocketBase for v2 (Recommended)". The note of aki-main says: v2 gets its own new PocketBase on the same Oracle server behind v2.kendotranslation.com, with only the v2 migrations and fresh accounts `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:158]`.
+  - The part "Monitor on Mac, sync snapshots" stays. Round 54 answer 8 reads `[user 2026-10-28 15:01]` "option 1 for dev. but these data will be uploaded for deployment right?" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:127]`. The note of aki-main answers yes, through S2 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:142]`.
+- The change of plan for S2. Round 52 answer 13 did not choose S2 `[accepted recommendation 2026-10-28 10:12]` "P1 PocketBase base (Recommended), H1 human-translation-view (Recommended), T7 Translator fixes (Recommended)" with the note "not chosen now: S2 sync command" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:84]`. Round 55 answer 8 now chose the S2 design `[accepted recommendation 2026-10-28 16:29]` "S2 design + P3 README (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:153]`.
+- Words used in this section. "Snapshot" is the JSON object of one finished page run. "Dry run" is a run that writes nothing. "Idempotent" means safe to run twice. "Upload" is a write to PocketBase from this Mac.
+
+#### 15.14.1 The need, with one example
+
+- The problem. The human-translation-view reads the run folders on this Mac today `[file: app/lib/htv-runs.ts:11-16]`. A deployed copy of the app on Vercel has no access to this Mac. The deployed copy must read the same data from PocketBase. S2 copies the data from the run folders into the collection `page_runs`.
+- Example page: `mental_full/p014`. It has two finished runs `[check: S2D 2026-10-28 16:38 node size_draft.mjs, files summary.json and run.json]`:
+
+| Run ID | Status | QA_3 | Page score | started_utc | Draft snapshot bytes |
+| --- | --- | --- | --- | --- | --- |
+| `20261026T195046Z-r41` | completed | PASS | 10.0 | 2026-10-26T19:50:46Z | 33,689 |
+| `20261028T023007Z-r41` | completed | FAIL | 8.5 | 2026-10-28T02:30:07Z | 31,951 |
+
+- Both runs cut 3 sentence groups. The first group key is `mental_full/p014/ts3/L01-L08`.
+  - The JA text of the group starts with `はめた場合、普段の稽古への取り組み方を考える大きなヒントにな`. The group has 304 characters `[file: docs/VISION-viewer.md:823]`.
+  - The ED_3 text of run `20261026T195046Z-r41` starts with `If applied, it becomes a great hint for thinking about how to approach everyday Keiko (practice).` The group holds 8 JA marks and 6 EN marks.
+  - The ED_3 text of run `20261028T023007Z-r41` starts with `If you apply this, it becomes a great hint for thinking about how to approach your everyday Keiko (practice).` The group holds 8 JA marks and 7 EN marks.
+- What the deployed view needs from these two runs:
+  - The 3 rows of each run: the group key, the JA text, the ED_3 text, and the term marks with their place in the text.
+  - The TL_3 panel blocks of each run: 18,099 bytes for the first run and 16,205 bytes for the second run.
+  - The 6 termbase entries that the marks of each run cite.
+  - The verdict and the page score of each run, and the list of the two runs for the run choice.
+- What S2 uploads: 2 records in `page_runs`, one for each run. The first record holds `page_id` `mental_full/p014`, `item_id` `mental_full`, `run_id` `20261026T195046Z-r41`, `verdict` PASS, `qa3_page_score` 10.0, and the snapshot. The second record holds the values of the second run.
+- What S2 does not upload: the other box files of the run folder, such as `raw/`, `parsed/`, `calls.jsonl`, and `critiques/`. The agent-translation-monitor stays on this Mac and reads them there.
+- The newest run is `20261028T023007Z-r41` (FAIL). The page shows it first, unless the admin marks the older run in `run_marks`.
+
+#### 15.14.2 What S2 reads
+
+- The finished-run rule is the rule of `finishedRuns` `[file: app/lib/htv-runs.ts:30-51]`. S2 must use the same rule:
+  - The folder sits in `data/pilot-run/<page folder>/`. The name of the run folder starts with a time stamp of the form `\d{8}T\d{6}Z` `[file: app/lib/htv-runs.ts:31]`.
+  - The file `summary.json` holds `qa.QA_3.verdict` with the value PASS or FAIL `[file: app/lib/htv-runs.ts:35-38]`.
+  - The files `results/TS_3.json` and `results/ED_3.json` exist `[file: app/lib/htv-runs.ts:39]`.
+  - The text of `status` does not matter (round 53 answer 8) `[accepted recommendation 2026-10-28 12:34]` "Count it if QA_3 gave a verdict (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:102]`.
+  - The newest run has the largest `started_utc` of `run.json`. A tie breaks on the folder name `[file: app/lib/htv-runs.ts:49]`.
+  - A page folder name has the form `<slug>_p<digits>` `[file: app/lib/format.ts:32-35]`.
+- Count on this Mac `[check: S2D 2026-10-28 16:38 node size_draft.mjs]`:
+  - 37 finished runs, 30 pages, 5 pages with more than one finished run, and 12 items. The counts equal the counts of unit H1 `[file: docs/VISION-viewer.md:808-810]`.
+  - 35 runs have status `completed` and 2 runs have status `completed with failures`. 34 runs have the verdict PASS and 3 runs have the verdict FAIL.
+  - The 37 runs hold 278 sentence groups. Unit H1 found the same number `[file: docs/VISION-viewer.md:1046]`.
+- Files that S2 reads for each run: `summary.json`, `run.json`, `results/TS_3.json`, `results/ED_3.json`, `messages/TL_3.txt`, `programs/term_marks.ED_3.json`, and `programs/en_form_check.ED_3.json` `[file: app/lib/htv-runs.ts:169-211]`.
+  - Six of these files (all except `run.json`) have 50,610 to 242,215 bytes for each run. The median is 75,824 bytes `[check: S2D 2026-10-28 16:38 node size_draft.mjs]`.
+  - S2 also reads the termbase file `termbase/termbase.draft.jsonl` (1030 entries, 3,037,882 bytes) and the item metadata file `item-metadata/items.filled.jsonl` (347 rows) `[check: S2D 2026-10-28 16:37 wc -lc]`.
+  - S2 never writes into a run folder.
+- Which pages S2 syncs. Question 1 asks the owner. The proposed command line has three forms:
+  - No filter: every page folder with at least one finished run (30 pages).
+  - `--page <slug>/<pNNN>`, for example `--page mental_full/p014`. The flag can repeat.
+  - `--list <stamp>`, for example `--list 20261028T023006Z`. S2 reads the key `pages` of `data/pilot-run/lists/<stamp>/list.json`. That list holds 15 page IDs `[check: S2D 2026-10-28 16:40 python3 -B read of list.json]`. S2 skips a page with no finished run and prints its ID.
+
+#### 15.14.3 What one snapshot holds
+
+- The key list of section 15.12.2 `[file: docs/VISION-viewer.md:763-768]` is called shape B here. It holds `groups` (each with `group_key`, `part`, `ts_ids`, `ja`, `ed3_text`, `ed_index`, `marks`), `tl3_blocks`, `en_form_check`, `termbase`, and `verdict`. The loop notes repeat it `[file: docs/drafts/viewer-translator-loop-notes.md:374]`.
+- `loadHtvPage` builds the type `HtvPageData` `[file: app/lib/htv-types.ts:79-99]`. The table shows where each field comes from and whether the snapshot of one run must hold it:
+
+| Field of `HtvPageData` | Source today | In the snapshot |
+| --- | --- | --- |
+| `pageId`, `slug`, `page` | the page folder name | no, the record holds `page_id` |
+| `bookTitle` | item metadata, `bookTitle(slug)` | no, see 15.14.5 |
+| `verdict`, `score`, `runId`, `startedUtc`, `status` | `summary.json`, `run.json` | yes |
+| `runs` | all finished runs of the page | no, the other records of the page hold them |
+| `markedRunId`, `markNote` | `run_marks` in PocketBase | no |
+| `rows` | TS_3 groups, ED_3 text, placed marks | yes |
+| `panel` | `messages/TL_3.txt` | yes |
+| `terms` | termbase entries that the marks cite | yes |
+| `notes` | missing-file notes | yes |
+
+- The difference between shape B and the page. Shape B keeps the marks as stored, with offsets inside the TS_3 item or the ED_3 item. The page needs the marks placed in the row text, with the result and detail of the EN form check. `placeMarks` does that work and needs the text of each item and the pieces of the ED_3 text `[file: app/lib/htv-groups.ts:166-205]`. A deployed app that reads shape B needs this code and the item texts. `HtvRow` has no field `ed_index` `[file: app/lib/htv-types.ts:51-62]`.
+- Recommended shape A. S2 runs the same functions as the app and stores the built page of one run. The deployed app then maps the record to `HtvPageData` and runs no placement code. `[agent inference]`
+
+```
+{
+  "snapshot_format": 1,
+  "page_id": "mental_full/p014",
+  "run_id": "20261028T023007Z-r41",
+  "started_utc": "2026-10-28T02:30:07Z",
+  "status": "completed",
+  "verdict": "FAIL",
+  "score": 8.5,
+  "rows": [ ...HtvRow ],
+  "panel": { ...PanelData },
+  "terms": { "<entry_id>": { ...TermEntry } },
+  "notes": []
+}
+```
+
+- The keys inside `rows`, `panel`, and `terms` keep the names of the types `HtvRow` `[file: app/lib/htv-types.ts:51-62]`, `PanelData` `[file: app/lib/htv-panel.ts:37-46]`, and `TermEntry` `[file: app/lib/htv-types.ts:70-77]`. The size script leaves out `shortKey`, which is about 15 bytes for each row. The app derives it from `key` `[file: app/lib/htv-runs.ts:189]`.
+- The page needs these fields from the snapshot: rows with marks, panel blocks, termbase entries, verdict, and score. The run list comes from the other records of the page. The record columns must hold the fields that the run list shows (15.14.5).
+- The key `snapshot_format`. Recommended, with one number: 1. Reason: shape A freezes the output of `sentenceGroups`, `edForGroups`, `placeMarks`, `parseTl3Message`, and `termEntryView` at upload time. If one of them changes later, old snapshots keep the old output. The key lets the deployed app detect an old format. It also lets S2 find the records that it must rebuild. Cost: one key. `[agent inference]`
+- Cost of shape A. A change of the placement code needs a new S2 upload of all runs. A new upload of 37 runs sends 2,100,601 bytes (15.14.4).
+
+#### 15.14.4 Size
+
+- Method. The throwaway script `<TMP>/r55/S2D/size_draft.mjs` builds shape A and shape B for each of the 37 finished runs and prints the JSON size in bytes `[check: S2D 2026-10-28 16:38 node size_draft.mjs]`. The output sits in `<TMP>/r55/S2D/size_draft.out.txt`.
+  - The script loads the real files `app/lib/htv-groups.ts` and `app/lib/htv-panel.ts` with Node type stripping. Node v24.6.0 needed no flag. It printed one warning, `MODULE_TYPELESS_PACKAGE_JSON`, because `app/package.json` has no key `type`.
+  - `app/lib/htv-runs.ts` cannot load outside Next. It imports `server-only` and `./json` without a file extension `[file: app/lib/htv-runs.ts:1-9]`. The script copies the logic of `finishedRuns`, `loadHtvPage`, and `termEntryView`. The copy is a draft, not S2.
+- Result, in bytes of compact JSON in UTF-8:
+
+| Measure | Shape A (recommended) | Shape B (15.12.2 keys) | Six source files |
+| --- | --- | --- | --- |
+| Runs | 37 | 37 | 37 |
+| Minimum | 25,468 | 31,628 | 50,610 |
+| Page of the minimum | `eiga_full/p159`, run `20261026T202055Z-r41` | same | same |
+| Median | 51,432 | 69,088 | 75,824 |
+| Maximum | 134,753 | 183,603 | 242,215 |
+| Page of the maximum | `kendojidai_2014/p0839`, run `20261026T205441Z-r41` | same | same |
+| Sum | 2,100,601 | 2,835,950 | 3,222,121 |
+
+- Compare with the limit. The field `snapshot` has `maxSize: SNAPSHOT_BYTES` with 5,242,880 bytes `[file: data/scripts/pocketbase/pb_migrations/1793300001_v2_collections.js:20]` `[file: data/scripts/pocketbase/pb_migrations/1793300001_v2_collections.js:163]`.
+  - The largest shape A is 134,753 bytes. That is 2.6 percent of the limit.
+  - No run is above 1,048,576 bytes (1 MB) in shape A or in shape B. The default limit of a JSON field is about 1 MB `[file: docs/VISION-viewer.md:770]`.
+  - Unit P1 tested the limit: a 2 MB snapshot works, and a 6 MB snapshot fails `[file: data/scripts/pocketbase/test_local.py:517-520]`.
+- Parts of shape A over the 37 runs:
+  - The panel holds 968,498 bytes (46.1 percent).
+  - The termbase entries hold 706,330 bytes (33.6 percent).
+  - The rows hold 418,040 bytes (19.9 percent).
+  - The rest is 7,733 bytes.
+- All runs or the newest run of each page. The newest run of each of the 30 pages sums to 1,778,845 bytes. All 37 runs sum to 2,100,601 bytes. The 7 older runs add 321,756 bytes.
+- Termbase copies. The marks of the 37 runs cite 434 entries, and 156 entries are different. The 156 entries have 267,725 bytes in the compact form. The copies in the snapshots have 706,330 bytes. About 438,605 bytes are repeats.
+- Not verified: how PocketBase stores the JSON field. The size limit of one request to PocketBase. The size of the database file on the server.
+
+#### 15.14.5 Which collections S2 fills
+
+- `page_runs`. S2 fills it for sure. The fields are `page_id`, `item_id`, `run_id`, `verdict`, `qa3_page_score`, `finished`, and `snapshot` `[file: data/scripts/pocketbase/pb_migrations/1793300001_v2_collections.js:156-164]`. There is a unique index on (`page_id`, `run_id`) `[file: data/scripts/pocketbase/pb_migrations/1793300001_v2_collections.js:166]`. The rules are: list and view for a translator or an admin, and create, update, and delete for a superuser only (`null`) `[file: data/scripts/pocketbase/pb_migrations/1793300001_v2_collections.js:151-155]`.
+  - `page_id` is the folder name with the last `_` turned into `/`, for example `mental_full/p014`. `item_id` is the slug, for example `mental_full`.
+- Gap 1: the run list needs `startedUtc` and `status`. `HtvRun` holds `runId`, `startedUtc`, `status`, `verdict`, and `score` `[file: app/lib/htv-types.ts:15-23]`. The run choice shows `startedUtc` and the page shows `status` `[file: app/components/HtvEditor.tsx:196]` `[file: app/components/HtvEditor.tsx:242]`. The collection has no column for either value. A list request must not read the snapshots, because 37 snapshots have 2.1 MB. The app already reads a list with `fields` and no big field `[file: app/lib/pb.ts:286-289]`.
+- Gap 2: the field `finished` has no source. Neither `summary.json` nor `run.json` holds a finish time. `run.json` has the keys `page`, `levels`, `critic`, `critic_mode`, `jobs`, `max_usd`, `started_utc`, `models`, and `voyage`. `summary.json` has `wall_seconds` in all 37 runs `[check: S2D 2026-10-28 16:38 python3 -B read of two summary.json and run.json files, node size_draft.mjs]`. Question 5 asks the owner.
+- Gap 3: the rule of `page_runs` closes it to the reader. A reader token gets no record `[file: data/scripts/pocketbase/pb_migrations/1793300001_v2_collections.js:151-152]`. The human-translation-view shows a read-only page to a reader today `[file: docs/VISION-viewer.md:1024]`. After the switch the reader sees no page. Question 12 asks the owner.
+- `catalog_items` and `magazine_chapters`. The deployed list page needs the book title. The app gets it today from `bookTitle(slug)` `[file: app/lib/htv-runs.ts:75]` `[file: app/lib/htv-runs.ts:218]`.
+  - `bookTitle` reads `item-metadata/items.filled.jsonl`, or `items.draft.jsonl` if the filled file is empty. It returns `title_en`, or `title_ja` if `title_en` is empty `[file: app/lib/books.ts:20-27]` `[file: app/lib/books.ts:107-111]`.
+  - The Books tab of the monitor reads `pilot-sample/book-slugs.json` (36 books), the item metadata, and `item-metadata/magazine-chapters.jsonl` `[file: app/lib/books.ts:39-41]`. The human-translation-view does not use the chapters.
+  - `items.filled.jsonl` has 347 rows and 648,576 bytes. The 12 items with a finished run have 11 rows in that file and 51,200 bytes. The row of the web article is missing under the short ID (next bullet) `[check: S2D 2026-10-28 16:40 python3 -B read of items.filled.jsonl]`.
+  - `magazine-chapters.jsonl` has 103 rows and 691,603 bytes. The 26 rows of `kendojidai_2012` and `kendojidai_2014` have 171,918 bytes `[check: S2D 2026-10-28 16:40 python3 -B read of magazine-chapters.jsonl]`.
+  - The fields of both collections `[file: data/scripts/pocketbase/pb_migrations/1793300001_v2_collections.js:109-119]` `[file: data/scripts/pocketbase/pb_migrations/1793300001_v2_collections.js:131-142]` exist as keys in the two files `[check: S2D 2026-10-28 16:37 python3 -B read of the first row of each file]`.
+  - A web article has two names. The page folder is `18d4ac29_p001` with slug `18d4ac29`. The item row has `item_id` `18d4ac29-12d5-4753-b032-35337361fee5`. `bookTitle("18d4ac29")` finds no row, so the list shows no title for this page today `[check: S2D 2026-10-28 16:40 grep of items.filled.jsonl]` `[agent inference from app/lib/books.ts:107-111]`.
+  - Two items have no `publish_year` (`None`). The field `publish_year` is text. How PocketBase takes a null for a text field is Not verified.
+  - Question 6 asks the owner.
+- Termbase. Shape A holds the cited entries in each snapshot (15.14.4). No collection exists for termbase entries. The migration creates six collections only `[file: data/scripts/pocketbase/pb_migrations/1793300001_v2_collections.js:192]`. Question 7 asks the owner.
+- `run_marks`. The marks of the admin live in PocketBase already `[file: data/scripts/pocketbase/pb_migrations/1793300001_v2_collections.js:84-100]`. S2 does not touch them. A mark names a run ID. If a run record leaves `page_runs`, the page shows the note for a stale mark `[file: app/lib/htv-runs.ts:226]`.
+
+#### 15.14.6 How S2 talks to PocketBase
+
+- Sign-in. S2 signs in as superuser, as `pb_users.py` does `[file: data/scripts/pocketbase/pb_users.py:77-84]`:
+  - The call is `POST /api/collections/_superusers/auth-with-password` with the body `identity` and `password`.
+  - The email comes from `--superuser EMAIL` or from the variable `PB_SUPERUSER_EMAIL` `[file: data/scripts/pocketbase/pb_users.py:154-155]`.
+  - The password comes from a hidden prompt, and not from argv, env, or a file `[file: data/scripts/pocketbase/pb_users.py:6-10]`.
+  - The token stays in memory.
+  - The URL check allows plain http only for 127.0.0.1 and localhost. Any other host needs https `[file: data/scripts/pocketbase/pb_users.py:36-43]`.
+- A superuser can create a record in `page_runs`. Unit P1 tested a create with a superuser token `[file: data/scripts/pocketbase/test_local.py:507]` `[file: data/scripts/pocketbase/test_local.py:517]`. A duplicate (`page_id`, `run_id`) fails `[file: data/scripts/pocketbase/test_local.py:515-516]`. An update by a superuser is Not verified.
+- One request for each record. The batch API is on, with `maxRequests` 200 and `timeout` 10 `[file: data/scripts/pocketbase/pb_migrations/1793300002_v2_batch.js:22-31]`. A batch of 37 snapshots has 2.1 MB. Whether that fits in 10 seconds and in the request limit is Not verified. One request for each record also keeps the other records safe when one fails. `[agent inference]`
+- Idempotence (safe to run twice). The unique index makes a second create fail. S2 must look up the record first. Question 4 gives three options. The recommended option is: read the record of (`page_id`, `run_id`), skip it if the snapshot is equal, and update it if not.
+- A report at the end lists the counts: created, updated, unchanged, skipped (no finished run), and on the server only. It lists the run IDs of each group.
+- A run folder deleted on this Mac. S2 does not delete the record by default. It lists the record as "on the server only". Question 11 asks the owner.
+- Dry run. A dry run signs in, reads the records, and prints what S2 will create or update. It writes nothing. Question 10 asks the owner which mode is the default.
+- Safety checks before a write: the snapshot size is below 5,242,880 bytes, the key `snapshot_format` is present, and the URL passes the check above.
+- The superuser account of the own v2 PocketBase does not exist yet. Its email is Not verified.
+
+#### 15.14.7 Where the S2 code lives and in which language
+
+- Three options. The benefit and the cost of each follow from the code that exists today.
+  - (a) A Python script in `data/scripts/pocketbase/` next to `pb_users.py`.
+    - Benefit: standard library only, a hidden prompt (`getpass`), and the URL check already exist in `pb_users.py` `[file: data/scripts/pocketbase/pb_users.py:36-43]`. The groups can come from `translator.book_memory.sentence_groups` `[file: kendo-translation-translator/data/scripts/translator/book_memory.py:82]`.
+    - Cost: the other four pieces exist in TypeScript only. They are the ED_3 pieces with the strip offsets `[file: app/lib/htv-groups.ts:109-140]`, the mark placement `[file: app/lib/htv-groups.ts:166-205]`, the TL_3 parser `[file: app/lib/htv-panel.ts:51-128]`, and the term view `[file: app/lib/htv-runs.ts:130-150]`. That is about 170 lines to port, plus the helpers for Python `strip` and code point counts `[file: app/lib/htv-groups.ts:14-31]`. The port needs its own parity test. The script also needs a path to the Translator package or a second copy of the group rule.
+  - (b) A Node script in `app/scripts/`, next to `smoke.mjs`, that loads `htv-groups.ts` and `htv-panel.ts`.
+    - Benefit: S2 runs the same functions as the app. The snapshot equals the page of today by construction. The size script loaded both files without a flag. Node v24.6.0 has `fetch`. `app/package.json` lists no PocketBase library `[file: docs/VISION-viewer.md:877]`, and S2 can call the REST API with `fetch` as the server routes do `[agent inference]`.
+    - Cost: `htv-runs.ts` cannot load in Node (15.14.4). The code of `loadHtvPage` and `termEntryView` must move to a pure file, or S2 must copy it. A copy can drift. Node has no `getpass`, so the hidden prompt needs about 15 lines of new code `[agent inference]`. A pure file that imports `./htv-groups` without the extension `.ts` does not load in Node. Whether the Next configuration allows the extension is Not verified.
+  - (c) Two steps. A Node script builds the snapshots into a folder of JSON files. A Python script in the style of `pb_users.py` uploads them.
+    - Benefit: the TypeScript code builds the snapshots, and the Python code keeps the hidden prompt and the URL check. The files can be read and compared before the upload. A dry run needs no server.
+    - Cost: two programs, one folder between them, and two sets of options to explain.
+- Recommended default: (b). The main risk of S2 is that the deployed page differs from the page on this Mac. Option (b) has one copy of the rules. Round 52 answer 10 chose Python for the user script, and it did not choose a language for S2 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:81]`. `[agent inference]`
+- Parity test, for every option. The deployed page built from the snapshot must equal the page built from the files:
+  - Data level: for each of the 37 runs, build `HtvPageData` from the files and from the snapshot. Compare `rows`, `panel`, `terms`, `notes`, `verdict`, `score`, `runId`, `startedUtc`, and `status`. The expected result is 0 differences.
+  - To reach the older runs, the test needs a function that takes a run ID. `loadHtvPage` takes only the admin mark today `[file: app/lib/htv-runs.ts:159-164]`.
+  - Screen level: run smoke mode `htv` twice against a throwaway PocketBase, once with `runSource` `files` and once with `pocketbase`, and compare the page text `[file: app/scripts/smoke.mjs:316-655]`. That the smoke helpers can compare two runs is Not verified.
+  - Group rule: the script `<TMP>/r54/H1/parity/parity.py` compares the TypeScript groups with `translator.book_memory`. Unit H1 found 278 groups and 0 differences `[file: docs/VISION-viewer.md:1046]`. The test stays as the check of the group rule.
+  - Limit: every snapshot is below 5,242,880 bytes.
+
+#### 15.14.8 How `htv-runs.ts` switches its source
+
+- The config key. Add the key `runSource` to `viewer.config.json`. The value `files` is the default and keeps the behavior of today. The value `pocketbase` reads `page_runs`. `loadConfig` reads the file and throws an error if `translatorDataDir` is missing `[file: app/lib/config.ts:25-34]`. On Vercel no Translator data folder exists, so `translatorDataDir` must become optional when `runSource` is `pocketbase`. `[agent inference]`
+- The header of `htv-runs.ts` says that the switch changes the functions of this file only `[file: app/lib/htv-runs.ts:15]`. The check shows more:
+  - The three read functions take no token. `page_runs` needs the user token (rule 15.14.5, gap 3). The functions `finishedRuns`, `listFinishedPages`, `loadHtvPage`, and `rowsForSave` get a token parameter.
+  - Four callers pass the call: `app/translate/page.tsx:22`, `app/translate/[slug]/[page]/page.tsx:28`, `app/api/htv/mark/route.ts:16`, and `app/api/htv/save/route.ts:30` `[check: S2D 2026-10-28 16:44 grep of the functions]`. Each caller holds a token (`s.token` or `g.token`).
+- Functions that change:
+  - `finishedRuns` (l30): it reads `page_runs` with a filter on `page_id` and the fields `run_id`, `verdict`, `qa3_page_score`, `started_utc`, and `status`, sorted by `started_utc` descending. It needs the new columns of question 5.
+  - `listFinishedPages` (l65): one list of all `page_runs` without the snapshot replaces the scan of the folder. It groups the records by `page_id`. The book title comes from `catalog_items`.
+  - `loadHtvPage` (l159): it reads the snapshot of the shown run and maps it to `HtvPageData`. It reads no file.
+  - The termbase read (l103-127): it is not used at read time, because `terms` sits in the snapshot.
+- Functions that stay: `pickShownRun` (l54, pure) and the type file. `rowsForSave` (l235) changes only through `loadHtvPage`.
+- The monitor routes still read files. On Vercel they have no data folder. How the deploy hides them is Not verified.
+- A test on this Mac needs no server change: set `pocketbaseUrl` to the local PocketBase and `runSource` to `pocketbase` after an S2 upload to it.
+
+#### 15.14.9 Deploy path in short (answer to "Will it be easy to replace v1 with v2 later?")
+
+- The question reads `[user 2026-10-28 16:29]` "option 1. Will it be easy to replace v1 with v2 later?" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:150]`. Round 53 answer 14 set the start of the deploy steps: "After H1 works locally (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:108]`.
+- Facts that the repos hold:
+  - The live v1 PocketBase runs on an Oracle Cloud ARM instance. The v1 files name `/opt/pocketbase` `[file: kendo-translation-viewer-v1/migration/pocketbase/README.md:114]` `[file: kendo-translation-viewer-v1/migration/pocketbase/README.md:118]`, the service `pocketbase` `[file: kendo-translation-viewer-v1/migration/pocketbase/ROLLBACK.md:130]`, and the address `https://155-248-165-196.nip.io` `[file: kendo-translation-viewer-v1/migration/pocketbase/ROLLBACK.md:132]`. Nobody verified these on the server in this unit.
+  - The v1 README says that the flag `--migrationsDir` is required, or the custom migrations are skipped `[file: kendo-translation-viewer-v1/migration/pocketbase/README.md:121]`.
+  - The v1 README names a reverse proxy (Caddy or nginx) for the case of no real domain `[file: kendo-translation-viewer-v1/migration/pocketbase/README.md:133]`.
+  - The v2 app calls PocketBase from server routes with plain `fetch`. The browser never calls PocketBase `[file: docs/VISION-viewer.md:1014]`. So the browser needs no cross-origin setting for PocketBase `[agent inference]`.
+  - The live site stays v1 until the owner names a switch date `[file: docs/VISION-viewer.md:63]`.
+- Steps, in order. Each step is a fact or a proposal, and the status is marked:
+  - Step 1, the server. Add a second PocketBase in its own folder, with its own port, its own `pb_data`, and its own systemd service. The v1 service keeps its name and its folder. Status: proposal. The ports and the proxy of v1 are Not verified.
+  - Step 2, the proxy. Two PocketBase servers cannot both listen on port 443. A reverse proxy (Caddy or nginx) can route by host name. Status: `[agent inference]`. How v1 is served now is Not verified.
+  - Step 3, the version and the migrations. Use PocketBase 0.39.10 for linux/arm64 (the local server is 0.39.10 `[file: docs/VISION-viewer.md:771]`). Copy the three v2 migrations and start with `--migrationsDir`. Status: proposal.
+  - Step 4, the accounts. Create the superuser and the accounts with `pb_users.py` over https. The 15 v1 users do not move `[file: .opencode/reminders/plan/evolving-plan-2026-10-28.md:83]`. The owner sets new passwords. v1 data in the 25 v1 collections does not move unless the owner decides `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:158]`.
+  - Step 5, the names. The app and the PocketBase need two different host names. Round 55 names v2.kendotranslation.com only `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:158]`. One host name cannot point at Vercel and at the Oracle server `[agent inference]`. Question 13 asks the owner. The DNS provider is Not verified.
+  - Step 6, the app. Make a new Vercel project from the branch `v2/viewer`. The app needs the PocketBase address and `runSource` `pocketbase`. The Mac path in `viewer.config.json` must not be required. Status: proposal. Vercel was not opened.
+  - Step 7, the first upload. Run S2 from this Mac against the own v2 PocketBase over https. Check the list, one page, and one Save with each role.
+  - Step 8, the switch. Move the domain kendotranslation.com from the v1 project to the v2 project in Vercel. Keep the v1 PocketBase on for a time. Make a backup of its `pb_data`. The way back is to move the domain to the v1 project again. Status: Not verified. Vercel was not opened.
+- The answer to the question in facts. The v2 app, the v2 PocketBase, and the v2 accounts do not touch v1. The only shared item is the server, and later the domain. Three unknowns decide the effort. They are the ports and the proxy of v1 on the server, the host name of the v2 PocketBase, and the Vercel side. `[agent inference]`
+
+#### 15.14.10 Old lines that round 55 changes
+
+- Unit S2D changed these lines in place, one old line to one new line. Each old text stays and a short note follows `[check: S2D 2026-10-28 16:47 difflib]`:
+  - `docs/VISION-viewer.md` l610 (sign-in line, "v1 setup files"), l659 (answers 9 to 11 of round 52, "same PocketBase"), l690 (the v2 app uses the same live PocketBase), l697 (header "Collection users (reuse)"), and l699 (keep the v1 values, `qa` included).
+  - `docs/VISION-viewer.md` l778 (header of 15.12.3), l788 (live-shape test), l790 (words of 15.11.6), and l791 (status of 15.12.3, now closed).
+  - `docs/VISION-viewer.md` l894 and l898 (S2 not chosen), l968 (item 1 of 15.12.7), and l1068 (effect of the migration on the live server).
+  - `docs/drafts/viewer-translator-loop-notes.md` l375 ("S2 is not now").
+- Lines that stay as history, with no change: l80, l325, and l487 say "v1 setup files" in the sign-in history. l610 and 15.12.3 carry the note. l908, l951, and l953 name "the live PocketBase" in option texts for H1. The loop notes l356 and l374 stay.
+- The finished-run line of the loop notes l376 names only `results/ED_3.json`. The code needs `results/TS_3.json` also `[file: app/lib/htv-runs.ts:39]`. Unit S2D did not change l376, because round 55 does not make it wrong. The new section in the loop notes names both files.
+
+#### 15.14.11 Questions for the owner
+
+- The recommended default comes first in each question. Each question has an example from this project.
+
+##### Question 1: which pages S2 syncs
+
+- Problem. S2 can send every page or a part. Example: the folder `data/pilot-run` holds 30 pages with a finished run. The list `20261028T023006Z` names 15 pages.
+- Options:
+  - (1) No filter sends all 30 pages. The flags `--page` and `--list` narrow the set (recommended). Benefit: the deployed list equals the list on this Mac. One command. Cost: a test page also goes up, for example `men0/p005` with the runs `test13` and `test13b`.
+  - (2) Only `--list <stamp>`. Benefit: the owner picks the pages. Cost: a page that no list names never goes up.
+  - (3) Only `--page`. Benefit: the smallest upload. Cost: many commands.
+
+##### Question 2: the shape of the snapshot
+
+- Problem. The key list of section 15.12.2 is the old draft. The page needs placed marks. Example: group `mental_full/p014/ts3/L01-L08` of run `20261028T023007Z-r41` has 8 JA marks and 7 EN marks, and each mark needs a place in the row text.
+- Options:
+  - (1) Shape A, the built page of one run, with `snapshot_format` 1 (recommended). Benefit: the deployed app maps the record and runs no placement code. The sum is 2,100,601 bytes. Cost: a change of the placement code needs a new upload.
+  - (2) Shape B, the key list of 15.12.2. Benefit: it keeps raw data. The sum is 2,835,950 bytes. Cost: the deployed app needs `placeMarks` and the item texts, and a second parity test.
+  - (3) Shape A without `snapshot_format`. Benefit: one key less. Cost: no way to tell an old snapshot from a new one.
+
+##### Question 3: the language and the place of the S2 code
+
+- Problem. The group rule and the placement code exist in TypeScript and the group rule in Python. Example: `placeMarks` puts the mark `jaMarks` of group `L01-L08` at the right character, and a Python copy of this code must give the same offsets.
+- Options:
+  - (1) A Node script in `app/scripts/` that loads the app code (recommended). Benefit: one copy of the rules. Cost: a small move of `loadHtvPage` code into a pure file, and a hidden prompt in Node.
+  - (2) A Python script next to `pb_users.py`. Benefit: the style of `pb_users.py`. Cost: about 170 lines ported, and a parity test.
+  - (3) Node builds files, and Python uploads them. Benefit: files to compare before the upload. Cost: two programs.
+
+##### Question 4: the rule when a record exists
+
+- Problem. The unique index (`page_id`, `run_id`) rejects a second create. Example: the owner runs S2 twice for `mental_full/p014`. The second run must not fail and must not leave a copy.
+- Options:
+  - (1) Read the record. Skip it if the snapshot is equal. Update it if not (recommended). Benefit: safe to run twice, and a new rule reaches the old records. Cost: one read of up to 135 KB for each run.
+  - (2) Always update. Benefit: no compare code. Cost: 37 writes for each run of S2, even with no change.
+  - (3) Skip a record that exists. Benefit: the simplest code. Cost: a changed snapshot never reaches the server.
+
+##### Question 5: the run columns and the field `finished`
+
+- Problem. The run choice shows the start time and the status of each run, and the collection has no column for them. The field `finished` has no source. Example: the run list of `mental_full/p014` shows `20261028T023007Z-r41 · FAIL · 2026-10-28T02:30:07Z` `[file: app/components/HtvEditor.tsx:242]`.
+- Options:
+  - (1) A new migration `1793300003` adds the text fields `started_utc` and `status`. S2 fills `finished` with `started_utc` plus `wall_seconds` (recommended). Benefit: the list reads columns, sorts on `started_utc`, and reads no snapshot. Cost: one more migration and one more P1 test run. The sum is an estimate of the finish time `[agent inference]`.
+  - (2) No migration. S2 puts `started_utc` into `finished`, and the status stays in the snapshot. Benefit: no code in the PocketBase part. Cost: the name `finished` is wrong, and the run list cannot show the status without a snapshot read.
+  - (3) Read the snapshots for the run list. Benefit: no new column. Cost: 2.1 MB for a list of 37 runs.
+
+##### Question 6: `catalog_items` and `magazine_chapters`
+
+- Problem. The deployed list needs the book title, and the Books tab and the later reader pages need the item rows. Example: `mental_full` has a `title_en` in `items.filled.jsonl` that starts with "Making the Difference on the Day". The web article `18d4ac29` has a different ID in the item file.
+- Options:
+  - (1) S2 fills `catalog_items` for the items with a finished run (12 items, about 51 KB) and fills `magazine_chapters` later (recommended). Benefit: the list gets titles, and the collection design is in use. Cost: the web article needs a rule for its long ID. Without a rule the title stays empty, as it is today.
+  - (2) S2 fills all 347 items and all 103 chapters (about 1.3 MB). Benefit: the reader pages find the data later. Cost: data that no deployed view reads yet.
+  - (3) S2 fills no catalog. The page_runs row holds a title column. Benefit: one collection less. Cost: the title repeats in every run, and `catalog_items` stays empty.
+
+##### Question 7: the termbase entries
+
+- Problem. The term pop-up needs the entry text. Example: run `20261028T023007Z-r41` cites 6 entries, and the whole termbase has 1030 entries (3,037,882 bytes).
+- Options:
+  - (1) One copy of the cited entries in each snapshot (recommended). Benefit: no new collection. The page needs one read. Cost: 438,605 bytes of repeats over 37 runs.
+  - (2) A new collection `termbase_entries` with one record per entry. Benefit: no repeats. 156 entries are cited now. Cost: a new migration, a second read for each page, and a new fill rule in S2.
+
+##### Question 8: when S2 runs
+
+- Problem. The deployed view shows only what S2 uploaded. Example: run `20261028T023007Z-r41` is FAIL. If S2 does not run after a new run, the deployed page keeps the old data.
+- Options:
+  - (1) By hand, after the owner checks the runs (recommended). Benefit: no change in the Translator, and the owner decides what goes up. Cost: the owner must remember.
+  - (2) After each list or chain run, started by the Translator launcher. Benefit: no step to forget. Cost: a change in the Translator, and a failed run can trigger an upload of half-done data.
+  - (3) On a timer. Benefit: no step to remember. Cost: a stored superuser password. The rules of `pb_users.py` forbid it `[file: data/scripts/pocketbase/pb_users.py:6-10]`, and S2 follows the same rules `[agent inference]`.
+
+##### Question 9: old runs
+
+- Problem. A page can have several finished runs. Example: `left_foot_full/p046` has 2 runs. 4 of 5 rows differ between them `[file: docs/VISION-viewer.md:838]`.
+- Options:
+  - (1) Send all finished runs (recommended). Benefit: the run choice and the run marks of the admin work for old runs. Saved versions name their run ID. Cost: 321,756 bytes more than the newest runs only.
+  - (2) Send the newest finished run of each page. Benefit: 1,778,845 bytes. Cost: no run choice, and a saved version can name a run that is not on the server.
+
+##### Question 10: the default mode
+
+- Problem. An upload changes the server. Example: a wrong `--url` can send 37 snapshots to the wrong server.
+- Options:
+  - (1) Dry run is the default. The flag `--apply` writes (recommended). Benefit: a safe first call. Cost: one more flag.
+  - (2) Write is the default. The flag `--dry-run` shows the plan. Benefit: one call less. Cost: a slip writes.
+
+##### Question 11: a run folder deleted on this Mac
+
+- Problem. A record can stay on the server after its folder is gone. Example: a test run folder of `men0_p005` is removed. A saved version and an admin mark can name that run.
+- Options:
+  - (1) S2 keeps the record and lists it as "on the server only" (recommended). Benefit: no data loss. Cost: the record stays until the owner removes it.
+  - (2) The flag `--prune` deletes such records after a prompt. Benefit: the server follows the Mac. Cost: a deleted record cannot return, and a saved version loses its run.
+  - (3) S2 always deletes them. Benefit: no flag. Cost: the same loss, with no prompt. This option is destructive and has no recommended mark.
+
+##### Question 12: the reader and `page_runs`
+
+- Problem. The rule of `page_runs` lets only a translator or an admin read it. H1 shows the page to a reader today. Example: reader@kendo-translation.local opens `/translate/mental_full/p014` on this Mac and sees the page. After the switch the same call returns no record.
+- Options:
+  - (1) Keep the rule and close the human-translation-view to the reader (recommended). Benefit: no migration. It fits the round 43 text that the view is for the translator role `[file: docs/drafts/viewer-translator-loop-notes.md:331]`. Cost: one check in the page route. It differs from the default of H1 `[file: docs/VISION-viewer.md:1070]`. `[agent inference]`
+  - (2) Open the list and view rules of `page_runs` to every signed-in user. Benefit: the read-only view stays. Cost: a new migration, and a reader reads the full TL_3 panel.
+
+##### Question 13: the host name of the v2 PocketBase
+
+- Problem. The app on Vercel and the PocketBase on Oracle need two host names. Round 55 names v2.kendotranslation.com only. Example: S2 uploads to the PocketBase URL, and the Vercel app calls the same URL from its server routes.
+- Options:
+  - (1) A second subdomain for the PocketBase, for example a name under kendotranslation.com (recommended). Benefit: clean separation, and a certificate for each name. Cost: one more DNS record.
+  - (2) A route on v2.kendotranslation.com that forwards to Oracle. Benefit: one name. Cost: a forward rule on the Vercel side. Not verified.
+  - (3) A nip.io name of the Oracle IP, as v1 does. Benefit: no DNS record. Cost: v1 already uses the plain nip.io name of this IP address `[file: kendo-translation-viewer-v1/migration/pocketbase/ROLLBACK.md:132]`. A second nip.io name is Not verified.
+
+#### 15.14.12 Not verified
+
+- The full option texts of round 55 answers 5 and 8. The Q-A file stores labels and short notes.
+- Anything on the Oracle server, in Vercel, in DNS, and at the live v1 PocketBase. Unit S2D contacted none of them.
+- An update of a `page_runs` record by a superuser. A batch of 37 snapshots. The request size limit of PocketBase.
+- How PocketBase takes a null for a text field.
+- Whether Next accepts an import with the extension `.ts`. Whether the smoke helpers can compare two runs.
+- The effort to port the 170 lines to Python. The count comes from the line ranges above.
+- The size of shape A after the real S2 code. The script is a draft and leaves out `shortKey`.
+- The host names of the v2 app and of the v2 PocketBase.
+- How the deploy hides the monitor routes on Vercel.
+- The superuser email of the own v2 PocketBase.
+- The owner has not validated this design.
 
 Status: open.

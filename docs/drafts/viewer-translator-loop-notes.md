@@ -372,5 +372,30 @@
 - Group key. A row of the human-translation-view is a sentence group of `sentence_groups(ts)` in `kendo-translation-translator/data/scripts/translator/book_memory.py:82`. The input is the key `after_program_step` of `results/TS_3.json`. The key is `<page_id>/ts3/<first short ID>-<last short ID>`, for example `kendojidai_2014/p0839/ts3/L01-L05`. The key is stable inside one run only, so a saved version also stores `ts_ids`, `ja_text`, and `run_id`.
   - The Translator and the Viewer must cut the groups with the same rule. If the Translator changes `sentence_groups`, the group keys of saved versions can stop matching `[agent inference]`.
 - Snapshot keys of `page_runs`. The sync command S2 (not built) writes one JSON object in the field `snapshot` for each finished page run. The keys are `groups`, `tl3_blocks`, `en_form_check`, `termbase`, and `verdict`. A group holds `group_key`, `part`, `ts_ids`, `ja`, `ed3_text`, `ed_index`, and `marks`. The Translator side must supply these files: `results/TS_3.json`, `results/ED_3.json`, `messages/TL_3.txt`, `programs/en_form_check.ED_3.json`, `programs/term_marks.ED_3.json`, and `summary.json` `[agent inference]`.
-- S2 is not now. Round 52 answer 13 did not choose the S2 sync command `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:84]`. Until S2 exists, the human-translation-view reads the run folders on the Mac (`docs/VISION-viewer.md` section 15.12.6, question 2, open).
+- S2 is not now. Round 52 answer 13 did not choose the S2 sync command `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:84]`. Until S2 exists, the human-translation-view reads the run folders on the Mac (`docs/VISION-viewer.md` section 15.12.6, question 2, open). Replaced in round 55 answer 8: the owner chose the S2 design `[accepted recommendation 2026-10-28 16:29]` "S2 design + P3 README (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:153]`. See `docs/VISION-viewer.md` section 15.14 and the section Round 55 below.
 - Finished run. A run counts as finished when `summary.json` holds a QA_3 verdict and `results/ED_3.json` exists. The status `completed with failures` counts (round 53 answer 8, `docs/VISION-viewer.md` section 15.12.4).
+
+## Round 55
+
+- Source: owner answers 5 and 8 of round 55 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:145-158]`. Unit S2D wrote the detail in `docs/VISION-viewer.md` section 15.14 `[check: S2D 2026-10-28 16:47]`. This file keeps the link between the Viewer and the Translator.
+- Own PocketBase. Round 55 answer 5 replaces the part "Same PocketBase, new collections" of round 52 answer 10 `[user 2026-10-28 16:29]` "option 1. Will it be easy to replace v1 with v2 later?" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:150]`. The Translator side does not change `[agent inference]`.
+- S2 design. Round 55 answer 8 chose the S2 design `[accepted recommendation 2026-10-28 16:29]` "S2 design + P3 README (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:153]`. The S2 code is not built. The owner has not validated the design.
+- What the Translator side must keep stable for S2. S2 reads these paths and keys under `data/pilot-run/<slug>_<pNNN>/<run_id>/`. A change to one of them breaks S2 `[agent inference]`:
+  - The page folder name has the form `<slug>_p<digits>` `[file: app/lib/format.ts:32-35]`. The run folder name starts with a time stamp of the form `\d{8}T\d{6}Z` `[file: app/lib/htv-runs.ts:31]`.
+  - `summary.json` holds `status`, `qa.QA_3.verdict` (PASS or FAIL), and `qa.QA_3.page_score` `[file: app/lib/htv-runs.ts:35-46]`. The draft rule for the field `finished` also reads `wall_seconds` (section 15.14.5, question 5).
+  - `run.json` holds `started_utc` as text, for example `2026-10-28T02:30:07Z` `[file: app/lib/htv-runs.ts:40-43]`. A run with no `started_utc` sorts last.
+  - `results/TS_3.json` and `results/ED_3.json` hold the key `after_program_step`, or `model_result` if the first key is missing `[file: app/lib/htv-runs.ts:91-93]`.
+    - A TS_3 item holds `item_id`, `text`, and `reading_order`, in the lists `lines` and `block_title` `[file: app/lib/htv-groups.ts:47-75]`.
+    - An ED_3 item holds `item_id`, `text`, `ja_refs`, and `order`, in the lists `lines` and `block_title` `[file: app/lib/htv-groups.ts:109-140]`.
+  - `programs/term_marks.ED_3.json` holds the list `marks`. A mark holds `mark_id`, `entry_id`, `surface`, `ja`, and `en`. `ja` and `en` each hold `item_id`, `start`, and `end` `[file: app/lib/htv-groups.ts:166-205]`.
+  - `programs/en_form_check.ED_3.json` holds the list `items`. An item holds `entry_id`, `ja_item`, `result`, and `detail` `[file: app/lib/htv-runs.ts:177-182]`.
+  - `messages/TL_3.txt` keeps the marker lines `[BLOCK <name>]`, `[END <name>]`, `[ENTRY]`, `[PAIR]`, and their end lines `[file: app/lib/htv-panel.ts:48-49]` `[file: app/lib/htv-panel.ts:86-93]`.
+  - `termbase/termbase.draft.jsonl` holds one JSON object per line with the keys `id`, `langSec`, `x-headword`, `x-readings`, `x-romaji`, `x-romaji-preferred`, and `x-common` `[file: app/lib/htv-runs.ts:130-150]`.
+  - `item-metadata/items.filled.jsonl` (or `items.draft.jsonl`) holds the key `item_id` and the keys of the table `catalog_items` `[file: app/lib/books.ts:20-27]`.
+  - `data/pilot-run/lists/<stamp>/list.json` holds the key `pages`, a list of page IDs `[check: S2D 2026-10-28 16:40 python3 -B read of list.json]`.
+- Rules for the Translator side:
+  - The rule of `sentence_groups` and `cut_pairs` stays equal to `app/lib/htv-groups.ts`. If the Translator changes the rule, the Viewer code changes with it. Then S2 must upload all runs again with a new `snapshot_format` `[agent inference]`.
+  - A run folder with a QA_3 verdict stays as it is. If a later Translator step rewrites such a folder, S2 finds the change by the compare rule of question 4 and updates the record `[agent inference]`.
+  - A run ID stays unique inside one page folder, because S2 uses (`page_id`, `run_id`) as the key.
+- The finished-run line of this file (section Round 53, last line) names only `results/ED_3.json`. The code also needs `results/TS_3.json` `[file: app/lib/htv-runs.ts:39]`. The rule in `docs/VISION-viewer.md` section 15.14.2 names both files.
+- Not verified: the Translator side has not read the S2 design. No Translator code reads or writes `page_runs`.
