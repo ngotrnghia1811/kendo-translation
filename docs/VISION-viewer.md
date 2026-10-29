@@ -2452,3 +2452,638 @@ Status: code built, owner check open.
 - The `error.tsx` screen for a failure of the server on the real PocketBase. The unit used a stub server that fails.
 
 Status: code built and tested in a copy, then copied back. Owner check open.
+
+### 15.19 Reader pages design (round 62)
+
+- Source: owner answers 5 to 12 of round 62 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:287-294]` and the notes of aki-main `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:296-302]`. Unit RVD wrote this section.
+- Scope: docs only. The unit wrote no code, no migration, and no git change. It started no server and did not touch PocketBase on port 8090 or the dev server on port 3000.
+- Design process of round 42 answer 9: aki-main restates the need, the owner validates, a docs unit writes the design, then a code unit builds it. This section is the docs step. Every proposal below needs the owner check.
+- Sizes use MB. One MB is 1,048,576 bytes. `<TMP>` is `/var/folders/sz/2hvwvpb16c77mfzqnvkb5gbc0000gn/T/opencode`. The work files sit in `<TMP>/r62/RVD/`.
+- Evidence tags: `[file: path:line]` and `[check: RVD 2026-10-29 HH:MM command]` mark facts that the unit read or ran. `[agent inference]` marks a guess. "Not verified" marks a fact without evidence.
+- Terms. "Reader pages" are the pages under `/read` for the reader role. An "unapproved reader" is a reader with `approved` false. A "chosen human version" is one saved version of an own translation that an admin picks for readers.
+- This section adds no new terminology beyond these three. Collections keep their field names.
+
+#### 15.19.1 Owner words
+
+Round 62 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:282-294]`, all tagged `[accepted ... 2026-10-29 10:36]` or `[user 2026-10-29 10:36]`:
+
+- Answer 5, line 287: "Correct, reader pages (Recommended)". Reading: the phrase "start working on the Viewer pages" means the reader pages.
+- Answer 6, line 288, reader access: "Sign-up page plus approval".
+- Answer 7, line 289, reader EN text: "option 3, with option 1 as default. Admin can choose which human versionn to show" `[user 2026-10-29 10:36]`. The word "versionn" is the owner spelling.
+- Answer 8, line 290, reader views: "Single language EN or JA (Recommended), Bilingual pairing (Recommended), Themes, fonts, size (Recommended), Page and Scroll switch (Recommended), Original page image, Focus mode, WE should be able to compress every pdf to be less than 1GB in total without loss of quality right?" `[user 2026-10-29 10:36]`. The Aligned table is not in the list.
+- Answer 9, line 291, book and page details: "36 books with metadata (Recommended), Month headings (Recommended), Term highlight and pop-up (Recommended), Resume at last page (Recommended), Phone one-column layout (Recommended), Bookmarks".
+- Answer 10, line 292, page number: "File number 'Page 48' (Recommended)".
+- Answer 11, line 293, left out for now: "ZH, KO, VI stay out (Recommended), Report button stays out (Recommended), Ruby stays out (Recommended)".
+- Answer 12, line 294, next step: "RVD design + TF2 (Recommended)".
+- Note of aki-main, line 300: the reader has a switch between the agent text (default, with AI label) and one human version that an admin chooses per page `[reading pending owner check]`.
+- Note of aki-main, line 301: 1 GB is about 0.08 MB per page against about 1.45 MB per page today. Lossless methods cannot reach 95 percent less `[agent inference, to measure in unit PC1]`.
+- Note of aki-main, line 302: answer 9 adds Bookmarks to the first reader version.
+
+Older decisions that this design keeps:
+
+- Reader access, 2026-10-07 line 96: "option 1. Also admin have to validate reader signup before they can actually view the contents" `[file: .opencode/reminders/qa/qa-memory-2026-10-07.md:96]`.
+- Before approval, the person sees titles and progress and no text `[file: docs/VISION-viewer.md:93-94]`.
+- Quality bar, 2026-10-07 line 32: "Make it like a professional book reading website." `[file: .opencode/reminders/qa/qa-memory-2026-10-07.md:32]`.
+- Component list, 2026-10-07 line 34: "these components should be a list that reader checks to selects" `[file: .opencode/reminders/qa/qa-memory-2026-10-07.md:34]`.
+- Two objectives, 2026-10-07 line 93: "Best user reading experience and efficiency" and "user Flexible and customizable UI for reading components" `[file: .opencode/reminders/qa/qa-memory-2026-10-07.md:93]`.
+- Page by page, 2026-10-07 line 126: "User should be able to view page-by-page efficiently" `[file: .opencode/reminders/qa/qa-memory-2026-10-07.md:126]`.
+- Layout memory, 2026-10-07 line 67: "Per account, all devices" `[file: .opencode/reminders/qa/qa-memory-2026-10-07.md:67]`.
+- Readers never see the research layer, the scores, the verdict, or the TL_3 panel `[file: docs/VISION-viewer.md:232,239]`.
+- AI label `[file: docs/VISION-viewer.md:240-251]`. Every user sees it. A reader cannot hide it. The work block gives a summary such as "AI translation, human check: 12 of 40 pages". Each page has a line such as "AI translation, human check: not yet". Human versions carry no AI label.
+- Phone layout `[file: docs/VISION-viewer.md:192,334]`. Reader pages keep the phone layout. The human-translation-view and the agent-translation-monitor are desktop only.
+- Magazine, 2026-10-26 line 168: "Each year is one book, with each month is on chapter consists of all articles in that month" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:168]`.
+- All pages, round 58 answer 3, line 201: "Not just translated pages. All pages. With agent translated pages tagged." `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:201]`. The book screen of the reader pages lists every page. A page without a run shows "No agent translation yet".
+- Admin pages `[file: docs/VISION-viewer.md:88-92]`: only the admin role opens them, they hold the sign-up approval and the human-check record, and "Reading pages stay read-only".
+- The reader role today opens a read-only human-translation-view. Round 55 answer 6 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:151]` "Reader read-only (Recommended)". Round 56 answer 5 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:165]` "Keep reader read-only (Recommended)".
+
+#### 15.19.2 Routes and roles
+
+Facts about the code and the data today:
+
+- No reader page exists. The routes are the agent-translation-monitor at `/`, `/books`, `/runs/...`, `/page/...`, and the human-translation-view under `/translate` `[check: RVD 2026-10-29 10:41 find app -type f]`.
+- `users.createRule` is `null`. Only a superuser can create a user `[file: data/scripts/pocketbase/pb_migrations/1793300000_v2_users_rules.js:43]`.
+- `users.authRule` is `disabled = false`. A disabled account cannot sign in `[file: data/scripts/pocketbase/pb_migrations/1793300000_v2_users_rules.js:48]`. So the field `disabled` cannot mark an unapproved reader, because that reader must sign in to see titles.
+- `users.updateRule` lets a user change the own record when the body has no `role` and no `disabled`. An admin can change any record `[file: data/scripts/pocketbase/pb_migrations/1793300000_v2_users_rules.js:44-45]`. A new field `approved` must join the first branch, or a reader can approve the own account.
+- `users.listRule` and `users.viewRule` are `@request.auth.id != ""` `[file: data/scripts/pocketbase/pb_migrations/1793300000_v2_users_rules.js:41-42]`. Any signed-in person can read user records. With public sign-up, a stranger can list names and roles. Whether the email shows is Not verified.
+- The cookie `htv_token` holds the PocketBase token. `isSafeNext` accepts only paths under `/translate`. The sign-in path is `/translate/sign-in` `[file: app/lib/htv-session.ts:14,49]`.
+- The guard of the routes `/api/htv/*` blocks writes for the reader role with status 403 `[file: app/lib/htv-api.ts:31]`.
+- `page_runs` is readable by every signed-in user since migration 1793300003 `[file: data/scripts/pocketbase/pb_migrations/1793300003_v2_page_runs_columns.js:43-44]`. The snapshot holds `verdict`, `score`, and `panel` (the TL_3 information) `[file: app/lib/htv-build.ts:155-181]`. So today a reader can read the research layer through the API. This conflicts with `[file: docs/VISION-viewer.md:232,239]`. It is a broken state that this design closes (question 1).
+
+Routes (proposal):
+
+| Route | Who | What it shows |
+|---|---|---|
+| `/sign-up` | public | Form: name, email, password. Creates an unapproved reader. |
+| `/sign-in` | public | Sign-in for all roles. `/translate/sign-in` stays and sends to it. |
+| `/read` | signed in | The 36 books and the web article with metadata and progress. |
+| `/read/<book>` | signed in | Book screen: metadata block, month headings, all pages. Page text for approved users only. |
+| `/read/<book>?view=page&at=p048` | approved | One page at a time. The same URL form as the human-translation-view `[file: app/components/HtvBook.tsx:21]`. |
+| `/read/<book>?view=scroll&at=p048` | approved | All pages in one scroll, jump to p048. |
+| `/admin/readers` | admin | List of unapproved readers with Approve. Role change and disable for all users. |
+| `/admin/versions` | admin | Choose one human version for a page. Record the human check of a page. |
+
+States of a person:
+
+| State | Condition | What the person can do |
+|---|---|---|
+| Visitor | no token | Open `/sign-up` and `/sign-in`. |
+| Unapproved reader | `role` reader, `approved` false | `/read` and the metadata block of a book. No page text. A banner says "Your account waits for approval." |
+| Approved reader | `role` reader, `approved` true | All reader pages. |
+| Translator | `role` translator | Reader pages and `/translate`. |
+| Admin | `role` admin | Everything, with `/admin/*` and the monitor. |
+
+Roles after the change:
+
+- Proposal: a reader goes to `/read` after sign-in. A translator goes to `/translate`. An admin goes to `/translate`. All three can open `/read` `[agent inference]`.
+- Proposal: all existing accounts get `approved` true in the migration, so no one is locked out `[agent inference]`.
+- Proposal: an admin who sets the role translator or admin sets `approved` true in the same action. The role change is the approval `[file: docs/VISION-viewer.md:87]`.
+- The state "Unapproved reader" sees the same book list as an approved reader. Progress shows as the share of pages with an agent translation (section 9 of this file `[file: docs/VISION-viewer.md:206-215]`). The book screen shows the metadata block and the note "The text opens after approval." No page list opens.
+- How the account is created (create rule or server route) is question 2. How `approved` is stored is question 3. What happens to the read-only view of the reader under `/translate` is question 4.
+
+#### 15.19.3 Book list and book screen
+
+Book list `/read` `[round 62 answer 9: "36 books with metadata (Recommended)"]`:
+
+- One card for each of the 36 book folders and the web article `18d4ac29`, 37 in all `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:278]`. The data is `catalog_items`, 37 rows by the brief of unit RVD `[file: data/scripts/pocketbase/pb_migrations/1793300001_v2_collections.js:102-123]`. The live row count is Not verified.
+- A card shows the EN title large and the JA title small, the author, the year, the page count, and the AI label summary.
+- A card shows the progress: the share of pages with an agent translation, for example "6 of 120 pages".
+- A card shows "Continue at Page 48" when the account has a saved place (`reading_progress`, section 15.19.8).
+- Fields that are empty in the metadata do not show. No label "unknown" appears.
+
+Metadata (checked, not guessed):
+
+- `items.filled.jsonl` holds 347 rows. The 36 book folders have `title_en` 36, `title_ja` 35, `author_en` 26, `publisher` 34, `publish_year` 33, `isbn` 22, `synopsis` 36 of 36 `[check: RVD 2026-10-29 10:42 python3 count over book-slugs.json and items.filled.jsonl]`. The kinds are book 25, magazine-year 9, web-capture 2 `[check: RVD 2026-10-29 10:42 same command]`.
+- S2 uploads the whole item row in the JSON field `row` of `catalog_items`. It also copies the columns `title_ja`, `title_en`, `author_ja`, `author_en`, `publisher`, `publish_year`, `pages` `[file: app/scripts/sync-runs.mjs:434-448]`. So `synopsis`, `isbn`, and `publish_date_text` are in `row`, and S2 needs no change for the book metadata.
+- The row `left_foot_full` has `title_en` "The Secret of Kendo and the Left Foot", 120 pages, author "Mitsuru Kobayashi", year 2017, and a synopsis `[check: RVD 2026-10-29 10:42 python3 read of items.filled.jsonl]`. The synopsis comes from an agent. Its `status` field says "filled, not checked by the owner" `[check: RVD 2026-10-29 10:42 same command]`. So the book block marks the synopsis as "Written by an AI agent".
+- `row` also holds research fields: `sources`, `confidence`, `filled_by`, `confirmed_by`, `notes`, `source_url`. `catalog_items` is readable by every signed-in user `[file: data/scripts/pocketbase/pb_migrations/1793300001_v2_collections.js:102-123]`. This is an open item (section 15.19.12).
+- The web article `18d4ac29` has an empty title and `pages` 0 in `catalog_items` `[file: docs/drafts/viewer-translator-loop-notes.md:424]`. Its card needs a title from the owner (round 43 answer 4, `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:157]`: "They should have their paired EN articles with EN titles, no?"). This is an open item.
+
+Book screen `/read/<book>`:
+
+- Top: the metadata block. It holds the title, the author, the publisher, the year, the ISBN, the page count, the synopsis, and the AI label summary.
+- AI label summary (work block, `[file: docs/VISION-viewer.md:248]`): "AI translation: 6 of 120 pages. Human check: 0 of 6 pages." The numbers can be lower under question 5 option 1. They come from `reader_pages` and `page_checks`. The pilot data has 6 pages of `left_foot_full` with a run folder: p046, p047, p048, p049, p050, p075 `[check: RVD 2026-10-29 10:46 ls pilot-run]`.
+- Index: month headings for the 9 magazine years `[round 62 answer 9: "Month headings (Recommended)"]`. The data is `magazine_chapters`, 103 rows. The code of `ChapterHead` exists `[file: app/lib/htv-types.ts:159-179]`. A month heading shows "October 2014" and the page range.
+- Index: for a book without chapters, a plain list of page numbers with a mark on pages that have a translation.
+- Pages: every page of the book is listed `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:201]`. A page with no usable run shows "No agent translation yet". Which run counts as usable is question 5.
+- Page name: "Page 48" from the file number p048. The printed folio is not shown `[round 62 answer 10: "File number 'Page 48' (Recommended)"]`. For `kendojidai_2014/p0839` the name is "Page 839".
+- Button "Continue at Page N" when a saved place exists. The bookmark panel is on the left, next to the index.
+
+Where the numbers stand today: 30 pages in 12 folders have a finished run (PASS or FAIL) out of 13,278 pages in the 36 books. This is 0.23 percent `[check: RVD 2026-10-29 10:43 python3 count of summary.json under pilot-run, and 10:51 python3 arithmetic 30/13278]`. So the first reader version holds little text. The design must make the pages without a run look intended, not broken.
+
+#### 15.19.4 Page content views
+
+The words below use the page `left_foot_full/p048`, run `20261029T061734Z-r41`, verdict PASS, score 9.5 `[brief of unit RVD, from unit RV0]`. The run gives 5 rows: T01, T02, L01-L05, L06-L10, L11-L12. A second run `20261028T033359Z-r41` exists for this page. Both runs give the same 5 group keys under the sentence rule `[check: RVD 2026-10-29 10:48 python3 re-implementation of the rule over TS_3.json of both runs]`. Whether the keys stay equal on other pages is Not verified.
+
+Row `left_foot_full/p048/ts3/L01-L05`:
+
+- JA: `わたしは剣先を相手の中墨から外さず攻めつづけ、相手に少しでも隙が生じたと思ったら、気で乗り、腰で乗るようにして先を取って打突するよう心がけています。打突する際は右足の踏み込みと左足の蹴り、さらに左足の引きつけに注意して左手左腰左足の一体化をはかっています。`
+- EN (ED_3): `I keep applying Seme without letting my Kensen leave the Ai-te's Chūzumi (centerline), and if I think the Ai-te has even a slight opening, I ride in with ki and, as if riding in with the hips, make a point of taking the initiative and executing Datotsu. When executing Datotsu, I take care with the stepping in of the Migi-ashi (right foot) and the kick of the left foot, and furthermore with the Hiki-tsuke (pull into place) of the left foot, and I work on unifying the Hidari-te, left hip, and left foot into one.`
+- Titles: T01 "Unification of the Hidari-te, Left Hip, and Left Foot" and T02 "All Datotsu Are Decided by the Left".
+
+Term marks of this row in the run file `programs/term_marks.ED_3.json` `[check: RVD 2026-10-29 10:41 python3 read of term_marks.ED_3.json]`:
+
+| Mark | JA | EN found | Item |
+|---|---|---|---|
+| M04 | 剣先 | Kensen | L01 |
+| M05 | 相手 | Ai-te | L01 |
+| M06 | 中墨 | Chūzumi (centerline) | L01 |
+| M07 | 攻め | Seme | L01 |
+| M08 | 相手 | Ai-te | L01 |
+| M09 | 打突 | Datotsu | L03 |
+| M10 | 打突 | Datotsu | L03 |
+| M11 | 右足 | Migi-ashi (right foot) | L03 |
+| M12 | 引き | Hiki | L04 |
+
+- The row has 9 marks. The file has 30 marks for the whole page.
+- Observation: the JA line L04 holds 左手 and the EN line L04 holds "Hidari-te". The file has no mark for them. It marks 左手 only at L11 (M22).
+- Observation: the file marks 引き and "Hiki" only. The EN text reads "Hiki-tsuke (pull into place)", and the term list names the headword 引き付け with the EN form "Hiki-tsuke (pull into place)". The highlight covers part of the word.
+- Inference: both gaps come from the term search on single lines. The fix TF2 (join split JA lines before the term search) targets this `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:298]`. The reader pages use the marks as the file gives them.
+- In the mock-ups below, `[[x]]` marks a highlighted term.
+
+Single language EN (default):
+
+```
+Page 48                       AI translation, human check: not yet
+-----------------------------------------------------------------
+Unification of the Hidari-te, Left Hip, and Left Foot
+All Datotsu Are Decided by the Left
+
+I keep applying [[Seme]] without letting my [[Kensen]] leave the
+[[Ai-te]]'s [[Chūzumi (centerline)]], and if I think the [[Ai-te]]
+has even a slight opening, I ride in with ki and, as if riding in
+with the hips, make a point of taking the initiative and executing
+[[Datotsu]]. When executing [[Datotsu]], I take care with the
+stepping in of the [[Migi-ashi (right foot)]] and the kick of the
+left foot, and furthermore with the [[Hiki]]-tsuke (pull into
+place) of the left foot, and I work on unifying the Hidari-te,
+left hip, and left foot into one.
+```
+
+- One click on a highlighted term opens the pop-up of the termbase entry, for example `c-47155949e7b9` (中墨). The code exists `[file: app/components/HtvMarkedText.tsx:17-133]`.
+- The pop-up of the reader pages must not show the line "EN form check" (result and detail). That line is research data `[file: app/components/HtvMarkedText.tsx:98-101]`. The reader pages need a prop that hides it.
+- The entry text of the pop-up comes from `termbase.draft.jsonl`. The reader sees the short entry first, with the tag "agent-written" where it applies `[file: app/components/HtvMarkedText.tsx:47-49]`.
+
+Single language JA:
+
+```
+Page 48                       AI translation, human check: not yet
+-----------------------------------------------------------------
+左手左腰左足の一体化
+すべての打突は左が決定する
+
+わたしは[[剣先]]を[[相手]]の[[中墨]]から外さず[[攻め]]つづけ、
+[[相手]]に少しでも隙が生じたと思ったら、気で乗り、腰で乗る
+ようにして先を取って[[打突]]するよう心がけています。[[打突]]する
+際は[[右足]]の踏み込みと左足の蹴り、さらに左足の[[引き]]つけに
+注意して左手左腰左足の一体化をはかっています。
+```
+
+- The JA text uses the font Mincho by default. Ruby stays out `[round 62 answer 11: "Ruby stays out (Recommended)"]`.
+
+Bilingual pairing:
+
+```
+Page 48
+-----------------------------------------------------------------
+| JA  左手左腰左足の一体化
+| EN  Unification of the Hidari-te, Left Hip, and Left Foot
+
+| JA  すべての打突は左が決定する
+| EN  All Datotsu Are Decided by the Left
+
+| JA  わたしは[[剣先]]を[[相手]]の[[中墨]]から外さず[[攻め]]つづけ、...
+| EN  I keep applying [[Seme]] without letting my [[Kensen]] ...
+```
+
+- The unit of a pair is one row (one sentence group). The bar at the left of JA is red and the bar of EN is blue, as in v1 `[check: RV0 report, not re-read by RVD]`.
+- On a wide screen the pair can sit side by side (JA left, EN right). On a phone it stacks (JA above EN).
+- The Aligned table is not a reader view `[round 62 answer 8]`.
+
+Focus mode:
+
+```
+(the bars, the index, and the side panels are hidden)
+
+        I keep applying [[Seme]] without letting my [[Kensen]]
+        leave the [[Ai-te]]'s [[Chūzumi (centerline)]], and if ...
+        (column 72 characters wide, centered)
+                                      Esc or a tap leaves the mode
+```
+
+- The column is 72 characters wide `[check: RVD 2026-10-29 10:42 grep in kendo-translation-viewer-v1/components/reader/ReaderView.tsx, line 1399]`. Esc leaves the mode.
+- Focus mode works in the page view and in the scroll view. The text mode (EN, JA, pairing) stays as set.
+
+Original page image:
+
+```
++---------------------+--------------------------------------------+
+|                     | Page 48                                    |
+|   [image of p048]   | Unification of the Hidari-te, Left Hip ... |
+|                     | I keep applying [[Seme]] without ...       |
++---------------------+--------------------------------------------+
+```
+
+- Books and magazine years have a PDF. The web article has no page image `[file: docs/VISION-viewer.md:181]`. For the web article the toggle is absent.
+- The image source is open. The PDFs sit on the owner Mac only. The 36 books hold 13,278 pages and about 19,259 MB `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:301]`. That is about 1.45 MB per page. A limit of 1 GB (1,024 MB) means about 0.077 MB per page `[check: RVD 2026-10-29 10:51 python3 arithmetic 19259/13278 and 1024/13278]`.
+- Unit PC1 measures how far a PDF can shrink. The owner question "without loss of quality right?" belongs to PC1. This design does not answer it.
+- The view needs only one thing from PC1: one image file for each page at a known path, for example `<images>/<book>/p048.jpg`. The route `/api/read/image/<book>/<page>` serves the file to approved users `[agent inference]`.
+- Until the source exists, the component shows "No page image available" or stays hidden (question 12).
+
+Page and Scroll switch:
+
+```
+[ Page view | Scroll view ]                    Page 48  < >  [ 48 ]
+
+Scroll view:
+  Page 47   No agent translation yet
+  Page 48   (5 rows as above)
+  Page 49   (rows)
+  Page 50   (rows)
+  Page 51   No agent translation yet
+```
+
+- The switch, the URL form, the page box, and the previous and next buttons repeat the human-translation-view `[file: app/components/HtvBook.tsx:21,219-226]`.
+- The choice is saved in the account.
+- A page opens alone in the page view. The scroll view loads a window of pages around the page in view, as the human-translation-view does (`WINDOW_PAGES` 2, `[file: app/lib/htv-books.ts:30]`).
+- Page 51 of `left_foot_full` has no run folder `[check: RVD 2026-10-29 10:46 ls pilot-run]`. It is an example of a page that shows "No agent translation yet".
+
+Rows that make no row:
+
+- Caption, pillar, folio, and figure items make no row in the data of the human-translation-view `[file: app/lib/htv-build.ts:90-135]`. Page 48 has 6 caption items C01 to C06 and a running head H01 "The Gokui (deepest secrets) of Kendō and the Left Foot" `[check: RVD 2026-10-29 10:42 python3 read of ED_3.json]`. Example C02 EN: "Point the toes straight toward the Ai-te, bend the ankle slightly, and keep the Hikagami (back of the knee)". The reader misses this text. See question 6.
+
+#### 15.19.5 EN text: agent text and human version
+
+Rule of the owner `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:289,300]`: the default EN text is the agent text. An admin chooses one human version per page. The reader can switch.
+
+What the data holds:
+
+- The agent text is `ed3` of the shown run, in `page_runs.snapshot.rows` `[file: app/lib/htv-types.ts:51-62]`.
+- Human versions are the records of `own_translations`: fields `user`, `item_id`, `page_id`, `group_key`, `ts_ids`, `part`, `ja_text`, `run_id`, `ed3_text`, `text`, `agree`, `version`, `created` `[file: data/scripts/pocketbase/pb_migrations/1793300001_v2_collections.js:36-62]`.
+- `own_translations` is readable by the owner of the record and by admins only. Records never change after the create `[file: data/scripts/pocketbase/pb_migrations/1793300001_v2_collections.js:27,36-40]`. So a reader cannot read a human version from there.
+- An admin can read all own translations. This gives a way to copy a chosen version without a superuser token (question 8).
+
+Proposal for the choice (details in section 15.19.8):
+
+- A new collection `reader_versions` holds at most one record for each page. The field `page_id` is unique.
+- The record holds a copy of the rows of the chosen version: `group_key`, `text`, `agree`, `ed3_text`, `ja_text`. It also holds `user` (the translator), `version`, `run_id`, and `chosen_by`.
+- The admin page `/admin/versions` lists the versions of a page (translator name, version number, date, row count, count of ticked rows). The admin picks one and presses "Show to readers". The admin can also press "Remove the choice".
+- A copy is needed because an approved reader must read the text and `own_translations` is closed to readers. The copy stays valid if the translator later saves a newer version.
+
+Row rules for a chosen version:
+
+| Row of the version | The reader sees | Label |
+|---|---|---|
+| `text` is not empty | the own text of the translator | none (human version, `[file: docs/VISION-viewer.md:251]`) |
+| `agree` is true, `text` is empty | `ed3_text`, the agent text that the translator accepted as it is | see question 7 |
+| `text` empty and `agree` false | the agent text of the shown run for the same `group_key` | "AI translation" on this row |
+
+Worked example. Row `left_foot_full/p048/ts3/L01-L05`. The text below is an example written for this design. No real own translation of this row was read by the unit.
+
+```
+Own text (example only):
+  I keep my kensen on the opponent's centerline and press on. When
+  I sense even a small opening, I enter with spirit and hips, take
+  the initiative, and strike. ...
+Agree tick: the translator ticks the row and leaves the box empty.
+  The reader sees the ED_3 text above, as saved in ed3_text.
+```
+
+The order of rows: the copy takes the order of the agent rows of the run named in `run_id` of the version. The admin route reads that run from `page_runs`. The rows have a stable key `<page_id>/ts3/<first>-<last>`. A group key that the agent rows do not have goes to the end of the page `[agent inference]`.
+
+Term highlight in a human version:
+
+- The stored marks belong to the ED_3 text. They do not fit an own text.
+- The JA side keeps its marks. The EN side of an own text has no highlight. The EN side of an agree row has the marks of ED_3 (question 7).
+
+The switch for the reader:
+
+- In the toolbar: "EN text: Agent | Human". The control is active only on pages that have a chosen version. On other pages the agent text shows and the control is grey with the note "No human version for this page".
+- The choice is saved in the account as `reader.en` (section 15.19.6). The default is "Agent".
+- The page line names the shown text: "AI translation, human check: not yet" or "Human translation. Chosen by an admin." No translator name shows unless the owner asks (question 7).
+
+AI label text `[file: docs/VISION-viewer.md:240-251]`:
+
+- Work block: "AI translation: 6 of 120 pages. Human check: 0 of 6 pages."
+- Page line, agent text, no human check: "AI translation, human check: not yet".
+- Page line, agent text, with a human check: "AI translation, human check: done on 2026-10-29".
+- Page line, human version: "Human translation. Chosen by an admin."
+- Synopsis in the book block: "Written by an AI agent."
+- The label is in the data of every page response. The reader cannot hide it.
+
+The human check record: only an admin records that a human checked a page `[file: .opencode/reminders/qa/qa-memory-2026-10-07.md:105]` "Correct, admin only records". The record is a new collection `page_checks` (question 9).
+
+#### 15.19.6 Settings
+
+Facts:
+
+- `user_settings` holds one record for each user: `theme` (light or dark) and `panes` (JSON, at most 20,000 bytes, key `v` 1, key `panes`, key `ui`) `[file: data/scripts/pocketbase/pb_migrations/1793300005_v2_user_settings.js]`.
+- `sanitizeSettings` copies only the keys `panes` and `ui`. It drops every other key `[file: app/lib/htv-settings.ts:169-205]`. So a new key `reader` needs a code change in this file.
+- The ids of the panes are fixed: `list`, `ja`, `agent`, `own`, `tl3`, `comments`, `versions` `[file: app/lib/htv-settings.ts:20]`. The reader pages need no new pane id if the settings go in a new key.
+
+Proposal: a new key `reader` next to `panes` and `ui`:
+
+| Key | Values | Default |
+|---|---|---|
+| `reader.text` | `en`, `ja`, `pair` | `en` |
+| `reader.en` | `agent`, `human` | `agent` |
+| `reader.view` | `page`, `scroll` | `page` (question 13) |
+| `reader.font` | EN: `serif`, `sans`. JA: `mincho`, `gothic` | `serif`, `mincho` |
+| `reader.size` | 12 to 28 px, step 0.5 | 18 |
+| `reader.line` | 1.2 to 2.2 | 1.7 |
+| `reader.width` | `narrow`, `wide` | `narrow` |
+| `reader.focus` | true, false | false |
+| `reader.image` | true, false | false |
+| `reader.index` | open or closed, width in px | open, 192 |
+
+- The theme stays in `user_settings.theme` and the cookie `theme`. The reader pages use the same switch as the other views `[file: app/lib/theme.ts]`. Two themes exist now: light and high-contrast dark. The number of themes is question 11.
+- The limits of size and line come from `SIZE_LIMITS` and `LINE_LIMITS` `[file: app/lib/htv-settings.ts:69-70]`. The fonts come from `FONT_STACKS` `[file: app/lib/htv-settings.ts:37-43]`.
+- Per account, all devices `[file: .opencode/reminders/qa/qa-memory-2026-10-07.md:67]`. A phone and a desktop use the same record. Size and width on a phone can differ from the desktop because of the screen. A separate set for the phone is not planned `[agent inference]`.
+- The settings panel opens from one cog in the reader bar. It holds: Text (EN, JA, Pairing), EN text (Agent, Human), Theme, Font, Size, Line height, Width, Focus mode, Page image, and Reset.
+- The first visit: "Reader picks first" `[file: docs/VISION-viewer.md:190]`. The first page view opens the settings panel once. The panel closes at the first change or at the button "Start reading". The panel shows the defaults.
+- The size of the `reader` key is small (under 400 bytes) `[agent inference]`. The limit of 20,000 bytes stays.
+
+#### 15.19.7 Phone one-column layout
+
+Round 62 answer 9: "Phone one-column layout (Recommended)".
+
+```
++------------------------------+
+| <  Left foot full       [cog]|   top bar: back, title, settings
+|------------------------------|
+| Page 48        AI translation|
+| Unification of the Hidari-te,|
+| Left Hip, and Left Foot      |
+|                              |
+| I keep applying Seme without |
+| letting my Kensen leave the  |
+| ...                          |
+|------------------------------|
+| <  [ 48 ]  >   [bm]  [Aa]    |   bottom bar
++------------------------------+
+```
+
+- One column. The index, the bookmark panel, and the settings panel open as full-width sheets over the text. The sheet closes with a tap outside or the button "Close".
+- The bottom bar holds: previous page, the page box, next page, the bookmark button, and the text settings button. This follows `MobileBottomBar.tsx` of v1 `[check: RV0, not re-read by RVD]`.
+- Bilingual pairing stacks JA above EN for each row.
+- The original page image is a tab above the text: "Text | Image". It is not side by side.
+- Focus mode hides both bars. A tap on the text shows them again.
+- The tap target is at least 44 px high `[agent inference]`.
+- The page view is the default on a phone. The scroll view stays available.
+- Test width: 390 px `[agent inference]`. The check is that no horizontal scroll bar appears.
+- The human-translation-view and the monitor stay desktop only `[file: docs/VISION-viewer.md:334]`.
+
+#### 15.19.8 Data and migrations
+
+Rules for all new migrations, as in migrations 1793300001 to 1793300005:
+
+- Create a collection only if it is absent.
+- If the collection exists, print a line and change nothing.
+- Set explicit `created` and `updated` fields.
+- Set an explicit `max` on long text fields.
+- Keep the data in the down function.
+
+Next free number: 1793300006 `[check: RVD 2026-10-29 10:40 ls pb_migrations]`.
+
+Helper rule strings:
+
+```
+SIGNED_IN = @request.auth.id != ""
+APPROVED  = @request.auth.id != "" && @request.auth.approved = true
+ADMIN     = @request.auth.role = "admin"
+```
+
+Migration `1793300006_v2_users_approved.js`:
+
+- Add the bool field `approved` to `users` if it is absent.
+- Set `approved` true on every existing record. A fresh PocketBase has no user yet.
+- `updateRule`: add `@request.body.approved:isset = false` to the first branch. New rule:
+
+```
+(id = @request.auth.id && @request.body.role:isset = false && @request.body.disabled:isset = false && @request.body.approved:isset = false) || @request.auth.role = "admin"
+```
+
+- `createRule` depends on question 2. Option 1 string:
+
+```
+@request.body.role = "reader" && @request.body.approved = false && @request.body.disabled:isset = false
+```
+
+- `listRule` and `viewRule` depend on the open item in section 15.19.12.
+- Down function: keep the field and the data. Set `createRule` back to `null`.
+
+Migration `1793300007_v2_reader_collections.js`:
+
+| Collection | Fields | Index | list / view | create / update / delete |
+|---|---|---|---|---|
+| `reader_pages` | `page_id` text required, `item_id` text, `n` number, `run_id` text, `rows` json, `terms` json, `extras` json, `built` text | unique `page_id` | `APPROVED` | `null` (S2 only) |
+| `reader_versions` | `page_id` text required, `user` relation users, `version` number, `run_id` text, `rows` json, `chosen_by` relation users | unique `page_id` | `APPROVED` | `ADMIN` for all three |
+| `page_checks` | `page_id` text required, `checked_by` relation users, `note` text max 500 | unique `page_id` | `SIGNED_IN` | `ADMIN` for all three |
+
+- `reader_pages.rows` holds for each row: `key`, `shortKey`, `part`, `ja`, `ed3`, `jaMarks`, `edMarks`. A mark holds `start`, `end`, `markId`, `entryId`, `surface`. The fields `result` and `detail` of the mark are dropped.
+- `reader_pages.terms` holds only the termbase entries that the marks cite, as in the snapshot `[file: app/lib/htv-build.ts:127-133]`.
+- `reader_pages.extras` holds the caption items and the running head (question 6). It is an empty list if question 6 is answered no.
+- `reader_pages` holds no `verdict`, no `score`, no `panel`, and no reasoning text.
+- `reader_pages` has one record for each page. The record holds the run that readers see (question 5).
+- The record size is Not measured. The unit made no build of a record.
+
+Migration `1793300008_v2_reader_user_data.js`:
+
+| Collection | Fields | Index | Rules |
+|---|---|---|---|
+| `bookmarks` | `user` relation, `page_id` text, `item_id` text, `label` text max 200 | unique (`user`, `page_id`) | list and view: `user = @request.auth.id && @request.auth.approved = true`. create: `@request.body.user = @request.auth.id && @request.auth.approved = true`. update: `null`. delete: `user = @request.auth.id`. |
+| `reading_progress` | `user` relation, `item_id` text, `page_id` text, `updated` autodate | unique (`user`, `item_id`) | list and view: as `bookmarks`. create: as `bookmarks`. update: `user = @request.auth.id && @request.body.user:changed = false`. delete: `null`. |
+
+- The progress of a user is one record for each book. It changes at a page turn, so it does not belong in `user_settings.panes` (question 10).
+
+Changes to existing rules:
+
+- `page_runs` list and view: back to `@request.auth.role = "translator" || @request.auth.role = "admin"`, the rule of migration 1793300001 `[file: data/scripts/pocketbase/pb_migrations/1793300001_v2_collections.js:150-153]`. This depends on question 1 and question 4. The change can sit in migration 1793300007 or in a separate file `1793300009`.
+- `own_translations`: no change. An admin reads all records already.
+
+Changes to S2 (`app/scripts/sync-runs.mjs`):
+
+- Build one `reader_pages` record for each page that has a usable run. Use the same `buildRun` as the snapshot, then drop the research fields.
+- Read `run_marks` from PocketBase to pick the run. The run of the admin mark wins. Else the newest usable run (question 5).
+- Add the caption items and the running head to `extras` if question 6 is answered yes.
+- Keep `catalog_items` as it is. No change for the book metadata.
+- A change of a run mark shows to readers at the next S2 run. A mark route that writes `reader_pages` with the admin token is a later option `[agent inference]`.
+- Not verified: the cost of a full S2 run with `reader_pages`.
+
+Changes on the Translator side: none (see `docs/drafts/viewer-translator-loop-notes.md`, not changed in round 62). The folio is not needed, because answer 10 chose the file number.
+
+#### 15.19.9 Code plan
+
+Read first: the Next guides in `app/node_modules/next/dist/docs/` for routes, `redirect`, `loading`, `error`, `server-actions`, and `data-security`, as `app/AGENTS.md` requires `[file: app/AGENTS.md:5]`.
+
+The steps, in this order. A step ends when its tests pass.
+
+1. Migrations `1793300006`, `1793300007`, `1793300008`, and rule tests in `data/scripts/pocketbase/test_local.py`. Use a temporary PocketBase on another port, as the earlier tests did.
+2. Library. `app/lib/htv-session.ts`: allow `/read`, `/admin`, and `/translate` in `isSafeNext`, and move the sign-in to `/sign-in`. `app/lib/htv-types.ts`: roles and the new `approved` flag in `SessionUser`. `app/lib/pb.ts`: `toUser` reads `approved`, and new functions for sign-up, `reader_pages`, `reader_versions`, `page_checks`, `bookmarks`, and `reading_progress`. `app/lib/htv-settings.ts`: the key `reader` and its limits.
+3. New library files: `app/lib/reader-types.ts` (shapes), `app/lib/reader-data.ts` (merge of agent rows, human rows, label text, and window of pages).
+4. S2: `app/scripts/sync-runs.mjs` writes `reader_pages`.
+5. Routes of the API: `app/app/api/read/sign-up/route.ts`, `app/app/api/read/page/route.ts`, `app/app/api/read/progress/route.ts`, `app/app/api/read/bookmarks/route.ts`, `app/app/api/read/image/[book]/[page]/route.ts` (after PC1), `app/app/api/admin/readers/route.ts`, `app/app/api/admin/versions/route.ts`, `app/app/api/admin/checks/route.ts`. Each route checks the origin and the role like `guard` `[file: app/lib/htv-api.ts:22-33]`. No route uses a superuser token.
+6. Pages: `app/app/sign-up/page.tsx`, `app/app/sign-in/page.tsx`, `app/app/read/layout.tsx`, `app/app/read/page.tsx`, `app/app/read/[slug]/page.tsx`, `loading.tsx` and `error.tsx` for `/read`, `app/app/admin/readers/page.tsx`, `app/app/admin/versions/page.tsx`.
+7. Components: `ReaderBar`, `ReaderList`, `ReaderBook`, `ReaderPageSection`, `ReaderText` (the three text modes), `ReaderSettings`, `ReaderBookmarks`, `ReaderImage`. Reuse `HtvIndex` (index), `MarkedText` and `TermPopup` (with a prop that hides the research line), `ThemeSwitch`, and the page and scroll logic of `HtvBook` `[file: app/components/HtvBook.tsx]`. Reuse means a shared file or a copy. The unit that builds this step must pick one and name it.
+8. The read-only reader under `/translate`: change per question 4.
+9. Tests (section 15.19.10) and a state section 15.20 in this file.
+
+Files that the plan does not touch: the monitor pages, the save route, the comment routes, and the Translator repository.
+
+#### 15.19.10 Tests plan
+
+Rule tests with four tokens: unapproved reader, approved reader, translator, admin (own test PocketBase, not port 8090):
+
+| Check | Expected |
+|---|---|
+| Create a user with `role` "admin" through the create rule | fails |
+| Create a user with `approved` true | fails |
+| Create a user with `role` "reader" and `approved` false | works |
+| An unapproved reader sets `approved` true on the own record | fails |
+| A translator sets `approved` on the own record | fails |
+| An admin sets `approved` true on a reader | works |
+| An unapproved reader lists `reader_pages` | empty list or status 403 (Not verified which) |
+| An approved reader lists `reader_pages` and `reader_versions` | works, read only |
+| An approved reader reads `page_runs` and `own_translations` of another user | fails |
+| A reader or a translator writes `reader_versions` or `page_checks` | fails |
+| An admin writes `reader_versions` and `page_checks` | works |
+| A user lists `bookmarks` or `reading_progress` of another user | empty |
+
+Data checks:
+
+- The JSON of `/api/read/page?pageId=left_foot_full/p048` has none of the keys `score`, `verdict`, `panel`, `result`, `detail`, `reasoning`. A script scans all keys.
+- The 5 rows of `left_foot_full/p048` equal the rows of the snapshot except for the dropped fields (parity script, as in the earlier tests).
+- A page with a chosen version returns the human rows in the order of the agent rows. A page without one returns the agent rows.
+- A page with no usable run returns the state "No agent translation yet".
+
+Screen checks (Chrome, the owner dev server is not used, a copy of the app on another port):
+
+- Sign-up shows the state "waits for approval". `/read` lists 37 cards. A book page shows no text for an unapproved reader.
+- After approval, page 48 shows the 5 rows in each of the modes EN, JA, and pairing.
+- A click on "Chūzumi (centerline)" opens the pop-up. The pop-up has no "EN form check" line.
+- The EN switch changes to the human version on a page with a chosen version.
+- Focus mode hides the bars. Esc leaves it.
+- Page and Scroll switch keep the page. The URL carries `view` and `at`.
+- Resume: leave at Page 48, open the book again, and the button says "Continue at Page 48".
+- A bookmark added on Page 48 shows in the panel and opens Page 48.
+- Phone: width 390 px, no horizontal scroll bar, bottom bar visible, pairing stacked.
+- Dark theme: the contrast script covers the reader pages `[file: app/scripts/contrast-dark.mjs]`.
+- Not verified: Safari and Firefox.
+
+#### 15.19.11 Owner questions
+
+Each question gives the case, the options with benefit and cost, and the recommended option first. All cases use real data of the project.
+
+##### Question 1: where the reader text comes from
+
+- Case: today every signed-in user can read `page_runs`. The snapshot of `left_foot_full/p048` holds `verdict` PASS, `score` 9.5, and the TL_3 panel. Your rule is that readers never see these `[file: docs/VISION-viewer.md:232,239]`.
+- Option 1 (recommended): a new collection `reader_pages` that holds only the JA text, the ED_3 text, the term marks, and the termbase entries. S2 fills it. `page_runs` goes back to translator and admin. Benefit: PocketBase itself blocks the research layer, and the app holds no superuser token. Cost: a second copy of the text, a new S2 step, and a delay until the next S2 run after an admin run mark.
+- Option 2: the app reads `page_runs` with a superuser token and strips the fields in a route. Benefit: no second copy. Cost: a superuser secret in the web app. One bug leaks all data.
+- Option 3: keep `page_runs` open to all signed-in users and hide the fields only in the screen. Benefit: no work. Cost: a reader can read the verdict and score through the API. This breaks your rule.
+
+##### Question 2: how a sign-up creates the account
+
+- Case: `users.createRule` is `null`. A person who fills the form on `/sign-up` cannot create a record.
+- Option 1 (recommended): a create rule that allows only `role` "reader" and `approved` false. The route `/api/read/sign-up` sends the form to PocketBase with no secret. Benefit: no superuser token in the app. The rule limits what a stranger can create. Cost: anyone can call the API and create unapproved accounts (spam). Rate limits of PocketBase are Not verified for v0.39.10.
+- Option 2: the route creates the user with a superuser token. Benefit: the route can check and limit requests. Cost: a superuser secret in the web app.
+- Option 3: no public form. An admin creates each reader by hand. Benefit: no spam. Cost: this is not "Sign-up page plus approval" (round 62 answer 6).
+
+##### Question 3: how to store "approved"
+
+- Case: a new reader must sign in to see titles and progress, but must not see text. The field `disabled` blocks the sign-in `[file: data/scripts/pocketbase/pb_migrations/1793300000_v2_users_rules.js:48]`.
+- Option 1 (recommended): a new bool field `approved` on `users`. All existing accounts get true. Benefit: simple, and `role` keeps its meaning. Cost: every rule that guards text names `approved`.
+- Option 2: a fourth role value "pending". Benefit: one field. Cost: the live server holds the v1 role value "qa", and the app maps unknown values to reader. A role change then does two jobs.
+- Option 3: reuse `disabled` and change `authRule`. Benefit: no new field. Cost: a rejected or disabled person and a new person look the same.
+
+##### Question 4: the read-only view of the reader under /translate
+
+- Case: a reader today opens `/translate/left_foot_full?at=p048` and sees JA, ED_3, and the TL_3 panel in read-only form (round 55 answer 6 and round 56 answer 5).
+- Option 1 (recommended): a reader goes to `/read`. `/translate` answers a reader with a redirect to `/read`. Benefit: matches the rule that readers never see the panel. `page_runs` can go back to translator and admin. Cost: the read-only view of round 55 and 56 ends.
+- Option 2: keep both. Benefit: no change for the reader role. Cost: `page_runs` stays open to readers, so question 1 option 1 does not close the leak.
+- Option 3: keep `/translate` read-only for approved readers but hide the panel and scores. Benefit: a reader sees the long human-translation-view layout. Cost: more code, and the view duplicates `/read`.
+
+##### Question 5: which agent runs a reader sees
+
+- Case: 42 finished runs have a verdict: 39 PASS and 3 FAIL `[check: RVD 2026-10-29 10:43 python3 count of summary.json]`. One FAIL run is `mental_full/p014`, run `20261028T023007Z-r41`, score 8.5. Its first JA line is `はめた場合、普段の稽古への取り組み方を考える大きなヒントになります。大切なのは、稽` and the ED_3 line is `If you apply this, it becomes a great hint for thinking about how to approach your everyday Keiko (practice). What is important is that, during Keiko,`.
+- Option 1 (recommended): a page shows the run of the admin mark, else the newest PASS run. A page with only FAIL runs shows "No agent translation yet". Benefit: no reader sees text that QA_3 rejected. Cost: the 3 FAIL pages stay hidden until an admin marks a run, and the words "No agent translation yet" are not exact for them.
+- Option 2: the same rule as the human-translation-view: the newest finished run, FAIL included. Benefit: more pages. Cost: a reader sees text with a failed check, and the reader cannot know it, because the verdict is hidden.
+- Option 3: PASS runs and FAIL runs with a score of 8.5 or more. Benefit: a middle way. Cost: a new threshold that no decision supports.
+
+##### Question 6: photo captions and the running head
+
+- Case: page 48 has 6 caption items. C02 reads: "Point the toes straight toward the Ai-te, bend the ankle slightly, and keep the Hikagami (back of the knee)". The rows of the data do not include captions `[file: app/lib/htv-build.ts:90-135]`.
+- Option 1 (recommended): S2 copies the captions and the running head into `reader_pages.extras`. The page shows them as a block "Photo captions" after the rows. Benefit: a reader gets all translated text of the page. Cost: S2 work, and the pairing of a caption with its photo is not shown.
+- Option 2: leave captions out of the first version. Benefit: no S2 change. Cost: a reader misses text on every page with photos.
+
+##### Question 7: how a ticked "agree" row shows, and the translator name
+
+- Case: a translator ticks the row `left_foot_full/p048/ts3/L01-L05` and leaves the box empty. The own text is empty, and `ed3_text` holds the agent text. Your rule says human versions carry no AI label `[file: docs/VISION-viewer.md:251]`, but this text is still agent text.
+- Option 1 (recommended): the row shows the agent text with the small tag "AI translation, checked by a translator". The term highlight of ED_3 stays. The translator name does not show. Benefit: honest, and the label rule for agent text holds. Cost: a human page can show both tags.
+- Option 2: the row shows as human text with no tag. Benefit: the page looks uniform. Cost: AI text appears with no AI label.
+- Option 3: show the translator name on the page line ("Human translation by <name>"). Benefit: credit for the translator. Cost: it shows the name of a user to the public, and no decision allows this yet.
+
+##### Question 8: how the admin chooses a human version
+
+- Case: an admin picks one version of a page. The copy goes to `reader_versions` with the admin token. `own_translations` allows an admin to read all records.
+- Option 1 (recommended): the admin page `/admin/versions` lists versions (translator, version, date, rows, ticked rows) and has "Show to readers" and "Remove the choice". Benefit: it keeps "Reading pages stay read-only" `[file: docs/VISION-viewer.md:91]`. Cost: the admin leaves the reader page to choose.
+- Option 2: the choice sits on the reader page, visible to admins only. Benefit: the admin sees what the reader sees. Cost: it breaks "Reading pages stay read-only".
+- Option 3: no copy. A pointer (`user`, `version`) in `reader_versions`, and a route with a superuser token reads the text. Benefit: no copy. Cost: a superuser secret in the app.
+
+##### Question 9: the human check record
+
+- Case: the label says "AI translation, human check: not yet". Only an admin records a check `[file: .opencode/reminders/qa/qa-memory-2026-10-07.md:105]`.
+- Option 1 (recommended): a collection `page_checks` and a button "Mark as human checked" on `/admin/versions`. Benefit: the check and the choice of a version are two facts. Cost: one more collection and button.
+- Option 2: a chosen human version counts as a check. Benefit: no new collection. Cost: a version can be chosen without a real check.
+
+##### Question 10: where the resume place and the bookmarks live
+
+- Case: a reader leaves `left_foot_full` at Page 48 and later opens the book. The place is saved at a page turn.
+- Option 1 (recommended): collections `reading_progress` (one record for each user and book) and `bookmarks`. Benefit: small writes, and the settings JSON stays small. Cost: two collections.
+- Option 2: both inside `user_settings.panes`. Benefit: no new collection. Cost: every page turn rewrites the settings JSON (limit 20,000 bytes), and a long list of bookmarks can fill it.
+
+##### Question 11: how many themes
+
+- Case: the human-translation-view has two themes: light and high-contrast dark `[file: app/lib/htv-settings.ts:7]`. v1 had 7 themes `[check: RV0, not re-read by RVD]`. Your answer: "Themes, fonts, size (Recommended)".
+- Option 1 (recommended): the two themes of the app now. Benefit: no new colors to check. Cost: no sepia for long reading.
+- Option 2: add a third theme "Sepia". Benefit: a softer page for long reading. Cost: new colors and a new contrast check.
+- Option 3: the 7 themes of v1. Benefit: full v1 match. Cost: a large contrast check, and the theme is a setting of the whole app.
+
+##### Question 12: the image source of the Original page image
+
+- Case: the PDFs sit on the owner Mac only. 13,278 pages are about 19,259 MB. Unit PC1 measures the size after compression. The image component needs a file for each page.
+- Option 1 (recommended): build the reader pages without the image. The toggle appears when PC1 gives a source and a size. Benefit: the other views do not wait for PC1. Cost: the answer 8 item "Original page image" comes later.
+- Option 2: serve images from the Mac data folder for the local app now. Benefit: you can see the view at once. Cost: it works on the Mac only, so not for the hosted site.
+- Option 3: wait for PC1 and build the image view in the first release. Benefit: one release. Cost: a delay of all reader pages.
+
+##### Question 13: the default view
+
+- Case: your words "view page-by-page efficiently" and the human-translation-view default to the scroll view `[file: app/lib/htv-settings.ts:93]`.
+- Option 1 (recommended): the page view is the default for readers. Benefit: one page loads at a time, as asked. Cost: a reader who likes to scroll must switch once. The choice is saved.
+- Option 2: the scroll view is the default, as in the human-translation-view. Benefit: one rule for both views. Cost: the first load carries a window of pages.
+
+#### 15.19.12 Not verified
+
+- The live behavior of the proposed create rule and update rule on PocketBase v0.39.10. The unit ran no PocketBase request.
+- Whether `@request.body.approved = false` accepts a sign-up body that has no `approved` key.
+- Whether PocketBase hides the email of a user from other signed-in users.
+- Whether a list rule that fails gives an empty list or status 403 on this version.
+- The rate limit of PocketBase for the sign-up route.
+- The size of one `reader_pages` record and of all records.
+- The group keys of a page across runs, except for `left_foot_full/p048` (two runs, the same 5 keys).
+- The order of the saved rows of `own_translations` by `created`. The design uses the order of the agent rows.
+- The text of the v1 reader files. The unit used the report of unit RV0 and two greps only.
+- A real own translation of `left_foot_full/p048`. The worked example for a human version is written text.
+- The Next 16.4.3 guide pages for the routes. The code unit must read them.
+- Whether S2 can read `run_marks` and write `reader_pages` within its present limits.
+- Safari, Firefox, and a real phone.
+
+Open items:
+
+- Where the hosted front door `/` points. The monitor owns `/` today. The decision belongs to unit DB1.
+- `catalog_items.row` holds research fields that every signed-in user can read. Strip them or keep them.
+- `users` list and view rules show user records to every signed-in person. With public sign-up, a rule such as `id = @request.auth.id || @request.auth.approved = true` can limit it. The comment view reads the user name through `expand` `[file: app/lib/pb.ts:255,271]`, so a change needs a test.
+- The title of the web article `18d4ac29`.
+- Search, the dashboard folds, the change log, and keyboard keys are not in answers 8 or 9. The first reader version leaves them out `[agent inference]`.
+- Print and export, Version history view, Vertical JA view, and Linked page image `[file: docs/VISION-viewer.md:162-175]` are not in answer 8. They stay out of the first version `[agent inference]`.
+- The rule for a PDF size limit of 1 GB belongs to unit PC1.
+
+Status: open.
