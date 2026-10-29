@@ -410,3 +410,17 @@
 - The old line "S2 is not now" is replaced by the code. The human-translation-view can read `page_runs` through the config key `runSource` `pocketbase`. The default is `files`.
 - Result on this Mac: 37 snapshots, total 2.01 MB, largest 0.13 MB. The parity test shows 0 differences for 37 runs and 278 sentence groups.
 - Not verified: the Translator side has not read the code. No Translator file changed.
+
+## Round 58
+
+- Source: owner answers 3 to 6 of round 58 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:201-204]`. The design is in `docs/VISION-viewer.md` section 15.16 `[check: UXD 2026-10-28 22:45]`. This list holds facts and open points. It holds no decision.
+- Page counts. The 36 page folders of `BOOKS_DIR` hold 13,278 pages. Each folder numbers its pages from 1 to the last page with no gap `[check: UXD 2026-10-28 22:24 python3 -B counts.py]`. The field `pages` of `items.filled.jsonl` equals the PDF count for all 36 folders `[check: UXD 2026-10-28 22:30 python3 -B compare]`. The field `pages` of `inventory.json` exists for the same 36 folders. The Viewer book screen needs a page count only, so it needs no Translator change.
+- Page IDs. A folder with more than 999 pages uses 4 digits (`kendojidai_2014/p0839`). A smaller folder uses 3 digits (`left_foot_full/p048`) `[file: data/scripts/translator/pages.py:id_digits]`.
+- Pages without a run. In the 11 page folders, 29 of 3,544 pages (0.8 percent) have a finished run. Example: `left_foot_full` has 6 of 120 `[check: UXD 2026-10-28 22:29 node rows.mjs]`. The Viewer shows the other pages as "No agent translation" unless the owner decides otherwise.
+- JA text without a run. No v2 transcription (TS_3) exists for a page without a run. The OCR cache `data/pilot-run/cache/ndlocr` holds 277 entries and is not a store of all pages `[check: UXD 2026-10-28 22:25 ls]`. Open point: whether a transcription-only run for a whole book is wanted. Not verified: whether the Translator can run only the TS stage for many pages.
+- Earlier-pipeline text. The folder `/Volumes/NghiaHDD2T/universal-agent_v2/book-postprocessing/<Book>/pages/page_NNN.md` holds a JA line, an EN line, and a ZH line for each block. The EN line is not a v2 agent translation `[check: UXD 2026-10-28 22:25 cat of page_048.md]`.
+- TL_3 message shape. The Viewer panel cards read the lines `name: value` of `[ENTRY]` (9 fields) and `[PAIR]` (`source`, `ja`, `en`) `[check: UXD 2026-10-28 22:32 python3 -B scan of 65 messages]`. A change of these names in `messages/TL_3.txt` breaks the cards. The Translator side must tell the Viewer side before such a change `[agent inference]`.
+- Source of a pair. A book translation memory pair names `page <page ID>, pair <P..>, run <run>, split <value>`. An aligned translation memory pair names `unit <unit ID>` and has no page ID.
+- Web article. The row of `18d4ac29-12d5-4753-b032-35337361fee5` in `items.filled.jsonl` has `pages` null. S2 looks up the short ID, so `catalog_items` holds `pages` 0 and an empty title for `18d4ac29` `[file: app/scripts/sync-runs.mjs:368-381]`.
+- Magazine months. `magazine-chapters.jsonl` has 103 rows with `page_start` and `page_end`. PocketBase holds none of them today. October 2014 is p778 to p868 in `kendojidai_2014`.
+- Not verified: the Translator side has not read this list. No Translator file changed.

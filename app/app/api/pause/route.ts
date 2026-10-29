@@ -1,5 +1,6 @@
 import { setPause } from "@/lib/runs";
 import { jsonResponse, errorResponse } from "@/lib/api";
+import { monitorOffResponse } from "@/lib/monitor";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,9 @@ export const dynamic = "force-dynamic";
 // so a web page from another site cannot press the button.
 export async function POST(req: Request) {
   try {
+    // Round 58 answer 7 (Q-A 2026-10-28 l205): monitor off gives 404 before any file read.
+    const off = await monitorOffResponse();
+    if (off) return off;
     const origin = req.headers.get("origin");
     const host = req.headers.get("host");
     if (origin && host && new URL(origin).host !== host) {

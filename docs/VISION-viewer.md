@@ -1020,7 +1020,7 @@ Status: open.
 #### 15.13.3 Unit defaults
 
 - Each item below is a choice of unit H1. The docs leave the detail open. The owner has not decided any of them.
-  - Routes: `/translate` (list), `/translate/<book>/<page>` (one page), and `/translate/sign-in`. A page ID has two parts, so the page route has two segments.
+  - Routes: `/translate` (list), `/translate/<book>/<page>` (one page), and `/translate/sign-in`. A page ID has two parts, so the page route has two segments. (Round 58: the book screen `/translate/<book>` becomes the main route, and the old page route redirects. See 15.16.2.)
   - Reader: a read-only view with the JA text, the ED_3 text, and the panel. It has no own box, no comments, and no saved data. Section 15.2 says that the reader opens the reader pages `[agent inference]`, so this default is open.
   - Session: the app checks the token on each request with the user record. It treats a disabled account as not signed in. A page refreshes the token when less than 3 days are left.
   - Times show in UTC, so that the server and the browser agree.
@@ -1028,7 +1028,7 @@ Status: open.
   - A saved text gets the run notice only if the text is not empty. The page also shows one line above the rows when any row has a notice.
   - The notice text is the proposal of section 15.12.4.
   - The admin run mark control sits on the page view, with a list of the finished runs and two buttons. The page list shows the word "marked".
-  - The panel sits in a column of 26 rem at the right of the rows. The view is for desktop only (round 44 answer 8).
+  - The panel sits in a column of 26 rem at the right of the rows. The view is for desktop only (round 44 answer 8). (Round 58: need 3 makes the width changeable by drag, with 416 px as the default. See 15.16.4.)
   - The top bar title reads "human-translation-view" on the paths under `/translate`.
   - Loading an older version puts it in the boxes. The boxes then count as saved, because the older version stays in PocketBase. A new Save keeps it as a new version.
   - The warning on unsaved text covers a reload, a close, a typed address, and a click on a link of the app. It does not cover the back button of the browser.
@@ -1485,7 +1485,7 @@ node scripts/sync-runs.mjs --superuser superuser@kendo-translation.local --apply
 
 - Key in `viewer.config.json`: `runSource`. The value `files` is the default. It reads the run folders and works as in H1. The value `pocketbase` reads `page_runs` and `catalog_items`.
 - The tracked `app/viewer.config.json` does not hold the key. The dev server on port 3000 keeps the value `files`.
-- With `runSource` `pocketbase`, the key `translatorDataDir` is optional. The agent-translation-monitor (tabs Runs and Books) still reads files. Without the key it shows an error.
+- With `runSource` `pocketbase`, the key `translatorDataDir` is optional. The agent-translation-monitor (tabs Runs and Books) still reads files. Without the key it shows an error. (Round 58: code reading by unit DP1A shows empty tables and 404 pages, and 500 only on /api/file and /api/pause `[file: app/lib/json.ts:6-58]`. Round 58 answer 7 hides the monitor on the deploy, unit DPC.)
 - Changed code: `app/lib/htv-runs.ts`, `app/lib/config.ts`, `app/lib/pb.ts`, and the four callers `app/app/translate/page.tsx`, `app/app/translate/[slug]/[page]/page.tsx`, `app/app/api/htv/mark/route.ts`, and `app/app/api/htv/save/route.ts`. The functions `finishedRuns`, `listFinishedPages`, `loadHtvPage`, and `rowsForSave` take the user token.
 - In `pocketbase` mode:
   - The run list is a request on `page_runs` with the fields `page_id`, `run_id`, `verdict`, `qa3_page_score`, `started_utc`, and `status`. It has no snapshot. It sorts by `-started_utc,-run_id`.
@@ -1573,3 +1573,635 @@ node scripts/sync-runs.mjs --superuser superuser@kendo-translation.local --apply
 - The questions of 15.14.11 are decided. Questions 1 to 12 follow round 56 answers 3 to 5. Question 13 follows round 56 answer 6: the app on `v2.kendotranslation.com` and the PocketBase on `pb-v2.kendotranslation.com`.
 
 Status: decided for the code. The owner has not yet run S2 by hand.
+
+### 15.16 Screen needs of round 57 (design, round 58)
+
+- Source: owner answer 5 of round 57 and owner answers 3 to 6 of round 58 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:185]` `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:201-205]`. Unit UXD wrote this section `[check: UXD 2026-10-28 22:40]`.
+- This section holds design only. No code and no data changed. The design process of round 42 answer 9 applies: the owner states a need, aki-main restates it, the owner validates it, a docs unit writes the design, then a code unit builds it `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:85]`.
+- Sizes use MB. One MB is 1,048,576 bytes.
+- `<TMP>` is the folder `/var/folders/sz/2hvwvpb16c77mfzqnvkb5gbc0000gn/T/opencode`. The work files of unit UXD sit in `<TMP>/r58/UXD/`.
+- Code line numbers name the commit `bf62d61` (read with `git show HEAD:path`). Unit DPC edits `app/**` at the same time, so a line can move later.
+- Words follow the owner vocabulary: EN term, book translation memory, aligned translation memory, short English explanation, critique group, sentence group, agent translation, own translation. A new plain name has the mark "(proposal)".
+- Section 15.16.8 holds the questions. A default named there is not an owner decision.
+
+#### 15.16.1 Owner words and decisions
+
+- Round 57 answer 5, the four wishes `[user 2026-10-28 21:15]` `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:185]`. The text below is exact, with the owner spelling:
+
+```
++ The human translator should view and access content like a normal reader view. not page-by-page
++ Add a checkbox for human translator: tick mean completely agree with the agent trasnlation
++ The right side UI for additional context is literally unreadable. Optimize the UI UX for user properly.
++ also can you add a high contrast dark theme?
+```
+
+- Round 58 answers, after aki-main restated each need with project examples `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:201-205]`:
+
+| Need | Q-A line | Owner words | Tag |
+|---|---|---|---|
+| 1 Book screen | l201 | "Not just translated pages. All pages. With agent translated pages tagged." | `[user 2026-10-28 22:17]` |
+| 2 Agree tick | l202 | "Correct, new agree field (Recommended)" | `[accepted recommendation 2026-10-28 22:17]` |
+| 3 TL_3 panel | l203 | "Option 1. but also: customizable font and panel size/color/etc. Every pane should have a setting cog button for customization" | `[user 2026-10-28 22:17]` |
+| 4 Dark theme | l204 | "Whole app, per account (Recommended)" | `[accepted recommendation 2026-10-28 22:17]` |
+| Deploy code | l205 | "Env settings for Vercel (Recommended), Hide monitor on deploy (Recommended), Keep email and names (Recommended)" | `[accepted recommendation 2026-10-28 22:17]` |
+
+- What the answers decide `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:211-216]`:
+  - Need 1. The book screen shows all pages of a book. A page with an agent translation carries a tag. The gap line idea of the first restatement ("p051 to p074: no translated pages") is replaced.
+  - Need 2. Each row gets one checkbox "Agree with the agent text". The next Save stores the tick in a new true/false field `agree` of `own_translations` (migration 1793300004). The own box can stay empty. If a newer run shows other text later, the tick stays and the existing run notice says that the user saved for the older run.
+  - Need 3. Option 1 of the restatement, plus a settings cog on every pane. Option 1 holds these parts:
+    - Dictionary cards, plain EN lines for the lower pair, and JA and EN memory pairs.
+    - English in a 15 px sans-serif font, a width that changes by drag, and a panel that closes.
+    - No JA text block. The block order is dictionary, book translation memory, aligned translation memory, lower pair, earlier term marks.
+    - The change is on the screen only. Snapshots and S2 stay the same.
+  - Need 4. A switch in the top bar offers "Light" and "High-contrast dark". The dark colors come from the v1 high-contrast theme. The theme covers the human-translation-view and the monitor. A signed-in user keeps the choice in the account. The monitor keeps it in the browser.
+  - Deploy code (answer 7). Unit DPC builds it in parallel. This section does not design it.
+- Readings that wait for the owner `[reading pending owner check]`:
+  - Save stays per page. The owner corrected only the part "translated pages only" of the first restatement.
+  - Pane settings live in the account, like the theme. Older answers point this way: layout "Per account, all devices" `[file: .opencode/reminders/qa/qa-memory-2026-10-07.md:67]` and extra items "Saved per account (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:111]`.
+  - What an untranslated page shows is open (question 1 of 15.16.8).
+- Earlier decisions that bind this design:
+  - Reader role: a read-only view `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:151]`. Page runs are readable by every signed-in user `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:165]`.
+  - The H1 defaults stay `[file: docs/VISION-viewer.md:1022-1037]`:
+    - Pillar, caption, folio, and figure items make no row.
+    - Times show in UTC.
+    - A long panel block starts closed.
+    - No back-button guard.
+    - One Save takes at most 200 rows.
+  - Every Save writes one record for every row of the page, all with the same version number `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:126]`.
+  - The TL_3 panel hides the fixed text and shows whole page blocks `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:99-100]`.
+  - Reader vision: "Make it like a professional book reading website." The reader moves, resizes, hides, and shows panels. The layout is saved per account, across all devices `[file: docs/VISION-viewer.md:123]` `[file: docs/VISION-viewer.md:176-192]`. The human-translation-view is for desktop only `[file: docs/VISION-viewer.md:1031]`.
+
+#### 15.16.2 Need 1: one book screen with all pages
+
+##### The problem, with an example
+
+- Today the list `/translate` has one table row for each page with a finished run. A page opens alone at `/translate/<book>/<page>` `[file: app/app/translate/page.tsx:22]` `[file: app/app/translate/[slug]/[page]/page.tsx:13-16]` `[file: app/components/HtvList.tsx:10]`.
+- Example: the book `left_foot_full` ("The Secret of Kendo and the Left Foot") has 120 pages `[check: UXD 2026-10-28 22:24 python3 -B counts.py]`. Six of them have a finished run: p046, p047, p048, p049, p050, and p075 `[check: UXD 2026-10-28 22:29 node rows.mjs]`.
+  - The translator opens p048. It shows 5 rows. To read p049, the translator goes back to the list through the link "All pages" and clicks p049 `[file: app/components/HtvBar.tsx:21]`.
+  - The other 114 pages have no link at all. The translator cannot see that they exist.
+- Cause: the list comes from the runs `[file: app/lib/htv-runs.ts:79-146]`. A row comes from a sentence group of a run, and the group key holds the TS_3 line IDs, for example `mental_full/p014/ts3/L01-L08` `[file: app/lib/htv-groups.ts:47-91]`. A page with no run has no group, so it has no row.
+
+##### The data of the 12 items that have a finished run
+
+- The 11 book and magazine folders hold 3,544 pages in 4,967.9 MB. All 36 folders hold 13,278 pages in 19,259.2 MB `[check: UXD 2026-10-28 22:30 python3 -B size sum over pages_of]`.
+- Each folder numbers its pages from 1 to the last page with no gap `[check: UXD 2026-10-28 22:24 python3 -B counts.py, contig=True for 36 of 36]`.
+- A page ID has 4 digits when the folder holds more than 999 pages `[file: kendo-translation-translator/data/scripts/translator/pages.py:id_digits]`. So `kendojidai_2014` has p0001 to p1051. `kendojidai_2012` has p001 to p949.
+
+| Item | Pages | Page PDFs in MB | Pages with a finished run (verdict, score of the newest finished run) |
+|---|---|---|---|
+| `100_practice_full` | 367 | 277.0 | 2: p067 PASS 10.0, p255 PASS 9.5 |
+| `18d4ac29` (web article) | no folder | none | 1: p001 PASS 9.25 |
+| `eiga_full` | 204 | 201.1 | 2: p053 PASS 10.0, p159 PASS 10.0 |
+| `kendojidai_2012` | 949 | 1,718.0 | 2: p350 PASS 9.5, p711 PASS 10.0 |
+| `kendojidai_2014` | 1,051 | 1,830.5 | 6: p0794 PASS 9.5, p0795 PASS 9.0, p0796 PASS 9.5, p0797 PASS 9.5, p0798 PASS 9.5, p0839 FAIL 8.25 |
+| `left_foot_full` | 120 | 111.3 | 6: p046 PASS 10.0, p047 PASS 9.5, p048 PASS 10.0, p049 PASS 10.0, p050 PASS 9.5, p075 PASS 10.0 |
+| `lifelong_full` | 279 | 235.1 | 2: p099 PASS 10.0, p140 PASS 9.5 |
+| `men0` | 11 | 11.4 | 1: p005 PASS 10.0 |
+| `mental_full` | 169 | 186.0 | 2: p014 FAIL 8.5, p057 PASS 10.0 |
+| `ogawa_lecture_part2` | 150 | 142.9 | 2: p085 PASS 10.0, p089 PASS 10.0 |
+| `ogawa_lecture_part3` | 102 | 102.1 | 2: p048 PASS 10.0, p088 PASS 10.0 |
+| `sumiss_train_full` | 142 | 152.6 | 2: p096 PASS 9.0, p129 PASS 10.0 |
+
+- The verdict and score come from `summary.json`, key `qa.QA_3`, of the newest finished run of each page `[check: UXD 2026-10-28 22:24 python3 -B verdict scan of data/pilot-run, 30 pages]`. The sum of the last column is 30 pages.
+- A run that is still in progress is not finished and gets no tag. Example: the folder `left_foot_full_p046/20261029T051154Z-r41` has no `summary.json` now `[check: UXD 2026-10-28 22:24 python3 -B finished-run scan]`.
+- The web article `18d4ac29` has one page, `18d4ac29/p001`. It has no page folder in `BOOKS_DIR`. What "all pages" means for a new web article is Not verified `[agent inference]`.
+- A magazine year holds the months as chapters. Example: `kendojidai_2014` October 2014 is p778 to p868 (91 pages) and holds p0794 to p0798 and p0839 `[check: UXD 2026-10-28 22:28 python3 -B read of magazine-chapters.jsonl]`.
+
+##### What exists for a page without an agent translation
+
+| Content | Where | Size | On the deploy |
+|---|---|---|---|
+| Page PDF `page_048.pdf` | `BOOKS_DIR` on this Mac `[file: kendo-translation-translator/data/scripts/translator_run.py:103]` | 0.84 MB for `left_foot_full` p048, 111.3 MB for the whole book | No |
+| Markdown of the earlier pipeline `page_048.md` | `/Volumes/NghiaHDD2T/universal-agent_v2/book-postprocessing/Left foot full/pages/` | 0.61 MB for 120 pages. `kendojidai_2014`: 7.12 MB for 1,043 of 1,051 pages. `Men 0` has none | No |
+| JA transcription TS_3 of the v2 Translator | run folder `results/TS_3.json` | only for a page with a run | Only through the snapshot |
+
+- `[check: UXD 2026-10-28 22:25 ls and wc of book-postprocessing, python3 -B size sum]`. The earlier-pipeline folder holds 10 of the 11 items that have a page folder. `Men 0` has no folder there. The web article has none.
+- Block format of the markdown file. A block has an optional label line, then the JA line, the EN line, and the ZH line. A line with `---` ends the block. Example from `left_foot_full` p048 `[check: UXD 2026-10-28 22:25 cat of page_048.md]`:
+
+```
+【Heading】
+左手左腰左足の一体化
+The unification of *hidari-te*, *hidari-koshi*, and *hidari-ashi*.
+*Hidari-te*、*hidari-koshi*与*hidari-ashi*的一体化。
+
+---
+```
+
+- The magazine file `kendojidai_2014` page_839.md uses the label `[Heading]` with square brackets. Its first block is `柳生新陰流と「理合剣道」` `[check: UXD 2026-10-28 22:25 sed of page_839.md]`.
+- The EN line of the markdown file is not the v2 agent translation. It comes from an earlier pipeline. It has its own style, for example `*datotsu*` in italics and notes like `[T/N: Term not in reference dictionary; ...]` `[check: UXD 2026-10-28 22:25 cat of page_048.md]`. The book screen must not tag it as an agent translation.
+- No JA transcription of the v2 Translator exists for a page without a run. The OCR cache `data/pilot-run/cache/ndlocr` holds 277 entries. It is a cache of earlier page runs, not a store of all pages `[check: UXD 2026-10-28 22:25 ls of cache]`.
+- The earlier-pipeline text also sits in one file for each book, for example `/Volumes/NghiaHDD2T/universal-agent_v2/compiled_agents/gemini_kendo_book_translator/translated/Left foot full_trilingual.md` (0.67 MB, 120 pages) `[check: UXD 2026-10-28 22:42 ls and head]`.
+- Page images are not in PocketBase. The size of the Oracle server disk is Not verified.
+
+##### Design
+
+- Book list. The route `/translate` shows one row for each book: title, slug, page count, and the count of pages with an agent translation. One click opens the book screen. Example row: `left_foot_full`, "The Secret of Kendo and the Left Foot", 120 pages, 6 with an agent translation. Question 2 asks which books the list shows.
+- Book screen. The new route `/translate/<book>` shows one section for each page, from the first to the last page. A thin heading opens each section. The heading holds the page ID and a tag.
+  - Tag of a page with an agent translation: the verdict pill with the score, and the shown run. Example: `left_foot_full/p048`, PASS 10.0, run `20261028T033359Z-r41`. The verdict pill exists today `[file: app/components/Pills.tsx:19-28]`.
+  - Tag of a page without one: the words "No agent translation" (proposal).
+  - A page with an agent translation shows its rows as today: JA column, agent translation column, own box, copy button, comments, and the tick of need 2.
+  - What an untranslated page shows below its heading is question 1.
+- Worked example, `left_foot_full` with 120 pages `[check: UXD 2026-10-28 22:29 node rows.mjs]`:
+
+| Pages | Heading tag | Rows |
+|---|---|---|
+| p001 to p045 (45 pages) | No agent translation | none |
+| p046 | PASS 10.0, run `20261028T023007Z-r41` | 5 |
+| p047 | PASS 9.5, run `20261028T025716Z-r41` | 6 |
+| p048 | PASS 10.0, run `20261028T033359Z-r41` | 5 |
+| p049 | PASS 10.0, run `20261028T040511Z-r41` | 4 |
+| p050 | PASS 9.5, run `20261028T042806Z-r41` | 6 |
+| p051 to p074 (24 pages) | No agent translation | none |
+| p075 | PASS 10.0, run `20261026T182512Z-r41` | 13 |
+| p076 to p120 (45 pages) | No agent translation | none |
+
+- The table sums to 39 rows, 6 tagged pages, and 114 untagged pages. The translator scrolls from p045 to p046 to p047 without a click.
+- Load of a long book. A 120-page book of translated pages holds about 6.8 MB of snapshots (120 pages at the average of 0.057 MB). The magazine year `kendojidai_2014` holds about 60 MB `[agent inference]` `[check: UX0 2026-10-28 21:2x items.log: 30 pages, 1.70 MB]`. The browser must not load all of it.
+  - The server sends the page index at once: page number, tag, verdict, score, and run for each page. It comes from `page_runs` fields without the snapshot, like the list reads them today `[file: app/lib/pb.ts:329-347]`.
+  - A section loads its rows when it is within 2 pages of the screen (proposal). The browser asks a new route `GET /api/htv/page` for the page data, the saved versions, the saved rows, and the comments.
+  - A section with unsaved text never unloads (proposal).
+  - Precedent in v1: a virtual list (`react-virtuoso`), and a server that sends page 1 while the browser fetches the other pages in the background `[file: kendo-translation-viewer-v1/components/reader/VirtualizedReader.tsx]` `[file: kendo-translation-viewer-v1/components/reader/ReaderView.tsx:172-177,302-330]`.
+- URL of a page inside the book screen. The anchor `/translate/left_foot_full#p048` scrolls to the section. The query `?at=p048` makes the server load the window around p048 first. The old route `/translate/left_foot_full/p048` answers with a redirect to `/translate/left_foot_full?at=p048#p048`, so old links work (proposal).
+- Save. Each page section keeps its own Save, version history, comments, and run mark control for the admin. The routes take a page ID and stay as they are `[file: app/app/api/htv/save/route.ts:19,30-41]` `[file: app/lib/pb.ts:206-208]` `[file: app/app/api/htv/comments/route.ts:14,18]`. Question 3 asks about a Save for the whole screen.
+- Panel. The screen has one TL_3 panel at the right. It shows the page in view. The page in view is the section that holds the line at 35 percent of the screen height (proposal). A click on a page heading pins that page. For an untranslated page the panel says "No agent run for this page."
+- Leave warning. Today one flag covers one page `[file: app/components/HtvEditor.tsx:77-81,90-115]`. The book screen keeps a list of the pages with unsaved text. The warning shows when the list is not empty. A move inside the screen has the same path, so it does not warn `[file: app/components/HtvEditor.tsx:103]`.
+- Reader role. The same screen, read-only. It loads no own box, no comment, and no saved data `[file: app/app/translate/[slug]/[page]/page.tsx:31-35]`.
+- Run mark. One mark for each page stays. A page section shows the control only for the admin `[file: app/components/HtvEditor.tsx:236-253]`.
+- Code places that change:
+  - `app/app/translate/page.tsx` (book list) and `app/components/HtvList.tsx` (book table).
+  - A new `app/app/translate/[slug]/page.tsx` (book screen).
+  - `app/app/translate/[slug]/[page]/page.tsx` (redirect).
+  - `app/components/HtvEditor.tsx`. The state of one page sits in one component today. The code unit splits it into a page section.
+  - `app/lib/htv-runs.ts:79-146,172-240` (page index and page data).
+  - `app/lib/pb.ts:329-361` (index from `page_runs` and `catalog_items`).
+  - A new `app/app/api/htv/page/route.ts`.
+
+##### Page count on the deploy
+
+- The deploy has no `BOOKS_DIR`. The count comes from `catalog_items.pages`. S2 fills it from the field `pages` of `items.filled.jsonl` `[file: app/scripts/sync-runs.mjs:368-381]`.
+- The field `pages` equals the PDF count for all 36 folders, with 0 differences `[check: UXD 2026-10-28 22:30 python3 -B compare of counts.json with items.filled.jsonl]`. The 36 folders are 25 books, 9 magazine years, and 2 web captures.
+- Fields that hold a page count `[check: UXD 2026-10-28 22:42 python3 -B read of the item-metadata files]`:
+  - `items.filled.jsonl`: `pages`. S2 copies it.
+  - `inventory.json`, 36 items: `pages`, `first_page`, `last_page`, `first_page_id`, `last_page_id`.
+  - `magazine-chapters.jsonl`, 103 rows: `last_pdf_page`, `page_start`, `page_end`, `page_count`, `pages_listed`.
+- No field holds a full page list of a book. No list is needed, because the pages run from 1 to `pages` `[check: UXD 2026-10-28 22:24 counts.py]`.
+- The web article `18d4ac29` has `pages` 0 in `catalog_items`. S2 looks up the short ID, and the metadata row has the long ID `[file: app/scripts/sync-runs.mjs:458]` `[file: docs/VISION-viewer.md:1536-1542]`. The book screen must treat `pages` 0 as "one page p001 with a run" `[agent inference]`.
+- `magazine_chapters` stays empty `[file: docs/VISION-viewer.md:1542]`. Month headings for the magazine years need a fill step for the 103 rows (question 12).
+- Not verified: the stored value of `catalog_items.pages` in the local PocketBase. The unit did not call the server.
+
+#### 15.16.3 Need 2: the agree tick
+
+##### The problem, with an example
+
+- Today a row has the JA text, the agent text (ED_3), an own box, and a copy button. A translator who agrees with the agent text must copy it into the box and save `[file: app/components/HtvEditor.tsx:402-404,413-428]`. The copy makes a second text that equals the first.
+- Example: `mental_full/p014`, row `mental_full/p014/ts3/L01-L08`, run `20261028T023007Z-r41`. The JA text starts `はめた場合、普段の稽古への取り組み方を考える大きなヒントになります。`. The agent text starts "If you apply this, it becomes a great hint for thinking about how to approach your everyday Keiko (practice)." `[check: UXD 2026-10-28 22:31 node p014.mjs]`. The page has 3 rows and the verdict FAIL 8.5.
+- A tick means: "I accept this whole ED_3 paragraph as it is." The own box stays empty.
+
+##### Design
+
+- Field. One new field `agree` (true or false) in `own_translations`. The records never change after the create (update and delete rules are null) `[file: data/scripts/pocketbase/pb_migrations/1793300001_v2_collections.js:36-61]`. So the tick is part of a version.
+- Migration. The file `1793300004_v2_own_translations_agree.js` adds a `BoolField` named `agree` if it is missing. It follows the style of `1793300003`: safe to run twice, and the down function keeps the field and the data `[file: data/scripts/pocketbase/pb_migrations/1793300003_v2_page_runs_columns.js:3-22]`. The rules do not change.
+- Old records. Their `agree` value is false. This is an `[agent inference]` about PocketBase. Not verified.
+- Save. A row in the request becomes `{ groupKey, text, agree }`. The server accepts a missing `agree` as false. The browser sends one value for every row, like it sends the text of every row today.
+  - Code: the row check `[file: app/app/api/htv/save/route.ts:23-28]`, the `SaveRow` type and the batch body `[file: app/lib/pb.ts:186-193,209-224]`.
+  - Read: the field list of `savedRows` `[file: app/lib/pb.ts:179]`, and `SavedRow` in `[file: app/lib/htv-types.ts:110-115]`.
+- Screen. Each row gets one checkbox with the label "Agree with the agent text" under the agent text column. It is off at start.
+  - The box is disabled when the row has no agent text, because the row shows "No agent text for this row." `[file: app/components/HtvEditor.tsx:403]`.
+  - The reader sees no box `[file: app/components/HtvEditor.tsx:406]`.
+  - A tick counts as a change. The leave warning and the Save state compare the tick with the saved tick `[file: app/components/HtvEditor.tsx:77]`.
+- Version history. The table gets a column "Agreed" with the count of ticked rows (proposal). A load of an older version sets the ticks of that version `[file: app/components/HtvEditor.tsx:145-158,255-292]`.
+- Run notice. The notice today shows only when the saved text is not empty `[file: app/components/HtvEditor.tsx:117-121]`. With a tick and an empty box, no notice shows. So the rule changes: the notice shows when the saved text is not empty or the saved tick is on. The tick stays when the run changes.
+  - Notice text for a tick (proposal): "You ticked this row while the page showed run 20261028T023007Z-r41. The page now shows run 20261026T195046Z-r41. The agent text of this row can differ."
+- Rows with no row in the shown run. The section "Saved for lines that this run cuts in another way" lists a saved row with text `[file: app/components/HtvEditor.tsx:316-348]`. A ticked row with no text must show too. It shows the text that the user agreed to, from the field `ed3_text` of the record (proposal).
+- Reader. The reader has no own box and no tick.
+
+##### Worked example
+
+1. A translator opens `mental_full/p014`. The page shows run `20261028T023007Z-r41`. Row L01-L08 shows "If you apply this, it becomes a great hint ..." in the agent column.
+2. The translator ticks "Agree with the agent text" on rows L01-L08 and L09-L13. The translator types an own text in row L14-L15 and leaves the tick off.
+3. A click on Save writes version 1 with 3 records. Rows 1 and 2 hold `agree` true and `text` empty. Row 3 holds `agree` false and the own text. Each record holds the agent text in `ed3_text`.
+4. Later the admin marks the older run `20261026T195046Z-r41` for this page. Its row L01-L08 starts "If applied, it becomes a great hint ..." `[check: UXD 2026-10-28 22:31 node p014.mjs]`.
+5. The page now shows the older run. Rows 1 and 2 keep the tick. Each shows the run notice above.
+
+##### Own text and tick together
+
+- The owner words say: "tick mean completely agree with the agent trasnlation". A row with an own text and a tick has no clear meaning. Question 4 asks the owner.
+
+#### 15.16.4 Need 3: the TL_3 panel and the settings cog
+
+##### The problem, with an example
+
+- The panel shows the lines of the TL_3 message as text. Page `kendojidai_2014/p0839`, run `20261026T205441Z-r41`: 536 of 721 message lines. It takes 7.0 screens with the default blocks and 21.3 screens with all blocks open `[check: UX0 2026-10-28 21:2x measure.json]`.
+- The block `dictionary_lookup` takes 67 to 70 percent of the shown lines on p014, p0839, and p048. An entry takes about 11.5 lines `[check: UX0 2026-10-28 21:2x items.log]`.
+- One entry of p0839 as the panel shows it today. These are the exact lines of the file `messages/TL_3.txt`:
+
+```
+entry_id: c-fefdc125669e
+store: termbase
+source: kd:1029, refinement:d-0365, kd:1030
+headword_ja: 剣道 (written variants: none)
+reading: けんどう
+romaji: Kendō
+concise_en: the way of the sword
+common: common
+detailed_en: Kendō (剣道) is the way of the sword. It is the Japanese art of swordsmanship.
+```
+
+- The panel is 416 px wide with 375 px of text. All text, English and JSON too, uses the font stack "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif at 12 px in a `<pre>` `[file: app/components/HtvPanel.tsx:22,26]` `[file: app/components/HtvEditor.tsx:352]` `[check: UX0 2026-10-28 21:2x measure.json]`. The contrast is 16.42 to 1, so the color is not the problem `[check: UX0 2026-10-28 21:2x contrast.json]`.
+- The lower pair of p0839 is one line `result: {"lines": [...]}` of 15,220 characters. It holds 105 lines `[check: UXD 2026-10-28 22:32 python3 -B read of TL_3.txt]`. The start of that line:
+
+```
+result: {"lines": [{"ja_refs": ["kendojidai_2014/p0839/ts2/L01"], "text": "These are things that, as the years accumulate, at"}, {"ja_refs": ["kendojidai_2014/p0839/ts2/L02"], "text": "last come to be understood, and things one can do in old age"}, ...
+```
+
+- The parser splits only at `[ENTRY]` and `[PAIR]` `[file: app/lib/htv-panel.ts:86-111]`. The block "Japanese text of the page" repeats the rows (141 of the 536 shown lines at p0839) `[check: UX0 2026-10-28 21:2x items.log]`.
+
+##### Field names in the TL_3 message
+
+- `[check: UXD 2026-10-28 22:32 python3 -B scan of 65 messages under data/pilot-run/*/*/messages/TL_3.txt]`. The scan counted 1,182 `[ENTRY]` items and 219 `[PAIR]` items.
+
+| Block | Fields (all lines have the form `name: value`) |
+|---|---|
+| `[ENTRY]` in `dictionary_lookup` | `entry_id`, `store`, `source`, `headword_ja`, `reading`, `romaji`, `concise_en`, `common`, `detailed_en`. All 1,182 entries hold exactly these 9 fields. |
+| `[PAIR]` in `book_translation_memory` | `source` (form: `page left_foot_full/p049, pair P02, run 20261028T023006Z/20261028T040511Z-r41, split none`), `ja`, `en` |
+| `[PAIR]` in `aligned_translation_memory` | `source` (form: `unit u_dfc3823c_U052`), `ja`, `en` |
+| `lower_pair` | `from`, `stance`, `result` (JSON with the list `lines`, each line holds `ja_refs` and `text`), `translation_rationale` |
+| `previous_page_pair` | `from`, `result` (each line also holds `item_id`, `order`, `bad_refs`), `translation_rationale` |
+| `earlier_term_marks` | `book_id`, `pages_read`, then one row for each term in the form `entry_id \| JA \| EN term with short English explanation \| first used on page <page ID> \| result=follows` (or `none`) |
+
+- One pair out of 219 holds a JA text with a line break. The parser must add a line that has no `name: ` start to the field before it. Any other unknown line shows as plain text, so no text is lost.
+- The line `stance` is the same text in 65 of 65 messages: "Assume that this pair holds errors. Find them and correct them in your own result." The panel can hide it (proposal).
+- Only a pair of the book translation memory names a page. A pair of the aligned translation memory names a unit of the paired dataset, so it has no page ID.
+
+##### Design of the panel (option 1 of the owner, plus the cog)
+
+- Order of the blocks (owner answer): dictionary cards, book translation memory, aligned translation memory, lower pair, earlier term marks. The block `previous_page_pair` has no place in the owner order. It sits after the lower pair (proposal).
+- The block "Japanese text of the page" is gone from the screen. The snapshot keeps it. The snapshot format stays `1`.
+- A long block starts closed, as before (more than 40 lines) `[file: app/components/HtvPanel.tsx:7]`.
+- Dictionary card. One card for each `[ENTRY]`.
+  - The card shows the headword, the reading, the EN term (`romaji`), the mark "common" or "not common", and the short English explanation (`concise_en`).
+  - The long explanation (`detailed_en`) sits behind a link "more".
+  - The card hides `entry_id`, `store`, and `source`.
+  - The text "written variants" shows only when it is not "none". Example: `触刃の間 (written variants: 触刃, 触刃の間合)` `[check: UXD 2026-10-28 22:26 grep of headword_ja over 65 messages]`.
+- Card of p0839, closed:
+
+```
+剣道   けんどう
+Kendō   common
+the way of the sword
+more
+```
+
+- The same card, open (the text after "more" is the exact `detailed_en`):
+
+```
+Kendō (剣道) is the way of the sword. It is the Japanese art of swordsmanship.
+```
+
+- A second card, from `left_foot_full` p050, run `20261028T042806Z-r41`. The long explanation has 3 sentences, so it needs "more":
+
+```
+懐   ふところ
+Futokoro   not common
+inner space
+more
+Futokoro (懐) is the central space near the chest and abdomen, inside the arms in kamae (構え, stance). If you keep the hidari-te (左手, left hand) firmly in the futokoro until the moment of datotsu (打突, strike or thrust), the move to the strike becomes more precise and sharp. If the hidari-kobushi (左拳, left fist) moves to the right and the futokoro becomes narrow, slackness or tension appears in the kamae.
+```
+
+- No `[ENTRY]` for the term 面 (Men) exists in the 65 messages `[check: UXD 2026-10-28 22:25 grep of headword_ja: 面 over data/pilot-run]`. The cards above use real entries.
+- p0839 holds 32 entries. The `detailed_en` text has 76 to 367 characters, median 243 `[check: UXD 2026-10-28 22:31 python3 -B read of TL_3.txt]`. A closed card takes 4 short lines `[agent inference]`.
+- Lower pair. The block shows `from` as a heading and the lines of `result` as plain EN lines. A narrow column on the left holds the line ID. The ID `left_foot_full/p050/ts2/L01` shows as `ts2/L01`, and the full ID sits in the tooltip. The long `translation_rationale` (1,571 characters at p050) sits behind "more".
+- Three real lines of the lower pair of p050 `[check: UXD 2026-10-28 22:31 python3 -B read of TL_3.txt]`:
+
+```
+ts2/L01  so that, by executing Datotsu, the left line works effectively. At this time,
+ts2/L02  you must take care that the right shoulder does not come out ahead of the left shoulder. If the right
+ts2/L03  shoulder comes forward, the left foot tends to open, the kick becomes weak, and the drawing-
+```
+
+- Memory pair. One card for each `[PAIR]`: a chip with the source, the JA text, and the EN text. For the book translation memory the chip names the page and the pair, for example `left_foot_full/p049 · P02`. In the book screen the chip is a link to that page section. The chip hides the run and the word `split none`.
+- Pair of the book translation memory in the message of p050 (chip `left_foot_full/p049 · P02`):
+
+```
+JA  左手を支点に両肩を意識して円運動の要領で振り上げ、振り下ろす。このとき中墨から竹刀の軌道を外さないように打突することで左のラインが有効に働く。右肩が左肩より前に出ないように注意している
+EN  With the Hidari-te as the fulcrum and both shoulders in mind, in the manner of circular motion I perform the Furi-age and Furi-oroshi. At this time, by executing the Datotsu without letting the trajectory of the Shinai leave the Chūzumi, the left line works effectively. I take care that the right shoulder does not come out in front of the left shoulder.
+```
+
+- Pair of the aligned translation memory in the message of p0839 (chip `unit u_dfc3823c_U052`):
+
+```
+JA  剣道をはじめ武道や伝統的な芸道では、〝稽古〟といって古きを考えつつ自らを高めようとする態度と共に〝習う〟という修行者としての素直な心構えを尊重します。
+EN  In Kendo, Budo and other traditional arts, “Keiko” represents an attitude that seeks to improve oneself while considering the past, and respects an honest attitude as someone in the process of learning.
+```
+
+- Earlier term marks. A small table with the columns JA, EN term with short English explanation, first used on page (link), and result. It hides `entry_id`. Example row of p050: `剣道 | Kendō (the way of the sword) | left_foot_full/p046 | follows`. At p0839 the block says "0 pages read. No earlier marks."
+- Fonts. English text uses a 15 px sans-serif font (`--font-sans`). Only Japanese text uses the Japanese font (`--font-ja`). The Japanese parts are the headword, the reading, the JA text of a pair, and the JA column of the mark table.
+- Width. The default stays 416 px. A drag handle on the left edge changes the width. Limits: 280 to 720 px (proposal). The panel closes with the existing button `[file: app/components/HtvEditor.tsx:213-215]`.
+- Parser. A pure function in a new file (proposal: `app/lib/htv-panel-cards.ts`) turns a `PanelBlock` into cards when the panel shows. The snapshot stays as it is, because `PanelPart.lines` keeps the raw message lines `[file: app/lib/htv-panel.ts:19-23,82-100]` `[file: app/lib/htv-build.ts:166-179]`. `SNAPSHOT_FORMAT` stays 1 `[file: app/lib/htv-build.ts:17]`. S2 does not change.
+
+##### The settings cog
+
+- The owner words: "Every pane should have a setting cog button for customization". A pane is a screen area with its own frame (proposal). The cog is a small button in the top right corner of the pane. It opens a small box.
+- Panes of the human-translation-view today `[file: app/components/HtvEditor.tsx]`:
+
+| Pane id (proposal) | Where | Cog |
+|---|---|---|
+| `list` | book list `[file: app/components/HtvList.tsx:8-42]` | yes |
+| `ja` | JA column of a row `[file: app/components/HtvEditor.tsx:399-401]` | yes |
+| `agent` | agent text column of a row `[file: app/components/HtvEditor.tsx:402-404]` | yes |
+| `own` | own translation box `[file: app/components/HtvEditor.tsx:413-420]` | yes |
+| `tl3` | TL_3 information panel `[file: app/components/HtvEditor.tsx:351-355]` | yes |
+| `comments` | comments of a row `[file: app/components/HtvComments.tsx:24]` | yes |
+| `versions` | version history `[file: app/components/HtvEditor.tsx:255-292]` | yes |
+| top bar, page heading, notices, run mark bar, term pop-up, section "Saved for lines that this run cuts in another way" | small controls and notes | no (proposal) |
+
+- A setting of one pane applies to every row of the screen. A row has no own setting.
+- Settings of a pane (proposal):
+
+| Setting | Values and limits | Default |
+|---|---|---|
+| Font family | EN panes: sans, serif, mono. JA panes: mincho, gothic. System fonts only, because the app loads no font from the network `[file: app/app/globals.css:3-4]` | as today (`ja` and `agent` keep Mincho and Georgia, `tl3` uses sans) |
+| Font size | 12 to 28 px, step 1 | as today for `ja`, `agent`, and `own` (1.05 rem, which is 16.8 px `[check: UX0 2026-10-28 21:2x measure.json]`), 15 px for `tl3` |
+| Line height | 1.2 to 2.2, step 0.1 | as today for rows (`leading-relaxed`), 1.5 for `tl3` |
+| Text color | any color. The box shows the contrast ratio and a warning below 4.5 to 1 | theme color |
+| Background color | any color, same warning | theme color |
+| Width | `tl3`: 280 to 720 px by drag. `ja` and `agent`: share of the row, 30 to 70 percent | 416 px, 50 percent |
+| Reset | one button for the pane, one for all panes | none |
+
+- The v1 settings panel had colour theme, font family, font colour, size, width, furigana, tap-to-reveal, and focus mode `[file: kendo-translation-viewer-v1/components/reader/ReaderSettingsPanel.tsx:14-40,145-300]`. v1 offered the font families sans, serif, and mincho `[file: kendo-translation-viewer-v1/app/globals.css:226-235]`. This design takes font family, size, color, and width. It does not take furigana, tap-to-reveal, or focus mode, because the owner did not ask for them.
+- A custom color belongs to one theme. The record keeps a color for "light" and a color for "dark". A color that is good on white can be unreadable on black.
+- Storage. The settings of the signed-in user go to the account (section 15.16.6). A change applies at once and saves 800 ms after the last change (proposal). The server reads the settings with the page, so the first paint has no jump `[agent inference]`.
+- Monitor. The monitor has no sign-in. Its panes are:
+  - the Runs table `[file: app/components/RunsTable.tsx:11-79]` and the Books table `[file: app/components/BooksView.tsx:15-107]`
+  - the text columns of the page view `[file: app/components/PageText.tsx:20-115]`
+  - the QA panel `[file: app/components/QaPanel.tsx:10-90]`
+  - the extra panels, up to 9 sections `[file: app/components/ExtraPanels.tsx:12-422]`
+  - the chain panels `[file: app/components/ChainPanels.tsx:24-283]`
+  - the book details `[file: app/components/BookDetails.tsx:13-259]`
+- The monitor can keep pane settings in the browser, like the extra items checklist today `[file: app/components/extras-store.ts:4-7]`. Question 5 asks the owner.
+
+#### 15.16.5 Need 4: the high-contrast dark theme
+
+##### The problem
+
+- The app has one light theme. The tokens sit in `app/app/globals.css` (34 lines): `--background` `#faf8f3`, `--foreground` `#1f1d1a`, `--muted` `#6b665d`, `--line` `#e3dfd4`, `--accent` `#7a1f1f` `[file: app/app/globals.css:5-11]`.
+- 461 color uses in 30 files: 287 project tokens, 130 Tailwind palette classes, and 44 uses of white or black `[check: UX0 2026-10-28 21:2x colors.log]`. The 44 are 39 `bg-white` and 5 `text-white` `[check: UXD 2026-10-28 22:27 grep over app/components and app/app]`. The Htv files hold 128 of the 461 uses.
+- The palette classes use 29 Tailwind color variables and the variable `white`, for example `bg-green-100`, `text-red-700`, and `bg-amber-100` `[check: UXD 2026-10-28 22:26 node allclasses.mjs]`.
+- The app has 0 uses of the class prefix `dark:` `[check: UXD 2026-10-28 22:33 grep]`.
+
+##### Design
+
+- Switch. Two options in the top bar, at the right: "Light" and "High-contrast dark". It sits in `Nav` (monitor and view) `[file: app/components/Nav.tsx:16-36]`. The sign-in bar of the view has the same switch `[file: app/components/HtvBar.tsx:22-29]`. Light is the default.
+- Base colors. The dark values come from the v1 block `[data-reader-theme="high-contrast"]` `[file: kendo-translation-viewer-v1/app/globals.css:193-206]`. The surface color is `--rt-surface` of the same block.
+
+| Token | Light | Dark | Text on background, light | Text on background, dark |
+|---|---|---|---|---|
+| `--background` | `#faf8f3` | `#000000` | n/a | n/a |
+| `--foreground` | `#1f1d1a` | `#ffffff` | 15.84 | 21.00 |
+| `--muted` | `#6b665d` | `#aaaaaa` | 5.37 | 9.04 |
+| `--accent` | `#7a1f1f` | `#ffff00` | 9.68 | 19.56 |
+| `--line` | `#e3dfd4` | `#444444` | 1.25 (line) | 2.16 (line) |
+| surface (`bg-white`) | `#ffffff` | `#1a1a1a` | n/a | n/a |
+
+- The ratios use the formula (L1+0.05)/(L2+0.05) with linearized sRGB `[check: UXD 2026-10-28 22:33 python3 -B dark2.py]`. The light page background in the script is `#faf8f3`. `contrast.json` of unit UX0 measured the row text on `#fdfdfb` (16.52 to 1), so a value can differ.
+- How the palette gets dark values. Tailwind 4 writes each palette class as a read of a CSS variable, for example `.bg-green-100 { background-color: var(--color-green-100); }`. A block `[data-theme="dark"] { --color-green-100: #052e16; }` in `globals.css` then changes every use of `bg-green-100` with no change in the 25 files that use color. A compile check of this unit shows the rule for `bg-green-100`, `text-green-800`, `bg-white`, `text-white`, `bg-stone-50/60`, `hover:bg-amber-50`, and `border-red-200` `[check: UXD 2026-10-28 22:33 node twtest.mjs with @tailwindcss/node compile]`. A class with an alpha value reads the same variable.
+  - The rule inverts light and dark for each variable. A class that gave dark text on a light fill now gives light text on a dark fill. `text-white` on `bg-accent` becomes `#1a1a1a` on `#ffff00` (16.21 to 1).
+  - A later class must follow this pairing rule. A contrast script must test every palette class pair (code plan 15.16.7).
+- `@custom-variant`. Tailwind 4 reads the variant `dark` as `@media (prefers-color-scheme: dark)` by default `[check: UXD 2026-10-28 22:27 grep in tailwindcss/dist/lib.js]`. The line `@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));` makes `dark:` follow the attribute. The compile check gave `.dark\:bg-black:where([data-theme=dark], [data-theme=dark] *)` `[check: UXD 2026-10-28 22:27 node twtest.mjs]`. The plan above needs no `dark:` class. The line keeps later `dark:` classes tied to the switch and not to the system setting.
+- Alternative B. Name the roles (`--pass-bg`, `--fail-bg`, `--notice-bg`) and change the 174 class uses. Benefit: clear names. Cost: a diff in 25 files and more risk. Question 9 asks the owner.
+
+##### Dark colors for the palette in use
+
+- Each pair below is a class pair of the app code. All dark pairs reach 7 to 1 or more (the lowest is 7.49 to 1) `[check: UXD 2026-10-28 22:33 python3 -B dark2.py]`.
+
+| Use | Classes | Light pair, ratio | Dark pair, ratio |
+|---|---|---|---|
+| Body text on page | `text-foreground` on page | `#1f1d1a` on `#faf8f3`, 15.84 | `#ffffff` on `#000000`, 21.00 |
+| Muted text on page | `text-muted` | `#6b665d` on `#faf8f3`, 5.37 | `#aaaaaa` on `#000000`, 9.04 |
+| Muted text on card | `text-muted` on `bg-white` | `#6b665d` on `#ffffff`, 5.70 | `#aaaaaa` on `#1a1a1a`, 7.49 |
+| Body text on card | `text-foreground` on `bg-white` | `#1f1d1a` on `#ffffff`, 16.81 | `#ffffff` on `#1a1a1a`, 17.40 |
+| Link | `text-accent` on page | `#7a1f1f` on `#faf8f3`, 9.68 | `#ffff00` on `#000000`, 19.56 |
+| Save button | `text-white` on `bg-accent` | `#ffffff` on `#7a1f1f`, 10.28 | `#1a1a1a` on `#ffff00`, 16.21 |
+| PASS pill | `text-green-800` on `bg-green-100` | `#016630` on `#dcfce7`, 6.49 | `#bbf7d0` on `#052e16`, 12.30 |
+| FAIL pill | `text-red-800` on `bg-red-100` | `#9f0712` on `#ffe2e2`, 6.85 | `#fecaca` on `#450a0a`, 11.16 |
+| State running | `text-blue-800` on `bg-blue-100` | `#193cb8` on `#dbeafe`, 7.23 | `#bfdbfe` on `#172554`, 10.34 |
+| State paused, chip | `text-amber-800` on `bg-amber-100` | `#973c00` on `#fef3c6`, 6.36 | `#fcd34d` on `#4a3600`, 8.01 |
+| State completed with failures | `text-orange-800` on `bg-orange-100` | `#9f2d00` on `#ffedd4`, 6.43 | `#fed7aa` on `#431407`, 11.56 |
+| State interrupted, tag "agent-written" | `text-stone-700` on `bg-stone-200` | `#44403b` on `#e7e5e4`, 8.19 | `#e7e5e4` on `#292524`, 12.08 |
+| State waiting | `text-stone-600` on `bg-stone-100` | `#57534d` on `#f5f5f4`, 7.00 | `#d6d3d1` on `#1c1917`, 11.74 |
+| Marked chip, comments tag | `text-sky-800` on `bg-sky-100` | `#00598a` on `#dff2fe`, 6.53 | `#bae6fd` on `#082f49`, 10.46 |
+| Note box | `text-blue-800` on `bg-blue-50` | `#193cb8` on `#eff6ff`, 8.11 | `#bfdbfe` on `#0b1b3a`, 11.99 |
+| Error text | `text-red-700` on page | `#c10007` on `#faf8f3`, 6.05 | `#fca5a5` on `#000000`, 11.06 |
+| Error text in a box | `text-red-700` on `bg-red-50` | `#c10007` on `#fef2f2`, 5.87 | `#fca5a5` on `#2a0a0a`, 9.65 |
+| Success text | `text-green-800` on page | `#016630` on `#faf8f3`, 6.72 | `#bbf7d0` on `#000000`, 17.33 |
+| Mark note | `text-amber-800` on page | `#973c00` on `#faf8f3`, 6.68 | `#fcd34d` on `#000000`, 14.56 |
+| Warn text | `text-amber-700` on page | `#bb4d00` on `#faf8f3`, 4.74 | `#fbbf24` on `#000000`, 12.58 |
+| Run notice and row notice | `text-amber-900` on `bg-amber-50` | `#7b3306` on `#fffbeb`, 8.73 | `#fef3c7` on `#2a1d00`, 14.80 |
+| Term highlight | `text-foreground` on `bg-amber-100` | `#1f1d1a` on `#fef3c6`, 15.09 | `#ffffff` on `#4a3600`, 11.55 |
+| Term highlight, hover | `text-foreground` on `bg-amber-200` | `#1f1d1a` on `#fee685`, 13.51 | `#ffffff` on `#664b00`, 8.17 |
+| Resume button | `text-white` on `bg-green-700` | `#ffffff` on `#008236`, 4.95 | `#1a1a1a` on `#86efac`, 12.40 |
+| Resume button, hover | `text-white` on `bg-green-800` | `#ffffff` on `#016630`, 7.13 | `#1a1a1a` on `#bbf7d0`, 14.36 |
+| Pause button | `text-amber-800` on `bg-white` | `#973c00` on `#ffffff`, 7.09 | `#fcd34d` on `#1a1a1a`, 12.07 |
+
+- Dark values of the variables (light values in brackets). `white` `#1a1a1a` (`#ffffff`). `stone-50` `#111111` (`#fafaf9`), `stone-100` `#1c1917` (`#f5f5f4`), `stone-200` `#292524` (`#e7e5e4`), `stone-600` `#d6d3d1` (`#57534d`), `stone-700` `#e7e5e4` (`#44403b`). `amber-50` `#2a1d00` (`#fffbeb`), `amber-100` `#4a3600` (`#fef3c6`), `amber-200` `#664b00` (`#fee685`), `amber-300` `#b88a00` (`#ffd230`), `amber-600` `#f59e0b` (`#e17100`), `amber-700` `#fbbf24` (`#bb4d00`), `amber-800` `#fcd34d` (`#973c00`), `amber-900` `#fef3c7` (`#7b3306`). `red-50` `#2a0a0a` (`#fef2f2`), `red-100` `#450a0a` (`#ffe2e2`), `red-200` `#7f1d1d` (`#ffc9c9`), `red-700` `#fca5a5` (`#c10007`), `red-800` `#fecaca` (`#9f0712`). `green-100` `#052e16` (`#dcfce7`), `green-700` `#86efac` (`#008236`), `green-800` `#bbf7d0` (`#016630`). `blue-50` `#0b1b3a` (`#eff6ff`), `blue-100` `#172554` (`#dbeafe`), `blue-500` unchanged `#2b7fff`, `blue-800` `#bfdbfe` (`#193cb8`). `sky-100` `#082f49` (`#dff2fe`), `sky-800` `#bae6fd` (`#00598a`). `orange-100` `#431407` (`#ffedd4`), `orange-800` `#fed7aa` (`#9f2d00`).
+- The light hex values come from a conversion of the Tailwind oklch colors. A value can differ by 1 in one channel from the browser value. For example the script gives `#dcfce7` for `green-100`, and `contrast.json` gives `#dbfce7` `[check: UXD 2026-10-28 22:33 python3 -B dark2.py]`.
+- Borders. `--line` `#444444` has 2.16 to 1 on black and 1.79 to 1 on the surface. The light line has 1.25 to 1 today. For an own box or a select, 3 to 1 is the usual limit for a control edge. `#777777` gives 3.89 to 1 on the surface and 4.69 to 1 on black. A CSS rule for `textarea`, `input`, and `select` can set that edge in the dark theme with no class change (proposal). Question 9 asks.
+- Focus ring. The accent `#ffff00` gives 19.56 to 1 on black.
+- Own box placeholder. It has 3.27 to 1 on white today, below the AA limit of 4.5 to 1 `[check: UX0 2026-10-28 21:2x contrast.json]`. Dark placeholder `#b3b3b3` on `#1a1a1a` gives 8.30 to 1. For the light theme, `#6b665d` on white gives 5.70 to 1.
+
+##### First paint, storage, and monitor
+
+- The server sets the theme. The root layout reads a cookie `theme` with `cookies()` and writes `<html data-theme="dark">`. A missing cookie means light. The Next docs state that `cookies` in a layout makes the route dynamic `[file: app/node_modules/next/dist/docs/01-app/03-api-reference/04-functions/cookies.md:69]`. All 7 page files already use `force-dynamic` `[check: UXD 2026-10-28 22:33 git show HEAD: grep force-dynamic]`. So the layout costs nothing more.
+- The rule `[data-theme="dark"]` also sets `color-scheme: dark`, so that scroll bars and form controls match (proposal). Not tested in a browser.
+- Not verified: no browser test of the first paint in this unit. The plan needs no inline script, because the server writes the attribute before the first byte of HTML `[agent inference]`.
+- Switch. A click on the switch calls a new route (proposal: `PUT /api/theme`). The route sets the cookie `theme` (1 year, path `/`, SameSite lax, readable by the server). If the user is signed in, the route also saves the value in the account (`user_settings.theme`). The sign-in route copies the account value into the cookie, so a second device gets the theme at sign-in.
+- Monitor. It uses the same cookie and the same switch. It has no account, so the cookie is the only storage. This matches the owner answer "the monitor keeps it in the browser".
+- The deploy hides the monitor (answer 7), so the monitor theme matters on this Mac only.
+
+#### 15.16.6 Data and migrations
+
+- New migration files. The next free number is 1793300004 (files 1793300000 to 1793300003 exist) `[check: UXD 2026-10-28 22:27 ls data/scripts/pocketbase/pb_migrations]`.
+
+| File | What it does | Rules |
+|---|---|---|
+| `1793300004_v2_own_translations_agree.js` | Adds the bool field `agree` to `own_translations` if it is missing. Safe to run twice. The down function keeps the field and the data. | Unchanged: list and view `@request.auth.id != "" && (user = @request.auth.id \|\| @request.auth.role = "admin")`, create `@request.auth.id != "" && @request.body.user = @request.auth.id && (@request.auth.role = "translator" \|\| @request.auth.role = "admin")`, update null, delete null. |
+| `1793300005_v2_user_settings.js` (proposal) | Creates the collection `user_settings` if it does not exist. The down function deletes it only when it holds 0 records, like the other v2 migrations. | See below. |
+
+- Collection `user_settings` (proposal), one record for each user:
+  - `user`: relation to `users`, required, one value, `cascadeDelete` false.
+  - `theme`: select with the values `light` and `dark`.
+  - `panes`: JSON, at most 20,000 bytes.
+  - `created` and `updated`: autodate fields, set in the same way as in `1793300001`.
+  - Index: `CREATE UNIQUE INDEX idx_user_settings_user ON user_settings (user)`.
+- Rules of `user_settings`, in the style of the existing migrations:
+
+```js
+const OWN_ONLY = '@request.auth.id != "" && user = @request.auth.id';
+// listRule: OWN_ONLY
+// viewRule: OWN_ONLY
+// createRule: '@request.auth.id != "" && @request.body.user = @request.auth.id'
+// updateRule: 'user = @request.auth.id && @request.body.user:changed = false'
+// deleteRule: null
+```
+
+- The create rule has no role limit. A reader can keep a theme and pane settings, because a reader has the same screen.
+- Shape of `panes` (proposal). The key `v` is the format number.
+
+```json
+{"v": 1, "panes": {"tl3": {"font": "sans", "size": 15, "line": 1.5, "width": 416, "color": {"light": null, "dark": null}, "bg": {"light": null, "dark": null}}, "ja": {"font": "mincho", "size": 16.8}}}
+```
+
+- Alternative to the collection: two fields `theme` and `panes` on `users`. The update rule of `users` lets a user change the own record, if the change holds no `role` and no `disabled` `[file: data/scripts/pocketbase/pb_migrations/1793300000_v2_users_rules.js:44-45]`. So no rule changes. But the list rule and the view rule of `users` are open to every signed-in user `[file: data/scripts/pocketbase/pb_migrations/1793300000_v2_users_rules.js:41-42]`. Every signed-in user can then read the settings of every other user.
+- S2 and the snapshot. They stay as they are. The cards of need 3 are built when the panel shows, from the raw lines. The page index of need 1 uses fields of `page_runs` that exist. The page count comes from `catalog_items.pages` that exists. `SNAPSHOT_FORMAT` stays 1 `[file: app/lib/htv-build.ts:17]`.
+- Optional data step: fill `magazine_chapters` (103 rows) for the month headings (question 12). S2 does not fill it today `[file: docs/VISION-viewer.md:1542]`.
+- New code that touches data: `app/lib/pb.ts` (read and write `user_settings`, the field `agree`), a new route `app/app/api/htv/settings/route.ts`, and a new route `app/app/api/theme/route.ts`.
+
+#### 15.16.7 Code plan for the later code unit
+
+- Start after unit DPC commits. Both units edit `app/app/layout.tsx`, `app/components/Nav.tsx`, and files of `app/lib/` (proposal).
+- Order. Steps A and B touch the row card and the panel. Step D splits `HtvEditor.tsx`, so it follows A and B. Step E adds a cog to every pane, so it comes last. Step C is CSS and can go at any place. The caller decides if one code unit or five units build it.
+
+| Step | Content | Files |
+|---|---|---|
+| A. Agree | migration 1793300004, field in save and read, checkbox, notice rule, version column | `data/scripts/pocketbase/pb_migrations/1793300004_v2_own_translations_agree.js`, `app/lib/pb.ts:154-224`, `app/lib/htv-types.ts:102-115`, `app/app/api/htv/save/route.ts:23-41`, `app/components/HtvEditor.tsx:62-66,77,117-121,124-143,255-292,398-431` |
+| B. Panel cards | parser of cards, new panel, drag width | new `app/lib/htv-panel-cards.ts`, `app/components/HtvPanel.tsx`, `app/components/HtvEditor.tsx:351-355` |
+| C. Theme | dark block, layout attribute, switch, route, sign-in copy | `app/app/globals.css`, `app/app/layout.tsx`, `app/components/Nav.tsx`, `app/components/HtvBar.tsx`, new `app/components/ThemeSwitch.tsx`, new `app/app/api/theme/route.ts`, `app/app/api/htv/login/route.ts` |
+| D. Book screen | book list, book screen, page route, page section, window load, panel follow, redirect | `app/app/translate/page.tsx`, `app/components/HtvList.tsx`, new `app/app/translate/[slug]/page.tsx`, `app/app/translate/[slug]/[page]/page.tsx`, `app/components/HtvEditor.tsx`, `app/lib/htv-runs.ts:79-146,172-240`, `app/lib/pb.ts:329-361`, new `app/app/api/htv/page/route.ts` |
+| E. Cog and settings | migration 1793300005, settings routes, cog component, settings in the account | `data/scripts/pocketbase/pb_migrations/1793300005_v2_user_settings.js`, `app/lib/pb.ts`, new `app/app/api/htv/settings/route.ts`, new `app/components/PaneCog.tsx`, the pane wrappers of steps A, B, and D |
+
+- Tests:
+  - `npx tsc --noEmit` and `npm run lint` in `app/`.
+  - `node scripts/smoke.mjs smoke` must keep 70 PASS `[file: docs/VISION-viewer.md:1044]`.
+  - `node scripts/smoke.mjs htv` must keep 98 PASS `[file: docs/VISION-viewer.md:1045]`. It must gain checks for:
+    - the field `agree` in save and read, and the run notice for a tick
+    - the card parser on the 65 messages (1,182 entries and 219 pairs, 0 lost lines)
+    - the redirect of an old page URL
+    - the page index of `left_foot_full` (120 pages, 6 tagged)
+    - the theme cookie
+  - `data/scripts/pocketbase/test_local.py`: the field `agree` exists, `user_settings` lets a user read only the own record, and both migrations run twice with no error.
+  - Chrome headless screenshots in light and dark at 1500x1000 and 1280x800: the book list, the book screen at `left_foot_full` p045 to p051, `mental_full/p014`, and `kendojidai_2014/p0839` with the panel open.
+  - A contrast script that reads every palette class pair of the app and fails below 7 to 1 in the dark theme.
+  - Parity must stay: 37 finished runs, 278 sentence groups, 0 differences `[file: docs/VISION-viewer.md:1046,1514-1535]`. A dry run of S2 must report the same snapshot sizes as before.
+- Optional small fix in step C: the own box placeholder of the light theme (3.27 to 1) can use `text-muted` (5.70 to 1). The owner did not ask for it.
+
+#### 15.16.8 Open questions for the owner
+
+- Each question names a real case. The first option is the recommended default. Benefit and cost follow each option.
+
+##### Question 1: what an untranslated page shows
+
+- Case: `left_foot_full/p045` has no run, so it has no sentence group and no row. The book screen shows its heading and nothing below it. A translator who wants to see the page cannot.
+- Option 1 (recommended): the page number, the tag "No agent translation", and one note line. Benefit: needs only the page count that the deploy has. Cost: the translator sees no content of the page.
+- Option 2: add the page image (`page_048.pdf` has 0.84 MB, the whole book 111.3 MB). Benefit: the translator reads the Japanese page. Cost: a copy of the PDFs for each book and a storage design that section 13 leaves open. The disk size of the Oracle server is Not verified.
+- Option 3: add the JA text of the earlier pipeline (0.61 MB for the 120 pages of `left_foot_full`, JA lines only). Benefit: the translator reads the text on the screen. Cost: the text is from an earlier pipeline, the v2 Translator did not check it, and an upload step is needed. `kendojidai_2014` has 1,043 of 1,051 pages and `Men 0` has none.
+- Option 4: one free own box for a page with no run. Benefit: the translator can translate any page. Cost: no sentence group exists, so a new key rule is needed. The rows can differ when a run arrives later.
+
+##### Question 2: which books the list shows
+
+- Case: 12 items have a finished run. The folder `BOOKS_DIR` holds 36 folders (13,278 pages).
+- Option 1 (recommended): the 12 items with a finished run. Benefit: each book has data, and S2 fills `catalog_items` for exactly these items `[file: app/scripts/sync-runs.mjs:4]`. Cost: a translator cannot open the other 24 folders.
+- Option 2: all 36 folders. Benefit: the whole library is visible. Cost: 24 books show only "No agent translation", and S2 must fill `catalog_items` for them.
+- Option 3: the 12 items, and a switch "Show all books". Benefit: both views. Cost: one more control and a change in S2.
+
+##### Question 3: Save per page section
+
+- Case: a translator edits p046 and p047 of `left_foot_full`. Today each page has one Save and one version number `[file: app/lib/pb.ts:206-208]`.
+- Option 1 (recommended): each page section keeps its own Save. Benefit: the round 54 rule stays (one version for each Save and page). A failure hits one page only. Cost: two edited pages need two clicks.
+- Option 2: Option 1 plus a button "Save all changed pages". Benefit: fewer clicks. Cost: it is not one step for all pages. One batch call writes one page, with at most 200 rows `[file: app/lib/pb.ts:184,203]`. A failure can leave some pages saved and some not.
+- Option 3: one Save for the whole screen with one version number. Benefit: one click. Cost: it changes the version rule. A book of 255 pages holds about 1,800 rows `[agent inference]`, so one Save needs many batch calls.
+
+##### Question 4: tick and own text in one row
+
+- Case: `mental_full/p014`, row L14-L15. The translator ticks "Agree with the agent text" and also has own text in the box.
+- Option 1 (recommended): they exclude each other. A typed character clears the tick. A tick on a row with own text asks "Clear your own text in this row?". Benefit: `agree` true always means "the agent text as it is". Cost: one question box. Unsaved own text can go. Saved versions keep the old text.
+- Option 2: both can exist. The tick means "the agent text is acceptable" and the own text is an alternative. Benefit: no friction. Cost: the meaning of a row with both is not clear for later use of the data.
+- Option 3: a tick copies the agent text into the box. Benefit: the own text is always complete. Cost: two equal texts. It also conflicts with the answer "the own box can stay empty".
+
+##### Question 5: which panes get a cog
+
+- Case: the owner wrote "Every pane should have a setting cog button". The human-translation-view has 7 panes in 15.16.4. The monitor has about 10 more.
+- Option 1 (recommended): the human-translation-view only. Benefit: the smallest change, and the monitor is hidden on the deploy. Cost: the monitor has no pane settings.
+- Option 2: the human-translation-view and the monitor, with the monitor settings in the browser. Benefit: every pane. Cost: more panes to build and test. The monitor has no account, so the settings stay in one browser.
+
+##### Question 6: which settings a cog offers
+
+- Case: the owner wrote "customizable font and panel size/color/etc."
+- Option 1 (recommended): font family, font size, line height, text color, background color, width (panels), and reset. Benefit: it covers the words of the owner. Cost: a custom color can make text unreadable, so the box shows the contrast ratio and a warning below 4.5 to 1.
+- Option 2: font family, font size, and width only. Benefit: no color risk. Cost: it does not cover "color".
+- Option 3: Option 1 plus the v1 extras furigana, tap-to-reveal, and focus mode. Benefit: the same list as v1. Cost: the owner did not ask for them, and each one needs new data or new code `[agent inference]`.
+
+##### Question 7: where pane settings live
+
+- Case: a translator sets the panel to 520 px on the laptop and signs in on the desktop later.
+- Option 1 (recommended): the account, in the new collection `user_settings`. Benefit: all devices, and only the own record is readable. Cost: a new collection, and one more PocketBase request for each page.
+- Option 2: the account, in two fields of `users`. Benefit: no new collection. Cost: every signed-in user can read the `users` records, so the settings of all users are visible.
+- Option 3: the browser only. Benefit: no migration. Cost: it breaks the earlier answer "Per account, all devices". The server cannot read it, so the first paint can jump.
+
+##### Question 8: the default theme
+
+- Case: a new account has no saved theme.
+- Option 1 (recommended): Light is the default. Benefit: no change for today users, and it matches the two options of the owner. Cost: a user who wants dark must click once on each device. The sign-in copies the account choice.
+- Option 2: follow the system setting until the user chooses. Benefit: dark at night with no click. Cost: a third state that the owner did not name.
+- Option 3: dark is the default. Benefit: none that the owner words name. Cost: it changes the paper look for everyone.
+
+##### Question 9: dark colors, borders, and method
+
+- Case: the PASS pill is `#016630` on `#dcfce7` in light. The table in 15.16.5 gives `#bbf7d0` on `#052e16` (12.30 to 1) in dark. The FAIL pill gives `#fecaca` on `#450a0a` (11.16 to 1).
+- Option 1 (recommended): the table of 15.16.5, the variable override, borders `#444444` as in v1, and an edge of `#777777` on boxes. Benefit: no class change, every dark pair at 7.49 to 1 or more. Cost: a new class must follow the pairing rule.
+- Option 2: as option 1, with all borders `#777777`. Benefit: clearer lines. Cost: a heavier look, and a value that differs from v1.
+- Option 3: named roles and a change of the 174 class uses. Benefit: clear names. Cost: a diff in 25 files and more risk.
+
+##### Question 10: migration files
+
+- Case: the owner named the number 1793300004 for the field `agree`.
+- Option 1 (recommended): two files, `1793300004` for `agree` and `1793300005` for `user_settings`. Benefit: the tick can ship alone, and each file undoes alone. Cost: two files to run on the server.
+- Option 2: one file `1793300004` for both. Benefit: one step on the server. Cost: the tick cannot ship without the settings table.
+
+##### Question 11: a way to jump in the book screen
+
+- Case: `kendojidai_2014/p0839` is 838 sections below the top. Scroll alone is slow.
+- Option 1 (recommended): a left index with the page numbers, a mark on tagged pages, and a box "Go to page". Benefit: any page in one step. Cost: a new component.
+- Option 2: scroll and the URL `?at=p0839` only. Benefit: the smallest change. Cost: the translator scrolls through hundreds of sections.
+- Option 3: Option 1 plus a switch "Agent-translated pages only". Benefit: the translator moves between the 6 tagged pages of `kendojidai_2014`. Cost: one more control. When it is on, it hides the all-pages view that the owner asked for.
+
+##### Question 12: month headings for a magazine year
+
+- Case: `kendojidai_2014` has 1,051 pages. October 2014 is p778 to p868 `[check: UXD 2026-10-28 22:28 python3 -B read of magazine-chapters.jsonl]`.
+- Option 1 (recommended): group by month chapter. S2 or a new command fills the 103 rows of `magazine_chapters`. Benefit: a reader finds "October 2014" at once. Cost: a new fill step. The article titles in the file have the status draft.
+- Option 2: page numbers only. Benefit: no new data. Cost: 1,051 flat sections.
+
+##### Question 13: a tick for all rows of a page
+
+- Case: `kendojidai_2014/p0839` has 21 rows. A translator who agrees with all of them needs 21 clicks.
+- Option 1 (recommended): no bulk control now. Benefit: it follows the owner answer (one tick for each row). Cost: 21 clicks on that page.
+- Option 2: a button "Tick all rows of this page" in the page heading. Benefit: one click. Cost: a control that the owner did not name. A translator can tick a FAIL page by mistake (p0839 is FAIL 8.25).
+
+##### Question 14: two panel details that this design chose
+
+- Case: the lower pair block holds the same line `stance` in 65 of 65 messages. The block `previous_page_pair` is not in the owner order.
+- Option 1 (recommended): hide `stance`, and place `previous_page_pair` after the lower pair. Benefit: less noise. Cost: a translator cannot see the stance line.
+- Option 2: show both as they are in the message. Benefit: the panel equals the message. Cost: one fixed line in every lower pair block.
+
+#### 15.16.9 Not verified
+
+- The screen was not built and not shown in a browser. All screen text above is a design.
+- No server was called. The stored value of `catalog_items.pages` in the local PocketBase is Not verified. It follows from the code of S2.
+- The default of a new bool field for old records in PocketBase 0.39.10.
+- The first paint of the theme with the cookie and `cookies()` in Next 16.4.3. The Next docs state that the route becomes dynamic. A browser test is Not verified.
+- The effect of `color-scheme: dark` on scroll bars in each browser.
+- The system fonts "Hiragino Kaku Gothic ProN" and the like on a translator machine. The font list of the cog uses names that the unit did not test on other systems.
+- The window size of 2 pages and the 35 percent line of the page in view are proposals. No test shows that they feel right.
+- The size of a closed dictionary card (4 short lines) and the height of an untranslated page section.
+- What "all pages" means for a new web article. Only `18d4ac29/p001` exists.
+- The disk size of the Oracle server for page images.
+- The contrast ratios are computed values with a conversion from oklch. The browser value can differ by 1 in one channel.
+- Not read: the markdown files of the earlier pipeline for pages other than `left_foot_full` p048 and `kendojidai_2014` p839. The block format of other pages is Not verified.
+
+#### 15.16.10 Old lines that this section makes stale
+
+- Section 15.13.3 says that the route `/translate/<book>/<page>` shows one page. The book screen replaces it, and the old route redirects (15.16.2).
+- Section 15.13.3 says that the panel sits in a column of 26 rem. Need 3 makes the width changeable by drag, with 416 px as the default.
+- Section 15.15.4 says that the monitor shows an error without the key. Unit DP1A found empty tables and 404 pages, and 500 only on two routes.
+- The page-by-page wish of 2026-10-07 (section 6) is about load speed of the original page view. It does not conflict with the book screen, because the book screen loads pages in a window `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:193]`.
+
+Status: open.

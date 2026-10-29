@@ -6,6 +6,10 @@
 //                                                      and the env variables HTV_ADMIN_EMAIL, HTV_ADMIN_PASSWORD, HTV_TR1_EMAIL,
 //                                                      HTV_TR1_PASSWORD, HTV_TR2_EMAIL, HTV_TR2_PASSWORD, HTV_READER_EMAIL, HTV_READER_PASSWORD.
 //                                                      The script never prints a password or a token.
+//   node scripts/smoke.mjs deploy                      deploy shape (unit DPC, round 58). No viewer.config.json in the app folder. Set the env variables
+//                                                      VIEWER_RUN_SOURCE=pocketbase, VIEWER_POCKETBASE_URL (throwaway server on port 8092 only), VIEWER_MONITOR=off,
+//                                                      HTV_TR1_EMAIL, HTV_TR1_PASSWORD, HTV_READER_EMAIL, HTV_READER_PASSWORD. Needs the S2 upload in that server.
+//                                                      GET requests, one sign-in per account, and one refused POST. The script never prints a password or a token.
 // The script starts `next start` on a free port and stops it at the end.
 // Run `npm run build` first. Run the script in a copy of the app, not in the folder of the dev server.
 // Mode `pause` sends POST requests. Never run it with the real data folder.
@@ -653,10 +657,90 @@ async function htvTest() {
   }
 }
 
+// ---------------------------------------------------------------- mode deploy (unit DPC, round 58)
+// Round 58 answer 7 (Q-A 2026-10-28 l205): "Env settings for Vercel", "Hide monitor on deploy". The server runs as on Vercel:
+// no config file, settings from env variables, monitor off. The data comes from PocketBase (the S2 upload).
+
+async function deployTest() {
+  const tr = envPair("TR1");
+  const rd = envPair("READER");
+  const P = "left_foot_full/p048";
+  const STAMP = "20261026T182511Z"; // a real list stamp (mode smoke reads it with the monitor on)
+  const pbUrl = (process.env.VIEWER_POCKETBASE_URL ?? "").replace(/\/+$/, "");
+  const cfgFile = path.resolve(process.env.VIEWER_CONFIG ?? "viewer.config.json");
+  const hasCfg = await fs.stat(cfgFile).then(() => true, () => false);
+  check("Deploy shape: no config file in the app folder", !hasCfg, cfgFile);
+  check("Deploy shape: env VIEWER_RUN_SOURCE is pocketbase and VIEWER_MONITOR is off", process.env.VIEWER_RUN_SOURCE === "pocketbase" && process.env.VIEWER_MONITOR === "off");
+  check("Deploy shape: env VIEWER_POCKETBASE_URL points at the throwaway PocketBase (port 8092)", pbUrl === "http://127.0.0.1:8092", pbUrl);
+
+  const anon = new Client("anon");
+  // --- monitor pages
+  let r = await anon.req("/");
+  check("Deploy: / redirects to /translate", r.status === 307 && /\/translate$/.test(r.location), `status ${r.status}, location ${r.location}`);
+  const pages = ["/books", `/page/${P}`, `/runs/${STAMP}`];
+  for (const u of pages) {
+    r = await anon.req(u);
+    check(`Deploy: ${u} gives 404 and no Mac path`, r.status === 404 && !r.body.includes("/Users/"), `status ${r.status}`);
+  }
+
+  // --- the 8 monitor API routes
+  const apis = [
+    ["GET", "/api/books/mental_full"],
+    ["GET", "/api/file?path=pilot-run/x.json"],
+    ["GET", "/api/page-extra?run=pilot-run/x&part=calls&stage=3"],
+    ["POST", "/api/pause"],
+    ["GET", "/api/runs"],
+    ["GET", `/api/runs/${STAMP}`],
+    ["GET", `/api/runs/${STAMP}/compare`],
+    ["GET", `/api/runs/${STAMP}/memory?book=mental_full`],
+  ];
+  for (const [method, u] of apis) {
+    r = await anon.req(u, method === "POST" ? { method, json: { stamp: STAMP, on: false } } : { method });
+    check(`Deploy: ${method} ${u.split("?")[0]} gives 404 with the short JSON body and no Mac path`, r.status === 404 && r.json?.error === "Not found" && Object.keys(r.json).length === 1 && !r.body.includes("/Users/"), `status ${r.status}`);
+  }
+
+  // --- the human-translation-view
+  r = await anon.req("/translate");
+  check("Deploy: not signed in, /translate redirects to the sign-in page", r.status === 307 && r.location.includes("/translate/sign-in"), `status ${r.status}`);
+  r = await anon.req("/translate/sign-in");
+  const navOf = (html) => (html.match(/<nav[^>]*aria-label="Main tabs"[\s\S]*?<\/nav>/) ?? [""])[0];
+  check("Deploy: sign-in page 200, fields present, one tab only (Human translation)", r.status === 200 && /type="password"/.test(r.body) && /Human translation/.test(navOf(r.body)) && !/Runs|Books/.test(htvText(navOf(r.body))), `status ${r.status}`);
+  r = await anon.req("/api/htv/version?pageId=" + P + "&version=1");
+  check("Deploy: /api/htv/version works as before (401 without sign-in)", r.status === 401, `status ${r.status}`);
+
+  const c = new Client("tr1");
+  r = await c.req("/api/htv/login", { method: "POST", json: tr });
+  const cookie = r.setCookies.find((x) => x.startsWith("htv_token=")) ?? "";
+  check("Deploy: translator sign-in gives 200 and the role translator", r.status === 200 && r.json?.user?.role === "translator", `status ${r.status}`);
+  check("Deploy: cookie is httpOnly and SameSite=Lax", /httponly/i.test(cookie) && /samesite=lax/i.test(cookie));
+  r = await c.req("/translate");
+  const pagesInList = new Set([...r.body.matchAll(/data-page="([^"]+)"/g)].map((m) => m[1]));
+  check("Deploy: /translate 200 with rows from PocketBase", r.status === 200 && pagesInList.size > 0 && pagesInList.has(P), `status ${r.status}, ${pagesInList.size} pages`);
+  const nav = navOf(r.body);
+  check("Deploy: /translate has no link to /books and no Runs tab", !r.body.includes('href="/books"') && !/href="\/"/.test(r.body) && /Human translation/.test(nav) && !/Runs|Books/.test(htvText(nav)));
+  check("Deploy: /translate title reads human-translation-view", /human-translation-view/.test(htvText(r.body)) || /human-translation-view/.test(r.body));
+  r = await c.req(`/translate/${P}`);
+  const rowKeys = new Set([...r.body.matchAll(/data-row="([^"]+)"/g)].map((m) => m[1]));
+  check(`Deploy: /translate/${P} 200 with rows`, r.status === 200 && rowKeys.size > 0, `status ${r.status}, ${rowKeys.size} rows`);
+  check("Deploy: page view has own boxes for the translator", /aria-label="Own translation for /.test(r.body));
+  r = await c.req("/translate/zzz_none/p001");
+  check("Deploy: a page without a run gives 404 and no Mac path", r.status === 404 && !r.body.includes("/Users/"), `status ${r.status}`);
+
+  const cr = new Client("reader");
+  r = await cr.req("/api/htv/login", { method: "POST", json: rd });
+  check("Deploy: reader sign-in gives 200 and the role reader", r.status === 200 && r.json?.user?.role === "reader", `status ${r.status}`);
+  r = await cr.req(`/translate/${P}`);
+  const rtext = htvText(r.body);
+  check("Deploy: reader sees the read-only view (rows, no own box, no comments)", r.status === 200 && /data-row="/.test(r.body) && !/aria-label="Own translation for /.test(r.body) && !/Comments \(\d+\)/.test(rtext) && /can read only/.test(rtext), `status ${r.status}`);
+  r = await cr.req("/api/htv/save", { method: "POST", json: { pageId: P, runId: "x", rows: [] } });
+  check("Deploy: reader cannot save (403)", r.status === 403, `status ${r.status}`);
+}
+
 const server = await startServer();
 try {
   if (mode === "pause") await pauseTest();
   else if (mode === "htv") await htvTest();
+  else if (mode === "deploy") await deployTest();
   else await smoke();
 } finally {
   server.kill("SIGTERM");

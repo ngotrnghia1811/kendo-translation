@@ -63,7 +63,7 @@ Mode `pause` sends POST requests to `/api/pause` and creates and deletes a `PAUS
 
 ## Configuration
 
-The file `viewer.config.json` in the app folder holds the settings. It has three keys, `translatorDataDir`, `pocketbaseUrl`, and `runSource`. The keys `pocketbaseUrl` and `runSource` are optional (see the section Human-translation-view at the end).
+The file `viewer.config.json` in the app folder holds the settings. It has four keys, `translatorDataDir`, `pocketbaseUrl`, `runSource`, and `monitor`. The last three are optional (see the sections Human-translation-view and Deploy settings (round 58) at the end).
 
 ```json
 {
@@ -283,3 +283,76 @@ The config key `runSource` in `viewer.config.json` picks the source of the human
 - `pocketbase` makes the view read `page_runs` and `catalog_items`. The key `translatorDataDir` is then optional. The agent-translation-monitor still reads files and needs the key.
 
 Do not add `"runSource": "pocketbase"` to the tracked `viewer.config.json`. To test the source, copy the app as the section Smoke test says. Write a config file for the copy and start the smoke test with `node scripts/smoke.mjs htv --config FILE`.
+
+## Deploy settings (round 58)
+
+Round 58 answer 7 (Q-A 2026-10-28 l205) added three environment variables and the monitor setting. The deployed app on Vercel uses them, because Vercel has no `viewer.config.json`.
+
+### Settings
+
+| Env variable | File key | Values | Default | Wins |
+| --- | --- | --- | --- | --- |
+| `VIEWER_RUN_SOURCE` | `runSource` | `files`, `pocketbase` | `files` | env |
+| `VIEWER_POCKETBASE_URL` | `pocketbaseUrl` | address of PocketBase | `http://127.0.0.1:8090` | env |
+| `VIEWER_MONITOR` | `monitor` | env: `on`, `off`, `true`, `false`, `1`, `0`. File: `true`, `false` | on | env |
+
+- An env variable that is empty counts as not set.
+- A wrong value stops the app with an error that names the variable or the key.
+- The app trims the address of PocketBase and removes slashes at the end.
+- If the config file does not exist and `VIEWER_RUN_SOURCE` is set, the app builds the settings from the env variables alone. The folder `translatorDataDir` is then empty.
+- If the config file does not exist and `VIEWER_RUN_SOURCE` is not set, the app stops with an error that names the file path and the variable.
+- If no env variable is set and the file exists, the app behaves as before.
+
+### Plain http rule
+
+- Plain `http://` works for the hosts `127.0.0.1`, `localhost`, and `[::1]` only.
+- Every other host needs `https://`. The sign-in sends passwords to PocketBase.
+- The rule applies to the env variable and to the file key. The files `pb_users.py` and `scripts/sync-runs.mjs` use the same rule, but they do not accept `[::1]`.
+
+### Monitor setting
+
+The setting `monitor` hides the agent-translation-monitor. The deployed app has no Translator data folder, so the monitor has nothing to show.
+
+When the monitor is off, the app does this:
+
+- The page `/` sends the visitor to `/translate`.
+- The pages `/books`, `/page/<book>/<page>`, and `/runs/<list>` show the page "not found".
+- These routes answer with status 404 and the body `{"error":"Not found"}`. The app reads no run data before it answers.
+  - `/api/books/<id>`
+  - `/api/file`
+  - `/api/page-extra`
+  - `/api/pause`
+  - `/api/runs`
+  - `/api/runs/<list>`
+  - `/api/runs/<list>/compare`
+  - `/api/runs/<list>/memory`
+- The title bar shows the tab Human translation only.
+- The human-translation-view (`/translate`) and the routes under `/api/htv` stay as they are.
+
+### Values for Vercel (v2)
+
+Round 56 answer 6 set the addresses: the app on `v2.kendotranslation.com`, PocketBase on `pb-v2.kendotranslation.com`.
+
+| Setting | Value |
+| --- | --- |
+| Root Directory | `app` |
+| Build command | `next build` |
+| Node.js | 20.9 or newer |
+| `VIEWER_RUN_SOURCE` | `pocketbase` |
+| `VIEWER_POCKETBASE_URL` | `https://pb-v2.kendotranslation.com` |
+| `VIEWER_MONITOR` | `off` |
+
+Run the sync command S2 against `https://pb-v2.kendotranslation.com` before the first visit. The deployed view reads the uploaded snapshots only.
+
+### Smoke test, mode `deploy`
+
+The mode `deploy` tests the deploy shape: no config file, settings from env variables, monitor off. It checks the redirect from `/`, the 404 answers of the monitor, the sign-in, and the read-only view of a reader. Run it in a copy of the app, never in the folder of the dev server.
+
+1. Start a throwaway PocketBase on port 8092 and add one translator and one reader.
+2. Upload the run snapshots with S2 (section Sync command S2) into that server.
+3. Copy the app as the section Smoke test says. Build the copy. Move `viewer.config.json` out of the copy.
+4. Set the env variables `VIEWER_RUN_SOURCE=pocketbase`, `VIEWER_POCKETBASE_URL=http://127.0.0.1:8092`, and `VIEWER_MONITOR=off`.
+5. Set the env variables `HTV_TR1_EMAIL`, `HTV_TR1_PASSWORD`, `HTV_READER_EMAIL`, and `HTV_READER_PASSWORD`.
+6. Run: `node scripts/smoke.mjs deploy`
+
+The script never prints a password or a token. It fails if the config file exists or if the address of PocketBase is not `http://127.0.0.1:8092`.
