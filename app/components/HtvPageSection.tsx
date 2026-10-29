@@ -5,13 +5,14 @@ import { utcTime } from "@/lib/htv-format";
 import { VerdictPill } from "./Pills";
 import { MarkedText, TermPopup, type PickedTerm } from "./HtvMarkedText";
 import RowComments from "./HtvComments";
-import { Pane, PaneCog, useJaShare, usePaneSetting } from "./PaneSettings";
+import { Pane, useJaShare, usePaneSetting } from "./PaneSettings";
 
 // Human-translation-view, one page section of the book screen. Rounds 50 to 54 (Q-A 2026-10-28 l29-60, l94-108, l119-134), VISION-viewer 15.10 to 15.12.
 // Per sentence group: JA text, ED_3 text of the shown run, an own box, a copy button, and comments.
 // Round 51 answer 7 (l52): nothing saves without a click on Save.
 // Unit UXC step D (round 59 answer 4, l222): "Save per page section". Each section has its own Save, own version numbers, own run notice,
 // own comments, and own admin run mark. The book screen (HtvBook.tsx) holds the leave warning for all sections.
+// Unit UXC2 (round 61 answer 5, Q-A l265): no cog inside a section or a row. The cogs sit in the header row of the book screen.
 
 const NOTICE_SAVED = "Saved for lines that this run cuts in another way"; // round 54 answer 9 (l128), exact label
 
@@ -21,6 +22,8 @@ interface Props {
   user: { name: string; email: string; role: Role };
   /** True when the TL_3 information panel is pinned to this page. */
   pinned: boolean;
+  /** False in the page view: the heading is plain text, because the panel always shows the shown page. */
+  canPin: boolean;
   onPin: (n: number) => void;
   /** The section tells the book screen when it has unsaved text. */
   onDirty: (n: number, dirty: boolean) => void;
@@ -39,7 +42,7 @@ async function api<T = Record<string, unknown>>(method: string, url: string, bod
   return { ok: r.ok, status: r.status, data };
 }
 
-export default function HtvPageSection({ page, data, user, pinned, onPin, onDirty, onReload }: Props) {
+export default function HtvPageSection({ page, data, user, pinned, canPin, onPin, onDirty, onReload }: Props) {
   const { versions: versionsIn, rows: initialRows, comments: initialComments, pbNote } = page;
   const n = page.n;
   const readOnly = user.role === "reader";
@@ -168,16 +171,20 @@ export default function HtvPageSection({ page, data, user, pinned, onPin, onDirt
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">
-            <button
-              type="button"
-              onClick={() => onPin(n)}
-              aria-pressed={pinned}
-              title={pinned ? "The TL_3 information panel is pinned to this page. Click to follow the page in view." : "Click to show the TL_3 information panel of this page"}
-              className={"underline-offset-2 hover:underline " + (pinned ? "text-accent" : "")}
-              data-pin={data.pageId}
-            >
-              {data.pageId}
-            </button>
+            {canPin ? (
+              <button
+                type="button"
+                onClick={() => onPin(n)}
+                aria-pressed={pinned}
+                title={pinned ? "The TL_3 information panel is pinned to this page. Click to follow the page in view." : "Click to show the TL_3 information panel of this page"}
+                className={"underline-offset-2 hover:underline " + (pinned ? "text-accent" : "")}
+                data-pin={data.pageId}
+              >
+                {data.pageId}
+              </button>
+            ) : (
+              <span data-page-heading={data.pageId}>{data.pageId}</span>
+            )}
             {data.bookTitle ? <span className="ml-3 text-base font-normal text-muted">{data.bookTitle}</span> : null}
           </h2>
           <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
@@ -423,10 +430,6 @@ function RowCard({
               {notice}
             </p>
           ) : null}
-          <div className="relative">
-          <div className="absolute right-1 top-1 z-10 opacity-70 hover:opacity-100 focus-within:opacity-100">
-            <PaneCog id="own" />
-          </div>
           <textarea
             aria-label={`Own translation for ${row.shortKey}`}
             style={own.style}
@@ -434,9 +437,8 @@ function RowCard({
             onChange={(e) => onText(e.target.value)}
             rows={Math.max(2, Math.min(12, Math.ceil(Array.from(row.ed3 || row.ja).length / 60)))}
             placeholder="Your own translation"
-            className="w-full rounded border border-line bg-white p-2 pr-9 font-serif text-[1.05rem] leading-relaxed placeholder:text-muted"
+            className="w-full rounded border border-line bg-white p-2 font-serif text-[1.05rem] leading-relaxed placeholder:text-muted"
           />
-          </div>
           <div className="mt-1 flex items-center gap-4 text-sm">
             <label className="flex items-center gap-1.5">
               <input type="checkbox" data-agree={row.key} checked={agree} disabled={!row.ed3} onChange={(e) => onAgree(e.target.checked)} />

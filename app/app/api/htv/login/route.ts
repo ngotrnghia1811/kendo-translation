@@ -1,5 +1,6 @@
 import { jsonResponse } from "@/lib/api";
 import { htvError, readBody } from "@/lib/htv-api";
+import { foreignOrigin } from "@/lib/htv-origin";
 import { setTokenCookie } from "@/lib/htv-session";
 import { pbSignIn, userSettings } from "@/lib/pb";
 import { writeTheme } from "@/lib/theme";
@@ -10,9 +11,8 @@ export const dynamic = "force-dynamic";
 // The route never logs or returns the password or the token. The answer holds the user (email, name, role) only.
 export async function POST(req: Request) {
   try {
-    const origin = req.headers.get("origin");
-    const host = req.headers.get("host");
-    if (origin && host && new URL(origin).host !== host) return jsonResponse({ error: "Foreign origin." }, 403);
+    const foreign = foreignOrigin(req);
+    if (foreign) return foreign;
     if (!(req.headers.get("content-type") ?? "").includes("application/json")) return jsonResponse({ error: "Send JSON." }, 415);
     const body = await readBody(req);
     const email = typeof body.email === "string" ? body.email.trim() : "";

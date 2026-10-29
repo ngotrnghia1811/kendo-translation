@@ -4,6 +4,8 @@
 // It also fills catalog_items with one record for each item that has a finished run (the book titles and page counts).
 // Unit UXC (round 59 answer 4, Q-A 2026-10-28 l222): it also fills magazine_chapters with the 103 month chapters of
 // item-metadata/magazine-chapters.jsonl (the month headings of the book screen). The chapters do not depend on --page or --list.
+// Unit UXC2 (round 61 answer 6, Q-A 2026-10-29 l266): catalog_items also gets the 36 book folders of pilot-sample/book-slugs.json, with or without a run.
+// The titles and page counts come from item-metadata/items.filled.jsonl. The other rows of that file (311 web articles) stay out.
 // The same safety rules apply to all three collections: dry run by default, compare then skip or update, never delete.
 // The deployed app cannot read the run folders, so it reads these records (config key runSource "pocketbase").
 //
@@ -63,6 +65,7 @@ Options:
 
 Without --page and --list the command syncs every page with a finished run.
 The collection magazine_chapters always gets all rows of item-metadata/magazine-chapters.jsonl (the month headings of the book screen).
+The collection catalog_items always gets the 36 book folders of pilot-sample/book-slugs.json, plus the item of each selected run (for example the web article 18d4ac29).
 The password comes from a hidden prompt on the terminal. If stdin is not a terminal, the command reads one line from stdin.
 The command never takes a password from an option, an env variable, or a file. It never prints the password or the token.
 Sizes are in MB (1 MB = 1,048,576 bytes).
@@ -356,6 +359,22 @@ function finishedOf(startedUtc, summary) {
   return new Date(t + Math.round(w * 1000)).toISOString();
 }
 
+/** The 36 book folders of pilot-sample/book-slugs.json: slug and page count. An empty list when the file is missing. */
+async function loadBookSlugs(dataDir) {
+  const text = await readTextFile(path.join(dataDir, "pilot-sample/book-slugs.json"));
+  let json = null;
+  try {
+    json = JSON.parse(text ?? "");
+  } catch {
+    /* missing or broken file */
+  }
+  const out = new Map();
+  for (const b of Array.isArray(json?.books) ? json.books : []) {
+    if (typeof b?.slug === "string" && SEGMENT_RULE.test(b.slug)) out.set(b.slug, typeof b.pages === "number" ? b.pages : 0);
+  }
+  return out;
+}
+
 async function loadMetadata(dataDir) {
   const readRows = async (rel) => {
     const text = await readTextFile(path.join(dataDir, rel));
@@ -412,13 +431,13 @@ async function loadChapters(dataDir) {
   return out;
 }
 
-function catalogBody(slug, row) {
+function catalogBody(slug, row, folderPages = 0) {
   const text = (v) => (v === null || v === undefined ? "" : String(v));
   return {
     item_id: slug,
     kind: text(row?.kind),
     folder: text(row?.folder),
-    pages: typeof row?.pages === "number" ? row.pages : 0,
+    pages: typeof row?.pages === "number" ? row.pages : folderPages,
     title_ja: text(row?.title_ja),
     title_en: text(row?.title_en),
     author_ja: text(row?.author_ja),
@@ -499,11 +518,14 @@ for (const x of selected) {
   if (snapshot.snapshot_format !== SNAPSHOT_FORMAT) problems.push(`${x.pageId} run ${x.run.runId}: snapshot_format is missing.`);
   if (bytes >= SNAPSHOT_LIMIT) problems.push(`${x.pageId} run ${x.run.runId}: the snapshot has ${mb(bytes)}. The limit is 5 MB.`);
 }
-const slugs = [...new Set(selected.map((x) => x.slug))].sort();
+const bookSlugs = await loadBookSlugs(dataDir);
+if (bookSlugs.size === 0) console.error("Warning: pilot-sample/book-slugs.json is missing or empty. catalog_items gets the items of the selected runs only.");
+const slugs = [...new Set([...bookSlugs.keys(), ...selected.map((x) => x.slug)])].sort();
 for (const slug of slugs) {
   const row = meta.map.get(slug) ?? null;
-  items.push({ slug, row, body: catalogBody(slug, row) });
+  items.push({ slug, row, body: catalogBody(slug, row, bookSlugs.get(slug) ?? 0) });
 }
+const catalogBytes = items.reduce((t, it) => t + Buffer.byteLength(JSON.stringify(it.body), "utf-8"), 0);
 
 const chapters = await loadChapters(dataDir);
 
@@ -565,6 +587,7 @@ console.log(`Server: ${base}${o.offline ? " (offline, not compared)" : ""}`);
 console.log(`Data: ${dataDir}`);
 console.log(`Selection: ${filtered ? `${filter.size} page ID(s) from --page and --list` : "all pages with a finished run"}`);
 console.log(`Metadata file: ${meta.source}`);
+console.log(`Catalog: ${bookSlugs.size} book folders of book-slugs.json plus the items of the selected runs, ${items.length} rows, ${mb(catalogBytes)}`);
 console.log("");
 console.log("page_id | run_id | verdict | score | snapshot size | action");
 for (const p of plan) {

@@ -238,7 +238,7 @@ export default function Tl3Panel({ panel, slug }: { panel: PanelData; slug: stri
   const shown = blocks.reduce((s, b) => s + b.lineCount, 0);
   return (
     <section aria-label="TL_3 information panel">
-      <h2 className="text-[0.85em] font-semibold uppercase tracking-wide text-muted">TL_3 information panel</h2>
+      <h2 className="sr-only">TL_3 information panel</h2>
       {panel.available ? (
         <>
           <p className="mt-0.5 text-[0.8em] text-muted">

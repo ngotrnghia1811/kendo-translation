@@ -210,7 +210,7 @@ The human-translation-view lets a translator write own translations next to the 
 
 ### Screens
 
-- List (`/translate`): one row for each page with a finished run, FAIL pages included. A run is finished when `summary.json` holds a QA_3 verdict and the files `results/TS_3.json` and `results/ED_3.json` exist. The status text does not matter.
+- List (`/translate`): one row for each book. The list holds the 36 book folders and the web article that has a run (37 rows). A row shows the page count and the count of pages with an agent translation. A run is finished when `summary.json` holds a QA_3 verdict and the files `results/TS_3.json` and `results/ED_3.json` exist.
 - Page section of the book screen (`/translate/<book>`, old route `/translate/<book>/<page>` redirects): the shown run is the run that the admin marked. If no run is marked, it is the finished run with the largest `started_utc` in `run.json`.
   - One row for each sentence group (same cut as the book translation memory). A row shows the JA text, the ED_3 text of the shown run, an own box, and a button that copies the ED_3 text into the box. A row with no ED_3 text shows a note.
   - Save writes every row, empty rows included, as one saved version. All records of one Save get the same version number. A failed Save writes no row.
@@ -218,7 +218,7 @@ The human-translation-view lets a translator write own translations next to the 
   - A saved text from another run than the shown run gets a notice on its row. The notice shows on every run difference and compares no text.
   - The box "Saved for lines that this run cuts in another way" shows saved texts and comments whose group key has no row in the shown run.
   - Comments: each row has a comment list. A new comment starts private. The writer can edit it, share it, and delete it. The admin can delete any comment.
-  - TL_3 information panel: the input blocks of the TL_3 message for the whole page. The panel hides `grid_place`, the fixed text, and the box header. A button hides and shows the panel.
+  - TL_3 information panel: the input blocks of the TL_3 message for the whole page. The panel hides `grid_place`, the fixed text, and the box header. A collapse button in its header makes it a thin bar.
   - Term highlight: a click on a highlighted term opens the termbase entry. The pop-up shows the first definition of each language. A button shows the full entry.
   - A warning shows when the user leaves with unsaved text (reload, close, and a click on a link of the app).
 
@@ -369,7 +369,7 @@ Design: `docs/VISION-viewer.md` section 15.16. Code state: section 15.17.
 - Each page section has its own Save, version numbers, run notice, comments, and run mark control (admin only).
 - The left index lists the pages with their tags. The box "Go to page" takes `48`, `p048`, or `839` and jumps to the page.
 - A magazine year shows month headings. In runSource `files` they come from `item-metadata/magazine-chapters.jsonl`. In runSource `pocketbase` they come from the collection `magazine_chapters`.
-- The constant `BOOK_LIST_MODE` in `lib/htv-books.ts` picks the books of the list. The constant `DEFAULT_THEME` in `lib/htv-settings.ts` picks the first theme. The owner has not decided these two.
+- The constant `BOOK_LIST_MODE` in `lib/htv-books.ts` is `"all"` (round 61 answer 6). The constant `DEFAULT_THEME` in `lib/htv-settings.ts` is `"light"`. The cogs, the page view, and the panel bars are in the section of unit UXC2 at the end.
 
 ### Agree tick
 
@@ -388,7 +388,7 @@ Design: `docs/VISION-viewer.md` section 15.16. Code state: section 15.17.
 
 ### Settings cog
 
-- Each of the 7 panes has a cog: book list, JA column, agent column, own box, TL_3 information panel, comments, and version history. The monitor panes have none.
+- Each of the 7 panes has one cog. Unit UXC2 moved the cogs out of the rows: see the section of unit UXC2 at the end. The monitor panes have none.
 - The cog sets font, size, line height, text color, background color, width, and Reset. A custom color belongs to one theme. A warning shows below a contrast of 4.5 to 1.
 - The settings stay in the account (collection `user_settings`, route `/api/htv/settings`).
 
@@ -397,3 +397,43 @@ Design: `docs/VISION-viewer.md` section 15.16. Code state: section 15.17.
 - S2 also fills `magazine_chapters` (103 rows). Dry run, compare, skip or update, and never delete, as for `catalog_items`. The chapters do not depend on `--page` or `--list`.
 - Make sure that the server loads the migrations `1793300004_v2_own_translations_agree.js` and `1793300005_v2_user_settings.js` before you run S2. See `data/scripts/pocketbase/README.md` section 8.
 - Smoke test results of unit UXC: `smoke` 70 PASS, `htv` 208 PASS (files and pocketbase), `deploy` 34 PASS.
+
+## Page view, collapsible panels, column cogs, 36 books, and review fixes (unit UXC2, round 61)
+
+Round 61 answers 3 to 7 (Q-A 2026-10-29 l263 to l267) set these parts.
+
+### Page view
+
+- The book screen has a switch "Scroll view" / "Page view". The scroll view stays as before.
+- The page view shows one page at a time with its rows, own boxes, ticks, Save, and comments. A page with no agent translation shows its page number and the tag "No agent translation".
+- The buttons "Previous page" and "Next page" go through every page of the book. The page number box and the left index jump to a page.
+- A leave warning shows when unsaved text exists before the screen moves to another page, or before the view changes.
+- URL: `/translate/left_foot_full?view=page&at=p048`. A `view` in the URL wins, else the view of the account, else the scroll view.
+- The view choice stays in the account (`user_settings.panes`, key `ui.view`).
+
+### Collapsible panels
+
+- The book index (left) and the TL_3 information panel (right) have a collapse button in their header. The close button is gone.
+- A collapsed panel is a bar of 28 px with the name and an arrow. A click on the bar opens the panel at its old width.
+- The state and the widths stay in the account: `ui.index.open`, `ui.index.width` (160 to 400 px, default 192 px), `ui.tl3.open`. The width of the TL_3 panel stays in `panes.tl3.width`.
+- Example of the stored JSON: `{"v":1,"panes":{"tl3":{"width":500}},"ui":{"view":"page","index":{"open":true,"width":260},"tl3":{"open":false}}}`. A record without `ui` stays readable.
+
+### Column cogs
+
+- A sticky header row above the rows holds one cog for each column: Japanese, Agent translation, Your translation, Comments, and Version history. The book index and the TL_3 panel keep one cog in their own header. The book list page keeps one cog in its header.
+- No row holds a cog. A setting applies to every row of the screen.
+
+### 36 books
+
+- `BOOK_LIST_MODE` is `"all"`. The book list holds the 36 book folders of `pilot-sample/book-slugs.json` and the web article `18d4ac29`. A book with no run opens and shows its page numbers with "No agent translation".
+- S2 fills `catalog_items` with the 36 book folders (titles and page counts from `items.filled.jsonl`) and the items of the selected runs. It does not upload the other rows of `items.filled.jsonl` (311 web articles). The catalog rows are about 0.16 MB.
+
+### Review fixes
+
+- The sign-in page calls `redirect()` outside the `try` block.
+- `app/translate/loading.tsx` and `app/translate/error.tsx` exist. Because of `loading.tsx`, Next streams the pages under `/translate`. A `redirect()` and a `notFound()` inside a page now answer HTTP 200 with a client side redirect or the not-found screen.
+- The comment view holds no `userId`.
+- `lib/htv-origin.ts` checks the Origin for the four places (route guard, login, logout, theme). It uses `x-forwarded-host` when present, else `host`. `Origin: null` and an Origin that is no URL get 403. A request with no Origin header passes as before.
+- `app/translate/layout.tsx` sets the browser title "human-translation-view".
+- `next.config.ts` keeps the loader `@tailwindcss/turbopack`. The build and the dark theme contrast check pass with it. A switch to `@tailwindcss/postcss` needs a change of the build and a new contrast check.
+- The lines `export const dynamic = "force-dynamic"` stay (27 lines in 27 files, none added, none removed).

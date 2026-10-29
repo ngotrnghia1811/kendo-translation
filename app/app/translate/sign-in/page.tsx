@@ -10,12 +10,15 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   const { next } = await searchParams;
   const target = isSafeNext(next) ? next : "/translate";
   let down = "";
+  let signedIn = false;
+  // Next guide redirect.md: redirect throws, so call it outside the try block. The try block only reads the session.
   try {
-    if (await getSession()) redirect(target);
+    signedIn = (await getSession()) !== null;
   } catch (e) {
     if (e instanceof PbError) down = e.message;
     else throw e;
   }
+  if (signedIn) redirect(target);
   return (
     <>
       {down ? <p role="alert" className="text-red-700">{down}</p> : null}

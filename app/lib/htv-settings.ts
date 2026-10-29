@@ -2,6 +2,7 @@
 // Round 58 answer 5 (Q-A 2026-10-28 l203): "Every pane should have a setting cog button for customization".
 // Round 59 answer 6 (l224): the settings are fonts, sizes, colors, width, and Reset. They stay in the account (collection user_settings).
 // The file has no import and no server-only marker, so that server code, client code, and a test script can load it.
+// Unit UXC2 (round 61): the same JSON also keeps the view choice (scroll or page) and the state of the two side panels (key ui).
 
 export type ThemeName = "light" | "dark";
 
@@ -19,11 +20,12 @@ export function isTheme(v: unknown): v is ThemeName {
 export const PANE_IDS = ["list", "ja", "agent", "own", "tl3", "comments", "versions"] as const;
 export type PaneId = (typeof PANE_IDS)[number];
 
+// Round 61 answer 5 (Q-A l265): one cog for each column header. The labels follow the header row of the book screen.
 export const PANE_LABELS: Record<PaneId, string> = {
-  list: "Book list",
-  ja: "Japanese text",
-  agent: "Agent text",
-  own: "Own translation box",
+  list: "Book list and book index",
+  ja: "Japanese",
+  agent: "Agent translation",
+  own: "Your translation",
   tl3: "TL_3 information panel",
   comments: "Comments",
   versions: "Version history",
@@ -86,9 +88,35 @@ export interface PaneSetting {
   bg?: ThemeColors;
 }
 
+/** The view of the book screen. Round 61 answer 3 (Q-A l263): a switch "Scroll view" / "Page view", kept in the account. */
+export type ViewName = "scroll" | "page";
+export const DEFAULT_VIEW: ViewName = "scroll";
+
+export function isView(v: unknown): v is ViewName {
+  return v === "scroll" || v === "page";
+}
+
+/** Width of the book index in px (round 61 answer 4, Q-A l264: the width of each panel is kept in the account). */
+export const INDEX_WIDTH = { min: 160, max: 400, default: 192 };
+
+/**
+ * Screen state in the account (unit UXC2, round 61). The width of the TL_3 information panel stays in panes.tl3.width, where older records keep it.
+ *   view         scroll or page
+ *   index.open   false when the book index is collapsed to a bar
+ *   index.width  width of the book index in px
+ *   tl3.open     false when the TL_3 information panel is collapsed to a bar
+ */
+export interface UiSettings {
+  view?: ViewName;
+  index?: { open?: boolean; width?: number };
+  tl3?: { open?: boolean };
+}
+
 export interface PaneSettings {
   v: 1;
   panes: Partial<Record<PaneId, PaneSetting>>;
+  /** Missing in records that older code wrote. */
+  ui?: UiSettings;
 }
 
 export const EMPTY_SETTINGS: PaneSettings = { v: 1, panes: {} };
@@ -116,9 +144,32 @@ function colors(v: unknown): ThemeColors | undefined {
   return out.light || out.dark ? out : undefined;
 }
 
-/** Clean any value into valid pane settings. Unknown panes, unknown fonts, and bad numbers drop out. Numbers are clamped to the limits. */
+function sanitizeUi(v: unknown): UiSettings | undefined {
+  if (!v || typeof v !== "object") return undefined;
+  const r = v as Record<string, unknown>;
+  const out: UiSettings = {};
+  if (isView(r.view)) out.view = r.view;
+  const idx = r.index && typeof r.index === "object" ? (r.index as Record<string, unknown>) : null;
+  if (idx) {
+    const i: NonNullable<UiSettings["index"]> = {};
+    if (typeof idx.open === "boolean") i.open = idx.open;
+    const w = num(idx.width, INDEX_WIDTH.min, INDEX_WIDTH.max, 0);
+    if (w !== undefined) i.width = w;
+    if (Object.keys(i).length) out.index = i;
+  }
+  const t = r.tl3 && typeof r.tl3 === "object" ? (r.tl3 as Record<string, unknown>) : null;
+  if (t && typeof t.open === "boolean") out.tl3 = { open: t.open };
+  return Object.keys(out).length ? out : undefined;
+}
+
+/**
+ * Clean any value into valid pane settings. Unknown panes, unknown fonts, and bad numbers drop out. Numbers are clamped to the limits.
+ * The key ui is optional. An older record without it stays readable.
+ */
 export function sanitizeSettings(x: unknown): PaneSettings {
   const out: PaneSettings = { v: 1, panes: {} };
+  const ui = sanitizeUi(x && typeof x === "object" ? (x as { ui?: unknown }).ui : null);
+  if (ui) out.ui = ui;
   const panes = x && typeof x === "object" ? (x as { panes?: unknown }).panes : null;
   if (!panes || typeof panes !== "object") return out;
   for (const id of PANE_IDS) {

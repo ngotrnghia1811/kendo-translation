@@ -1,6 +1,7 @@
 import "server-only";
 import { errorResponse, jsonResponse } from "./api";
 import { getSession, type Session } from "./htv-session";
+import { foreignOrigin } from "./htv-origin";
 import { PbError } from "./pb";
 import { isSafeSegment, PathError } from "./safe-path";
 
@@ -20,9 +21,8 @@ export function parsePageId(pageId: unknown): { slug: string; page: string; page
  */
 export async function guard(req: Request, opts: { mutating: boolean; write?: boolean; admin?: boolean }): Promise<Session | Response> {
   if (opts.mutating) {
-    const origin = req.headers.get("origin");
-    const host = req.headers.get("host");
-    if (origin && host && new URL(origin).host !== host) return jsonResponse({ error: "Foreign origin." }, 403);
+    const foreign = foreignOrigin(req);
+    if (foreign) return foreign;
     if (!(req.headers.get("content-type") ?? "").includes("application/json")) return jsonResponse({ error: "Send JSON." }, 415);
   }
   const s = await getSession();

@@ -433,3 +433,13 @@
 - The paid chain added runs while the unit worked. The count of finished runs went from 37 to 40.
 - The owner must run S2 with `--apply` to put the 3 new runs and the 103 magazine chapters into the local PocketBase.
 - Not verified: other browsers than Chrome, and a book with many tagged pages.
+
+## Round 61
+
+- Unit UXC2 built the page view, the collapsible side panels, the column cogs, the list of 36 books plus the web article, the six fixes of the Next guide review, and the fix of the stale p050 smoke check. The code state is in `docs/VISION-viewer.md` section 15.18.
+- The unit worked in a copy of `app/` and copied the files back at the end. The dev server on port 3000 stayed up.
+- No new migration. The key `ui` in `user_settings.panes` holds the view choice and the panel state.
+- Side effect of `loading.tsx`: a `redirect()` and a `notFound()` inside a page under `/translate` now answer HTTP 200. The browser still goes to the right page.
+- S2 now uploads 37 catalog items. On the local server 25 are new. The owner runs `--apply` by hand.
+- Translator side: no file changed.
+- Not verified: Safari, Firefox, and a book of 1,051 pages with many tagged pages in the scroll view.

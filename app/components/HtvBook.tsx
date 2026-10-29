@@ -1,12 +1,14 @@
 "use client";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { HtvBookIndex, HtvBookPage, HtvPageTag, Role } from "@/lib/htv-types";
+import { INDEX_WIDTH, type PaneId, type ViewName } from "@/lib/htv-settings";
+import { parsePageNumber } from "@/lib/htv-format";
 import { VerdictPill } from "./Pills";
 import HtvIndex from "./HtvIndex";
 import HtvPageSection from "./HtvPageSection";
-import HtvPanelFrame from "./HtvPanelFrame";
+import HtvPanelFrame, { CollapsedBar } from "./HtvPanelFrame";
 import Tl3Panel from "./HtvPanel";
-import { PaneCog, usePaneSetting, useTl3Width } from "./PaneSettings";
+import { PaneCog, usePaneSetting, useTl3Width, useUiSettings } from "./PaneSettings";
 
 // Book screen of the human-translation-view (unit UXC step D, round 59). VISION-viewer 15.16.2.
 // Round 58 answer 3 (Q-A 2026-10-28 l201): "Not just translated pages. All pages. With agent translated pages tagged."
@@ -14,6 +16,11 @@ import { PaneCog, usePaneSetting, useTl3Width } from "./PaneSettings";
 // Round 59 answer 4 (l222): Save per page section, left index with Go to page, month headings, no tick-all button.
 // One section for each page. A section loads its rows when it is within 2 pages of the screen. A section with unsaved text never unloads.
 // One TL_3 information panel shows the page in view (the section at 35 percent of the screen height). A click on a page heading pins that page.
+// Unit UXC2 (round 61, Q-A l263 to l265):
+//   - A switch "Scroll view" / "Page view". The page view shows one page at a time with Previous page, Next page, and a page number box.
+//     The URL form is ?view=page&at=p048. A view in the URL wins, else the view of the account, else the scroll view.
+//   - Both side panels collapse to a bar of about 28 px. The state and the widths stay in the account (key ui).
+//   - A sticky header row above the rows holds one cog for each column: Japanese, Agent translation, Your translation, Comments, and Version history.
 
 const KEEP_PAGES = 8; // [unit default] a clean section farther than this from the screen unloads
 const NEAR_MARGIN = "500px 0px"; // [unit default] a section within this distance of the screen counts as near
@@ -47,6 +54,7 @@ const Section = memo(function Section({
   page,
   user,
   pinned,
+  canPin,
   minHeight,
   register,
   onPin,
@@ -60,13 +68,15 @@ const Section = memo(function Section({
   page: HtvBookPage | undefined;
   user: User;
   pinned: boolean;
+  /** False in the page view, where the panel always follows the shown page. */
+  canPin: boolean;
   minHeight: number | undefined;
   register: (n: number, el: HTMLElement | null) => void;
   onPin: (n: number) => void;
   onDirty: (n: number, dirty: boolean) => void;
   onReload: (n: number) => Promise<void>;
 }) {
-  const pinButton = (
+  const pinButton = canPin ? (
     <button
       type="button"
       onClick={() => onPin(n)}
@@ -77,6 +87,10 @@ const Section = memo(function Section({
     >
       {slug}/{name}
     </button>
+  ) : (
+    <span data-page-heading={`${slug}/${name}`}>
+      {slug}/{name}
+    </span>
   );
   return (
     <section
@@ -85,7 +99,7 @@ const Section = memo(function Section({
       data-n={n}
       ref={(el) => register(n, el)}
       style={page?.data ? undefined : { minHeight }}
-      className="scroll-mt-3 border-t border-line py-3"
+      className="scroll-mt-14 border-t border-line py-3"
     >
       {!tag ? (
         <h2 className="flex flex-wrap items-center gap-3 text-base font-semibold">
@@ -95,7 +109,7 @@ const Section = memo(function Section({
           </span>
         </h2>
       ) : page?.data ? (
-        <HtvPageSection page={page} data={page.data} user={user} pinned={pinned} onPin={onPin} onDirty={onDirty} onReload={onReload} />
+        <HtvPageSection page={page} data={page.data} user={user} pinned={pinned} canPin={canPin} onPin={onPin} onDirty={onDirty} onReload={onReload} />
       ) : (
         <div>
           <h2 className="flex flex-wrap items-center gap-3 text-lg font-semibold">
@@ -112,7 +126,125 @@ const Section = memo(function Section({
   );
 });
 
-export default function HtvBook({ index, initial, user, at, pbNote }: { index: HtvBookIndex; initial: HtvBookPage[]; user: User; at: number | null; pbNote: string }) {
+// Round 61 answer 5 (Q-A l265): "A sticky header row above the rows: Japanese (cog) | Agent translation (cog) | Your translation (cog), plus one comments cog".
+// The version history pane is per page section, so its cog sits in the same header row (unit default). No row holds a cog.
+const HEADER_COLUMNS: { id: PaneId; label: string; writer: boolean }[] = [
+  { id: "ja", label: "Japanese", writer: false },
+  { id: "agent", label: "Agent translation", writer: false },
+  { id: "own", label: "Your translation", writer: true },
+  { id: "comments", label: "Comments", writer: true },
+  { id: "versions", label: "Version history", writer: true },
+];
+
+function ColumnHeader({ readOnly }: { readOnly: boolean }) {
+  return (
+    <div
+      className="sticky top-0 z-20 mb-1 flex flex-wrap items-center gap-x-5 gap-y-1 border-b border-line bg-background px-3 py-1.5 text-sm"
+      style={{ fontFamily: "var(--font-sans)" }}
+      data-column-header
+    >
+      {HEADER_COLUMNS.filter((c) => !c.writer || !readOnly).map((c) => (
+        <span key={c.id} className="flex items-center gap-1.5 font-semibold" data-column={c.id}>
+          {c.label}
+          <PaneCog id={c.id} align="left" />
+        </span>
+      ))}
+    </div>
+  );
+}
+
+const BTN = "rounded border border-line bg-white px-3 py-1 text-sm hover:bg-stone-100 disabled:opacity-50 disabled:hover:bg-white";
+
+/** Previous page, Next page, and (at the top) a page number box. Round 61 answer 3 (Q-A l263). */
+function PageNav({ where, cur, pages, nameOf, onMove }: { where: "top" | "bottom"; cur: number; pages: number; nameOf: (n: number) => string; onMove: (n: number) => void }) {
+  const [value, setValue] = useState("");
+  const [note, setNote] = useState("");
+  function submit() {
+    const n = parsePageNumber(value, pages);
+    if (n === null) {
+      setNote(`No such page. This book has pages 1 to ${pages}.`);
+      return;
+    }
+    setNote("");
+    setValue("");
+    onMove(n);
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2" data-page-nav={where}>
+      <button type="button" className={BTN} disabled={cur <= 1} onClick={() => onMove(cur - 1)} data-page-prev={where}>
+        Previous page
+      </button>
+      <button type="button" className={BTN} disabled={cur >= pages} onClick={() => onMove(cur + 1)} data-page-next={where}>
+        Next page
+      </button>
+      {where === "top" ? (
+        <>
+          <span className="text-sm" data-page-now>
+            Page <span className="font-mono">{nameOf(cur)}</span> of {pages}
+          </span>
+          <form
+            className="flex items-center gap-1"
+            onSubmit={(e) => {
+              e.preventDefault();
+              submit();
+            }}
+          >
+            <label htmlFor="page-number" className="text-sm text-muted">
+              Page number
+            </label>
+            <input
+              id="page-number"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={`1 to ${pages}`}
+              inputMode="numeric"
+              className="w-24 rounded border border-line bg-white px-1.5 py-0.5 text-sm placeholder:text-muted"
+              data-page-input
+            />
+            <button type="submit" className="rounded border border-line px-2 py-0.5 text-sm" data-page-go>
+              Go
+            </button>
+          </form>
+          {note ? (
+            <span role="alert" className="text-sm text-red-700" data-page-note>
+              {note}
+            </span>
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/** The URL of the book screen after a change of view or page. Other query keys stay. The anchor belongs to the scroll view only. */
+function writeUrl(view: ViewName, at: string | null) {
+  const q = new URLSearchParams(window.location.search);
+  q.delete("view");
+  q.delete("at");
+  const rest = q.toString();
+  const query = `?view=${view}${at ? `&at=${at}` : ""}${rest ? `&${rest}` : ""}`;
+  window.history.replaceState(null, "", `${window.location.pathname}${query}${view === "scroll" && at ? `#${at}` : ""}`);
+}
+
+export default function HtvBook({
+  index,
+  initial,
+  user,
+  at,
+  initialView,
+  atNote,
+  pbNote,
+}: {
+  index: HtvBookIndex;
+  initial: HtvBookPage[];
+  user: User;
+  at: number | null;
+  /** The view that the server chose: the URL value, else the account value, else the scroll view. */
+  initialView: ViewName;
+  /** Plain note when ?at names a page outside the book. */
+  atNote: string;
+  pbNote: string;
+}) {
   const { slug, pages, digits } = index;
   const nameOf = useCallback((n: number) => "p" + String(n).padStart(digits, "0"), [digits]);
   const readOnly = user.role === "reader";
@@ -121,10 +253,18 @@ export default function HtvBook({ index, initial, user, at, pbNote }: { index: H
   const [tags, setTags] = useState<Record<number, HtvPageTag>>(() => Object.fromEntries(index.tags.map((t) => [t.n, t])));
   const [inView, setInView] = useState<number>(at ?? 1);
   const [pinned, setPinned] = useState<number | null>(null);
-  const [panelOpen, setPanelOpen] = useState(true);
+  const [view, setView] = useState<ViewName>(initialView);
+  // The page of the page view.
+  const [cur, setCur] = useState<number>(at ?? 1);
+  // Round 61 answer 4 (Q-A l264): the panels collapse to a bar. The open state and the widths stay in the account.
+  const [ui, setUi] = useUiSettings();
+  const indexOpen = ui.index?.open !== false;
+  const indexWidth = ui.index?.width ?? INDEX_WIDTH.default;
+  const tl3Open = ui.tl3?.open !== false;
   // Round 58 answer 5: the width of the panel is a setting of the pane tl3 (drag or cog), kept in the account.
   const [panelWidth, setPanelWidth] = useTl3Width();
   const tl3 = usePaneSetting("tl3");
+  const jump = useRef<number | null>(null);
   const [near, setNear] = useState<[number, number] | null>(null);
   const [dirtyPages, setDirtyPages] = useState<number[]>([]);
   const [note, setNote] = useState("");
@@ -278,11 +418,20 @@ export default function HtvBook({ index, initial, user, at, pbNote }: { index: H
   // ------------------------------------------------------------ start, jump
   useEffect(() => {
     void api("POST", "/api/htv/refresh", {});
-    if (at) {
+    if (at && initialView === "scroll") {
       anchor.current = { n: at, until: Date.now() + ANCHOR_MS };
       document.getElementById(nameOf(at))?.scrollIntoView();
     }
-  }, [at, nameOf]);
+  }, [at, nameOf, initialView]);
+
+  // After a switch from the page view to the scroll view, the screen jumps to the page that the page view showed.
+  useEffect(() => {
+    if (view !== "scroll" || jump.current === null) return;
+    const n = jump.current;
+    jump.current = null;
+    anchor.current = { n, until: Date.now() + ANCHOR_MS };
+    document.getElementById(nameOf(n))?.scrollIntoView();
+  }, [view, nameOf]);
 
   useEffect(() => {
     const stop = () => {
@@ -307,10 +456,58 @@ export default function HtvBook({ index, initial, user, at, pbNote }: { index: H
       const id = nameOf(n);
       anchor.current = { n, until: Date.now() + ANCHOR_MS };
       document.getElementById(id)?.scrollIntoView();
-      window.history.replaceState(null, "", `${window.location.pathname}?at=${id}#${id}`);
+      writeUrl("scroll", id);
       setInView(n);
     },
     [nameOf],
+  );
+
+  // Round 61 answer 3 (Q-A l263): "A leave warning shows when unsaved text exists before the screen moves to another page."
+  const confirmLeave = useCallback((): boolean => {
+    if (dirtySet.current.size === 0) return true;
+    const names = [...dirtySet.current].sort((a, b) => a - b).map(nameOf).join(", ");
+    return window.confirm(`You have unsaved text on ${names}. Leave without saving?`);
+  }, [nameOf]);
+
+  // Page view: Previous page, Next page, the page number box, and the left index move to another page.
+  const movePage = useCallback(
+    (n: number) => {
+      if (n < 1 || n > pages || n === cur) return;
+      if (!confirmLeave()) return;
+      // The page that the screen leaves loads again when it opens next time: a Save changed its saved data, and the cached copy is old.
+      setLoaded((l) => {
+        const next = { ...l };
+        delete next[cur];
+        return next;
+      });
+      setCur(n);
+      setInView(n);
+      setNote("");
+      writeUrl("page", nameOf(n));
+      document.querySelector("[data-book-toolbar]")?.scrollIntoView();
+    },
+    [pages, cur, confirmLeave, nameOf],
+  );
+
+  const switchView = useCallback(
+    (next: ViewName) => {
+      if (next === view || !confirmLeave()) return;
+      // A section opens again in the other view. Its cached copy can be old after a Save, so every page loads again.
+      setLoaded({});
+      if (next === "page") {
+        setCur(inView);
+        setPinned(null);
+        writeUrl("page", nameOf(inView));
+      } else {
+        jump.current = cur;
+        setInView(cur);
+        writeUrl("scroll", nameOf(cur));
+      }
+      setNote("");
+      setView(next);
+      setUi((u) => ({ ...u, view: next }));
+    },
+    [view, confirmLeave, inView, cur, nameOf, setUi],
   );
 
   const togglePin = useCallback((n: number) => setPinned((p) => (p === n ? null : n)), []);
@@ -364,8 +561,12 @@ export default function HtvBook({ index, initial, user, at, pbNote }: { index: H
   const firstTagged = useMemo(() => index.tags[0]?.n ?? null, [index.tags]);
   const taggedCount = Object.keys(tags).length;
 
-  const panelN = pinned ?? inView;
+  const pageView = view === "page";
+  const shownN = pageView ? cur : inView;
+  const panelN = pageView ? cur : (pinned ?? inView);
   const panelTag = tags[panelN];
+  const shownItems = pageView ? items.slice(cur - 1, cur) : items;
+  const curChapter = pageView ? index.chapters.find((c) => c.pageStart >= 1 && cur >= c.pageStart && cur <= c.pageEnd) : undefined;
   const panelPage = loaded[panelN];
 
   return (
@@ -396,11 +597,35 @@ export default function HtvBook({ index, initial, user, at, pbNote }: { index: H
               Unsaved text on {dirtyPages.map(nameOf).join(", ")}
             </span>
           ) : null}
-          <button type="button" onClick={() => setPanelOpen((v) => !v)} className="text-sm text-accent underline">
-            {panelOpen ? "Hide the TL_3 information panel" : "Show the TL_3 information panel"}
-          </button>
         </div>
       </div>
+      <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2" data-book-toolbar>
+        <div role="group" aria-label="View of the book" className="flex overflow-hidden rounded border border-line text-sm" data-view-switch data-view-now={view}>
+          {(
+            [
+              ["scroll", "Scroll view"],
+              ["page", "Page view"],
+            ] as const
+          ).map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              aria-pressed={view === v}
+              onClick={() => switchView(v)}
+              data-view={v}
+              className={"px-3 py-1 " + (view === v ? "bg-accent font-semibold text-white" : "text-foreground")}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {pageView ? <PageNav where="top" cur={cur} pages={pages} nameOf={nameOf} onMove={movePage} /> : null}
+      </div>
+      {atNote ? (
+        <p role="alert" className="mt-2 text-sm text-red-700" data-at-note>
+          {atNote}
+        </p>
+      ) : null}
       {pbNote ? <p className="mt-2 text-sm text-red-700">{pbNote}</p> : null}
       {note ? (
         <p role="alert" className="mt-2 text-sm text-red-700">
@@ -409,12 +634,32 @@ export default function HtvBook({ index, initial, user, at, pbNote }: { index: H
       ) : null}
 
       <div className="mt-3 flex items-start gap-4">
-        <HtvIndex items={items} tags={tags} chapters={index.chapters} current={inView} pageCount={pages} digits={digits} onGo={goTo} />
-        <div className="min-w-0 flex-1" data-sections>
-          {items.map((it) => (
+        <HtvIndex
+          items={items}
+          tags={tags}
+          chapters={index.chapters}
+          current={shownN}
+          pageCount={pages}
+          digits={digits}
+          onGo={pageView ? movePage : goTo}
+          onPick={pageView ? movePage : null}
+          open={indexOpen}
+          width={indexWidth}
+          onOpen={() => setUi((u) => ({ ...u, index: { ...u.index, open: true } }))}
+          onCollapse={() => setUi((u) => ({ ...u, index: { ...u.index, open: false } }))}
+          onWidth={(w) => setUi((u) => ({ ...u, index: { ...u.index, width: w } }))}
+        />
+        <div className="min-w-0 flex-1" data-sections data-view-now={view}>
+          <ColumnHeader readOnly={readOnly} />
+          {pageView && curChapter ? (
+            <p className="mt-2 text-lg font-semibold" data-page-chapter>
+              {curChapter.titleEn || curChapter.chapter}
+            </p>
+          ) : null}
+          {shownItems.map((it) => (
             <div key={it.n}>
-              {chapterAt.has(it.n) ? (
-                <h2 id={`chapter-${it.n}`} className="mt-6 scroll-mt-3 border-t-2 border-accent pt-2 text-xl font-semibold" data-chapter={it.n}>
+              {!pageView && chapterAt.has(it.n) ? (
+                <h2 id={`chapter-${it.n}`} className="mt-6 scroll-mt-14 border-t-2 border-accent pt-2 text-xl font-semibold" data-chapter={it.n}>
                   {chapterAt.get(it.n)}
                 </h2>
               ) : null}
@@ -425,7 +670,8 @@ export default function HtvBook({ index, initial, user, at, pbNote }: { index: H
                 tag={tags[it.n]}
                 page={loaded[it.n]}
                 user={user}
-                pinned={pinned === it.n}
+                pinned={!pageView && pinned === it.n}
+                canPin={!pageView}
                 minHeight={heights[it.n] ?? (tags[it.n] ? TAGGED_HEIGHT : undefined)}
                 register={register}
                 onPin={togglePin}
@@ -434,14 +680,26 @@ export default function HtvBook({ index, initial, user, at, pbNote }: { index: H
               />
             </div>
           ))}
+          {pageView ? (
+            <div className="mt-4 border-t border-line pt-3">
+              <PageNav where="bottom" cur={cur} pages={pages} nameOf={nameOf} onMove={movePage} />
+            </div>
+          ) : null}
         </div>
-        {panelOpen ? (
-          <HtvPanelFrame width={panelWidth} onWidth={setPanelWidth} onClose={() => setPanelOpen(false)} style={tl3.style} cog={<PaneCog id="tl3" />}>
+        {tl3Open ? (
+          <HtvPanelFrame
+            width={panelWidth}
+            onWidth={setPanelWidth}
+            onCollapse={() => setUi((u) => ({ ...u, tl3: { open: false } }))}
+            title="TL_3 information panel"
+            style={tl3.style}
+            cog={<PaneCog id="tl3" />}
+          >
             <p className="mb-1 flex flex-wrap items-center gap-x-2 text-[0.85em] text-muted" data-panel-page={nameOf(panelN)}>
               <span>
-                Page <span className="font-mono">{nameOf(panelN)}</span> {pinned === panelN ? "(pinned)" : "(page in view)"}
+                Page <span className="font-mono">{nameOf(panelN)}</span> {pageView ? "(page shown)" : pinned === panelN ? "(pinned)" : "(page in view)"}
               </span>
-              {pinned !== null ? (
+              {!pageView && pinned !== null ? (
                 <button type="button" onClick={() => setPinned(null)} className="text-accent underline">
                   Follow the page in view
                 </button>
@@ -457,7 +715,9 @@ export default function HtvBook({ index, initial, user, at, pbNote }: { index: H
               <p className="text-muted">Loading the panel…</p>
             )}
           </HtvPanelFrame>
-        ) : null}
+        ) : (
+          <CollapsedBar id="tl3" name="TL_3 information panel" arrow="◀" onOpen={() => setUi((u) => ({ ...u, tl3: { open: true } }))} />
+        )}
       </div>
     </div>
   );

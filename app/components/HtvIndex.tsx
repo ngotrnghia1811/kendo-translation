@@ -1,19 +1,34 @@
 "use client";
 import { memo, useState } from "react";
 import type { ChapterHead, HtvPageTag } from "@/lib/htv-types";
+import { INDEX_WIDTH } from "@/lib/htv-settings";
+import { parsePageNumber } from "@/lib/htv-format";
+import { CollapseButton, CollapsedBar, DragHandle } from "./HtvPanelFrame";
+import { PaneCog, usePaneSetting } from "./PaneSettings";
 
 // Left index of the book screen (unit UXC step D, round 59 answer 4, Q-A 2026-10-28 l222): "Left index with Go to page".
 // A column lists the pages with their tags, and the box "Go to page" jumps to a page. Month headings group the pages of a magazine year.
+// Unit UXC2 (round 61 answer 4, Q-A l264): the header holds the name, one cog, and a collapse button. A collapsed index is a bar of about 28 px.
+// The width changes by drag on the right edge. The open state and the width stay in the account. In the page view a click on a page opens that page.
 
 interface Item {
   n: number;
   name: string;
 }
 
-const IndexLink = memo(function IndexLink({ item, tag, current }: { item: Item; tag: HtvPageTag | undefined; current: boolean }) {
+const IndexLink = memo(function IndexLink({ item, tag, current, onPick }: { item: Item; tag: HtvPageTag | undefined; current: boolean; onPick: ((n: number) => void) | null }) {
   return (
     <a
       href={`#${item.name}`}
+      onClick={
+        onPick
+          ? (e) => {
+              if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+              e.preventDefault();
+              onPick(item.n);
+            }
+          : undefined
+      }
       data-index-page={item.name}
       aria-current={current ? "location" : undefined}
       className={"flex items-center justify-between rounded px-1.5 py-0.5 text-sm hover:bg-stone-100 " + (current ? "bg-stone-200 font-semibold" : "")}
@@ -36,6 +51,12 @@ export default function HtvIndex({
   pageCount,
   digits,
   onGo,
+  onPick,
+  open,
+  width,
+  onOpen,
+  onCollapse,
+  onWidth,
 }: {
   items: Item[];
   tags: Record<number, HtvPageTag>;
@@ -45,16 +66,23 @@ export default function HtvIndex({
   digits: number;
   /** Jump to a page number. */
   onGo: (n: number) => void;
+  /** Page view: a click on a page or a month heading opens that page. Scroll view: null (the link scrolls to the section). */
+  onPick: ((n: number) => void) | null;
+  open: boolean;
+  width: number;
+  onOpen: () => void;
+  onCollapse: () => void;
+  onWidth: (w: number) => void;
 }) {
+  const list = usePaneSetting("list");
   const [value, setValue] = useState("");
   const [note, setNote] = useState("");
   const starts = new Map<number, ChapterHead>();
   for (const c of chapters) if (c.pageStart >= 1 && c.pageStart <= pageCount && !starts.has(c.pageStart)) starts.set(c.pageStart, c);
 
   function go() {
-    const m = /^p?\s*(\d{1,5})$/i.exec(value.trim());
-    const n = m ? parseInt(m[1], 10) : 0;
-    if (!m || n < 1 || n > pageCount) {
+    const n = parsePageNumber(value, pageCount);
+    if (n === null) {
       setNote(`No such page. This book has pages 1 to ${pageCount}.`);
       return;
     }
@@ -62,8 +90,25 @@ export default function HtvIndex({
     onGo(n);
   }
 
+  if (!open) return <CollapsedBar id="index" name="Book index" arrow="▶" onOpen={onOpen} />;
+
   return (
-    <nav aria-label="Pages of the book" className="sticky top-3 max-h-[calc(100vh-1.5rem)] w-48 shrink-0 overflow-auto rounded border border-line bg-white/60 p-2" data-index>
+    <nav
+      aria-label="Pages of the book"
+      className="sticky top-3 flex max-h-[calc(100vh-1.5rem)] shrink-0 flex-col rounded border border-line bg-white/60"
+      style={{ width, ...list.style }}
+      data-index
+      data-index-width={width}
+    >
+      <DragHandle side="right" width={width} min={INDEX_WIDTH.min} max={INDEX_WIDTH.max} onWidth={onWidth} label="Drag to change the width of the book index" attr="data-index-handle" />
+      <div className="flex items-center justify-between gap-2 border-b border-line/60 px-2 py-1.5" style={{ fontSize: "14px", fontFamily: "var(--font-sans)", lineHeight: 1.5 }} data-index-header>
+        <span className="font-semibold">Book index</span>
+        <span className="flex items-center gap-2">
+          <PaneCog id="list" align="left" />
+          <CollapseButton id="index" name="Book index" arrow="◀" onCollapse={onCollapse} />
+        </span>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto p-2 pr-3">
       <form
         className="mb-2"
         onSubmit={(e) => {
@@ -100,15 +145,28 @@ export default function HtvIndex({
           return (
             <li key={it.n}>
               {ch ? (
-                <a href={`#chapter-${it.n}`} className="mt-2 block border-t border-line pt-1 text-xs font-semibold uppercase tracking-wide text-muted" data-index-chapter={it.n}>
+                <a
+                  href={`#chapter-${it.n}`}
+                  onClick={
+                    onPick
+                      ? (e) => {
+                          e.preventDefault();
+                          onPick(it.n);
+                        }
+                      : undefined
+                  }
+                  className="mt-2 block border-t border-line pt-1 text-xs font-semibold uppercase tracking-wide text-muted"
+                  data-index-chapter={it.n}
+                >
                   {ch.titleEn || ch.chapter}
                 </a>
               ) : null}
-              <IndexLink item={it} tag={tags[it.n]} current={current === it.n} />
+              <IndexLink item={it} tag={tags[it.n]} current={current === it.n} onPick={onPick} />
             </li>
           );
         })}
       </ul>
+      </div>
     </nav>
   );
 }

@@ -122,7 +122,6 @@ export interface SavedRow {
 
 export interface CommentView {
   id: string;
-  userId: string;
   userName: string;
   mine: boolean;
   groupKey: string;

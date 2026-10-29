@@ -19,11 +19,15 @@ import {
   type PaneSetting,
   type PaneSettings,
   type ThemeName,
+  type UiSettings,
 } from "@/lib/htv-settings";
 import { THEME_EVENT } from "./ThemeSwitch";
 
 // Settings cog of the panes (unit UXC step E, round 59). Round 58 answer 5 (Q-A 2026-10-28 l203): "Every pane should have a setting cog button for customization".
 // Round 59 answer 6 (l224): the 7 panes of the human-translation-view, with font, size, line height, text color, background color, width, and Reset.
+// Unit UXC2 (round 61 answer 5, Q-A l265): "A: one cog per column header". The wrapper Pane has no cog any more. The book screen shows one cog for each
+// pane in its header row (HtvBook), the book index and the TL_3 information panel show one cog in their own header, and no row holds a cog.
+// The same account record also keeps the view choice and the state of the two side panels (key ui, round 61 answers 3 and 4).
 // The settings stay in the account (collection user_settings, route /api/htv/settings). A change applies at once and saves 800 ms after the last change.
 // A custom color belongs to one theme (light or dark). The cog shows a warning when the text and background colors have a contrast below 4.5 to 1.
 
@@ -33,6 +37,7 @@ interface Ctx {
   settings: PaneSettings;
   theme: ThemeName;
   update: (id: PaneId, patch: (s: PaneSetting) => PaneSetting) => void;
+  setUi: (patch: (u: UiSettings) => UiSettings) => void;
   edit: (fn: (s: PaneSettings) => PaneSettings) => void;
   reset: (id: PaneId) => void;
   resetAll: () => void;
@@ -94,9 +99,19 @@ export function PaneSettingsProvider({ initial, theme: initialTheme, children }:
         const panes = { ...s.panes };
         if (Object.keys(cur).length === 0) delete panes[id];
         else panes[id] = cur;
-        return { v: 1, panes };
+        return { ...s, v: 1, panes };
       });
     },
+    [apply],
+  );
+  const setUi = useCallback(
+    (patch: (u: UiSettings) => UiSettings) =>
+      apply((s) => {
+        const next = patch({ ...(s.ui ?? {}) });
+        const { ui: _old, ...rest } = s;
+        void _old;
+        return Object.keys(next).length > 0 ? { ...rest, ui: next } : rest;
+      }),
     [apply],
   );
   const reset = useCallback(
@@ -104,13 +119,14 @@ export function PaneSettingsProvider({ initial, theme: initialTheme, children }:
       apply((s) => {
         const panes = { ...s.panes };
         delete panes[id];
-        return { v: 1, panes };
+        return { ...s, v: 1, panes };
       }),
     [apply],
   );
-  const resetAll = useCallback(() => apply(() => ({ v: 1, panes: {} })), [apply]);
+  // Reset all panes puts fonts, sizes, colors, and widths back. The view choice and the state of the side panels stay.
+  const resetAll = useCallback(() => apply((s) => ({ ...s, v: 1, panes: {} })), [apply]);
 
-  const value = useMemo(() => ({ settings, theme, update, edit: apply, reset, resetAll, saveNote }), [settings, theme, update, apply, reset, resetAll, saveNote]);
+  const value = useMemo(() => ({ settings, theme, update, setUi, edit: apply, reset, resetAll, saveNote }), [settings, theme, update, setUi, apply, reset, resetAll, saveNote]);
   return <PaneCtx.Provider value={value}>{children}</PaneCtx.Provider>;
 }
 
@@ -126,6 +142,12 @@ export function useTl3Width(): [number, (w: number) => void] {
   const { settings, update } = usePaneCtx();
   const w = settings.panes.tl3?.width ?? TL3_WIDTH.default;
   return [w, (n: number) => update("tl3", (s) => ({ ...s, width: n }))];
+}
+
+/** The screen state of the account (view, book index, TL_3 information panel) and the function that changes it. */
+export function useUiSettings(): [UiSettings, (patch: (u: UiSettings) => UiSettings) => void] {
+  const { settings, setUi } = usePaneCtx();
+  return [settings.ui ?? {}, setUi];
 }
 
 /** Share of the row for the JA column in percent. The agent column takes the rest. */
@@ -185,7 +207,7 @@ function ColorRow({ id, label, field }: { id: PaneId; label: string; field: "col
   );
 }
 
-export function PaneCog({ id }: { id: PaneId }) {
+export function PaneCog({ id, align = "right" }: { id: PaneId; align?: "left" | "right" }) {
   const { settings, theme, update, edit, reset, resetAll, saveNote } = usePaneCtx();
   const share = useJaShare();
   const [open, setOpen] = useState(false);
@@ -231,7 +253,7 @@ export function PaneCog({ id }: { id: PaneId }) {
         ⚙
       </button>
       {open ? (
-        <div role="dialog" aria-label={`Settings of the pane: ${PANE_LABELS[id]}`} className="absolute right-0 top-7 z-30 w-64 rounded border border-line bg-white p-3 text-sm font-sans text-foreground shadow-lg" data-cog-box={id}>
+        <div role="dialog" aria-label={`Settings of the pane: ${PANE_LABELS[id]}`} className={`absolute ${align === "left" ? "left-0" : "right-0"} top-7 z-30 w-64 rounded border border-line bg-white p-3 text-sm font-sans text-foreground shadow-lg`} data-cog-box={id}>
           <div className="font-semibold">{PANE_LABELS[id]}</div>
           <Row label="Font" htmlFor={`cog-${id}-font`}>
             <select
@@ -305,7 +327,7 @@ export function PaneCog({ id }: { id: PaneId }) {
                       if (Object.keys(o).length > 0) panes[other] = o;
                       else delete panes[other];
                     }
-                    return { v: 1, panes };
+                    return { ...st, v: 1, panes };
                   });
                 }}
                 className="w-full"
@@ -331,14 +353,11 @@ export function PaneCog({ id }: { id: PaneId }) {
   );
 }
 
-/** A pane with its settings: the style of the pane and the cog in the top right corner. */
+/** A pane with its settings: the style of the pane. The cog sits in the header row of the screen, never in the pane (round 61 answer 5). */
 export function Pane({ id, className = "", children, lang, dataAttr }: { id: PaneId; className?: string; children: React.ReactNode; lang?: string; dataAttr?: Record<string, string> }) {
   const { style } = usePaneSetting(id);
   return (
     <div className={`relative ${className}`} style={style} lang={lang} data-pane={id} {...dataAttr}>
-      <div className="float-right ml-2 text-[14px] leading-none" style={{ fontFamily: "var(--font-sans)" }}>
-        <PaneCog id={id} />
-      </div>
       {children}
     </div>
   );

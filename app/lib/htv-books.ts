@@ -16,13 +16,15 @@ import type { ChapterHead, HtvBookIndex, HtvBookPage, HtvBookRow, HtvPageTag, Se
  */
 
 /**
- * Which books the book list shows (round 59 answer 4, Q-A 2026-10-28 l222). The owner did not decide the book list.
- *   "with-runs"  the books that have a finished run (12 books today). This is the default.
- *   "all"        every book of the library: book-slugs.json (runSource files) or all of catalog_items (runSource pocketbase).
- * To change the list, change this one constant. In "all" mode the sync command S2 must also fill catalog_items for the other books.
+ * Which books the book list shows.
+ *   "with-runs"  only the books that have a finished run.
+ *   "all"        the 36 book folders of book-slugs.json (runSource files) or all rows of catalog_items (runSource pocketbase), plus every item with a finished run.
+ * Round 60 answer 3 (Q-A 2026-10-28 l240): "All 36 book folders". Round 61 answer 6 (l266): "36 books plus web article (Recommended)".
+ * So the value is "all". The list then holds 36 books and the web article 18d4ac29 (37 rows), and the 311 other web articles of items.filled.jsonl stay out.
+ * The sync command S2 fills catalog_items with the same 36 books plus the items of the finished runs.
  */
 export type BookListMode = "with-runs" | "all";
-export const BOOK_LIST_MODE: BookListMode = "with-runs";
+export const BOOK_LIST_MODE: BookListMode = "all";
 
 /** The page window: a section loads its rows when it is within this many pages of the screen (VISION-viewer 15.16.2). */
 export const WINDOW_PAGES = 2;
@@ -63,10 +65,12 @@ async function bookFacts(token: string, slug?: string): Promise<Map<string, Book
   for (const b of (slugs?.books ?? []) as J[]) {
     if (typeof b?.slug === "string") out.set(b.slug, { title: "", pages: typeof b.pages === "number" ? b.pages : 0 });
   }
+  // Only the rows of the 36 book folders count. items.filled.jsonl holds 347 rows, and 311 of them are web articles with long IDs.
   for (const r of rows) {
     const id = String(r.item_id);
     const old = out.get(id);
-    out.set(id, { title: String(r.title_en || r.title_ja || ""), pages: typeof r.pages === "number" ? r.pages : (old?.pages ?? 0) });
+    if (!old) continue;
+    out.set(id, { title: String(r.title_en || r.title_ja || ""), pages: typeof r.pages === "number" ? r.pages : old.pages });
   }
   if (slug) return new Map([...out].filter(([k]) => k === slug));
   return out;

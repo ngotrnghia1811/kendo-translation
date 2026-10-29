@@ -148,3 +148,5 @@ The installer link form `http://127.0.0.1:8090/_/#/pbinstal/...` was never verif
 - The env variable `PB_TEST_WORK_ROOT` sets the work folder of the test. The default is the folder of unit P1. Run: `PB_TEST_WORK_ROOT=/some/folder python3 -B data/scripts/pocketbase/test_local.py`
 - The last run of unit UXC gave `Total: 151 PASS, 0 FAIL`.
 - The sync command S2 now also fills `magazine_chapters` with the 103 month chapters. See the section Book screen in `app/README.md`.
+- Round 61 (unit UXC2): no new migration. The column `panes` of `user_settings` also holds the key `ui` (view, book index state, TL_3 panel state). The shape is in `docs/VISION-viewer.md` section 15.18.3. `test_local.py` gave `Total: 151 PASS, 0 FAIL`.
+- Round 61 (unit UXC2): S2 now fills `catalog_items` with 37 rows (36 book folders and the web article). See `app/README.md`.

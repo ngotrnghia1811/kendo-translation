@@ -1,5 +1,6 @@
 import { jsonResponse } from "@/lib/api";
 import { htvError, readBody } from "@/lib/htv-api";
+import { foreignOrigin } from "@/lib/htv-origin";
 import { isTheme } from "@/lib/htv-settings";
 import { getSession } from "@/lib/htv-session";
 import { saveUserSettings } from "@/lib/pb";
@@ -12,9 +13,8 @@ export const dynamic = "force-dynamic";
 // This route is not a monitor route: it works with the monitor off.
 export async function PUT(req: Request) {
   try {
-    const origin = req.headers.get("origin");
-    const host = req.headers.get("host");
-    if (origin && host && new URL(origin).host !== host) return jsonResponse({ error: "Foreign origin." }, 403);
+    const foreign = foreignOrigin(req);
+    if (foreign) return foreign;
     if (!(req.headers.get("content-type") ?? "").includes("application/json")) return jsonResponse({ error: "Send JSON." }, 415);
     const body = await readBody(req);
     if (!isTheme(body.theme)) return jsonResponse({ error: "The theme must be light or dark." }, 400);

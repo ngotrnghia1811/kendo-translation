@@ -255,7 +255,6 @@ function commentView(r: J, me: string): CommentView {
   const u = r.expand?.user;
   return {
     id: String(r.id),
-    userId: String(r.user),
     userName: String(u?.name || u?.email || "Translator"),
     mine: String(r.user) === me,
     groupKey: String(r.group_key),

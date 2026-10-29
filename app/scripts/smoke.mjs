@@ -342,7 +342,12 @@ class Client {
       if (v === "" || /max-age=0/i.test(c) || /expires=thu, 01 jan 1970/i.test(c)) this.jar.delete(k);
       else this.jar.set(k, v);
     }
-    return { status: res.status, body, setCookies, location: res.headers.get("location") ?? "", json: parseJson(body) };
+    // Unit UXC2 (round 61): app/translate/loading.tsx makes Next stream the page. A redirect() or notFound() inside a page then answers HTTP 200:
+    // the redirect comes as <meta id="__next-page-redirect" ... content="1;url=...">, and the missing page as the not-found UI with the marker NEXT_HTTP_ERROR_FALLBACK;404.
+    // So `go` names the target of a redirect (header or meta tag), and `missing` is true for a 404 in both forms.
+    const location = res.headers.get("location") ?? "";
+    const meta = /<meta id="__next-page-redirect"[^>]*content="\d+;url=([^"]*)"/.exec(body);
+    return { status: res.status, body, setCookies, location, go: location || (meta ? meta[1].replace(/&amp;/g, "&") : ""), missing: res.status === 404 || /NEXT_HTTP_ERROR_FALLBACK;404/.test(body), json: parseJson(body) };
   }
   token() {
     return this.jar.get("htv_token") ?? "";
@@ -353,6 +358,53 @@ class Client {
 function htvText(html) {
   return visibleText(html.replace(/<!--[\s\S]*?-->/g, ""));
 }
+
+// Facts from the Translator data folder, so that the checks read the expected counts and texts from the data and do not go stale
+// (unit UXC2, round 61). It loads the build rules of the app (finishedRunOf, sortRuns) with the same hook as the sync command S2.
+let factsCache = null;
+async function dataFacts(dataDir) {
+  if (factsCache) return factsCache;
+  const { pathToFileURL } = await import("node:url");
+  const { register } = await import("node:module");
+  register(pathToFileURL(path.resolve("scripts/ts-resolve-hook.mjs")).href, pathToFileURL(path.resolve(".") + path.sep).href);
+  const build = await import(pathToFileURL(path.resolve("lib/htv-build.ts")).href);
+  const slugsFile = JSON.parse(await fs.readFile(path.join(dataDir, "pilot-sample/book-slugs.json"), "utf-8"));
+  const bookSlugs = (slugsFile.books ?? []).map((b) => b.slug);
+  const readJson = async (f) => JSON.parse(await fs.readFile(f, "utf-8").catch(() => "null"));
+  const exists = (f) => fs.stat(f).then(() => true, () => false);
+  const pilot = path.join(dataDir, "pilot-run");
+  const runsOf = {}; // "slug/pNNN" -> finished runs, newest first
+  for (const folder of await fs.readdir(pilot)) {
+    const m = /^(.+)_(p\d+)$/.exec(folder);
+    if (!m) continue;
+    const found = [];
+    for (const runId of (await fs.readdir(path.join(pilot, folder)).catch(() => [])).filter((n) => build.RUN_FOLDER_RULE.test(n))) {
+      const dir = path.join(pilot, folder, runId);
+      const run = build.finishedRunOf(runId, await readJson(path.join(dir, "summary.json")), await readJson(path.join(dir, "run.json")), await exists(path.join(dir, "results/TS_3.json")), await exists(path.join(dir, "results/ED_3.json")));
+      if (run) found.push({ run, dir });
+    }
+    if (found.length) {
+      const order = build.sortRuns(found.map((f) => f.run));
+      runsOf[`${m[1]}/${m[2]}`] = order.map((r) => found.find((f) => f.run.runId === r.runId));
+    }
+  }
+  const pages = Object.keys(runsOf);
+  const slugsWithRun = new Set(pages.map((p) => p.split("/")[0]));
+  factsCache = { bookSlugs, runsOf, pages, slugsWithRun, listed: new Set([...bookSlugs, ...slugsWithRun]) };
+  return factsCache;
+}
+
+// Text of the first line of the lower pair in a TL_3 message, and the same text in the form of the HTML (no entities, no spaces, no punctuation).
+function lowerPairFirstLine(message) {
+  const m = /^result: (\{"lines":.*\})$/m.exec(message);
+  if (!m) return "";
+  try {
+    return String(JSON.parse(m[1]).lines?.[0]?.text ?? "");
+  } catch {
+    return "";
+  }
+}
+const squash = (t) => t.replace(/&[#a-z0-9]+;/gi, "").replace(/[^A-Za-z0-9]/g, "");
 
 function envPair(name) {
   const email = process.env[`HTV_${name}_EMAIL`];
@@ -403,7 +455,11 @@ async function settingsChecks({ c1, c2, ca, cr, anon, accounts, pbUrl }) {
   let html = r.body;
   check("Settings in the account: the panel of tr1 has the width 520 px and the font size 18 px at the first paint", /data-panel-width="520"/.test(html) && /<aside[^>]*style="[^"]*width:\s*520px/.test(html) && /<aside[^>]*font-size:\s*18px/.test(html), "");
   check("Settings in the account: the JA pane of tr1 has the share 40 percent and font size 20 px (3 rows)", countOf(html, /grid-template-columns:\s*40fr 60fr/g) === 3 && countOf(html, /data-pane="ja"[^>]*>/g) === 3 && /font-size:\s*20px/.test(html));
-  check("Cog: every pane of the translator view has a cog (ja x3, agent x3, own x3, tl3 x1, versions x1)", countOf(html, /data-cog="ja"/g) === 3 && countOf(html, /data-cog="agent"/g) === 3 && countOf(html, /data-cog="own"/g) === 3 && countOf(html, /data-cog="tl3"/g) === 1 && countOf(html, /data-cog="versions"/g) === 1, ["ja", "agent", "own", "tl3", "versions"].map((x) => `${x}:${countOf(html, new RegExp(`data-cog="${x}"`, "g"))}`).join(" "));
+  // Round 61 answer 5 (Q-A l265): one cog for each column header. No cog inside a row.
+  const rowsHtml = [...html.matchAll(/<article[^>]*data-row=[\s\S]*?<\/article>/g)].map((m) => m[0]);
+  const ids = ["ja", "agent", "own", "comments", "versions"];
+  check("Cog: the translator view has exactly one cog for each of Japanese, Agent translation, Your translation, Comments, and Version history in the sticky header row, one in the book index, one in the TL_3 panel, and 0 cogs inside the 3 rows", rowsHtml.length === 3 && rowsHtml.every((x) => !/data-cog/.test(x)) && /data-column-header/.test(html) && ids.every((x) => countOf(html, new RegExp(`data-column="${x}"`, "g")) === 1 && countOf(html, new RegExp(`data-cog="${x}"`, "g")) === 1) && countOf(html, /data-cog="list"/g) === 1 && countOf(html, /data-cog="tl3"/g) === 1 && countOf(html, /data-cog=/g) === 7, `${countOf(html, /data-cog=/g)} cogs, ${rowsHtml.length} rows`);
+  check("Cog: the header row names the columns Japanese, Agent translation, Your translation, Comments, Version history", ["Japanese", "Agent translation", "Your translation", "Comments", "Version history"].every((t) => htvText(html.slice(html.indexOf("data-column-header"), html.indexOf("data-column-header") + 4000)).includes(t)));
   r = await c1.req("/translate");
   check("Cog: the book list has a cog (pane list)", countOf(r.body, /data-cog="list"/g) === 1);
   r = await c2.req(URL14);
@@ -437,7 +493,7 @@ async function settingsChecks({ c1, c2, ca, cr, anon, accounts, pbUrl }) {
   r = await cr.req("/api/htv/settings", { method: "PUT", json: { panes: { v: 1, panes: { agent: { size: 24 } } } } });
   check("Reader: PUT /api/htv/settings works (200), the reader keeps settings too", r.status === 200 && r.json?.panes?.panes?.agent?.size === 24, `status ${r.status}`);
   r = await cr.req(URL14);
-  check("Reader: the agent pane has the font size 24 px, the cog shows on ja x3, agent x3, tl3 x1, and not on own", /font-size:\s*24px/.test(r.body) && countOf(r.body, /data-cog="ja"/g) === 3 && countOf(r.body, /data-cog="agent"/g) === 3 && countOf(r.body, /data-cog="tl3"/g) === 1 && countOf(r.body, /data-cog="own"/g) === 0);
+  check("Reader: the agent pane has the font size 24 px, and the cogs are Japanese, Agent translation, book index, and TL_3 panel (1 each), not Your translation, Comments, or Version history", /font-size:\s*24px/.test(r.body) && countOf(r.body, /data-cog="ja"/g) === 1 && countOf(r.body, /data-cog="agent"/g) === 1 && countOf(r.body, /data-cog="tl3"/g) === 1 && countOf(r.body, /data-cog="list"/g) === 1 && countOf(r.body, /data-cog="own"/g) === 0 && countOf(r.body, /data-cog="comments"/g) === 0 && countOf(r.body, /data-cog="versions"/g) === 0 && countOf(r.body, /data-cog=/g) === 4);
 
   // the theme in the account (step C and step E)
   const th = await c1.req("/api/theme", { method: "PUT", json: { theme: "dark" } });
@@ -457,6 +513,167 @@ async function settingsChecks({ c1, c2, ca, cr, anon, accounts, pbUrl }) {
   check("Theme in the account: a reader keeps the theme in the account too", rt.status === 200 && rt.json?.account === true, `status ${rt.status}`);
 }
 
+
+// Checks of unit UXC2 (round 61): the page view, the collapsible panels, the state in the account, the 36 books, and the six review fixes.
+// The clicks of the page view run in Chrome (browser_all.mjs). Here the server side is checked: the first HTML for each URL and each stored state.
+async function uxc2Checks({ c2, cr, anon, accounts, pbUrl, dataDir }) {
+  const LF = "left_foot_full";
+  const countOf = (html, re) => (html.match(re) ?? []).length;
+  const keysOf = (html) => new Set([...html.matchAll(/data-row="([^"]+)"/g)].map((m) => m[1]));
+  const sectionsOf = (html) => (html.match(/data-section="p\d+"/g) ?? []).map((x) => x.slice(14, -1));
+  const putUi = (c, ui, panes = {}) => c.req("/api/htv/settings", { method: "PUT", json: { panes: { v: 1, panes, ...(ui === undefined ? {} : { ui }) } } });
+  const btn = (html, attr) => (html.match(new RegExp(`<button[^>]*${attr}[^>]*>`)) ?? [""])[0];
+  const off = (tag) => /\sdisabled(=|\s|>)/.test(tag); // the attribute, not the class names disabled:opacity-50
+
+  // --- page view: the first HTML
+  const rows48 = (await c2.req(`/api/htv/page?ids=${LF}/p048`)).json?.pages?.[0]?.data?.rows ?? [];
+  let r = await c2.req(`/translate/${LF}?view=page&at=p048`);
+  let html = r.body;
+  let text = htvText(html);
+  check("Page view ?view=page&at=p048: one page section (p048) with its 5 rows, own boxes, ticks, Save, and comments, and no other page section", r.status === 200 && JSON.stringify(sectionsOf(html)) === '["p048"]' && rows48.length === 5 && keysOf(html).size === 5 && [...keysOf(html)].every((k) => k.startsWith(`${LF}/p048/`)) && countOf(html, /aria-label="Own translation for /g) === 5 && countOf(html, /data-agree="/g) === 5 && countOf(html, /data-save="/g) === 1 && countOf(text, /Comments \(\d+\)/g) === 5, `${sectionsOf(html).join(",")} ${keysOf(html).size} rows`);
+  check("Page view: the switch shows Scroll view and Page view with Page view pressed, the page now reads 'Page p048 of 120', and the panel shows p048", /data-view-switch[^>]*data-view-now="page"/.test(html) && /<button[^>]*aria-pressed="true"[^>]*data-view="page"/.test(html) && /<button[^>]*aria-pressed="false"[^>]*data-view="scroll"/.test(html) && /Scroll view/.test(text) && /Page view/.test(text) && /Page p048 of 120/.test(text) && /data-panel-page="p048"/.test(html));
+  check("Page view: the top and the bottom each hold the buttons 'Previous page' and 'Next page' (enabled at p048), and the top holds the page number box", countOf(html, /data-page-prev="/g) === 2 && countOf(html, /data-page-next="/g) === 2 && countOf(text, /Previous page(?! pair)/g) === 2 && countOf(text, /Next page/g) === 2 && !off(btn(html, 'data-page-prev="top"')) && !off(btn(html, 'data-page-next="top"')) && /data-page-input/.test(html) && /Page number/.test(text), `${countOf(html, /data-page-prev="/g)} ${countOf(html, /data-page-next="/g)} ${countOf(text, /Previous page(?! pair)/g)} ${countOf(text, /Next page/g)} ${off(btn(html, 'data-page-prev="top"'))} ${off(btn(html, 'data-page-next="top"'))} ${btn(html, 'data-page-prev="top"').slice(0, 200)}`);
+  check("Page view: the left index lists all 120 pages, and the heading of the page is plain text (no pin button)", countOf(html, /data-index-page="p\d+"/g) === 120 && !/data-pin=/.test(html) && /data-page-heading="left_foot_full\/p048"/.test(html));
+  r = await c2.req(`/translate/${LF}?view=page&at=p045`);
+  html = r.body;
+  text = htvText(html);
+  check("Page view at p045 (no agent translation): one page section with the page number and the tag 'No agent translation', no rows, and the panel says 'No agent run for this page.'", r.status === 200 && JSON.stringify(sectionsOf(html)) === '["p045"]' && /No agent translation/.test(text) && countOf(html, /data-untagged/g) === 1 && keysOf(html).size === 0 && /No agent run for this page\./.test(text) && /Page p045 of 120/.test(text));
+  r = await c2.req(`/translate/${LF}?view=page&at=p001`);
+  check("Page view at p001: Previous page is disabled and Next page is enabled", off(btn(r.body, 'data-page-prev="top"')) && !off(btn(r.body, 'data-page-next="top"')));
+  r = await c2.req(`/translate/${LF}?view=page&at=p120`);
+  check("Page view at p120: Next page is disabled and Previous page is enabled", off(btn(r.body, 'data-page-next="top"')) && !off(btn(r.body, 'data-page-prev="top"')) && JSON.stringify(sectionsOf(r.body)) === '["p120"]');
+  r = await c2.req(`/translate/${LF}?view=page&at=p999`);
+  text = htvText(r.body);
+  check("Page view with a page outside the book (p999): a clear message 'No such page: p999. This book has pages 1 to 120.' and the screen shows p001", r.status === 200 && /data-at-note/.test(r.body) && /No such page: p999\. This book has pages 1 to 120\./.test(text) && JSON.stringify(sectionsOf(r.body)) === '["p001"]', JSON.stringify(sectionsOf(r.body)));
+  r = await c2.req(`/translate/${LF}?view=page`);
+  check("Page view with no ?at: the first page (p001)", JSON.stringify(sectionsOf(r.body)) === '["p001"]' && !/data-at-note/.test(r.body));
+  r = await c2.req(`/translate/${LF}?view=scroll&at=p048`);
+  check("?view=scroll keeps the scroll view: 120 page sections, the switch has Scroll view pressed, no Previous page button", countOf(r.body, /data-section="p\d+"/g) === 120 && /data-view-switch[^>]*data-view-now="scroll"/.test(r.body) && !/data-page-prev/.test(r.body) && /data-pin="left_foot_full\/p048"/.test(r.body));
+  r = await cr.req(`/translate/${LF}?view=page&at=p048`);
+  check("Page view for the reader: the rows, the buttons, and the page number box show, but no own box, no tick, and no Save", r.status === 200 && keysOf(r.body).size === 5 && /data-page-prev/.test(r.body) && !/aria-label="Own translation for /.test(r.body) && !/data-agree=/.test(r.body) && !/data-save=/.test(r.body));
+
+  // --- the view choice in the account: URL first, then the account, then the scroll view
+  r = await c2.req("/api/htv/settings");
+  check("View choice: a new setting record has no ui key (older records stay readable)", r.status === 200 && r.json?.panes?.ui === undefined, JSON.stringify(r.json?.panes?.ui));
+  r = await c2.req(`/translate/${LF}?at=p048`);
+  check("View choice: with no view in the URL and none in the account the scroll view shows (120 sections)", countOf(r.body, /data-section="p\d+"/g) === 120 && /data-view-now="scroll"/.test(r.body));
+  r = await putUi(c2, { view: "page" });
+  check("View choice: PUT /api/htv/settings with ui.view page gives 200 and the route gives it back", r.status === 200 && r.json?.panes?.ui?.view === "page", JSON.stringify(r.json?.panes));
+  r = await c2.req(`/translate/${LF}?at=p049`);
+  check("View choice: with the account value page and no view in the URL, the page view shows p049 only", JSON.stringify(sectionsOf(r.body)) === '["p049"]' && /data-view-now="page"/.test(r.body));
+  r = await c2.req(`/translate/${LF}?view=scroll&at=p049`);
+  check("View choice: a view in the URL wins over the account (view=scroll shows 120 sections)", countOf(r.body, /data-section="p\d+"/g) === 120);
+  r = await putUi(c2, { view: "scroll" });
+  r = await c2.req(`/translate/${LF}?view=page&at=p049`);
+  check("View choice: a view in the URL wins over the account (view=page with account value scroll shows p049 only)", JSON.stringify(sectionsOf(r.body)) === '["p049"]');
+  r = await c2.req(`/translate/${LF}`);
+  check("View choice: with the account value scroll and no view in the URL the scroll view shows", countOf(r.body, /data-section="p\d+"/g) === 120);
+
+  // --- the panels: state and widths in the account
+  r = await c2.req(`/translate/${LF}?at=p048`);
+  html = r.body;
+  check("Panels open by default: the index is 192 px wide and the TL_3 panel 416 px, both with a collapse button and a cog in the header, and no close button", /data-index-width="192"/.test(html) && /data-panel-width="416"/.test(html) && /data-panel-collapse="index"/.test(html) && /data-panel-collapse="tl3"/.test(html) && countOf(html, /data-cog="list"/g) === 1 && countOf(html, /data-cog="tl3"/g) === 1 && !/data-panel-close|Close the panel|Hide the TL_3|Show the TL_3/.test(html) && !/data-panel-collapsed/.test(html));
+  r = await putUi(c2, { view: "scroll", index: { open: false, width: 300 }, tl3: { open: false } });
+  check("Panel state: PUT ui with both panels collapsed and the index width 300 gives 200", r.status === 200 && r.json?.panes?.ui?.index?.open === false && r.json.panes.ui.index.width === 300 && r.json.panes.ui.tl3?.open === false, JSON.stringify(r.json?.panes?.ui));
+  r = await c2.req(`/translate/${LF}?at=p048`);
+  html = r.body;
+  text = htvText(html);
+  check("Panel state: with both panels collapsed the first HTML holds two bars of 28 px with the names 'Book index' and 'TL_3 information panel' and an arrow, and no open panel", /<aside[^>]*style="[^"]*width:\s*28px[^"]*"[^>]*data-panel-collapsed="index"/.test(html) && /<aside[^>]*style="[^"]*width:\s*28px[^"]*"[^>]*data-panel-collapsed="tl3"/.test(html) && /Book index/.test(text) && /TL_3 information panel/.test(text) && /data-panel-open="index"/.test(html) && /data-panel-open="tl3"/.test(html) && /▶/.test(text) && /◀/.test(text) && !/data-panel-width=/.test(html) && !/data-index-width=/.test(html) && !/data-panel-header|data-index-header/.test(html), "");
+  check("Panel state: the collapsed bars hold no cog (the cog sits in the header of an open panel)", countOf(html, /data-cog="list"/g) === 0 && countOf(html, /data-cog="tl3"/g) === 0 && countOf(html, /data-column-header/g) === 1);
+  r = await putUi(c2, { view: "scroll", index: { open: true, width: 300 }, tl3: { open: true } });
+  r = await c2.req(`/translate/${LF}?at=p048`);
+  check("Panel state: open again, the index has its old width (300 px) and the TL_3 panel its width (416 px)", /data-index-width="300"/.test(r.body) && /data-panel-width="416"/.test(r.body) && !/data-panel-collapsed/.test(r.body));
+  r = await putUi(c2, { view: "zzz", index: { open: "yes", width: 5000 }, tl3: { open: 1 }, evil: 1 });
+  check("Panel state: the sanitizer drops a bad view, a bad open value, and an unknown key, and clamps the width to 400", r.status === 200 && r.json?.panes?.ui?.view === undefined && r.json.panes.ui.index?.open === undefined && r.json.panes.ui.index?.width === 400 && r.json.panes.ui.tl3 === undefined && !("evil" in (r.json.panes.ui ?? {})), JSON.stringify(r.json?.panes?.ui));
+  r = await putUi(c2, undefined, { tl3: { width: 520 } });
+  check("Panel state: an old record (panes only, no ui) stays readable: the tl3 width 520 shows and no ui key comes back", r.status === 200 && r.json?.panes?.ui === undefined && r.json.panes.panes.tl3.width === 520);
+  r = await c2.req(`/translate/${LF}?at=p048`);
+  check("Panel state: an old record gives open panels, the default index width 192 px, and the TL_3 width 520 px", /data-index-width="192"/.test(r.body) && /data-panel-width="520"/.test(r.body));
+  r = await putUi(c2, { view: "page", index: { open: true, width: 250 }, tl3: { open: false } }, { tl3: { width: 480 } });
+  const rec = (await pbCall(pbUrl, "GET", "/api/collections/user_settings/records", c2.token())).json?.items?.[0];
+  check("Panel state: PocketBase holds the state in user_settings.panes (ui.view page, index.width 250, tl3.open false, panes.tl3.width 480), and the record has no new column", rec?.panes?.ui?.view === "page" && rec.panes.ui.index?.open === true && rec.panes.ui.index?.width === 250 && rec.panes.ui.tl3?.open === false && rec?.panes?.panes?.tl3?.width === 480 && Object.keys(rec ?? {}).sort().join(",") === "collectionId,collectionName,created,id,panes,theme,updated,user", JSON.stringify(rec?.panes).slice(0, 300));
+  r = await c2.req(`/translate/${LF}?at=p048`);
+  check("Account state at the first paint: view page, index 250 px, and the TL_3 panel collapsed show together", JSON.stringify(sectionsOf(r.body)) === '["p048"]' && /data-index-width="250"/.test(r.body) && /data-panel-collapsed="tl3"/.test(r.body));
+  await putUi(c2, undefined, {});
+
+  // --- a book with no run: the 36 books and the web article
+  const facts = await dataFacts(dataDir);
+  const noRun = facts.bookSlugs.includes("kendojidai_2013") && !facts.slugsWithRun.has("kendojidai_2013") ? "kendojidai_2013" : facts.bookSlugs.find((x) => !facts.slugsWithRun.has(x));
+  r = await c2.req("/translate");
+  const row = new RegExp(`data-book="${noRun}" data-pages="(\\d+)" data-tagged="(\\d+)"`).exec(r.body);
+  const pagesOfNoRun = Number(row?.[1] ?? 0);
+  check(`Book with no run (${noRun}): the book list shows it with its page count and 0 pages with an agent translation`, !!row && pagesOfNoRun > 0 && row[2] === "0", row ? `${row[1]} pages, ${row[2]} tagged` : "no row");
+  r = await c2.req(`/translate/${noRun}`);
+  text = htvText(r.body);
+  check(`Book with no run (${noRun}): the book screen opens with ${pagesOfNoRun} page sections, each with its page number and the tag 'No agent translation', no rows, and no tag of a verdict`, r.status === 200 && countOf(r.body, /data-section="p\d+"/g) === pagesOfNoRun && countOf(r.body, /data-untagged/g) === pagesOfNoRun && keysOf(r.body).size === 0 && countOf(r.body, /data-index-tag=/g) === 0 && /No agent translation/.test(text) && new RegExp(`${pagesOfNoRun} pages\\. 0 pages have an agent translation`).test(text), `status ${r.status}`);
+  r = await c2.req(`/translate/${noRun}?view=page&at=p0500`);
+  text = htvText(r.body);
+  check(`Book with no run (${noRun}) in the page view at p0500: the page number p0500 and the tag 'No agent translation'`, r.status === 200 && JSON.stringify(sectionsOf(r.body)) === '["p0500"]' && /No agent translation/.test(text) && /Page p0500 of \d+/.test(text));
+  r = await c2.req("/translate/18d4ac29?view=page&at=p001");
+  check("The web article 18d4ac29 opens in the page view with its one page and rows, and both page buttons disabled", r.status === 200 && JSON.stringify(sectionsOf(r.body)) === '["p001"]' && keysOf(r.body).size >= 1 && off(btn(r.body, 'data-page-prev="top"')) && off(btn(r.body, 'data-page-next="top"')));
+  r = await c2.req("/translate/zzz_none");
+  check("A slug that is no book folder and has no run gives 404", r.missing, `status ${r.status}`);
+  const web = facts.listed.has("18d4ac29") ? await c2.req("/translate") : null;
+  check("The list holds the web article 18d4ac29 with its title empty (the slug shows), 1 page, and 1 page with an agent translation", /data-book="18d4ac29" data-pages="1" data-tagged="1"/.test(web?.body ?? ""));
+
+  // --- the six fixes of the Next guide review
+  const titleOf = (h) => (/<title>([^<]*)<\/title>/.exec(h) ?? [])[1];
+  const titles = [titleOf((await c2.req("/translate")).body), titleOf((await c2.req(`/translate/${LF}`)).body), titleOf((await anon.req("/translate/sign-in")).body), titleOf((await c2.req(`/translate/${LF}?view=page&at=p048`)).body)];
+  const monTitle = titleOf((await anon.req("/")).body);
+  check("Fix 6: the browser title of /translate, a book, the sign-in page, and the page view is 'human-translation-view', and the monitor keeps 'agent-translation-monitor'", titles.every((t) => t === "human-translation-view") && monTitle === "agent-translation-monitor", titles.join(" | ") + " | " + monTitle);
+
+  const P14 = "mental_full/p014";
+  const K1 = `${P14}/ts3/L01-L08`;
+  r = await c2.req("/api/htv/comments", { method: "POST", json: { pageId: P14, groupKey: K1, runId: "20261028T023007Z-r41", text: "UXC2 uid check", shared: true } });
+  const cid = r.json?.comment?.id;
+  check("Fix 3: the answer of a new comment holds the keys id, userName, mine, and no key userId", r.status === 200 && !!cid && !("userId" in (r.json.comment ?? {})) && !/userId/.test(r.body) && r.json.comment.mine === true && typeof r.json.comment.userName === "string", `status ${r.status} ${r.body.slice(0, 200)}`);
+  r = await c2.req("/translate/mental_full?at=p014");
+  const apiPage = await c2.req(`/api/htv/page?ids=${P14}`);
+  const apiComments = apiPage.json?.pages?.[0]?.comments ?? [];
+  check("Fix 3: the first HTML of the page and the route /api/htv/page hold the comment but no userId", r.body.includes("UXC2 uid check") && !/userId/.test(r.body) && apiComments.length >= 1 && !/userId/.test(apiPage.body));
+  r = await c2.req(`/api/htv/comments/${cid}`, { method: "DELETE", json: {} });
+
+  const badOrigins = ["null", "not a url", "http://evil.example", "ftp://x"];
+  const routes = [
+    ["login", "POST", "/api/htv/login", () => accounts.tr1],
+    ["theme", "PUT", "/api/theme", () => ({ theme: "light" })],
+    ["logout", "POST", "/api/htv/logout", () => ({})],
+    ["settings (guard)", "PUT", "/api/htv/settings", () => ({ panes: {} })],
+  ];
+  for (const [name, method, url, body] of routes) {
+    const out = [];
+    for (const o of badOrigins) out.push((await c2.req(url, { method, json: body(), headers: { origin: o } })).status);
+    check(`Fix 4: ${name} refuses Origin 'null', 'not a url', a foreign host, and a non-http origin with 403 (no 500)`, out.every((x) => x === 403), out.join(","));
+  }
+  const base2 = new URL(base).host;
+  r = await c2.req("/api/theme", { method: "PUT", json: { theme: "light" }, headers: { origin: `http://${base2}` } });
+  check("Fix 4: an Origin that equals the Host passes (200)", r.status === 200, `status ${r.status}`);
+  r = await c2.req("/api/theme", { method: "PUT", json: { theme: "light" }, headers: { origin: "https://app.example", "x-forwarded-host": "app.example" } });
+  check("Fix 4: an Origin that equals X-Forwarded-Host passes (200)", r.status === 200, `status ${r.status}`);
+  r = await c2.req("/api/theme", { method: "PUT", json: { theme: "light" }, headers: { origin: "https://app.example", "x-forwarded-host": "app.example, proxy.example" } });
+  check("Fix 4: X-Forwarded-Host with a list uses the first value (200)", r.status === 200, `status ${r.status}`);
+  r = await c2.req("/api/theme", { method: "PUT", json: { theme: "light" }, headers: { origin: `http://${base2}`, "x-forwarded-host": "app.example" } });
+  check("Fix 4: when X-Forwarded-Host is present it decides, so an Origin that equals only the Host gets 403", r.status === 403, `status ${r.status}`);
+  r = await c2.req("/api/theme", { method: "PUT", json: { theme: "light" }, headers: { origin: "https://app.example", "x-forwarded-host": "other.example" } });
+  check("Fix 4: an Origin that differs from X-Forwarded-Host gets 403", r.status === 403, `status ${r.status}`);
+  r = await c2.req("/api/theme", { method: "PUT", json: { theme: "light" } });
+  check("Fix 4: a request with no Origin header passes as before (200)", r.status === 200, `status ${r.status}`);
+
+  const signin = await c2.req(`/translate/sign-in?next=${encodeURIComponent("/translate/" + LF)}`);
+  check("Fix 1: the sign-in page of a signed-in user redirects to the next address (redirect outside the try block)", signin.go === "/translate/" + LF, `status ${signin.status}, go ${signin.go}`);
+  const bad = await c2.req(`/translate/sign-in?next=${encodeURIComponent("https://evil.example/x")}`);
+  check("Fix 1: a next address outside the view goes to /translate", bad.go === "/translate", `status ${bad.status}, go ${bad.go}`);
+  const anonSign = await anon.req("/translate/sign-in");
+  check("Fix 1: the sign-in page of a visitor shows the form", anonSign.status === 200 && /type="password"/.test(anonSign.body));
+
+  const exists = (f) => fs.stat(f).then(() => true, () => false);
+  const loadingRaw = await anon.req("/translate");
+  check("Fix 2: the files app/translate/loading.tsx and app/translate/error.tsx exist, and the loading text 'Loading…' is part of the first HTML of a route under /translate", (await exists("app/translate/loading.tsx")) && (await exists("app/translate/error.tsx")) && /data-route-loading/.test((await c2.req("/translate")).body + loadingRaw.body), `status ${loadingRaw.status}`);
+  const errSrc = await fs.readFile("app/translate/error.tsx", "utf-8");
+  check("Fix 2: error.tsx is a Client Component with the props error and retry (guide error.md)", /^"use client";/.test(errSrc) && /\{ error, retry \}/.test(errSrc) && /retry\(\)/.test(errSrc));
+  r = await c2.req("/api/theme", { method: "PUT", json: { theme: "light" } });
+}
+
 // Checks of the book screen. They run in both run sources (files and pocketbase).
 async function bookScreenChecks({ c1, ca, cr, anon }) {
   const LF = "left_foot_full";
@@ -465,13 +682,13 @@ async function bookScreenChecks({ c1, ca, cr, anon }) {
 
   // redirect of the old page URL
   let r = await c1.req(`/translate/${LF}/p048`);
-  check("Old page URL /translate/left_foot_full/p048 redirects (307) to /translate/left_foot_full?at=p048#p048", r.status === 307 && r.location === `/translate/${LF}?at=p048#p048`, `status ${r.status}, location ${r.location}`);
+  check("Old page URL /translate/left_foot_full/p048 redirects (307) to /translate/left_foot_full?at=p048#p048", r.go === `/translate/${LF}?at=p048#p048`, `status ${r.status}, location ${r.location}`);
   r = await c1.req("/translate/kendojidai_2014/p0839");
-  check("Old page URL with a 4-digit page ID redirects to ?at=p0839#p0839", r.status === 307 && r.location === "/translate/kendojidai_2014?at=p0839#p0839", `location ${r.location}`);
+  check("Old page URL with a 4-digit page ID redirects to ?at=p0839#p0839", r.go === "/translate/kendojidai_2014?at=p0839#p0839", `location ${r.location}`);
   r = await c1.req(`/translate/${LF}/x48`);
-  check("Old page URL with a bad page name gives 404", r.status === 404, `status ${r.status}`);
+  check("Old page URL with a bad page name gives 404", r.missing, `status ${r.status}`);
   r = await anon.req(`/translate/${LF}`);
-  check("Not signed in: the book screen redirects to the sign-in page", r.status === 307 && r.location.includes("/translate/sign-in"), `status ${r.status}`);
+  check("Not signed in: the book screen redirects to the sign-in page", r.go.includes("/translate/sign-in"), `status ${r.status}`);
 
   // the page index of left_foot_full: 120 pages, 6 tagged
   r = await c1.req(`/translate/${LF}`);
@@ -482,7 +699,7 @@ async function bookScreenChecks({ c1, ca, cr, anon }) {
   check("Book screen left_foot_full: the index lists 120 pages with the box 'Go to page'", countOf(html, /data-index-page="p\d+"/g) === 120 && /Go to page/.test(text) && /id="go-to-page"/.test(html));
   check("Book screen left_foot_full: the header says 120 pages and 6 with an agent translation, and links to p046", /120 pages\. 6 pages have an agent translation/.test(text) && /href="#p046"[^>]*data-first-tagged|data-first-tagged[^>]*href="#p046"/.test(html));
   check("Book screen left_foot_full: an untranslated page shows no rows, no own box, no image", countOf(html, /aria-label="Own translation for /g) === 0 && countOf(html, /<img/g) === 0 && countOf(html, /data-row="/g) === 0);
-  check("Book screen left_foot_full without ?at: tagged pages far from the top say 'Loading the rows' and the panel says 'No agent run for this page.'", countOf(html, /data-loading/g) === 6 && /No agent run for this page\./.test(text) && /data-panel-page="p001"/.test(html));
+  check("Book screen left_foot_full without ?at: tagged pages far from the top say 'Loading the rows' and the panel says 'No agent run for this page.'", countOf(html, /data-loading(?!-)/g) === 6 && /No agent run for this page\./.test(text) && /data-panel-page="p001"/.test(html));
 
   // the window around p048: p046 to p050
   r = await c1.req(`/translate/${LF}?at=p048`);
@@ -490,7 +707,7 @@ async function bookScreenChecks({ c1, ca, cr, anon }) {
   text = htvText(html);
   const keys = keysOf(html);
   const perPage = (p) => [...keys].filter((k) => k.startsWith(`${LF}/${p}/`)).length;
-  check("Book screen ?at=p048: the server loads the window p046 to p050 (rows for each of the 5 pages), and p075 waits (Loading)", r.status === 200 && ["p046", "p047", "p048", "p049", "p050"].every((p) => perPage(p) >= 1) && perPage("p075") === 0 && countOf(html, /data-loading/g) === 1, ["p046", "p047", "p048", "p049", "p050"].map((p) => `${p}:${perPage(p)}`).join(" "));
+  check("Book screen ?at=p048: the server loads the window p046 to p050 (rows for each of the 5 pages), and p075 waits (Loading)", r.status === 200 && ["p046", "p047", "p048", "p049", "p050"].every((p) => perPage(p) >= 1) && perPage("p075") === 0 && countOf(html, /data-loading(?!-)/g) === 1, ["p046", "p047", "p048", "p049", "p050"].map((p) => `${p}:${perPage(p)}`).join(" "));
   check("Book screen ?at=p048: the panel shows the page at ?at (p048)", /data-panel-page="p048"/.test(html) && /TL_3 information panel/.test(text));
   check("Book screen ?at=p048: each loaded page section has its own Save, own version line, and own comments button (translator)", countOf(html, /data-save="/g) === 5 && countOf(text.replace(/\s+/g, " "), /No saved version yet/g) >= 1 && countOf(text, /Comments \(\d+\)/g) >= 5);
   r = await c1.req(`/translate/${LF}?at=p999`);
@@ -498,9 +715,9 @@ async function bookScreenChecks({ c1, ca, cr, anon }) {
   r = await c1.req(`/translate/${LF}?at=zzz`);
   check("Book screen with a bad ?at gives 200", r.status === 200, `status ${r.status}`);
   r = await c1.req("/translate/zzz_none");
-  check("An unknown book gives 404", r.status === 404, `status ${r.status}`);
+  check("An unknown book gives 404", r.missing, `status ${r.status}`);
   r = await c1.req("/translate/..%2Fx");
-  check("A bad book name gives 404", r.status === 404, `status ${r.status}`);
+  check("A bad book name gives 404", r.missing, `status ${r.status}`);
 
   // the web article and 4-digit page IDs
   r = await c1.req("/translate/18d4ac29?at=p001");
@@ -588,9 +805,9 @@ async function htvTest() {
   // --- not signed in
   const anon = new Client("anon");
   let r = await anon.req("/translate");
-  check("Not signed in: /translate redirects to the sign-in page", r.status === 307 && r.location.includes("/translate/sign-in"), `status ${r.status}`);
+  check("Not signed in: /translate redirects to the sign-in page", r.go.includes("/translate/sign-in"), `status ${r.status}`);
   r = await anon.req(`/translate/${P14}`);
-  check("Not signed in: a page redirects and keeps the way back", r.status === 307 && r.location.includes("/translate/sign-in") && r.location.includes("next="), `status ${r.status}`);
+  check("Not signed in: a page redirects and keeps the way back", r.go.includes("/translate/sign-in") && r.go.includes("next="), `status ${r.status}`);
   r = await anon.req("/translate/sign-in");
   check("Sign-in page 200 with email and password fields", r.status === 200 && /type="password"/.test(r.body) && /type="email"/.test(r.body), `status ${r.status}`);
   r = await anon.req("/");
@@ -665,7 +882,10 @@ async function htvTest() {
   const listText = htvText(r.body);
   const bookRows = [...r.body.matchAll(/data-book="([^"]+)" data-pages="(\d+)" data-tagged="(\d+)"/g)].map((m) => ({ slug: m[1], pages: Number(m[2]), tagged: Number(m[3]) }));
   const taggedSum = bookRows.reduce((t, x) => t + x.tagged, 0);
-  check("Book list 200 and shows the 12 books that have a finished run, with 30 pages that have an agent translation", r.status === 200 && bookRows.length === 12 && taggedSum === 30, `status ${r.status}, ${bookRows.length} books, ${taggedSum} tagged pages`);
+  const facts = await dataFacts(dataDir);
+  check(`Book list 200 and shows every book of the data (${facts.listed.size} rows: the ${facts.bookSlugs.length} book folders and the items that have a finished run), with ${facts.pages.length} pages that have an agent translation`, r.status === 200 && facts.bookSlugs.length === 36 && bookRows.length === facts.listed.size && new Set(bookRows.map((x) => x.slug)).size === facts.listed.size && facts.listed.has("18d4ac29") && taggedSum === facts.pages.length, `status ${r.status}, ${bookRows.length} books of ${facts.listed.size}, ${taggedSum} tagged pages of ${facts.pages.length}`);
+  const nonBook = bookRows.filter((x) => !facts.listed.has(x.slug));
+  check("Book list: no web article of items.filled.jsonl (311 rows with long IDs) shows, only the web article with a run", nonBook.length === 0 && !bookRows.some((x) => /^[0-9a-f]{8}-/.test(x.slug)), nonBook.slice(0, 3).map((x) => x.slug).join(","));
   const bookOf = (slug) => bookRows.find((x) => x.slug === slug);
   check("Book list: left_foot_full has 120 pages and 6 with an agent translation, kendojidai_2014 has 1051 and 6, kendojidai_2012 has 949 and 2", bookOf("left_foot_full")?.pages === 120 && bookOf("left_foot_full")?.tagged === 6 && bookOf("kendojidai_2014")?.pages === 1051 && bookOf("kendojidai_2014")?.tagged === 6 && bookOf("kendojidai_2012")?.pages === 949 && bookOf("kendojidai_2012")?.tagged === 2, JSON.stringify(bookRows.filter((x) => /left_foot|kendojidai_201[24]/.test(x.slug))));
   check("Book list: the web article 18d4ac29 has one page, and mental_full has 169 pages and 2 with an agent translation", bookOf("18d4ac29")?.pages === 1 && bookOf("18d4ac29")?.tagged === 1 && bookOf("mental_full")?.pages === 169 && bookOf("mental_full")?.tagged === 2);
@@ -878,12 +1098,15 @@ async function htvTest() {
   const blockPos = ["dictionary_lookup", "book_translation_memory", "aligned_translation_memory", "lower_pair", "previous_page_pair", "earlier_term_marks"].map((n) => html.indexOf(`data-block="${n}"`));
   check("p050 panel blocks come in the owner order: dictionary, book memory, aligned memory, lower pair, previous page pair, earlier term marks", blockPos.every((x) => x >= 0) && blockPos.every((x, i) => i === 0 || x > blockPos[i - 1]), blockPos.join(","));
   check("p050 panel hides the stance line of the lower pair", !text.includes("Assume that this pair holds errors"));
-  check("p050 lower pair shows plain EN lines with short IDs (ts2/L01) and the full ID in the tooltip", /ts2\/L01/.test(text) && html.includes('title="left_foot_full/p050/ts2/L01"') && text.includes("so that, by executing Datotsu, the left line works effectively."));
+  // Unit UXC2 (round 61, finding of unit DPP): the expected text comes from the newest finished run of p050 in the data, so the check does not go stale when a new run ends.
+  const p050 = (await dataFacts(dataDir)).runsOf["left_foot_full/p050"]?.[0];
+  const p050Line = lowerPairFirstLine(await fs.readFile(path.join(p050?.dir ?? "", "messages/TL_3.txt"), "utf-8").catch(() => ""));
+  check("p050 lower pair shows plain EN lines with short IDs (ts2/L01) and the full ID in the tooltip, and the first line equals the first line of the newest finished run", /ts2\/L01/.test(text) && html.includes('title="left_foot_full/p050/ts2/L01"') && p050Line.length > 10 && squash(htvText(html)).includes(squash(p050Line)), `newest run ${p050?.run.runId}, line "${p050Line.slice(0, 50)}"`);
   check("p050 memory pair chip names the page and the pair (left_foot_full/p049 · P02) and hides the run and 'split none'", text.includes("left_foot_full/p049 · P02") && !/split none/.test(text) && !/20261028T023006Z\/20261028T040511Z/.test(text));
   const marksStart = html.indexOf('data-block="earlier_term_marks"');
   const marksHtml = html.slice(marksStart, html.indexOf("<script", marksStart));
   check("p050 earlier term marks show a table with the EN term and the result, and hide the entry IDs", /EN term/.test(text) && text.includes("Kendō (the way of the sword)") && /breaks/.test(text) && marksStart > 0 && !/c-[0-9a-f]{12}/.test(marksHtml.replace(/data-term="[^"]*"/g, "")));
-  check("p050 panel has a drag handle (width 416 px at start) and a close button", /data-panel-width="416"/.test(html) && /data-panel-handle/.test(html) && /Close the panel/.test(text));
+  check("p050 panel has a drag handle (width 416 px at start) and a collapse button, and no close button", /data-panel-width="416"/.test(html) && /data-panel-handle/.test(html) && /data-panel-collapse="tl3"/.test(html) && /Collapse the TL_3 information panel/.test(html) && !/data-panel-close/.test(html) && !/Close the panel/.test(text) && !/Hide the TL_3 information panel|Show the TL_3 information panel/.test(text));
 
   // The card parser over all TL_3 messages of finished runs: 0 lost lines (rawLines of each card equal the lines of its part).
   {
@@ -922,13 +1145,13 @@ async function htvTest() {
   }
   // --- pages that do not exist
   r = await c1.req("/translate/zzz_none?at=p001");
-  check("A page without a finished run gives 404", r.status === 404, `status ${r.status}`);
+  check("A page without a finished run gives 404", r.missing, `status ${r.status}`);
   r = await c1.req("/translate/men0?at=p005");
   check("men0/p005 shows the newest finished run (not the unfinished folder)", r.status === 200 && r.body.includes("20261026T182512Z-r41") && !r.body.includes("20261026T001543Z"), `status ${r.status}`);
   r = await c1.req("/translate/..%2Fx/p001");
-  check("A bad page name gives 404", r.status === 404, `status ${r.status}`);
+  check("A bad page name gives 404", r.missing, `status ${r.status}`);
   r = await c1.req("/translate/zzz_none/p001");
-  check("The old route of a page in an unknown book redirects to the book screen, which gives 404", r.status === 307 && r.location === "/translate/zzz_none?at=p001#p001", `status ${r.status}, location ${r.location}`);
+  check("The old route of a page in an unknown book redirects to the book screen, which gives 404", r.go === "/translate/zzz_none?at=p001#p001", `status ${r.status}, location ${r.location}`);
 
   // --- unit UXC step D: the book screen (round 58 answer 3, round 59 answers 3 and 4)
   await bookScreenChecks({ c1, ca, cr, anon });
@@ -936,11 +1159,14 @@ async function htvTest() {
   // --- unit UXC step E: the settings cog and the settings in the account (round 58 answer 5, round 59 answer 6)
   await settingsChecks({ c1, c2, ca, cr, anon, accounts, pbUrl });
 
+  // --- unit UXC2: page view, panels, 36 books, six review fixes (round 61)
+  await uxc2Checks({ c2, cr, anon, accounts, pbUrl, dataDir });
+
   // --- sign out
   r = await c1.req("/api/htv/logout", { method: "POST", json: {} });
   check("Sign out clears the cookie", r.status === 200 && c1.token() === "");
   r = await c1.req("/translate");
-  check("After sign out /translate redirects to the sign-in page", r.status === 307 && r.location.includes("/translate/sign-in"), `status ${r.status}`);
+  check("After sign out /translate redirects to the sign-in page", r.go.includes("/translate/sign-in"), `status ${r.status}`);
 
   // --- token refresh and a bad token
   const c3 = new Client("tr1 again");
@@ -955,7 +1181,7 @@ async function htvTest() {
   const forged = new Client("forged");
   forged.jar.set("htv_token", c3.token().slice(0, -3) + "abc");
   r = await forged.req("/translate");
-  check("A changed token counts as not signed in", r.status === 307, `status ${r.status}`);
+  check("A changed token counts as not signed in", r.go.includes("/translate/sign-in"), `status ${r.status}`);
   r = await forged.req(`/api/htv/save`, { method: "POST", json: { pageId: P14, runId: RUN_NEW, rows: rows3("a", "b", "c") } });
   check("A changed token cannot save (401)", r.status === 401, `status ${r.status}`);
 
@@ -1039,7 +1265,7 @@ async function deployTest() {
 
   // --- the human-translation-view
   r = await anon.req("/translate");
-  check("Deploy: not signed in, /translate redirects to the sign-in page", r.status === 307 && r.location.includes("/translate/sign-in"), `status ${r.status}`);
+  check("Deploy: not signed in, /translate redirects to the sign-in page", r.go.includes("/translate/sign-in"), `status ${r.status}`);
   r = await anon.req("/translate/sign-in");
   const navOf = (html) => (html.match(/<nav[^>]*aria-label="Main tabs"[\s\S]*?<\/nav>/) ?? [""])[0];
   check("Deploy: sign-in page 200, fields present, one tab only (Human translation)", r.status === 200 && /type="password"/.test(r.body) && /Human translation/.test(navOf(r.body)) && !/Runs|Books/.test(htvText(navOf(r.body))), `status ${r.status}`);
@@ -1060,7 +1286,8 @@ async function deployTest() {
   check("Deploy: cookie is httpOnly and SameSite=Lax", /httponly/i.test(cookie) && /samesite=lax/i.test(cookie));
   r = await c.req("/translate");
   const booksInList = new Set([...r.body.matchAll(/data-book="([^"]+)"/g)].map((m) => m[1]));
-  check("Deploy: /translate 200 with the books from PocketBase (12 books, left_foot_full among them)", r.status === 200 && booksInList.size === 12 && booksInList.has("left_foot_full"), `status ${r.status}, ${booksInList.size} books`);
+  const catalogTotal = (await pbCall(pbUrl, "GET", "/api/collections/catalog_items/records?perPage=1", c.token())).json?.totalItems;
+  check(`Deploy: /translate 200 with the books from PocketBase (one row for each row of catalog_items: ${catalogTotal}, left_foot_full among them)`, r.status === 200 && typeof catalogTotal === "number" && catalogTotal >= 37 && booksInList.size === catalogTotal && booksInList.has("left_foot_full") && booksInList.has("18d4ac29") && booksInList.has("kendojidai_2013"), `status ${r.status}, ${booksInList.size} books, ${catalogTotal} catalog rows`);
   const nav = navOf(r.body);
   check("Deploy: /translate has no link to /books and no Runs tab", !r.body.includes('href="/books"') && !/href="\/"/.test(r.body) && /Human translation/.test(nav) && !/Runs|Books/.test(htvText(nav)));
   check("Deploy: /translate title reads human-translation-view", /human-translation-view/.test(htvText(r.body)) || /human-translation-view/.test(r.body));
@@ -1073,10 +1300,10 @@ async function deployTest() {
   const kjHeads = [...kj.body.matchAll(/data-chapter="(\d+)"[^>]*>([^<]*)</g)].map((m) => `${m[1]}:${m[2]}`);
   check("Deploy: the book screen kendojidai_2014 shows 1051 sections and 13 month headings from magazine_chapters (October 2014 at p778)", kj.status === 200 && (kj.body.match(/data-section="p\d{4}"/g) ?? []).length === 1051 && kjHeads.length === 13 && kjHeads.includes("778:October 2014"), kjHeads.join(", "));
   const old = await c.req("/translate/left_foot_full/p048");
-  check("Deploy: the old page URL redirects to the book screen", old.status === 307 && old.location === "/translate/left_foot_full?at=p048#p048", `status ${old.status}`);
+  check("Deploy: the old page URL redirects to the book screen", old.go === "/translate/left_foot_full?at=p048#p048", `status ${old.status}`);
   check("Deploy: page view has own boxes for the translator", /aria-label="Own translation for /.test(r.body));
   r = await c.req("/translate/zzz_none?at=p001");
-  check("Deploy: a page without a run gives 404 and no Mac path", r.status === 404 && !r.body.includes("/Users/"), `status ${r.status}`);
+  check("Deploy: a page without a run gives 404 and no Mac path", r.missing && !r.body.includes("/Users/"), `status ${r.status}`);
 
   const cr = new Client("reader");
   r = await cr.req("/api/htv/login", { method: "POST", json: rd });

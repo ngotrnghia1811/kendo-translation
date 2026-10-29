@@ -1896,12 +1896,12 @@ EN  In Kendo, Budo and other traditional arts, “Keiko” represents an attitud
 
 - Earlier term marks. A small table with the columns JA, EN term with short English explanation, first used on page (link), and result. It hides `entry_id`. Example row of p050: `剣道 | Kendō (the way of the sword) | left_foot_full/p046 | follows`. At p0839 the block says "0 pages read. No earlier marks."
 - Fonts. English text uses a 15 px sans-serif font (`--font-sans`). Only Japanese text uses the Japanese font (`--font-ja`). The Japanese parts are the headword, the reading, the JA text of a pair, and the JA column of the mark table.
-- Width. The default stays 416 px. A drag handle on the left edge changes the width. Limits: 280 to 720 px (proposal). The panel closes with the existing button `[file: app/components/HtvEditor.tsx:213-215]`.
+- Width. The default stays 416 px. A drag handle on the left edge changes the width. Limits: 280 to 720 px (proposal). The panel closes with the existing button `[file: app/components/HtvEditor.tsx:213-215]`. [Replaced in round 61: a collapse button makes the panel a bar of 28 px, and the close button is gone. See 15.18.2.]
 - Parser. A pure function in a new file (proposal: `app/lib/htv-panel-cards.ts`) turns a `PanelBlock` into cards when the panel shows. The snapshot stays as it is, because `PanelPart.lines` keeps the raw message lines `[file: app/lib/htv-panel.ts:19-23,82-100]` `[file: app/lib/htv-build.ts:166-179]`. `SNAPSHOT_FORMAT` stays 1 `[file: app/lib/htv-build.ts:17]`. S2 does not change.
 
 ##### The settings cog
 
-- The owner words: "Every pane should have a setting cog button for customization". A pane is a screen area with its own frame (proposal). The cog is a small button in the top right corner of the pane. It opens a small box.
+- The owner words: "Every pane should have a setting cog button for customization". A pane is a screen area with its own frame (proposal). The cog is a small button in the top right corner of the pane. It opens a small box. [Replaced in round 61: one cog for each column header in a sticky header row, none inside a row. See 15.18.2.]
 - Panes of the human-translation-view today `[file: app/components/HtvEditor.tsx]`:
 
 | Pane id (proposal) | Where | Cog |
@@ -2229,7 +2229,7 @@ Status: open.
   - The panel hides `entry_id`, `store`, `source`, the line `stance`, the block `ja_text`, and the run of a memory pair. EN text is 15 px sans-serif. Only JA text uses the JA font.
   - Block order: dictionary lookup, book translation memory, aligned translation memory, lower pair, previous page pair, earlier term marks. A block with more than 40 lines starts closed.
   - The lines before the first item of a dictionary or memory block (`store`, `lookup_source`, `requested_words`, `entries_found`, `pairs_found`, `book_id`) show as a small note card.
-  - `app/components/HtvPanelFrame.tsx` (70 lines) gives the drag handle (280 to 720 px, default 416 px, arrow keys change it by 16 px) and the button "Close the panel".
+  - `app/components/HtvPanelFrame.tsx` (70 lines) gives the drag handle (280 to 720 px, default 416 px, arrow keys change it by 16 px) and the button "Close the panel". [Replaced in round 61: the close button is gone. HtvPanelFrame.tsx now has 145 lines and a collapse button. See 15.18.2.]
 - Step C, theme.
   - `app/app/globals.css:36-86` holds the block `[data-theme="dark"]` with the 29 Tailwind color variables of 15.16.5, the v1 base colors, `color-scheme: dark`, and the box edge `#777777`. It also holds the line `@custom-variant dark`.
   - `app/lib/theme.ts` (33 lines) reads the cookie `theme`. `app/app/layout.tsx` writes `data-theme` on `<html>`, so the first paint has no jump.
@@ -2247,23 +2247,23 @@ Status: open.
 - Step E, settings cog.
   - Migration `1793300005_v2_user_settings.js` (79 lines) creates `user_settings` with the rules of 15.16.6. The down function deletes the collection only when it holds 0 records.
   - `app/lib/htv-settings.ts` (198 lines) holds the pane names, fonts, limits, the clean-up function `sanitizeSettings`, and the contrast formula. `app/app/api/htv/settings/route.ts` (36 lines) reads and writes the record of the signed-in user.
-  - `app/components/PaneSettings.tsx` (345 lines) holds the provider, the cog, and the wrapper `Pane`. A change applies at once and saves 800 ms after the last change. The cog warns when the contrast is below 4.5 to 1.
+  - `app/components/PaneSettings.tsx` (345 lines) holds the provider, the cog, and the wrapper `Pane`. A change applies at once and saves 800 ms after the last change. The cog warns when the contrast is below 4.5 to 1. [Replaced in round 61: the wrapper `Pane` has no cog. PaneSettings.tsx now has 364 lines. See 15.18.2.]
   - The 7 panes are the book list, the JA column, the agent column, the own box, the TL_3 information panel, the comments, and the version history. The monitor panes get no cog.
 
 #### 15.17.2 Two constants that the owner has not decided
 
-- `BOOK_LIST_MODE` sits in `app/lib/htv-books.ts:25`. The value `"with-runs"` shows the 12 books that have a finished run. The value `"all"` shows every book of `book-slugs.json` (runSource files) or every row of `catalog_items` (runSource pocketbase). A third option "12 plus a Show all books switch" needs a small new control. Not built.
+- `BOOK_LIST_MODE` sits in `app/lib/htv-books.ts:25`. The value `"with-runs"` shows the 12 books that have a finished run. The value `"all"` shows every book of `book-slugs.json` (runSource files) or every row of `catalog_items` (runSource pocketbase). A third option "12 plus a Show all books switch" needs a small new control. Not built. [Replaced in round 61: the value is now `"all"`, and the list has 37 rows. See 15.18.2.]
 - `DEFAULT_THEME` sits in `app/lib/htv-settings.ts:12`. The value is `"light"`. The value `"dark"` makes dark the default. A "follow the computer setting" mode needs a third state. Not built.
 
 #### 15.17.3 Differences between the design and the code
 
 - The switch sits in `Nav` only. The design also named `HtvBar`. `Nav` shows on every page of the view, so a second switch gives no gain.
-- The cog of the own box sits in the top right corner of each box. The cog of the JA column and the agent column also sits in each row. All rows share one setting.
+- The cog of the own box sits in the top right corner of each box. The cog of the JA column and the agent column also sits in each row. All rows share one setting. [Replaced in round 61: no row holds a cog. See 15.18.2.]
 - The share of the row for the JA column is one value. A change in the cog of the agent column stores the rest and clears the share of the JA column.
 - The panel line count "Panel lines: N of M" counts the shown blocks only. For `kendojidai_2014/p0839` the count is 395 of 721. It was 536 of 721 with the JA text block.
 - Sections that are far from the screen unload when they are clean. The unit chose 8 pages as the limit. The design named only the load window of 2 pages.
 - After a jump the target section stays at the top for 5 seconds unless the user scrolls. Sections above the target load and grow in that time. Without this rule a jump ends on another page.
-- The book list in `"with-runs"` mode takes the page count of a web article as the last tagged page, at least 1 (the web article `18d4ac29` has `pages` 0 in `catalog_items`).
+- The book list in `"with-runs"` mode takes the page count of a web article as the last tagged page, at least 1 (the web article `18d4ac29` has `pages` 0 in `catalog_items`). [Replaced in round 61: the mode is now `"all"`. See 15.18.2.]
 - The server refuses a tick with own text, and a tick on a row without an agent text (400).
 - The sign-in route copies the account theme into the cookie. A theme change on a second device shows after the next sign-in.
 
@@ -2283,7 +2283,7 @@ Status: open.
 | Chrome headless checks (`browser_all.mjs`) | 45 PASS, 0 FAIL |
 | Parity files mode against pocketbase mode | 40 finished runs, 30 pages, 294 groups, 0 differences. Book list and 12 book indexes equal |
 | Group parity against `translator.book_memory` | 40 runs, 294 groups, 0 differences |
-| S2 dry run after the upload | 40 page runs, 12 catalog items, 103 magazine chapters, all unchanged. Snapshots 2.23 MB in total (0.02 MB smallest, 0.13 MB largest) |
+| S2 dry run after the upload | 40 page runs, 12 catalog items, 103 magazine chapters, all unchanged. Snapshots 2.23 MB in total (0.02 MB smallest, 0.13 MB largest) | [Round 59 count. After round 61 the dry run shows 37 catalog items. See 15.18.5.]
 
 - Card parser over the TL_3 messages of finished runs: 68 messages, 1,255 entries, 234 pairs, 1,907 parts, 0 lost lines.
 - The count of finished runs grew from 37 to 40 while the unit worked, because the paid Translator chain added runs `[check: UXC 2026-10-28 23:53 parity_data.mjs]`.
@@ -2310,8 +2310,145 @@ Status: open.
 - The effect of `color-scheme: dark` on scroll bars in each browser.
 - The system fonts "Hiragino Kaku Gothic ProN" and "Yu Gothic" on a translator machine.
 - The first paint of the theme in a browser with a slow network. The server writes the attribute, so a jump is not expected.
-- The owner dev server on port 3000 ran the new code with hot reload. Its screens were not checked by this unit.
+- The owner dev server on port 3000 ran the new code with hot reload. Its screens were not checked by this unit. [Round 59 note. For round 61 see 15.18.9.]
 - The S2 upload of `magazine_chapters` and of the 3 new runs into the local PocketBase on port 8090. The owner runs S2 by hand.
 - The size of the Oracle server disk.
 
 Status: code built, owner check open.
+
+### 15.18 UXC2 code state (round 61)
+
+- Source: owner answers 3 to 7 and 10 of round 61 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:263-267,270]` and answer 7 of round 60 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:244]`. Unit UXC2 wrote the code.
+- Method: the unit changed the code in a copy of `app/` and copied the result back in one step at the end `[check: UXC2 2026-10-29 diff -rq app app-copy]`. The owner dev server on port 3000 never saw half-done code.
+- Sizes use MB. One MB is 1,048,576 bytes. `<TMP>` is `/var/folders/sz/2hvwvpb16c77mfzqnvkb5gbc0000gn/T/opencode`. The work files sit in `<TMP>/r61/UXC2/`.
+- Next guides read before the code: `error-handling.md`, `linking-and-navigating.md`, `redirect.md`, `use-search-params.md`, `use-router.md`, `server-actions.md`, `data-security.md`, `error.md`, `loading.md`, and `14-metadata-and-og-images.md` in `app/node_modules/next/dist/docs/01-app/`.
+
+#### 15.18.1 Owner words
+
+- Round 60 answer 7 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:244]`:
+
+```
++ Add a page-by-page view also, not just scrolling view. translator can switch
++ Instead of `closing`, Make the left and right panel collapsible
++ Dont add cog to EVERY translator writing box. It should be one cog that apply to all of them
+```
+
+- Round 61 answer 3 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:263]`: "Correct as written (Recommended)". The restatement has a switch "Scroll view" / "Page view", one page at a time, "Previous page" and "Next page", a page number box, the left index, a leave warning, the URL `/translate/left_foot_full?view=page&at=p048`, the view choice in the account, and pages with no agent translation inside the page view. The scroll view stays as it is.
+- Round 61 answer 4 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:264]`: "Correct as written (Recommended)". Each side panel gets a collapse button. The close button is gone. A collapsed panel is a bar of about 28 px with the name and an arrow. The state and the width stay in the account.
+- Round 61 answer 5 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:265]`: "A: one cog per column header (Recommended)". A sticky header row holds the cogs of Japanese, Agent translation, Your translation, and Comments. No row holds a cog.
+- Round 61 answer 6 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:266]`: "36 books plus web article (Recommended)". `BOOK_LIST_MODE` is `"all"`. S2 uploads the 36 book folders and the web article `18d4ac29`.
+- Round 61 answer 7 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:267]`: "Fix the 6 findings (Recommended), Keep the Tailwind loader (Recommended), Keep force-dynamic lines (Recommended)".
+- Round 61 answer 10 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:270]`: "Work in a copy, copy back at end (Recommended)".
+
+#### 15.18.2 What was built
+
+- Page view `[round 61 answer 3]`.
+  - `app/components/HtvBook.tsx:602-634` holds the toolbar with the switch and the page buttons. `:159-217` is `PageNav` (Previous page, Next page, page number box). `:220-227` is `writeUrl`. `:466-505` hold the leave warning, `movePage`, and `switchView`.
+  - `app/app/translate/[slug]/page.tsx:22,39-41` reads `?view` and `?at`, and chooses the view. An `at` outside the book gives the message `No such page: p999. This book has pages 1 to 120. The screen starts at the first page.`.
+  - The page view renders one section. The window load of the scroll view also fills the pages next to it, so Next page is fast.
+  - A move to another page drops the cached copy of the page that the screen leaves, because a Save changes its saved data. A switch of the view drops all cached pages.
+  - `app/components/HtvIndex.tsx` opens a page on a click in the page view. In the scroll view the link scrolls as before.
+- Collapsible panels `[round 61 answer 4]`.
+  - `app/components/HtvPanelFrame.tsx:12-52` has `BAR_WIDTH` 28, `CollapsedBar`, and `CollapseButton`. `:54-106` is `DragHandle`, which serves both panels. `:108-145` is the frame of the TL_3 information panel.
+  - `app/components/HtvIndex.tsx:1-172` has the header (name, cog, collapse button), the drag handle on the right edge, and the bar. Width limits: 160 to 400 px, default 192 px.
+  - `app/components/HtvBook.tsx:261-263` reads the state from the account. The old state `panelOpen`, the link "Hide the TL_3 information panel", and the button `data-panel-close` are gone.
+- Column cogs `[round 61 answer 5]`.
+  - `app/components/HtvBook.tsx:131-157` is the sticky header row `ColumnHeader`. The cogs are Japanese, Agent translation, Your translation, Comments, and Version history.
+  - `app/components/PaneSettings.tsx:357-366`: the wrapper `Pane` has no cog. `:210` `PaneCog` takes `align`, so a box opens to the right or to the left.
+  - The index and the TL_3 information panel keep one cog in their header. The book list page keeps one cog in its header (`app/components/HtvList.tsx`). `app/components/HtvPageSection.tsx` has no cog.
+  - A reader sees the cogs of Japanese and Agent translation only (plus the index and the panel).
+- 36 books and S2 `[round 61 answer 6]`.
+  - `app/lib/htv-books.ts:27` `BOOK_LIST_MODE = "all"`. `:66-73`: in the files mode only the rows of the 36 book folders count. `items.filled.jsonl` holds 347 rows, and 311 are web articles.
+  - `app/scripts/sync-runs.mjs:363-376` `loadBookSlugs` reads `pilot-sample/book-slugs.json`. `:521-528` builds 37 catalog items (36 books and the web article). `:590` prints the count and the size.
+  - The catalog rows hold 0.16 MB. A book with no run opens and shows the page numbers with "No agent translation" on every page.
+- Six fixes `[round 61 answer 7]`.
+  - Finding 1: `app/app/translate/sign-in/page.tsx:12-21` reads the session in `try` and calls `redirect()` after the block.
+  - Finding 2: `app/app/translate/loading.tsx` (10 lines) and `app/app/translate/error.tsx` (20 lines). This Next version gives an error boundary the props `error` and `retry` (guide `error.md`).
+  - Finding 3: the key `userId` is gone from `CommentView` (`app/lib/htv-types.ts`) and from `app/lib/pb.ts`. The keys `mine` and `userName` stay.
+  - Finding 4: `app/lib/htv-origin.ts` (27 lines) is the one helper. `app/lib/htv-api.ts:4,24-25`, `app/app/api/htv/login/route.ts:3,14-15`, `app/app/api/theme/route.ts:3,16-17`, and `app/app/api/htv/logout/route.ts:2,9-10` call it.
+  - Finding 5: `next.config.ts` is unchanged. The reason sits in `app/README.md` (section of unit UXC2).
+  - Finding 6: `app/app/translate/layout.tsx` (13 lines) exports `metadata` with the title "human-translation-view".
+- Stale smoke check `[unit DPP finding]`: `app/scripts/smoke.mjs:1102-1104` reads the first line of the lower pair from the newest finished run of p050. `:365-396` `dataFacts` reads the book count and the finished runs from the data. `:398` `lowerPairFirstLine`.
+
+#### 15.18.3 Settings shape and the view rule
+
+- No new migration. The column `user_settings.panes` (JSON, 20,000 bytes at most) holds the new key `ui`. Old records have no `ui` and stay readable.
+- `app/lib/htv-settings.ts:92-118` defines the types. `:147-171` `sanitizeUi` and `sanitizeSettings` clean the value. A bad view, a bad open value, and an unknown key drop out. The index width is clamped to 160 to 400.
+- The width of the TL_3 information panel stays in `panes.tl3.width`, where older records keep it.
+- Example:
+
+```json
+{"v":1,"panes":{"tl3":{"width":500}},"ui":{"view":"page","index":{"open":true,"width":260},"tl3":{"open":false}}}
+```
+
+- "Reset all panes" resets `panes` only. The view choice and the panel state stay.
+- Precedence of the view: a `view` in the URL wins, else `ui.view` of the account, else the scroll view.
+
+#### 15.18.4 Side effect of `loading.tsx`
+
+- `loading.tsx` makes Next stream the pages under `/translate`. After the first flush a page cannot change the HTTP status `[file: app/node_modules/next/dist/docs/01-app/03-api-reference/04-functions/redirect.md:12]`.
+- So `redirect()` inside a page now answers HTTP 200 with the tag `<meta id="__next-page-redirect" http-equiv="refresh" content="1;url=...">` and a client side redirect. Before it answered 307.
+- `notFound()` inside a page now answers HTTP 200 with the not-found screen and `noindex`. Before it answered 404.
+- This covers the redirect to the sign-in page, the old route `/translate/<book>/<page>`, and a book that does not exist. The redirects still work in a browser `[check: UXC2 2026-10-29 smoke htv]`. The smoke script accepts both forms.
+- The routes under `/api` keep their statuses.
+
+#### 15.18.5 Tests
+
+- All runs used the copy `<TMP>/r61/UXC2/app-copy` and the throwaway PocketBase on 127.0.0.1:8092. Each mode ran on a fresh server.
+
+| Test | Result |
+|---|---|
+| `npx tsc --noEmit`, `npm run lint` | exit 0 and exit 0, no warning |
+| `npm run build` in the copy | exit 0, 0 lines "Dynamic filesystem" |
+| `node scripts/smoke.mjs smoke` | 70 PASS, 0 FAIL |
+| `smoke.mjs htv`, runSource files | 262 PASS, 0 FAIL |
+| `smoke.mjs htv`, runSource pocketbase | 262 PASS, 0 FAIL |
+| `smoke.mjs deploy` | 34 PASS, 0 FAIL |
+| Chrome headless (`browser_all.mjs`) | 59 PASS, 0 FAIL |
+| `python3 -B data/scripts/pocketbase/test_local.py` | Total: 151 PASS, 0 FAIL |
+| `node scripts/contrast-dark.mjs` | 0 failures, lowest ratio 7.49 to 1, 29 palette colors, 0 without a dark value |
+| Parity files mode against pocketbase mode | 42 runs, 30 pages, 304 groups, 0 differences. Book list 37 and 37 rows equal. 37 book indexes, 0 differences |
+| Group parity against `translator.book_memory` | 42 runs, 304 groups, 0 differences |
+
+- S2 on the throwaway server: the first dry run lists 42 page runs, 37 catalog items, and 103 chapters to create. `--apply` created them with 0 failed. The second dry run shows all unchanged. Snapshots hold 2.34 MB in total (0.02 MB smallest, 0.13 MB largest). The catalog rows hold 0.16 MB.
+- S2 dry run on the local server 8090: 0 page runs to create (42 unchanged), 25 catalog items to create (12 unchanged), 103 chapters unchanged. Nothing was written.
+- New checks: the page view (SSR for 10 URLs and the clicks in Chrome), the leave warning, the view choice in the account, the collapse of both panels with the old width, 0 cogs inside rows, the book list with 37 rows, a book with no run (`kendojidai_2013`, 1039 pages), and the six fixes.
+- Changed old checks: the book count and the stale p050 check read the data. The checks for a redirect and a missing page accept the streamed form (section 15.18.4). The close button check is now a collapse button check.
+- Load of `kendojidai_2014` (production build, median of 7 requests, local PocketBase): scroll view 0.77 MB and 207 ms (1.03 MB and 400 ms with `?at=p0839`). Page view 0.47 MB and 391 ms at p0839, 0.22 MB and 255 ms at p0001. The times vary much between runs (maximum 1,618 ms).
+- `left_foot_full`: scroll view 0.60 MB and 1,161 ms, page view 0.46 MB and 1,042 ms.
+- Screenshots: `<TMP>/r61/UXC2/shots/` (34 files, light and dark, 1500 by 1000 and 1280 by 800).
+
+#### 15.18.6 Unit defaults
+
+- A `view` in the URL wins, else the account, else the scroll view. Alternative: the account wins.
+- The cog of Version history sits in the header row next to the Comments cog. Alternative: no cog for that pane.
+- The book index uses the pane `list` for its cog (label "Book list and book index"). Alternative: a new pane `index`.
+- The book index has a drag handle. Width 160 to 400 px, default 192 px.
+- The page view opens p001 when the URL has no `at`. A switch from the scroll view opens the page in view. A switch back jumps to the page of the page view.
+- The page view changes the URL with `replaceState`. A move to another page adds no history entry. Alternative: `router.push`, so the back button works.
+- A move with unsaved text asks and then drops the text. Alternative: keep the sections mounted.
+- Previous page and Next page show twice: at the top, and below the rows.
+- S2 always uploads the 36 book folders, even with `--page` or `--list` (like the chapters).
+- `app/translate/layout.tsx` sets the title for all pages under `/translate`. Alternative: `metadata` in each page.
+- An origin with no host header gets 403.
+
+#### 15.18.7 Open items
+
+- `loading.tsx` changes redirect and not-found statuses to 200 (section 15.18.4). Options: keep (the guide advice), move the file to `app/translate/[slug]/` only, or remove it.
+- The web article `18d4ac29` shows its slug as title. The owner decided an empty title `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:184]`.
+- The owner must run S2 with `--apply` on the local server to add 25 catalog items.
+
+#### 15.18.8 Differences from the brief
+
+- The brief names 15 lines `export const dynamic = "force-dynamic"`. The app has 27 lines in 27 files. No line changed.
+- The brief expects 0.17 MB of catalog rows. The measure is 0.16 MB.
+- The brief names `test_local.py` for new counts. The unit made no migration, so it did not change.
+
+#### 15.18.9 Not verified
+
+- Safari and Firefox.
+- The dev server on port 3000 after the copy back. The unit checks only the status codes of `/translate` and `/translate/sign-in`.
+- A book with 1,051 pages and many tagged pages in the scroll view.
+- The `error.tsx` screen for a failure of the server on the real PocketBase. The unit used a stub server that fails.
+
+Status: code built and tested in a copy, then copied back. Owner check open.
