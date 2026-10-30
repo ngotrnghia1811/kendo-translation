@@ -5,7 +5,11 @@
 // Unit UXC (round 59 answer 4, Q-A 2026-10-28 l222): it also fills magazine_chapters with the 103 month chapters of
 // item-metadata/magazine-chapters.jsonl (the month headings of the book screen). The chapters do not depend on --page or --list.
 // Unit UXC2 (round 61 answer 6, Q-A 2026-10-29 l266): catalog_items also gets the 36 book folders of pilot-sample/book-slugs.json, with or without a run.
-// The titles and page counts come from item-metadata/items.filled.jsonl. The other rows of that file (311 web articles) stay out.
+// The titles and page counts come from item-metadata/items.filled.jsonl.
+// Unit RC4 (round 69 answer 7, round 70): catalog_items now gets all 347 rows of that file, also the 311 web articles. The slug of a web article is the first
+// 8 characters of its item_id (the ID rule). The column pages stays 0 for a web article. The /translate list keeps its 37 rows (app/lib/htv-books.ts).
+// Each record also gets the column translated (the English pages that readers can read, round 69 answers 8 and 9) and, for a web article, the column placement
+// (web date and print stamp, for the folds of the Reader dashboard). Each reader_pages record gets the folded search columns search_ja and search_en (round 69 answer 10).
 // Unit RC1 (round 63 answer 3, Q-A 2026-10-28 l309): it also fills reader_pages, one record for each page that has an agent translation to show readers.
 // The shown run of a page is the run of the admin run mark (collection run_marks), else the newest PASS run. A page with only FAIL runs gets no record.
 // A record holds the rows (JA text, agent EN text, term marks), the term entries that the marks cite, the captions and the running head (extras),
@@ -28,6 +32,8 @@ const { installTsResolveHook } = await import("./ts-resolve-hook.mjs");
 installTsResolveHook();
 const { buildRun, finishedRunOf, makeReaderPage, makeSnapshot, parseTermbase, readerExtras, RUN_FOLDER_RULE, SNAPSHOT_FORMAT, sortRuns } = await import("../lib/htv-build.ts");
 const { folderToPageId } = await import("../lib/format.ts");
+const { isTranslatedPage } = await import("../lib/reader-translated.ts");
+const { SEARCH_COLUMN_MAX } = await import("../lib/reader-search.ts");
 
 // ---------------------------------------------------------------- constants and small helpers
 
@@ -72,7 +78,10 @@ Without --page and --list the command syncs every page with a finished run.
 The collection magazine_chapters always gets all rows of item-metadata/magazine-chapters.jsonl (the month headings of the book screen).
 The collection reader_pages gets one record for each selected page with an agent translation to show: the run of the admin run mark, else the newest PASS run.
 A page with only FAIL runs gets no record. The record holds no verdict, no score, no TL_3 panel, and no reasoning. The report lists the count and the sizes in MB.
-The collection catalog_items always gets the 36 book folders of pilot-sample/book-slugs.json, plus the item of each selected run (for example the web article 18d4ac29).
+The collection catalog_items always gets all rows of item-metadata/items.filled.jsonl (347 rows: 36 folders and 311 web articles), plus the item of each selected run that has no row.
+The slug of a web article is the first 8 characters of its item_id. The column translated holds the English pages that readers can read (a reader_pages record exists for the page).
+The column placement of a web article holds the web date and the print stamp of web-magazine-candidates.jsonl (the folds of the Reader dashboard use it).
+The columns search_ja and search_en of reader_pages hold the folded text for the search. Migration 1793300010 adds the four columns. Without it, --apply stops.
 The column row of catalog_items holds the metadata row without 14 research keys (sources, confidence, filled_by, confirmed_by, notes, source_url, hint_secondary, confidence_draft, notes_draft, issue_evidence, status, title_en_source, author_en_source, synopsis_source).
 An --apply run replaces the row of a record that exists already, so one run cleans the records of an earlier run.
 The password comes from a hidden prompt on the terminal. If stdin is not a terminal, the command reads one line from stdin.
@@ -302,14 +311,22 @@ function catalogRecordEqual(stored, want) {
   for (const k of ["item_id", "kind", "folder", "title_ja", "title_en", "author_ja", "author_en", "publisher", "publish_year"]) {
     if (String(stored[k] ?? "") !== want[k]) return false;
   }
-  return Number(stored.pages ?? 0) === want.pages && same(stored.row ?? null, want.row);
+  return Number(stored.pages ?? 0) === want.pages && same(stored.row ?? null, want.row) && same(stored.translated ?? null, want.translated) && same(stored.placement ?? null, want.placement);
 }
 
 function readerRecordEqual(stored, want) {
   for (const k of ["page_id", "item_id", "run_id"]) {
     if (String(stored[k] ?? "") !== want[k]) return false;
   }
-  return Number(stored.n ?? 0) === want.n && same(stored.rows ?? null, want.rows) && same(stored.terms ?? null, want.terms) && same(stored.extras ?? null, want.extras) && same(stored.agree ?? null, want.agree);
+  return (
+    Number(stored.n ?? 0) === want.n &&
+    same(stored.rows ?? null, want.rows) &&
+    same(stored.terms ?? null, want.terms) &&
+    same(stored.extras ?? null, want.extras) &&
+    same(stored.agree ?? null, want.agree) &&
+    String(stored.search_ja ?? "") === want.search_ja &&
+    String(stored.search_en ?? "") === want.search_en
+  );
 }
 
 function chapterRecordEqual(stored, want) {
@@ -391,27 +408,83 @@ async function loadBookSlugs(dataDir) {
   return out;
 }
 
-async function loadMetadata(dataDir) {
-  const readRows = async (rel) => {
-    const text = await readTextFile(path.join(dataDir, rel));
-    const rows = [];
-    for (const line of (text ?? "").split("\n")) {
-      if (!line.trim()) continue;
-      try {
-        rows.push(JSON.parse(line));
-      } catch {
-        /* skip a broken line */
-      }
+async function readJsonlRows(dataDir, rel) {
+  const text = await readTextFile(path.join(dataDir, rel));
+  const rows = [];
+  for (const line of (text ?? "").split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      rows.push(JSON.parse(line));
+    } catch {
+      /* skip a broken line */
     }
-    return rows;
-  };
-  let rows = await readRows("item-metadata/items.filled.jsonl");
+  }
+  return rows;
+}
+
+/** The ID rule (round 69 answer 7): the slug of a web article is the first 8 characters of its item_id. Another row keeps its item_id. */
+function catalogSlug(row) {
+  const id = String(row.item_id);
+  return row.kind === "web-article" ? id.slice(0, 8) : id;
+}
+
+/** All rows of the metadata file by slug. A clash (two rows with one slug) goes into `clashes`; the first row stays. */
+async function loadMetadata(dataDir) {
+  let rows = await readJsonlRows(dataDir, "item-metadata/items.filled.jsonl");
   let source = "items.filled.jsonl";
   if (rows.length === 0) {
-    rows = await readRows("item-metadata/items.draft.jsonl");
+    rows = await readJsonlRows(dataDir, "item-metadata/items.draft.jsonl");
     source = "items.draft.jsonl";
   }
-  return { map: new Map(rows.map((r) => [String(r.item_id), r])), source };
+  const map = new Map();
+  const clashes = [];
+  for (const r of rows) {
+    if (typeof r?.item_id !== "string" || !r.item_id) continue;
+    const slug = catalogSlug(r);
+    if (map.has(slug)) clashes.push(`${slug}: ${map.get(slug).item_id} and ${r.item_id}`);
+    else map.set(slug, r);
+  }
+  return { map, source, clashes, rows: rows.length };
+}
+
+/**
+ * Placement facts of the web articles (unit RC4, round 69 answer 7). The Reader dashboard puts a web article in a year and a month.
+ *   web_year, web_month      from the web date (publish_date_text, for example 2019-10-21)
+ *   print_year, print_month  from the print stamp of web-magazine-candidates.jsonl (for example "2011.8 KENDOJIDAI"), else null
+ * A row of web-magazine-overrides.jsonl with the action link names the chapter of the magazine article (for example kendojidai_2011/2011-08).
+ * That chapter wins over the stamp when its month differs from the stamp. The other override rows (unlink) do not change a month.
+ */
+async function loadPlacements(dataDir) {
+  const stamps = new Map();
+  for (const r of await readJsonlRows(dataDir, "item-metadata/web-magazine-candidates.jsonl")) {
+    if (typeof r?.record_id === "string" && Number.isInteger(r.stamp_year) && Number.isInteger(r.stamp_month)) stamps.set(r.record_id, { year: r.stamp_year, month: r.stamp_month });
+  }
+  const changed = [];
+  for (const o of await readJsonlRows(dataDir, "item-metadata/web-magazine-overrides.jsonl")) {
+    if (o?.action !== "link" || typeof o.chapter !== "string") continue;
+    const m = /\/(\d{4})-(\d{2})$/.exec(o.chapter);
+    const stamp = stamps.get(o.record_id);
+    if (!m || !stamp) continue;
+    const year = Number(m[1]);
+    const month = Number(m[2]);
+    if (year !== stamp.year || month !== stamp.month) {
+      changed.push(`${o.record_id}: stamp ${stamp.year}-${stamp.month}, override ${o.chapter}`);
+      stamps.set(o.record_id, { year, month });
+    }
+  }
+  return { stamps, changed };
+}
+
+function placementOf(row, stamps) {
+  if (!row || row.kind !== "web-article") return null;
+  const m = /^(\d{4})-(\d{2})/.exec(String(row.publish_date_text ?? ""));
+  const stamp = stamps.get(String(row.item_id));
+  return {
+    web_year: m ? Number(m[1]) : null,
+    web_month: m ? Number(m[2]) : null,
+    print_year: stamp ? stamp.year : null,
+    print_month: stamp ? stamp.month : null,
+  };
 }
 
 /** One record for each row of magazine-chapters.jsonl. A missing number is 0 (month 0 is the front chapter). */
@@ -460,7 +533,7 @@ function withoutResearch(row) {
   return Object.fromEntries(Object.entries(row).filter(([k]) => !RESEARCH_FIELDS.includes(k)));
 }
 
-function catalogBody(slug, row, folderPages = 0) {
+function catalogBody(slug, row, folderPages = 0, translated = [], placement = null) {
   const text = (v) => (v === null || v === undefined ? "" : String(v));
   return {
     item_id: slug,
@@ -474,6 +547,9 @@ function catalogBody(slug, row, folderPages = 0) {
     publisher: text(row?.publisher),
     publish_year: text(row?.publish_year),
     row: withoutResearch(row),
+    // Round 69 answers 8 and 9: the English pages that readers can read. One rule function: isTranslatedPage (lib/reader-translated.ts).
+    translated: { en: translated },
+    placement,
   };
 }
 
@@ -552,13 +628,15 @@ for (const x of selected) {
   if (bytes >= SNAPSHOT_LIMIT) problems.push(`${x.pageId} run ${x.run.runId}: the snapshot has ${mb(bytes)}. The limit is 5 MB.`);
 }
 const bookSlugs = await loadBookSlugs(dataDir);
-if (bookSlugs.size === 0) console.error("Warning: pilot-sample/book-slugs.json is missing or empty. catalog_items gets the items of the selected runs only.");
-const slugs = [...new Set([...bookSlugs.keys(), ...selected.map((x) => x.slug)])].sort();
+if (bookSlugs.size === 0) console.error("Warning: pilot-sample/book-slugs.json is missing or empty. catalog_items gets the metadata rows and the items of the selected runs.");
+for (const c of meta.clashes) problems.push(`Two metadata rows have one slug: ${c}.`);
+// Unit RC4 (round 69 answer 7): every row of the metadata file (347), the 36 folders, and the item of each selected run. The body comes after the reader plan (it needs the translated pages).
+const slugs = [...new Set([...meta.map.keys(), ...bookSlugs.keys(), ...selected.map((x) => x.slug)])].sort();
+const placements = await loadPlacements(dataDir);
 for (const slug of slugs) {
   const row = meta.map.get(slug) ?? null;
-  items.push({ slug, row, body: catalogBody(slug, row, bookSlugs.get(slug) ?? 0) });
+  items.push({ slug, row, folderPages: bookSlugs.get(slug) ?? 0, placement: placementOf(row, placements.stamps) });
 }
-const catalogBytes = items.reduce((t, it) => t + Buffer.byteLength(JSON.stringify(it.body), "utf-8"), 0);
 
 const chapters = await loadChapters(dataDir);
 
@@ -587,12 +665,24 @@ if (!o.offline) {
     if (missing.length) fail(`The collection page_runs has no field ${missing.join(", ")}. Restart PocketBase so that migration 1793300003 runs.`);
     serverRuns = new Map((await pb.listAll("page_runs")).map((r) => [`${r.page_id}|${r.run_id}`, r]));
     serverItems = new Map((await pb.listAll("catalog_items")).map((r) => [String(r.item_id), r]));
+    const catalogFields = new Set(((await pb.call("GET", "/api/collections/catalog_items")).fields ?? []).map((f) => f.name));
     serverChapters = new Map((await pb.listAll("magazine_chapters")).map((r) => [String(r.chapter), r]));
     // Unit RC1 (round 63): reader_pages, the run marks, and the agree ticks.
     try {
       await pb.call("GET", "/api/collections/reader_pages");
     } catch {
       fail("The collection reader_pages is missing. Restart PocketBase so that the migrations 1793300006 to 1793300009 run.");
+    }
+    // Unit RC4 (round 70): migration 1793300010 adds translated and placement to catalog_items and search_ja and search_en to reader_pages. --apply stops without them.
+    const readerFields = new Set(((await pb.call("GET", "/api/collections/reader_pages")).fields ?? []).map((f) => f.name));
+    const lacking = [
+      ...["translated", "placement"].filter((n) => !catalogFields.has(n)).map((n) => `catalog_items.${n}`),
+      ...["search_ja", "search_en"].filter((n) => !readerFields.has(n)).map((n) => `reader_pages.${n}`),
+    ];
+    if (lacking.length) {
+      const text = `The server has no field ${lacking.join(", ")}. Restart PocketBase so that migration 1793300010 runs.`;
+      if (o.apply) fail(text);
+      console.error("Warning: " + text + " The dry run goes on, and every record counts as different.");
     }
     serverReader = new Map((await pb.listAll("reader_pages")).map((r) => [String(r.page_id), r]));
     marks = new Map((await pb.listAll("run_marks")).map((r) => [String(r.page_id), String(r.run_id)]));
@@ -608,12 +698,6 @@ const plan = selected.map((x) => {
   const stored = serverRuns.get(`${x.pageId}|${x.run.runId}`);
   if (!stored) return { x, action: "create" };
   return { x, action: runRecordEqual(stored, x.body) ? "unchanged" : "update", id: stored.id };
-});
-const itemPlan = items.map((it) => {
-  if (!serverItems) return { it, action: "not compared" };
-  const stored = serverItems.get(it.slug);
-  if (!stored) return { it, action: "create" };
-  return { it, action: catalogRecordEqual(stored, it.body) ? "unchanged" : "update", id: stored.id };
 });
 const chapterPlan = chapters.map((c) => {
   if (!serverChapters) return { c, action: "not compared" };
@@ -647,6 +731,7 @@ for (const r of ownRows) {
 }
 const readerPlan = [];
 const readerSkipped = [];
+const searchCut = [];
 for (const [pageId, xs] of [...runsByPage].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
   xs.sort(newestFirst);
   const markedId = marks.get(pageId);
@@ -667,11 +752,41 @@ for (const [pageId, xs] of [...runsByPage].sort((a, b) => (a[0] < b[0] ? -1 : 1)
     const fb = Buffer.byteLength(JSON.stringify(body[f]), "utf-8");
     if (fb >= READER_FIELD_LIMIT) problems.push(`${pageId} reader_pages.${f}: ${mb(fb)}. The limit is 5 MB.`);
   }
+  // A search column that reaches the limit was cut. The text after the cut is not searchable. The report lists such pages.
+  for (const f of ["search_ja", "search_en"]) if (body[f].length >= SEARCH_COLUMN_MAX) searchCut.push(`${pageId} ${f}`);
   const stored = serverReader?.get(pageId);
   const action = !serverReader ? "not compared" : !stored ? "create" : readerRecordEqual(stored, body) ? "unchanged" : "update";
   readerPlan.push({ pageId, x: pick, why, body, bytes, action, id: stored?.id });
 }
 const readerServerOnly = serverReader ? [...serverReader.keys()].filter((id) => !readerPlan.some((p) => p.pageId === id) && (!filtered || filter.has(id))) : [];
+
+// 3c. catalog_items (unit RC4, round 70). The translated pages of a work are the pages with a reader_pages record, by the one rule function isTranslatedPage:
+// the pages of the plan, and the records that stay on the server (a record whose run folder is gone, or a page outside --page and --list).
+// The body of each record holds them, so that a reader who waits for approval sees the progress with one request (round 69 answer 9).
+const translatedBy = new Map(); // slug -> Set of page numbers
+const countTranslated = (rec) => {
+  if (!isTranslatedPage(rec)) return;
+  const slug = String(rec.item_id);
+  const n = Number(rec.n);
+  if (!Number.isInteger(n) || n < 1) return;
+  if (!translatedBy.has(slug)) translatedBy.set(slug, new Set());
+  translatedBy.get(slug).add(n);
+};
+const planned = new Set(readerPlan.map((p) => p.pageId));
+for (const p of readerPlan) countTranslated(p.body);
+if (serverReader) for (const [id, rec] of serverReader) if (!planned.has(id)) countTranslated(rec);
+for (const it of items) it.body = catalogBody(it.slug, it.row, it.folderPages, [...(translatedBy.get(it.slug) ?? [])].sort((a, b) => a - b), it.placement);
+const catalogBytes = items.reduce((t, it) => t + Buffer.byteLength(JSON.stringify(it.body), "utf-8"), 0);
+for (const it of items) {
+  const fb = Buffer.byteLength(JSON.stringify(it.body.translated), "utf-8");
+  if (fb >= 1048576) problems.push(`${it.slug} catalog_items.translated: ${mb(fb)}. The limit is 1 MB.`);
+}
+const itemPlan = items.map((it) => {
+  if (!serverItems) return { it, action: "not compared" };
+  const stored = serverItems.get(it.slug);
+  if (!stored) return { it, action: "create" };
+  return { it, action: catalogRecordEqual(stored, it.body) ? "unchanged" : "update", id: stored.id };
+});
 
 // 4. Print the plan.
 const total = selected.reduce((s, x) => s + x.bytes, 0);
@@ -680,7 +795,11 @@ console.log(`Server: ${base}${o.offline ? " (offline, not compared)" : ""}`);
 console.log(`Data: ${dataDir}`);
 console.log(`Selection: ${filtered ? `${filter.size} page ID(s) from --page and --list` : "all pages with a finished run"}`);
 console.log(`Metadata file: ${meta.source}`);
-console.log(`Catalog: ${bookSlugs.size} book folders of book-slugs.json plus the items of the selected runs, ${items.length} rows, ${mb(catalogBytes)}`);
+const webItems = items.filter((it) => it.body.kind === "web-article");
+const stamped = webItems.filter((it) => it.placement?.print_year);
+console.log(`Catalog: ${meta.rows} metadata rows (${items.length - webItems.length} other items, ${webItems.length} web articles), ${bookSlugs.size} book folders of book-slugs.json, ${items.length} rows in all, ${mb(catalogBytes)}`);
+console.log(`Placement: ${webItems.length} web articles, ${stamped.length} with a print stamp, ${placements.changed.length} override row(s) change a month${placements.changed.length ? " (" + placements.changed.join("; ") + ")" : ""}`);
+console.log(`Translated pages (rule isTranslatedPage, a reader_pages record exists): ${[...translatedBy.values()].reduce((t, set) => t + set.size, 0)} in ${translatedBy.size} work(s)`);
 console.log("");
 console.log("page_id | run_id | verdict | score | snapshot size | action");
 for (const p of plan) {
@@ -688,8 +807,17 @@ for (const p of plan) {
   console.log(`${x.pageId} | ${x.run.runId} | ${x.run.verdict} | ${x.run.score ?? "none"} | ${mb(x.bytes)} | ${p.action}`);
 }
 console.log("");
-console.log("catalog_items | title | action");
-for (const p of itemPlan) console.log(`${p.it.slug} | ${p.it.body.title_en || p.it.body.title_ja || "(no title: no metadata row has this item_id)"} | ${p.action}`);
+console.log("catalog_items | title | translated pages | action");
+const countsOf = (list) => ({ create: list.filter((p) => p.action === "create").length, update: list.filter((p) => p.action === "update").length, unchanged: list.filter((p) => p.action === "unchanged").length });
+// The 36 folders and the items of the selected runs show one line each. The web articles without a run show one summary line (311 lines would hide the rest).
+for (const p of itemPlan) {
+  const quiet = p.it.body.kind === "web-article" && p.it.body.translated.en.length === 0 && !selected.some((x) => x.slug === p.it.slug);
+  if (!quiet) console.log(`${p.it.slug} | ${p.it.body.title_en || p.it.body.title_ja || "(no title: no metadata row has this item_id)"} | ${p.it.body.translated.en.length} | ${p.action}`);
+}
+{
+  const c = countsOf(itemPlan.filter((p) => p.it.body.kind === "web-article" && p.it.body.translated.en.length === 0 && !selected.some((x) => x.slug === p.it.slug)));
+  console.log(`web articles without a translated page | ${c.create + c.update + c.unchanged} rows | 0 | ${serverItems ? `create ${c.create}, update ${c.update}, unchanged ${c.unchanged}` : "not compared"}`);
+}
 console.log("");
 console.log("magazine_chapters | rows | create | update | unchanged");
 for (const book of [...new Set(chapters.map((c) => c.book))].sort()) {
@@ -799,10 +927,13 @@ if (o.apply) line("failed", done.failed);
 line("skipped (no finished run)", skipped.map((s) => `${s.pageId}: ${s.reason}`));
 line("on the server only (run folder gone, kept)", serverOnly.map((r) => `${r.page_id} ${r.run_id}`));
 console.log("catalog_items");
-compared(word[0], itemDone.created);
-compared(word[1], itemDone.updated);
-compared(word[2], itemDone.unchanged);
-if (o.apply) line("failed", itemDone.failed);
+// Up to 40 slugs show in the line. A longer list shows the first 5 and the count (310 slugs would fill the screen).
+const shortLine = (name, list) => console.log(`  ${name}: ${list.length}${list.length ? " (" + (list.length > 40 ? list.slice(0, 5).join(", ") + ", ..." : list.join(", ")) + ")" : ""}`);
+const itemCompared = (name, list) => (o.offline ? console.log(`  ${name}: not compared`) : shortLine(name, list));
+itemCompared(word[0], itemDone.created);
+itemCompared(word[1], itemDone.updated);
+itemCompared(word[2], itemDone.unchanged);
+if (o.apply) shortLine("failed", itemDone.failed);
 console.log("magazine_chapters");
 const chapterLine = (name, list) => (o.offline ? console.log(`  ${name}: not compared`) : console.log(`  ${name}: ${list.length}`));
 chapterLine(word[0], chapterDone.created);
@@ -815,6 +946,7 @@ compared(word[1], readerDone.updated);
 compared(word[2], readerDone.unchanged);
 if (o.apply) line("failed", readerDone.failed);
 line("skipped (no PASS run and no run mark)", readerSkipped);
+line("search column reached 100,000 characters and was cut", searchCut);
 line("on the server only (kept)", readerServerOnly);
 console.log(`Total snapshot size: ${mb(total)} for ${selected.length} run(s)`);
 console.log(`Total reader_pages size: ${mb(readerTotal)} for ${readerPlan.length} record(s)`);

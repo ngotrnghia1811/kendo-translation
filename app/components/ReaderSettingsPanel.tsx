@@ -7,6 +7,9 @@ import type { EffectiveSettings } from "./ReaderPageView";
  * Round 62 answer 8 (Q-A 2026-10-28 l290): "Themes, fonts, size", "Page and Scroll switch", "Focus mode". The settings stay in the account.
  * On a wide screen the panel sits at the right edge. On a phone it is a sheet over the text. The button Close closes it.
  * Unit RC3 (round 66 answer 1 and 5): the page image switch moved to the reader bar (button Image in ReaderBook). The Reset button sets reader.image to the default (on).
+ * Unit RC4 (round 68 answer 5: "Close only at Start reading", round 69 answer 13: "Every account sees it once"): in the first-visit mode the button "Start reading" replaces
+ * "Close". Only that button or the Esc key closes the panel (ReaderBook). A change of a setting does not close it. VISION-viewer 15.23.6.
+ * On a phone the first-visit sheet is up to 50 percent of the screen high (else 85 percent), so that a part of the text shows above it. The button sits at the bottom of the sheet.
  */
 
 function Seg<T extends string>({ label, value, options, onPick, disabled }: { label: string; value: T; options: { value: T; label: string }[]; onPick: (v: T) => void; disabled?: boolean }) {
@@ -39,26 +42,35 @@ export default function ReaderSettingsPanel({
   onChange,
   onTheme,
   onClose,
+  firstVisit = false,
+  imageNote = false,
 }: {
   s: EffectiveSettings;
   theme: ThemeName;
   hasHuman: boolean;
   onChange: (patch: ReaderSettings) => void;
   onTheme: (t: ThemeName) => void;
+  /** The button "Close", or in the first-visit mode the button "Start reading". */
   onClose: () => void;
+  firstVisit?: boolean;
+  /** True for a work with page images: the first-visit panel then shows the line about the Image button. */
+  imageNote?: boolean;
 }) {
   return (
     <div
       role="dialog"
       aria-label="Reading settings"
       data-reader-settings
-      className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-auto rounded-t border border-line bg-white p-4 shadow-lg md:inset-x-auto md:bottom-auto md:right-4 md:top-20 md:w-80 md:rounded"
+      {...(firstVisit ? { "data-first-visit": "" } : {})}
+      className={"fixed inset-x-0 bottom-0 z-50 overflow-auto rounded-t border border-line bg-white p-4 shadow-lg md:inset-x-auto md:bottom-auto md:right-4 md:top-20 md:max-h-[85vh] md:w-80 md:rounded " + (firstVisit ? "max-h-[50vh]" : "max-h-[85vh]")}
     >
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-base font-semibold">Reading settings</h2>
-        <button type="button" onClick={onClose} data-settings-close className="min-h-[44px] rounded border border-line px-3 text-sm md:min-h-0 md:px-2">
-          Close
-        </button>
+        {firstVisit ? null : (
+          <button type="button" onClick={onClose} data-settings-close className="min-h-[44px] rounded border border-line px-3 text-sm md:min-h-0 md:px-2">
+            Close
+          </button>
+        )}
       </div>
       <Seg label="Text" value={s.text} options={[{ value: "en", label: "English" }, { value: "ja", label: "Japanese" }, { value: "pair", label: "Pairing" }]} onPick={(v) => onChange({ text: v })} />
       <Seg
@@ -93,6 +105,18 @@ export default function ReaderSettingsPanel({
       >
         Reset text settings
       </button>
+      {firstVisit ? (
+        <div className="sticky -bottom-4 -mx-4 -mb-4 mt-3 border-t border-line bg-white px-4 pb-4 pt-3" data-first-visit-footer>
+          {imageNote ? (
+            <p className="mb-2 text-sm" data-image-note>
+              Use the Image button in the bar above the text to show or hide the page image.
+            </p>
+          ) : null}
+          <button type="button" onClick={onClose} data-start-reading className="min-h-[44px] w-full rounded bg-accent px-3 py-2 font-semibold text-white">
+            Start reading
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

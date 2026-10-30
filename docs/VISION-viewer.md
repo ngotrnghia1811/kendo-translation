@@ -47,7 +47,7 @@
   - Fast loading: pages open fast, also on a phone or a slow network `[accepted recommendation 2026-10-07 23:47]`.
   - Fast lookup: a one-click term pop-up, and search across all works and all languages `[accepted recommendation 2026-10-07 23:47]`.
   - Fast comparison: a tap on a sentence marks its pair in the other panels, and the panels scroll together `[accepted recommendation 2026-10-07 23:47]`.
-  - Few steps: two clicks from the dashboard to the text, and the reader resumes the last page on any device `[accepted recommendation 2026-10-07 23:47]`.
+  - Few steps: two clicks from the dashboard to the text, and the reader resumes the last page on any device `[accepted recommendation 2026-10-07 23:47]`. A web article takes 3 clicks on the Reader dashboard (/read): year, month, link. Search is the short path `[accepted recommendation 2026-10-29 23:36]` "Accept 3 clicks, use search (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-29.md:122]`.
   - The owner did not pick fast work for translator and admin `[file: .opencode/reminders/qa/qa-memory-2026-10-07.md:123]`.
 - Objective 2, a flexible and customizable UI for reading components `[validated reading 2026-10-07 23:47]` "Correct reading (Recommended)".
   - A *component* is one item in the list that the reader checks, for example a text in one language (section 7) `[validated reading 2026-10-07 23:47]`.
@@ -209,8 +209,8 @@
 - The reading is correct `[validated reading 2026-10-07 20:05]` "Correct reading (Recommended)".
 - The dashboard lists every work, also at zero progress `[accepted recommendation 2026-10-07 14:58]` "Every work, also at zero (Recommended)".
 - Folds go by kind (books, articles), then by series or source `[accepted recommendation 2026-10-07 14:58]` "Kind, then series or source (Recommended)".
-- Progress per language is the finished share `[accepted recommendation 2026-10-07 14:58]` "Finished share per language (Recommended)".
-  - "Finished" means a final `ED_3` text with a `QA_3` verdict `[validated reading 2026-10-07 20:05]`.
+- Progress per language is the translated share `[accepted recommendation 2026-10-07 14:58]` "Finished share per language (Recommended)". Round 70 answer 3 set the word "translated" for the Reader dashboard (/read) `[user 2026-10-29 23:36]`.
+  - "Finished" means a final `ED_3` text with a `QA_3` verdict `[validated reading 2026-10-07 20:05]`. This is the old tag text, kept as history. Round 70 answer 3 `[user 2026-10-29 23:36]` `[file: .opencode/reminders/qa/qa-memory-2026-10-29.md:118]`: "Pages with translation that reader can view\nuse the CORRECT word. `translated` instead of `finished`\nAlso reader can open any page, just no translated data. Be concise with your wording." Rule today: on the Reader dashboard (/read), a page counts as translated when readers can view its English text. Any page opens, also a page with no translated text. The Monitor dashboard (/ on this Mac) counts "pages done" with any verdict, FAIL noted `[accepted recommendation 2026-10-29 23:36]` "Any verdict, FAIL noted (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-29.md:119]`.
 - Search covers all works in all languages `[accepted recommendation 2026-10-07 14:58]` "All works, all languages (Recommended)".
   - Search also covers romanized terms `[validated reading 2026-10-07 20:05]`.
 
@@ -1537,7 +1537,7 @@ node scripts/sync-runs.mjs --superuser superuser@kendo-translation.local --apply
 
 - S2 writes one `catalog_items` record for each item with a finished run. The `item_id` is the book slug, the same value that the app writes in `own_translations`. The whole metadata row goes into the field `row`.
 - 11 of the 12 items have a metadata row with the same `item_id`. They get their titles.
-- The web article `18d4ac29` has no row under this ID. The row has the long ID `18d4ac29-12d5-4753-b032-35337361fee5`. S2 makes the record with `item_id` `18d4ac29` and empty titles. It invents no ID rule. This matches the title in the files mode, which is empty too.
+- The web article `18d4ac29` has no row under this ID. The row has the long ID `18d4ac29-12d5-4753-b032-35337361fee5`. S2 makes the record with `item_id` `18d4ac29` and empty titles. It invents no ID rule. This matches the title in the files mode, which is empty too. (State of unit S2C. Round 69 answer 7 and unit RC4 changed this. S2 takes the first 8 characters of the long ID as the slug, and the title is "Kendo droplet guard". Section 15.25 gives the state.)
 - A missing value in a text field is stored as an empty text. `publish_year` is empty for `100_practice_full`, `lifelong_full`, and `18d4ac29`.
 - `magazine_chapters` stays empty.
 
@@ -1555,7 +1555,7 @@ node scripts/sync-runs.mjs --superuser superuser@kendo-translation.local --apply
 #### 15.15.9 Open items
 
 - Title of the web article `18d4ac29`.
-  - Option 1 (recommended): keep the empty title. Benefit: no new rule. Cost: the list shows no title for this page.
+  - Option 1 (recommended): keep the empty title. Benefit: no new rule. Cost: the list shows no title for this page. Round 69 answer 7 replaced this item. The title is "Kendo droplet guard" (section 15.25).
   - Option 2: match the short ID to the start of the long ID. Benefit: a title. Cost: an ID rule that no owner decision names.
   - Option 3: add a small map file from short ID to long ID. Benefit: exact. Cost: a new file to keep.
 - Run with no page score.
@@ -2336,7 +2336,7 @@ Status: code built, owner check open.
 - Round 61 answer 3 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:263]`: "Correct as written (Recommended)". The restatement has a switch "Scroll view" / "Page view", one page at a time, "Previous page" and "Next page", a page number box, the left index, a leave warning, the URL `/translate/left_foot_full?view=page&at=p048`, the view choice in the account, and pages with no agent translation inside the page view. The scroll view stays as it is.
 - Round 61 answer 4 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:264]`: "Correct as written (Recommended)". Each side panel gets a collapse button. The close button is gone. A collapsed panel is a bar of about 28 px with the name and an arrow. The state and the width stay in the account.
 - Round 61 answer 5 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:265]`: "A: one cog per column header (Recommended)". A sticky header row holds the cogs of Japanese, Agent translation, Your translation, and Comments. No row holds a cog.
-- Round 61 answer 6 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:266]`: "36 books plus web article (Recommended)". `BOOK_LIST_MODE` is `"all"`. S2 uploads the 36 book folders and the web article `18d4ac29`.
+- Round 61 answer 6 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:266]`: "36 books plus web article (Recommended)". `BOOK_LIST_MODE` is `"all"`. S2 uploads the 36 book folders and the web article `18d4ac29`. (Round 61 state. Unit RC4 changed S2 to upload 347 rows, section 15.25.)
 - Round 61 answer 7 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:267]`: "Fix the 6 findings (Recommended), Keep the Tailwind loader (Recommended), Keep force-dynamic lines (Recommended)".
 - Round 61 answer 10 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:270]`: "Work in a copy, copy back at end (Recommended)".
 
@@ -2357,9 +2357,9 @@ Status: code built, owner check open.
   - `app/components/PaneSettings.tsx:357-366`: the wrapper `Pane` has no cog. `:210` `PaneCog` takes `align`, so a box opens to the right or to the left.
   - The index and the TL_3 information panel keep one cog in their header. The book list page keeps one cog in its header (`app/components/HtvList.tsx`). `app/components/HtvPageSection.tsx` has no cog.
   - A reader sees the cogs of Japanese and Agent translation only (plus the index and the panel).
-- 36 books and S2 `[round 61 answer 6]`.
+- 36 books and S2 `[round 61 answer 6]`. (Round 61 state. S2 now uploads 347 metadata rows, section 15.25.)
   - `app/lib/htv-books.ts:27` `BOOK_LIST_MODE = "all"`. `:66-73`: in the files mode only the rows of the 36 book folders count. `items.filled.jsonl` holds 347 rows, and 311 are web articles.
-  - `app/scripts/sync-runs.mjs:363-376` `loadBookSlugs` reads `pilot-sample/book-slugs.json`. `:521-528` builds 37 catalog items (36 books and the web article). `:590` prints the count and the size.
+  - `app/scripts/sync-runs.mjs:363-376` `loadBookSlugs` reads `pilot-sample/book-slugs.json`. `:521-528` builds 37 catalog items (36 books and the web article). `:590` prints the count and the size. (Round 61 state. Unit RC4 changed the build to 347 catalog rows, section 15.25.)
   - The catalog rows hold 0.16 MB. A book with no run opens and shows the page numbers with "No agent translation" on every page.
 - Six fixes `[round 61 answer 7]`.
   - Finding 1: `app/app/translate/sign-in/page.tsx:12-21` reads the session in `try` and calls `redirect()` after the block.
@@ -2435,7 +2435,7 @@ Status: code built, owner check open.
 #### 15.18.7 Open items
 
 - `loading.tsx` changes redirect and not-found statuses to 200 (section 15.18.4). Options: keep (the guide advice), move the file to `app/translate/[slug]/` only, or remove it.
-- The web article `18d4ac29` shows its slug as title. The owner decided an empty title `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:184]`.
+- The web article `18d4ac29` shows its slug as title. The owner decided an empty title `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:184]`. Round 69 answer 7 `[user 2026-10-29 21:49]` replaced this decision. The title is "Kendo droplet guard" (section 15.25).
 - The owner must run S2 with `--apply` on the local server to add 25 catalog items.
 
 #### 15.18.8 Differences from the brief
@@ -2515,7 +2515,7 @@ Routes (proposal):
 |---|---|---|
 | `/sign-up` | public | Form: name, email, password. Creates an unapproved reader. |
 | `/sign-in` | public | Sign-in for all roles. `/translate/sign-in` stays and sends to it. |
-| `/read` | signed in | The 36 books and the web article with metadata and progress. |
+| `/read` | signed in | The Reader dashboard: folds of 342 visible works, search, and progress (state of unit RC4, section 15.25). Unit RC1 showed 36 books and the web article. |
 | `/read/<book>` | signed in | Book screen: metadata block, month headings, all pages. Page text for approved users only. |
 | `/read/<book>?view=page&at=p048` | approved | One page at a time. The same URL form as the human-translation-view `[file: app/components/HtvBook.tsx:21]`. |
 | `/read/<book>?view=scroll&at=p048` | approved | All pages in one scroll, jump to p048. |
@@ -2537,14 +2537,14 @@ Roles after the change:
 - Proposal: a reader goes to `/read` after sign-in. A translator goes to `/translate`. An admin goes to `/translate`. All three can open `/read` `[agent inference]`.
 - Proposal: all existing accounts get `approved` true in the migration, so no one is locked out `[agent inference]`.
 - Proposal: an admin who sets the role translator or admin sets `approved` true in the same action. The role change is the approval `[file: docs/VISION-viewer.md:87]`.
-- The state "Unapproved reader" sees the same book list as an approved reader. Progress shows as the share of pages with an agent translation (section 9 of this file `[file: docs/VISION-viewer.md:206-215]`). The book screen shows the metadata block and the note "The text opens after approval." No page list opens.
+- (RC1 state.) The state "Unapproved reader" sees the same book list as an approved reader. Progress shows as the share of pages with an agent translation (section 9 of this file `[file: docs/VISION-viewer.md:206-215]`). The book screen shows the metadata block and the note "The text opens after approval." No page list opens. Unit RC4 changed the list. The Reader dashboard (/read) shows the folds and the total line to this reader (section 15.25).
 - How the account is created (create rule or server route) is question 2. How `approved` is stored is question 3. What happens to the read-only view of the reader under `/translate` is question 4.
 
 #### 15.19.3 Book list and book screen
 
-Book list `/read` `[round 62 answer 9: "36 books with metadata (Recommended)"]`:
+Book list `/read` `[round 62 answer 9: "36 books with metadata (Recommended)"]`: (RC1 state. The Reader dashboard replaced the list, sections 15.23 and 15.25.)
 
-- One card for each of the 36 book folders and the web article `18d4ac29`, 37 in all `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:278]`. The data is `catalog_items`, 37 rows by the brief of unit RVD `[file: data/scripts/pocketbase/pb_migrations/1793300001_v2_collections.js:102-123]`. The live row count is Not verified.
+- (RC1 state.) One card for each of the 36 book folders and the web article `18d4ac29`, 37 in all `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:278]`. The data is `catalog_items`, 37 rows by the brief of unit RVD `[file: data/scripts/pocketbase/pb_migrations/1793300001_v2_collections.js:102-123]`. The live row count is Not verified. Unit RC4 changed this. S2 uploads 347 rows, and `/read` shows 342 visible works in folds (section 15.25).
 - A card shows the EN title large and the JA title small, the author, the year, the page count, and the AI label summary.
 - A card shows the progress: the share of pages with an agent translation, for example "6 of 120 pages".
 - A card shows "Continue at Page 48" when the account has a saved place (`reading_progress`, section 15.19.8).
@@ -2556,7 +2556,7 @@ Metadata (checked, not guessed):
 - S2 uploads the whole item row in the JSON field `row` of `catalog_items`. It also copies the columns `title_ja`, `title_en`, `author_ja`, `author_en`, `publisher`, `publish_year`, `pages` `[file: app/scripts/sync-runs.mjs:434-448]`. So `synopsis`, `isbn`, and `publish_date_text` are in `row`, and S2 needs no change for the book metadata.
 - The row `left_foot_full` has `title_en` "The Secret of Kendo and the Left Foot", 120 pages, author "Mitsuru Kobayashi", year 2017, and a synopsis `[check: RVD 2026-10-29 10:42 python3 read of items.filled.jsonl]`. The synopsis comes from an agent. Its `status` field says "filled, not checked by the owner" `[check: RVD 2026-10-29 10:42 same command]`. So the book block marks the synopsis as "Written by an AI agent".
 - `row` also holds research fields: `sources`, `confidence`, `filled_by`, `confirmed_by`, `notes`, `source_url`. `catalog_items` is readable by every signed-in user `[file: data/scripts/pocketbase/pb_migrations/1793300001_v2_collections.js:102-123]`. This is an open item (section 15.19.12).
-- The web article `18d4ac29` has an empty title and `pages` 0 in `catalog_items` `[file: docs/drafts/viewer-translator-loop-notes.md:424]`. Its card needs a title from the owner (round 43 answer 4, `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:157]`: "They should have their paired EN articles with EN titles, no?"). This is an open item.
+- The web article `18d4ac29` has an empty title and `pages` 0 in `catalog_items` `[file: docs/drafts/viewer-translator-loop-notes.md:424]`. Its card needs a title from the owner (round 43 answer 4, `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:157]`: "They should have their paired EN articles with EN titles, no?"). This is an open item. Closed by round 69 answer 7 `[user 2026-10-29 21:49]`. The title is "Kendo droplet guard" (section 15.25).
 
 Book screen `/read/<book>`:
 
@@ -2957,7 +2957,7 @@ Data checks:
 
 Screen checks (Chrome, the owner dev server is not used, a copy of the app on another port):
 
-- Sign-up shows the state "waits for approval". `/read` lists 37 cards. A book page shows no text for an unapproved reader.
+- Sign-up shows the state "waits for approval". `/read` lists 37 cards. A book page shows no text for an unapproved reader. (RC1 state. Now `/read` shows the folds of 342 visible works, section 15.25.)
 - After approval, page 48 shows the 5 rows in each of the modes EN, JA, and pairing.
 - A click on "Chūzumi (centerline)" opens the pop-up. The pop-up has no "EN form check" line.
 - The EN switch changes to the human version on a page with a chosen version.
@@ -3098,8 +3098,8 @@ Status: open. The code of this design is in section 15.20 (unit RC1).
 
 #### 15.20.1 What was built
 
-- Public pages `/sign-up` and `/sign-in`. A sign-up makes a reader with `approved` false. The person signs in at once and sees the book list and the line "Your account waits for approval by an admin."
-- Reader pages `/read` (37 book cards) and `/read/<book>` (book screen). `?view=page&at=p048` is the page view. `?view=scroll&at=p048` is the scroll view.
+- Public pages `/sign-up` and `/sign-in`. A sign-up makes a reader with `approved` false. The person signs in at once and sees the book list and the line "Your account waits for approval by an admin." (RC1 state. The person now sees the Reader dashboard, section 15.25.)
+- Reader pages `/read` (37 book cards) and `/read/<book>` (book screen). `?view=page&at=p048` is the page view. `?view=scroll&at=p048` is the scroll view. (RC1 state. `/read` is now the Reader dashboard, section 15.25.)
 - Text modes: single language EN, single language JA, and bilingual pairing (side by side on a wide screen, stacked on a phone). The EN text is the agent text or the human version that an admin chose.
 - Settings per account: text mode, EN text, view, fonts, size, line height, width, focus mode, and index state. The key is `reader` in `user_settings.panes`. The theme stays in `user_settings.theme`.
 - Five themes: Light, High-contrast dark, Sepia, Solarized light, and Solarized dark. Constants for the default of each page group: `DEFAULT_THEME_HTV` (light) and `DEFAULT_THEME_READER` (solarized-light) `[file: app/lib/htv-settings.ts:31-32]`.
@@ -3152,7 +3152,7 @@ Status: open. The code of this design is in section 15.20 (unit RC1).
 - Unit default: the page view saves the place at each page. The scroll view saves it 1.2 seconds after the page in view changes.
 - Open item: the owner check of the default theme reading (Solarized light for the reader pages only).
 - Closed by unit RC2 (round 65): S2 drops `sources`, `confidence`, `filled_by`, `confirmed_by`, `notes`, and `source_url` from `catalog_items.row`. See section 15.21.5.
-- Open item: the title of the web article `18d4ac29`. The card shows "Web article 18d4ac29".
+- Open item: the title of the web article `18d4ac29`. The card shows "Web article 18d4ac29". (RC1 state.) Closed by round 69 answer 7 `[user 2026-10-29 21:49]` and unit RC4. The row shows "Kendo droplet guard".
 - Closed by unit RC3 (round 66 answer 7): `pb_users.py` makes readers with `approved` true. See section 15.22.4.
 
 Status: built in unit RC1, owner check pending.
@@ -3350,23 +3350,23 @@ Older decisions that this design relies on:
 - Lines 93 and 94: "Dashboard index, no text" `[accepted option 2026-10-07 23:47]`. The person sees work titles and translation progress and cannot open any text.
 - Lines 190 and 191: "Reader picks first" `[accepted option 2026-10-07 14:58]`. The layout is saved "Per account, all devices".
 - Line 208: "option 3. and dashboard homepage should be an index of all current items (in category folds)  and their translation progresses." `[user 2026-10-07 14:05]`.
-- Line 210: "Every work, also at zero (Recommended)". Line 211: "Kind, then series or source (Recommended)". Line 212: "Finished share per language (Recommended)".
-- Line 213: "Finished" means a final `ED_3` text with a `QA_3` verdict `[validated reading 2026-10-07 20:05]`.
+- Line 210: "Every work, also at zero (Recommended)". Line 211: "Kind, then series or source (Recommended)". Line 212: "Finished share per language (Recommended)". The word on the Reader dashboard is now "translated" (round 70 answer 3).
+- Line 213: "Finished" means a final `ED_3` text with a `QA_3` verdict `[validated reading 2026-10-07 20:05]`. Round 70 answer 3 `[user 2026-10-29 23:36]` replaced the rule for the Reader dashboard (/read). A page is translated when readers can view its English text (section 15.25).
 - Lines 214 and 215: "All works, all languages (Recommended)", and search also covers romanized terms.
 
-#### 15.23.2 Facts about today's code
+#### 15.23.2 Facts about the code before unit RC4 (RC1 state)
 
-- `/read` shows a grid of cards, one card for each row of `catalog_items`, sorted by `item_id`. It has no folds and no search `[file: app/components/ReaderList.tsx:14-50]` `[file: app/lib/pb.ts:513]`.
-- A card shows the EN title, the JA title, the author, the year, the page count, the synopsis with the AI note, and "Continue at Page N". An approved reader also sees "AI translation: N of M pages" `[file: app/components/ReaderList.tsx:21-43]`.
-- N counts the pages that have reader text. The code reads every `reader_pages` record to count them `[file: app/lib/pb.ts:482-488]` `[file: app/lib/reader-data.ts:64-72]`.
-- The card of the web article `18d4ac29` shows the title "Web article 18d4ac29" `[file: app/components/ReaderList.tsx:23]`. Its `pages` value is 0. So the progress line reads "AI translation: 1 of 0 pages" `[agent inference from app/components/ReaderList.tsx:18,38]`.
+- (RC1 state.) `/read` shows a grid of cards, one card for each row of `catalog_items`, sorted by `item_id`. It has no folds and no search `[file: app/components/ReaderList.tsx:14-50]` `[file: app/lib/pb.ts:513]`.
+- (RC1 state.) A card shows the EN title, the JA title, the author, the year, the page count, the synopsis with the AI note, and "Continue at Page N". An approved reader also sees "AI translation: N of M pages" `[file: app/components/ReaderList.tsx:21-43]`.
+- (RC1 state.) N counts the pages that have reader text. The code reads every `reader_pages` record to count them `[file: app/lib/pb.ts:482-488]` `[file: app/lib/reader-data.ts:64-72]`.
+- (RC1 state. Closed by unit RC4: the title is "Kendo droplet guard".) The card of the web article `18d4ac29` shows the title "Web article 18d4ac29" `[file: app/components/ReaderList.tsx:23]`. Its `pages` value is 0. So the progress line reads "AI translation: 1 of 0 pages" `[agent inference from app/components/ReaderList.tsx:18,38]`.
 - An unapproved reader sees the cards and the line "Your account waits for approval by an admin." The progress line is hidden `[file: app/app/read/page.tsx:11-27]` `[file: app/components/ReaderList.tsx:38]`.
 - `/read` needs a session. If no session exists, the app sends the visitor to `/sign-in?next=%2Fread` `[file: app/lib/htv-session.ts:39-49,63-65]`.
-- `/` shows the runs table of the monitor. If the monitor is off, `/` redirects to `/translate` `[file: app/app/page.tsx:9-12]` `[file: app/lib/monitor.ts:20-26]`. The hosted site runs with `VIEWER_MONITOR=off` `[brief of unit DV69]`.
-- A visitor on the hosted site then reaches `/translate/sign-in`, because `requireStaff` uses the sign-in path of the translator side `[file: app/lib/htv-session.ts:14,55-60]`.
+- (RC1 state. Unit RC4 changed the case of the monitor off, section 15.25.) `/` shows the runs table of the monitor. If the monitor is off, `/` redirects to `/translate` `[file: app/app/page.tsx:9-12]` `[file: app/lib/monitor.ts:20-26]`. The hosted site runs with `VIEWER_MONITOR=off` `[brief of unit DV69]`.
+- (RC1 state. Unit RC4 changed the front door.) A visitor on the hosted site then reaches `/translate/sign-in`, because `requireStaff` uses the sign-in path of the translator side `[file: app/lib/htv-session.ts:14,55-60]`.
 - The panel `Reading settings` holds Text, English text, View, Theme, English font, Japanese font, Size, Line height, Width, Focus mode, and Reset text settings `[file: app/components/ReaderSettingsPanel.tsx:63-95]`. The button Image sits in the reader bar `[file: docs/VISION-viewer.md:3264-3265]`.
-- `showSettings` starts false. The panel has a button "Close" and no Esc handler. Esc leaves the focus mode only `[file: app/components/ReaderBook.tsx:91,149-155]` `[file: app/components/ReaderSettingsPanel.tsx:59]`.
-- The type `ReaderSettings` has no seen flag. `sanitizeReader` drops unknown keys `[file: app/lib/htv-settings.ts:160-172,188-206]`.
+- (RC1 state. Unit RC4 added the first-visit panel with Esc, section 15.25.) `showSettings` starts false. The panel has a button "Close" and no Esc handler. Esc leaves the focus mode only `[file: app/components/ReaderBook.tsx:91,149-155]` `[file: app/components/ReaderSettingsPanel.tsx:59]`.
+- (RC1 state. Unit RC4 added `reader.panelSeen`.) The type `ReaderSettings` has no seen flag. `sanitizeReader` drops unknown keys `[file: app/lib/htv-settings.ts:160-172,188-206]`.
 - `catalog_items` is readable by every signed-in user. The local PocketBase reports the list rule `@request.auth.id != ""` `[check: DV69 2026-10-29 20:58 q6.py, GET /api/collections/catalog_items]`.
 - `reader_pages` is readable by an approved reader, a translator, and an admin `[file: data/scripts/pocketbase/pb_migrations/1793300007_v2_reader_collections.js:14,33]`.
 
@@ -3374,7 +3374,7 @@ Older decisions that this design relies on:
 
 ##### 15.23.3.1 The works in the data
 
-The metadata file holds more works than `catalog_items`. The table counts both `[check: DV69 2026-10-29 20:54 python3 -B read of items.filled.jsonl in the Translator]` `[check: DV69 2026-10-29 20:54 q1.py and q2.py, GET catalog_items]`.
+The metadata file holds more works than `catalog_items`. The table counts both `[check: DV69 2026-10-29 20:54 python3 -B read of items.filled.jsonl in the Translator]` `[check: DV69 2026-10-29 20:54 q1.py and q2.py, GET catalog_items]`. The table shows the state before unit RC4. After S2 runs, `catalog_items` holds 347 rows (section 15.25).
 
 | Kind | Rows in `items.filled.jsonl` | Records in `catalog_items` | Missing |
 |---|---|---|---|
@@ -3390,7 +3390,7 @@ The metadata file holds more works than `catalog_items`. The table counts both `
 - The first 8 characters of the 311 long IDs are all different. So `18d4ac29` can name the work `18d4ac29-12d5-4753-b032-35337361fee5` without a clash `[check: DV69 2026-10-29 20:57 python3 -B read of items.filled.jsonl]`.
 - The record `18d4ac29` in `catalog_items` has an empty kind, an empty title, `pages` 0, and no `row`. The metadata row has the title_en "Kendo droplet guard", the title_ja 剣道飛沫ガード, and the year 2020 `[check: DV69 2026-10-29 20:54 q2.py and python3 -B read of items.filled.jsonl]`.
 
-The problem: line 210 says the dashboard lists every work, also at zero. Today a reader sees 37 works. The work "Kendo droplet guard" appears as "Web article 18d4ac29". The other 310 web articles do not appear. Open item 1 holds the options.
+(RC1 state. Closed by unit RC4: the Reader dashboard lists 342 visible works.) The problem: line 210 says the dashboard lists every work, also at zero. Today a reader sees 37 works. The work "Kendo droplet guard" appears as "Web article 18d4ac29". The other 310 web articles do not appear. Open item 1 holds the options.
 
 Magazine years have month chapters. `magazine_chapters` holds 103 records and 1,155 articles in total. Kendo Jidai 2014 holds 13 chapters: "Table of contents" (pages 1 to 22) and 12 months `[check: DV69 2026-10-29 20:54 q2.py, GET magazine_chapters]`. The brief of this unit said 1,157 articles. The count in the data is 1,155.
 
@@ -3398,83 +3398,83 @@ Magazine years have month chapters. `magazine_chapters` holds 103 records and 1,
 
 The first level goes by kind (line 211). The second level goes by series or source (line 211). The files hold no series field, so the groups below come from fields that exist `[check: DV69 2026-10-29 20:54 key list of items.filled.jsonl]`.
 
-- Books: works that share one `title_en` form one fold. A work with a title of its own stays a plain row `[agent inference]`.
-- Magazines: the fold is the magazine, taken from the title_ja 剣道時代 of the 9 years. Each year is a row. A year row opens its month chapters from `magazine_chapters` `[agent inference]`.
-- Web articles: the fold is the source and the year, for example "kendojidai.net, 2020". The 2 web captures form one fold of their own (open item 11).
+- Books: Books is one fold of 22 works. `men_full` and `mental_full` are plain rows. The three `ogawa_lecture` parts stay as three rows in one fold `[check: RC4 smoke-folds.log:3,7,8]`. Round 69 answer 12 hides `men0`, `men1`, and `mental2_clean`.
+- Kendo Jidai: one fold with 16 year folds, 2010 to 2025. A year fold holds the year volume row and the month folds. A month fold holds the article rows (round 69 answer 14, "Add article rows") `[check: RC4 smoke-folds.log:4,9,13]`.
+- Web articles: they sit in the month folds of Kendo Jidai (round 69 answer 7). A stamped article sits in its print month. An unstamped article sits in the month of its web date (round 70 answer 6, "Print month (Recommended)"). The 2 web captures are hidden (round 69 answer 15).
 
-The first level starts open. All deeper folds start closed. The folds use the HTML elements `details` and `summary`, so the page needs no script and a keyboard works `[unit default]`.
+The first level starts open. All deeper folds start closed. The folds use the HTML elements `details` and `summary`, so a keyboard works. A month loads its rows when it opens, and the link "Show this month" works without script `[check: RC4 smoke-read.log:56,62]`.
 
-Example tree, for the recommended option of open item 1 (all 347 works). Percent values are finished pages divided by pages `[check: DV69 2026-10-29 20:55 q4.py, python3 -B division]`.
+Example tree of the built Reader dashboard (342 visible works). Percent values are translated pages divided by pages `[check: DV71 2026-10-30 00:12 python3 -B calc.py]`. The fold lines use the full form of unit RC4b `[file: app/lib/reader-translated.ts:38]` `[check: RC4b 2026-10-30 00:45 unit report]`.
 
 ```
-Books                         25 works   5,067 pages   English: 21 finished (0.4 percent)
-  The Secret of Kendo and the Left Foot        120 pages   English: 6 of 120 pages finished (5.0 percent)
-  One Hundred Practice Sessions                367 pages   English: 2 of 367 pages finished (0.5 percent)
-  Etiquette and Manners in Kendo               176 pages   English: 0 of 176 pages finished (0.0 percent)
-  > Lectures on Kendo, New Edition   3 works   533 pages   English: 4 finished (0.8 percent)
-      ogawa_lecture_part1  281 pages  0 finished (0.0 percent)
-      ogawa_lecture_part2  150 pages  2 finished (1.3 percent)
-      ogawa_lecture_part3  102 pages  2 finished (2.0 percent)
-  > Men: Kendo Hanshi 9th Dan Narazaki Masahiko   3 works   431 pages   English: 1 finished (0.2 percent)
-  > Making the Difference on the Day: Mental Strengthening for Kendo   2 works   338 pages   2 finished (0.6 percent)
+Books                         22 works   4,821 pages   English: 20 of 4,821 pages translated (0.4 percent)
+  The Secret of Kendo and the Left Foot        120 pages   English: 6 of 120 pages translated (5.0 percent)
+  One Hundred Practice Sessions                367 pages   English: 2 of 367 pages translated (0.5 percent)
+  Etiquette and Manners in Kendo               176 pages   English: 0 of 176 pages translated (0.0 percent)
+  > Lectures on Kendo, New Edition   3 works   533 pages   English: 4 of 533 pages translated (0.8 percent)
+      ogawa_lecture_part1  281 pages  English: 0 of 281 pages translated (0.0 percent)
+      ogawa_lecture_part2  150 pages  English: 2 of 150 pages translated (1.3 percent)
+      ogawa_lecture_part3  102 pages  English: 2 of 102 pages translated (2.0 percent)
+  Men: Kendo Hanshi 9th Dan Narazaki Masahiko (men_full)   354 pages   English: 0 of 354 pages translated (0.0 percent)
+  Making the Difference on the Day: Mental Strengthening for Kendo (mental_full)   169 pages   English: 2 of 169 pages translated (1.2 percent)
   ... (the other books, in the same form)
-Magazines                      9 works   8,171 pages   English: 7 finished (0.1 percent)
-  > Kendo Jidai (剣道時代)      9 years
-      Kendo Jidai 2010 (July to December)   532 pages    0 finished (0.0 percent)
-      Kendo Jidai 2012                       949 pages    2 finished (0.2 percent)
-      v Kendo Jidai 2014                    1,051 pages   5 finished (0.5 percent)
-          Table of contents      pages 1-22      0 finished
-          January 2014           pages 23-117    0 finished
-          October 2014           pages 778-868   5 of 91 pages finished (5.5 percent)
-          December 2014          pages 948-1051  0 finished
-      Kendo Jidai 2018 (January to April)    296 pages    0 finished (0.0 percent)
-Web articles                 313 works    351 pages   English: 1 finished (0.3 percent)
-  > kendojidai.net, 2019     14 works
-  v kendojidai.net, 2020     54 works
-      Kendo droplet guard (剣道飛沫ガード)   English: 1 of 1 page finished (100.0 percent)
-  > kendojidai.net, 2025     44 works
-  > Web captures             2 works   40 pages
+Kendo Jidai (剣道時代)         320 works   8,482 pages   English: 8 of 8,482 pages translated (0.1 percent)
+  > 2010   Kendo Jidai 2010 (July to December)   532 pages   English: 0 of 532 pages translated (0.0 percent)
+  > 2012   Kendo Jidai 2012                      949 pages   English: 2 of 949 pages translated (0.2 percent)
+  v 2014   Kendo Jidai 2014                    1,051 pages   English: 5 of 1051 pages translated (0.5 percent)
+      > January 2014    pages 23-117    English: 0 of 95 pages translated (0.0 percent)
+      v October 2014    pages 778-868   11 articles   English: 5 of 91 pages translated (5.5 percent)
+          (11 article rows. Each row opens the first page of its article.)
+      > December 2014   pages 948-1051  English: 0 of 104 pages translated (0.0 percent)
+  > 2018   Kendo Jidai 2018 (January to April)   296 pages   English: 0 of 296 pages translated (0.0 percent)
+      > September 2018   web articles only, no magazine pages
+  v 2020   web articles
+      v August 2020   web date 2020-08-17
+          Kendo droplet guard (剣道飛沫ガード)   English: 1 of 1 page translated (100.0 percent)   [Start at Page 1]
+  > 2019   web articles
+  > 2025   web articles
+  Hidden on this screen: men0, men1, mental2_clean, matsubara, morishima.
 ```
 
 Notes on the tree:
 
 - "v" marks an open fold and ">" marks a closed fold. The sketch opens two folds only to show the content.
-- The Men fold holds men0 (11 pages, 1 finished), men1 (66 pages), and men_full (354 pages). The Mental fold holds mental_full and mental2_clean (169 pages each, 2 finished in mental_full). Whether these folders are parts or copies of one book is Not verified. Open item 8 holds the options.
+- The Men and Mental folds of the first design are gone (round 69 answer 12, "Show only the full book"). `men0`, `men1`, and `mental2_clean` are hidden. `men_full` and `mental_full` are plain rows.
 - Web articles count as 1 page each. The `pages` value of a web article stays 0 in `catalog_items`, so the button Image stays off for it `[file: docs/VISION-viewer.md:3267]`. The dashboard uses the denominator 1 for the kind `web-article` `[agent inference]`.
-- The month rows come from `magazine_chapters`. October 2014 spans pages 778 to 868, which is 91 pages. The 5 finished pages p0794 to p0798 lie inside that range `[check: DV69 2026-10-29 20:54 q2.py and 20:55 q4.py]`.
+- The month rows come from `magazine_chapters`. October 2014 spans pages 778 to 868, which is 91 pages. The 5 translated pages p0794 to p0798 lie inside that range `[check: DV69 2026-10-29 20:54 q2.py and 20:55 q4.py]`.
 
 ##### 15.23.3.3 One row
 
-A row holds the same facts as a card of today, in this order:
+A row holds the same facts as a card of unit RC1, in this order:
 
 - The EN title as a link to the book screen `/read/<slug>`. The JA title below it in small type.
 - The line: author, year, pages. A field that is empty does not show.
-- The progress line: `English: N of M pages finished (P percent)`.
-- One link to the text: "Continue at Page N" if the account has a saved place, else "Start at Page N" with N as the first finished page. A work without a finished page and without a saved place has no link to the text.
+- The progress line: `English: N of M pages translated (P percent)`.
+- One link to the text: "Continue at Page N" if the account has a saved place, else "Start at Page N" with N as the first translated page. A work without a translated page and without a saved place has no link to the text. The title link opens the book screen. Any page opens, also a page with no translated text.
 
 Worked rows from the local data `[check: DV69 2026-10-29 20:55 q1.py and q4.py]`:
 
-- `left_foot_full`: "English: 6 of 120 pages finished (5.0 percent)". The finished pages are p046 to p050 and p075. "Start at Page 46".
-- `kendojidai_2014`: "English: 5 of 1051 pages finished (0.5 percent)". The finished pages are p0794 to p0798. "Start at Page 794".
-- `etiqu1_full`: "English: 0 of 176 pages finished (0.0 percent)". No link to the text. The title link opens the book screen.
-- `day_breath_clean`: "English: 0 of 207 pages finished (0.0 percent)" and "Continue at Page 154". The account `reader@kendo-translation.local` saved page 154 `[check: DV69 2026-10-29 20:54 q2.py, GET reader_progress]`.
+- `left_foot_full`: "English: 6 of 120 pages translated (5.0 percent)". The translated pages are p046 to p050 and p075. "Start at Page 46".
+- `kendojidai_2014`: "English: 5 of 1051 pages translated (0.5 percent)". The translated pages are p0794 to p0798. "Start at Page 794".
+- `etiqu1_full`: "English: 0 of 176 pages translated (0.0 percent)". No link to the text. The title link opens the book screen.
+- `day_breath_clean`: "English: 0 of 207 pages translated (0.0 percent)" and "Continue at Page 154". The account `reader@kendo-translation.local` saved page 154 `[check: DV69 2026-10-29 20:54 q2.py, GET reader_progress]`.
 
-The progress of a language is the finished pages divided by the pages of the work, times 100, with one decimal. Only English has an agent translation today. A line for ZH, KO, or VI appears when that language arrives (line 185). Line 213 and the rule of S2 differ on the word "finished". Open item 2 holds the options. The unit default counts the pages that have reader text.
+The progress of a language is the translated pages divided by the pages of the work, times 100, with one decimal. Only English has an agent translation today. A line for ZH, KO, or VI appears when that language arrives (line 185). Round 70 answer 3 closed open item 2. The word is "translated", and a page counts when readers can view its English text.
 
 ##### 15.23.3.4 Who sees what
 
 - Visitor who is not signed in: no dashboard. `/read` sends the visitor to `/sign-in?next=%2Fread`. Line 80 says every person signs in, and the list rule of `catalog_items` needs a session. Open item 5 holds the other option.
 - Unapproved reader: the dashboard index with titles and progress, and no text (line 93). A row has no link to a page. The title link opens the book screen with the note "The text opens after approval." `[file: docs/VISION-viewer.md:2540]`.
 - Approved reader, translator, admin: full rows, links to the text, and search in the page text.
-- Today the progress line is hidden for an unapproved reader. The counts come from `reader_pages`, which the rule READ_OK closes to that reader. Open item 3 holds the fix.
+- RC1 state: the progress line was hidden for an unapproved reader, because the counts came from `reader_pages`. Unit RC4 reads the counts from `catalog_items` (round 69 answer 9). Not verified: whether a reader who waits for approval sees the progress line on port 8090.
 
-##### 15.23.3.5 Two clicks from the dashboard to the text
+##### 15.23.3.5 Clicks from the dashboard to the text (two for a book, three for a web article)
 
-The row link goes straight to the text, so a reader never needs the book screen. The path holds at most one closed fold.
+The row link goes straight to the text, so a reader never needs the book screen. The path holds at most one closed fold for a book or a year volume, and two for a web article.
 
 - `left_foot_full`: the fold Books is open and the work is a plain row. Click 1: "Start at Page 46". The text opens.
-- `kendojidai_2014`: click 1 opens the fold "Kendo Jidai". Click 2: "Start at Page 794".
-- "Kendo droplet guard": click 1 opens the fold "kendojidai.net, 2020". Click 2: "Start at Page 1".
+- `kendojidai_2014`: click 1 opens the year fold 2014. Click 2: "Start at Page 794".
+- "Kendo droplet guard": click 1 opens the year fold 2020. Click 2 opens August 2020. Click 3: "Start at Page 1". Round 70 answer 7 `[accepted recommendation 2026-10-29 23:36]` "Accept 3 clicks, use search (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-29.md:122]`.
 - A search result is one click away from the text (section 15.23.4).
 
 #### 15.23.4 Search
@@ -3524,24 +3524,24 @@ All books   Human translation   Readers   Human versions            reader@kendo
 ---------------------------------------------------------------------------------------------------------------------
 Reader dashboard
 [ Search titles, authors, and text (seme, Chūzumi, 攻め)                                        ] [Search]
-347 works, 13,589 pages. English: 29 pages finished (0.2 percent).
+342 works, 13,303 pages. English: 28 of 13,303 pages translated (0.2 percent).
 
-v Books      25 works  5,067 pages  English: 21 finished (0.4 percent)
+v Books      22 works  4,821 pages  English: 20 of 4,821 pages translated (0.4 percent)
   +-----------------------------------------------------------------------------------------------------------+
   | The Secret of Kendo and the Left Foot                           剣道の極意と左足                              |
   | Mitsuru Kobayashi · 2017 · 120 pages                                                                      |
-  | English: 6 of 120 pages finished (5.0 percent)                              [Start at Page 46]            |
+  | English: 6 of 120 pages translated (5.0 percent)                              [Start at Page 46]            |
   +-----------------------------------------------------------------------------------------------------------+
   | Etiquette and Manners in Kendo                                  剣道の礼法と作法                              |
   | Takenori Baba · 2020 · 176 pages                                                                          |
-  | English: 0 of 176 pages finished (0.0 percent)                                                            |
+  | English: 0 of 176 pages translated (0.0 percent)                                                            |
   +-----------------------------------------------------------------------------------------------------------+
-  > Lectures on Kendo, New Edition      3 works  533 pages  English: 4 finished (0.8 percent)
-> Magazines   9 works  8,171 pages  English: 7 finished (0.1 percent)
-> Web articles   313 works  351 pages  English: 1 finished (0.3 percent)
+  > Lectures on Kendo, New Edition      3 works  533 pages  English: 4 of 533 pages translated (0.8 percent)
+> Kendo Jidai   320 works  8,482 pages  English: 8 of 8,482 pages translated (0.1 percent)
+  (the 311 web articles sit in the year and month folds of Kendo Jidai)
 ```
 
-Phone, 390 px wide. One column. A row has full width. A tap target has at least 44 px.
+Phone, 390 px wide. One column. A row has full width. A tap target has at least 44 px. A progress line of a fold wraps on a phone, so the sketch shortens it.
 
 ```
 +------------------------------------+
@@ -3552,8 +3552,8 @@ Phone, 390 px wide. One column. A row has full width. A tap target has at least 
 | 347 works. English: 0.2 percent    |
 |                                    |
 | v Books                            |
-|   25 works · 5,067 pages           |
-|   English: 21 finished (0.4 %)     |
+|   22 works · 4,821 pages           |
+|   English: 20 of 4,821 translated  |
 | +--------------------------------+ |
 | | The Secret of Kendo and the    | |
 | | Left Foot                      | |
@@ -3561,11 +3561,11 @@ Phone, 390 px wide. One column. A row has full width. A tap target has at least 
 | | Mitsuru Kobayashi · 2017       | |
 | | 120 pages                      | |
 | | English: 6 of 120 pages        | |
-| | finished (5.0 percent)         | |
+| | translated (5.0 percent)       | |
 | | [ Start at Page 46 ]           | |
 | +--------------------------------+ |
-| > Magazines                        |
-| > Web articles                     |
+| > Kendo Jidai                      |
+|   320 works · 8,482 pages          |
 +------------------------------------+
 ```
 
@@ -3684,49 +3684,49 @@ Mechanism options (open item 7). The default is the redirect:
 
 The session code is in `app/lib/htv-session.ts`: `getSession` (lines 27-33), `requireSession` (39-49), `requireStaff` (55-60), `requireReaderSession` (63-65), and `isSafeNext` (76-78).
 
-#### 15.23.8 Plan for the code unit (step 2)
+#### 15.23.8 Plan for the code unit (step 2, built in units RC4 and RC4b, see 15.25)
 
-Files to change in the Viewer (all under `app/` unless a path says more):
+Files to change in the Viewer by the plan (all under `app/` unless a path says more). Section 15.25 lists the files that unit RC4 changed:
 
 - `app/app/page.tsx` and `app/lib/monitor.ts`: the front door.
 - `app/app/read/page.tsx`: the heading "Reader dashboard", the search box, and the query `q`.
 - `app/components/ReaderList.tsx`: rewritten as folds. New `app/lib/reader-folds.ts` (a pure function from cards to a tree, tested without PocketBase). New `app/components/ReaderSearch.tsx` if the box needs a client part.
-- `app/lib/reader-data.ts`, `app/lib/pb.ts`, `app/lib/reader-types.ts`: card fields (kind, source, year, finished pages), the search query.
-- `app/lib/htv-books.ts:24-26`: the translator book list reads all rows of `catalog_items`. If S2 copies 347 rows, the list at `/translate` grows from 37 to 347 rows. The list must keep the 36 folders and the works that have a run. The owner decided this in round 61 answer 6 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:266]`.
+- `app/lib/reader-data.ts`, `app/lib/pb.ts`, `app/lib/reader-types.ts`: card fields (kind, source, year, translated pages), the search query.
+- `app/lib/htv-books.ts:24-26`: the translator book list reads all rows of `catalog_items`. If S2 copies 347 rows, the list at `/translate` grows from 37 to 347 rows. The list must keep the 36 folders and the works that have a run. The owner decided this in round 61 answer 6 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:266]`. Built: `/translate` stays at 37 rows `[check: RC4 smoke-tolerance.log:17]`.
 - `app/lib/htv-settings.ts`, `app/components/ReaderSettingsPanel.tsx`, `app/components/ReaderBook.tsx`: the first-visit panel and `reader.panelSeen`.
-- `app/scripts/sync-runs.mjs`: see below. A new migration file after `1793300009_v2_reader_rules.js` in `data/scripts/pocketbase/pb_migrations/`.
-- `app/scripts/smoke.mjs`: new checks. The old check "Book list: the card shows 'AI translation: 6 of 120 pages'" (line 1458) must change to the new progress line.
+- `app/scripts/sync-runs.mjs`: see below. A new migration file after `1793300009_v2_reader_rules.js` in `data/scripts/pocketbase/pb_migrations/`. Built: `1793300010_v2_dashboard_fields.js`.
+- `app/scripts/smoke.mjs`: new checks. The old check "Book list: the card shows 'AI translation: 6 of 120 pages'" (line 1458) must change to the new progress line. Unit RC4 changed this check (smoke-read.log:50).
 - `app/README.md` (line 462 and the section "Settings and themes") and the table of `reader.*` keys in this file (line 2795).
 
 What S2 must change:
 
-- Copy all 347 rows of `items.filled.jsonl` into `catalog_items`. The header of `sync-runs.mjs` says the 311 web articles stay out (lines 7-8). The slug of a web article is the first 8 characters of the long ID.
-- Write the finished pages of each work into `catalog_items` (open item 3), for example `finished` = `{"en": [46, 47, 48, 49, 50, 75]}`.
+- Copy all 347 rows of `items.filled.jsonl` into `catalog_items`. The header of `sync-runs.mjs` says the 311 web articles stay out (lines 7-8). The slug of a web article is the first 8 characters of the long ID. Unit RC4 built this. S2 now uploads 347 rows (section 15.25).
+- Write the translated pages of each work into `catalog_items` (open item 3), for example `translated` = `{"en": [46, 47, 48, 49, 50, 75]}`. Unit RC4 first named the field `finished`. Unit RC4b renamed it to `translated` in the migration file `[file: data/scripts/pocketbase/pb_migrations/1793300010_v2_dashboard_fields.js:7,31,64]` `[check: RC4b 2026-10-30 00:45 unit report]`.
 - Write search columns (open item 4).
 - Keep `pages` at 0 for web articles.
 - The dry run must stay safe: compare, then skip or update, and never delete.
 
 New tests:
 
-- Smoke mode `read`: the 3 first-level folds with counts (25, 9, 313 works). The rows "English: 6 of 120 pages finished (5.0 percent)", "English: 5 of 1051 pages finished (0.5 percent)", and "English: 0 of 176 pages finished (0.0 percent)". The unapproved reader gets progress and no link to a page.
+- Smoke mode `read`: the 2 first-level folds with counts (22 and 320 works). The rows "English: 6 of 120 pages translated (5.0 percent)", "English: 5 of 1051 pages translated (0.5 percent)", and "English: 0 of 176 pages translated (0.0 percent)". The unapproved reader gets progress and no link to a page.
 - Search: "seme" gives 10 pages in 3 works. "Chūzumi" and "chuzumi" both give `left_foot_full` p048 and p049. "kendo" finds p046. 攻め gives 10 pages. An unapproved reader gets no page hit.
 - Front door: `/` sends a visitor to `/sign-in`, a reader to `/read`, and a translator to `/translate`, in signed mode. With the monitor on, `/` shows the Monitor dashboard.
 - First-visit panel: the panel is present when `panelSeen` is missing. It stays open after a change. The button "Start reading" and Esc close it and save the mark. "Reset text settings" keeps the mark. The panel is absent at the next visit.
-- Chrome checks at 1440 x 900 and 390 x 844. They test the two-click paths of section 15.23.3.5, the fold buttons by keyboard, the panel on both sizes, and screenshots in the five themes. `node scripts/contrast-dark.mjs` must show 0 failures for the new elements.
+- Chrome checks at 1440 x 900 and 390 x 844. They test the click paths of section 15.23.3.5, the fold buttons by keyboard, the panel on both sizes, and screenshots in the five themes. `node scripts/contrast-dark.mjs` must show 0 failures for the new elements.
 - S2: a dry run plans 310 new `catalog_items`. A second run says "unchanged".
 
-#### 15.23.9 Open items
+#### 15.23.9 Open items (decided in rounds 69 and 70, see section 15.25)
 
 - Item 1: the 310 web articles that `catalog_items` lacks. Example: the metadata row `d7835263-fe16-4f05-8c51-98b2a8aa0a3e` ("How do elite swordsmen hit men? : Hojo Masaomi", 2019) is not on the dashboard today. Line 210 says every work, also at zero.
   - Option A (recommended): S2 copies all 347 rows. Benefit: the dashboard matches line 210, and the title of `18d4ac29` becomes "Kendo droplet guard", which closes the open item about its empty title. Cost: 310 more records, a change in `htv-books.ts` so that `/translate` keeps its 37 rows, and a code unit for S2 with a slug rule.
   - Option B: the dashboard lists the 37 works of today. Benefit: no S2 change. Cost: it breaks line 210, and a reader sees 1 web article of 311.
   - Option C: S2 copies the 347 rows and the dashboard shows the web articles as one closed fold with counts only. Benefit: a short page. Cost: the reader cannot find an article without search.
-- Item 2: the word "finished". Line 213 says: "Finished" means a final `ED_3` text with a `QA_3` verdict. S2 gives reader text to a page from the run of the admin mark, or else from the newest `PASS` run. The code says "A page with only FAIL runs gets no record" `[file: app/scripts/sync-runs.mjs:10,628-662]`. Example: `kendojidai_2014` p0839 has one run and the verdict is FAIL (`20261026T205441Z-r41`). The reader sees "No agent translation yet" there `[file: docs/VISION-viewer.md:3201]`. The admin run mark is the only other source of reader text, and the local `run_marks` collection holds 0 records `[check: DV69 2026-10-29 20:55 q4.py, GET run_marks]`. A second example: `mental_full` p014 has a PASS run (`20261026T195046Z-r41`) and a newer FAIL run (`20261028T023007Z-r41`). The reader sees the PASS text `[check: DV69 2026-10-29 20:55 q4.py, GET page_runs]`.
-  - Option A (recommended): finished = the page has reader text. `kendojidai_2014` shows 5 of 1051 pages (0.5 percent). Benefit: the number matches what the reader can open. Cost: line 213 needs new words after the owner agrees.
-  - Option B: finished = a page with any `QA_3` verdict, also FAIL. `kendojidai_2014` shows 6 of 1051 pages (0.6 percent). Benefit: it counts all agent work. Cost: the link "Start at Page 839" opens a page with no text.
-  - Option C: show both numbers, "5 finished, 1 failed". Benefit: nothing is hidden. Cost: more noise on each row, and a reader sees the word "failed".
+- Item 2 (closed by round 70 answer 3, the word is now "translated"): the old word "finished". Line 213 says: "Finished" means a final `ED_3` text with a `QA_3` verdict. S2 gives reader text to a page from the run of the admin mark, or else from the newest `PASS` run. The code says "A page with only FAIL runs gets no record" `[file: app/scripts/sync-runs.mjs:10,628-662]`. Example: `kendojidai_2014` p0839 has one run and the verdict is FAIL (`20261026T205441Z-r41`). The reader sees "No agent translation yet" there `[file: docs/VISION-viewer.md:3201]`. The admin run mark is the only other source of reader text, and the local `run_marks` collection holds 0 records `[check: DV69 2026-10-29 20:55 q4.py, GET run_marks]`. A second example: `mental_full` p014 has a PASS run (`20261026T195046Z-r41`) and a newer FAIL run (`20261028T023007Z-r41`). The reader sees the PASS text `[check: DV69 2026-10-29 20:55 q4.py, GET page_runs]`.
+  - Option A (recommended): translated = the page has reader text. `kendojidai_2014` shows 5 of 1051 pages (0.5 percent). Benefit: the number matches what the reader can open. Cost: line 213 needs new words after the owner agrees.
+  - Option B: translated = a page with any `QA_3` verdict, also FAIL. `kendojidai_2014` shows 6 of 1051 pages (0.6 percent). Benefit: it counts all agent work. Cost: the link "Start at Page 839" opens a page with no text.
+  - Option C: show both numbers, "5 translated, 1 failed". Benefit: nothing is hidden. Cost: more noise on each row, and a reader sees the word "failed".
 - Item 3: progress for an unapproved reader. Line 94 says that person sees translation progress. Today the count comes from `reader_pages`, which that reader cannot read. Example: the test reader `new-reader-1793312884055@rc1-test.local` (not approved) sees no progress line `[file: app/components/ReaderList.tsx:38]`.
-  - Option A (recommended): S2 writes the finished pages into `catalog_items` (readable by every signed-in user). Benefit: one request gives all counts, for every role, also for 13,278 pages. Today the code lists every `reader_pages` record in pages of 500 `[file: app/lib/pb.ts:144,482-488]`. Cost: a new field, a migration, and S2 must run after each new page run.
+  - Option A (recommended): S2 writes the translated pages into `catalog_items` (readable by every signed-in user). Benefit: one request gives all counts, for every role, also for 13,278 pages. Today the code lists every `reader_pages` record in pages of 500 `[file: app/lib/pb.ts:144,482-488]`. Cost: a new field, a migration, and S2 must run after each new page run.
   - Option B: keep the count from `reader_pages` and hide the progress for an unapproved reader, as today. Benefit: no S2 change. Cost: it breaks line 94.
 - Item 4: the search engine. Example: "chuzumi" must find "Chūzumi" on `left_foot_full` p048 and p049, and "kendo" must find "Kendō".
   - Option A (recommended): S2 adds text columns to `reader_pages`: the plain JA text, the plain EN text, and a folded copy (lowercase, no macron, no hyphen, plus the romaji of the marked terms). The search uses the filter operator `~` on these columns. Benefit: the fold rule works. The snippet comes from the same record. The rule READ_OK blocks an unapproved reader without new code. Cost: a migration, S2 code, and about 5 KB more for each page, which is about 68 MB more for 13,278 pages `[agent inference]`. The speed of the `~` scan over 13,278 pages is Not verified.
@@ -3762,18 +3762,18 @@ New tests:
 - Whether `men0`, `men1`, and `men_full` are parts or copies of one book, and whether `mental2_clean` is a copy of `mental_full`.
 - The query "kendo" against the column `rows`. The claim that it misses "Kendō" follows from the "chuzumi" result `[agent inference]`.
 - The size of 310 more `catalog_items` records.
-- Lines 2540 and 2547 of this file describe the unapproved reader and the 37 cards of unit RC1. They stay as the history of that unit. Section 15.23 replaces them when the code unit lands.
+- Lines 2540 and 2547 of this file describe the unapproved reader and the 37 cards of unit RC1. They stay as the history of that unit and carry the tag "(RC1 state)". Unit RC4 built section 15.23 (see section 15.25).
 
 Status: design, accepted by the owner (round 69 answer 6).
 
 ### 15.24 Monitor dashboard and config panel (design, round 70)
 
-- Source: owner answers of round 68 and round 69 `[file: .opencode/reminders/qa/qa-memory-2026-10-29.md:60-113]`. Unit DM70 wrote this section. It is a design. It changes no code.
+- Source: owner answers of round 68 and round 69 `[file: .opencode/reminders/qa/qa-memory-2026-10-29.md:60-113]`. Unit DM70 wrote this section. It is a design. It changes no code. Unit DF72 (round 72) updated the lines about Run, Resume, Pause, and the store folder after round 70 answers 11 and 12 and round 71 answers 7 to 10.
 - Evidence tags: `[file: path:line]` marks a file that unit DM70 read. `[check: DM70 2026-10-29 HH:MM command]` marks a result of the unit. `[agent inference]` marks a guess. `[unit default]` marks a choice of the unit. "Not verified" marks a fact without evidence.
 - The unit read files only. It started no process, called no model, and spent 0 USD. The script `facts.py` in the folder `r70/DM70/` of the temp folder of the unit prints the numbers of this section.
 - Scope: the Monitor dashboard (`/` on the Mac), the book detail view, the config panel, and the resume path. It also covers the files that the Viewer reads and writes. Translator code is out of scope. Unit TR70 writes the Translator side of the same contract.
 - Names: the *Monitor dashboard* is the page `/` on the Mac. It lists books. The owner calls it "Monitor Home". The *Reader dashboard* is `/read` (section 15.23). The *config panel* is the page `/settings/run`. The *settings file* is `translator-settings.json` in the folder `config` of the Translator.
-- Two counts differ. The Monitor dashboard counts pages that a run finished. The Reader dashboard counts pages that have reader text. Section 15.24.4.3 gives one example.
+- Two counts differ. The Monitor dashboard counts pages done by a run, with any verdict. The Reader dashboard counts translated pages, that is, pages that readers can view. Section 15.24.4.3 gives one example.
 - New words in this section, each defined at first use:
   - *book row*: one dashboard row for one book.
   - *Needs attention*: the group of books that do not go on alone.
@@ -3880,16 +3880,16 @@ Real data `[check: DM70 2026-10-29 22:08 python3 -B facts.py]`:
 
 #### 15.24.3 Users and tasks
 
-The user is one person: the owner, in the admin role, at the Mac. The screen is desktop only. The owner starts runs in the Terminal. He runs any book at any time and comes back after hours. He needs to know in seconds if a run needs him.
+The user is one person: the owner, in the admin role, at the Mac. The screen is desktop only. The owner asks an opencode agent to run a book. The agent reads the mark that the Monitor dashboard writes (round 70 answer 11). He runs any book at any time and comes back after hours. He needs to know in seconds if a run needs him.
 
 Tasks, in order of how often they happen `[agent inference]`:
 
 1. Look at the state of all books after an absence.
 2. Find out why a book stopped and when.
-3. Resume a book from its last stop.
+3. Mark a book to resume from its last stop.
 4. Pause a book or a list that costs too much.
 5. Change a run value, for example N or a model, while a book runs.
-6. Start a book that never ran.
+6. Mark a book that never ran to start.
 7. Check the cost and the time of one book.
 
 The Monitor dashboard must answer these questions, in this order. Each question has one place on the screen.
@@ -3924,9 +3924,9 @@ A *state label* is a symbol and a word. Color is never the only sign. The symbol
 Plain meaning of each label:
 
 - Running: a process works on the book now.
-- Running, pause requested: the owner asked for a pause. Calls that run now finish first.
-- Paused: the process lives and waits before its next model call.
-- Stopped: the process ended on purpose. Ctrl-C or the end of the target page set the stop.
+- Running, pause requested: the owner asked for a pause. The process finishes the current page (forward boxes, critic and critique steps backward, memory write), then ends.
+- Paused: the process ended on purpose after the page that it finished at the pause. Resume writes a mark (round 71 answer 10).
+- Stopped: the process ended on purpose. Ctrl-C sets the stop. The end of the target page set gives Completed.
 - Stopped unexpectedly: the file says "running", but the process is gone or silent.
 - Stopped by failure: the run ended because of a failure or a rule. The book does not go on alone.
 - Completed: the book reached the target of its phase.
@@ -3935,9 +3935,9 @@ Plain meaning of each label:
 | Label | Group | Rule when `status.json` exists | Rule for a derived row |
 |---|---|---|---|
 | ● Running | Running | `state` is "running". The pid is alive. The heartbeat is not older than 120 s. | The newest list that holds the book is in the state "running". The chain of the book is "running", or a page of the book is "running". `updated_epoch` is not older than 1800 s. |
-| ● Running, pause requested | Running | A file `PAUSE` exists (book or list). The state is still "running". | Same as Running. The file `PAUSE` exists in the list folder. |
-| ‖ Paused | Paused | `state` is "paused". | The list state is "paused". |
-| ■ Stopped | Stopped | `state` is "stopped". `stop_reason` is "ctrl-c" or "target-reached". | The list is final. The chain is "completed", "interrupted", or "stopped: interrupted". No page of the book has a forward failure. |
+| ● Running, pause requested | Running | A file `PAUSE` exists in the book folder. The state is still "running" until the current page ends. | Same as Running. The file `PAUSE` exists in the list folder. |
+| ‖ Paused | Paused | `state` is "paused". The process ended after the page, so no process lives (TB71 `status.json`, function `label_of` in `store.py`). | The list state is "paused". The gate of an old list waits before each call, so the process lives. |
+| ■ Stopped | Stopped | `state` is "stopped". `stop_reason` is "ctrl-c". The end of the target page set gives `state` "completed" (TB71 `run-book`). | The list is final. The chain is "completed", "interrupted", or "stopped: interrupted". No page of the book has a forward failure. |
 | ▲ Stopped unexpectedly | Needs attention | `state` is "running" in the file. The pid is gone, or the heartbeat is older than 120 s. | The list is "running". `updated_epoch` is older than 1800 s. |
 | ▲ Stopped by failure | Needs attention | `state` is "stopped". `stop_reason` is "forward-failure", "cost-guard", or "rule". | The chain state starts with "stopped:" and is not "stopped: interrupted". |
 | ✓ Completed | Completed | `state` is "completed". All pages of the phase target are accepted. | Never. See the note below. |
@@ -3978,7 +3978,7 @@ A third line shows only when an error text exists. It is red and it names the pa
 
 What each number counts, and where it shows:
 
-- "Pages done" counts finished pages on the Monitor dashboard. The Reader dashboard (`/read`) shows "finished" pages, which are pages with reader text `[file: docs/VISION-viewer.md:3462]`.
+- "Pages done" counts pages that a run finished, on the Monitor dashboard. The Reader dashboard (`/read`) shows "translated" pages, which are pages with reader text `[file: docs/VISION-viewer.md:3462]`.
 - Example: `kendojidai_2014` has 6 pages done on the Monitor dashboard: p0794 to p0798 and p0839. The Reader dashboard shows 5 of 1051 pages, because p0839 has a QA_3 FAIL and no reader text `[file: docs/VISION-viewer.md:3458,3724]`.
 - "Cost" counts what the models charged. It does not count Voyage `[file: data/pilot-run/lists/20261029T051152Z/progress.json, key cost_models_usd]`.
 
@@ -3992,15 +3992,15 @@ Phase 2 runs on the paired dataset. The paired dataset holds web articles with h
 
 ##### 15.24.4.5 Actions
 
-- Pause. A row of a book in the state Running has the button "Pause". Today the pause file belongs to a list folder. One list can hold several books. Example: list `20261028T023006Z` holds `mental_full`, `left_foot_full`, and `kendojidai_2014`.
+- Pause. A row of a book in the state Running has the button "Pause" (round 70 answer 12: "Each book with running process has a Pause button. When click, the running process finishing the process (forward and backward) for current page and stop the process." [user 2026-10-29 23:36]). The button writes the file `PAUSE` in the book store folder (round 71 answer 10: "Reading right (Recommended)" [accepted recommendation 2026-10-30 02:37]). The process finishes the current page, then ends. An old list folder keeps one pause file for the list. One list can hold several books. Example: list `20261028T023006Z` holds `mental_full`, `left_foot_full`, and `kendojidai_2014`.
   - A list with one book pauses at once, with no dialog. The action is reversible.
-  - A list with more than one book in the state Running opens a dialog (sketch 5 shows a similar dialog). The dialog names every book that will wait. Open item 3 holds the option for one pause file per book.
-- Resume of a paused book. The button "Resume" deletes the pause file, as today `[file: app/components/PauseButton.tsx:24-39,52]`. It needs no dialog.
-- Resume of a stopped book. The button "Resume…" opens a dialog with the exact command and a button "Copy command". Section 15.24.7 holds the options.
-- Start of a book that never ran. The button "Start…" opens the same dialog with the command for phase 3.
-- Next phase. A Completed book of phase 3 shows "Start phase 4…". The dialog shows the command for phase 4. Phase 4 starts at the beginning of the book (owner quote).
+  - A list with more than one book in the state Running opens a dialog (sketch 5 shows a similar dialog). The dialog names every book that will wait. Item 3 of section 15.24.11 holds the decision for one pause file per book.
+- Resume of a paused book. The process ended at the pause, so no process lives to read a change. The button "Resume" writes a mark `request.json` in the book store folder, like "Run" (round 70 answer 11, round 71 answer 9). The owner asks an opencode agent. The agent runs `translator_run.py marks` and then the printed `run-book` command. The command deletes the file `PAUSE` at its start. Draft DM70: the button deleted the pause file `[file: app/components/PauseButton.tsx:24-39,52]`.
+- Resume of a stopped book. The button "Resume" writes a mark `request.json` with the action "resume" and the phase. No dialog opens and no command shows. Section 15.24.7 holds the flow. Draft DM70: the button "Resume…" opened a dialog with the exact command and a button "Copy command".
+- Start of a book that never ran. The button "Run" writes a mark `request.json` with the action "run" and the phase "agent-phase-3". Draft DM70: the button "Start…" opened a dialog with the command.
+- Next phase. A Completed book of phase 3 shows the button "Run phase 4" `[unit default]`. The button writes a mark with the phase "agent-phase-4". Phase 4 starts at the beginning of the book (owner quote). Draft DM70: the button "Start phase 4…" opened a dialog.
 - Details. The title and the button "Details" open the book detail view (section 15.24.5).
-- A button is disabled with a reason in words. Example (the pid is made up): "Resume… is off because this book runs now (pid 4821)".
+- A button is disabled with a reason in words. Example (the pid is made up): "Resume is off because this book runs now (pid 4821)".
 
 ##### 15.24.4.6 Time, refresh, and the empty, first-load, and error states
 
@@ -4009,7 +4009,7 @@ Phase 2 runs on the paired dataset. The paired dataset holds web articles with h
 - Refresh. While one row is Running, Pause requested, or Paused, the page polls every 3000 ms, as today `[file: app/components/useLive.tsx:4]`. With no live row, the page loads once, and the owner uses the button "Refresh" or comes back to the tab. The poll stops while the tab is hidden `[unit default]`.
 - The header shows "Updated 22:06:12 PDT (3 s ago)". After 3 failed polls, a banner shows: "The Viewer server does not answer. This page shows the data from 22:06:12 PDT." The banner goes away at the next good poll. Today a failed poll is silent.
 - First paint. The server sends the rows with the page, as today `[file: app/app/page.tsx:11]`. No spinner shows at the first load. A route change shows grey placeholder rows.
-- Empty. If no list folder and no `status.json` exists: "No run found. Start a book in the Terminal:" and the start command for phase 3 of the first book.
+- Empty. If no list folder and no `status.json` exists: "No run found. Press Run on a book. The button writes a mark. Ask an opencode agent to run it."
 - Error. If the data folder is not readable: "The Monitor dashboard cannot read the Translator data folder. Check the key translatorDataDir in viewer.config.json." The message names the file, not the Mac path.
 - A broken `status.json` shows the row with the label "Status file unreadable" and the file path. The other rows stay.
 
@@ -4072,7 +4072,7 @@ Notes on the groups:
 - Group 1: the panel shows the line "Today N only sets the marks 'reached N'. The run program has no update step yet." The line goes when the Translator builds the update step.
 - Group 2 and 3: the list of model IDs comes from the IDs in `config/translator-models.yaml`, plus the field "Other…". An ID from "Other…" shows the warning "The Viewer cannot check this ID. A wrong ID stops the page at the start with CONFIG ERROR." Open item 6 holds the options.
 - Group 4: the field shows a hint from real data: "The pages of the last list cost $1.24 to $1.93 each." The most expensive page in the three list folders cost $4.38 (`kendojidai_2014/p0839`).
-- Group 4: an empty field means no limit. The command line value `--max-usd` also exists. Open item 5 holds the rule for the two.
+- Group 4: an empty field means no limit. The command line value `--max-usd` also exists. The settings file wins (round 70 answer 14, item 5 of section 15.24.11).
 - Group 5 and 6: the conflict. A list that runs cannot change jobs, book jobs, or the critic mode. The list reads them at its start, and a resume reuses the stored mode. The Translator says: "RESUME ERROR: %s ran with --critic-mode %s. A resume must use the same mode." `[file: data/scripts/translator_run.py:1953]`. The panel shows the badge "Next list or book start" on these three fields. It does not hide them. Round 69 answer 19 says "next page" for the file. Open item 4 holds the options.
 - Group 7 and 8: the Translator must read these keys. Today the values are constants in code (note of aki-main, line 112).
 
@@ -4097,26 +4097,26 @@ Review, save, history, and reset:
 
 #### 15.24.7 Resume per book
 
-The owner resumes a book from the screen. A book can stop at any page. The resume point is the next page after the last accepted page. Three ways exist.
+The owner marks a book from the screen and asks an opencode agent to run it. A book can stop at any page. The resume point is the next page after the last accepted page. DM70 drafted three ways. The owner chose another way in round 70 answer 11 and confirmed it in round 71 answer 9. Owner words, round 70 answer 11: "Actually, the [Run] and [Resume] button should only `mark` the book for run start/continue. I will only run through asking agent to run on opencode, where the agent will read the mark and perform the action needed. The monitor just need to reflect the changes during/after the run" [user 2026-10-29 23:36]. Round 71 answer 9 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:14`): "Reading right (Recommended)" [accepted recommendation 2026-10-30 02:37]. The flow: the button Run or Resume writes `request.json` in the book store folder. The owner asks an opencode agent. The agent runs `translator_run.py marks` and then the printed `run-book` command. The handled mark becomes `request.done.json`. The Monitor dashboard shows the progress.
 
-- Option 1, copy the exact command (recommended). The button "Resume…" shows the command and a button "Copy command". The owner pastes it in the Terminal. Benefit: the web app gets no new power. No visitor of port 3000 can start a paid run. The command is visible and can be checked. Cost: one manual step in the Terminal.
-- Option 2, a request file that the Translator watches. The Viewer writes a file and a Translator process starts the work. Benefit: one click. Cost: a process must watch, and a stopped book has no process. So a new always-on Translator process is needed. That is a new component for unit TR70.
-- Option 3, the Viewer starts the process. The Viewer runs the command on the Mac. Benefit: one click, no Terminal. Cost: the monitor has no sign-in. Any person who reaches the port can start a paid run. The run ends with the Next server. This is the largest risk of the three.
+- Draft option 1, copy the exact command (DM70 recommendation, not chosen). In the draft, the button "Resume…" showed the command and a button "Copy command". The owner pasted it in the Terminal. Benefit: the web app gets no new power. No visitor of port 3000 can start a paid run. The command is visible and can be checked. Cost: one manual step in the Terminal.
+- Draft option 2, a request file that the Translator watches. The owner chose the file of this option and replaced the process that watches with an opencode agent (round 70 answer 11). The Viewer writes a file and a Translator process starts the work. Benefit: one click. Cost: a process must watch, and a stopped book has no process. So a new always-on Translator process is needed. That is a new component for unit TR70.
+- Draft option 3, the Viewer starts the process (not chosen). The Viewer runs the command on the Mac. Benefit: one click, no Terminal. Cost: the monitor has no sign-in. Any person who reaches the port can start a paid run. The run ends with the Next server. This is the largest risk of the three.
 
-The dialog of option 1 shows:
+The dialog of draft option 1 listed these items (not built):
 
 - The book, the page where it continues, and the phase.
 - The command in a code block, with the folder to run it from.
 - A command for a check without any write, when one exists. Example: `python3 data/scripts/translator_run.py run-chain --resume data/pilot-run/lists/20261028T023006Z --dry-run`.
 - A warning when the book runs now, with the pid. The button "Copy command" stays enabled but the text says "This book runs now".
 
-Commands:
+Commands for the opencode agent. The agent runs them. The Viewer runs nothing:
 
-- For a book with a store (after unit TR70): `python3 data/scripts/translator_run.py run-book --book left_foot_full --phase agent-phase-3` `[agent inference]` (draft name of aki-main, not built).
-- For a derived row whose list has pages in the state waiting: `python3 data/scripts/translator_run.py run-chain --resume data/pilot-run/lists/20261028T023006Z` (the book `mental_full`). The list holds 3 chains. The resume runs the chains that have pages in the state waiting. In this list only `mental_full` has such pages (p015 to p018).
-- For a derived row whose list finished all pages (for example `left_foot_full`): the dialog says "The old list folder has no page in the state waiting. Start the next pages with run-book, which unit TR70 builds." No command shows.
+- For a book with a store: the agent runs `python3 data/scripts/translator_run.py marks`. It prints one line for each mark with the command, for example `python3 data/scripts/translator_run.py run-book left_foot_full --phase agent-phase-3` `[file: <T2>/data/scripts/translator_run.py, functions mark_command and cmd_marks]`. Unit TB71 built both. The draft name `--book` was not used.
+- Draft command for a derived row whose list has pages in the state waiting: `python3 data/scripts/translator_run.py run-chain --resume data/pilot-run/lists/20261028T023006Z` (the book `mental_full`). The list holds 3 chains. The resume runs the chains that have pages in the state waiting. In this list only `mental_full` has such pages (p015 to p018). The owner chose marks, and `run-book` ignores list folders and pilot data (round 70 answer 15: "Option 1. pilots are just testing. None of the pilot data should be retained for actual run" [user 2026-10-29 23:36]). So a mark for a derived row starts at p001 `[file: <T2>/data/scripts/translator_run.py, docstring of cmd_run_book]`.
+- Draft text for a derived row whose list finished all pages (for example `left_foot_full`): the dialog said "The old list folder has no page in the state waiting. Start the next pages with run-book, which unit TR70 builds." No command showed. Unit TB71 built `run-book`. A mark for this book makes `run-book` start at p001, because the store holds no accepted page.
 
-The paused book is the one exception to option 1. "Resume" deletes the pause file, because the process still lives and the Viewer has this power today.
+The paused book is no exception now. The process ended at the pause (round 70 answer 12), so "Resume" writes a mark like every other button. Draft DM70: "Resume" deleted the pause file, because the process still lived and the Viewer had this power.
 
 #### 15.24.8 Text sketches
 
@@ -4131,19 +4131,19 @@ Monitor dashboard                                       Updated 22:06:12 PDT (3 
 1 needs attention · 0 running · 0 paused · 11 stopped · 0 completed · 25 not started          Model cost in list folders: $73.95
 -------------------------------------------------------------------------------------------------------------------------------
 v ▲ Needs attention (1)
-  ▲ Stopped by failure  Making the Difference on the Day (mental_full)  Phase not stored  2 of 169 pages [#.........]  $5.48  102 min  [Resume…] [Details]
+  ▲ Stopped by failure  Making the Difference on the Day (mental_full)  Phase not stored  2 of 169 pages [#.........]  $5.48  102 min  [Resume] [Details]
       Stopped at p014: QA_3 FAIL (old rule). Oct 27 19:56 PDT, 2 days ago. Next page: p015.                                    [real]
 
 v ● Running (0)
   Nothing runs now. The last list ended Oct 29 00:50 PDT (21 h ago).
 
 v ■ Stopped (11)
-  ■ Stopped  The Secret of Kendo and the Left Foot (left_foot_full)  Phase not stored  6 of 120 pages [#.........]  $22.16  414 min  [Resume…] [Details]
+  ■ Stopped  The Secret of Kendo and the Left Foot (left_foot_full)  Phase not stored  6 of 120 pages [#.........]  $22.16  414 min  [Resume] [Details]
       Stopped at p050: the list finished. Oct 29 00:50 PDT, 21 h ago. 3 list folders. Next page: not stored.                   [real]
-  ■ Stopped  Kendo Jidai 2014 (kendojidai_2014)  Phase not stored  6 of 1051 pages [..........]  $15.77  269 min  [Resume…] [Details]
+  ■ Stopped  Kendo Jidai 2014 (kendojidai_2014)  Phase not stored  6 of 1051 pages [..........]  $15.77  269 min  [Resume] [Details]
       Stopped at p0798: the list finished. Oct 27 21:46 PDT, 2 days ago. 2 list folders. Next page: not stored.                [real]
       (6 more rows)
-  ■ Stopped  Lectures on Kendo, New Edition (ogawa_lecture_part2)  Phase not stored  1 of 150 pages [..........]  $3.73  76 min  [Resume…] [Details]
+  ■ Stopped  Lectures on Kendo, New Edition (ogawa_lecture_part2)  Phase not stored  1 of 150 pages [..........]  $3.73  76 min  [Resume] [Details]
       Stopped at p089: the list ended with 1 error. Oct 26 12:25 PDT, 3 days ago.                                              [real]
       Error on p089, box box-critic.TS_3: invalid JSON: Expecting ',' delimiter: line 1 column 913 (char 912)
       File: data/pilot-run/ogawa_lecture_part2_p089/20261026T185029Z-r41/failed/box-critic.TS_3.json
@@ -4158,21 +4158,21 @@ Sketch 2: the same screen when books run. The rows are examples that use the T7 
 ```
 1 needs attention · 1 running · 1 paused · 9 stopped · 0 completed · 25 not started
 v ▲ Needs attention (1)
-  ▲ Stopped unexpectedly  Kendo Jidai 2012 (kendojidai_2012)  Phase 3 · warm initialization  2 of 20 pages [#.........]  $3.88  92 min  [Resume…] [Details]
+  ▲ Stopped unexpectedly  Kendo Jidai 2012 (kendojidai_2012)  Phase 3 · warm initialization  2 of 20 pages [#.........]  $3.88  92 min  [Resume] [Details]
       No update for 12 min: the process is gone. Last page done: p711. The call of box TL_2 on the next page did not end.   [example]
 v ● Running (1)
   ● Running  The Secret of Kendo and the Left Foot (left_foot_full)  Phase 3 · warm initialization  5 of 20 pages [##........]  $8.30  159 min  [Pause] [Details]
       Now: p051, box TL_2. Running since Oct 29 21:12 PDT (54 min). Last sign of life 4 s ago. Next page: p052.                 [example]
 v ‖ Paused (1)
   ‖ Paused  Making the Difference on the Day (mental_full)  Phase 3 · warm initialization  2 of 20 pages [#.........]  $5.48  102 min  [Resume] [Details]
-      Paused since 21:40 PDT (26 min ago). The run waits before its next model call. Next page: p015.                                   [example]
+      Paused since 21:40 PDT (26 min ago). The process ended after the page. Next page: p015.                                   [example]
 ```
 
 Sketch 3: book detail of `left_foot_full`, real derived data.
 
 ```
 < Monitor dashboard
-The Secret of Kendo and the Left Foot (left_foot_full)                                                         [Resume…]
+The Secret of Kendo and the Left Foot (left_foot_full)                                                         [Resume]
 ■ Stopped at p050: the list finished. Oct 29 00:50 PDT (2026-10-29T07:50:31Z), 21 h ago. Phase not stored.
 6 of 120 pages · Model cost $22.16 · 414 min of page time · 3 list folders · Errors: none stored
 
@@ -4252,7 +4252,7 @@ This contract refines the draft of aki-main. Unit TR70 writes the Translator sid
 
 ```
 Settings file (round 69 answers 18, 19)
-  path:    <T2>/config/translator-settings.json (next to translator-models.yaml)
+  path:    <T2>/config/translator-settings.json (next to translator-models.yaml). Git ignores it (round 71 answer 8: "Keep it out of git (Recommended)"). The defaults file stays tracked
   read:    by the Translator at the start of each page, when it reads translator-models.yaml
   defaults: <T2>/config/translator-settings.defaults.json (read only for the Viewer, written by the Translator)
   keys:    update.N, levels."0".model, levels."0".variant, ... levels."3".*, box_critic.model, box_critic.variant,
@@ -4262,9 +4262,9 @@ Settings file (round 69 answers 18, 19)
   a key that is absent means: use today's value
   each page run writes run.json: a "settings" block with the values it used, and "settings_sha1"
 History of the settings file
-  path:    <T2>/config/translator-settings.history.jsonl  (the Viewer appends one line for each save)
+  path:    <T2>/config/translator-settings.history.jsonl  (the Viewer appends one line for each save, git ignores it, default of unit TB72 and no owner answer)
 Per-book store (round 69 answer 17)
-  folder:  <T2>/data/pilot-run/books/<book>/
+  folder:  <T2>/data/book-store/<book>/  (round 71 answer 7: "Move to data/book-store (Recommended)")
   status.json
     book, phase ("agent-phase-2" | "agent-phase-3" | "agent-phase-4")
     state: "not-started" | "running" | "paused" | "stopped" | "completed"
@@ -4280,7 +4280,7 @@ Per-book store (round 69 answer 17)
     settings_sha1, updated_utc
   book-memory.jsonl   book translation memory that survives list folders
   history.jsonl       one event per line: list started, page done, page failed, paused, resumed, stopped, phase changed, settings changed
-  PAUSE               pause file of the book (the Translator checks it before each new model call, like the list file)
+  PAUSE               pause file of the book. The Translator checks it after the current page ends (16 boxes forward, critic and critique steps backward, memory write). Then the process ends and the state is "paused" (round 71 answer 10)
 "phase" also sits in list.json, progress.json, and run.json
 ```
 
@@ -4290,7 +4290,7 @@ Differences from the draft of aki-main:
 - `pages_total` counts the pages of the phase target. The draft left this open. Phase 3 needs 20, not the pages of the book.
 - The cost and the time count one phase. A phase change writes the old totals to `history.jsonl`.
 - The heartbeat comes from a thread that does not wait for a model call. A call can last 1500 s.
-- A file `PAUSE` for one book. The draft had the list file only.
+- A file `PAUSE` for one book. The draft had the list file only. The Monitor dashboard also writes the mark `request.json` in the book folder (round 70 answer 11, round 71 answer 9). The mark holds the keys schema ("book-request-v1"), book, action ("run" or "resume"), phase, requested_utc, and requested_by `[file: <T2>/data/scripts/translator/store.py, function write_mark]`. `run-book` keeps the handled mark as `request.done.json`.
 - A defaults file, so that the Viewer shows the default of each key without a copy of the table.
 - A history file of the settings file. The draft had no place for who changed what.
 
@@ -4302,7 +4302,7 @@ How the Viewer reads it:
 - Pages done is the count of distinct page IDs in the state "done". Cost and page time are sums over all list folders. The last event is the latest `ended_epoch` of the book. The phase is "not stored". The next page is the first page in the state waiting of the newest list, else "not stored".
 - The Viewer reads a file again only when its modification time changed `[agent inference]`. The poll runs every 3 s. 37 books and many lists must not slow it.
 - A broken or half file gives the row "Status file unreadable". It never stops the page.
-- The Viewer writes three kinds of files: `PAUSE` (list or book), `translator-settings.json`, and `translator-settings.history.jsonl`. The last two sit in `<T2>/config`. A new function in `app/lib/safe-path.ts` accepts only these two names in that folder. The key `translatorConfigDir` in `viewer.config.json` sets the folder. The default is the folder `config` next to `translatorDataDir`.
+- The Viewer writes four kinds of files: `PAUSE` (list or book), `request.json` (book), `translator-settings.json`, and `translator-settings.history.jsonl`. The last two sit in `<T2>/config`. A new function in `app/lib/safe-path.ts` accepts only these two names in that folder. The key `translatorConfigDir` in `viewer.config.json` sets the folder. The default is the folder `config` next to `translatorDataDir`. Another check accepts only the names `PAUSE` and `request.json` in a folder `book-store/<book>/` `[unit default]`.
 
 #### 15.24.10 Plan for the code unit
 
@@ -4313,13 +4313,13 @@ Files to add:
 - `app/app/runs/page.tsx`: the old runs table, tab Lists.
 - `app/app/monitor/[slug]/page.tsx`: the book detail view.
 - `app/app/settings/run/page.tsx`: the config panel.
-- `app/app/api/monitor/books/route.ts` (GET, the poll) and `app/app/api/monitor/books/[slug]/route.ts` (GET).
+- `app/app/api/monitor/books/route.ts` (GET, the poll) and `app/app/api/monitor/books/[slug]/route.ts` (GET), and `app/app/api/monitor/books/[slug]/mark/route.ts` (POST, writes the mark `request.json`) `[unit default]`.
 - `app/app/api/settings/run/route.ts` (GET and PUT).
 - `app/lib/book-status.ts`: server code. It reads `status.json`, derives rows, and checks the pid.
 - `app/lib/book-status-rules.ts`: a pure function from file contents and a clock to labels, groups, and sentences. It has no file access, so a test runs it without the server.
 - `app/lib/settings-run.ts`: server code. It reads, validates, and writes the settings file and the history.
 - `app/lib/settings-schema.ts`: a pure module with the field table, `validateSettings`, and the diff.
-- `app/components/MonitorDashboard.tsx`, `BookRow.tsx`, `StateLabel.tsx`, `ResumeDialog.tsx`, `BookDetail.tsx`, `RunSettingsForm.tsx`, and `ConfirmDialog.tsx`.
+- `app/components/MonitorDashboard.tsx`, `BookRow.tsx`, `StateLabel.tsx`, `MarkButton.tsx` (the buttons Run and Resume, no dialog), `BookDetail.tsx`, `RunSettingsForm.tsx`, and `ConfirmDialog.tsx`.
 
 Files to change:
 
@@ -4347,7 +4347,7 @@ Tests:
   - `validateSettings` for all 21 keys, with a good and a bad value, and the diff.
 - Smoke mode `monitor` with a fixture folder that holds copies of the 3 list folders and a `config` folder. It adds fake `status.json` files: running (own pid), stopped unexpectedly (pid of a finished process), paused, completed, and a broken file. It checks the rows, the groups, the summary line, and the 404 answers with the monitor off.
 - Settings write tests: the file is written by temp file and rename, with no temp file left. A stale sha1 gives 409. A foreign Origin and a foreign Host give 403. A key that the panel does not know stays. A save writes one line in the history. No other path in the fixture changes.
-- Pause tests extend the mode `pause`: the list with 3 books shows the dialog, and one pause file per book works.
+- Pause tests extend the mode `pause`: the list with 3 books shows the dialog, and one pause file per book works. Mark tests: the button writes `request.json` in the book folder and no other file.
 - Chrome checks at 1440 x 900:
   - Keyboard through all groups and buttons.
   - The focus ring.
@@ -4356,23 +4356,23 @@ Tests:
 
 #### 15.24.11 Open items
 
-- Item 1: how the owner resumes a book. Example: `mental_full` stopped at p014 on Oct 27 19:56 PDT. Section 15.24.7 holds the three options.
-  - Option A (recommended): copy the command. Benefit: no new power in the web app. Cost: one step in the Terminal.
-  - Option B: a request file. Benefit: one click. Cost: a new always-on Translator process.
-  - Option C: the Viewer starts the process. Benefit: one click. Cost: the monitor has no sign-in, so any visitor of the port can start a paid run.
+- Item 1: how the owner resumes a book. Decided in round 70 answer 11: "Actually, the [Run] and [Resume] button should only `mark` the book for run start/continue. I will only run through asking agent to run on opencode, where the agent will read the mark and perform the action needed. The monitor just need to reflect the changes during/after the run" [user 2026-10-29 23:36]. Round 71 answer 9 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:14`): "Reading right (Recommended)" [accepted recommendation 2026-10-30 02:37]. The button writes `request.json`. An opencode agent runs `translator_run.py marks` and then the printed `run-book` command. The handled mark becomes `request.done.json`. Section 15.24.7 holds the flow. Example: `mental_full` stopped at p014 on Oct 27 19:56 PDT. Open: what the row shows between the mark and the first sign of the process. The design has no text for it yet.
+  - Draft option A (DM70 recommendation, not chosen): copy the command. Benefit: no new power in the web app. Cost: one step in the Terminal.
+  - Draft option B (the file is the owner choice): a request file. Benefit: one click. Cost: a new always-on Translator process. The owner removed this cost, because an opencode agent reads the mark.
+  - Draft option C (not chosen): the Viewer starts the process. Benefit: one click. Cost: the monitor has no sign-in, so any visitor of the port can start a paid run.
 - Item 2: Needs attention rows for old problems. Example: `mental_full` stays in Needs attention until a resume, and it stopped 2 days ago.
   - Option A (recommended): the row stays until the book runs again. Benefit: no new write, and a real problem does not hide. Cost: an old accepted problem keeps a row at the top.
   - Option B: a button "Mark as seen" writes an event to the book history. Benefit: the group empties. Cost: a new write of the Viewer, and the Translator must write the store first.
-- Item 3: the scope of Pause. Example: list `20261028T023006Z` holds 3 books. While that list runs, a pause on the row of `mental_full` stops all 3.
-  - Option A (recommended): one pause file per book for `run-book`, and a dialog for old lists that names all books. Benefit: the owner pauses one book. Cost: unit TR70 must check one more file before each model call.
-  - Option B: the pause file stays per list. Benefit: no Translator change. Cost: one book cannot pause alone, and a dialog is needed.
+- Item 3: the scope of Pause. Decided in round 70 answer 12: "Each book with running process has a Pause button. When click, the running process finishing the process (forward and backward) for current page and stop the process." [user 2026-10-29 23:36] Round 71 answer 10: "Reading right (Recommended)" [accepted recommendation 2026-10-30 02:37]. The button writes `PAUSE` in the book store folder. The process finishes the current page (16 boxes forward, critic and critique steps backward, memory write), then ends. The Monitor dashboard shows Paused. Resume writes a mark. Draft option A is the built one for `run-book`. Example: list `20261028T023006Z` holds 3 books, and a pause on the row of `mental_full` stopped all 3 in the draft. Not verified: the pause of an old list folder in the new design. The old list file stays `[agent inference]`.
+  - Draft option A (chosen for `run-book`): one pause file per book for `run-book`, and a dialog for old lists that names all books. Benefit: the owner pauses one book. Cost: the Translator must check one more file after each page.
+  - Draft option B (not chosen): the pause file stays per list. Benefit: no Translator change. Cost: one book cannot pause alone, and a dialog is needed.
 - Item 4: jobs, book jobs, and critic mode. Round 69 answer 19 says "next page". A list that runs reads these three at its start. Example: a resume of `left_foot_full` (mode separate) with the mode session gives "RESUME ERROR".
   - Option A (recommended): the three fields save at once and show the badge "Next list or book start". The dialog says so. Benefit: the owner sets the next run in advance. Cost: the change does not reach a list that runs, and the owner must read the badge.
   - Option B: the three fields are disabled while any book runs. Benefit: no wrong hope. Cost: the owner cannot prepare the next run.
   - Option C: the three fields apply at the next page. Benefit: it follows answer 19 to the letter. Cost: unit TR70 must build parallel pools that change size `[agent inference]`, and a mode change breaks the resume of a started book.
-- Item 5: the command line value `--max-usd` and the settings file. Example: a list that starts with `--max-usd 3` and a file that says no limit.
-  - Option A (recommended): the file wins for keys that it holds, and the row of the book shows "limit from the settings file". Benefit: the panel has the last word, as the owner asked. Cost: a command line value is ignored after the file holds the key.
-  - Option B: the command line wins, and the panel shows "overridden by the command line". Benefit: nothing changes for old commands. Cost: the panel can lie to the owner.
+- Item 5: the command line value `--max-usd` and the settings file. Decided in round 70 answer 14: "Settings file wins (Recommended)" [accepted recommendation 2026-10-29 23:36]. Unit TB71 built it `[file: <T2>/data/scripts/translator/settings.py:10-12]`. Example: a list that starts with `--max-usd 3` and a file that says no limit.
+  - Draft option A (chosen): the file wins for keys that it holds, and the row of the book shows "limit from the settings file". Benefit: the panel has the last word, as the owner asked. Cost: a command line value is ignored after the file holds the key.
+  - Draft option B (not chosen): the command line wins, and the panel shows "overridden by the command line". Benefit: nothing changes for old commands. Cost: the panel can lie to the owner.
 - Item 6: the allowed models. Example: the owner types "anthropic/claude-sonet-5-5" with one letter left out.
   - Option A (recommended): a list with the IDs of `translator-models.yaml` and a field "Other…" with a warning. Benefit: no typo for known IDs. Cost: a new model needs "Other…".
   - Option B: free text only. Benefit: simple. Cost: a typo stops a page at the start with CONFIG ERROR. Not verified: what the chain does after that error.
@@ -4389,7 +4389,7 @@ Tests:
 - Item 10: the first tab. Example: the owner opens `/` and wants the old table of lists.
   - Option A (recommended): the Monitor dashboard is `/` and the old table moves to the tab Lists at `/runs`. Benefit: the owner sees books first, as asked. Cost: the old table is one click away.
   - Option B: keep the table on `/` and add the dashboard at `/monitor`. Benefit: no change of `/`. Cost: it breaks round 68 answer 2, which names `/` as the Monitor home.
-- Item 11: what "pages done" counts. Example: `kendojidai_2014` has 6 pages done on the Monitor dashboard and 5 finished pages on the Reader dashboard.
+- Item 11: what "pages done" counts. Example: `kendojidai_2014` has 6 pages done on the Monitor dashboard and 5 translated pages on the Reader dashboard.
   - Option A (recommended): the Monitor dashboard counts finished runs of any verdict, and the row shows "1 FAIL page" when known. Benefit: the number shows the work of the agent. Cost: it differs from the Reader dashboard.
   - Option B: count PASS pages only. Benefit: closer to the Reader dashboard. Cost: a FAIL page that cost 4.38 USD does not show as work.
 
@@ -4399,10 +4399,182 @@ Tests:
 - Whether the retry of a call writes `progress.json` again. The limit of 1800 s for derived rows depends on it.
 - The address on which the Next server listens on this Mac.
 - Whether a page stops or the chain stops after a CONFIG ERROR at the start of a page.
-- The command `run-book` and the file `translator-settings.defaults.json`. Unit TR70 has not built them. The names are drafts.
+- The commands `run-book` and `marks`, and the file `translator-settings.defaults.json`. Unit TB71 built them (commit ae70266, brief of unit DF72). Unit DF72 ran none of them. The file exists in `<T2>/config` `[check: DF72 2026-10-30 02:51 ls config]`. Not verified: that its keys match section 15.24.9.
 - The speed of the poll with many list folders. Today only 3 exist.
 - The panel and the dashboard in a browser, in both themes, and by keyboard. The unit wrote a design and ran no browser.
 - How the Translator reads a settings file that changes while a page runs. The design says: at the start of each page. Round 69 answer 19 gave that rule.
 - Titles for all 12 books on the dashboard. The unit read the titles of 4 books from `docs/VISION-viewer.md` only.
 
-Status: design, waiting for the owner check (round 70).
+Status: design accepted (round 70 answer 10), Run, Resume, Pause, and store folder lines updated by unit DF72 (round 72).
+
+#### 15.25 Code state of the Reader dashboard (units RC4 and RC4b, rounds 70 and 71)
+
+- Source: unit RC4 (round 70) built the code of the Reader dashboard (`/read`). Unit RC4b (round 71) renames the word "finished" to "translated" in the code. Unit DV71 wrote this section from the files and the logs of RC4 in `<TMP>/r70/RC4/`.
+- Screens: this section always names the screen, either "Reader dashboard (/read)" or "Monitor dashboard (/ on this Mac)". It says what a number counts.
+- Evidence tags: as in section 15.24. Unit DF71 filled the marks of unit RC4b on 2026-10-30. The sources are the RC4b report and the aki-main checks of 2026-10-30 01:06 to 01:08.
+- State: the code is not committed. The Viewer worktree holds 26 changed files on the branch `v2/viewer` at `0e8ab70` `[check: DV71 2026-10-30 00:06 git status --short -uall]`.
+- The owner checked the Reader dashboard after aki-main updated the local PocketBase on port 8090 (round 70 answer 2). Port 8090 is updated: restart at 2026-10-30 01:06 with migration 1793300010, then S2 `--apply` at 01:07 (section 15.25.14). The counts are `page_runs` 42, `catalog_items` 347, `magazine_chapters` 103, and `reader_pages` 29 (0.88 MB) `[check: aki-main 2026-10-30 01:08 count71.py]`. The owner gave feedback in round 71 answer 1 `[file: .opencode/reminders/qa/qa-memory-2026-10-30.md:6]`: arrow keys, the question about the 2019-2025 web articles, and a ToC for books. The Reader dashboard is not accepted yet.
+
+##### 15.25.1 Files
+
+- Page and route: `app/app/read/page.tsx` and `app/app/api/read/month/route.ts`. The route answers `GET /api/read/month?id=`. The address `/read?open=<month>` draws one month on the server.
+- Components in `app/components/`: `ReaderList`, `ReaderRows`, `ReaderMonth`, and `ReaderSearch`.
+- Libraries in `app/lib/`: `reader-folds.ts`, `reader-search.ts`, `reader-data.ts`, and `pb.ts`. The rule file is `reader-translated.ts` (40 lines) `[file: app/lib/reader-translated.ts]`. Unit RC4b renamed it from `reader-finished.ts` and deleted the old file `[check: RC4b 2026-10-30 00:45 unit report]`.
+- Front door: the function `frontDoor` in `app/lib/monitor.ts`. It replaces `requireMonitorOrTranslate` `[file: app/lib/monitor.ts]`.
+- First-visit panel: `ReaderBook.tsx` and `ReaderSettingsPanel.tsx`. The mark is `reader.panelSeen`. It sits outside `READER_DEFAULTS`.
+- Migration: `1793300010_v2_dashboard_fields.js` in `data/scripts/pocketbase/pb_migrations/`.
+- Other changed files: `app/scripts/sync-runs.mjs`, `app/scripts/smoke.mjs`, `data/scripts/pocketbase/test_local.py`, `htv-books.ts`, `htv-build.ts`, `htv-settings.ts`, `reader-types.ts`, `ReaderPageView.tsx`, and two README files `[check: DV71 2026-10-30 00:06 git status --short -uall]`.
+
+##### 15.25.2 Data
+
+| Collection | Field | What it holds |
+|---|---|---|
+| `catalog_items` | `translated` | JSON with the translated pages, for example `{"en":[46,47,48,49,50,75]}` for `left_foot_full`. The name was `finished` in RC4, and unit RC4b renamed it in the migration file `[file: data/scripts/pocketbase/pb_migrations/1793300010_v2_dashboard_fields.js:7,31,64]` `[check: RC4b 2026-10-30 00:45 unit report]`. |
+| `catalog_items` | `placement` | JSON with the web year and month and the print year and month of a work. |
+| `reader_pages` | `search_ja` | The JA text of the page, folded for the search. |
+| `reader_pages` | `search_en` | The EN text of the page, folded for the search. |
+
+- Source of the table: `[file: data/scripts/pocketbase/pb_migrations/1793300010_v2_dashboard_fields.js:5-12]`.
+- Rule (name `isTranslatedPage`): a page counts as translated when a `reader_pages` record exists. That is, readers can view its English text `[file: app/lib/reader-translated.ts:18]`.
+- Every signed-in user can read `catalog_items`. So a count in `translated` needs no read of `reader_pages` (round 69 answer 9).
+- A page with only FAIL runs has no `reader_pages` record. Example: `kendojidai_2014` p0839 `[check: RC4 s2-apply.log, line "skipped (no PASS run and no run mark): 1"]`.
+- Any page opens for an approved reader. The page p0839 opens and shows "No agent translation yet" `[file: docs/VISION-viewer.md:3724]`. The translated count skips it.
+
+##### 15.25.3 Folds and counts
+
+- Two folds on the first level: Books and Kendo Jidai. Both start open. The deeper folds start closed `[check: RC4 smoke-read.log:25]`.
+- Books holds 22 works, 4,821 pages, and 20 translated pages. Kendo Jidai holds 320 works, 8,482 pages, and 8 translated pages `[check: DV71 2026-10-30 00:12 python3 -B calc.py]`.
+- The 320 works are 9 year volumes and 311 web articles. All 311 web articles come from kendojidai.net with web dates from 2019 to 2025 (round 70 answer 5).
+- Total line: 342 visible works, 13,303 pages, and 28 translated pages (0.2 percent). A web article counts as 1 page `[check: RC4 smoke-folds.log:5]`.
+- Kendo Jidai holds 16 year folds, 2010 to 2025, and 172 month folds. It shows 1,155 magazine article rows and 311 web article rows `[check: RC4 smoke-read.log:57]`.
+- Hidden works: `men0`, `men1`, `mental2_clean`, `matsubara`, and `morishima` (round 69 answers 12 and 15). The page `/translate` keeps all folders.
+- A stamped web article sits in its print month (round 70 answer 6). Example: `63654ba0` (Teramoto, part 2) sits in Kendo Jidai > 2011 > August 2011. That month holds 14 articles and 2 web articles `[check: RC4 smoke-folds.log:11-12]`.
+- An unstamped web article sits in its web month. Example: `18d4ac29` sits in Kendo Jidai > 2020 > August 2020. Its title is "Kendo droplet guard". Its ID is the first 8 characters of its `item_id` `[check: RC4 smoke-read.log:54]`.
+- The volume `kendojidai_2018` covers January to April only. A stamped 2018 article makes a month fold with web articles only. Example: September 2018 with 5 articles `[brief of unit DV71, from RC4]`. Not verified in the logs.
+- The HTML of `/read` has 0.286 MB, because the rows of a month load when the month opens. With all rows it has 2.08 MB `[check: RC4 smoke-read.log:67]` `[brief of unit DV71]`.
+
+##### 15.25.4 Rows
+
+- `left_foot_full`: "English: 6 of 120 pages translated (5.0 percent)" and the link "Start at Page 46". The translated pages are p046 to p050 and p075. The count 6 comes from the database on 8090 `[check: aki-main 2026-10-30 01:08 count71.py]`. The page total 120, the percent value, and the link come from the RC4 and RC4b reports `[check: RC4b 2026-10-30 00:45 unit report]`. Not verified on the live page.
+- `kendojidai_2014`: "English: 5 of 1051 pages translated (0.5 percent)" and the link "Start at Page 794". The count 5 comes from the database on 8090 `[check: aki-main 2026-10-30 01:08 count71.py]`. The page total 1051 matches the page ID p1051 in line 1648 of this file. The percent value and the link come from the RC4 and RC4b reports `[check: RC4b 2026-10-30 00:45 unit report]`. Not verified on the live page.
+- `etiqu1_full`: "English: 0 of 176 pages translated (0.0 percent)". The row has no link to the text. The title link opens the book screen. The S2 run lists 0 translated pages for `etiqu1_full` `[file: <TMP>/r71/S2/apply.txt:61]`. The page total 176 and the row text come from the RC4 and RC4b reports `[check: RC4b 2026-10-30 00:45 unit report]`. Not verified on the live page.
+- Link rule: "Continue at Page N" if the account has a saved place. Else "Start at Page N" with N as the first translated page.
+- Year rows, month rows, and the total line use the same full form (round 70 answer 9, "Same wording on year rows (Recommended)"). A fold row reads "English: N of M pages translated (P percent)" `[file: app/lib/reader-translated.ts:38]`. The live Reader dashboard shows this form on the total line, the Books fold, August 2011, and September 2018 `[check: aki-main 2026-10-30 01:08 read_check.py]`. Not verified on the live page: the year rows. The RC4b report states the full form on year rows `[check: RC4b 2026-10-30 00:45 unit report]`.
+
+##### 15.25.5 Search
+
+- A search is a GET form to `/read?q=seme`. The server draws the result list. The query has at most 80 characters `[file: app/lib/reader-search.ts:8]`.
+- "seme" finds 10 pages in 3 works: `left_foot_full` (p046, p047, p048, p075), `kendojidai_2014` (p0794 to p0798), and `100_practice_full` (p067) `[check: RC4 smoke-read.log:78]`.
+- 攻め finds the same 10 pages `[check: RC4 smoke-read.log:79]`.
+- "chuzumi" and "Chūzumi" both find `left_foot_full` p048 and p049 `[check: RC4 smoke-read.log:80-81]`.
+- "kendo" finds "Kendō" on `left_foot_full` p046. "droplet" finds the work `18d4ac29` by title and its page p001 `[check: RC4 smoke-read.log:83-84]`.
+- Hidden works never match. An unapproved reader gets the note "Page text search opens after approval." and no page hit `[check: RC4 smoke-read.log:26]`.
+- A search column that reaches 100,000 characters is cut. The S2 run cut 0 columns `[check: RC4 s2-apply.log]`.
+- Time of "seme": 97 to 291 ms over 5 requests, with 29 pages that have reader text `[check: RC4 smoke-read.log:67]`.
+
+##### 15.25.6 First-visit panel
+
+- The panel opens on the first text screen of an account without `reader.panelSeen`. Example: the page view of `left_foot_full` p048 `[check: RC4 smoke-read.log:69]`.
+- The book screen has no panel. An account that waits for approval has no panel. A translator sees the panel once `[check: RC4 smoke-read.log:70,72,77]`.
+- A web article has the panel without the Image line `[check: RC4 smoke-read.log:71]`.
+- "Start reading" or Esc closes the panel and saves the mark. The next visit has no panel `[check: RC4 run-browser.out:30-31]`.
+- "Reset text settings" keeps the mark. A bad value for `panelSeen` gives status 400 `[check: RC4 smoke-read.log:75-76]`.
+- Phone: the panel stays as built (round 70 answer 8, "Keep as built (Recommended)").
+
+##### 15.25.7 Front door
+
+- Monitor dashboard (/ on this Mac): `/` keeps the runs table for a visitor, a reader, and an admin `[check: RC4 smoke-read.log:68]`.
+- Hosted site (monitor off): a visitor goes to `/sign-in`. A reader goes to `/read`. A translator and an admin go to `/translate` `[check: RC4 smoke-deploy.log:4,33-35]`.
+- A cookie with a bad token counts as no session and goes to `/sign-in` `[check: RC4 smoke-deploy.log:36]`.
+
+##### 15.25.8 Sync command S2
+
+- S2 copies 347 metadata rows into `catalog_items`: 25 books, 9 magazine years, 2 web captures, and 311 web articles `[check: RC4 s2-apply.log, line "Catalog: 347 metadata rows"]`.
+- The slug of a web article is the first 8 characters of its `item_id`.
+- S2 writes `translated`, `placement`, `search_ja`, and `search_en`. The field name `translated` is the RC4b name. After the S2 run of 2026-10-30 01:07, 347 of 347 `catalog_items` records hold `translated` and 0 hold `finished`. All 29 `reader_pages` records hold `search_ja` and `search_en` `[check: aki-main 2026-10-30 01:08 count71.py]`.
+- The log of S2 reads: "Placement: 311 web articles, 36 with a print stamp, 0 override row(s) change a month" `[check: RC4 s2-apply.log]`.
+- If the server lacks the four fields, the dry run prints a warning that ends "Restart PocketBase so that migration 1793300010 runs." The option `--apply` stops `[file: app/scripts/sync-runs.mjs:676-692]`.
+- First dry run after the database update: `catalog_items` create 310 and update 37, `reader_pages` update 29, `page_runs` unchanged 42, and `magazine_chapters` unchanged 103 `[check: RC4 upgrade-new-dry.log]`.
+- A second dry run says "unchanged" for every record `[check: RC4 s2-dry-second.log]`.
+- The page `kendojidai_2014/p0839` gets no `reader_pages` record. The 29 records hold 0.88 MB. The 42 snapshots hold 2.34 MB `[check: RC4 s2-apply.log]`.
+
+##### 15.25.9 Tolerance mode
+
+- The Viewer also runs on a database without migration 1793300010. In that state `/read` shows 32 works (37 rows, 5 hidden) `[check: RC4 smoke-tolerance.log:3]`.
+- A search shows "Search needs the next database update (S2)." and no page hit `[check: RC4 smoke-tolerance.log:8]`.
+- The panel mark `panelSeen` saves without the migration. A web article that the old database lacks gives the 404 page and no error 500 `[check: RC4 smoke-tolerance.log]`.
+- `/translate` keeps 37 rows for a translator `[check: RC4 smoke-tolerance.log:17]`.
+
+##### 15.25.10 Tests of unit RC4
+
+| Test | Result |
+|---|---|
+| smoke, mode `smoke` | 70 PASS |
+| smoke, modes `htv` (files and PocketBase) | 262 PASS each |
+| smoke, mode `deploy` | 39 PASS |
+| smoke, mode `read` | 287 PASS |
+| smoke, mode `folds` | 41 PASS |
+| smoke, mode `tolerance` | 19 PASS |
+| hook test | 62 PASS |
+| page image test | 82 PASS |
+| `test_local.py` | 257 PASS, 0 FAIL |
+| Chrome run | 137 PASS, 0 FAIL, 84 screenshots in `<TMP>/r70/RC4/shots/` |
+
+- Source of the table: `[check: DV71 2026-10-30 00:07 grep -c "^PASS" on the logs of RC4]` and the last lines of `run-browser.out`, `run-read-s2research-hook.out`, and `test_local.log`.
+- The table holds the numbers of RC4. Unit RC4b ran the tests again on a fresh throwaway PocketBase on port 8092, all with 0 FAIL. The `tsc`, lint, build, and contrast checks passed. New numbers: smoke 70, htv files 262, htv PocketBase 262, deploy 39, read 292 (RC4: 287), folds 44 (RC4: 41), tolerance 20 (RC4: 19). Hook test 62, page image test 82, `test_local.py` 258 (RC4: 257), and Chrome run 138 (RC4: 137) with 84 screenshots in `<TMP>/r71/RC4b/shots/` `[check: RC4b 2026-10-30 00:45 unit report]`. DF71 counted the PASS lines in the logs of `<TMP>/r71/RC4b/` and found the same numbers, except the hook count `[check: DF71 2026-10-30 01:12 grep -c "^PASS"]`.
+
+##### 15.25.11 Owner answers of round 70, answers 1 to 9
+
+Source: `[file: .opencode/reminders/qa/qa-memory-2026-10-29.md:116-124]`.
+
+- Answer 1, line 116: "Update 8090, then I look (Recommended)" `[accepted recommendation 2026-10-29 23:36]`.
+- Answer 2, line 117: "aki-main does it now, with backup (Recommended)" `[accepted recommendation 2026-10-29 23:36]`.
+- Answer 3, line 118: "Pages with translation that reader can view\nuse the CORRECT word. `translated` instead of `finished`\nAlso reader can open any page, just no translated data. Be concise with your wording." `[user 2026-10-29 23:36]`.
+- Answer 4, line 119: "Any verdict, FAIL noted (Recommended)" `[accepted recommendation 2026-10-29 23:36]`. It applies to "pages done" on the Monitor dashboard.
+- Answer 5, line 120: "option 1. The 311 web articles ARE kendojidai 2019 to 2025 right?" `[accepted option 1 with direct question 2026-10-29 23:36]`. aki-main checked the data and answered yes (line 141).
+- Answer 6, line 121: "Print month (Recommended)" `[accepted recommendation 2026-10-29 23:36]`.
+- Answer 7, line 122: "Accept 3 clicks, use search (Recommended)" `[accepted recommendation 2026-10-29 23:36]`.
+- Answer 8, line 123: "Keep as built (Recommended)" `[accepted recommendation 2026-10-29 23:36]`.
+- Answer 9, line 124: "Same wording on year rows (Recommended)" `[accepted recommendation 2026-10-29 23:36]`.
+
+##### 15.25.12 Open items
+
+- The owner checked the Reader dashboard and gave feedback in round 71 answer 1: arrow keys, the question about the 2019-2025 web articles, and a ToC for books. The local PocketBase on port 8090 holds the update (migration 1793300010 at 01:06, then S2 at 01:07, section 15.25.14). The Reader dashboard is not accepted yet.
+- The open items 1 to 11 of section 15.23.9 are decided. Round 69 answers 7 to 15 and round 70 answers 3 and 5 to 9 hold the decisions.
+- Unit RC4b returned at about 2026-10-30 00:45. The marks of RC4b are filled. Two open items from its report are in section 15.25.15.
+
+##### 15.25.13 Not verified
+
+- The Reader dashboard in a browser of the owner, on a real phone, in Safari, and in Firefox.
+- The speed of the search over 13,303 pages. The test ran with 29 pages that have reader text.
+- The deployed app on Vercel and the server PocketBase.
+- The RC4b test numbers come from its report and logs. DF71 did not run the tests again, and did not read the `tsc` output, the build output, or the hook count 62. The three row texts of section 15.25.4 and the year rows are Not verified on the live page.
+- Whether a reader who waits for approval sees the progress line on port 8090 after the update.
+
+##### 15.25.14 Local update of 8090 (aki-main, 2026-10-30 01:06 to 01:08)
+
+- At 2026-10-30 01:06 aki-main stopped the old PocketBase process on port 8090 (PID 19063). aki-main started PocketBase again with the same command. The new PID is 98232 `[check: aki-main 2026-10-30 01:06]`.
+- Backup of the stopped data folder: `/var/folders/sz/2hvwvpb16c77mfzqnvkb5gbc0000gn/T/opencode/r71/pb-backup/pb_data-20261030-0106-stopped`, with the sums in `SHA256SUMS-20261030-0106` `[check: aki-main 2026-10-30 01:06]`.
+- Health check: `{"message":"API is healthy.","code":200,...}`. The start applied migration 1793300010. S2 found all four new fields and printed no warning about an absent field `[check: aki-main 2026-10-30 01:06]`.
+- S2 ran three times from `<V2>/app` with `node scripts/sync-runs.mjs --superuser superuser@kendo-translation.local`. The password came from stdin. The runs were a dry run, `--apply`, and a second dry run. The outputs are `<TMP>/r71/S2/dry.txt`, `apply.txt`, and `dry2.txt`.
+- Result of `--apply`: `page_runs` unchanged 42. `catalog_items` created 310, updated 37, failed 0. `magazine_chapters` unchanged 103. `reader_pages` updated 29, failed 0, skipped 1 (`kendojidai_2014/p0839`, only FAIL runs) `[check: aki-main 2026-10-30 01:07 S2]`.
+- The second dry run found nothing to create or update. The size of the 29 `reader_pages` records is 0.88 MB `[check: aki-main 2026-10-30 01:07 S2]`.
+- Counts after the update: `page_runs` 42, `catalog_items` 347, `magazine_chapters` 103, `reader_pages` 29, `user_settings` 2, and `users` 7 `[check: aki-main 2026-10-30 01:08 count71.py]`.
+- All 347 `catalog_items` records hold `translated`, and 0 hold `finished`. Research keys 0, Mac paths 0. 29 translated pages in 12 works `[check: aki-main 2026-10-30 01:08 count71.py]`.
+- Kinds of `catalog_items`: book 25, magazine-year 9, web-capture 2, and web-article 311. All 311 web articles have `placement`. All 29 `reader_pages` records have `search_ja` and `search_en` `[check: aki-main 2026-10-30 01:08 count71.py]`.
+- The record `18d4ac29` has the title "Kendo droplet guard" `[check: aki-main 2026-10-30 01:08 count71.py]`.
+- 36 web articles hold a print stamp. September 2018 holds 5 web articles in a web-only month, because the volume `kendojidai_2018` covers January to April only `[check: aki-main 2026-10-30 01:08 count71.py]`.
+- Live check of the Reader dashboard (/read). The owner dev server on port 3000 ran against 8090. The account was `reader@kendo-translation.local`. The total line reads "342 works, 13,303 pages. English: 28 of 13,303 pages translated (0." The check file cut the line at "(0." `[check: aki-main 2026-10-30 01:08 read_check.py]`.
+- The same check: 0 words "finished" and 223 words "translated" on `/read`, and no tolerance line. The Books fold reads "22 works · 4,821 pages English: 20 of 4,821 pages translated (0.4 percent)" `[check: aki-main 2026-10-30 01:08 read_check.py]`.
+- The same check: "August 2011 14 articles · pages 591-674 · 2 web articles English: 0 of 86 pages translated (0.0 percent)" and "September 2018 5 web articles English: 0 of 5 pages translated (0.0 percent)" `[check: aki-main 2026-10-30 01:08 read_check.py]`.
+- The same check: `/read?q=seme` shows "10 pages in 3 works by text", and `/read?q=chuzumi` shows "2 pages in 1 work by text" (The Secret of Kendo and the Left Foot). The Monitor dashboard (`/`) answers 200 `[check: aki-main 2026-10-30 01:08 read_check.py]`.
+- The total of 28 equals Books 20 plus Kendo Jidai 8. The 29th translated page belongs to the hidden work `men0` `[agent inference]`.
+- Readers on 8090: the account `reader@kendo-translation.local` has 7 saved values. Every approved account sees the first-visit panel once (round 69 answer 13). Not verified in a browser.
+
+##### 15.25.15 Open items of unit RC4b (round 71)
+
+- Open item 1, article rows. An article row inside an open month uses the short form, for example "2 translated" `[file: app/components/ReaderRows.tsx:72]` `[check: RC4b 2026-10-30 00:45 unit report]`. Option (a), recommended by RC4b: keep the short form "2 translated". Option (b): use the full form "2 of 3 pages translated".
+- Open item 2, year row count. A year row note counts magazine pages, and the line counts a web article as 1 page. Example: "Kendo Jidai 2012 949 pages · 3 web articles English: 2 of 952 pages translated (0.2 percent)" `[check: RC4b 2026-10-30 00:45 unit report]`. Option (a), recommended: keep 949 and 952. Option (b): count only magazine pages in the year line.
+- Open item 3, owner check. The owner looks at the Reader dashboard (/read) on port 8090 with the steps in `.opencode/aki-main/owner-hand-steps.md` section 11. The check is still pending.
+
+Status: code built, local PocketBase updated, waiting for the owner check (round 71).

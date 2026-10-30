@@ -13,7 +13,11 @@
 //   node scripts/smoke.mjs read                        reader pages (unit RC1, round 63). Needs a throwaway PocketBase after the S2 upload (reader_pages), a saved version of
 //                                                      translator tr1 on left_foot_full/p048 (run_all.py prepares it), and the env variables HTV_ADMIN_*, HTV_TR1_*, HTV_READER_*
 //                                                      (approved) and HTV_READER2_* (not approved). It writes sign-up, approval, choice, check, bookmark, and progress records.
-// The script starts `next start` on a free port and stops it at the end.
+//   node scripts/smoke.mjs folds                       Reader dashboard rules (unit RC4, round 70): the folds, the hidden works, the fold rule of the search, and the progress words.
+//                                                      Pure code on the real metadata files. It starts no server and needs no PocketBase.
+//   node scripts/smoke.mjs tolerance                   Reader dashboard on a PocketBase that has the migrations up to 1793300009 only (unit RC4, round 70). Needs the old S2 upload,
+//                                                      the env variables HTV_ADMIN_*, HTV_TR1_*, HTV_READER_* (approved) and HTV_READER2_* (not approved). It writes the sign-in and one settings record.
+// The script starts `next start` on a free port and stops it at the end (the mode folds starts no server).
 // Run `npm run build` first. Run the script in a copy of the app, not in the folder of the dev server.
 // Mode `pause` sends POST requests. Never run it with the real data folder.
 // Mode `htv` writes records into PocketBase (versions, comments, run marks). Point pocketbaseUrl of the config at a throwaway server only.
@@ -350,11 +354,16 @@ class Client {
     // So `go` names the target of a redirect (header or meta tag), and `missing` is true for a 404 in both forms.
     const location = res.headers.get("location") ?? "";
     const meta = /<meta id="__next-page-redirect"[^>]*content="\d+;url=([^"]*)"/.exec(body);
-    return { status: res.status, body, setCookies, location, go: location || (meta ? meta[1].replace(/&amp;/g, "&") : ""), missing: res.status === 404 || /NEXT_HTTP_ERROR_FALLBACK;404/.test(body), json: parseJson(body) };
+    return { status: res.status, ms: Math.round(performance.now() - t0), body, setCookies, location, go: location || (meta ? meta[1].replace(/&amp;/g, "&") : ""), missing: res.status === 404 || /NEXT_HTTP_ERROR_FALLBACK;404/.test(body), json: parseJson(body) };
   }
   token() {
     return this.jar.get("htv_token") ?? "";
   }
+}
+
+// Unit RC4: true when the HTML holds a link <a> with this href, this attribute (or none), and this label. Next writes the attributes in its own order.
+function hasLink(html, href, attr, label) {
+  return [...html.matchAll(/<a [^>]*>[^<]*<\/a>/g)].some((m) => m[0].includes(`href="${href}"`) && (!attr || m[0].includes(attr)) && (!label || m[0].includes(`>${label}<`)));
 }
 
 // Text of an HTML page for the htv checks. React writes `<!-- -->` between two text parts, so remove it before the tags go.
@@ -618,7 +627,8 @@ async function uxc2Checks({ c2, cr, anon, accounts, pbUrl, dataDir }) {
   r = await c2.req("/translate/zzz_none");
   check("A slug that is no book folder and has no run gives 404", r.missing, `status ${r.status}`);
   const web = facts.listed.has("18d4ac29") ? await c2.req("/translate") : null;
-  check("The list holds the web article 18d4ac29 with its title empty (the slug shows), 1 page, and 1 page with an agent translation", /data-book="18d4ac29" data-pages="1" data-tagged="1"/.test(web?.body ?? ""));
+  // RC4 (round 70): the words "with its title empty" ended. After S2 copies the metadata rows, the title of 18d4ac29 is "Kendo droplet guard" (round 69 answer 7). The mode read tests the title.
+  check("The list holds the web article 18d4ac29 with 1 page and 1 page with an agent translation", /data-book="18d4ac29" data-pages="1" data-tagged="1"/.test(web?.body ?? ""));
 
   // --- the six fixes of the Next guide review
   const titleOf = (h) => (/<title>([^<]*)<\/title>/.exec(h) ?? [])[1];
@@ -1244,7 +1254,8 @@ async function deployTest() {
   const anon = new Client("anon");
   // --- monitor pages
   let r = await anon.req("/");
-  check("Deploy: / redirects to /translate", r.status === 307 && /\/translate$/.test(r.location), `status ${r.status}, location ${r.location}`);
+  // RC4 (round 70; round 69 answer 11): the old check "/ redirects to /translate" changed. With the monitor off, / goes by the sign-in state and the role.
+  check("Deploy front door: a visitor who is not signed in goes from / to /sign-in", r.status === 307 && /\/sign-in$/.test(r.location), `status ${r.status}, location ${r.location}`);
   const pages = ["/books", `/page/${P}`, `/runs/${STAMP}`];
   for (const u of pages) {
     r = await anon.req(u);
@@ -1291,7 +1302,8 @@ async function deployTest() {
   r = await c.req("/translate");
   const booksInList = new Set([...r.body.matchAll(/data-book="([^"]+)"/g)].map((m) => m[1]));
   const catalogTotal = (await pbCall(pbUrl, "GET", "/api/collections/catalog_items/records?perPage=1", c.token())).json?.totalItems;
-  check(`Deploy: /translate 200 with the books from PocketBase (one row for each row of catalog_items: ${catalogTotal}, left_foot_full among them)`, r.status === 200 && typeof catalogTotal === "number" && catalogTotal >= 37 && booksInList.size === catalogTotal && booksInList.has("left_foot_full") && booksInList.has("18d4ac29") && booksInList.has("kendojidai_2013"), `status ${r.status}, ${booksInList.size} books, ${catalogTotal} catalog rows`);
+  // RC4 (round 70, round 61 answer 6): catalog_items holds 347 rows now, but the /translate list keeps its 37 rows (36 folders and the web article 18d4ac29 that has a run).
+  check(`Deploy: /translate 200 with the books from PocketBase: ${booksInList.size} rows (the old check "one row for each row of catalog_items" changed: catalog_items holds ${catalogTotal} rows, the list stays at 37), left_foot_full and 18d4ac29 among them, no web article without a run`, r.status === 200 && catalogTotal === 347 && booksInList.size === 37 && booksInList.has("left_foot_full") && booksInList.has("18d4ac29") && booksInList.has("kendojidai_2013") && !booksInList.has("63654ba0") && !booksInList.has("d7835263"), `status ${r.status}, ${booksInList.size} books, ${catalogTotal} catalog rows`);
   const nav = navOf(r.body);
   check("Deploy: /translate has no link to /books and no Runs tab", !r.body.includes('href="/books"') && !/href="\/"/.test(r.body) && /Human translation/.test(nav) && !/Runs|Books/.test(htvText(nav)));
   check("Deploy: /translate title reads human-translation-view", /human-translation-view/.test(htvText(r.body)) || /human-translation-view/.test(r.body));
@@ -1312,6 +1324,21 @@ async function deployTest() {
   const cr = new Client("reader");
   r = await cr.req("/api/htv/login", { method: "POST", json: rd });
   check("Deploy: reader sign-in gives 200 and the role reader", r.status === 200 && r.json?.user?.role === "reader", `status ${r.status}`);
+  r = await cr.req("/");
+  check("Deploy front door: a reader goes from / to /read", r.status === 307 && /\/read$/.test(r.location), `status ${r.status}, location ${r.location}`);
+  r = await c.req("/");
+  check("Deploy front door: a translator goes from / to /translate", r.status === 307 && /\/translate$/.test(r.location), `status ${r.status}, location ${r.location}`);
+  const adm = envPair("ADMIN");
+  const ca = new Client("admin");
+  r = await ca.req("/api/htv/login", { method: "POST", json: adm });
+  r = await ca.req("/");
+  check("Deploy front door: an admin goes from / to /translate", r.status === 307 && /\/translate$/.test(r.location), `status ${r.status}, location ${r.location}`);
+  const stale = new Client("stale token");
+  stale.jar.set("htv_token", "not-a-token");
+  r = await stale.req("/");
+  check("Deploy front door: a cookie with a bad token counts as no session and goes to /sign-in", r.status === 307 && /\/sign-in$/.test(r.location), `status ${r.status}, location ${r.location}`);
+  r = await cr.req("/read");
+  check("Deploy: /read works with the monitor off (Reader dashboard heading, 31 rows at once and the total 342 works)", r.status === 200 && /<h1[^>]*>Reader dashboard<\/h1>/.test(r.body) && (r.body.match(/data-book="/g) ?? []).length === 31 && /342 works, 13,303 pages/.test(htvText(r.body)), `status ${r.status}`);
   r = await cr.req("/translate/left_foot_full?at=p048");
   check("Deploy: reader at /translate/left_foot_full?at=p048 goes to /read and sees no row", r.go === "/read" && !/data-row="/.test(r.body), `status ${r.status}, go ${r.go}`);
   r = await cr.req("/api/htv/save", { method: "POST", json: { pageId: P, runId: "x", rows: [] } });
@@ -1324,6 +1351,69 @@ async function deployTest() {
 // The server reads PocketBase (runSource pocketbase) after the S2 upload. The prepared data (run_all.py): translator tr1 saved version 1 of
 // left_foot_full/p048 (row L01-L05 ticked agree, row L06-L10 and T01 with own text), and S2 ran again so that reader_pages holds the agree list.
 // Needs: HTV_ADMIN_*, HTV_TR1_*, HTV_READER_* (approved), HTV_READER2_* (not approved) and the throwaway PocketBase on 8092.
+
+// ---------------------------------------------------------------- mode tolerance (unit RC4, round 70)
+// The Reader dashboard on a PocketBase with the migrations up to 1793300009 only: the state of the owner PocketBase (port 8090) until the owner restarts it.
+// The old S2 of the unit RC3 filled it: 37 catalog_items rows without translated and placement, 29 reader_pages without search columns, 103 month chapters.
+// The pages /read, /read/<slug>, /translate, and / must answer without a 500 error. The dashboard shows the data that exists, and a search says "Search needs the next database update (S2)."
+
+async function toleranceTest() {
+  const accounts = { admin: envPair("ADMIN"), tr1: envPair("TR1"), reader: envPair("READER"), reader2: envPair("READER2") };
+  const pbUrl = (process.env.VIEWER_POCKETBASE_URL ?? (JSON.parse(await fs.readFile(configFile ? path.resolve(configFile) : path.resolve("viewer.config.json"), "utf-8")).pocketbaseUrl ?? "")).replace(/\/+$/, "");
+  check("Tolerance: the app uses the throwaway PocketBase (port 8092)", pbUrl === "http://127.0.0.1:8092", pbUrl);
+  const login = async (who) => {
+    const c = new Client(who);
+    const r = await c.req("/api/htv/login", { method: "POST", json: accounts[who] });
+    return { c, r };
+  };
+  const countOf = (html, re) => (html.match(re) ?? []).length;
+  const cr = (await login("reader")).c;
+  const wr = (await login("reader2")).c;
+  const tr = (await login("tr1")).c;
+  const ad = (await login("admin")).c;
+  const probe = await pbCall(pbUrl, "GET", "/api/collections/catalog_items/records?perPage=1", ad.token());
+  check("Tolerance: the old database state holds 37 catalog_items rows and no field translated (the first record has no key translated)", probe.json?.totalItems === 37 && !("translated" in (probe.json?.items?.[0] ?? {})), `rows ${probe.json?.totalItems}`);
+
+  let r = await cr.req("/read");
+  let text = htvText(r.body);
+  check("Tolerance, approved reader: /read answers 200 with the heading 'Reader dashboard' and 32 works (37 rows, 5 hidden)", r.status === 200 && /<h1[^>]*>Reader dashboard<\/h1>/.test(r.body) && countOf(r.body, /data-book="/g) === 32, `status ${r.status}, works ${countOf(r.body, /data-book="/g)}`);
+  check("Tolerance, approved reader: the progress comes from reader_pages: left_foot_full 'English: 6 of 120 pages translated (5.0 percent)' and 'Start at Page 46'", /English: 6 of 120 pages translated \(5\.0 percent\)/.test(text) && /Start at Page 46/.test(text));
+  check("Tolerance, approved reader (RC4b): the word 'finished' is not in the HTML of /read", !/finished/i.test(r.body));
+  check("Tolerance, approved reader: the web article 18d4ac29 (no metadata row in the old record) shows with its fallback title and sits in the fold 'Date unknown'", /Web article 18d4ac29/.test(text) && /Date unknown/.test(text) && /data-book="18d4ac29"/.test(r.body));
+  const tMonths = [...r.body.matchAll(/data-fold="(kj-\d{4}-\d{2})"/g)].map((m) => m[1]);
+  const tApi = await Promise.all(tMonths.map((id) => cr.req(`/api/read/month?id=${id}`)));
+  check(`Tolerance, approved reader: ${tMonths.length} month folds show with no rows in the HTML, and the month API gives the 1,155 article rows (magazine_chapters exist)`, countOf(r.body, /<li data-article=/g) === 0 && /data-fold="kj-2014-10"/.test(r.body) && tApi.every((x) => x.status === 200) && tApi.reduce((t, x) => t + (x.json?.children ?? []).filter((n) => n.type === "article").length, 0) === 1155, `months ${tMonths.length}`);
+  check("Tolerance: no research field and no error text in the page", !/confidence|filled_by/.test(r.body) && !/Application error|Internal Server Error/.test(r.body));
+  r = await cr.req("/read?q=seme");
+  check("Tolerance, search 'seme': the line 'Search needs the next database update (S2).' in place of the page hits, status 200, no page hit", r.status === 200 && htvText(r.body).includes("Search needs the next database update (S2).") && !/data-hit-page/.test(r.body), `status ${r.status}`);
+  r = await cr.req("/read?q=" + encodeURIComponent("Kendo Jidai 2014"));
+  check("Tolerance, search by title 'Kendo Jidai 2014': the work kendojidai_2014 is a hit and the S2 line shows", /data-book="kendojidai_2014"/.test(r.body) && /Search needs the next database update \(S2\)\./.test(htvText(r.body)));
+
+  r = await wr.req("/read");
+  text = htvText(r.body);
+  check("Tolerance, waiting reader: /read answers 200 with the waiting line, 32 works, no progress line (the counts are not readable yet), and no link to a page", r.status === 200 && text.includes("Your account waits for approval by an admin.") && countOf(r.body, /data-book="/g) === 32 && countOf(r.body, /<span data-progress="true"/g) === 0 && !/data-start|data-resume|data-article-link/.test(r.body) && !/ translated \(/.test(text), `works ${countOf(r.body, /data-book="/g)}`);
+  r = await wr.req("/read?q=seme");
+  check("Tolerance, waiting reader: a search gives 200 and the waiting note, no 500", r.status === 200 && htvText(r.body).includes("Page text search opens after approval."));
+
+  r = await cr.req("/read/left_foot_full");
+  check("Tolerance: /read/left_foot_full (book screen) answers 200 with 120 pages", r.status === 200 && countOf(r.body, /data-index-page="p\d+"/g) === 120, `status ${r.status}`);
+  r = await cr.req("/read/left_foot_full?view=page&at=p048");
+  check("Tolerance: /read/left_foot_full?view=page&at=p048 answers 200 with 5 rows and the first-visit panel (panelSeen needs no migration)", r.status === 200 && countOf(r.body, /data-row=/g) === 5 && /data-start-reading/.test(r.body), `status ${r.status}`);
+  const put = await cr.req("/api/read/settings", { method: "PUT", json: { reader: { panelSeen: true } } });
+  r = await cr.req("/read/left_foot_full?view=page&at=p048");
+  check("Tolerance: panelSeen saves (PUT 200) and the next visit has no panel", put.status === 200 && !/data-reader-settings/.test(r.body));
+  r = await cr.req("/read/18d4ac29?view=page&at=p001");
+  check("Tolerance: /read/18d4ac29 (the web article) answers 200", r.status === 200 && countOf(r.body, /data-row=/g) >= 1, `status ${r.status}`);
+  r = await cr.req("/read/63654ba0");
+  check("Tolerance: /read/<slug> of a web article that the old database does not hold gives the 404 page (no 500)", r.missing && r.status !== 500, `status ${r.status}`);
+
+  r = await tr.req("/translate");
+  check("Tolerance: /translate answers 200 for a translator with 37 rows", r.status === 200 && countOf(r.body, /data-book="/g) === 37, `status ${r.status}, rows ${countOf(r.body, /data-book="/g)}`);
+  r = await new Client("anon").req("/");
+  check("Tolerance: / answers 200 with the runs table (the monitor is on in this config)", r.status === 200 && /Runs/.test(htvText(r.body)), `status ${r.status}`);
+  r = await cr.req("/api/read/page?ids=left_foot_full/p048");
+  check("Tolerance: the page API answers 200", r.status === 200, `status ${r.status}`);
+}
 
 async function readTest() {
   const accounts = { admin: envPair("ADMIN"), tr1: envPair("TR1"), reader: envPair("READER"), reader2: envPair("READER2") };
@@ -1402,8 +1492,18 @@ async function readTest() {
   check("The sign-in of a reader with no saved theme sets the cookie theme=solarized-light (default of the reader pages)", r.setCookies.some((x) => /^theme=solarized-light/.test(x)));
   r = await nr.req("/read");
   let text = htvText(r.body);
-  check("Waiting reader: /read shows the line 'Your account waits for approval by an admin.' and the 37 books", r.status === 200 && text.includes("Your account waits for approval by an admin.") && countOf(r.body, /data-book="/g) === 37, `books ${countOf(r.body, /data-book="/g)}`);
-  check("Waiting reader: the book cards show no progress line", !/data-progress/.test(r.body));
+  // RC4 (round 70): the old checks "the 37 books" and "the book cards show no progress line" changed. The Reader dashboard shows 342 works and their progress to a reader who waits (round 69 answer 9), and no link to a page.
+  check("Waiting reader: /read shows the heading 'Reader dashboard', the line 'Your account waits for approval by an admin.', the total '342 works, 13,303 pages', and the two first-level folds Books (22 works) and Kendo Jidai (320 works)", r.status === 200 && /<h1[^>]*>Reader dashboard<\/h1>/.test(r.body) && text.includes("Your account waits for approval by an admin.") && /342 works, 13,303 pages/.test(text) && countOf(r.body, /data-fold-level="1"/g) === 2 && /Books[^<]*<\/span>[^<]*<span[^>]*>22 works/.test(r.body.replace(/<!--[\s\S]*?-->/g, "")) && /Kendo Jidai[\s\S]{0,200}320 works/.test(r.body.replace(/<!--[\s\S]*?-->/g, "")), `rows ${countOf(r.body, /data-book="/g)}`);
+  check("Waiting reader: the 22 books and the 9 year volumes show their progress line at once, also at zero, and the row of left_foot_full reads 'English: 6 of 120 pages translated (5.0 percent)'", countOf(r.body, /data-book="/g) === 31 && countOf(r.body, /<span data-progress="true"/g) === 31 && /English: 6 of 120 pages translated \(5\.0 percent\)/.test(text) && /English: 0 of 176 pages translated \(0\.0 percent\)/.test(text));
+  const nrMonth = await nr.req("/read?open=kj-2011-08");
+  check("Waiting reader: no row and no month article links to a page (no Start at, no Continue at, no link with ?view=page), also in an opened month", !/data-start|data-resume|data-article-link/.test(r.body + nrMonth.body) && !/view=page&amp;at=p|view=page&at=p/.test(r.body + nrMonth.body) && !/Start at Page|Continue at Page/.test(text) && countOf(nrMonth.body, /<li data-article=/g) === 14, `articles ${countOf(nrMonth.body, /<li data-article=/g)}`);
+  const nrApi = await nr.req("/api/read/month?id=kj-2011-08");
+  check("Waiting reader: GET /api/read/month gives the rows of a month (titles and page numbers, no text, status 200)", nrApi.status === 200 && nrApi.json?.children?.length === 16 && !/Kensen|わたしは/.test(nrApi.body), `status ${nrApi.status}, rows ${nrApi.json?.children?.length}`);
+  check("Waiting reader: the first-level folds are open and the deeper folds are closed", countOf(r.body, /<details open=""[^>]*data-fold-level="1"/g) === 2 && countOf(r.body, /<details[^>]*data-fold-level="2"/g) > 0 && countOf(r.body, /<details open=""[^>]*data-fold-level="[23]"/g) === 0);
+  const nrSearch = await nr.req("/read?q=seme");
+  check("Waiting reader: /read?q=seme gives the note 'Page text search opens after approval.' and no page hit", nrSearch.status === 200 && htvText(nrSearch.body).includes("Page text search opens after approval.") && !/data-hit-page/.test(nrSearch.body), `status ${nrSearch.status}`);
+  const nrSearchTitle = await nr.req("/read?q=droplet");
+  check("Waiting reader: a title word still finds the work (/read?q=droplet gives the work 18d4ac29)", /data-book="18d4ac29"/.test(nrSearchTitle.body) && /Page text search opens after approval\./.test(htvText(nrSearchTitle.body)));
   r = await nr.req(`/read/${LF}`);
   text = htvText(r.body);
   check("Waiting reader: the book screen shows the title, the author, and the waiting line, and no page list", r.status === 200 && /data-waiting/.test(r.body) && text.includes("The Secret of Kendo and the Left Foot") && !/data-index-page=/.test(r.body) && !/data-book-screen/.test(r.body), `status ${r.status}`);
@@ -1416,6 +1516,11 @@ async function readTest() {
   check("Waiting reader: GET /api/read/image gives 403 and no image", r.status === 403 && !/^RIFF/.test(r.body.slice(0, 4)), `status ${r.status}`);
   const nrList = await pbCall(pbUrl, "GET", "/api/collections/reader_pages/records", nr.token());
   check("Waiting reader: PocketBase gives no reader_pages record (rule)", nrList.status === 403 || (nrList.status === 200 && (nrList.json?.items ?? []).length === 0), `status ${nrList.status}`);
+  const nrHit = await pbCall(pbUrl, "GET", `/api/collections/reader_pages/records?filter=${encodeURIComponent('search_en ~ "chuzumi"')}`, nr.token());
+  check("Waiting reader: PocketBase gives no page hit for the filter search_en ~ \"chuzumi\" (rule READ_OK; round 69 answer 10)", nrHit.status === 403 || (nrHit.status === 200 && (nrHit.json?.items ?? []).length === 0), `status ${nrHit.status}`);
+  const nrProg = await pbCall(pbUrl, "GET", "/api/collections/catalog_items/records?perPage=1&filter=" + encodeURIComponent('item_id="left_foot_full"'), nr.token());
+  check("Waiting reader: PocketBase gives catalog_items.translated to a reader who waits (progress with one request; round 69 answer 9)", nrProg.status === 200 && JSON.stringify(nrProg.json?.items?.[0]?.translated) === JSON.stringify({ en: [46, 47, 48, 49, 50, 75] }), `status ${nrProg.status}`);
+  check("Waiting reader: the catalog_items record of left_foot_full has no key 'finished' (RC4b: the field is named translated)", nrProg.status === 200 && !("finished" in (nrProg.json?.items?.[0] ?? {})) && "translated" in (nrProg.json?.items?.[0] ?? {}));
   const nrBm = await nr.req("/api/read/bookmarks", { method: "POST", json: { pageId: P48 } });
   check("Waiting reader: a bookmark is refused (403)", nrBm.status === 403, `status ${nrBm.status}`);
   r = await nr.req("/admin/readers");
@@ -1453,13 +1558,149 @@ async function readTest() {
   r = await cr.req("/read");
   text = htvText(r.body);
   const leakList = LEAK_HTML.test(r.body);
-  check("Book list: 37 cards, no waiting line", r.status === 200 && countOf(r.body, /data-book="/g) === 37 && !text.includes("waits for approval"), `books ${countOf(r.body, /data-book="/g)}`);
-  check("Book list: the left_foot_full card shows the English title, the Japanese title, the author, the year, the page count, and the AI note on the synopsis", /The Secret of Kendo and the Left Foot/.test(text) && /Mitsuru Kobayashi/.test(text) && /2017/.test(text) && /120 pages/.test(text) && /Written by an AI agent/.test(text));
-  check("Book list: the card shows 'AI translation: 6 of 120 pages'", /AI translation: 6 of 120 pages/.test(text));
-  check("Book list: a field that is empty does not show the word unknown", !/unknown/i.test(text));
-  check("Book list: no research field of the metadata row (sources, confidence, filled_by, confirmed_by)", !/confidence|filled_by|confirmed_by|"sources"/.test(r.body));
-  check("Book list HTML holds no verdict, score, QA, TL_3, or reasoning", !leakList);
-  check("Book list: the link of the web article card exists with a fallback title", /data-book="18d4ac29"/.test(r.body));
+  // RC4 (round 70): the old checks "37 cards", "the card shows AI translation: 6 of 120 pages", "the link of the web article card", and the synopsis note on the card changed.
+  // The synopsis and its AI note moved away from the row (the book screen keeps them, check below). The progress line has the new words (round 69 answer 8).
+  const dashRow = (slug) => (r.body.match(new RegExp(`<li data-book="${slug}"[\\s\\S]*?</li>`)) ?? [""])[0];
+  check("Reader dashboard: the two first-level folds Books (22 works) and Kendo Jidai (320 works), 31 rows at once (22 books and 9 year volumes), the 311 web articles in the month folds, no waiting line", r.status === 200 && countOf(r.body, /data-book="/g) === 31 && countOf(r.body, /data-fold-level="1"/g) === 2 && /data-fold="books"/.test(r.body) && /data-fold="kj"/.test(r.body) && /22 works/.test(text) && /320 works/.test(text) && !text.includes("waits for approval"), `rows ${countOf(r.body, /data-book="/g)}`);
+  check("Reader dashboard: the heading 'Reader dashboard', the search box, and the total line '342 works, 13,303 pages. English: 28 of 13,303 pages translated (0.2 percent).'", /<h1[^>]*>Reader dashboard<\/h1>/.test(r.body) && /data-search-input/.test(r.body) && /342 works, 13,303 pages\. English: 28 of 13,303 pages translated \(0\.2 percent\)\./.test(text), (text.match(/342 works[^.]*\. English: \d+ of [\d,]+ pages translated \([\d.]+ percent\)/) ?? [""])[0]);
+  const lfRow = htvText(dashRow("left_foot_full"));
+  check("Reader dashboard: the left_foot_full row shows the English title, the Japanese title, the author, the year, and the page count, and no synopsis", /The Secret of Kendo and the Left Foot/.test(lfRow) && /剣道の極意と左足/.test(lfRow) && /Mitsuru Kobayashi/.test(lfRow) && /2017/.test(lfRow) && /120 pages/.test(lfRow) && !/Written by an AI agent/.test(lfRow), lfRow.slice(0, 160));
+  check("Reader dashboard: the left_foot_full row reads 'English: 6 of 120 pages translated (5.0 percent)' and the link 'Start at Page 46' (the first translated page)", /English: 6 of 120 pages translated \(5\.0 percent\)/.test(lfRow) && hasLink(dashRow("left_foot_full"), "/read/left_foot_full?view=page&amp;at=p046", "data-start", "Start at Page 46"), lfRow.slice(-80));
+  check("Reader dashboard: the kendojidai_2014 row reads 'English: 5 of 1051 pages translated (0.5 percent)' and 'Start at Page 794' (four digits in the address)", /English: 5 of 1051 pages translated \(0\.5 percent\)/.test(htvText(dashRow("kendojidai_2014"))) && hasLink(dashRow("kendojidai_2014"), "/read/kendojidai_2014?view=page&amp;at=p0794", "data-start", "Start at Page 794"));
+  check("Reader dashboard: the etiqu1_full row reads 'English: 0 of 176 pages translated (0.0 percent)' and has no link to the text; the title link opens the book screen", /English: 0 of 176 pages translated \(0\.0 percent\)/.test(htvText(dashRow("etiqu1_full"))) && !/data-start|data-resume/.test(dashRow("etiqu1_full")) && hasLink(dashRow("etiqu1_full"), "/read/etiqu1_full", "data-book-link", ""));
+  check("Reader dashboard: hidden works are absent (men0, men1, mental2_clean, matsubara, morishima; round 69 answers 12 and 15) and men_full, mental_full, ogawa_lecture_part1 to part3 show", ["men0", "men1", "mental2_clean", "matsubara", "morishima"].every((h) => !new RegExp(`data-book="${h}"`).test(r.body)) && ["men_full", "mental_full", "ogawa_lecture_part1", "ogawa_lecture_part2", "ogawa_lecture_part3"].every((h) => new RegExp(`data-book="${h}"`).test(r.body)));
+  const open2020 = await cr.req("/read?open=kj-2020-08");
+  const row18 = (open2020.body.match(/<li data-book="18d4ac29"[\s\S]*?<\/li>/) ?? [""])[0];
+  check("Reader dashboard: the web article 18d4ac29 sits in Kendo Jidai > 2020 > August 2020 (web date 2020-08-17), shows the title 'Kendo droplet guard' (round 69 answer 7), 'English: 1 of 1 page translated (100.0 percent)', and 'Start at Page 1'", /Kendo droplet guard/.test(htvText(row18)) && /English: 1 of 1 page translated \(100\.0 percent\)/.test(htvText(row18)) && hasLink(row18, "/read/18d4ac29?view=page&amp;at=p001", "data-start", "Start at Page 1") && /data-fold="kj-2020"/.test(open2020.body), htvText(row18).slice(0, 120));
+  const openR = await cr.req("/read?open=kj-2011-08");
+  const augFold = (openR.body.match(/<details[^>]*data-fold="kj-2011-08"[\s\S]*?<\/details>/) ?? [""])[0];
+  check("Reader dashboard: the Teramoto article 63654ba0 sits in Kendo Jidai > 2011 > August 2011 (default: the print month of the stamp 2011.8), drawn on the server by /read?open=kj-2011-08", /Interview with Kendo Legends Teramoto and Takanabe \(part 2\)/.test(htvText(augFold)) && /data-book="63654ba0"/.test(augFold) && /data-fold="kj-2011"/.test(openR.body) && /14 articles · pages 591-674 · 2 web articles/.test(htvText(augFold)) && countOf(augFold, /<li data-article=/g) === 14, htvText(augFold).slice(0, 140));
+  check("Reader dashboard: a closed month sends no rows (the HTML has no article row), and its summary has the progress line; the link 'Show this month' is there for a browser without script", countOf(r.body, /<li data-article=/g) === 0 && countOf(r.body, /data-lazy-fold/g) > 150 && /data-show-month/.test(r.body) && /href="\/read\?open=kj-2014-10#kj-2014-10"/.test(r.body), `lazy months ${countOf(r.body, /data-lazy-fold/g)}`);
+  const months = [...r.body.matchAll(/data-fold="((?:kj|web)-\d{4}-\d{2})"/g)].map((m) => m[1]);
+  const monthJson = await Promise.all(months.map((id) => cr.req(`/api/read/month?id=${id}`)));
+  const artRows = monthJson.reduce((t, x) => t + (x.json?.children ?? []).filter((n) => n.type === "article").length, 0);
+  const webRows = monthJson.reduce((t, x) => t + (x.json?.children ?? []).filter((n) => n.type === "work").length, 0);
+  check(`Reader dashboard: GET /api/read/month for each of the ${months.length} months gives status 200, 1,155 article rows (answer 14) and 311 web article rows in all`, months.length > 150 && monthJson.every((x) => x.status === 200) && artRows === 1155 && webRows === 311, `months ${months.length}, articles ${artRows}, web ${webRows}`);
+  const apiAug = (await cr.req("/api/read/month?id=kj-2011-08")).json;
+  check("Month API: kj-2011-08 gives 14 article rows and 2 web article rows (63654ba0, 6f19be05), the first article row opens p0591, and the draft titles show without the asterisks of the italic words", apiAug?.children.filter((n) => n.type === "article").length === 14 && apiAug.children.filter((n) => n.type === "work").map((n) => n.work.slug).sort().join() === "63654ba0,6f19be05" && apiAug.children.find((n) => n.type === "article")?.pageStart === 591 && apiAug.children.every((n) => n.type !== "work" || n.work.synopsis === "") && !JSON.stringify(apiAug.children.filter((n) => n.type === "article").map((n) => n.titleEn)).includes("*"));
+  const apiBad = await cr.req("/api/read/month?id=" + encodeURIComponent("../x"));
+  const apiNone = await cr.req("/api/read/month?id=kj-1999-01");
+  const apiAnon = await new Client("anon month").req("/api/read/month?id=kj-2011-08");
+  check("Month API: a bad ID gives 400, an unknown month 404, and no sign-in 401", apiBad.status === 400 && apiNone.status === 404 && apiAnon.status === 401, `${apiBad.status}, ${apiNone.status}, ${apiAnon.status}`);
+  check("Reader dashboard: each article row of an opened month links to its first page (p0591 for kendojidai_2011)", hasLink(openR.body, "/read/kendojidai_2011?view=page&amp;at=p0591", "data-article-link", ""));
+  check("Reader dashboard: the months of Kendo Jidai 2014 show 'October 2014 ... English: 5 of 91 pages translated (5.5 percent)'", /October 2014[^<]*<\/span>[\s\S]{0,200}English: 5 of 91 pages translated \(5\.5 percent\)/.test((r.body.match(/<details[^>]*data-fold="kj-2014-10"[\s\S]*?<\/summary>/) ?? [""])[0]));
+  // RC5 (round 72, round 71 answer 4): article rows and chapter lines show the full form of the work rows: "English: N of M pages translated (P percent)", M = pageEnd - pageStart + 1.
+  // They show it only when N is above 0 (a zero is ambiguous: the counts of a waiting reader or of a database without migration 1793300010 are 0 and unknown).
+  const open14 = await cr.req("/read?open=kj-2014-10");
+  const api14 = (await cr.req("/api/read/month?id=kj-2014-10")).json;
+  const fullForm = (tr, n) => `English: ${tr} of ${n} ${n === 1 ? "page" : "pages"} translated (${((tr / n) * 100).toFixed(1)} percent)`;
+  const artRowsOf = (html) => [...html.matchAll(/<li data-article="([^"]*)"[\s\S]*?<\/li>/g)].map((m) => ({ id: m[1], progress: (m[0].match(/<span[^>]*data-article-progress[^>]*>([^<]*)<\/span>/) ?? [])[1] ?? "" }));
+  const expectOf = (api) => api.children.filter((n) => n.type === "article").sort((a, b) => a.order - b.order).map((n) => ({ id: `${n.book}/${n.order}`, progress: n.translated ? fullForm(n.translated, n.pageEnd - n.pageStart + 1) : "", tr: n.translated, pages: n.pageEnd - n.pageStart + 1 }));
+  const augRows = artRowsOf(augFold), augWant = expectOf(apiAug);
+  check("Reader dashboard (RC5): the 14 article rows of August 2011 have no translated page, so no row shows a progress line (a zero stays hidden)", augRows.length === 14 && augWant.length === 14 && augRows.every((x, i) => x.id === augWant[i].id && x.progress === "") && augWant.every((x) => x.tr === 0), JSON.stringify(augRows.slice(0, 2)));
+  const rows14 = artRowsOf(open14.body), want14 = expectOf(api14);
+  const hit14 = want14.filter((x) => x.tr > 0);
+  check("Reader dashboard (RC5): the article rows of October 2014 show the full form for the rows with translated pages (example: " + (hit14[0]?.progress ?? "none") + ") and their counts add up to the 5 translated pages p0794 to p0798", rows14.length === want14.length && rows14.length > 5 && rows14.every((x, i) => x.id === want14[i].id && x.progress === want14[i].progress) && want14.reduce((t, x) => t + x.tr, 0) === 5 && hit14.length >= 1, JSON.stringify(rows14.filter((x) => x.progress)));
+  check("Reader dashboard (RC5): the number M of a row is pageEnd - pageStart + 1 (example: " + (hit14[0] ? `${hit14[0].id} holds ${hit14[0].pages} pages` : "none") + ")", hit14.length >= 1 && hit14.every((x) => x.progress.includes(` of ${x.pages} page`)));
+  const lineRe = /<li[^>]*data-chapter-line[^>]*>([\s\S]*?)<\/li>/g;
+  const lineTexts = [...r.body.matchAll(lineRe)].map((m) => htvText(m[0]));
+  check(`Reader dashboard (RC5): the ${lineTexts.length} chapter lines (front pages of a year volume, for example '${(lineTexts[0] ?? "").replace(/\s+/g, " ").trim()}') have no translated page, so no line shows a progress text`, lineTexts.length === 9 && lineTexts.every((x) => !/translated/.test(x) && /pages \d+-\d+/.test(x)), lineTexts.slice(0, 2).join(" | "));
+  check("Reader dashboard (RC5): no text 'N translated' without 'English:' stays on /read, /read?open=kj-2011-08, and /read?open=kj-2014-10", ![text, htvText(openR.body), htvText(open14.body)].some((t) => /\d translated/.test(t)), [text, htvText(openR.body), htvText(open14.body)].map((t) => (t.match(/\d translated/g) ?? []).length).join("/"));
+  // RC4b (round 71): the word 'translated' in all fold lines (round 70 answers 3 and 9). The word 'finished' must not show on the Reader dashboard.
+  const chuHtml = (await cr.req("/read?q=chuzumi")).body;
+  check("Reader dashboard (RC4b): the word 'finished' is in none of the HTML of /read, of the opened month August 2011, and of the search result 'chuzumi'", ![r.body, openR.body, chuHtml].some((b) => /finished/i.test(b)), [r.body, openR.body, chuHtml].map((b) => (b.match(/finished/gi) ?? []).length).join("/"));
+  const foldTexts = [...r.body.matchAll(/<span[^>]*data-fold-progress[^>]*>([^<]*)<\/span>/g)].map((m) => m[1]);
+  check(`Reader dashboard (RC4b): each of the ${foldTexts.length} fold lines (first level, year, month) has the full form 'English: N of M pages translated (P percent)'`, foldTexts.length > 180 && foldTexts.every((x) => /^English: \d+ of [\d,]+ pages? translated \([\d.]+ percent\)$/.test(x)), foldTexts.filter((x) => !/of [\d,]+ pages? translated/.test(x)).slice(0, 2).join(" | "));
+  const yearFold = (id) => htvText((r.body.match(new RegExp(`<details[^>]*data-fold="${id}"[\\s\\S]*?</summary>`)) ?? [""])[0]);
+  check("Reader dashboard (RC4b): the year rows of Kendo Jidai 2012 and 2014 read 'English: N of M pages translated' (before: 'English: 2 finished')", /English: \d+ of [\d,]+ pages translated \([\d.]+ percent\)/.test(yearFold("kj-2012")) && /English: 5 of [\d,]+ pages translated \(0\.\d percent\)/.test(yearFold("kj-2014")), `${yearFold("kj-2012").slice(0, 120)} || ${yearFold("kj-2014").slice(0, 120)}`);
+  check("Reader dashboard (RC4b): the first-level folds read the full form with the thousands separator of their page count (Books 22 works, Kendo Jidai 320 works)", /22 works · [\d,]+ pages English: \d+ of [\d,]+ pages translated \([\d.]+ percent\)/.test(text) && /320 works · [\d,]+ pages English: \d+ of [\d,]+ pages translated \([\d.]+ percent\)/.test(text), text.slice(text.indexOf("22 works") - 10, text.indexOf("22 works") + 110));
+  check("Reader dashboard: the folds are details and summary (keyboard works without script): " + countOf(r.body, /<summary/g) + " summaries, the first level open and the deeper levels closed", countOf(r.body, /<summary/g) > 40 && countOf(r.body, /<details open=""[^>]*data-fold-level="1"/g) === 2 && countOf(r.body, /<details open=""[^>]*data-fold-level="[23]"/g) === 0);
+  check("Reader dashboard: a field that is empty does not show the word unknown", !/unknown/i.test(text.replace(/Date unknown/g, "")));
+  check("Reader dashboard: no research field of the metadata row (sources, confidence, filled_by, confirmed_by)", !/confidence|filled_by|confirmed_by|"sources"/.test(r.body));
+  check("Reader dashboard HTML holds no verdict, score, QA, TL_3, or reasoning", !leakList);
+  const dashMb = Buffer.byteLength(r.body) / 1048576;
+  check(`Reader dashboard: the HTML has ${dashMb.toFixed(2)} MB (limit 1 MB: with a larger page the months would load when a fold opens), the server answered in ${Math.round(r.ms ?? 0)} ms`, dashMb < 1);
+  const timesOf = async (url, n) => {
+    const out = [];
+    for (let i = 0; i < n; i++) out.push((await cr.req(url)).ms);
+    return out.sort((a, b) => a - b);
+  };
+  const tDash = await timesOf("/read", 5);
+  const tMonth = await timesOf("/api/read/month?id=kj-2011-08", 5);
+  const tSearch = await timesOf("/read?q=seme", 5);
+  console.log(`INFO  Reader dashboard: ${dashMb.toFixed(3)} MB (${r.body.length} characters), /read server time over 5 requests ${tDash.join(", ")} ms, month API ${tMonth.join(", ")} ms, search seme ${tSearch.join(", ")} ms`);
+
+  // --- front door with the monitor on (the Mac): / keeps the runs table for every role (round 69 answer 11)
+  const fdAnon = await new Client("front anon").req("/");
+  const fdReader = await cr.req("/");
+  const fdAdmin = await ad.req("/");
+  check("Front door, monitor on: / shows the runs table (no redirect) for a visitor, a reader, and an admin", [fdAnon, fdReader, fdAdmin].every((x) => x.status === 200 && !x.go && /Runs/.test(htvText(x.body))), [fdAnon, fdReader, fdAdmin].map((x) => `${x.status}${x.go ? " -> " + x.go : ""}`).join(", "));
+
+  // --- first-visit panel (round 68 answer 5, round 69 answer 13): the HTML of a text screen for an account without the mark
+  r = await cr.req(`/read/${LF}?view=page&at=p048`);
+  check("First-visit panel: the page view p048 of an account without reader.panelSeen has the panel with 'Start reading', the Image line, and no 'Close' button", /data-first-visit/.test(r.body) && /data-start-reading/.test(r.body) && /Use the Image button in the bar above the text to show or hide the page image\./.test(htvText(r.body)) && !/data-settings-close/.test(r.body));
+  r = await cr.req(`/read/${LF}`);
+  check("First-visit panel: the book screen (no ?at) has no panel", !/data-reader-settings/.test(r.body));
+  r = await cr.req("/read/18d4ac29?view=page&at=p001");
+  check("First-visit panel: for a web article (no page image) the panel has 'Start reading' and no Image line", /data-start-reading/.test(r.body) && !/Use the Image button/.test(htvText(r.body)));
+  const wait2 = (await login("reader2", "waiting reader panel")).c;
+  r = await wait2.req(`/read/${LF}?view=page&at=p048`);
+  check("First-visit panel: an account that waits for approval gets no panel (no text screen)", r.status === 200 && /data-waiting/.test(r.body) && !/data-reader-settings/.test(r.body));
+  const keep0 = await cr.req("/api/read/settings", { method: "PUT", json: { reader: { panelSeen: true } } });
+  check("First-visit panel: PUT /api/read/settings with panelSeen true gives 200 and keeps the key", keep0.status === 200 && keep0.json?.reader?.panelSeen === true, `status ${keep0.status}`);
+  r = await cr.req(`/read/${LF}?view=page&at=p048`);
+  check("First-visit panel: the next visit has no panel in the HTML (the panel is absent after the mark)", !/data-reader-settings/.test(r.body) && !/data-first-visit/.test(r.body));
+  const resetBody = { text: "en", en: "agent", view: "page", fontEn: "serif", fontJa: "mincho", size: 18, line: 1.7, width: "narrow", focus: false, image: true, index: true };
+  const keep1 = await cr.req("/api/read/settings", { method: "PUT", json: { reader: resetBody } });
+  check("First-visit panel: 'Reset text settings' (all defaults of READER_DEFAULTS, no panelSeen) keeps panelSeen true", keep1.status === 200 && keep1.json?.reader?.panelSeen === true && keep1.json.reader.size === 18, JSON.stringify(keep1.json?.reader).slice(0, 120));
+  const keep2 = await cr.req("/api/read/settings", { method: "PUT", json: { reader: { panelSeen: "yes" } } });
+  check("First-visit panel: a bad value (panelSeen as text) gives 400", keep2.status === 400, `status ${keep2.status}`);
+  const t1 = await login("tr1", "tr1 panel");
+  r = await t1.c.req(`/read/${LF}?view=page&at=p048`);
+  check("First-visit panel: a translator also sees the panel once (no mark yet)", /data-first-visit/.test(r.body));
+  await t1.c.req("/api/read/settings", { method: "PUT", json: { reader: { panelSeen: true } } });
+
+  // --- search (round 68 answer 3, round 69 answer 10)
+  const hitsOf = (html) => [...html.matchAll(/data-hit-page="([^"]+)"/g)].map((m) => m[1]);
+  const sumOf = (html) => htvText((html.match(/data-search-summary[\s\S]*?<\/p>/) ?? [""])[0]);
+  const SEME = ["100_practice_full/p067", "kendojidai_2014/p0794", "kendojidai_2014/p0795", "kendojidai_2014/p0796", "kendojidai_2014/p0797", "kendojidai_2014/p0798", "left_foot_full/p046", "left_foot_full/p047", "left_foot_full/p048", "left_foot_full/p075"];
+  const sq = await cr.req("/read?q=seme");
+  check("Search 'seme': 10 pages in 3 works (left_foot_full p046 p047 p048 p075, kendojidai_2014 p0794 to p0798, 100_practice_full p067)", sq.status === 200 && JSON.stringify(hitsOf(sq.body).sort()) === JSON.stringify([...SEME].sort()) && /10 pages in 3 works by text/.test(sumOf(sq.body)), sumOf(sq.body));
+  const sqJa = await cr.req("/read?q=" + encodeURIComponent("攻め"));
+  check("Search 攻め: the same 10 pages", sqJa.status === 200 && JSON.stringify(hitsOf(sqJa.body).sort()) === JSON.stringify([...SEME].sort()), sumOf(sqJa.body));
+  const sqC1 = await cr.req("/read?q=chuzumi");
+  const sqC2 = await cr.req("/read?q=" + encodeURIComponent("Chūzumi"));
+  const CHU = ["left_foot_full/p048", "left_foot_full/p049"];
+  check("Search 'chuzumi' without the macron: left_foot_full p048 and p049 (2 pages in 1 work), the hit shows as Chūzumi", JSON.stringify(hitsOf(sqC1.body)) === JSON.stringify(CHU) && /2 pages in 1 work by text/.test(sumOf(sqC1.body)) && /<mark[^>]*>Chūzumi<\/mark>/.test(sqC1.body), sumOf(sqC1.body));
+  check("Search 'Chūzumi' with the macron: the same 2 pages", JSON.stringify(hitsOf(sqC2.body)) === JSON.stringify(CHU));
+  check("Search hit: the link goes to /read/left_foot_full?view=page&at=p048 (one click from the result to the text)", /<a[^>]*href="\/read\/left_foot_full\?view=page&amp;at=p048"[^>]*data-hit-link|<a[^>]*data-hit-link[^>]*href="\/read\/left_foot_full\?view=page&amp;at=p048"/.test(sqC1.body) && /Page 48/.test(htvText(sqC1.body)), (sqC1.body.match(/<a[^>]*data-hit-link[^>]*>/) ?? [""])[0].slice(0, 200));
+  const sqK = await cr.req("/read?q=kendo");
+  const screensK = Number(/Screen 1 of (\d+)/.exec(htvText(sqK.body))?.[1] ?? 1);
+  const sqKAll = [sqK, ...(await Promise.all(Array.from({ length: screensK - 1 }, (_, i) => cr.req(`/read?q=kendo&screen=${i + 2}`))))];
+  check(`Search 'kendo' finds Kendō on left_foot_full p046 (the fold rule removes the macron): ${screensK} screens, the title hits come first and the page hits follow`, sqKAll.some((x) => hitsOf(x.body).includes("left_foot_full/p046")), sqKAll.map((x) => hitsOf(x.body).length).join(","));
+  const sqT = await cr.req("/read?q=droplet");
+  check("Search 'droplet': the work 18d4ac29 'Kendo droplet guard' is a hit by title, and its page p001 is a page hit with the word marked", /data-book="18d4ac29"/.test(sqT.body) && /1 work by title or author/.test(sumOf(sqT.body)) && JSON.stringify(hitsOf(sqT.body)) === '["18d4ac29/p001"]' && /<mark[^>]*>Droplet<\/mark>/.test(sqT.body), sumOf(sqT.body));
+  const sqAu = await cr.req("/read?q=" + encodeURIComponent("kobayashi"));
+  check("Search by author 'kobayashi': the work left_foot_full is a hit by author", /data-book="left_foot_full"/.test(sqAu.body));
+  const sqNone = await cr.req("/read?q=qqzzxx");
+  check("Search with no match: the plain line 'No match.' and the link 'Clear search'", /No match\./.test(htvText(sqNone.body)) && /data-search-clear/.test(sqNone.body) && sqNone.status === 200);
+  const sqPage1 = await cr.req("/read?q=the");
+  const sqPage2 = await cr.req("/read?q=the&screen=2");
+  check("Search 'the': more than 20 hits give the pager with 'Next ›', 20 hits on a screen, and screen 2 shows other hits", /data-search-next/.test(sqPage1.body) && countOf(sqPage1.body, /<li /g) === 20 && countOf(sqPage2.body, /<li /g) > 0 && sqPage2.body.match(/data-(book|hit-page)="[^"]+"/)?.[0] !== sqPage1.body.match(/data-(book|hit-page)="[^"]+"/)?.[0], `screen 1 ${countOf(sqPage1.body, /<li /g)} items`);
+  check("Search: the search form is a GET form to /read with the field q, and the box keeps the query", /<form[^>]*action="\/read"[^>]*method="get"/.test(sqC1.body) && /name="q"[^>]*value="chuzumi"|value="chuzumi"[^>]*name="q"/.test(sqC1.body));
+  const sqEmpty = await cr.req("/read?q=");
+  const sqPct = await cr.req("/read?q=%25%5C");
+  check("Search with an empty query or only % and a backslash shows the folds, not an empty result list", /data-folds/.test(sqEmpty.body) && /data-folds/.test(sqPct.body) && !/data-search-results/.test(sqPct.body));
+  const sqQuote = await cr.req("/read?q=" + encodeURIComponent('" || true || "'));
+  const sqLong = await cr.req("/read?q=" + "a".repeat(400));
+  check("Search with a quote and with 400 characters gives 200, no error page", sqQuote.status === 200 && sqLong.status === 200 && !/Application error|Internal Server Error/.test(sqQuote.body + sqLong.body));
+  const men0 = await pbCall(pbUrl, "GET", `/api/collections/reader_pages/records?filter=${encodeURIComponent('page_id="men0/p005"')}&fields=search_en`, ad.token());
+  const word = (men0.json?.items?.[0]?.search_en ?? "").split(" ").sort((x, y) => y.length - x.length)[0] ?? "";
+  const sqMen0 = await cr.req("/read?q=" + encodeURIComponent(word));
+  check(`Search for a word of the hidden work men0 ('${word}'): no page hit of men0 (round 69 answer 12: hidden in reader search)`, word.length > 4 && !hitsOf(sqMen0.body).some((h) => h.startsWith("men0/")), hitsOf(sqMen0.body).join(","));
+  const sqN = await cr.req("/read?q=narazaki");
+  check("Search 'narazaki': men_full is a hit by title, men0 and men1 are not", /data-book="men_full"/.test(sqN.body) && !/data-book="men0"|data-book="men1"/.test(sqN.body));
+  check("Search results HTML holds no verdict, score, QA, TL_3, or reasoning", !LEAK_HTML.test(sq.body + sqC1.body));
 
   // --- book screen
   r = await cr.req(`/read/${LF}`);
@@ -1861,7 +2102,7 @@ async function imageChecks({ anon, cr, tr1c, ad, adminToken, pbUrl, LF, put, cou
   const items = cat.json?.items ?? [];
   const withRow = items.filter((x) => x.row && typeof x.row === "object");
   const leaked = withRow.filter((x) => RESEARCH.some((k) => k in x.row)).map((x) => x.item_id);
-  check(`catalog_items: ${items.length} records, none holds one of the 14 research keys in row (${RESEARCH.join(", ")})`, items.length === 37 && withRow.length > 0 && leaked.length === 0 && RESEARCH.length === 14, `records ${items.length}, with row ${withRow.length}, leaking ${leaked.join(",")}`);
+  check(`catalog_items: ${items.length} records (RC4 round 70: 347, was 37), none holds one of the 14 research keys in row (${RESEARCH.join(", ")})`, items.length === 347 && withRow.length > 0 && leaked.length === 0 && RESEARCH.length === 14, `records ${items.length}, with row ${withRow.length}, leaking ${leaked.join(",")}`);
   const leakedKeys = [...new Set(withRow.flatMap((x) => RESEARCH.filter((k) => k in x.row)))];
   check("catalog_items: for each of the 14 keys, no record holds it (checked one key at a time)", RESEARCH.every((k) => !withRow.some((x) => k in x.row)) && leakedKeys.length === 0, `keys found: ${leakedKeys.join(",")}`);
   check("catalog_items: no row holds a Mac path (no '/Volumes/' and no '/Users/' in any row)", !withRow.some((x) => /\/Volumes\/|\/Users\//.test(JSON.stringify(x.row))));
@@ -1974,9 +2215,132 @@ async function parityReaderRows(pbUrl, adminToken) {
   check("Parity: a record holds the keys page_id, item_id, n, run_id, rows, terms, extras, agree (and PocketBase fields), and no verdict or score", ["page_id", "item_id", "n", "run_id", "rows", "terms", "extras", "agree"].every((k) => k in (p48 ?? {})) && !("verdict" in p48) && !("score" in p48) && !("panel" in p48));
 }
 
+
+// ---------------------------------------------------------------- Reader dashboard rules without a server (unit RC4, round 70)
+
+async function foldsTest() {
+  const { installTsResolveHook } = await import("./ts-resolve-hook.mjs");
+  installTsResolveHook();
+  const F = await import("../lib/reader-folds.ts");
+  const S = await import("../lib/reader-search.ts");
+  const R = await import("../lib/reader-translated.ts");
+  const cfg = JSON.parse(await fs.readFile(configFile ? path.resolve(configFile) : path.resolve("viewer.config.json"), "utf-8"));
+  const dir = path.join(path.resolve(cfg.translatorDataDir), "item-metadata");
+  const jsonl = async (name) => (await fs.readFile(path.join(dir, name), "utf-8")).split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+  const rows = await jsonl("items.filled.jsonl");
+  const stamps = new Map((await jsonl("web-magazine-candidates.jsonl")).map((r) => [r.record_id, r]));
+  const translatedOf = { left_foot_full: [46, 47, 48, 49, 50, 75], kendojidai_2014: [794, 795, 796, 797, 798], "18d4ac29": [1] };
+  const works = rows.map((r) => {
+    const web = r.kind === "web-article";
+    const slug = web ? r.item_id.slice(0, 8) : r.item_id;
+    const d = web ? /^(\d{4})-(\d{2})/.exec(r.publish_date_text) : null;
+    const st = web ? stamps.get(r.item_id) : null;
+    return {
+      slug, kind: r.kind, titleEn: r.title_en ?? "", titleJa: r.title_ja ?? "", author: r.author_en ?? "", publisher: r.publisher ?? "", year: r.publish_year == null ? "" : String(r.publish_year),
+      pages: typeof r.pages === "number" ? r.pages : 0, synopsis: r.synopsis ?? "", isbn: "", partOf: r.part_of ?? "", webDate: web ? r.publish_date_text : "",
+      placement: { webYear: d ? Number(d[1]) : null, webMonth: d ? Number(d[2]) : null, printYear: st?.stamp_year ?? null, printMonth: st?.stamp_month ?? null },
+      translated: translatedOf[slug] ?? [], known: true, resumeAt: null,
+    };
+  });
+  const chapters = (await jsonl("magazine-chapters.jsonl")).map((c) => ({
+    chapter: c.chapter, book: c.book, month: c.month ?? null, year: c.year ?? null, titleEn: c.chapter_title_en ?? "", pageStart: c.page_start ?? 0, pageEnd: c.page_end ?? 0,
+    articles: (c.articles ?? []).map((a) => ({ order: a.order, titleEn: a.title_en ?? "", titleJa: a.title_ja ?? "", pageStart: a.page_start ?? 0, pageEnd: a.page_end ?? 0 })),
+  }));
+  const find = (nodes, id) => {
+    for (const n of nodes) {
+      if (n.type !== "fold") continue;
+      if (n.id === id) return n;
+      const hit = find(n.children, id);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  const rowSlugs = (nodes) => nodes.flatMap((n) => (n.type === "fold" ? [...(n.head ? [n.head.work.slug] : []), ...rowSlugs(n.children)] : n.type === "work" ? [n.work.slug] : []));
+  const articleCount = (nodes) => nodes.reduce((t, n) => t + (n.type === "fold" ? articleCount(n.children) : n.type === "article" ? 1 : 0), 0);
+
+  // --- default reading A
+  const A = F.buildFolds(works, chapters);
+  check("Folds: the data holds 347 works", works.length === 347 && F.DEFAULT_OPTIONS.webPlace === "kendo-jidai" && F.DEFAULT_OPTIONS.stampedPlace === "print");
+  check("Folds A: two first-level folds, Books and Kendo Jidai", A.folds.map((f) => f.id).join(",") === "books,kj" && A.folds.every((f) => f.level === 1), A.folds.map((f) => f.id).join(","));
+  check("Folds A: Books holds 22 works (25 books, men0, men1, and mental2_clean hidden)", A.folds[0].counts.works === 22, `works ${A.folds[0].counts.works}`);
+  check("Folds A: Kendo Jidai holds 320 works (9 year volumes and 311 web articles)", A.folds[1].counts.works === 320, `works ${A.folds[1].counts.works}`);
+  check("Folds A: 342 visible works in all, and 13,303 pages (a web article counts as 1 page)", A.visible.length === 342 && A.totals.works === 342 && A.totals.pages === 13303, `works ${A.totals.works}, pages ${A.totals.pages}`);
+  const hidden = ["men0", "men1", "mental2_clean", "matsubara", "morishima"];
+  check("Folds: hidden works are absent from the rows (men0, men1, mental2_clean, matsubara, morishima; round 69 answers 12 and 15)", hidden.every((h) => !rowSlugs(A.folds).includes(h)) && hidden.every((h) => !A.visible.some((w) => w.slug === h)));
+  check("Folds: ogawa_lecture_part1, part2, and part3 stay as three rows in one fold", find(A.folds, "books-series-1")?.children.length === 3 && ["ogawa_lecture_part1", "ogawa_lecture_part2", "ogawa_lecture_part3"].every((x) => rowSlugs(A.folds).includes(x)));
+  check("Folds: men_full and mental_full are plain rows of Books", rowSlugs([A.folds[0]]).includes("men_full") && rowSlugs([A.folds[0]]).includes("mental_full"));
+  const kj = A.folds[1];
+  check("Folds A: Kendo Jidai has 16 year folds, 2010 to 2025", kj.children.length === 16 && kj.children[0].id === "kj-2010" && kj.children.at(-1).id === "kj-2025", kj.children.map((c) => c.id).join(","));
+  const web = works.filter((w) => w.kind === "web-article");
+  const all = rowSlugs(A.folds);
+  check("Folds A: each of the 311 web articles shows exactly once", web.every((w) => all.filter((x) => x === w.slug).length === 1), `rows ${all.length}`);
+  const y2011 = find(A.folds, "kj-2011");
+  const aug = find(A.folds, "kj-2011-08");
+  check("Folds A: the Teramoto article 63654ba0 (stamp 2011.8) sits in Kendo Jidai > 2011 > August 2011", Boolean(y2011 && aug && rowSlugs([aug]).includes("63654ba0")) && aug.title === "August 2011", aug?.note);
+  check("Folds A: August 2011 holds its 14 magazine articles and 2 web articles (63654ba0 and 6f19be05)", aug && aug.children.filter((c) => c.type === "article").length === 14 && aug.children.filter((c) => c.type === "work").length === 2 && /14 articles/.test(aug.note) && /2 web articles/.test(aug.note), aug?.note);
+  check("Folds A: the 1,155 magazine articles all show as article rows", articleCount(A.folds) === 1155, `articles ${articleCount(A.folds)}`);
+  const oct14 = find(A.folds, "kj-2014-10");
+  check("Folds A: kendojidai_2014 October 2014 counts 5 translated pages of 91 (pages 778-868)", oct14?.counts.translated === 5 && oct14.counts.pages === 91, JSON.stringify(oct14?.counts));
+  check("Folds A: the year fold kendojidai_2014 shows the work row with 5 translated pages of 1051", find(A.folds, "kj-2014")?.head?.translated === 5 && find(A.folds, "kj-2014").head.pages === 1051);
+  check("Folds A: a 2020 web article sits in a month fold of its web date (Kendo droplet guard: 18d4ac29)", (() => { const w = works.find((x) => x.slug === "18d4ac29"); const m = find(A.folds, `kj-2020-${String(w.placement.webMonth).padStart(2, "0")}`); return Boolean(m) && rowSlugs([m]).includes("18d4ac29") && w.titleEn === "Kendo droplet guard"; })());
+  check("Folds A: the year 2018 has the month fold September 2018 with only web articles (5 stamped, the magazine volume ends in April)", (() => { const m = find(A.folds, "kj-2018-09"); return Boolean(m) && m.children.length === 5 && m.children.every((c) => c.type === "work"); })());
+  check("Folds: the first level starts open, the deeper levels start closed (level numbers 1, 2, 3)", A.folds.every((f) => f.level === 1) && kj.children.every((f) => f.level === 2) && aug.level === 3);
+
+  // --- fork: web month
+  const W = F.buildFolds(works, chapters, { webPlace: "kendo-jidai", stampedPlace: "web" });
+  const apr25 = find(W.folds, "kj-2025-04");
+  check("Folds, stamped placed by the web month: the Teramoto article 63654ba0 sits in April 2025 and not in August 2011", Boolean(apr25) && rowSlugs([apr25]).includes("63654ba0") && !rowSlugs([find(W.folds, "kj-2011-08") ?? { children: [], type: "fold" }]).includes("63654ba0"));
+  check("Folds, stamped placed by the web month: Kendo Jidai has 16 years again and 320 works", W.folds[1].counts.works === 320 && W.folds[1].children.length === 16);
+
+  // --- reading B
+  const B = F.buildFolds(works, chapters, { webPlace: "separate", stampedPlace: "print" });
+  check("Folds B: three first-level folds, Books, Kendo Jidai (9 works), and Web articles (311 works)", B.folds.map((f) => f.id).join(",") === "books,kj,web" && B.folds[1].counts.works === 9 && B.folds[2].counts.works === 311, B.folds.map((f) => `${f.id}:${f.counts.works}`).join(","));
+  check("Folds B: the Teramoto article sits in Web articles > 2011 > August 2011", rowSlugs([find(B.folds, "web-2011-08") ?? { children: [], type: "fold" }]).includes("63654ba0"));
+  check("Folds B: Kendo Jidai holds no web article", web.every((w) => !rowSlugs([B.folds[1]]).includes(w.slug)));
+
+  // --- a work with no date
+  const odd = F.buildFolds([{ ...works.find((w) => w.slug === "18d4ac29"), placement: { webYear: null, webMonth: null, printYear: null, printMonth: null } }], []);
+  check("Folds: a web article with no date goes to the fold 'Date unknown' (no crash)", odd.folds[0].children[0].title === "Date unknown" && odd.folds[0].counts.works === 1);
+
+  // --- fold rule of the search
+  check("Fold rule: 'Seme-ai and Chūzumi' becomes 'semeai and chuzumi' (lowercase, no macron, no hyphen)", S.foldText("Seme-ai and Chūzumi") === "semeai and chuzumi", S.foldText("Seme-ai and Chūzumi"));
+  check("Fold rule: Japanese stays as it is, also a kana with a voiced mark (攻めつづけ、がぎ)", S.foldText("攻めつづけ、がぎ") === "攻めつづけ、がぎ");
+  check("Fold rule: 'Kendō' becomes 'kendo' and 'Ai-te' becomes 'aite'", S.foldText("Kendō") === "kendo" && S.foldText("Ai-te's") === "aite's");
+  check("Query rule: '  Chūzumi% \\ ' becomes 'chuzumi' (% and backslash removed, trimmed)", S.foldQuery("  Chūzumi% \\ ") === "chuzumi", JSON.stringify(S.foldQuery("  Chūzumi% \\ ")));
+  const line = "I keep applying Seme without letting my Kensen leave the Ai-te's Chūzumi (centerline), and if I think";
+  const sn = S.snippetOf(line, "chuzumi");
+  check("Snippet: the hit of 'chuzumi' keeps the spelling 'Chūzumi' and the text around it", sn?.hit === "Chūzumi" && sn.before.endsWith("the Ai-te's ") && sn.after.startsWith(" (centerline)"), JSON.stringify(sn));
+  check("Snippet: 'aite' marks the whole word 'Ai-te'", S.snippetOf(line, "aite")?.hit === "Ai-te");
+  check("Snippet: a text without the query gives null", S.snippetOf(line, "xyz") === null);
+  const cols = S.searchColumns({ ja: ["わたしは剣先を相手の中墨から外さず"], en: ["Ai-te's Chūzumi", "Seme"] });
+  check("Search columns: search_en 'aite's chuzumi seme' and search_ja unchanged", cols.search_en === "aite's chuzumi seme" && cols.search_ja === "わたしは剣先を相手の中墨から外さず" && cols.cut === false, JSON.stringify(cols));
+  const longCols = S.searchColumns({ ja: [], en: ["a".repeat(S.SEARCH_COLUMN_MAX + 50)] });
+  check("Search columns: text over 100,000 characters is cut and flagged", longCols.search_en.length === S.SEARCH_COLUMN_MAX && longCols.cut === true);
+  check("Title search: 'kendo droplet' finds 18d4ac29, and 'jidai' finds the nine year volumes", F.matchWorks(A.visible, "kendo droplet").map((w) => w.slug).join() === "18d4ac29" && F.matchWorks(A.visible.filter((w) => w.kind === "magazine-year"), "jidai").length === 9);
+  check("Title search: hidden works never match (men0 has the title of men_full)", !F.matchWorks(A.visible, "narazaki").some((w) => ["men0", "men1"].includes(w.slug)) && F.matchWorks(A.visible, "narazaki").some((w) => w.slug === "men_full"));
+
+  // --- the progress words (round 69 answer 8)
+  check("Progress words: 'English: 6 of 120 pages translated (5.0 percent)' for left_foot_full", R.progressLine(6, 120) === "English: 6 of 120 pages translated (5.0 percent)", R.progressLine(6, 120));
+  check("Progress words: 'English: 5 of 1051 pages translated (0.5 percent)' for kendojidai_2014", R.progressLine(5, 1051) === "English: 5 of 1051 pages translated (0.5 percent)", R.progressLine(5, 1051));
+  check("Progress words: 'English: 0 of 176 pages translated (0.0 percent)' for etiqu1_full", R.progressLine(0, 176) === "English: 0 of 176 pages translated (0.0 percent)");
+  check("Progress words: 'English: 1 of 1 page translated (100.0 percent)' for a web article", R.progressLine(1, 1) === "English: 1 of 1 page translated (100.0 percent)");
+  check("Progress words: the fold form is the full form 'English: 20 of 4,821 pages translated (0.4 percent)' with the thousands separator of the fold line (round 70 answer 9)", R.foldProgress(20, 4821) === "English: 20 of 4,821 pages translated (0.4 percent)", R.foldProgress(20, 4821));
+  check("Translated rule: a page counts when a reader_pages record exists, else not", R.isTranslatedPage({ page_id: "left_foot_full/p048" }) === true && R.isTranslatedPage(undefined) === false && R.isTranslatedPage(null) === false && R.TRANSLATED_WORD === "translated");
+  check("Progress words (RC4b): the total line of the folds data (12 translated pages) is 'English: 12 of 13,303 pages translated (0.1 percent)' and the first-level folds have the full form", (() => { const t = A.totals; return R.foldProgress(t.translated, t.pages) === "English: 12 of 13,303 pages translated (0.1 percent)" && A.folds.every((f) => /^English: \d+ of [\d,]+ pages translated \([\d.]+ percent\)$/.test(R.foldProgress(f.counts.translated, f.counts.pages))); })(), `${A.totals.translated} of ${A.totals.pages}`);
+  check("Progress words (RC4b): a fold of one page reads '1 of 1 page translated' (singular) and a fold with 0 pages reads '0 of 0 pages translated (0.0 percent)'", R.foldProgress(1, 1) === "English: 1 of 1 page translated (100.0 percent)" && R.foldProgress(0, 0) === "English: 0 of 0 pages translated (0.0 percent)");
+  check("Progress words (RC4b): the word 'finished' is in none of the progress forms", ![R.progressLine(6, 120), R.foldProgress(21, 5067), R.foldProgress(0, 0), R.progressLine(1, 1)].some((x) => /finished/i.test(x)));
+}
+
+if (mode === "folds") {
+  await foldsTest();
+  console.log(`\nFailures: ${failures}, skipped: ${skips}`);
+  process.exit(failures ? 1 : 0);
+}
+
 const server = await startServer();
 try {
-  if (mode === "pause") await pauseTest();
+  if (mode === "tolerance") await toleranceTest();
+  else if (mode === "pause") await pauseTest();
   else if (mode === "htv") await htvTest();
   else if (mode === "deploy") await deployTest();
   else if (mode === "read") await readTest();

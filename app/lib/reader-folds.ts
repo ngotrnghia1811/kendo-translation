@@ -1,0 +1,355 @@
+// The folds of the Reader dashboard (/read), as a pure function (unit RC4, round 70). VISION-viewer 15.23.3.
+// No import of server code and no server-only marker, so a test script can run it without PocketBase.
+import type { DashArticle, DashChapter, DashWork } from "./reader-types";
+import { foldText } from "./reader-search";
+
+// ---------------------------------------------------------------- choices of the owner, each in one constant
+
+/**
+ * Round 69 answer 7: "They should be arrange into kendojidai year/month like the other articles" [user].
+ * aki-main reading [reading pending owner check]:
+ *   "kendo-jidai"  reading A (default): the 311 web articles sit inside the first-level fold "Kendo Jidai", in year and month folds.
+ *   "separate"     reading B: the web articles form a first-level fold "Web articles" with the same year and month folds.
+ */
+export type WebPlace = "kendo-jidai" | "separate";
+export const WEB_PLACE: WebPlace = "kendo-jidai";
+
+/**
+ * Second fork of round 69 answer 7 [reading pending owner check]: where a web article with a print stamp goes.
+ *   "print"  (default) the month of the print issue. Example: record 63654ba0 (stamp 2011.8 KENDOJIDAI) sits in August 2011.
+ *   "web"    the month of the web post. The same record sits in April 2025.
+ */
+export type StampedPlace = "print" | "web";
+export const STAMPED_PLACE: StampedPlace = "print";
+
+/** Round 69 answer 15: "Ignore these for now". The web captures matsubara and morishima do not show on /read. They stay on /translate. */
+export const HIDE_WEB_CAPTURES = true;
+
+/**
+ * Round 69 answer 12: "Show only the full book". men0 and men1 are hidden because their metadata key part_of names men_full (the rule below).
+ * mental2_clean has the same title and the same 169 pages as mental_full, and its metadata names no full book, so it is listed here.
+ */
+export const HIDDEN_COPIES = ["mental2_clean"];
+
+export interface FoldOptions {
+  webPlace: WebPlace;
+  stampedPlace: StampedPlace;
+}
+export const DEFAULT_OPTIONS: FoldOptions = { webPlace: WEB_PLACE, stampedPlace: STAMPED_PLACE };
+
+// ---------------------------------------------------------------- tree
+
+export interface Counts {
+  works: number;
+  pages: number;
+  translated: number;
+}
+
+/** One work: a book, a magazine year volume, or a web article. */
+export interface WorkRow {
+  type: "work";
+  work: DashWork;
+  /** Pages for the progress line. A web article counts as 1 page (VISION-viewer 15.23.3.2). */
+  pages: number;
+  translated: number;
+  /** First translated page, or null. */
+  start: number | null;
+}
+
+/** One article of a magazine month. */
+export interface ArticleRow {
+  type: "article";
+  book: string;
+  /** Digits of the page ID of the book: 3, or 4 when the year volume has more than 999 pages. */
+  digits: number;
+  order: number;
+  titleEn: string;
+  titleJa: string;
+  pageStart: number;
+  pageEnd: number;
+  translated: number;
+}
+
+/** A chapter that is no month, for example "Table of contents". */
+export interface LineRow {
+  type: "line";
+  label: string;
+  pageStart: number;
+  pageEnd: number;
+  translated: number;
+}
+
+export interface Fold {
+  type: "fold";
+  id: string;
+  title: string;
+  titleJa: string;
+  /** 1 for the first level. Only level 1 starts open. */
+  level: number;
+  counts: Counts;
+  /** Short text after the title, for example "11 articles · pages 778-868". */
+  note: string;
+  /** The row of the work that the fold stands for (a magazine year volume). Null for a plain group. */
+  head: WorkRow | null;
+  children: Node[];
+  /** True for a month whose rows load when the fold opens (see lazyMonths). Then `children` is empty unless the page opens this month on the server. */
+  lazy?: boolean;
+}
+
+export type Node = Fold | WorkRow | ArticleRow | LineRow;
+
+export interface Dashboard {
+  folds: Fold[];
+  /** Works that show on the dashboard (hidden works left out). */
+  visible: DashWork[];
+  totals: Counts;
+}
+
+// ---------------------------------------------------------------- rules
+
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+export function monthHeading(year: number, month: number): string {
+  return month >= 1 && month <= 12 ? `${MONTH_NAMES[month - 1]} ${year}` : `${year}`;
+}
+
+export function isWeb(w: DashWork): boolean {
+  return w.kind === "web-article";
+}
+
+/** True when the dashboard hides the work (round 69 answers 12 and 15). `all` is every work, to find the full book that a part names. */
+export function isHidden(w: DashWork, all: DashWork[]): boolean {
+  if (HIDE_WEB_CAPTURES && w.kind === "web-capture") return true;
+  if (HIDDEN_COPIES.includes(w.slug)) return true;
+  return Boolean(w.partOf) && w.partOf !== w.slug && all.some((o) => o.slug === w.partOf && o.kind === w.kind);
+}
+
+/** Pages of a work for the progress line. A web article has pages 0 in catalog_items and counts as 1 page. */
+export function workPages(w: DashWork): number {
+  return isWeb(w) ? 1 : Math.max(w.pages, 0);
+}
+
+export function rowOf(w: DashWork): WorkRow {
+  return { type: "work", work: w, pages: workPages(w), translated: w.translated.length, start: w.translated.length ? w.translated[0] : null };
+}
+
+export function digitsOf(pages: number): number {
+  return pages > 999 ? 4 : 3;
+}
+
+const zero = (): Counts => ({ works: 0, pages: 0, translated: 0 });
+function add(a: Counts, b: Counts): Counts {
+  return { works: a.works + b.works, pages: a.pages + b.pages, translated: a.translated + b.translated };
+}
+function sum(nodes: Node[]): Counts {
+  let c = zero();
+  for (const n of nodes) {
+    if (n.type === "work") c = add(c, { works: 1, pages: n.pages, translated: n.translated });
+    else if (n.type === "fold") c = add(c, n.counts);
+  }
+  return c;
+}
+
+/** Month of a web article, by the choice STAMPED_PLACE. Year null means that the facts hold no date. */
+export function webMonthOf(w: DashWork, stamped: StampedPlace): { year: number | null; month: number | null } {
+  const p = w.placement;
+  if (stamped === "print" && p.printYear && p.printMonth) return { year: p.printYear, month: p.printMonth };
+  if (p.webYear) return { year: p.webYear, month: p.webMonth };
+  return { year: null, month: null };
+}
+
+const byDateThenTitle = (a: DashWork, b: DashWork) => (a.webDate < b.webDate ? -1 : a.webDate > b.webDate ? 1 : a.titleEn < b.titleEn ? -1 : a.titleEn > b.titleEn ? 1 : a.slug < b.slug ? -1 : 1);
+
+function inRange(translated: number[], from: number, to: number): number {
+  return from > 0 && to >= from ? translated.filter((n) => n >= from && n <= to).length : 0;
+}
+
+function plural(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+// ---------------------------------------------------------------- build
+
+function articleRows(book: string, digits: number, c: DashChapter, translated: number[]): ArticleRow[] {
+  return [...c.articles]
+    .sort((a: DashArticle, b: DashArticle) => a.order - b.order)
+    .map((a) => ({
+      type: "article" as const,
+      book,
+      digits,
+      order: a.order,
+      titleEn: a.titleEn,
+      titleJa: a.titleJa,
+      pageStart: a.pageStart,
+      pageEnd: a.pageEnd,
+      translated: inRange(translated, a.pageStart, a.pageEnd),
+    }));
+}
+
+/** The month folds of one year: the months of the magazine chapters and the months of the web articles placed in this year. */
+function monthFolds(year: number, idBase: string, mag: DashWork | null, chapters: DashChapter[], webs: Map<number, DashWork[]>): { nodes: Node[]; webCount: number } {
+  const digits = digitsOf(mag?.pages ?? 0);
+  const translated = mag?.translated ?? [];
+  const lines: LineRow[] = [];
+  const months = new Map<number, { chapter: DashChapter | null; webs: DashWork[] }>();
+  for (const c of chapters) {
+    if (c.month && c.month >= 1 && c.month <= 12) months.set(c.month, { chapter: c, webs: [] });
+    else lines.push({ type: "line", label: c.titleEn || c.chapter, pageStart: c.pageStart, pageEnd: c.pageEnd, translated: inRange(translated, c.pageStart, c.pageEnd) });
+  }
+  let webCount = 0;
+  for (const [m, list] of webs) {
+    webCount += list.length;
+    const hit = months.get(m);
+    if (hit) hit.webs = list;
+    else months.set(m, { chapter: null, webs: list });
+  }
+  const nodes: Node[] = [...lines];
+  for (const m of [...months.keys()].sort((a, b) => a - b)) {
+    const { chapter, webs: list } = months.get(m)!;
+    const rows: Node[] = [];
+    const parts: string[] = [];
+    let counts = zero();
+    if (chapter && mag) {
+      rows.push(...articleRows(mag.slug, digits, chapter, translated));
+      parts.push(plural(chapter.articles.length, "article", "articles"));
+      if (chapter.pageStart > 0) parts.push(`pages ${chapter.pageStart}-${chapter.pageEnd}`);
+      counts = { works: 0, pages: Math.max(chapter.pageEnd - chapter.pageStart + 1, 0), translated: inRange(translated, chapter.pageStart, chapter.pageEnd) };
+    }
+    const sorted = [...list].sort(byDateThenTitle);
+    for (const w of sorted) rows.push(rowOf(w));
+    if (sorted.length) {
+      parts.push(plural(sorted.length, "web article", "web articles"));
+      counts = add(counts, sum(rows.filter((r) => r.type === "work")));
+    }
+    nodes.push({ type: "fold", id: `${idBase}-${String(m).padStart(2, "0")}`, title: monthHeading(year, m), titleJa: "", level: 3, counts, note: parts.join(" · "), head: null, children: rows });
+  }
+  return { nodes, webCount };
+}
+
+/** The web articles of one group, by year then month. */
+function groupWebs(webs: DashWork[], stamped: StampedPlace): Map<number, Map<number, DashWork[]>> {
+  const out = new Map<number, Map<number, DashWork[]>>();
+  for (const w of webs) {
+    const { year, month } = webMonthOf(w, stamped);
+    const y = year ?? 0;
+    const m = year ? month ?? 0 : 0;
+    if (!out.has(y)) out.set(y, new Map());
+    const months = out.get(y)!;
+    if (!months.has(m)) months.set(m, []);
+    months.get(m)!.push(w);
+  }
+  return out;
+}
+
+function yearFold(year: number, idBase: string, mag: DashWork | null, chapters: DashChapter[], webMonths: Map<number, DashWork[]>): Fold {
+  const webList = [...webMonths.values()].flat();
+  const webRows = webList.map(rowOf);
+  let counts = mag ? { works: 1, pages: workPages(mag), translated: mag.translated.length } : zero();
+  counts = add(counts, sum(webRows));
+  // Web articles with no date have the year 0. They are rows of the fold "Date unknown".
+  if (!year) return { type: "fold", id: idBase, title: "Date unknown", titleJa: "", level: 2, counts, note: "", head: null, children: [...webList].sort(byDateThenTitle).map(rowOf) };
+  const { nodes } = monthFolds(year, idBase, mag, chapters, webMonths);
+  const note = [mag ? `${workPages(mag).toLocaleString("en-US")} pages` : "", webList.length ? plural(webList.length, "web article", "web articles") : ""].filter(Boolean).join(" · ");
+  return { type: "fold", id: idBase, title: mag ? mag.titleEn || mag.titleJa || mag.slug : String(year), titleJa: "", level: 2, counts, note, head: mag ? rowOf(mag) : null, children: nodes };
+}
+
+/** The works of the Books fold: works with the same English title form one fold. Another work is a row. */
+function bookNodes(books: DashWork[]): Node[] {
+  const groups = new Map<string, DashWork[]>();
+  for (const b of books) {
+    const k = b.titleEn || b.titleJa || b.slug;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k)!.push(b);
+  }
+  const out: Node[] = [];
+  let n = 0;
+  const done = new Set<string>();
+  for (const b of books) {
+    const k = b.titleEn || b.titleJa || b.slug;
+    const list = groups.get(k)!;
+    if (list.length === 1) {
+      out.push(rowOf(b));
+      continue;
+    }
+    if (done.has(k)) continue;
+    done.add(k);
+    const rows = list.map(rowOf);
+    out.push({ type: "fold", id: `books-series-${++n}`, title: k, titleJa: list[0].titleJa, level: 2, counts: sum(rows), note: "", head: null, children: rows });
+  }
+  return out;
+}
+
+export function buildFolds(all: DashWork[], chapters: DashChapter[], options: FoldOptions = DEFAULT_OPTIONS): Dashboard {
+  const visible = all.filter((w) => !isHidden(w, all));
+  const books = visible.filter((w) => w.kind === "book");
+  const mags = visible.filter((w) => w.kind === "magazine-year");
+  const webs = visible.filter(isWeb);
+  const others = visible.filter((w) => !["book", "magazine-year", "web-article"].includes(w.kind));
+  const folds: Fold[] = [];
+  const first = (id: string, title: string, titleJa: string, children: Node[]): Fold => ({ type: "fold", id, title, titleJa, level: 1, counts: sum(children), note: "", head: null, children });
+
+  const bookChildren = bookNodes(books);
+  if (bookChildren.length) folds.push(first("books", "Books", "", bookChildren));
+
+  const magYear = (w: DashWork) => Number(/(\d{4})$/.exec(w.slug)?.[1] ?? w.year) || 0;
+  const chaptersOf = (slug: string) => chapters.filter((c) => c.book === slug).sort((a, b) => a.pageStart - b.pageStart);
+  const webYears = groupWebs(webs, options.stampedPlace);
+  const noWeb = new Map<number, DashWork[]>();
+  const later = (a: number, b: number) => (a || 9999) - (b || 9999);
+
+  // Kendo Jidai: the magazine years. In reading A the years of the web articles join them.
+  const kjYears = new Set<number>(mags.map(magYear));
+  if (options.webPlace === "kendo-jidai") for (const y of webYears.keys()) kjYears.add(y);
+  const kj = [...kjYears].sort(later).map((y) => {
+    const mag = mags.find((m) => magYear(m) === y) ?? null;
+    const webMonths = options.webPlace === "kendo-jidai" ? webYears.get(y) ?? noWeb : noWeb;
+    return yearFold(y, `kj-${y || "unknown"}`, mag, mag ? chaptersOf(mag.slug) : [], webMonths);
+  });
+  if (kj.length) folds.push(first("kj", "Kendo Jidai", "剣道時代", kj));
+
+  if (options.webPlace === "separate") {
+    const wy = [...webYears.keys()].sort(later).map((y) => yearFold(y, `web-${y || "unknown"}`, null, [], webYears.get(y)!));
+    if (wy.length) folds.push(first("web", "Web articles", "", wy));
+  }
+  if (others.length) folds.push(first("other", "Other works", "", others.map(rowOf)));
+  const totals = folds.reduce((t, f) => add(t, f.counts), zero());
+  return { folds, visible, totals };
+}
+
+// ---------------------------------------------------------------- months load when they open
+
+/** The first level where a fold holds rows of articles. The page sends these folds with no rows (the HTML had 2.08 MB with all rows). */
+export const MONTH_LEVEL = 3;
+
+/** A fold by its id, or null. */
+export function findFold(nodes: Node[], id: string): Fold | null {
+  for (const n of nodes) {
+    if (n.type !== "fold") continue;
+    if (n.id === id) return n;
+    const hit = findFold(n.children, id);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/** The rows of a month fold for the browser: without the long synopsis of a work (a row does not show it). */
+export function slimRows(nodes: Node[]): Node[] {
+  return nodes.map((n) => (n.type === "work" ? { ...n, work: { ...n.work, synopsis: "" } } : n));
+}
+
+/** The tree for the page: every month fold (level 3) has `lazy` true and no rows, except the month `openId`, which keeps its rows. */
+export function lazyMonths(folds: Fold[], openId: string): Fold[] {
+  return folds.map((f) =>
+    f.level === MONTH_LEVEL
+      ? { ...f, lazy: true, children: f.id === openId ? slimRows(f.children) : [] }
+      : { ...f, children: f.children.map((c) => (c.type === "fold" ? lazyMonths([c], openId)[0] : c)) },
+  );
+}
+
+// ---------------------------------------------------------------- search over titles and metadata
+
+/** Works whose title, author, publisher, year, or synopsis holds the folded query. The order of `works` stays. */
+export function matchWorks(works: DashWork[], foldedQuery: string): DashWork[] {
+  if (!foldedQuery) return [];
+  return works.filter((w) => foldText([w.titleEn, w.titleJa, w.author, w.publisher, w.year, w.webDate, w.synopsis].join(" ")).includes(foldedQuery));
+}

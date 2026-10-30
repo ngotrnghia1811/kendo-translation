@@ -252,7 +252,7 @@ The script never prints a password or a token. It checks these parts:
 
 ## Sync command S2
 
-The command `scripts/sync-runs.mjs` copies the finished page runs from the run folders on this Mac into the PocketBase collection `page_runs`. It also fills `catalog_items` with the book titles. The deployed app reads these records, because it cannot read this Mac. Section 15.15 of `docs/VISION-viewer.md` holds the details.
+The command `scripts/sync-runs.mjs` copies the finished page runs from the run folders on this Mac into the PocketBase collection `page_runs`. It also fills `catalog_items` with all 347 metadata rows (titles, page counts, translated pages, and the placement of the web articles) and `reader_pages` with the reader text and the folded search columns. The deployed app reads these records, because it cannot read this Mac. Section 15.15 of `docs/VISION-viewer.md` holds the details.
 
 Run it in the app folder. The first command is a dry run. It signs in, compares, and writes nothing:
 
@@ -315,7 +315,7 @@ The setting `monitor` hides the agent-translation-monitor. The deployed app has 
 
 When the monitor is off, the app does this:
 
-- The page `/` sends the visitor to `/translate`.
+- The page `/` sends the visitor by the sign-in state: no session to `/sign-in`, a reader to `/read`, a translator or an admin to `/translate` (unit RC4, round 70).
 - The pages `/books`, `/page/<book>/<page>`, and `/runs/<list>` show the page "not found".
 - These routes answer with status 404 and the body `{"error":"Not found"}`. The app reads no run data before it answers.
   - `/api/books/<id>`
@@ -426,7 +426,7 @@ Round 61 answers 3 to 7 (Q-A 2026-10-29 l263 to l267) set these parts.
 ### 36 books
 
 - `BOOK_LIST_MODE` is `"all"`. The book list holds the 36 book folders of `pilot-sample/book-slugs.json` and the web article `18d4ac29`. A book with no run opens and shows its page numbers with "No agent translation".
-- S2 fills `catalog_items` with the 36 book folders (titles and page counts from `items.filled.jsonl`) and the items of the selected runs. It does not upload the other rows of `items.filled.jsonl` (311 web articles). The catalog rows are about 0.16 MB.
+- S2 fills `catalog_items` with all 347 rows of `items.filled.jsonl` since unit RC4 (36 folders and 311 web articles). The list at `/translate` still shows 37 rows, because `lib/htv-books.ts` leaves out a web article that has no run. The catalog rows are about 0.39 MB.
 
 ### Review fixes
 
@@ -446,21 +446,21 @@ The reader pages are the book reading site for readers. Design: `docs/VISION-vie
 
 - `/sign-up` makes an account. The account is a reader that waits for approval. The person signs in at once.
 - `/sign-in` signs in every role. A reader goes to `/read`. A translator and an admin go to `/translate`. `/translate/sign-in` stays.
-- `/read` shows 37 book cards. `/read/<book>` shows the book screen. `?view=page&at=p048` shows one page. `?view=scroll&at=p048` shows all pages in one scroll.
+- `/read` shows the Reader dashboard (section Reader dashboard, unit RC4). `/read/<book>` shows the book screen. `?view=page&at=p048` shows one page. `?view=scroll&at=p048` shows all pages in one scroll.
 - `/admin/readers` lists the readers that wait for approval. `/admin/versions?page=left_foot_full/p048` chooses the human version and the page check. Only the admin role opens them.
 - `/translate` sends a reader to `/read`. `GET /api/htv/page` answers a reader with 403.
 
 ### Rules for the data
 
-- A reader that waits for approval sees the book list and the line "Your account waits for approval by an admin." PocketBase gives it no `reader_pages` record.
+- A reader that waits for approval sees the Reader dashboard with the progress of each work, and the line "Your account waits for approval by an admin." PocketBase gives it no `reader_pages` record.
 - A reader never gets the verdict, the score, the QA fields, the TL_3 panel, the run list, or the reasoning. `page_runs` is closed to readers. The pages read `reader_pages`.
 - The reader pages read PocketBase only. With `runSource` files, run `node scripts/sync-runs.mjs` first. Without a `reader_pages` record a page shows "No agent translation yet".
 - The AI label is always on the page. "AI translation, not yet checked by a person" or "AI translation, checked by a person (date)". The human version shows "Human translation. Chosen by an admin."
 
 ### Settings and themes
 
-- The settings of the reader are in `user_settings.panes` under the key `reader`. `sanitizeSettings` keeps the key. A save of the pane settings keeps it too.
-- Defaults: text EN, EN text agent, page view, serif and Mincho, 18 px, line height 1.7, narrow, focus off. See `READER_DEFAULTS` in `lib/htv-settings.ts`.
+- The settings of the reader are in `user_settings.panes` under the key `reader`. The key `panelSeen` (the first-visit panel was closed once) lives there too and is not in `READER_DEFAULTS`, so "Reset text settings" keeps it. `sanitizeSettings` keeps the key.
+- Defaults: text EN, EN text agent, page view, serif and Mincho, 18 px, line height 1.7, narrow, focus off, image on. See `READER_DEFAULTS` in `lib/htv-settings.ts`. `panelSeen` has no default.
 - Themes: `light`, `dark` (High-contrast dark), `sepia`, `solarized-light`, `solarized-dark`. The colors are in `app/globals.css`.
 - The default theme of each page group is one constant: `DEFAULT_THEME_HTV` and `DEFAULT_THEME_READER` in `lib/htv-settings.ts`. To change the default of the reader pages, change one line.
 - `node scripts/contrast-dark.mjs` tests every text pair of the five themes. Lowest pair: light 4.73, dark 7.49, sepia 6.11, solarized-light 6.03, solarized-dark 6.96 (to 1).
@@ -468,14 +468,14 @@ The reader pages are the book reading site for readers. Design: `docs/VISION-vie
 ### S2 and reader_pages
 
 - S2 builds one `reader_pages` record for each page with an agent translation. The run is the run mark of the admin, else the newest PASS run. A page with only FAIL runs gets no record.
-- The record holds rows, term entries, captions (extras), and the group keys with a translator tick (agree). It holds no name.
+- The record holds rows, term entries, captions (extras), the group keys with a translator tick (agree), and the folded search columns `search_ja` and `search_en` (unit RC4). It holds no name.
 - Dry run is the default. `--apply` writes. A second run changes nothing. The report lists the count and the sizes in MB.
-- Last test on a throwaway server: 29 records, min 0.01 MB, median 0.03 MB, max 0.06 MB, total 0.78 MB.
+- Last test on a throwaway server (unit RC4, with the search columns): 29 records, min 0.01 MB, median 0.03 MB, max 0.06 MB, total 0.88 MB.
 - Run S2 again after an admin marks a run, a translator ticks agree, or a new run ends. The reader pages change at that time.
 
 ### Tests
 
-- `node scripts/smoke.mjs read` runs 166 checks. It needs the setup of `run_all.py` in the work folder of the unit (S2 upload, one saved version of a translator, an approved reader, and a reader that waits).
+- `node scripts/smoke.mjs read` runs 287 checks since unit RC4. It needs the setup of `run_all.py` in the work folder of the unit (S2 upload, one saved version of a translator, an approved reader, and a reader that waits).
 - The checks of the human-translation-view for a reader changed into redirect checks. The list is in the report of unit RC1.
 
 ## Page images (unit RC2, round 65)
@@ -515,7 +515,7 @@ All keys are environment variables. An empty variable counts as not set. Only th
 
 ### Tests
 
-- `node scripts/smoke.mjs read` runs 241 checks. They need the setup of `run_all.py` and two more variables: `VIEWER_PAGE_IMAGE_DIR` (test images, with one link that leaves the folder) and `VIEWER_PAGE_IMAGE_TEST_KEY` (the key of the test PocketBase). Without them the page image checks give one SKIP.
+- `node scripts/smoke.mjs read` runs 287 checks (unit RC4). They need the setup of `run_all.py` and two more variables: `VIEWER_PAGE_IMAGE_DIR` (test images, with one link that leaves the folder) and `VIEWER_PAGE_IMAGE_TEST_KEY` (the key of the test PocketBase). Without them the page image checks give one SKIP.
 - The checks start extra copies of the app on other ports for signed mode and for the wrong settings. They stop them at the end.
 - The Chrome checks of the page image view and the Image button (1440 px and 390 px) are in the work folder of unit RC3 (`browser_rc2.mjs`, 100 checks).
 
@@ -532,3 +532,119 @@ All keys are environment variables. An empty variable counts as not set. Only th
 - S2 drops 14 keys from `catalog_items.row`: the six above plus `hint_secondary`, `confidence_draft`, `notes_draft`, `issue_evidence`, `status`, `title_en_source`, `author_en_source`, and `synopsis_source`.
 - `node scripts/smoke.mjs read` now fails if one of the 14 keys is in a `catalog_items` record.
 - A copy of the app in a work folder must point at the throwaway PocketBase in `viewer.config.json` (key `pocketbaseUrl`). Without the key the app uses port 8090.
+
+## Reader dashboard (unit RC4, round 70)
+
+The Reader dashboard is the page `/read`. It replaces the card grid of unit RC1. Design: `docs/VISION-viewer.md` section 15.23. Owner answers: round 68 answers 3, 4, and 5, and round 69 answers 6 to 15.
+
+### Routes
+
+- `/read` shows the folds and the progress of every work.
+- `/read?q=seme` shows the search results. Add `&screen=2` for the next 20 hits.
+- `/read?open=kj-2011-08` shows the dashboard with that month drawn on the server. A browser without script uses it through the link "Show this month".
+- `GET /api/read/month?id=kj-2011-08` gives the rows of one month. A reader that waits for approval gets it too, because the rows hold titles and counts only.
+- `/` is the front door. With the monitor off, `/` goes to `/sign-in` (no session), `/read` (reader), or `/translate` (translator and admin). With the monitor on, `/` shows the Monitor dashboard as before.
+
+### Folds
+
+- The first level has Books (22 works) and Kendo Jidai (320 works). The first level starts open. Deeper folds start closed.
+- Books: works with one English title form a fold. Example: the three `ogawa_lecture_part` folders. Other works are rows.
+- Kendo Jidai has one fold for each year, 2010 to 2025. A year from 2010 to 2018 holds the row of the year volume and month folds with the magazine articles (1,155 rows in all). A year from 2019 to 2025 holds month folds with web articles.
+- A web article goes to the month of its print stamp when it has one (36 articles). Else it goes to its web month. Example: record `63654ba0` (stamp "2011.8 KENDOJIDAI", web date 2025-04-28) sits in Kendo Jidai > 2011 > August 2011.
+- The slug of a web article is the first 8 characters of its `item_id`. Example: `18d4ac29` shows the title "Kendo droplet guard".
+- Hidden works: `men0` and `men1` (their metadata names `men_full` in `part_of`), `mental2_clean` (same title and pages as `mental_full`), and the web captures `matsubara` and `morishima`. `/translate` keeps all of them.
+- A web article counts as 1 page.
+- The month folds send no rows in the page. The rows load when the fold opens. The page had 2.08 MB with all rows. The page has 0.29 MB now.
+- A row shows "English: 6 of 120 pages translated (5.0 percent)" and one link, "Start at Page 46" or "Continue at Page N". A reader that waits for approval sees no link.
+
+### Choices in one place
+
+- `lib/reader-folds.ts` holds `WEB_PLACE` (`kendo-jidai` is reading A, `separate` is reading B with a first-level fold "Web articles"), `STAMPED_PLACE` (`print` or `web`), `HIDE_WEB_CAPTURES`, and `HIDDEN_COPIES`. Round 69 answer 7 is a reading that waits for the owner check.
+- `lib/reader-translated.ts` holds the rule `isTranslatedPage`, the word `TRANSLATED_WORD`, and the progress lines. A page counts as translated when a `reader_pages` record exists. To change the word, change one line.
+- `lib/reader-search.ts` holds the fold rule of the search.
+
+### Search
+
+- The box searches titles, authors, publishers, years, and synopses of the visible works. It also searches the folded page text.
+- The fold rule: lowercase, no accent mark on a Latin letter, no hyphen. Example: "chuzumi" finds "Chūzumi" on `left_foot_full` p048 and p049. Japanese text stays as it is.
+- The columns `reader_pages.search_en` and `reader_pages.search_ja` hold the folded text. The filter `~` reads them. The column `search_en` also holds the romaji of the term marks of the page.
+- A reader that waits for approval gets titles and metadata only. The note says "Page text search opens after approval." PocketBase refuses the page hits (rule READ_OK).
+- The list shows title hits first, then page hits by book and page. One screen holds 20 hits.
+- Speed: on 13,278 synthetic records with real text sizes, the filter answered in 49 to 134 ms. The test used a throwaway PocketBase.
+
+### Data and tolerance
+
+- Migration `1793300010_v2_dashboard_fields.js` adds `catalog_items.translated`, `catalog_items.placement`, `reader_pages.search_ja`, and `reader_pages.search_en`. See `data/scripts/pocketbase/README.md`.
+- Without the migration, the dashboard still answers. An approved reader sees the progress from `reader_pages`. A reader that waits sees no progress line. A search shows "Search needs the next database update (S2)."
+- Order on a server: restart PocketBase, run `node scripts/sync-runs.mjs --superuser EMAIL` (dry run), then add `--apply`. `--apply` stops with a plain message if the migration is missing.
+- Last dry run on the upgrade copy: catalog_items create 310 and update 37, reader_pages update 29. A second run says unchanged (347 and 29).
+- Placement: S2 reads `web-magazine-candidates.jsonl` (36 stamps). A row of `web-magazine-overrides.jsonl` with the action `link` wins only if its month differs from the stamp. The 11 link rows today do not differ.
+
+### Panel at the first visit
+
+- An account without `reader.panelSeen` sees the settings panel once, on its first text screen. A book screen does not open it.
+- A change of a setting, the cog, and "Reset text settings" do not close it. The button "Start reading" and the Esc key close it and save the mark.
+- With focus mode on, the first Esc closes the panel. The second Esc leaves focus mode.
+- On a phone, the sheet is up to 50 percent of the screen high. The button stays at its bottom.
+
+### Tests (unit RC4)
+
+- `node scripts/smoke.mjs folds` runs 41 checks. It needs no server and no PocketBase. It runs the folds, the hidden works, the fold rule, and the progress words on the real metadata files.
+- `node scripts/smoke.mjs tolerance` runs 19 checks on a PocketBase with the migrations up to 1793300009 only.
+- `node scripts/smoke.mjs read` runs 287 checks (46 more than before). `deploy` runs 39 checks (5 new, 2 changed).
+- 13 old checks changed. They tested the 37 cards, the card line "AI translation: 6 of 120 pages", the synopsis note on a card, and the web article card. They also tested `catalog_items` with 37 records, the translator list, and `/` going to `/translate`.
+- The Chrome checks (1440 x 900 and 390 x 844, five themes) are in the work folder of unit RC4 (`browser_rc4.mjs`, 137 checks).
+- `node scripts/contrast-dark.mjs` gives 0 failures. The hit mark uses the pair of the term highlight.
+
+### Word and field rename (unit RC4b, round 71)
+
+- Round 70 answer 3, owner words:
+  > Pages with translation that reader can view
+  > use the CORRECT word. `translated` instead of `finished`
+  > Also reader can open any page, just no translated data. Be concise with your wording.
+- Round 70 answer 9, owner choice: "Same wording on year rows (Recommended)". Every first-level fold, year row, month row, and the total line uses the full form "English: N of M pages translated (P percent)". Example: "English: 20 of 4,821 pages translated (0.4 percent)".
+- The rule does not change. A page counts as translated when a `reader_pages` record exists.
+- The database field is `catalog_items.translated`. The old name was `finished`. The migration `1793300010_v2_dashboard_fields.js` changed in place, because no long-lived database applied it yet.
+- The file is `lib/reader-translated.ts`. The old name was `lib/reader-finished.ts`. The names are `TRANSLATED_WORD`, `isTranslatedPage`, `progressLine`, `foldProgress`, and `percentText`.
+- S2 writes `translated`. S2 does not read or remove a field `finished` on a throwaway database that applied the old migration file.
+- The word "finished" stays in the translator code. There it means a run with a QA_3 verdict (`finishedRunOf` in `lib/htv-build.ts`) or the end time of a run (`page_runs.finished`).
+- The Monitor dashboard text "pages done" does not change.
+- A year row counts a web article as 1 page. Its page count can differ from the page count in its note. Example: "Kendo Jidai 2012 949 pages · 3 web articles English: 2 of 952 pages translated (0.2 percent)".
+- Test counts of this unit: `smoke` 70, `htv` 262 (files) and 262 (PocketBase), `deploy` 39, `read` 292, `folds` 44, `tolerance` 20, hook checks 62, Chrome 138. The test `test_page_images.py` gave 82 PASS. The test `test_local.py` gave 258 PASS.
+
+## Arrow keys and full form on article rows (unit RC5, round 72)
+
+### Arrow keys on the book screen
+
+- Round 71 answer 1, owner words: "Add key-arrow for navigation".
+- In the Page view, the Left arrow key opens the previous page. The Right arrow key opens the next page.
+- This direction is a reading that waits for the owner check. A Japanese book reads right to left on paper, so the owner can ask for the other direction.
+- The two keys sit in one constant, `PAGE_KEYS`, at the top of `components/ReaderBook.tsx`. To flip the direction, swap the two values.
+- A key press opens the same address as the link "Previous" or "Next". The place save runs as for a click.
+- The keys do nothing in these cases:
+  - An Alt, Ctrl, Meta, or Shift key is down.
+  - The key repeats because the reader holds it down. One press moves one page.
+  - The focus is in a text box, a range slider, a list, a menu, a splitter, or editable text. A button does not count.
+  - The settings panel, the first-visit panel, or the term pop-up is open.
+  - The page is the first page (Left key) or the last page (Right key).
+  - The view is the Scroll view. The browser keeps its own arrow key behavior there.
+- Focus mode in the Page view takes the keys too. Focus mode stays on.
+- The links "Previous", "Next", "Previous page", and "Next page" have the title "Previous page (Left arrow key)" and "Next page (Right arrow key)". The title comes from `PAGE_KEYS`.
+- The two arrow buttons of the phone bar have no title. A phone has no arrow keys.
+
+### Full form on article rows and chapter lines
+
+- Round 71 answer 4, owner choice: "Full form".
+- An article row and a chapter line show the same full form as a work row. Example: "English: 5 of 31 pages translated (16.1 percent)".
+- The number of pages is `pageEnd - pageStart + 1`. The code uses `progressLine` from `lib/reader-translated.ts`. The rows are in `components/ReaderRows.tsx`.
+- A row shows the line only when at least one page is translated. A zero is not safe to show here.
+- A reader who waits for approval gets 0 for every row, because the counts are not readable. A database without migration 1793300010 gives the same 0.
+- A work row hides its line in that state (`known`). An article row and a chapter line have no such flag, so a shown "0 of N" can be false.
+- Result today: the 14 rows of August 2011 show no count. October 2014 shows the count on the row "Kendo Lesson Series No. 16!" (pages 785-815, "English: 5 of 31 pages translated (16.1 percent)").
+- Open: to show the line at zero, the page must pass `known` to the rows. That change touches `components/ReaderList.tsx` and `components/ReaderMonth.tsx` too.
+
+### Tests (unit RC5)
+
+- `node scripts/smoke.mjs read` runs 297 checks (5 new). The 5 checks cover the article rows of August 2011 and October 2014, the number M, the chapter lines, and the absence of "N translated" without "English:".
+- The Chrome checks run 159 checks (21 new). They cover the keys, the title hint, the first and last page, the Scroll view, focus mode, and the screens with a panel or pop-up.
+- Other counts stay: `smoke` 70, `htv` 262 (files) and 262 (PocketBase), `deploy` 39, `folds` 44, `tolerance` 20, hook checks 62. The test `test_page_images.py` gave 82 PASS. The test `test_local.py` gave 258 PASS.

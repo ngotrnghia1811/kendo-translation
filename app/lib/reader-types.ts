@@ -98,11 +98,54 @@ export interface ReaderBookFacts {
   synopsis: string;
 }
 
-export interface ReaderBookCard extends ReaderBookFacts {
-  /** Count of pages with reader text. */
-  withText: number;
-  /** Page number of the saved place, or null. */
+// ---------------------------------------------------------------- Reader dashboard (unit RC4, round 70). VISION-viewer 15.23.
+
+/** Placement facts of a web article (catalog_items.placement, written by S2): the web date and the print stamp of the magazine issue. */
+export interface DashPlacement {
+  webYear: number | null;
+  webMonth: number | null;
+  printYear: number | null;
+  printMonth: number | null;
+}
+
+/** One work of the Reader dashboard: a row of catalog_items. */
+export interface DashWork {
+  slug: string;
+  /** book, magazine-year, web-capture, or web-article. A record that S2 wrote before round 70 has an empty kind. The loader names it web-article when the slug has 8 hex digits. */
+  kind: string;
+  titleEn: string;
+  titleJa: string;
+  author: string;
+  publisher: string;
+  year: string;
+  pages: number;
+  synopsis: string;
+  isbn: string;
+  /** Metadata key part_of: the slug of the full book (men0 and men1 name men_full), or a title text. */
+  partOf: string;
+  /** Web date as text, for example 2019-10-21. Empty for a work that is not a web article. */
+  webDate: string;
+  placement: DashPlacement;
+  /** English pages that readers can read, sorted (catalog_items.translated, written by S2). */
+  translated: number[];
+  /** False when the numbers of translated pages are not known for this work (the database has no S2 data yet and the reader cannot read reader_pages). */
+  known: boolean;
+  /** Page number of the saved place of the signed-in account, or null. */
   resumeAt: number | null;
+}
+
+/** One article row of a magazine month (magazine_chapters.articles). */
+export interface DashArticle {
+  order: number;
+  titleEn: string;
+  titleJa: string;
+  pageStart: number;
+  pageEnd: number;
+}
+
+export interface DashChapter extends ReaderChapter {
+  book: string;
+  articles: DashArticle[];
 }
 
 export interface ReaderBookIndex extends ReaderBookFacts {
@@ -138,3 +181,8 @@ export const WAITING = "Your account waits for approval by an admin.";
 export function pageLabel(n: number): string {
   return `Page ${n}`;
 }
+
+/** Dashboard words (unit RC4, round 70). */
+export const DASHBOARD_TITLE = "Reader dashboard";
+export const SEARCH_WAITING = "Page text search opens after approval.";
+export const SEARCH_NEEDS_S2 = "Search needs the next database update (S2).";

@@ -26,6 +26,9 @@ import type { ChapterHead, HtvBookIndex, HtvBookPage, HtvBookRow, HtvPageTag, Se
 export type BookListMode = "with-runs" | "all";
 export const BOOK_LIST_MODE: BookListMode = "all";
 
+/** Kind of a catalog row for a web article (the 311 articles of items.filled.jsonl). */
+const WEB_ARTICLE = "web-article";
+
 /** The page window: a section loads its rows when it is within this many pages of the screen (VISION-viewer 15.16.2). */
 export const WINDOW_PAGES = 2;
 
@@ -49,6 +52,8 @@ export function pageName(n: number, digits: number): string {
 interface BookFacts {
   title: string;
   pages: number;
+  /** Kind of the catalog row (runSource pocketbase only). Empty in files mode. */
+  kind?: string;
 }
 
 async function fromServer(): Promise<boolean> {
@@ -90,7 +95,10 @@ export async function listBookRows(marks: Map<string, string>, token: string): P
     if (l) l.push(tagOf(r));
     else tagged.set(r.slug, [tagOf(r)]);
   }
-  const slugs = BOOK_LIST_MODE === "all" ? new Set([...facts.keys(), ...tagged.keys()]) : new Set(tagged.keys());
+  // Unit RC4 (round 70, round 61 answer 6): S2 now copies all 347 metadata rows into catalog_items. The list keeps the 36 folders and the works with a run (37 rows).
+  // A web article without a run stays out, so the list does not grow to 347 rows.
+  const listed = [...facts].filter(([slug, f]) => f.kind !== WEB_ARTICLE || tagged.has(slug)).map(([slug]) => slug);
+  const slugs = BOOK_LIST_MODE === "all" ? new Set([...listed, ...tagged.keys()]) : new Set(tagged.keys());
   const rows: HtvBookRow[] = [];
   for (const slug of [...slugs].sort()) {
     const tags = tagged.get(slug) ?? [];
@@ -121,7 +129,7 @@ export async function loadBookIndex(slug: string, marks: Map<string, string>, to
   const mine = (await listFinishedPages(marks, token)).filter((r) => r.slug === slug);
   const tags = mine.map(tagOf).sort((a, b) => a.n - b.n);
   const f = (await bookFacts(token, slug)).get(slug);
-  if (tags.length === 0 && !(BOOK_LIST_MODE === "all" && f)) return null;
+  if (tags.length === 0 && !(BOOK_LIST_MODE === "all" && f && f.kind !== WEB_ARTICLE)) return null;
   const pages = pageCount(f?.pages ?? 0, tags);
   const firstTagged = mine[0];
   const digits = firstTagged ? firstTagged.page.length - 1 : idDigits(pages);

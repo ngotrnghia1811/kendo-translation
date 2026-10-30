@@ -21,6 +21,9 @@ import type { Role } from "@/lib/htv-types";
  *   ?at=p048   the reading view: page view (one page, default) or scroll view (all pages in one scroll), with the toolbar and the side index
  * A reader who waits for approval sees the metadata block and the line "Your account waits for approval by an admin." and no page list, no text.
  * Settings (text mode, EN text, view, fonts, size, line height, width, focus, index) are kept in the account (PUT /api/read/settings).
+ * Unit RC4 (round 68 answer 5, round 69 answer 13): an account without reader.panelSeen sees the settings panel once, on the first text screen.
+ * The button "Start reading" or the Esc key closes it and saves the mark. A change of a setting and the cog do not close it. VISION-viewer 15.23.6.
+ * Unit RC5 (round 72): in the page view, an arrow key opens the previous or the next page (constant PAGE_KEYS).
  */
 
 function ToolSeg<T extends string>({ label, value, options, onPick, disabled = false }: { label: string; value: T; options: { value: T; label: string }[]; onPick: (v: T) => void; disabled?: boolean }) {
@@ -37,6 +40,23 @@ function ToolSeg<T extends string>({ label, value, options, onPick, disabled = f
 
 /** Title of the Image button when it is disabled (scroll view). Unit RC3, round 66 answer 5. */
 const IMAGE_PAGE_ONLY = "Page image shows in Page view only";
+
+/**
+ * Arrow keys of the page view (unit RC5, round 72). Round 71 answer 1, owner words: "Add key-arrow for navigation".
+ * The direction is a reading pending owner check: the Left arrow key opens the previous page and the Right arrow key opens the next page.
+ * A Japanese book reads right to left on paper, so the owner may want the other direction. To flip it, swap the two values in this one line.
+ */
+const PAGE_KEYS = { previous: "ArrowLeft", next: "ArrowRight" } as const;
+const KEY_NAME: Record<string, string> = { ArrowLeft: "Left arrow key", ArrowRight: "Right arrow key" };
+/** Title of the Previous and Next links. It names the key, so a reader finds the key without a help page. */
+const PREVIOUS_TITLE = `Previous page (${KEY_NAME[PAGE_KEYS.previous]})`;
+const NEXT_TITLE = `Next page (${KEY_NAME[PAGE_KEYS.next]})`;
+
+/** True when the focus sits in a control that uses the arrow keys itself (text box, range slider, list, menu, tabs, splitter, editable text). A button does not count. */
+function ownsArrowKeys(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.isContentEditable || Boolean(target.closest("input, textarea, select, [role=slider], [role=separator], [role=tablist], [role=listbox], [role=menu]"));
+}
 
 /** One button in the reader bar that turns a setting on or off. It looks like one option of ToolSeg. Unit RC3 (round 66 answer 1 and 5). */
 function ToolToggle({ label, pressed, onToggle, disabled = false, disabledTitle }: { label: string; pressed: boolean; onToggle: () => void; disabled?: boolean; disabledTitle?: string }) {
@@ -89,6 +109,7 @@ export default function ReaderBook({
   const [loaded, setLoaded] = useState<Record<number, ReaderPageData>>({});
   const [picked, setPicked] = useState<PickedTerm | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [panelSeen, setPanelSeen] = useState(Boolean(settings.panelSeen));
   const [sheet, setSheet] = useState(false);
   const [bookmarks, setBookmarks] = useState<BookmarkView[]>(initialBookmarks);
   const [currentN, setCurrentN] = useState<number | null>(at);
@@ -145,13 +166,43 @@ export default function ReaderBook({
     void sendJson("PUT", "/api/theme", { theme: t });
   }
 
-  // Esc leaves focus mode (round 62 answer 8).
+  // First-visit panel (unit RC4): a text screen of an approved account without the mark. The mark is saved with the other settings (400 ms after the last change).
+  const firstVisit = at !== null && user.approved && !panelSeen;
+  const closeFirstVisit = useCallback(() => {
+    setPanelSeen(true);
+    setShowSettings(false);
+    save({ panelSeen: true });
+  }, [save]);
+
+  // Esc closes the first-visit panel first. Else Esc leaves focus mode (round 62 answer 8). With both open, the first Esc closes the panel and the second leaves focus mode.
   useEffect(() => {
-    if (!s.focus) return;
-    const key = (e: KeyboardEvent) => e.key === "Escape" && save({ focus: false });
+    if (!s.focus && !firstVisit) return;
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (firstVisit) closeFirstVisit();
+      else save({ focus: false });
+    };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [s.focus, save]);
+  }, [s.focus, firstVisit, closeFirstVisit, save]);
+
+  // Arrow keys in the page view (unit RC5): the same address as the links Previous and Next, so the same place save runs (the effect below).
+  // The keys do nothing while the settings panel, the first-visit panel, or the term pop-up is open. Scroll view keeps the arrow keys of the browser.
+  useEffect(() => {
+    if (at === null || !user.approved || s.view !== "page") return;
+    if (showSettings || firstVisit || picked) return;
+    const key = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.repeat || e.isComposing || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if (e.key !== PAGE_KEYS.previous && e.key !== PAGE_KEYS.next) return;
+      if (ownsArrowKeys(e.target)) return;
+      const to = e.key === PAGE_KEYS.previous ? at - 1 : at + 1;
+      if (to < 1 || to > index.pages) return;
+      e.preventDefault();
+      router.push(readHref(index.slug, "page", to, index.digits));
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [at, user.approved, s.view, showSettings, firstVisit, picked, index.pages, index.slug, index.digits, router]);
 
   // Page view: save the place at each page.
   useEffect(() => {
@@ -375,11 +426,29 @@ export default function ReaderBook({
   );
   const popup = picked ? <TermPopup picked={picked} entry={entryOf(picked.mark.entryId)} onClose={() => setPicked(null)} hideCheck /> : null;
 
+  const settingsPanel = (
+    <ReaderSettingsPanel
+      s={s}
+      theme={theme}
+      hasHuman={hasHumanHere}
+      onChange={(p) => {
+        const { view, ...rest } = p;
+        if (Object.keys(rest).length) save(rest);
+        if (view) changeView(view);
+      }}
+      onTheme={changeTheme}
+      onClose={firstVisit ? closeFirstVisit : () => setShowSettings(false)}
+      firstVisit={firstVisit}
+      imageNote={index.images}
+    />
+  );
+
   if (s.focus) {
     return (
       <div className="fixed inset-0 z-40 overflow-auto bg-background px-4 py-8" data-focus-mode>
         {content}
         {popup}
+        {firstVisit ? settingsPanel : null}
         <button type="button" onClick={() => save({ focus: false })} data-focus-leave className="fixed bottom-4 right-4 z-50 min-h-[44px] rounded border border-line bg-white px-3 text-sm shadow">
           Leave focus mode (Esc)
         </button>
@@ -447,7 +516,7 @@ export default function ReaderBook({
               {s.view === "page" ? (
                 <>
                   {prev ? (
-                    <Link href={prev} data-page-prev className="rounded border border-line px-2 py-1 text-sm">
+                    <Link href={prev} data-page-prev title={PREVIOUS_TITLE} className="rounded border border-line px-2 py-1 text-sm">
                       ‹ Previous
                     </Link>
                   ) : null}
@@ -455,7 +524,7 @@ export default function ReaderBook({
                     <input value={box} onChange={(e) => setBox(e.target.value)} placeholder={`${at} of ${index.pages}`} aria-label="Page number" inputMode="numeric" data-page-box className="w-24 rounded border border-line bg-white px-1.5 py-1 text-sm placeholder:text-muted" />
                   </form>
                   {next ? (
-                    <Link href={next} data-page-next className="rounded border border-line px-2 py-1 text-sm">
+                    <Link href={next} data-page-next title={NEXT_TITLE} className="rounded border border-line px-2 py-1 text-sm">
                       Next ›
                     </Link>
                   ) : null}
@@ -467,7 +536,7 @@ export default function ReaderBook({
               <button type="button" onClick={() => save({ focus: true })} data-focus-enter className="rounded border border-line px-2 py-1 text-sm">
                 Focus
               </button>
-              <button type="button" onClick={() => setShowSettings((v) => !v)} aria-expanded={showSettings} data-settings-open className="rounded border border-line px-2 py-1 text-sm">
+              <button type="button" onClick={() => setShowSettings((v) => !v)} aria-expanded={showSettings || firstVisit} data-settings-open className="rounded border border-line px-2 py-1 text-sm">
                 Settings
               </button>
             </span>
@@ -476,8 +545,8 @@ export default function ReaderBook({
           {content}
           {s.view === "page" ? (
             <p className="mx-auto mt-8 flex max-w-[72ch] justify-between text-sm">
-              {prev ? <Link href={prev} className="text-accent underline">‹ Previous page</Link> : <span />}
-              {next ? <Link href={next} className="text-accent underline">Next page ›</Link> : <span />}
+              {prev ? <Link href={prev} title={PREVIOUS_TITLE} className="text-accent underline">‹ Previous page</Link> : <span />}
+              {next ? <Link href={next} title={NEXT_TITLE} className="text-accent underline">Next page ›</Link> : <span />}
             </p>
           ) : null}
         </div>
@@ -513,11 +582,7 @@ export default function ReaderBook({
           {sideIndex(true, () => setSheet(false))}
         </div>
       ) : null}
-      {showSettings ? <ReaderSettingsPanel s={s} theme={theme} hasHuman={hasHumanHere} onChange={(p) => {
-          const { view, ...rest } = p;
-          if (Object.keys(rest).length) save(rest);
-          if (view) changeView(view);
-        }} onTheme={changeTheme} onClose={() => setShowSettings(false)} /> : null}
+      {showSettings || firstVisit ? settingsPanel : null}
       {popup}
     </div>
   );

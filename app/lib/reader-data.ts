@@ -2,11 +2,15 @@ import "server-only";
 import { idDigits, pageName } from "./htv-books";
 import {
   catalogFacts,
+  catalogWorks,
+  magazineChapterRows,
   magazineChapters,
   PbError,
   readerPageRecords,
-  readerTextCounts,
+  readerTextNumbers,
   readerTextPages,
+  searchReaderPages,
+  SEARCH_HIT_CAP,
   readerVersionRecords,
   pageCheckDates,
   readingProgress,
@@ -19,7 +23,6 @@ import {
   LABEL_HUMAN,
   pageLabel,
   type BookmarkView,
-  type ReaderBookCard,
   type ReaderBookFacts,
   type ReaderBookIndex,
   type ReaderPageData,
@@ -27,6 +30,9 @@ import {
   type ReaderViewRow,
 } from "./reader-types";
 import type { SessionUser } from "./htv-types";
+import { buildFolds, matchWorks, type Dashboard } from "./reader-folds";
+import { foldQuery, snippetOf, type Snippet } from "./reader-search";
+import type { DashWork } from "./reader-types";
 
 /*
  * Data of the reader pages (unit RC1, round 63). VISION-viewer 15.19.
@@ -60,15 +66,96 @@ async function soft<T>(fallback: T, f: () => Promise<T>): Promise<T> {
   }
 }
 
-/** The cards of the book list: the 37 catalog rows, the count of pages with text, and the saved place of the user. */
-export async function loadBookCards(token: string, user: SessionUser): Promise<ReaderBookCard[]> {
-  const facts = await catalogFacts(token);
-  const counts = await soft(new Map<string, number>(), () => readerTextCounts(token));
+/** Hits on one screen of the search results. */
+export const SEARCH_PER_SCREEN = 20;
+
+/** One line of the search results: a work that matches by title or metadata, or a page that matches by text. */
+export type SearchItem =
+  | { type: "work"; work: DashWork }
+  | { type: "page"; slug: string; title: string; n: number; digits: number; snippet: Snippet | null; fallback: string };
+
+export interface SearchView {
+  /** The query as typed (cut to 80 characters). */
+  query: string;
+  /** False when the database has no search columns yet (migration 1793300010 and S2 missing). Then only titles and metadata are searched. */
+  pageSearch: boolean;
+  /** True for a reader who waits for approval: no page text search (round 68 answer 3, VISION-viewer 15.23.4). */
+  waiting: boolean;
+  titleHits: number;
+  pageHits: number;
+  /** Works that hold at least one page hit. */
+  pageWorks: number;
+  capped: boolean;
+  screen: number;
+  screens: number;
+  items: SearchItem[];
+}
+
+export interface DashboardData {
+  dash: Dashboard;
+  search: SearchView | null;
+}
+
+const plainEn = (r: ReaderPageRecord) => [...r.rows.map((x) => x.ed3), ...r.extras.map((e) => e.en)].filter(Boolean).join(" ");
+const plainJa = (r: ReaderPageRecord) => [...r.rows.map((x) => x.ja), ...r.extras.map((e) => e.ja)].filter(Boolean).join(" ");
+
+/**
+ * The data of the Reader dashboard /read (unit RC4, round 70). One request lists all rows of catalog_items (347 after S2), one lists the 103 month chapters,
+ * and one lists the saved places of the account. The translated pages come from catalog_items.translated, so a reader who waits for approval sees the progress too
+ * (round 69 answer 9). While that field is missing (before S2), an approved reader gets the pages from reader_pages, and a reader who waits gets no progress line.
+ * A search (query q) replaces the folds with a list of hits (VISION-viewer 15.23.4).
+ */
+export async function loadDashboard(token: string, user: SessionUser, rawQuery: string, screenNo: number): Promise<DashboardData> {
+  const works = await catalogWorks(token);
   const progress = await soft(new Map<string, string>(), () => readingProgress(token, user.id));
-  return facts.map((f) => {
-    const at = progress.get(f.slug);
-    return { ...f, withText: counts.get(f.slug) ?? 0, resumeAt: at ? numberOf(at) || null : null };
+  const fallback = works.some((w) => !w.known) && user.approved ? await soft(new Map<string, number[]>(), () => readerTextNumbers(token)) : null;
+  for (const w of works) {
+    const at = progress.get(w.slug);
+    w.resumeAt = at ? numberOf(at) || null : null;
+    if (!w.known && fallback) {
+      w.translated = fallback.get(w.slug) ?? [];
+      w.known = true;
+    }
+  }
+  const dash = buildFolds(works, await magazineChapterRows(token));
+  const folded = foldQuery(rawQuery);
+  if (!folded) return { dash, search: null };
+
+  const visibleSlugs = new Map(dash.visible.map((w) => [w.slug, w]));
+  const titles = matchWorks(dash.visible, folded);
+  let pages: Awaited<ReturnType<typeof searchReaderPages>> = { hits: [], capped: false };
+  if (user.approved) pages = await searchReaderPages(token, folded);
+  const hits = (pages?.hits ?? []).filter((h) => visibleSlugs.has(h.itemId));
+  const all: ({ w: DashWork } | { hit: (typeof hits)[number] })[] = [...titles.map((w) => ({ w })), ...hits.map((hit) => ({ hit }))];
+  const screens = Math.max(1, Math.ceil(all.length / SEARCH_PER_SCREEN));
+  const screen = Math.min(Math.max(1, screenNo), screens);
+  const slice = all.slice((screen - 1) * SEARCH_PER_SCREEN, screen * SEARCH_PER_SCREEN);
+  const ids = slice.flatMap((x) => ("hit" in x ? [x.hit.pageId] : []));
+  const recs = new Map((await soft<ReaderPageRecord[]>([], () => readerPageRecords(token, ids))).map((r) => [r.pageId, r]));
+  const items: SearchItem[] = slice.map((x) => {
+    if ("w" in x) return { type: "work", work: x.w };
+    const w = visibleSlugs.get(x.hit.itemId)!;
+    const rec = recs.get(x.hit.pageId);
+    const en = rec ? plainEn(rec) : "";
+    const snippet = rec ? snippetOf(en, folded) ?? snippetOf(plainJa(rec), folded) : null;
+    const digits = x.hit.pageId.length - x.hit.pageId.lastIndexOf("/p") - 2;
+    return { type: "page", slug: w.slug, title: w.titleEn || w.titleJa || w.slug, n: x.hit.n, digits, snippet, fallback: snippet ? "" : en.replace(/\s+/g, " ").slice(0, 140) };
   });
+  return {
+    dash,
+    search: {
+      query: rawQuery.trim().slice(0, 80),
+      pageSearch: pages !== null,
+      waiting: !user.approved,
+      titleHits: titles.length,
+      pageHits: hits.length,
+      pageWorks: new Set(hits.map((h) => h.itemId)).size,
+      capped: Boolean(pages?.capped) || hits.length >= SEARCH_HIT_CAP,
+      screen,
+      screens,
+      items,
+    },
+  };
 }
 
 function factsOf(slug: string, f: ReaderBookFacts | undefined): ReaderBookFacts {

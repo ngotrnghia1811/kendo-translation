@@ -171,7 +171,7 @@ Reader pages. Owner answers 3, 4, 5, 6, and 7 of round 63. Every file creates on
 - Down of 1793300009: `page_runs` goes back to every signed-in user (the state of 1793300003). The theme values stay.
 - A server that started before these files existed must restart once. Start it in a normal terminal or with Python `subprocess.Popen(..., start_new_session=True)`.
 - `pb_users.py` makes a reader with `approved` true since unit RC3 (round 66 answer 7). A translator and an admin read anyway (READ_OK). A reader who signs up on the web page waits for an admin on `/admin/readers`.
-- The test `test_local.py` now checks ten migrations. Check 13b removes 10 history rows. Check 15a runs `migrate down 10`. The new checks 19 to 22 cover the sign-up rule, the approval, the closed `page_runs`, and the reader collections. Checks 10d2 and 10d3 changed: a reader no longer reads `page_runs`.
+- The test `test_local.py` checked ten migrations in unit RC1. Unit RC4 added an eleventh: check 13b removes 11 history rows and check 15a runs `migrate down 11`. The checks 19 to 22 cover the sign-up rule, the approval, the closed `page_runs`, and the reader collections. Checks 10d2 and 10d3 changed: a reader no longer reads `page_runs`.
 - The last run of unit RC1 gave `Total: 219 PASS, 0 FAIL` (shape fresh). The live shape was not run.
 
 ## Hook for page images (unit RC2, round 65)
@@ -220,3 +220,27 @@ The file `pb_hooks/page_images.pb.js` serves the page images of the reader pages
 - `add` for a translator or an admin leaves `approved` false. A translator and an admin read anyway.
 - The script still never prints a password or a token. `test_local.py` checks the new behavior (checks 16f to 16r and 19p).
 - The last run of unit RC3 gave `Total: 232 PASS, 0 FAIL` for `test_local.py` (shape `fresh`).
+
+## Unit RC4 notes (round 70): migration 1793300010
+
+The Reader dashboard needs four new fields. Design: `docs/VISION-viewer.md` section 15.23. Owner answers: round 69 answers 7, 9, and 10.
+
+- `1793300010_v2_dashboard_fields.js` adds four fields. `catalog_items.translated` and `catalog_items.placement` are JSON (up to 1 MB). `reader_pages.search_ja` and `reader_pages.search_en` are text (up to 100,000 characters).
+- `translated` holds the English pages that readers can read, for example `{"en": [46, 47, 48, 49, 50, 75]}`. Every signed-in user can read it, so a reader that waits for approval sees the progress.
+- `placement` holds the web date and the print stamp of a web article (year and month each). Example: `{"web_year": 2025, "web_month": 4, "print_year": 2011, "print_month": 8}`. It is null for a book.
+- `search_ja` and `search_en` hold folded text (lowercase, no macron, no hyphen). The search uses the filter `~` on them. The text field default limit is 5,000 characters, so the file sets the limit.
+- No rule changes. The list and view rules of `catalog_items` and `reader_pages` stay as they were. A reader that waits for approval gets no page hit, because READ_OK closes `reader_pages`.
+- The file adds a field only if it is missing. A second run prints "v2 migration: field catalog_items.translated exists, left as it is" for each field.
+- Down (soft): the four fields stay. S2 derives their values again, and a rollback must not drop data.
+- Restart PocketBase once so that the file runs. Then run S2 from the app folder: `node scripts/sync-runs.mjs --superuser EMAIL`, then the same command with `--apply`. See the section Reader dashboard in `app/README.md`.
+- S2 `--apply` stops with the line "Restart PocketBase so that migration 1793300010 runs." if a field is missing. A dry run goes on with a warning.
+- Speed of the filter `~`: the test used 13,278 synthetic `reader_pages` records on a throwaway server. Each had 2,380 characters in `search_en` and 774 in `search_ja`. Each query took 49 to 134 ms with the rule READ_OK. The database file had 62.9 MB.
+- `test_local.py` has 25 new checks. They are 23a to 23o (fields, types, limits, rules, filter, clean up), 13b (four "exists" lines on the second run), and 15o (the down line). The last run gave `Total: 257 PASS, 0 FAIL` (shape `fresh`). The test `test_page_images.py` gave `Total: 82 PASS, 0 FAIL`.
+
+### Word and field rename (unit RC4b, round 71)
+
+- Round 70 answer 3, owner words: "`translated` instead of `finished`". Round 70 answer 9, owner choice: "Same wording on year rows (Recommended)".
+- The field `catalog_items.translated` replaces `catalog_items.finished`. The file `1793300010_v2_dashboard_fields.js` changed in place, because no long-lived database applied it yet. The other three fields stay.
+- A throwaway database that applied the old file keeps its field `finished`. It does not run the file again. Make a new database for it.
+- The down line now names `catalog_items.translated`. The second run prints "v2 migration: field catalog_items.translated exists, left as it is".
+- `test_local.py` has one new check, 23p (the old field name is gone). The last run gave `Total: 258 PASS, 0 FAIL` (shape `fresh`). The test `test_page_images.py` gave `Total: 82 PASS, 0 FAIL`.

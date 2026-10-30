@@ -153,6 +153,8 @@ export interface PaneSettings {
  *   focus   true = focus mode (text only)
  *   image   true = show the original page image next to the text (page view only; default true since unit RC3, round 66)
  *   index   false = the book index is closed
+ *   panelSeen  true = the first-visit panel was closed once (unit RC4, round 69 answer 13: "Every account sees it once"). It is not in READER_DEFAULTS,
+ *              so the button "Reset text settings" keeps it (VISION-viewer 15.23.6).
  */
 export type ReaderText = "en" | "ja" | "pair";
 export type ReaderEn = "agent" | "human";
@@ -169,9 +171,10 @@ export interface ReaderSettings {
   focus?: boolean;
   image?: boolean;
   index?: boolean;
+  panelSeen?: boolean;
 }
 
-export const READER_DEFAULTS: Required<ReaderSettings> = {
+export const READER_DEFAULTS: Required<Omit<ReaderSettings, "panelSeen">> = {
   text: "en",
   en: "agent",
   view: "page",
@@ -202,6 +205,7 @@ export function sanitizeReader(v: unknown): ReaderSettings | undefined {
   if (typeof r.focus === "boolean") out.focus = r.focus;
   if (typeof r.image === "boolean") out.image = r.image;
   if (typeof r.index === "boolean") out.index = r.index;
+  if (typeof r.panelSeen === "boolean") out.panelSeen = r.panelSeen;
   return Object.keys(out).length ? out : undefined;
 }
 

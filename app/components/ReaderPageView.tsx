@@ -13,7 +13,7 @@ import type { TermMark } from "@/lib/htv-types";
  * The research layer never reaches this component: the data has no verdict, no score, no QA, no TL_3 panel, and no reasoning.
  */
 
-export type EffectiveSettings = Required<ReaderSettings>;
+export type EffectiveSettings = Required<Omit<ReaderSettings, "panelSeen">> & { panelSeen?: boolean };
 
 /** A reader mark has no EN form check. The term pop-up reads the fields result and detail, so they are null here. */
 function asTermMarks(marks: ReaderMark[]): TermMark[] {

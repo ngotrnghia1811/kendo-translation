@@ -10,6 +10,7 @@ import { parseTl3Message } from "./htv-panel";
 import type { PanelData } from "./htv-panel";
 import type { HtvRow, HtvRun, TermEntry, TermLang, TermMark } from "./htv-types";
 import type { ReaderExtra, ReaderMark, ReaderRow } from "./reader-types";
+import { searchColumns } from "./reader-search";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type J = any;
@@ -231,17 +232,35 @@ export function readerExtras(ts3: J, ed3: J): ReaderExtra[] {
   return out;
 }
 
+/**
+ * The two search columns of a page (unit RC4, round 69 answer 10: "Folded text columns in PocketBase").
+ * search_ja holds the Japanese text of the rows and the captions. search_en holds the agent English text, the English captions,
+ * and the romaji of the term marks of the page (so that "seme" finds a page whose Japanese text has the mark 攻め). Both are folded (reader-search.ts).
+ */
+export function readerSearchColumns(rows: ReaderRow[], terms: Record<string, TermEntry>, extras: ReaderExtra[]) {
+  const romaji = new Set<string>();
+  for (const r of rows) for (const m of [...r.jaMarks, ...r.edMarks]) if (terms[m.entryId]?.romaji) romaji.add(terms[m.entryId].romaji);
+  return searchColumns({
+    ja: [...rows.map((r) => r.ja), ...extras.map((e) => e.ja)],
+    en: [...rows.map((r) => r.ed3), ...extras.map((e) => e.en), ...romaji],
+  });
+}
+
 /** The body of one reader_pages record (field names as in the collection). `agree` is the list of group keys with the translator tick. */
 export function makeReaderPage(pageId: string, itemId: string, runId: string, built: BuiltRun, extras: ReaderExtra[], agree: string[]) {
   const n = parseInt(pageId.slice(pageId.lastIndexOf("/p") + 2), 10);
+  const rows = readerRows(built.rows);
+  const { search_ja, search_en } = readerSearchColumns(rows, built.terms, extras);
   return {
     page_id: pageId,
     item_id: itemId,
     n: Number.isFinite(n) ? n : 0,
     run_id: runId,
-    rows: readerRows(built.rows),
+    rows,
     terms: built.terms,
     extras,
     agree: [...agree].sort(),
+    search_ja,
+    search_en,
   };
 }

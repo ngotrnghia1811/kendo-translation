@@ -908,6 +908,60 @@ def check_reader_pages(ctx):
     ctx.check("22a the reader test records are removed again", all(http("GET", "/api/collections/" + c + "/records?perPage=1", token=su)[1].get("totalItems") == 0 for c in ("reader_pages", "reader_versions", "page_checks", "reader_bookmarks", "reader_progress")), "")
 
 
+def check_dashboard_fields(ctx):
+    """Migration 1793300010 (unit RC4, round 70): translated and placement in catalog_items, search_ja and search_en in reader_pages."""
+    su = ctx.su_token
+    t = ctx.token
+
+    def field(collection, name):
+        return next((f for f in (get_collection(ctx, collection) or {}).get("fields", []) if f.get("name") == name), None)
+
+    for coll, name, kind in (("catalog_items", "translated", "json"), ("catalog_items", "placement", "json"), ("reader_pages", "search_ja", "text"), ("reader_pages", "search_en", "text")):
+        f = field(coll, name)
+        ctx.check("23a " + coll + "." + name + " exists with the type " + kind, bool(f) and f.get("type") == kind, "field " + str(f))
+    ctx.check("23b the search columns have an explicit max of 100000 characters (the text field default is 5000)",
+              all((field("reader_pages", n) or {}).get("max") == 100000 for n in ("search_ja", "search_en")), "max differs")
+    ctx.check("23c the rules of catalog_items and reader_pages did not change (list and view as before)",
+              all((get_collection(ctx, n) or {}).get(k) == EXPECTED_RULES[n][k] for n in ("catalog_items", "reader_pages") for k in ("listRule", "viewRule", "createRule", "updateRule", "deleteRule")), "rules differ")
+    item = {"item_id": "rc4x", "kind": "web-article", "translated": {"en": [46, 47, 48]}, "placement": {"web_year": 2025, "web_month": 4, "print_year": 2011, "print_month": 8}}
+    status, rec = http("POST", "/api/collections/catalog_items/records", item, su)
+    ctx.check("23d the superuser writes translated and placement into catalog_items", is_ok(status) and rec.get("translated") == item["translated"] and rec.get("placement") == item["placement"], "status " + str(status) + " " + str(rec)[:200])
+    ctx.check("23p the old name is gone: catalog_items has no field finished (unit RC4b renamed it to translated before any database applied it)", field("catalog_items", "finished") is None and "finished" not in rec, "field " + str(field("catalog_items", "finished")))
+    cat = "/api/collections/catalog_items/records?filter=" + urllib.parse.quote('item_id="rc4x"')
+    for who in ("rd1", "tr1", "su1"):
+        status, data = http("GET", cat, token=t[who])
+        ctx.check("23e " + who + " (" + ("a reader who waits for approval" if who == "su1" else "signed in") + ") reads translated and placement of catalog_items",
+                  is_ok(status) and data.get("items") and data["items"][0].get("translated") == item["translated"] and data["items"][0].get("placement") == item["placement"], "status " + str(status))
+    for who in ("rd1", "su1", "tr1"):
+        status, _ = http("POST", "/api/collections/catalog_items/records", {"item_id": "rc4y"}, t[who])
+        ctx.check("23f " + who + " cannot write catalog_items", is_denied(status), "status " + str(status))
+    page = {"page_id": "rc4x/p001", "item_id": "rc4x", "n": 1, "run_id": "r1", "rows": [], "terms": {}, "extras": [], "agree": [],
+            "search_ja": "わたしは剣先を相手の中墨から外さず" , "search_en": "i keep applying seme without letting my kensen leave the aite's chuzumi"}
+    status, rec = http("POST", "/api/collections/reader_pages/records", page, su)
+    ctx.check("23g the superuser writes search_ja and search_en into reader_pages", is_ok(status) and rec.get("search_en") == page["search_en"], "status " + str(status) + " " + str(rec)[:200])
+    flt = "/api/collections/reader_pages/records?filter=" + urllib.parse.quote('search_en ~ "chuzumi" || search_ja ~ "chuzumi"')
+    for who in ("rd1", "tr1"):
+        status, data = http("GET", flt, token=t[who])
+        ctx.check("23h " + who + " finds the page with the filter ~ on search_en", is_ok(status) and data.get("totalItems") == 1, "status " + str(status))
+    status, data = http("GET", "/api/collections/reader_pages/records?filter=" + urllib.parse.quote('search_ja ~ "中墨"'), token=t["rd1"])
+    ctx.check("23i the filter ~ finds a Japanese word in search_ja", is_ok(status) and data.get("totalItems") == 1, "status " + str(status))
+    status, data = http("GET", flt, token=t["su1"])
+    ctx.check("23j a reader who waits for approval gets no page hit from the filter (rule READ_OK)", is_denied(status) or data.get("totalItems", 1) == 0, "status " + str(status))
+    status, _ = http("POST", "/api/collections/reader_pages/records", dict(page, page_id="rc4x/p002", search_en="x" * 60000), su)
+    ctx.check("23k a search column takes 60000 characters (above the 5000 default)", is_ok(status), "status " + str(status))
+    status, _ = http("POST", "/api/collections/reader_pages/records", dict(page, page_id="rc4x/p003", search_en="x" * 100001), su)
+    ctx.check("23l a search column of 100001 characters fails (above the limit)", is_denied(status), "status " + str(status))
+    status, _ = http("POST", "/api/collections/reader_pages/records", dict(page, page_id="rc4x/p004", search_ja="x" * 100001), su)
+    ctx.check("23m search_ja of 100001 characters fails as well", is_denied(status), "status " + str(status))
+    status, _ = http("POST", "/api/collections/catalog_items/records", {"item_id": "rc4z", "translated": {"en": list(range(1, 200000))}}, su)
+    ctx.check("23n translated above 1 MB of JSON fails (explicit limit)", is_denied(status), "status " + str(status))
+    for coll, flt2 in (("reader_pages", 'item_id="rc4x"'), ("catalog_items", 'item_id="rc4x"')):
+        status, data = http("GET", "/api/collections/" + coll + "/records?perPage=50&filter=" + urllib.parse.quote(flt2), token=su)
+        for item_ in data.get("items", []):
+            http("DELETE", "/api/collections/" + coll + "/records/" + item_["id"], token=su)
+    ctx.check("23o the RC4 test records are removed again", all(http("GET", "/api/collections/" + c + "/records?perPage=1", token=su)[1].get("totalItems") == 0 for c in ("reader_pages", "catalog_items")), "")
+
+
 def count_records(ctx):
     counts = {}
     for name in ("own_translations", "comments", "run_marks", "page_runs", "user_settings"):
@@ -981,7 +1035,7 @@ def check_restart(ctx, server, shape_dir, counts):
     ctx.check("13a records survive the restart", count_records(ctx) == counts, "counts differ")
     server.stop()
     removed = forget_v2_history(shape_dir)
-    ctx.check("13b v2 history rows removed for the test (10 expected)", removed == 10, "removed " + str(removed))
+    ctx.check("13b v2 history rows removed for the test (11 expected, unit RC4 added migration 1793300010)", removed == 11, "removed " + str(removed))
     try:
         server.start()
         ok, reason = True, ""
@@ -1004,14 +1058,17 @@ def check_restart(ctx, server, shape_dir, counts):
     status, data = http("GET", "/api/collections/users/records?filter=" + urllib.parse.quote('email="' + addr("su1") + '"'), token=ctx.su_token)
     ctx.check("13b a sign-up that waits stays not approved after the second run (the migration does not approve new accounts)",
               is_ok(status) and data.get("items") and data["items"][0].get("approved") is False, "status " + str(status))
+    dash_lines = len(re.findall(r"v2 migration: field (?:catalog_items\.translated|catalog_items\.placement|reader_pages\.search_ja|reader_pages\.search_en) exists, left as it is", log))
+    ctx.check("13b the second run reports that the 4 fields of migration 1793300010 exist (translated, placement, search_ja, search_en) and leaves them", dash_lines == 4, "lines " + str(dash_lines))
     agree_lines = len(re.findall(r"v2 migration: field agree exists, left as it is", log))
     ctx.check("13b the second run reports that the field agree exists (migration 1793300004)", agree_lines == 1, "lines " + str(agree_lines))
 
 
 def check_down_up(ctx, server, shape_dir):
     server.stop()
-    code, output = run_cli(server, ["migrate", "down", "10"])
-    ctx.check("15a migrate down 10 exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
+    code, output = run_cli(server, ["migrate", "down", "11"])
+    ctx.check("15a migrate down 11 exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
+    ctx.check("15o down of migration 1793300010 prints that the 4 fields stay (soft down)", "the fields catalog_items.translated, catalog_items.placement, reader_pages.search_ja, and reader_pages.search_en stay" in output, output.strip()[-300:])
     ctx.check("15g down turns the batch API off", batch_enabled_db(shape_dir) is False, "batch " + repr(batch_enabled_db(shape_dir)))
     ctx.check("15b down sets users authRule to empty", users_auth_rule(shape_dir) == "", "authRule " + repr(users_auth_rule(shape_dir)))
     names = {row["name"] for row in read_collections_db(shape_dir)}
@@ -1071,6 +1128,7 @@ def run_shape(shape, v1_dir, res):
         check_agree(ctx)
         check_user_settings(ctx)
         check_reader_pages(ctx)
+        check_dashboard_fields(ctx)
         counts = count_records(ctx)
         check_restart(ctx, server, shape_dir, counts)
         check_down_up(ctx, server, shape_dir)

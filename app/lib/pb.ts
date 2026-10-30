@@ -1,7 +1,7 @@
 import "server-only";
 import { loadConfig } from "./config";
 import type { ChapterHead, CommentView, HtvRun, Role, SavedRow, SessionUser, TermEntry, VersionInfo } from "./htv-types";
-import type { BookmarkView, ReaderBookFacts, ReaderExtra, ReaderMark, ReaderPageRecord } from "./reader-types";
+import type { BookmarkView, DashArticle, DashChapter, DashWork, ReaderBookFacts, ReaderExtra, ReaderMark, ReaderPageRecord } from "./reader-types";
 import type { PaneSettings, ThemeName } from "./htv-settings";
 import { isTheme } from "./htv-settings";
 
@@ -379,12 +379,13 @@ export async function catalogTitles(token: string, slug?: string): Promise<Map<s
 /**
  * Title and page count of the items in catalog_items (unit UXC, round 59). With a slug the map holds that item only.
  * The field pages is 0 for a web article (S2 looks up the short ID, the metadata row has the long ID).
+ * Unit RC4 (round 70): the kind comes with it, so that the translator list can leave out web articles that have no run (round 61 answer 6).
  */
-export async function catalogInfo(token: string, slug?: string): Promise<Map<string, { title: string; pages: number }>> {
-  const params: Record<string, string> = { fields: "item_id,title_en,title_ja,pages" };
+export async function catalogInfo(token: string, slug?: string): Promise<Map<string, { title: string; pages: number; kind: string }>> {
+  const params: Record<string, string> = { fields: "item_id,kind,title_en,title_ja,pages" };
   if (slug) params.filter = `item_id=${q(slug)}`;
   const recs = await listAll(token, "catalog_items", params);
-  return new Map(recs.map((r) => [String(r.item_id), { title: String(r.title_en || r.title_ja || ""), pages: typeof r.pages === "number" ? r.pages : 0 }]));
+  return new Map(recs.map((r) => [String(r.item_id), { title: String(r.title_en || r.title_ja || ""), pages: typeof r.pages === "number" ? r.pages : 0, kind: String(r.kind ?? "") }]));
 }
 
 /** The month chapters of one magazine year from magazine_chapters (filled by the sync command S2). Front chapter first, then by month. */
@@ -478,14 +479,6 @@ export async function readerTextPages(token: string, slug: string): Promise<numb
   return recs.map((r) => Number(r.n)).filter((n) => Number.isFinite(n) && n > 0);
 }
 
-/** Count of pages with reader text for each book. */
-export async function readerTextCounts(token: string): Promise<Map<string, number>> {
-  const recs = await listAll(token, "reader_pages", { fields: "item_id" });
-  const out = new Map<string, number>();
-  for (const r of recs) out.set(String(r.item_id), (out.get(String(r.item_id)) ?? 0) + 1);
-  return out;
-}
-
 /** The human version that an admin chose for some pages: page ID to version. */
 export async function readerVersionRecords(token: string, pageIds: string[]): Promise<Map<string, ReaderHumanVersion>> {
   const out = new Map<string, ReaderHumanVersion>();
@@ -525,6 +518,120 @@ export async function catalogFacts(token: string, slug?: string): Promise<Reader
     pages: typeof r.pages === "number" ? r.pages : 0,
     synopsis: text(r.row?.synopsis),
   }));
+}
+
+// ---- Reader dashboard (unit RC4, round 70). VISION-viewer 15.23.
+
+const num0 = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null);
+
+/** Web date "2019-10-21" of a metadata row, or an empty text. */
+function webDateOf(row: J): string {
+  const t = typeof row?.publish_date_text === "string" ? row.publish_date_text : "";
+  return /^\d{4}-\d{2}-\d{2}/.test(t) ? t.slice(0, 10) : "";
+}
+
+/**
+ * All rows of catalog_items as works of the Reader dashboard (347 rows after S2, round 69 answer 7).
+ * The columns translated and placement come with migration 1793300010 and S2. Before that, the fields are missing:
+ * `translated` is then an empty list with known false, and the placement of a web article comes from the web date of the row.
+ * The research fields of the row are stripped by S2 already (round 64 answer 7).
+ */
+export async function catalogWorks(token: string): Promise<DashWork[]> {
+  const recs = await listAll(token, "catalog_items", { fields: "item_id,kind,title_en,title_ja,author_en,author_ja,publisher,publish_year,pages,row,translated,placement", sort: "item_id" });
+  const text = (v: unknown) => (typeof v === "string" ? v : v === null || v === undefined ? "" : String(v));
+  return recs.map((r) => {
+    const slug = String(r.item_id);
+    const kind = text(r.kind) || (/^[0-9a-f]{8}$/.test(slug) ? "web-article" : "");
+    const tr = r.translated && typeof r.translated === "object" && Array.isArray(r.translated.en) ? (r.translated.en as unknown[]).map(Number).filter((n) => Number.isFinite(n) && n > 0).sort((a, b) => a - b) : null;
+    const webDate = kind === "web-article" ? webDateOf(r.row) : "";
+    const pl = r.placement && typeof r.placement === "object" ? r.placement : {};
+    return {
+      slug,
+      kind,
+      titleEn: text(r.title_en),
+      titleJa: text(r.title_ja),
+      author: text(r.author_en) || text(r.author_ja),
+      publisher: text(r.publisher),
+      year: text(r.publish_year),
+      pages: typeof r.pages === "number" ? r.pages : 0,
+      synopsis: text(r.row?.synopsis),
+      isbn: text(r.row?.isbn),
+      partOf: text(r.row?.part_of),
+      webDate,
+      placement: {
+        webYear: num0(pl.web_year) ?? (webDate ? Number(webDate.slice(0, 4)) : null),
+        webMonth: num0(pl.web_month) ?? (webDate ? Number(webDate.slice(5, 7)) : null),
+        printYear: num0(pl.print_year),
+        printMonth: num0(pl.print_month),
+      },
+      translated: tr ?? [],
+      known: tr !== null,
+      resumeAt: null,
+    };
+  });
+}
+
+/** Page numbers with reader text for each book, read from reader_pages. Used while catalog_items.translated is missing (before S2). */
+export async function readerTextNumbers(token: string): Promise<Map<string, number[]>> {
+  const recs = await listAll(token, "reader_pages", { fields: "item_id,n", sort: "item_id,n" });
+  const out = new Map<string, number[]>();
+  for (const r of recs) {
+    const k = String(r.item_id);
+    const n = Number(r.n);
+    if (!Number.isFinite(n) || n < 1) continue;
+    if (!out.has(k)) out.set(k, []);
+    out.get(k)!.push(n);
+  }
+  return out;
+}
+
+/**
+ * All month chapters with their articles (103 chapters, 1,155 articles). The reader dashboard shows them as month folds and article rows.
+ * The draft English titles of the table of contents mark italic words with asterisks (for example "*kendō* Autobiography 70"). The rows show the title without them.
+ */
+export async function magazineChapterRows(token: string): Promise<DashChapter[]> {
+  const recs = await listAll(token, "magazine_chapters", { sort: "book,month,page_start", fields: "chapter,book,year,month,chapter_title_en,page_start,page_end,articles" });
+  return recs.map((r) => ({
+    chapter: String(r.chapter),
+    book: String(r.book ?? ""),
+    month: typeof r.month === "number" && r.month > 0 ? r.month : null,
+    year: typeof r.year === "number" && r.year > 0 ? r.year : null,
+    titleEn: String(r.chapter_title_en ?? ""),
+    pageStart: Number(r.page_start ?? 0),
+    pageEnd: Number(r.page_end ?? 0),
+    articles: ((Array.isArray(r.articles) ? r.articles : []) as J[]).map(
+      (a): DashArticle => ({ order: Number(a.order ?? 0), titleEn: String(a.title_en ?? "").replace(/\*/g, ""), titleJa: String(a.title_ja ?? ""), pageStart: Number(a.page_start ?? 0), pageEnd: Number(a.page_end ?? a.page_start ?? 0) }),
+    ),
+  }));
+}
+
+export interface PageHit {
+  pageId: string;
+  itemId: string;
+  n: number;
+}
+
+/** The most page hits that one search reads. A search with more hits says so. */
+export const SEARCH_HIT_CAP = 2000;
+
+/**
+ * Pages whose folded text holds the folded query (round 69 answer 10: the filter ~ on the columns search_en and search_ja).
+ * Returns null when the columns do not exist (migration 1793300010 is not applied). A reader who waits for approval gets no hit (rule READ_OK).
+ */
+export async function searchReaderPages(token: string, folded: string): Promise<{ hits: PageHit[]; capped: boolean } | null> {
+  const hits: PageHit[] = [];
+  const filter = `search_en ~ ${q(folded)} || search_ja ~ ${q(folded)}`;
+  for (let page = 1; page <= SEARCH_HIT_CAP / 500; page++) {
+    const qs = new URLSearchParams({ perPage: "500", page: String(page), skipTotal: "1", fields: "page_id,item_id,n", sort: "item_id,n", filter });
+    const r = await pbFetch("GET", `/api/collections/reader_pages/records?${qs.toString()}`, { token });
+    if (r.status === 400) return null;
+    if (r.status === 403 || r.status === 404) return { hits: [], capped: false };
+    if (!ok(r)) throw failure(r, "PocketBase could not search reader_pages.");
+    const items = (r.data.items ?? []) as J[];
+    hits.push(...items.map((x) => ({ pageId: String(x.page_id), itemId: String(x.item_id ?? ""), n: Number(x.n ?? 0) })));
+    if (items.length < 500) return { hits, capped: false };
+  }
+  return { hits, capped: true };
 }
 
 // ---- reading progress and bookmarks (own records only)
