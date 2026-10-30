@@ -2798,8 +2798,8 @@ Proposal: a new key `reader` next to `panes` and `ui`:
 - The theme stays in `user_settings.theme` and the cookie `theme`. The reader pages use the same switch as the other views `[file: app/lib/theme.ts]`. Two themes exist now: light and high-contrast dark. The number of themes is question 11.
 - The limits of size and line come from `SIZE_LIMITS` and `LINE_LIMITS` `[file: app/lib/htv-settings.ts:69-70]`. The fonts come from `FONT_STACKS` `[file: app/lib/htv-settings.ts:37-43]`.
 - Per account, all devices `[file: .opencode/reminders/qa/qa-memory-2026-10-07.md:67]`. A phone and a desktop use the same record. Size and width on a phone can differ from the desktop because of the screen. A separate set for the phone is not planned `[agent inference]`.
-- The settings panel opens from one cog in the reader bar. It holds: Text (EN, JA, Pairing), EN text (Agent, Human), Theme, Font, Size, Line height, Width, Focus mode, Page image, and Reset.
-- The first visit: "Reader picks first" `[file: docs/VISION-viewer.md:190]`. The first page view opens the settings panel once. The panel closes at the first change or at the button "Start reading". The panel shows the defaults.
+- The settings panel opens from one cog in the reader bar. It holds: Text (EN, JA, Pairing), EN text (Agent, Human), View, Theme, Font, Size, Line height, Width, Focus mode, and Reset. The button Image sits in the reader bar since unit RC3 (section 15.22.1).
+- The first visit: "Reader picks first" `[file: docs/VISION-viewer.md:190]`. The first page view opens the settings panel once. Round 68 answer 5: the panel closes only at the button "Start reading" or the Esc key, not at the first change. The panel shows the defaults. See section 15.23.6.
 - The size of the `reader` key is small (under 400 bytes) `[agent inference]`. The limit of 20,000 bytes stays.
 
 #### 15.19.7 Phone one-column layout
@@ -3078,11 +3078,11 @@ Each question gives the case, the options with benefit and cost, and the recomme
 
 Open items:
 
-- Where the hosted front door `/` points. The monitor owns `/` today. The decision belongs to unit DB1.
+- Where the hosted front door `/` points. Decided in round 68 answer 4: `/` opens the reader dashboard. The monitor keeps `/` on the Mac when the monitor is on. See section 15.23.7.
 - `catalog_items.row` holds research fields that every signed-in user can read. Strip them or keep them.
 - `users` list and view rules show user records to every signed-in person. With public sign-up, a rule such as `id = @request.auth.id || @request.auth.approved = true` can limit it. The comment view reads the user name through `expand` `[file: app/lib/pb.ts:255,271]`, so a change needs a test.
 - The title of the web article `18d4ac29`.
-- Search, the dashboard folds, the change log, and keyboard keys are not in answers 8 or 9. The first reader version leaves them out `[agent inference]`.
+- Search and the dashboard folds are in scope since round 68 answer 3 (section 15.23). The change log and keyboard keys are not in answers 8 or 9. The first reader version leaves them out `[agent inference]`.
 - Print and export, Version history view, Vertical JA view, and Linked page image `[file: docs/VISION-viewer.md:162-175]` are not in answer 8. They stay out of the first version `[agent inference]`.
 - The rule for a PDF size limit of 1 GB belongs to unit PC1.
 
@@ -3316,3 +3316,452 @@ Status: built in unit RC2, owner check pending.
 - Item 3: the account `reader@kendo-translation.local` saved Off earlier. Option A (recommended): the owner presses the button once. Option B: an admin removes `reader.image` from the saved settings of that account.
 
 Status: built in unit RC3, owner check pending.
+
+### 15.23 Reader dashboard, first-visit panel, and the front door (design, round 68)
+
+- Source: owner answers of round 68 `[file: .opencode/reminders/qa/qa-memory-2026-10-29.md:60-69]`. This section is a design. It changes no code.
+- Evidence tags: `[file: path:line]` marks a file that unit DV69 read. `[check: DV69 2026-10-29 HH:MM command]` marks a result of the unit. `[agent inference]` marks a guess. "Not verified" marks a fact without evidence.
+- The checks on the local PocketBase (port 8090) used GET calls. The one POST was the sign-in for the superuser token. The scripts `q1.py` to `q7.py` sit in the folder `r69/DV69/` of the temp folder of the unit.
+- Scope: the reader dashboard at `/read` (folds, progress, search), the first-visit panel, and the front door `/` of the hosted site.
+- The monitor home and the config panel are not in this section. They wait for the restatement of aki-main in round 69.
+- A *work* is one dashboard row: a book folder, a magazine year, a web capture, or a web article. A *fold* is a row group under one heading.
+
+#### 15.23.1 Owner words and older decisions
+
+Round 68 answers (asked 19:47, answered 2026-10-29 20:47) `[file: .opencode/reminders/qa/qa-memory-2026-10-29.md:60-69]`:
+
+- Answer 2, line 62, part A: "A. Reader home (Recommended)" `[accepted recommendation plus option C plus user typed 2026-10-29 20:47]`. Part C and the typed text are about the monitor home. They are not in this section.
+- Answer 3, line 63: "Folds and search together" `[accepted option 2 2026-10-29 20:47]`.
+- Answer 4, line 64: "/ opens the dashboard (Recommended)" `[accepted recommendation 2026-10-29 20:47]`.
+- Answer 5, line 65: "Close only at Start reading (Recommended)" `[accepted recommendation 2026-10-29 20:47]`.
+- Answer 9, line 69: "Run step 1 now (Recommended)" `[accepted recommendation 2026-10-29 20:47]`. Step 1 is this section. Step 2 is a code unit after the owner reads this section.
+
+Notes of aki-main, not owner words `[file: .opencode/reminders/qa/qa-memory-2026-10-29.md:73-75]`:
+
+- Line 73: one code unit builds folds and search.
+- Line 74: on the hosted site, `/` shows the reader dashboard. The Mac keeps the monitor at `/` when the monitor is on.
+- Line 75: the panel opens once per account. The reader can change several settings. "Start reading" or Esc closes the panel and saves the mark.
+- The brief of unit DV69 adds two points that the Q-A file does not hold: visitors get a sign-in link, and translators keep `/translate`. Section 15.23.7 treats both as unit defaults with open items 5 and 6.
+
+Older decisions that this design relies on:
+
+- Line 50: "Few steps: two clicks from the dashboard to the text, and the reader resumes the last page on any device" `[accepted recommendation 2026-10-07 23:47]`.
+- Line 80: "all users need sign in - 3 roles (reader - translator - admin) like in v1" `[user 2026-10-07 14:58]`.
+- Lines 93 and 94: "Dashboard index, no text" `[accepted option 2026-10-07 23:47]`. The person sees work titles and translation progress and cannot open any text.
+- Lines 190 and 191: "Reader picks first" `[accepted option 2026-10-07 14:58]`. The layout is saved "Per account, all devices".
+- Line 208: "option 3. and dashboard homepage should be an index of all current items (in category folds)  and their translation progresses." `[user 2026-10-07 14:05]`.
+- Line 210: "Every work, also at zero (Recommended)". Line 211: "Kind, then series or source (Recommended)". Line 212: "Finished share per language (Recommended)".
+- Line 213: "Finished" means a final `ED_3` text with a `QA_3` verdict `[validated reading 2026-10-07 20:05]`.
+- Lines 214 and 215: "All works, all languages (Recommended)", and search also covers romanized terms.
+
+#### 15.23.2 Facts about today's code
+
+- `/read` shows a grid of cards, one card for each row of `catalog_items`, sorted by `item_id`. It has no folds and no search `[file: app/components/ReaderList.tsx:14-50]` `[file: app/lib/pb.ts:513]`.
+- A card shows the EN title, the JA title, the author, the year, the page count, the synopsis with the AI note, and "Continue at Page N". An approved reader also sees "AI translation: N of M pages" `[file: app/components/ReaderList.tsx:21-43]`.
+- N counts the pages that have reader text. The code reads every `reader_pages` record to count them `[file: app/lib/pb.ts:482-488]` `[file: app/lib/reader-data.ts:64-72]`.
+- The card of the web article `18d4ac29` shows the title "Web article 18d4ac29" `[file: app/components/ReaderList.tsx:23]`. Its `pages` value is 0. So the progress line reads "AI translation: 1 of 0 pages" `[agent inference from app/components/ReaderList.tsx:18,38]`.
+- An unapproved reader sees the cards and the line "Your account waits for approval by an admin." The progress line is hidden `[file: app/app/read/page.tsx:11-27]` `[file: app/components/ReaderList.tsx:38]`.
+- `/read` needs a session. If no session exists, the app sends the visitor to `/sign-in?next=%2Fread` `[file: app/lib/htv-session.ts:39-49,63-65]`.
+- `/` shows the runs table of the monitor. If the monitor is off, `/` redirects to `/translate` `[file: app/app/page.tsx:9-12]` `[file: app/lib/monitor.ts:20-26]`. The hosted site runs with `VIEWER_MONITOR=off` `[brief of unit DV69]`.
+- A visitor on the hosted site then reaches `/translate/sign-in`, because `requireStaff` uses the sign-in path of the translator side `[file: app/lib/htv-session.ts:14,55-60]`.
+- The panel `Reading settings` holds Text, English text, View, Theme, English font, Japanese font, Size, Line height, Width, Focus mode, and Reset text settings `[file: app/components/ReaderSettingsPanel.tsx:63-95]`. The button Image sits in the reader bar `[file: docs/VISION-viewer.md:3264-3265]`.
+- `showSettings` starts false. The panel has a button "Close" and no Esc handler. Esc leaves the focus mode only `[file: app/components/ReaderBook.tsx:91,149-155]` `[file: app/components/ReaderSettingsPanel.tsx:59]`.
+- The type `ReaderSettings` has no seen flag. `sanitizeReader` drops unknown keys `[file: app/lib/htv-settings.ts:160-172,188-206]`.
+- `catalog_items` is readable by every signed-in user. The local PocketBase reports the list rule `@request.auth.id != ""` `[check: DV69 2026-10-29 20:58 q6.py, GET /api/collections/catalog_items]`.
+- `reader_pages` is readable by an approved reader, a translator, and an admin `[file: data/scripts/pocketbase/pb_migrations/1793300007_v2_reader_collections.js:14,33]`.
+
+#### 15.23.3 Reader dashboard at `/read`
+
+##### 15.23.3.1 The works in the data
+
+The metadata file holds more works than `catalog_items`. The table counts both `[check: DV69 2026-10-29 20:54 python3 -B read of items.filled.jsonl in the Translator]` `[check: DV69 2026-10-29 20:54 q1.py and q2.py, GET catalog_items]`.
+
+| Kind | Rows in `items.filled.jsonl` | Records in `catalog_items` | Missing |
+|---|---|---|---|
+| `book` | 25 | 25 | 0 |
+| `magazine-year` | 9 | 9 | 0 |
+| `web-capture` | 2 | 2 | 0 |
+| `web-article` | 311 | 1 (`18d4ac29`, kind empty) | 310 |
+| Total | 347 | 37 | 310 |
+
+- The "36 book folders" of `book-slugs.json` are 25 books, 9 magazine years, and 2 web captures `[check: DV69 2026-10-29 20:54 same counts]`.
+- The pages of the 36 folders add up to 13,278: books 5,067, magazine years 8,171, web captures 40 `[check: DV69 2026-10-29 20:55 q4.py, sum of catalog_items.pages]`.
+- The 311 web articles have no page count. All 311 have the source `kendojidai.net`. Years: 2019 has 14, 2020 has 54, 2021 has 55, 2022 has 51, 2023 has 48, 2024 has 45, 2025 has 44 `[check: DV69 2026-10-29 20:54 python3 -B read of items.filled.jsonl]`.
+- The first 8 characters of the 311 long IDs are all different. So `18d4ac29` can name the work `18d4ac29-12d5-4753-b032-35337361fee5` without a clash `[check: DV69 2026-10-29 20:57 python3 -B read of items.filled.jsonl]`.
+- The record `18d4ac29` in `catalog_items` has an empty kind, an empty title, `pages` 0, and no `row`. The metadata row has the title_en "Kendo droplet guard", the title_ja 剣道飛沫ガード, and the year 2020 `[check: DV69 2026-10-29 20:54 q2.py and python3 -B read of items.filled.jsonl]`.
+
+The problem: line 210 says the dashboard lists every work, also at zero. Today a reader sees 37 works. The work "Kendo droplet guard" appears as "Web article 18d4ac29". The other 310 web articles do not appear. Open item 1 holds the options.
+
+Magazine years have month chapters. `magazine_chapters` holds 103 records and 1,155 articles in total. Kendo Jidai 2014 holds 13 chapters: "Table of contents" (pages 1 to 22) and 12 months `[check: DV69 2026-10-29 20:54 q2.py, GET magazine_chapters]`. The brief of this unit said 1,157 articles. The count in the data is 1,155.
+
+##### 15.23.3.2 Folds
+
+The first level goes by kind (line 211). The second level goes by series or source (line 211). The files hold no series field, so the groups below come from fields that exist `[check: DV69 2026-10-29 20:54 key list of items.filled.jsonl]`.
+
+- Books: works that share one `title_en` form one fold. A work with a title of its own stays a plain row `[agent inference]`.
+- Magazines: the fold is the magazine, taken from the title_ja 剣道時代 of the 9 years. Each year is a row. A year row opens its month chapters from `magazine_chapters` `[agent inference]`.
+- Web articles: the fold is the source and the year, for example "kendojidai.net, 2020". The 2 web captures form one fold of their own (open item 11).
+
+The first level starts open. All deeper folds start closed. The folds use the HTML elements `details` and `summary`, so the page needs no script and a keyboard works `[unit default]`.
+
+Example tree, for the recommended option of open item 1 (all 347 works). Percent values are finished pages divided by pages `[check: DV69 2026-10-29 20:55 q4.py, python3 -B division]`.
+
+```
+Books                         25 works   5,067 pages   English: 21 finished (0.4 percent)
+  The Secret of Kendo and the Left Foot        120 pages   English: 6 of 120 pages finished (5.0 percent)
+  One Hundred Practice Sessions                367 pages   English: 2 of 367 pages finished (0.5 percent)
+  Etiquette and Manners in Kendo               176 pages   English: 0 of 176 pages finished (0.0 percent)
+  > Lectures on Kendo, New Edition   3 works   533 pages   English: 4 finished (0.8 percent)
+      ogawa_lecture_part1  281 pages  0 finished (0.0 percent)
+      ogawa_lecture_part2  150 pages  2 finished (1.3 percent)
+      ogawa_lecture_part3  102 pages  2 finished (2.0 percent)
+  > Men: Kendo Hanshi 9th Dan Narazaki Masahiko   3 works   431 pages   English: 1 finished (0.2 percent)
+  > Making the Difference on the Day: Mental Strengthening for Kendo   2 works   338 pages   2 finished (0.6 percent)
+  ... (the other books, in the same form)
+Magazines                      9 works   8,171 pages   English: 7 finished (0.1 percent)
+  > Kendo Jidai (剣道時代)      9 years
+      Kendo Jidai 2010 (July to December)   532 pages    0 finished (0.0 percent)
+      Kendo Jidai 2012                       949 pages    2 finished (0.2 percent)
+      v Kendo Jidai 2014                    1,051 pages   5 finished (0.5 percent)
+          Table of contents      pages 1-22      0 finished
+          January 2014           pages 23-117    0 finished
+          October 2014           pages 778-868   5 of 91 pages finished (5.5 percent)
+          December 2014          pages 948-1051  0 finished
+      Kendo Jidai 2018 (January to April)    296 pages    0 finished (0.0 percent)
+Web articles                 313 works    351 pages   English: 1 finished (0.3 percent)
+  > kendojidai.net, 2019     14 works
+  v kendojidai.net, 2020     54 works
+      Kendo droplet guard (剣道飛沫ガード)   English: 1 of 1 page finished (100.0 percent)
+  > kendojidai.net, 2025     44 works
+  > Web captures             2 works   40 pages
+```
+
+Notes on the tree:
+
+- "v" marks an open fold and ">" marks a closed fold. The sketch opens two folds only to show the content.
+- The Men fold holds men0 (11 pages, 1 finished), men1 (66 pages), and men_full (354 pages). The Mental fold holds mental_full and mental2_clean (169 pages each, 2 finished in mental_full). Whether these folders are parts or copies of one book is Not verified. Open item 8 holds the options.
+- Web articles count as 1 page each. The `pages` value of a web article stays 0 in `catalog_items`, so the button Image stays off for it `[file: docs/VISION-viewer.md:3267]`. The dashboard uses the denominator 1 for the kind `web-article` `[agent inference]`.
+- The month rows come from `magazine_chapters`. October 2014 spans pages 778 to 868, which is 91 pages. The 5 finished pages p0794 to p0798 lie inside that range `[check: DV69 2026-10-29 20:54 q2.py and 20:55 q4.py]`.
+
+##### 15.23.3.3 One row
+
+A row holds the same facts as a card of today, in this order:
+
+- The EN title as a link to the book screen `/read/<slug>`. The JA title below it in small type.
+- The line: author, year, pages. A field that is empty does not show.
+- The progress line: `English: N of M pages finished (P percent)`.
+- One link to the text: "Continue at Page N" if the account has a saved place, else "Start at Page N" with N as the first finished page. A work without a finished page and without a saved place has no link to the text.
+
+Worked rows from the local data `[check: DV69 2026-10-29 20:55 q1.py and q4.py]`:
+
+- `left_foot_full`: "English: 6 of 120 pages finished (5.0 percent)". The finished pages are p046 to p050 and p075. "Start at Page 46".
+- `kendojidai_2014`: "English: 5 of 1051 pages finished (0.5 percent)". The finished pages are p0794 to p0798. "Start at Page 794".
+- `etiqu1_full`: "English: 0 of 176 pages finished (0.0 percent)". No link to the text. The title link opens the book screen.
+- `day_breath_clean`: "English: 0 of 207 pages finished (0.0 percent)" and "Continue at Page 154". The account `reader@kendo-translation.local` saved page 154 `[check: DV69 2026-10-29 20:54 q2.py, GET reader_progress]`.
+
+The progress of a language is the finished pages divided by the pages of the work, times 100, with one decimal. Only English has an agent translation today. A line for ZH, KO, or VI appears when that language arrives (line 185). Line 213 and the rule of S2 differ on the word "finished". Open item 2 holds the options. The unit default counts the pages that have reader text.
+
+##### 15.23.3.4 Who sees what
+
+- Visitor who is not signed in: no dashboard. `/read` sends the visitor to `/sign-in?next=%2Fread`. Line 80 says every person signs in, and the list rule of `catalog_items` needs a session. Open item 5 holds the other option.
+- Unapproved reader: the dashboard index with titles and progress, and no text (line 93). A row has no link to a page. The title link opens the book screen with the note "The text opens after approval." `[file: docs/VISION-viewer.md:2540]`.
+- Approved reader, translator, admin: full rows, links to the text, and search in the page text.
+- Today the progress line is hidden for an unapproved reader. The counts come from `reader_pages`, which the rule READ_OK closes to that reader. Open item 3 holds the fix.
+
+##### 15.23.3.5 Two clicks from the dashboard to the text
+
+The row link goes straight to the text, so a reader never needs the book screen. The path holds at most one closed fold.
+
+- `left_foot_full`: the fold Books is open and the work is a plain row. Click 1: "Start at Page 46". The text opens.
+- `kendojidai_2014`: click 1 opens the fold "Kendo Jidai". Click 2: "Start at Page 794".
+- "Kendo droplet guard": click 1 opens the fold "kendojidai.net, 2020". Click 2: "Start at Page 1".
+- A search result is one click away from the text (section 15.23.4).
+
+#### 15.23.4 Search
+
+Search runs together with the folds (round 68 answer 3). One search box sits at the top of the dashboard. A search is a GET form to `/read?q=seme`. The server draws the result list, so the page needs no script `[unit default]`.
+
+What the search covers (lines 214 and 215 and round 68 answer 3):
+
+- Titles: `title_en`, `title_ja`.
+- Authors and metadata: `author_en`, `author_ja`, `publisher`, `publish_year`, and the synopsis.
+- Page text: the JA text and the EN agent translation of every page that has reader text, with the captions.
+- Romanized terms: the EN text keeps them, for example "Seme". Each row also gets the romaji of its marked terms (see below).
+
+The human versions are not searched in the first version `[unit default]`. They sit in `own_translations` (private) and `reader_versions` (admin choice).
+
+Where the term data lives:
+
+- The termbase in the Translator: `data/termbase/termbase.draft.jsonl` with 1,030 entries `[file: translator data/scripts/translator/termbase.py:3]` `[check: DV69 2026-10-29 20:55 python3 -B read of termbase.draft.jsonl]`. The entry `c-1b485180497d` has the headword 攻め, the romaji "Seme", and the kana form せめ. The entry `c-47155949e7b9` has the headword 中墨 and the romaji "Chūzumi". 294 entries have a romaji with a diacritic mark.
+- The term pop-up data of unit RC1 in the Viewer: the column `terms` of `reader_pages` holds the entries that the page cites. The type `TermEntry` has `headword`, `readings`, and `romaji` `[file: app/lib/htv-types.ts:75-82]`. The marks of each row (`jaMarks`, `edMarks`) hold the `entryId` and the JA surface `[check: DV69 2026-10-29 20:58 q6.py, left_foot_full/p048 row L01-L05]`.
+
+Worked examples on the 29 pages that have reader text `[check: DV69 2026-10-29 20:55 q3.py, GET reader_pages with the filter operator ~ on the column rows]`:
+
+- "seme" finds 10 pages in 3 works: `left_foot_full` (p046, p047, p048, p075), `kendojidai_2014` (p0794 to p0798), and `100_practice_full` (p067). The EN line of `left_foot_full` p048 starts "I keep applying Seme without letting my Kensen leave the Ai-te's Chūzumi (centerline)," and the JA line starts わたしは剣先を相手の中墨から外さず攻めつづけ、.
+- 攻め finds the same 10 pages. The query 攻 finds 11 pages, one more in `sumiss_train_full` (p096).
+- "chuzumi" without the macron finds 0 pages in the filter test. "Chūzumi" finds 2 pages: `left_foot_full` p048 and p049. So the search must fold the macron (see below).
+- "kendo" must find "Kendō". The EN line of `left_foot_full` p046 reads "In Kendō (the way of the sword), Kamae (stance) ↓ Seme-ai (union of pressure)" `[check: DV69 2026-10-29 21:01 q7.py]`. The filter test with "kendo" did not run, so the claim that it fails is Not verified.
+- 3 rows have the term mark 攻め in the JA text and no "Seme" in the EN text, for example `kendojidai_2014` p0797: 突き心で攻めて相手の崩れを誘う `[check: DV69 2026-10-29 21:01 q7.py]`. The romaji of the marks lets "seme" find them. This is a design step that the EN text alone cannot do `[agent inference]`.
+- The query "seme" on the column `terms` finds 17 pages, not 10. The column holds the definition text of cited entries, so it also matches pages that only cite an entry whose definition names Seme `[check: DV69 2026-10-29 20:55 q3.py]`. The search must not use `terms`.
+
+Fold rule, applied to the text and to the query `[agent inference]`: lowercase, remove the accent marks (macrons), remove the hyphen. Example: "aite" finds "Ai-te's". The JA text is not changed.
+
+Result list:
+
+- One result is one page. It shows the work title, the page number, a snippet of about 140 characters with the hit marked, and the link `/read/<slug>?view=page&at=pNNN`. Example link: `/read/left_foot_full?view=page&at=p048`.
+- Order: works that match by title or author come first. Page hits follow, by work and then by page number. There is no score.
+- The list holds 20 results for each screen, with a link "Next".
+- An unapproved reader gets titles and metadata only, and the note "Page text search opens after approval." The PocketBase rule for `reader_pages` enforces this.
+
+Search engine options are in open item 4. Size facts: the 29 reader pages hold 871,431 bytes as JSON, which is 30,049 bytes for each page. The JA and EN text alone is 3,383 bytes for each page. For 13,278 pages that is about 399 MB for the full records and about 45 MB for the text alone `[check: DV69 2026-10-29 20:57 q5.py]` `[agent inference for the 13,278 pages]`. The brief of this unit used 0.78 MB for 29 pages. The sum measured here is 0.87 MB.
+
+#### 15.23.5 Text sketches
+
+Desktop, 1440 px wide. The reader bar is the one of today.
+
+```
+All books   Human translation   Readers   Human versions            reader@kendo-translation.local (reader)  [Sign out]
+---------------------------------------------------------------------------------------------------------------------
+Reader dashboard
+[ Search titles, authors, and text (seme, Chūzumi, 攻め)                                        ] [Search]
+347 works, 13,589 pages. English: 29 pages finished (0.2 percent).
+
+v Books      25 works  5,067 pages  English: 21 finished (0.4 percent)
+  +-----------------------------------------------------------------------------------------------------------+
+  | The Secret of Kendo and the Left Foot                           剣道の極意と左足                              |
+  | Mitsuru Kobayashi · 2017 · 120 pages                                                                      |
+  | English: 6 of 120 pages finished (5.0 percent)                              [Start at Page 46]            |
+  +-----------------------------------------------------------------------------------------------------------+
+  | Etiquette and Manners in Kendo                                  剣道の礼法と作法                              |
+  | Takenori Baba · 2020 · 176 pages                                                                          |
+  | English: 0 of 176 pages finished (0.0 percent)                                                            |
+  +-----------------------------------------------------------------------------------------------------------+
+  > Lectures on Kendo, New Edition      3 works  533 pages  English: 4 finished (0.8 percent)
+> Magazines   9 works  8,171 pages  English: 7 finished (0.1 percent)
+> Web articles   313 works  351 pages  English: 1 finished (0.3 percent)
+```
+
+Phone, 390 px wide. One column. A row has full width. A tap target has at least 44 px.
+
+```
++------------------------------------+
+| All books  Human translation  [≡]  |
++------------------------------------+
+| Reader dashboard                   |
+| [ Search            ] [Search]     |
+| 347 works. English: 0.2 percent    |
+|                                    |
+| v Books                            |
+|   25 works · 5,067 pages           |
+|   English: 21 finished (0.4 %)     |
+| +--------------------------------+ |
+| | The Secret of Kendo and the    | |
+| | Left Foot                      | |
+| | 剣道の極意と左足                  | |
+| | Mitsuru Kobayashi · 2017       | |
+| | 120 pages                      | |
+| | English: 6 of 120 pages        | |
+| | finished (5.0 percent)         | |
+| | [ Start at Page 46 ]           | |
+| +--------------------------------+ |
+| > Magazines                        |
+| > Web articles                     |
++------------------------------------+
+```
+
+Search results, desktop, for "chuzumi" (design target, see the fold rule):
+
+```
+Search: chuzumi        2 pages in 1 work                                               [Clear search]
+The Secret of Kendo and the Left Foot · Page 48
+  ...without letting my Kensen leave the Ai-te's [Chūzumi] (centerline), and if I think the Ai-te has even a...
+The Secret of Kendo and the Left Foot · Page 49
+  ...without letting the trajectory of the Shinai leave the [Chūzumi], the left line functions effectively. I take...
+```
+
+#### 15.23.6 First-visit panel
+
+The panel is the settings panel of today in a first-visit mode (round 68 answer 5: "Close only at Start reading (Recommended)").
+
+When it opens:
+
+- The panel opens on the first text screen of any book, for an account without the seen mark. A text screen is a page in the Page view or the Scroll view with `at` set. The book screen does not open it.
+- A reader who waits for approval never reaches a text screen (`at` is null for that reader `[file: app/app/read/[slug]/page.tsx:58]`). The panel opens after approval.
+- The panel opens once for each account. The mark is saved per account, so it holds on every device (line 191).
+
+What it holds:
+
+- The title "Reading settings" and every control of today. These are Text, English text, View, Theme, English font, Japanese font, Size, Line height, Width, Focus mode, and Reset text settings.
+- One line: "Use the Image button in the bar above the text to show or hide the page image." The line shows only for a work with page images. The web article has no Image button `[file: docs/VISION-viewer.md:3267]`.
+- The button "Start reading". It replaces the button "Close".
+
+How it closes:
+
+- Only the button "Start reading" or the Esc key closes the panel. A change of a setting does not close it. The cog in the bar does not close it.
+- Both actions save the mark. The other changes of the reader are saved by the current path (PUT `/api/read/settings`, 400 ms after the last change `[file: docs/VISION-viewer.md:3248]`).
+- If the reader leaves the page without the button, the mark is not saved. The panel opens again at the next visit. The settings that the reader changed stay saved.
+- If the focus mode is On when Esc comes, the first Esc closes the panel. A second Esc leaves the focus mode `[unit default]`.
+
+Where the seen mark lives:
+
+- The proposed field is `reader.panelSeen`, a boolean in the key `reader` of `user_settings.panes`. The key `reader` holds under 400 bytes today, so one more field fits `[file: docs/VISION-viewer.md:2803]`.
+- The type `ReaderSettings` and `sanitizeReader` need the field. `READER_DEFAULTS` must not hold it. Else the button "Reset text settings" sends `panelSeen: false` and the panel opens again `[file: app/components/ReaderSettingsPanel.tsx:90]`.
+
+Accounts that exist `[check: DV69 2026-10-29 20:54 q2.py, GET users and user_settings]`:
+
+- `reader@kendo-translation.local` (reader, approved) has a saved `reader` key with 7 values: focus, fontJa, image, index, text, view, width. The value `image` is `true` now. Unit RC3 recorded `false`. So the owner pressed the button Image since then.
+- `wenqian@kendo-translation.local` (translator, approved) has no `user_settings` record. A translator can read, because READ_OK includes the translator role. The panel opens once for this account.
+- `translator@kendo-translation.local` has a record with no panes. `admin@kendo-translation.local` has no record. Both see the panel once.
+- Three test readers are not approved. They see the panel after approval.
+- Unit default: no account gets the mark by data change. Every approved account sees the panel once. Open item 9 holds the other option.
+
+Phone: the settings panel is a sheet at the bottom with a height up to 85 percent of the screen `[file: app/components/ReaderSettingsPanel.tsx:56]`. In the first-visit mode the button "Start reading" stays at the bottom of the sheet, at least 44 px high. The Chrome check at 390 x 844 decides if the sheet must be lower, so that the reader sees the text change `[unit default]`.
+
+Desktop sketch (the panel sits at the right edge, 320 px wide, as today):
+
+```
++----------------------------------------------------------------+------------------------------+
+| All books  Book page  Human translation          reader (reader)| Reading settings            |
+|                                                                 |                              |
+| The Secret of Kendo and the Left Foot                           | TEXT                         |
+| [Page view][Scroll view]  [Image]  [cog]                        | [English][Japanese][Pairing] |
+|                                                                 | ENGLISH TEXT [Agent][Human]  |
+| Page 48                                                         | VIEW  [Page view][Scroll]    |
+| I keep applying Seme without letting my Kensen leave the        | THEME [Light][Dark][Sepia]...|
+| Ai-te's Chūzumi (centerline), and if I think the Ai-te has      | SIZE: 18 px  ---o-------     |
+| even a slight opening, ...                                      | LINE HEIGHT: 1.7  --o----    |
+|                                                                 | WIDTH [Narrow][Wide]         |
+|                                                                 | FOCUS MODE [Off][On]         |
+|                                                                 | [Reset text settings]        |
+|                                                                 | Use the Image button in the  |
+|                                                                 | bar above the text to show   |
+|                                                                 | or hide the page image.      |
+|                                                                 | [ Start reading ]            |
++----------------------------------------------------------------+------------------------------+
+```
+
+Phone sketch (a sheet over the lower part of the text):
+
+```
++------------------------------------+
+| All books  Book page          [≡]  |
+| Page 48   [Page][Scroll] [Image]   |
+| I keep applying Seme without       |
+| letting my Kensen leave the        |
++====================================+
+| Reading settings                   |
+| TEXT [English][Japanese][Pairing]  |
+| THEME [Light][Dark][Sepia]...      |
+| SIZE: 18 px  ----o---------        |
+| ...                                |
+| Use the Image button in the bar    |
+| above the text to show or hide     |
+| the page image.                    |
+| [        Start reading        ]    |
++------------------------------------+
+```
+
+#### 15.23.7 Front door `/`
+
+Round 68 answer 4: "/ opens the dashboard (Recommended)". The hosted site runs with the monitor off. The Mac runs with the monitor on, and the monitor keeps `/` there (line 74). The monitor home design waits for the restatement of aki-main in round 69.
+
+Where `/` goes on the hosted site (monitor off), by role `[unit default]`:
+
+| Person | `/` goes to | Then |
+|---|---|---|
+| Visitor, not signed in | `/sign-in` | After sign-in, a reader goes to `/read`. A translator or an admin goes to `/translate` `[file: app/app/sign-in/page.tsx:27]`. The page holds the link "Create an account" to `/sign-up` `[file: app/components/HtvSignIn.tsx:58]`. |
+| Reader, not approved | `/read` | The dashboard with titles and progress, and the note that the account waits for approval. |
+| Reader, approved | `/read` | The dashboard. |
+| Translator | `/translate` | The human-translation-view. The bar of the dashboard holds the links "All books" and "Human translation" `[file: app/components/ReaderBar.tsx:21-34]`. |
+| Admin | `/translate` | Same as the translator, plus the admin links. |
+
+On the Mac (monitor on): `/` shows the runs table for every role, as today. The code of `/` has no session check `[file: app/app/page.tsx:9-12]` `[file: app/lib/htv-session.ts:10]`. The dashboard opens by the address `/read`.
+
+Mechanism options (open item 7). The default is the redirect:
+
+- Option A, redirect (recommended): `/` stays a route without a page of its own. A function in `app/lib/monitor.ts` replaces `requireMonitorOrTranslate`. It reads the session with `getSession()` and calls `redirect()` to `/sign-in`, `/read`, or `/translate`.
+- Option B, render: `/` draws the dashboard when the monitor is off.
+
+The session code is in `app/lib/htv-session.ts`: `getSession` (lines 27-33), `requireSession` (39-49), `requireStaff` (55-60), `requireReaderSession` (63-65), and `isSafeNext` (76-78).
+
+#### 15.23.8 Plan for the code unit (step 2)
+
+Files to change in the Viewer (all under `app/` unless a path says more):
+
+- `app/app/page.tsx` and `app/lib/monitor.ts`: the front door.
+- `app/app/read/page.tsx`: the heading "Reader dashboard", the search box, and the query `q`.
+- `app/components/ReaderList.tsx`: rewritten as folds. New `app/lib/reader-folds.ts` (a pure function from cards to a tree, tested without PocketBase). New `app/components/ReaderSearch.tsx` if the box needs a client part.
+- `app/lib/reader-data.ts`, `app/lib/pb.ts`, `app/lib/reader-types.ts`: card fields (kind, source, year, finished pages), the search query.
+- `app/lib/htv-books.ts:24-26`: the translator book list reads all rows of `catalog_items`. If S2 copies 347 rows, the list at `/translate` grows from 37 to 347 rows. The list must keep the 36 folders and the works that have a run. The owner decided this in round 61 answer 6 `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:266]`.
+- `app/lib/htv-settings.ts`, `app/components/ReaderSettingsPanel.tsx`, `app/components/ReaderBook.tsx`: the first-visit panel and `reader.panelSeen`.
+- `app/scripts/sync-runs.mjs`: see below. A new migration file after `1793300009_v2_reader_rules.js` in `data/scripts/pocketbase/pb_migrations/`.
+- `app/scripts/smoke.mjs`: new checks. The old check "Book list: the card shows 'AI translation: 6 of 120 pages'" (line 1458) must change to the new progress line.
+- `app/README.md` (line 462 and the section "Settings and themes") and the table of `reader.*` keys in this file (line 2795).
+
+What S2 must change:
+
+- Copy all 347 rows of `items.filled.jsonl` into `catalog_items`. The header of `sync-runs.mjs` says the 311 web articles stay out (lines 7-8). The slug of a web article is the first 8 characters of the long ID.
+- Write the finished pages of each work into `catalog_items` (open item 3), for example `finished` = `{"en": [46, 47, 48, 49, 50, 75]}`.
+- Write search columns (open item 4).
+- Keep `pages` at 0 for web articles.
+- The dry run must stay safe: compare, then skip or update, and never delete.
+
+New tests:
+
+- Smoke mode `read`: the 3 first-level folds with counts (25, 9, 313 works). The rows "English: 6 of 120 pages finished (5.0 percent)", "English: 5 of 1051 pages finished (0.5 percent)", and "English: 0 of 176 pages finished (0.0 percent)". The unapproved reader gets progress and no link to a page.
+- Search: "seme" gives 10 pages in 3 works. "Chūzumi" and "chuzumi" both give `left_foot_full` p048 and p049. "kendo" finds p046. 攻め gives 10 pages. An unapproved reader gets no page hit.
+- Front door: `/` sends a visitor to `/sign-in`, a reader to `/read`, and a translator to `/translate`, in signed mode. With the monitor on, `/` shows the runs table.
+- First-visit panel: the panel is present when `panelSeen` is missing. It stays open after a change. The button "Start reading" and Esc close it and save the mark. "Reset text settings" keeps the mark. The panel is absent at the next visit.
+- Chrome checks at 1440 x 900 and 390 x 844. They test the two-click paths of section 15.23.3.5, the fold buttons by keyboard, the panel on both sizes, and screenshots in the five themes. `node scripts/contrast-dark.mjs` must show 0 failures for the new elements.
+- S2: a dry run plans 310 new `catalog_items`. A second run says "unchanged".
+
+#### 15.23.9 Open items
+
+- Item 1: the 310 web articles that `catalog_items` lacks. Example: the metadata row `d7835263-fe16-4f05-8c51-98b2a8aa0a3e` ("How do elite swordsmen hit men? : Hojo Masaomi", 2019) is not on the dashboard today. Line 210 says every work, also at zero.
+  - Option A (recommended): S2 copies all 347 rows. Benefit: the dashboard matches line 210, and the title of `18d4ac29` becomes "Kendo droplet guard", which closes the open item about its empty title. Cost: 310 more records, a change in `htv-books.ts` so that `/translate` keeps its 37 rows, and a code unit for S2 with a slug rule.
+  - Option B: the dashboard lists the 37 works of today. Benefit: no S2 change. Cost: it breaks line 210, and a reader sees 1 web article of 311.
+  - Option C: S2 copies the 347 rows and the dashboard shows the web articles as one closed fold with counts only. Benefit: a short page. Cost: the reader cannot find an article without search.
+- Item 2: the word "finished". Line 213 says: "Finished" means a final `ED_3` text with a `QA_3` verdict. S2 gives reader text to a page from the run of the admin mark, or else from the newest `PASS` run. The code says "A page with only FAIL runs gets no record" `[file: app/scripts/sync-runs.mjs:10,628-662]`. Example: `kendojidai_2014` p0839 has one run and the verdict is FAIL (`20261026T205441Z-r41`). The reader sees "No agent translation yet" there `[file: docs/VISION-viewer.md:3201]`. The admin run mark is the only other source of reader text, and the local `run_marks` collection holds 0 records `[check: DV69 2026-10-29 20:55 q4.py, GET run_marks]`. A second example: `mental_full` p014 has a PASS run (`20261026T195046Z-r41`) and a newer FAIL run (`20261028T023007Z-r41`). The reader sees the PASS text `[check: DV69 2026-10-29 20:55 q4.py, GET page_runs]`.
+  - Option A (recommended): finished = the page has reader text. `kendojidai_2014` shows 5 of 1051 pages (0.5 percent). Benefit: the number matches what the reader can open. Cost: line 213 needs new words after the owner agrees.
+  - Option B: finished = a page with any `QA_3` verdict, also FAIL. `kendojidai_2014` shows 6 of 1051 pages (0.6 percent). Benefit: it counts all agent work. Cost: the link "Start at Page 839" opens a page with no text.
+  - Option C: show both numbers, "5 finished, 1 failed". Benefit: nothing is hidden. Cost: more noise on each row, and a reader sees the word "failed".
+- Item 3: progress for an unapproved reader. Line 94 says that person sees translation progress. Today the count comes from `reader_pages`, which that reader cannot read. Example: the test reader `new-reader-1793312884055@rc1-test.local` (not approved) sees no progress line `[file: app/components/ReaderList.tsx:38]`.
+  - Option A (recommended): S2 writes the finished pages into `catalog_items` (readable by every signed-in user). Benefit: one request gives all counts, for every role, also for 13,278 pages. Today the code lists every `reader_pages` record in pages of 500 `[file: app/lib/pb.ts:144,482-488]`. Cost: a new field, a migration, and S2 must run after each new page run.
+  - Option B: keep the count from `reader_pages` and hide the progress for an unapproved reader, as today. Benefit: no S2 change. Cost: it breaks line 94.
+- Item 4: the search engine. Example: "chuzumi" must find "Chūzumi" on `left_foot_full` p048 and p049, and "kendo" must find "Kendō".
+  - Option A (recommended): S2 adds text columns to `reader_pages`: the plain JA text, the plain EN text, and a folded copy (lowercase, no macron, no hyphen, plus the romaji of the marked terms). The search uses the filter operator `~` on these columns. Benefit: the fold rule works. The snippet comes from the same record. The rule READ_OK blocks an unapproved reader without new code. Cost: a migration, S2 code, and about 5 KB more for each page, which is about 68 MB more for 13,278 pages `[agent inference]`. The speed of the `~` scan over 13,278 pages is Not verified.
+  - Option B: the filter `~` on the current column `rows`. Benefit: it works today without a migration (10 pages for "seme" in the test). Cost: no fold rule, because "chuzumi" finds 0 pages. The column also holds JSON keys such as `part`, so a query like "part" matches every page `[agent inference]`.
+  - Option C: an index in the memory of the Next server. Benefit: fast scan and any fold rule. Cost: the hosted site runs on Vercel `[file: app/lib/config.ts:10]`. The memory does not persist between requests, so the index loads at each cold start (about 45 MB) `[agent inference]`. Not verified on the deployed app.
+- Item 5: a visitor who is not signed in. Brief: "visitors get a sign-in link". Line 80 says every person signs in. Example: a first-time visitor to `/` sees only the sign-in page.
+  - Option A (recommended): `/` sends the visitor to `/sign-in`, which holds the link to `/sign-up`. Benefit: no rule change. Cost: a visitor cannot see which works exist before sign-up.
+  - Option B: open the list rule of `catalog_items` to anyone, so the dashboard shows titles and progress to visitors. Benefit: a visitor sees the 347 works first. Cost: the metadata is public (the 14 research keys are already stripped), and line 80 changes.
+- Item 6: a translator or an admin at `/` on the hosted site. Brief: "translators keep `/translate`". Example: `wenqian@kendo-translation.local` (translator) opens `/` and lands on `/translate`.
+  - Option A (recommended): `/` sends a translator or an admin to `/translate`. Benefit: it matches the sign-in route of today `[file: app/app/sign-in/page.tsx:27]`. Cost: this person reaches the dashboard by the link "All books".
+  - Option B: `/` sends every role to `/read`. Benefit: one rule, as the answer text says. Cost: a translator needs one more click to reach `/translate`.
+- Item 7: the mechanism for `/`.
+  - Option A (recommended): redirect. Benefit: one address for the dashboard (`/read`), and the bar, the sign-in `next` list (`isSafeNext`), and the smoke checks stay as they are. Cost: the address bar never shows `/` for a signed-in person.
+  - Option B: render the dashboard at `/`. Benefit: the address stays `/`. Cost: `Nav.tsx:19` and `isSafeNext` must learn that `/` is a reader route when the monitor is off, and two routes draw one page.
+- Item 8: works that share one title. Example: `mental_full` and `mental2_clean` both read "Making the Difference on the Day: Mental Strengthening for Kendo" with 169 pages. `men0`, `men1`, and `men_full` read "Men: Kendo Hanshi 9th Dan Narazaki Masahiko" with 11, 66, and 354 pages. `ogawa_lecture_part1` to `part3` read "Lectures on Kendo, New Edition" `[check: DV69 2026-10-29 20:54 q1.py]`.
+  - Option A (recommended): one fold for each shared title, with a row for each folder named by its slug. Benefit: this is the "series" level of line 211, and the rows stay as the 36 folders of round 63 answer 9. Cost: the fold hides no work, but the owner must say if `men0` is part of `men_full`.
+  - Option B: a flat alphabetical list inside Books. Benefit: no guess about series. Cost: the reader sees the same title two or three times with no hint why.
+- Item 9: the panel for accounts that exist. Example: `reader@kendo-translation.local` has 7 saved values and the role reader.
+  - Option A (recommended): every approved account sees the panel once at its next text screen. Benefit: no data change, and the owner sees the panel at once. Cost: `reader@` sees a panel that it does not need.
+  - Option B: a script sets `panelSeen` to true for the accounts that have a saved `reader` key. Benefit: `reader@` is not interrupted. Cost: a write to the local PocketBase and to the hosted one, and the owner does not see the panel with that account.
+- Item 10: the depth of the magazine folds. Example: October 2014 holds 11 articles in `magazine_chapters`.
+  - Option A (recommended): stop at the month row. Benefit: the page stays short, and progress per month needs only the page ranges. Cost: the reader cannot jump to an article from the dashboard.
+  - Option B: add an article row below each month (1,155 articles). Benefit: a title-level index, as in a print table of contents. Cost: a long page, and the articles have only draft EN titles (`title_en_status` "draft").
+- Item 11: where the 2 web captures go. Example: `matsubara` ("Matsubara Teruyuki", 15 pages) and `morishima` ("Tateo Morishima, Kendo Hanshi", 25 pages) have the kind `web-capture` and have page counts.
+  - Option A (recommended): a fold "Web captures" under Web articles. Benefit: the kind name from the data stays visible. Cost: the first level has the label "Web articles" for a work that has pages.
+  - Option B: a fourth first-level fold "Web captures". Benefit: a clear kind. Cost: the first level grows to four folds, and the owner asked for books and articles (line 211).
+
+#### 15.23.10 Not verified
+
+- The speed of the filter `~` over 13,278 pages. The test ran on 29 pages.
+- The deployed app on Vercel: the front door, the memory behavior of an index, and the cookie flow.
+- The panel and the folds on a real phone, Safari, and Firefox.
+- Whether `men0`, `men1`, and `men_full` are parts or copies of one book, and whether `mental2_clean` is a copy of `mental_full`.
+- The query "kendo" against the column `rows`. The claim that it misses "Kendō" follows from the "chuzumi" result `[agent inference]`.
+- The size of 310 more `catalog_items` records.
+- Lines 2540 and 2547 of this file describe the unapproved reader and the 37 cards of unit RC1. They stay as the history of that unit. Section 15.23 replaces them when the code unit lands.
+
+Status: design, waiting for the owner check (round 69).
