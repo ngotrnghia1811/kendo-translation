@@ -89,6 +89,7 @@ export async function loadReaderIndex(token: string, user: SessionUser, slug: st
     ...factsOf(slug, f),
     pages,
     digits: idDigits(pages),
+    images: f.pages > 0,
     textPages,
     checkedPages: [...checks.keys()].map(numberOf).filter((n) => n > 0).sort((a, b) => a - b),
     chapters,

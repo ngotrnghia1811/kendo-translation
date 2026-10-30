@@ -7,6 +7,7 @@ import { CollapsedBar, CollapseButton } from "./HtvPanelFrame";
 import { THEME_EVENT } from "./ThemeSwitch";
 import ReaderIndex from "./ReaderIndex";
 import ReaderPageView, { type EffectiveSettings } from "./ReaderPageView";
+import ReaderWithImage from "./ReaderImage";
 import ReaderSettingsPanel from "./ReaderSettingsPanel";
 import { parsePageNumber } from "@/lib/htv-format";
 import { READER_DEFAULTS, type ReaderSettings, type ThemeName } from "@/lib/htv-settings";
@@ -329,20 +330,32 @@ export default function ReaderBook({
 
   // ---------------------------------------------------------------- reading view
   const nums = s.view === "page" ? [at] : Array.from({ length: index.pages }, (_, i) => i + 1);
+  // Unit RC2 (round 65): the page image shows in the page view only. The scroll view and focus mode show text only.
+  const withImage = s.image && index.images && s.view === "page" && !s.focus;
+  const wrap = (n: number, node: React.ReactNode) => {
+    if (!withImage) return node;
+    const pageId = `${index.slug}/p${pad(n, index.digits)}`;
+    return (
+      <ReaderWithImage key={pageId} pageId={pageId} n={n}>
+        {node}
+      </ReaderWithImage>
+    );
+  };
   const content = (
     <div className="space-y-10" data-reading data-view={s.view}>
       {nums.map((n) => {
         const data = pages[n];
-        if (data) return <ReaderPageView key={n} data={data} s={s} onPick={onPick} focus={s.focus} />;
+        if (data) return wrap(n, <ReaderPageView key={n} data={data} s={s} onPick={onPick} focus={s.focus} />);
         if (textSet.has(n)) {
-          return (
+          return wrap(
+            n,
             <section key={n} id={`p${pad(n, index.digits)}`} data-lazy={n} data-page-n={n} data-section={`${index.slug}/p${pad(n, index.digits)}`} className="mx-auto min-h-[12rem] w-full max-w-[72ch] scroll-mt-28">
               <h2 className="mb-2 border-b border-line pb-1 text-base font-semibold">{pageLabel(n)}</h2>
               <p className="text-sm text-muted">Loading…</p>
-            </section>
+            </section>,
           );
         }
-        return <ReaderPageView key={n} data={emptyPage(index.slug, n, index.digits)} s={s} onPick={onPick} focus={s.focus} />;
+        return wrap(n, <ReaderPageView key={n} data={emptyPage(index.slug, n, index.digits)} s={s} onPick={onPick} focus={s.focus} />);
       })}
     </div>
   );
@@ -483,7 +496,7 @@ export default function ReaderBook({
           {sideIndex(true, () => setSheet(false))}
         </div>
       ) : null}
-      {showSettings ? <ReaderSettingsPanel s={s} theme={theme} hasHuman={hasHumanHere} onChange={(p) => {
+      {showSettings ? <ReaderSettingsPanel s={s} theme={theme} hasHuman={hasHumanHere} hasImages={index.images} onChange={(p) => {
           const { view, ...rest } = p;
           if (Object.keys(rest).length) save(rest);
           if (view) changeView(view);

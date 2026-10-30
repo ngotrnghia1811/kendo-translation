@@ -3151,8 +3151,101 @@ Status: open. The code of this design is in section 15.20 (unit RC1).
 - Unit default: a reader with no saved theme and no cookie gets the cookie `theme=solarized-light` at sign-in. A visitor with no cookie sees the default after the page script runs.
 - Unit default: the page view saves the place at each page. The scroll view saves it 1.2 seconds after the page in view changes.
 - Open item: the owner check of the default theme reading (Solarized light for the reader pages only).
-- Open item: `catalog_items.row` holds research fields that every signed-in user can read through the API. The app never sends them to a page.
+- Closed by unit RC2 (round 65): S2 drops `sources`, `confidence`, `filled_by`, `confirmed_by`, `notes`, and `source_url` from `catalog_items.row`. See section 15.21.5.
 - Open item: the title of the web article `18d4ac29`. The card shows "Web article 18d4ac29".
 - Open item: `pb_users.py` makes readers with `approved` false. The admin page approves them.
 
 Status: built in unit RC1, owner check pending.
+
+### 15.21 Original page image and research fields (unit RC2, round 65)
+
+- Source: owner answers of round 65 `[file: .opencode/reminders/qa/qa-memory-2026-10-29.md:7-13]`. Answer 1: "Defer this after I can view the actual book page." So the unit made no fix for the reader pages. Answer 6: "Signed short link (Recommended)".
+- Scope: the page image view, the research fields in S2, and the Node warning DEP0205. Not in scope: the sign-up rate limit, web article titles, color pages, and Translator items.
+- Evidence tags: `[check: RC2 2026-10-29 HH:MM command]` marks a result of the unit. `[agent inference]` marks a guess. "Not verified" marks a fact without evidence.
+- Sizes use MB (1 MB is 1,048,576 bytes).
+
+#### 15.21.1 What was built
+
+- Route `GET /api/read/image/<book>/<page>` in `app/app/api/read/image/[slug]/[page]/route.ts`. Example: `/api/read/image/left_foot_full/p048`.
+- Four app keys in `app/lib/config.ts`: `VIEWER_PAGE_IMAGE_SOURCE`, `VIEWER_PAGE_IMAGE_DIR`, `VIEWER_PAGE_IMAGE_URL`, and `VIEWER_PAGE_IMAGE_KEY`.
+- PocketBase hook `data/scripts/pocketbase/pb_hooks/page_images.pb.js` with the route `GET /page-images/{slug}/{file}`.
+- Component `app/components/ReaderImage.tsx` and the setting "Page image" in the settings panel.
+- Test script `data/scripts/pocketbase/test_page_images.py` for the hook.
+- S2 drops six research fields from `catalog_items.row`. The resolve hook of Node (`app/scripts/ts-resolve-hook.mjs`) uses `module.registerHooks()`.
+
+#### 15.21.2 The contract of the route and the hook
+
+- Source `files` (this Mac, default): the route reads `<VIEWER_PAGE_IMAGE_DIR>/<book>/<page>.webp`. The default folder is `../data/page-images` from the app folder. It answers 200 with `Content-Type: image/webp` and `Cache-Control: private, max-age=600`. A missing file answers 404 with a short JSON body.
+- Source `signed` (deploy): the route answers 302 to `<VIEWER_PAGE_IMAGE_URL>/<book>/<page>.webp?exp=<exp>&sig=<sig>`. It adds `Cache-Control: private, no-store`.
+- `exp` is the Unix time in seconds now plus 600. `sig` is the lower-case hex HMAC-SHA256 of the text `<book>/<page>.webp:<exp>` with the key. The app uses `node:crypto`. The unit added no npm package.
+- If a key of signed mode is missing, the route answers 500 with a message that names the key. The message never holds a key value. A key must have at least 32 characters. A plain http address works for `127.0.0.1`, `localhost`, and `[::1]` only.
+- The hook reads `PAGE_IMAGE_KEY` and `PAGE_IMAGE_DIR` from the environment of the PocketBase process at each request. Start PocketBase with `--hooksDir=<folder>`.
+- Hook answers: 503 when the key is missing or shorter than 32 characters or the folder is missing. 400 for a bad `slug` (rule `^[a-z0-9_]+$`) or a bad `file` (rule `^p\d{3,4}\.webp$`). 403 for an `exp` that is not a whole number, is not after now, or is more than 900 seconds ahead, and for a wrong signature. 404 for a missing file. 200 with the image otherwise.
+- The hook compares the signature with `$security.equal` (constant time). It writes nothing to the log. It changes no other route, rule, or collection. The unit needs no new migration.
+- A PocketBase handler cannot see a variable or a function that sits outside it `[file: https://pocketbase.io/docs/js-overview/, section Handlers scope]`. So the hook keeps every helper inside the handler.
+- The names of the PocketBase functions come from `pb_data/types.d.ts` of the binary 0.39.10: `$os.getenv`, `$os.stat`, `$os.dirFS`, `$security.hs256`, `$security.equal`, `e.fileFS`. The web docs show v0.41.1, so the unit did not trust them alone `[check: RC2 2026-10-29 15:19 grep in the types.d.ts that PocketBase 0.39.10 wrote]`.
+
+#### 15.21.3 Access rule
+
+- The same rule as `/api/read/page`: an approved reader, a translator, or an admin. No session gives 401. A reader that waits for approval gives 403.
+- The route accepts `slug` with `^[a-z0-9_]+$` and `page` with `^p\d{3,4}$`. Else 400.
+- The route asks `catalog_items` for the page count of the book. An unknown book, a page count of 0 (the web article 18d4ac29), a page after the last page, and a wrong number of digits give 404. A book of up to 999 pages has 3 digits. A longer book has 4.
+- Files mode builds the path with `resolveInside` of `app/lib/safe-path.ts`. A link inside the image folder that points outside gives 403.
+- The web article has no page image. The toggle does not show for it.
+
+#### 15.21.4 Screen rules and unit defaults
+
+- The settings panel has "Page image" (Off, On). It shows only for an item with page images. The setting is `reader.image` in `user_settings.panes`, like the other reader settings.
+- Wide screen with Page image On in the page view: the image on the left, the text on the right. The image column is 42 percent wide. The link "Open full size" is above the image and opens the route in a new tab.
+- Phone width (below the `md` breakpoint of 768 px): two tabs "Text | Image" above the text. The first tab is Text. The tabs are 44 px high. No horizontal scroll bar appears at 390 px.
+- A missing image or a load error shows "No page image available". A page with no agent translation (kendojidai_2014/p0839) shows "No agent translation yet" and its page image.
+- The image is a plain `<img>` with `loading="lazy"`, `decoding="async"`, and `alt="Original page image, Page 48"`. The route can send the browser to another host, and `next/image` is made for fixed hosts `[agent inference]`. One line disables the lint rule `@next/next/no-img-element` with the reason.
+- Unit default: Page image is Off. Reason: the brief of the unit said so. See open item 1.
+- Unit default: the scroll view and focus mode show text only. See open item 2.
+- Unit default: the image shows as it is in every theme (no color change). See open item 3.
+- Unit default: the keys of the app come from the environment only. The file `viewer.config.json` does not hold them, because one of them is a secret.
+
+#### 15.21.5 S2 and the research fields
+
+- Step 1: the six fields are `sources`, `confidence`, `filled_by`, `confirmed_by`, `notes`, and `source_url` `[file: docs/VISION-viewer.md:2558]`. No screen reads one of them from `catalog_items.row`. The app reads `row.isbn` and `row.synopsis` only `[file: app/lib/pb.ts:524-526]`.
+- The monitor tab Books shows the six fields. It reads the files of the Translator, not PocketBase `[file: app/lib/books.ts:77,97]` and `[file: app/lib/meta-fields.ts:11]`. The monitor is off on the deployed app. So S2 can drop the fields.
+- Step 2: S2 builds `row` without the six fields. An `--apply` run compares the stored `row` with the new `row`. A record that holds a field gets an update, so one run cleans the records of an earlier run. The files in `item-metadata` keep all fields.
+- Step 3: the test seeded `left_foot_full` with all 26 keys of its metadata row on the throwaway PocketBase (port 8092). The dry run planned an update. After `--apply`, the six fields were gone and the other 20 keys stayed with the same values. The next dry run said "unchanged".
+- S2 was not run against port 8090. The first run there belongs to aki-main (round 65 answer 7).
+
+#### 15.21.6 Node warning DEP0205
+
+- Node 26 prints DEP0205 for `module.register()`. The hook file now exports `resolve`, `load`, and `installTsResolveHook()`, which calls `module.registerHooks()`. The hooks run on the same thread and are synchronous.
+- Callers changed: `app/scripts/sync-runs.mjs` and two places in `app/scripts/smoke.mjs`.
+- Proof: the command `node scripts/sync-runs.mjs --offline --page left_foot_full/p048 2>&1 | grep -c DEP0205` printed 1 before and 0 after. The output of the script was the same `[check: RC2 2026-10-29 15:42 the command above, before with the archived files and after with the new files]`.
+- The option `--help` of S2 exits before Node prints the warning, so it is not a good test.
+
+#### 15.21.7 Test results
+
+- `npx tsc --noEmit` and `npm run lint` in the copy: no error and no warning. `npm run build`: exit 0.
+- `node scripts/smoke.mjs smoke`: 70 PASS. `htv` with files: 262 PASS. `htv` with PocketBase: 262 PASS. `deploy`: 34 PASS. `read`: 231 PASS (166 earlier and 65 new).
+- The new `read` checks cover: the route in files mode and in signed mode (302, then the real hook on port 8092), 401, 403, 400, 404, the path checks, the setting, the page HTML with the image on and off, the settings errors, and the research fields.
+- `test_page_images.py`: 82 PASS, 0 FAIL. The same hook checks on the PocketBase of the `read` run: 62 PASS with the real gray images.
+- `test_local.py`: 219 PASS, 0 FAIL (the earlier checks stay).
+- Chrome headless: 86 PASS (63 earlier and 23 new), 35 screenshots at 1440x900 and 390x844.
+- The test image `left_foot_full/p048.webp` has 90,280 bytes. The route sent the same bytes `[check: RC2 2026-10-29 15:31 smoke read, check "the bytes equal the file"]`.
+
+#### 15.21.8 Not verified
+
+- The hook on a PocketBase server of the Oracle host. The unit ran PocketBase 0.39.10 on this Mac only.
+- A browser request across two hosts (Vercel and the PocketBase host) with real https.
+- Safari, Firefox, and a real phone.
+- The load of 36 books of images (about 19,259 MB of PDF before the conversion) `[file: docs/VISION-viewer.md:2687]`.
+- The behavior of `fileFS` for a Range request or a request with `If-Modified-Since`.
+
+#### 15.21.9 Open items
+
+- Item 1: the default of Page image. Option A (recommended): On in the page view, because the owner wants to view the page image. Option B: Off, as built, and the reader turns it on in the settings panel. The change is one value in `READER_DEFAULTS` in `app/lib/htv-settings.ts`.
+- Item 2: the scroll view and focus mode show text only. Option A (recommended): keep it. Option B: show the image in the scroll view too. That needs a lazy image for each of up to 1,000 pages.
+- Item 3: dark themes show the image as it is. Option A (recommended): keep it, because the scan is gray. Option B: dim the image in the dark themes.
+- Item 4: other fields of `row` look like research fields: `confidence_draft` (36 of 36 books), `notes_draft` (11), `hint_secondary` (34), `issue_evidence` (9), `status` (36), `title_en_source`, `author_en_source`, and `synopsis_source`. Option A (recommended): keep them until the owner names them. Option B: add them to the list `RESEARCH_FIELDS` in S2.
+- Item 5: in signed mode each page view asks for a new link, so the browser cannot reuse an image from an earlier visit. Option A (recommended): keep it (about 0.09 MB for each page). Option B: round `exp` to a 5-minute step so that the URL repeats.
+- Item 6: the settings of the reader save 400 ms after the last change. A reload within that time loses the change. This is the behavior of unit RC1 for all reader settings.
+- Item 7: the toggle sits in the settings panel only. Option A (recommended): keep it. Option B: add a button "Image" to the toolbar.
+
+Status: built in unit RC2, owner check pending.

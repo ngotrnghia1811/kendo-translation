@@ -151,6 +151,7 @@ export interface PaneSettings {
  *   view    page = one page at a time (default, round 63 answer 7), scroll = all pages in one scroll
  *   fontEn  serif or sans. fontJa  mincho or gothic. size in px. line = line height. width  narrow (about 72 characters) or wide.
  *   focus   true = focus mode (text only)
+ *   image   true = show the original page image next to the text (page view only; unit RC2, round 65)
  *   index   false = the book index is closed
  */
 export type ReaderText = "en" | "ja" | "pair";
@@ -166,6 +167,7 @@ export interface ReaderSettings {
   line?: number;
   width?: ReaderWidth;
   focus?: boolean;
+  image?: boolean;
   index?: boolean;
 }
 
@@ -179,6 +181,7 @@ export const READER_DEFAULTS: Required<ReaderSettings> = {
   line: 1.7,
   width: "narrow",
   focus: false,
+  image: false, // [unit default, round 65] off; the owner can turn it on in the settings panel
   index: true,
 };
 
@@ -197,6 +200,7 @@ export function sanitizeReader(v: unknown): ReaderSettings | undefined {
   if (line !== undefined) out.line = line;
   if (r.width === "narrow" || r.width === "wide") out.width = r.width;
   if (typeof r.focus === "boolean") out.focus = r.focus;
+  if (typeof r.image === "boolean") out.image = r.image;
   if (typeof r.index === "boolean") out.index = r.index;
   return Object.keys(out).length ? out : undefined;
 }

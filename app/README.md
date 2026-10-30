@@ -477,3 +477,49 @@ The reader pages are the book reading site for readers. Design: `docs/VISION-vie
 
 - `node scripts/smoke.mjs read` runs 166 checks. It needs the setup of `run_all.py` in the work folder of the unit (S2 upload, one saved version of a translator, an approved reader, and a reader that waits).
 - The checks of the human-translation-view for a reader changed into redirect checks. The list is in the report of unit RC1.
+
+## Page images (unit RC2, round 65)
+
+The reader pages can show the scanned book page next to the text. Design and contract: `docs/VISION-viewer.md` section 15.21.
+
+### Keys
+
+All keys are environment variables. An empty variable counts as not set. Only the first one is needed on this Mac.
+
+| Key | Meaning |
+|---|---|
+| `VIEWER_PAGE_IMAGE_SOURCE` | `files` (default) or `signed` |
+| `VIEWER_PAGE_IMAGE_DIR` | Files mode. Folder of the images. Default `../data/page-images` from the app folder |
+| `VIEWER_PAGE_IMAGE_URL` | Signed mode. Base address, for example `https://pb-v2.kendotranslation.com/page-images` |
+| `VIEWER_PAGE_IMAGE_KEY` | Signed mode. The signing key. It is a secret. Make it with `openssl rand -hex 32` |
+
+### Local mode (this Mac)
+
+1. Put the images in `data/page-images/<book>/p048.webp`. Use 4 digits (`p0839.webp`) for a book of more than 999 pages.
+2. Start the app as usual. The route `/api/read/image/<book>/<page>` reads the file.
+3. Sign in as a reader, a translator, or an admin. Open a page. Open the settings panel and turn on "Page image".
+
+### Signed mode (deploy)
+
+1. Set the four keys on the app host (Vercel).
+2. Set `PAGE_IMAGE_KEY` (the same value as `VIEWER_PAGE_IMAGE_KEY`) and `PAGE_IMAGE_DIR` on the PocketBase host. Start PocketBase with `--hooksDir`. See `data/scripts/pocketbase/README.md`.
+3. The route checks the sign-in. Then it answers 302 to a link that is valid for 10 minutes. The hook of PocketBase checks the link and sends the file.
+
+### Rules
+
+- Access: an approved reader, a translator, or an admin. No session gives 401. A reader that waits for approval gives 403.
+- A bad page ID gives 400. An unknown book, a page that is not in the book, and the web article give 404.
+- The image shows in the page view only. The scroll view and focus mode show text only.
+- A missing image shows "No page image available". Page image is off until the reader turns it on.
+- Make sure that no log, message, or page shows the key.
+
+### Tests
+
+- `node scripts/smoke.mjs read` runs 231 checks. They need the setup of `run_all.py` and two more variables: `VIEWER_PAGE_IMAGE_DIR` (test images, with one link that leaves the folder) and `VIEWER_PAGE_IMAGE_TEST_KEY` (the key of the test PocketBase). Without them the page image checks give one SKIP.
+- The checks start extra copies of the app on other ports for signed mode and for the wrong settings. They stop them at the end.
+- The Chrome checks of the page image view (1440 px and 390 px) are in the work folder of unit RC2 (`browser_rc2.mjs`).
+
+### Other changes of unit RC2
+
+- S2 drops `sources`, `confidence`, `filled_by`, `confirmed_by`, `notes`, and `source_url` from `catalog_items.row`. An `--apply` run cleans the records that hold them.
+- `scripts/ts-resolve-hook.mjs` uses `module.registerHooks()`. Node 26 prints no DEP0205 warning. Call `installTsResolveHook()` before the first import of an app file.

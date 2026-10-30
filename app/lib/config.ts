@@ -134,3 +134,42 @@ export async function dataRoot(): Promise<string> {
   if (!dir) throw new Error("viewer.config.json has no translatorDataDir. The agent-translation-monitor needs it.");
   return dir;
 }
+
+/**
+ * Page images of the reader pages (unit RC2, round 65 answer 6: "Signed short link (Recommended)").
+ * Four environment variables set them. An empty variable counts as not set.
+ *   VIEWER_PAGE_IMAGE_SOURCE  "files" (default, the images sit on this Mac) or "signed" (deploy: a signed short link to PocketBase)
+ *   VIEWER_PAGE_IMAGE_DIR     files mode: folder of the images, one subfolder for each book. Default ../data/page-images from the app folder.
+ *   VIEWER_PAGE_IMAGE_URL     signed mode: base address, for example https://pb-v2.kendotranslation.com/page-images
+ *   VIEWER_PAGE_IMAGE_KEY     signed mode: the signing key (a secret, at least 32 characters, for example from `openssl rand -hex 32`)
+ * The PocketBase hook (data/scripts/pocketbase/pb_hooks/page_images.pb.js) holds the same key in its variable PAGE_IMAGE_KEY.
+ * No message of this file shows the value of the key.
+ */
+export interface PageImageConfig {
+  source: "files" | "signed";
+  /** Absolute folder (files mode). Empty in signed mode. */
+  dir: string;
+  /** Base address without a trailing slash (signed mode). Empty in files mode. */
+  url: string;
+  /** Signing key (signed mode). Empty in files mode. Never put it in a message or a log. */
+  key: string;
+}
+
+export const DEFAULT_PAGE_IMAGE_DIR = "../data/page-images";
+const MIN_PAGE_IMAGE_KEY = 32;
+
+export function loadPageImageConfig(): PageImageConfig {
+  const source = envValue("VIEWER_PAGE_IMAGE_SOURCE") ?? "files";
+  if (source !== "files" && source !== "signed") throw new Error('The environment variable VIEWER_PAGE_IMAGE_SOURCE must be "files" or "signed".');
+  if (source === "files") {
+    const dir = path.resolve(/* turbopackIgnore: true */ process.cwd(), envValue("VIEWER_PAGE_IMAGE_DIR") ?? DEFAULT_PAGE_IMAGE_DIR);
+    return { source, dir, url: "", key: "" };
+  }
+  const rawUrl = envValue("VIEWER_PAGE_IMAGE_URL");
+  if (rawUrl === undefined) throw new Error("Signed page images need the environment variable VIEWER_PAGE_IMAGE_URL. It is not set.");
+  const url = checkPocketbaseUrl(rawUrl, "The environment variable VIEWER_PAGE_IMAGE_URL");
+  const key = envValue("VIEWER_PAGE_IMAGE_KEY");
+  if (key === undefined) throw new Error("Signed page images need the environment variable VIEWER_PAGE_IMAGE_KEY. It is not set.");
+  if (key.length < MIN_PAGE_IMAGE_KEY) throw new Error(`The environment variable VIEWER_PAGE_IMAGE_KEY must have at least ${MIN_PAGE_IMAGE_KEY} characters.`);
+  return { source, dir: "", url, key };
+}

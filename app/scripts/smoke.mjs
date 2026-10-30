@@ -368,8 +368,8 @@ let factsCache = null;
 async function dataFacts(dataDir) {
   if (factsCache) return factsCache;
   const { pathToFileURL } = await import("node:url");
-  const { register } = await import("node:module");
-  register(pathToFileURL(path.resolve("scripts/ts-resolve-hook.mjs")).href, pathToFileURL(path.resolve(".") + path.sep).href);
+  const { installTsResolveHook } = await import(pathToFileURL(path.resolve("scripts/ts-resolve-hook.mjs")).href);
+  installTsResolveHook();
   const build = await import(pathToFileURL(path.resolve("lib/htv-build.ts")).href);
   const slugsFile = JSON.parse(await fs.readFile(path.join(dataDir, "pilot-sample/book-slugs.json"), "utf-8"));
   const bookSlugs = (slugsFile.books ?? []).map((b) => b.slug);
@@ -1372,6 +1372,8 @@ async function readTest() {
   check("/admin/readers without sign-in redirects to /sign-in", /^\/sign-in\?next=/.test(r.go), `go ${r.go}`);
   r = await anon.req(`/api/read/page?ids=${P48}`);
   check("GET /api/read/page without sign-in gives 401", r.status === 401, `status ${r.status}`);
+  r = await anon.req(`/api/read/image/${LF}/p048`);
+  check("GET /api/read/image without sign-in gives 401 and no image", r.status === 401 && !/RIFF/.test(r.body.slice(0, 4)), `status ${r.status}`);
 
   const email = `new-reader-${Date.now()}@rc1-test.local`;
   const pw = "Aa1-" + Math.random().toString(36).slice(2, 14);
@@ -1410,6 +1412,8 @@ async function readTest() {
   check("Waiting reader: ?at=p048 shows no page text (no Japanese line, no English line, no row)", r.status === 200 && !text.includes("Kensen") && !r.body.includes(JA_START) && !/data-row=/.test(r.body) && /data-waiting/.test(r.body));
   r = await nr.req(`/api/read/page?ids=${P48}`);
   check("Waiting reader: GET /api/read/page gives 403", r.status === 403, `status ${r.status}`);
+  r = await nr.req(`/api/read/image/${LF}/p048`);
+  check("Waiting reader: GET /api/read/image gives 403 and no image", r.status === 403 && !/^RIFF/.test(r.body.slice(0, 4)), `status ${r.status}`);
   const nrList = await pbCall(pbUrl, "GET", "/api/collections/reader_pages/records", nr.token());
   check("Waiting reader: PocketBase gives no reader_pages record (rule)", nrList.status === 403 || (nrList.status === 200 && (nrList.json?.items ?? []).length === 0), `status ${nrList.status}`);
   const nrBm = await nr.req("/api/read/bookmarks", { method: "POST", json: { pageId: P48 } });
@@ -1707,6 +1711,8 @@ async function readTest() {
 
   // --- parity: the rows of reader_pages equal the rows of the human-translation-view build, without the research fields
   await parityReaderRows(pbUrl, adminToken);
+  // --- original page image and research fields in catalog_items (unit RC2, round 65)
+  await imageChecks({ anon, nr, cr, tr1c, ad, adminToken, pbUrl, LF, put, countOf });
   // --- a translator and an admin read the reader pages too, and the sign-in page sends a signed-in person on
   r = await tr1c.req(`/read/${LF}?view=page&at=p048`);
   check("A translator reads the reader pages (200, rows) without the approved flag", r.status === 200 && countOf(r.body, /data-row="/g) >= 5);
@@ -1722,11 +1728,203 @@ async function readTest() {
   check("A reader sees no admin link and no link to the human-translation-view", !/data-admin-link/.test(r.body) && !/href="\/translate"/.test(r.body));
 }
 
+// ---------------------------------------------------------------- original page image (unit RC2, round 65)
+
+// A request that returns the raw bytes and does not follow a redirect. `client` carries the sign-in cookie. `port` picks another app server.
+async function rawGet(client, url, { port, absolute } = {}) {
+  const h = {};
+  if (client && client.jar.size) h.cookie = [...client.jar].map(([k, v]) => `${k}=${v}`).join("; ");
+  const res = await fetch(absolute ? url : (port ? `http://127.0.0.1:${port}` : base) + url, { headers: h, redirect: "manual" });
+  const bytes = Buffer.from(await res.arrayBuffer());
+  return { status: res.status, headers: res.headers, bytes, text: bytes.subarray(0, 2000).toString("utf-8") };
+}
+
+// An extra app server (a copy of this app on another port) with its own environment.
+async function startExtra(extraEnv) {
+  const port = await freePort();
+  const env = { ...process.env, PORT: String(port), ...extraEnv };
+  if (configFile) env.VIEWER_CONFIG = path.resolve(configFile);
+  for (const k of Object.keys(env)) if (env[k] === undefined) delete env[k];
+  const child = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(port), "-H", "127.0.0.1"], { env, stdio: "ignore" });
+  for (let i = 0; i < 100; i++) {
+    try {
+      const r = await fetch(`http://127.0.0.1:${port}/sign-in`);
+      if (r.status < 500) return { child, port };
+    } catch {
+      /* not ready */
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  child.kill();
+  throw new Error("Extra server did not start.");
+}
+
+async function imageChecks({ anon, cr, tr1c, ad, adminToken, pbUrl, LF, put, countOf }) {
+  const dir = process.env.VIEWER_PAGE_IMAGE_DIR;
+  const key = process.env.VIEWER_PAGE_IMAGE_TEST_KEY;
+  if (!dir || !key) {
+    skip("Page images: all checks", "Set VIEWER_PAGE_IMAGE_DIR (test images) and VIEWER_PAGE_IMAGE_TEST_KEY (the signing key of the test PocketBase).");
+    return;
+  }
+  const url = (slug, page) => `/api/read/image/${slug}/${page}`;
+  const file = (slug, page) => fs.readFile(path.join(dir, slug, page + ".webp"));
+  const NO_IMAGE_BODY = /No page image available/;
+
+  // --- files mode (the main server of this run reads the folder in VIEWER_PAGE_IMAGE_DIR)
+  const want48 = await file(LF, "p048");
+  let r = await rawGet(cr, url(LF, "p048"));
+  check("Page image (files): an approved reader gets p048 with status 200", r.status === 200, `status ${r.status}`);
+  check("Page image (files): the bytes equal the file, Content-Type image/webp, Cache-Control private, max-age=600", r.bytes.equals(want48) && r.headers.get("content-type") === "image/webp" && r.headers.get("cache-control") === "private, max-age=600", `${r.bytes.length} bytes, ${r.headers.get("content-type")}, ${r.headers.get("cache-control")}`);
+  check("Page image (files): the file is a WebP (RIFF ... WEBP)", r.bytes.subarray(0, 4).toString() === "RIFF" && r.bytes.subarray(8, 12).toString() === "WEBP");
+  r = await rawGet(tr1c, url(LF, "p048"));
+  check("Page image (files): a translator gets p048 (200)", r.status === 200 && r.bytes.equals(want48), `status ${r.status}`);
+  r = await rawGet(ad, url(LF, "p048"));
+  check("Page image (files): an admin gets p048 (200)", r.status === 200 && r.bytes.equals(want48), `status ${r.status}`);
+  r = await rawGet(null, url(LF, "p048"));
+  check("Page image (files): no session gives 401 and no bytes", r.status === 401 && !r.bytes.equals(want48), `status ${r.status}`);
+  r = await rawGet(cr, url("kendojidai_2014", "p0839"));
+  check("Page image (files): a four-digit page of a magazine year (kendojidai_2014/p0839) gives 200 and its file", r.status === 200 && r.bytes.equals(await file("kendojidai_2014", "p0839")), `status ${r.status}`);
+  r = await rawGet(cr, url(LF, "p100"));
+  check("Page image (files): a page in range with no file gives 404 and a short JSON body", r.status === 404 && NO_IMAGE_BODY.test(r.text) && r.headers.get("content-type")?.includes("json"), `status ${r.status}`);
+  r = await rawGet(cr, url("18d4ac29", "p001"));
+  check("Page image (files): the web article 18d4ac29 gives 404", r.status === 404 && NO_IMAGE_BODY.test(r.text), `status ${r.status}`);
+  const badIds = [
+    ["p48 (two digits)", url(LF, "p48"), 400],
+    ["p048.webp (suffix)", url(LF, "p048.webp"), 400],
+    ["P048 (capital)", url(LF, "P048"), 400],
+    ["pabc", url(LF, "pabc"), 400],
+    ["slug in capitals", url("Left_Foot_Full", "p048"), 400],
+    ["slug with a dash", url("left-foot", "p048"), 400],
+    ["slug %2e%2e (Next reads it as a path with ..; the route is not matched)", url("%2e%2e", "p048"), 404],
+    ["slug ..%2f..%2fetc", url("..%2f..%2fetc", "p048"), 400],
+    ["page ..%2fp048", url(LF, "..%2fp048"), 400],
+    ["page %2e%2e%2f%2e%2e%2fsecret", url(LF, "%2e%2e%2f%2e%2e%2fsecret"), 400],
+    ["slug with a NUL byte", url("left%00foot", "p048"), 400],
+    ["page p0048 (four digits for a 120-page book)", url(LF, "p0048"), 404],
+    ["page p000", url(LF, "p000"), 404],
+    ["page p121 (after the last page)", url(LF, "p121"), 404],
+    ["page p999", url(LF, "p999"), 404],
+    ["a book that the app does not know", url("no_such_book", "p048"), 404],
+  ];
+  for (const [name, u, status] of badIds) {
+    r = await rawGet(cr, u);
+    check(`Page image (files): ${name} gives ${status}`, r.status === status && !r.bytes.equals(want48), `status ${r.status}`);
+  }
+  r = await rawGet(cr, url("mental_full", "p015"));
+  check("Page image (files): a link inside the image folder that leaves the folder gives 403 and no bytes (safe-path)", r.status === 403 && !/OUTSIDE-SECRET/.test(r.text), `status ${r.status}`);
+  r = await rawGet(cr, `/api/read/image/${LF}/p048?x=1`);
+  check("Page image (files): a query string does not matter (200)", r.status === 200 && r.bytes.equals(want48));
+
+  // --- the setting "Page image": saved in the account like the other reader settings
+  r = await put(cr, { image: "yes" });
+  check("Setting image: a value that is not true or false gives 400 (nothing valid to save)", r.status === 400, `status ${r.status}`);
+  r = await put(cr, { image: true });
+  check("Setting image: true is saved (200, reader.image true)", r.status === 200 && r.json?.reader?.image === true, `status ${r.status}`);
+  const pageOn = await cr.req(`/read/${LF}?view=page&at=p048`);
+  check("Page view with Page image on: the image pane is in the page (alt, lazy, async, Open full size, tabs for a phone)", pageOn.status === 200 && /data-with-image/.test(pageOn.body) && /alt="Original page image, Page 48"/.test(pageOn.body) && /loading="lazy"/.test(pageOn.body) && /decoding="async"/.test(pageOn.body) && /Open full size/.test(pageOn.body) && /data-image-tabs/.test(pageOn.body), `status ${pageOn.status}`);
+  check("Page view with Page image on: the img src is the route /api/read/image/left_foot_full/p048 and the link opens a new tab", /<img[^>]*src="\/api\/read\/image\/left_foot_full\/p048"/.test(pageOn.body) && /<a[^>]*href="\/api\/read\/image\/left_foot_full\/p048"[^>]*target="_blank"/.test(pageOn.body));
+  check("Page view with Page image on: the 5 rows of the text stay", countOf(pageOn.body, /data-row="/g) === 5, `rows ${countOf(pageOn.body, /data-row="/g)}`);
+  const noText = await cr.req("/read/kendojidai_2014?view=page&at=p0839");
+  check("A page with no agent translation (kendojidai_2014/p0839) shows its page image and the line 'No agent translation yet'", noText.status === 200 && /data-no-text/.test(noText.body) && /alt="Original page image, Page 839"/.test(noText.body) && /src="\/api\/read\/image\/kendojidai_2014\/p0839"/.test(noText.body), `status ${noText.status}`);
+  const scroll = await cr.req(`/read/${LF}?view=scroll&at=p048`);
+  check("Scroll view with Page image on: text only, no image", scroll.status === 200 && !/data-page-image/.test(scroll.body) && !/data-with-image/.test(scroll.body));
+  r = await put(cr, { focus: true });
+  const focus = await cr.req(`/read/${LF}?view=page&at=p048`);
+  check("Focus mode with Page image on: text only, no image", focus.status === 200 && /data-focus-mode/.test(focus.body) && !/data-page-image/.test(focus.body) && !/data-with-image/.test(focus.body));
+  await put(cr, { focus: false });
+  const web = await cr.req("/read/18d4ac29?view=page&at=p001");
+  check("Web article with Page image on: no image pane", web.status === 200 && !/data-with-image/.test(web.body) && !/data-page-image/.test(web.body), `status ${web.status}`);
+  r = await put(cr, { image: false });
+  const pageOff = await cr.req(`/read/${LF}?view=page&at=p048`);
+  check("Page image off (the unit default): no image pane in the page view", r.status === 200 && pageOff.status === 200 && !/data-with-image/.test(pageOff.body) && !/data-page-image/.test(pageOff.body));
+  const waiting = anon;
+  r = await waiting.req(`/read/${LF}?view=page&at=p048`);
+  check("No session: the page view still goes to the sign-in page (no image pane)", /^\/sign-in/.test(r.go));
+
+  // --- research fields are not in catalog_items.row after S2
+  const RESEARCH = ["sources", "confidence", "filled_by", "confirmed_by", "notes", "source_url"];
+  const cat = await pbCall(pbUrl, "GET", "/api/collections/catalog_items/records?perPage=500", adminToken);
+  const items = cat.json?.items ?? [];
+  const withRow = items.filter((x) => x.row && typeof x.row === "object");
+  const leaked = withRow.filter((x) => RESEARCH.some((k) => k in x.row)).map((x) => x.item_id);
+  check(`catalog_items: ${items.length} records, none holds a research field in row (sources, confidence, filled_by, confirmed_by, notes, source_url)`, items.length === 37 && withRow.length > 0 && leaked.length === 0, `records ${items.length}, with row ${withRow.length}, leaking ${leaked.join(",")}`);
+  const lf = items.find((x) => x.item_id === LF);
+  check("catalog_items: the other fields of row stay (title_en, isbn, synopsis, pages) for left_foot_full", Boolean(lf?.row?.title_en && lf.row.isbn && lf.row.synopsis && lf.row.pages === 120) && lf.title_en === lf.row.title_en, JSON.stringify(Object.keys(lf?.row ?? {})));
+  const crCat = await pbCall(pbUrl, "GET", "/api/collections/catalog_items/records?perPage=500", cr.token());
+  check("catalog_items: a reader reads the records and finds no research field in row", crCat.status === 200 && (crCat.json?.items ?? []).every((x) => !x.row || !RESEARCH.some((k) => k in x.row)));
+
+  // --- signed mode: the route sends the browser to a signed link of the PocketBase hook (a second app server)
+  const pbBase = pbUrl + "/page-images";
+  const signed = await startExtra({ VIEWER_PAGE_IMAGE_SOURCE: "signed", VIEWER_PAGE_IMAGE_URL: pbBase, VIEWER_PAGE_IMAGE_KEY: key, VIEWER_PAGE_IMAGE_DIR: undefined });
+  const extras = [signed.child];
+  try {
+    const sp = signed.port;
+    r = await rawGet(null, url(LF, "p048"), { port: sp });
+    check("Page image (signed): no session gives 401", r.status === 401, `status ${r.status}`);
+    r = await rawGet(cr, url(LF, "p048"), { port: sp });
+    const loc = r.headers.get("location") ?? "";
+    const m = new RegExp(`^${pbBase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/${LF}/p048\\.webp\\?exp=(\\d+)&sig=([0-9a-f]{64})$`).exec(loc);
+    const now = Math.floor(Date.now() / 1000);
+    check("Page image (signed): an approved reader gets 302 to <url>/left_foot_full/p048.webp?exp=<seconds>&sig=<64 hex>", r.status === 302 && Boolean(m), `status ${r.status}, location ${loc.replace(/sig=[0-9a-f]+/, "sig=...")}`);
+    check("Page image (signed): exp is about now + 600 seconds, and the answer is not cached (Cache-Control private, no-store)", Boolean(m) && Math.abs(Number(m[1]) - (now + 600)) <= 15 && r.headers.get("cache-control") === "private, no-store", `exp-now ${m ? Number(m[1]) - now : "-"}`);
+    check("Page image (signed): the answer shows no key", !JSON.stringify([...r.headers]).includes(key) && !r.text.includes(key));
+    if (m) {
+      const hook = await rawGet(null, loc, { absolute: true });
+      check("Page image (signed): the PocketBase hook accepts the link: 200, image/webp, the bytes equal the file", hook.status === 200 && hook.headers.get("content-type") === "image/webp" && hook.bytes.equals(want48), `status ${hook.status}`);
+      const flip = (s) => s.slice(0, -1) + (s.endsWith("0") ? "1" : "0");
+      const bad = await rawGet(null, loc.replace(m[2], flip(m[2])), { absolute: true });
+      check("Page image (signed): a link with a changed signature gives 403 at the hook", bad.status === 403, `status ${bad.status}`);
+      const other = await rawGet(null, loc.replace("/p048.webp", "/p049.webp"), { absolute: true });
+      check("Page image (signed): the link of p048 does not open p049 (403)", other.status === 403, `status ${other.status}`);
+      const late = await rawGet(null, loc.replace(`exp=${m[1]}`, `exp=${Number(m[1]) + 400}`), { absolute: true });
+      check("Page image (signed): a link with a later exp and the old signature gives 403", late.status === 403, `status ${late.status}`);
+    }
+    r = await rawGet(tr1c, url("kendojidai_2014", "p0839"), { port: sp });
+    check("Page image (signed): a translator gets 302 for a four-digit page", r.status === 302 && /\/kendojidai_2014\/p0839\.webp\?exp=\d+&sig=[0-9a-f]{64}$/.test(r.headers.get("location") ?? ""), `status ${r.status}`);
+    r = await rawGet(cr, url(LF, "p100"), { port: sp });
+    const noFile = r.status === 302 ? await rawGet(null, r.headers.get("location"), { absolute: true }) : null;
+    check("Page image (signed): a page with no file on the server gives 302 and the hook answers 404", r.status === 302 && noFile?.status === 404, `status ${r.status}, hook ${noFile?.status}`);
+    r = await rawGet(cr, url("18d4ac29", "p001"), { port: sp });
+    check("Page image (signed): the web article gives 404 and no redirect", r.status === 404 && !r.headers.get("location"), `status ${r.status}`);
+    for (const [name, u, status] of [["p48", url(LF, "p48"), 400], ["slug %2e%2e", url("%2e%2e", "p048"), 404], ["page p0048", url(LF, "p0048"), 404], ["page p121", url(LF, "p121"), 404], ["unknown book", url("no_such_book", "p048"), 404]]) {
+      r = await rawGet(cr, u, { port: sp });
+      check(`Page image (signed): ${name} gives ${status} and no redirect`, r.status === status && !r.headers.get("location"), `status ${r.status}`);
+    }
+  } finally {
+    for (const c of extras) c.kill("SIGTERM");
+  }
+
+  // --- wrong settings: a clear 500 that names the missing key and never shows a key value
+  const cases = [
+    ["signed mode with no VIEWER_PAGE_IMAGE_KEY", { VIEWER_PAGE_IMAGE_SOURCE: "signed", VIEWER_PAGE_IMAGE_URL: pbBase, VIEWER_PAGE_IMAGE_KEY: undefined }, "VIEWER_PAGE_IMAGE_KEY"],
+    ["signed mode with no VIEWER_PAGE_IMAGE_URL", { VIEWER_PAGE_IMAGE_SOURCE: "signed", VIEWER_PAGE_IMAGE_URL: undefined, VIEWER_PAGE_IMAGE_KEY: key }, "VIEWER_PAGE_IMAGE_URL"],
+    ["signed mode with a key under 32 characters", { VIEWER_PAGE_IMAGE_SOURCE: "signed", VIEWER_PAGE_IMAGE_URL: pbBase, VIEWER_PAGE_IMAGE_KEY: key.slice(0, 31) }, "VIEWER_PAGE_IMAGE_KEY"],
+    ["signed mode with plain http to a remote host", { VIEWER_PAGE_IMAGE_SOURCE: "signed", VIEWER_PAGE_IMAGE_URL: "http://pb.example.com/page-images", VIEWER_PAGE_IMAGE_KEY: key }, "VIEWER_PAGE_IMAGE_URL"],
+    ["an unknown VIEWER_PAGE_IMAGE_SOURCE", { VIEWER_PAGE_IMAGE_SOURCE: "cloud" }, "VIEWER_PAGE_IMAGE_SOURCE"],
+  ];
+  for (const [name, env, named] of cases) {
+    const x = await startExtra({ VIEWER_PAGE_IMAGE_KEY: undefined, VIEWER_PAGE_IMAGE_URL: undefined, ...env });
+    try {
+      r = await rawGet(cr, url(LF, "p048"), { port: x.port });
+      check(`Page image config: ${name} gives 500 and the message names ${named}`, r.status === 500 && r.text.includes(named) && !r.text.includes(key.slice(0, 31)), `status ${r.status}`);
+    } finally {
+      x.child.kill("SIGTERM");
+    }
+  }
+  const nodir = await startExtra({ VIEWER_PAGE_IMAGE_SOURCE: "files", VIEWER_PAGE_IMAGE_DIR: path.join(path.dirname(dir), "no-such-image-folder") });
+  try {
+    r = await rawGet(cr, url(LF, "p048"), { port: nodir.port });
+    check("Page image (files): a missing image folder gives 404 'No page image available' (not 500)", r.status === 404 && NO_IMAGE_BODY.test(r.text), `status ${r.status}`);
+  } finally {
+    nodir.child.kill("SIGTERM");
+  }
+}
+
 // Parity of the reader_pages rows with the build of the human-translation-view (VISION-viewer 15.19.10).
 async function parityReaderRows(pbUrl, adminToken) {
   const { pathToFileURL } = await import("node:url");
-  const { register } = await import("node:module");
-  register(pathToFileURL(path.resolve("scripts/ts-resolve-hook.mjs")).href, pathToFileURL(path.resolve(".") + path.sep).href);
+  const { installTsResolveHook } = await import(pathToFileURL(path.resolve("scripts/ts-resolve-hook.mjs")).href);
+  installTsResolveHook();
   const build = await import(pathToFileURL(path.resolve("lib/htv-build.ts")).href);
   const cfg = JSON.parse(await fs.readFile(configFile ? path.resolve(configFile) : path.resolve("viewer.config.json"), "utf-8"));
   const dataDir = path.resolve(cfg.translatorDataDir);

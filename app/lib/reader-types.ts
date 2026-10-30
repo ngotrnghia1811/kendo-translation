@@ -108,6 +108,8 @@ export interface ReaderBookCard extends ReaderBookFacts {
 export interface ReaderBookIndex extends ReaderBookFacts {
   /** Digits of a page ID: 3, or 4 when the book has more than 999 pages. */
   digits: number;
+  /** True when the item has page images (catalog_items.pages is more than 0). The web article has none (unit RC2, round 65). */
+  images: boolean;
   /** Page numbers that have reader text. */
   textPages: number[];
   /** Page numbers with a page check. */

@@ -1,0 +1,20 @@
+# Color page list for convert_pages.py.
+#
+# Format: one page ID per line, for example left_foot_full/p001
+# Lines that start with # and blank lines are ignored.
+# A page ID must match a PDF file. A bad line stops the script with an error.
+#
+# Owner decision, round 65 answer 3 (2026-10-29):
+#   "Actually, convert all to black and white for now. In the future,
+#    I will add color pages later when needed"
+# So this list has no page IDs now. Every page is converted as 8-bit gray.
+#
+# To convert a page in color later:
+#   1. Add its page ID to this file, one per line.
+#   2. Run: python3 -B convert_pages.py --slugs <path to book-slugs.json> --only-color-list
+#      The option converts only the listed pages in color and overwrites their gray files.
+#   3. Upload the new files and the new manifest.tsv again.
+#
+# Another way, to redo a range of one book. Pages in this list come out in color.
+# Other pages in the range stay gray.
+#   python3 -B convert_pages.py --slugs <path> --book left_foot_full --pages 1-5 --force

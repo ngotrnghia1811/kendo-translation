@@ -173,3 +173,41 @@ Reader pages. Owner answers 3, 4, 5, 6, and 7 of round 63. Every file creates on
 - `pb_users.py` makes users with `approved` false. A translator and an admin read anyway (READ_OK). A reader that `pb_users.py` makes must be approved on `/admin/readers`.
 - The test `test_local.py` now checks ten migrations. Check 13b removes 10 history rows. Check 15a runs `migrate down 10`. The new checks 19 to 22 cover the sign-up rule, the approval, the closed `page_runs`, and the reader collections. Checks 10d2 and 10d3 changed: a reader no longer reads `page_runs`.
 - The last run of unit RC1 gave `Total: 219 PASS, 0 FAIL` (shape fresh). The live shape was not run.
+
+## Hook for page images (unit RC2, round 65)
+
+The file `pb_hooks/page_images.pb.js` serves the page images of the reader pages with a signed short link. Design: `docs/VISION-viewer.md` section 15.21.
+
+- Route: `GET /page-images/{slug}/{file}?exp=<seconds>&sig=<hex>`. Example file: `p048.webp`.
+- The signature is the lower-case hex HMAC-SHA256 of the text `<slug>/<file>:<exp>` with the key. `exp` must be after now and at most 900 seconds ahead.
+- The Next app makes the link after it checks the sign-in of the reader. See `app/README.md`, section Page images.
+
+### Server settings
+
+| Variable (environment of the PocketBase process) | Meaning |
+|---|---|
+| `PAGE_IMAGE_KEY` | The signing key, at least 32 characters. The same value as `VIEWER_PAGE_IMAGE_KEY` of the app |
+| `PAGE_IMAGE_DIR` | Folder of the images, with one subfolder for each book. On the server: `/opt/pocketbase-v2/page-images` |
+
+1. Start PocketBase with the option `--hooksDir=<folder that holds page_images.pb.js>`.
+2. Make sure that both variables are set in the environment of the process. PocketBase reads them at each request.
+3. Do not write the key in a file of the repository.
+
+### Answers
+
+- 503: the key is missing or has fewer than 32 characters, or the folder is missing. Every request gets 503 then.
+- 400: the slug does not match `^[a-z0-9_]+$` or the file does not match `^p\d{3,4}\.webp$`.
+- 403: `exp` is not a whole number, is not after now, or is more than 900 seconds ahead. Or the signature is wrong.
+- 404: the file does not exist.
+- 200: the image, with `Content-Type: image/webp` and `Cache-Control: private, max-age=600`.
+- The hook writes nothing to the log. It changes no other route, rule, or collection. It needs no migration.
+
+### Test
+
+- Run: `python3 -B data/scripts/pocketbase/test_page_images.py`
+- The test starts its own PocketBase on 127.0.0.1:8092 with a new empty folder. It never uses the live server.
+- It makes its own test image and a random key. It checks the answers above, the time limits, the signature, the file names, and the log.
+- It also starts a server with no key, a short key, an empty key, no folder, a missing folder, and a file in place of the folder. Each gives 503.
+- The last run of unit RC2 gave `Total: 82 PASS, 0 FAIL`.
+- The env variable `PB_TEST_BIN` replaces the path of the PocketBase binary.
+- JavaScript handlers of PocketBase cannot see variables outside the handler. The hook keeps all helpers inside the handler.

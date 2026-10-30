@@ -35,6 +35,7 @@ export default function ReaderSettingsPanel({
   s,
   theme,
   hasHuman,
+  hasImages,
   onChange,
   onTheme,
   onClose,
@@ -42,6 +43,7 @@ export default function ReaderSettingsPanel({
   s: EffectiveSettings;
   theme: ThemeName;
   hasHuman: boolean;
+  hasImages: boolean;
   onChange: (patch: ReaderSettings) => void;
   onTheme: (t: ThemeName) => void;
   onClose: () => void;
@@ -82,6 +84,12 @@ export default function ReaderSettingsPanel({
       </label>
       <Seg label="Width" value={s.width} options={[{ value: "narrow", label: "Narrow" }, { value: "wide", label: "Wide" }]} onPick={(v) => onChange({ width: v })} />
       <Seg label="Focus mode" value={s.focus ? "on" : "off"} options={[{ value: "off", label: "Off" }, { value: "on", label: "On" }]} onPick={(v) => onChange({ focus: v === "on" })} />
+      {hasImages ? (
+        <>
+          <Seg label="Page image" value={s.image ? "on" : "off"} options={[{ value: "off", label: "Off" }, { value: "on", label: "On" }]} onPick={(v) => onChange({ image: v === "on" })} />
+          <p className="-mt-2 mb-3 text-xs text-muted">The original page shows next to the text in the page view. The scroll view and focus mode show text only.</p>
+        </>
+      ) : null}
       <button
         type="button"
         data-settings-reset
