@@ -9,10 +9,20 @@ Pipeline for each page:
   3. The script renames the temporary WebP to <out>/<slug>/p<NNN>.webp.
   4. The script deletes the PNG.
 
+CamScanner mark crop (unit PC4):
+  - A page that draws the CamScanner mark (a small image drawn at "80 0 0 30 500 10 cm"
+    in the page content stream) loses its bottom 50 pt before step 2. cwebp does the cut
+    with -crop, so there is only one lossy encode. A page without the mark stays as is.
+  - Before the cut, the script makes sure that the cut strip holds no dark pixels outside
+    the mark box. A page that fails this check is not cut and goes to the crop log.
+  - crop-extra.txt can ask for a deeper cut for a whole book (for example kata_full).
+  - The script writes the crop facts of each run to <out>/_log/crop-<time>.tsv.
+
 Rules:
   - Python 3 standard library only.
   - The script opens the PDF files read only. It never writes to the PDF folder.
   - A page that already has a non-empty output file is skipped. Use --force to overwrite.
+  - --only-marked converts again only the pages with the CamScanner mark (it overwrites them).
   - One failed page does not stop the run. The exit code is 1 if any page failed.
   - Do not run two copies of the script on the same --out folder at the same time.
 """
@@ -24,25 +34,44 @@ import json
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
 import time
+import zlib
 
 sys.dont_write_bytecode = True
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_OUT = os.path.normpath(os.path.join(HERE, "..", "..", "page-images"))
 DEFAULT_COLOR_LIST = os.path.join(HERE, "color-pages.txt")
+DEFAULT_CROP_EXTRA = os.path.join(HERE, "crop-extra.txt")
 MAX_WORKERS = 6
 MB = 1048576.0
 PDF_NAME = re.compile(r"^page_(\d+)\.pdf$")
 PAGE_ID = re.compile(r"^[a-z0-9_]+/p\d{3,4}$")
 OUT_NAME = re.compile(r"^p\d{3,4}\.webp$")
-GS_BASE = ["-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-r150",
+DPI = 150
+GS_BASE = ["-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-r%d" % DPI,
            "-dTextAlphaBits=4", "-dGraphicsAlphaBits=4"]
 WEBP_QUALITY = "70"
 CMD_TIMEOUT = 600
+
+# CamScanner mark: a small image drawn at "80 0 0 30 500 10 cm" (point units, 1 pt tolerance).
+MARK_DRAW = (80.0, 30.0, 500.0, 10.0)
+MARK_TOL = 1.0
+CUT_PT = 50.0                 # bottom cut for a page with the mark
+DARK = 128                    # a gray value below this counts as a dark pixel
+ALLOW_X_PT = (494.4, 590.4)   # x range in pt where the cut strip can hold the mark box
+ALLOW_X_DEEP_PT = (470.0, 590.4)  # same for a deeper cut (the mark box and a logo)
+HEAD_BYTES = 65536
+TAIL_BYTES = 16384
+MAX_STREAM = 200000           # content streams are small, skip a raw stream above this size
+MAX_DECODED = 1 << 20
+CM_DO = re.compile(rb"([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+cm\s*/(\w+)\s+Do")
+BOX = re.compile(rb"/(MediaBox|CropBox)\s*\[([^\]]*)\]")
+STREAM_START = re.compile(rb">>\s*stream\r?\n")
 
 
 def id_digits(last_page):
@@ -85,10 +114,205 @@ def parse_range(text):
 def need_tools():
     gs = shutil.which("gs")
     cwebp = shutil.which("cwebp")
-    missing = [n for n, p in (("gs (Ghostscript)", gs), ("cwebp (WebP tools)", cwebp)) if not p]
+    dwebp = shutil.which("dwebp")
+    missing = [n for n, p in (("gs (Ghostscript)", gs), ("cwebp (WebP tools)", cwebp),
+                              ("dwebp (WebP tools)", dwebp)) if not p]
     if missing:
         sys.exit("Missing tool: %s. Install it and run again." % ", ".join(missing))
-    return gs, cwebp
+    return gs, cwebp, dwebp
+
+
+def parse_crop_extra(text, source="crop list"):
+    """Return {slug: cut in pt} from a crop list. Ignore comments and blank lines."""
+    out = {}
+    for no, raw in enumerate(text.splitlines(), 1):
+        line = raw.split("#", 1)[0].strip()
+        if not line:
+            continue
+        parts = line.split()
+        try:
+            if len(parts) != 2 or not re.match(r"^[a-z0-9_]+$", parts[0]):
+                raise ValueError
+            pt = float(parts[1])
+        except ValueError:
+            raise ValueError("%s line %d: bad line %r (expected <slug> <pt>, for example kata_full 90)"
+                             % (source, no, line)) from None
+        if not CUT_PT <= pt <= 200:
+            raise ValueError("%s line %d: cut %s pt is outside 50 to 200" % (source, no, parts[1]))
+        if parts[0] in out:
+            raise ValueError("%s line %d: slug %s appears twice" % (source, no, parts[0]))
+        out[parts[0]] = pt
+    return out
+
+
+def load_crop_extra(path):
+    if not path or not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf-8") as f:
+        return parse_crop_extra(f.read(), path)
+
+
+def cut_px(pt, dpi=DPI):
+    """Return a cut in pt as whole pixels (rounded to the nearest pixel)."""
+    return int(pt * dpi / 72.0 + 0.5)
+
+
+def crop_height(height, cut):
+    """Return the image height after a bottom cut of cut px."""
+    if cut < 0 or cut * 2 >= height:
+        raise ValueError("cut of %d px is not valid for an image %d px high" % (cut, height))
+    return height - cut
+
+
+def allowed_x(width, deep, dpi=DPI):
+    """Return the pixel range [x0, x1) where dark pixels are allowed in the cut strip."""
+    lo, hi = ALLOW_X_DEEP_PT if deep else ALLOW_X_PT
+    return max(0, int(round(lo * dpi / 72.0))), min(width, int(round(hi * dpi / 72.0)))
+
+
+def has_mark_draw(stream):
+    """Return True if a content stream draws a small image at 80 0 0 30 500 10 cm."""
+    for m in CM_DO.finditer(stream):
+        a, b, c, d, e, f = [float(x) for x in m.groups()[:6]]
+        if (abs(a - MARK_DRAW[0]) <= MARK_TOL and abs(d - MARK_DRAW[1]) <= MARK_TOL
+                and abs(e - MARK_DRAW[2]) <= MARK_TOL and abs(f - MARK_DRAW[3]) <= MARK_TOL
+                and abs(b) < 0.01 and abs(c) < 0.01):
+            return True
+    return False
+
+
+def pdf_info(data):
+    """Read the page boxes and the content streams of PDF bytes.
+
+    Return {"mark", "media", "crop", "draws", "open"}. "draws" is True if a decoded
+    stream draws an image. "open" is True if a stream that is not an image has no end in data.
+    """
+    boxes = {}
+    for m in BOX.finditer(data):
+        key = m.group(1).decode()
+        if key not in boxes:
+            try:
+                boxes[key] = [float(x) for x in m.group(2).split()]
+            except ValueError:
+                pass
+    mark = draws = is_open = False
+    for m in STREAM_START.finditer(data):
+        s = m.end()
+        e = data.find(b"endstream", s)
+        if e < 0:
+            head = data[max(0, m.start() - 400):m.start() + 2]
+            head = head[head.rfind(b" obj") + 1:]
+            if b"/Image" not in head:
+                is_open = True
+            continue
+        if e - s > MAX_STREAM:
+            continue
+        try:
+            text = zlib.decompressobj().decompress(data[s:e], MAX_DECODED)
+        except zlib.error:
+            continue
+        if CM_DO.search(text):
+            draws = True
+        if has_mark_draw(text):
+            mark = True
+    return {"mark": mark, "media": boxes.get("MediaBox"), "crop": boxes.get("CropBox"),
+            "draws": draws, "open": is_open}
+
+
+def scan_pdf(path):
+    """Return the pdf_info of a page PDF. Read the head and the tail first, the whole file if needed."""
+    size = os.path.getsize(path)
+    with open(path, "rb") as f:
+        if size > HEAD_BYTES + TAIL_BYTES:
+            head = f.read(HEAD_BYTES)
+            f.seek(size - TAIL_BYTES)
+            tail = f.read()
+            info = pdf_info(head)
+            if info["draws"] and not info["open"]:
+                tinfo = pdf_info(tail)
+                info["media"] = info["media"] or tinfo["media"]
+                info["crop"] = info["crop"] or tinfo["crop"]
+                if info["media"]:
+                    return info
+            f.seek(0)
+        else:
+            f.seek(0)
+        return pdf_info(f.read())
+
+
+def png_size(path):
+    """Return (width, height) from the PNG header."""
+    with open(path, "rb") as f:
+        head = f.read(24)
+    if head[:8] != b"\x89PNG\r\n\x1a\n" or head[12:16] != b"IHDR":
+        raise RuntimeError("gs made a file that is not a PNG")
+    return struct.unpack(">II", head[16:24])
+
+
+def webp_size(path):
+    """Return (width, height) of a lossy WebP file, or None for other kinds."""
+    with open(path, "rb") as f:
+        head = f.read(30)
+    if len(head) < 30 or head[:4] != b"RIFF" or head[8:12] != b"WEBP" or head[12:16] != b"VP8 ":
+        return None
+    return struct.unpack("<H", head[26:28])[0] & 0x3FFF, struct.unpack("<H", head[28:30])[0] & 0x3FFF
+
+
+def read_gray(tools, png, y, width, height, base):
+    """Return the 8-bit gray pixels (row by row) of a PNG area that starts at x 0 and row y."""
+    _, cwebp, dwebp = tools
+    lossless, pam = base + ".strip.webp", base + ".strip.pam"
+    try:
+        run_cmd([cwebp, "-quiet", "-lossless", "-z", "0", "-crop", "0", str(y), str(width), str(height),
+                 png, "-o", lossless])
+        run_cmd([dwebp, "-quiet", "-pam", lossless, "-o", pam])
+        with open(pam, "rb") as f:
+            data = f.read()
+    finally:
+        for p in (lossless, pam):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+    start = data.index(b"ENDHDR\n") + 7
+    px = data[start:]
+    if len(px) != width * height * 4:
+        raise RuntimeError("strip decode gave %d bytes, expected %d" % (len(px), width * height * 4))
+    return px[0::4]
+
+
+DARK_TABLE = bytes(1 if i < DARK else 0 for i in range(256))
+
+
+def count_dark_outside(gray, width, x0, x1):
+    """Count pixels below DARK in gray rows (each row is width px) outside the columns x0 to x1."""
+    mask = gray.translate(DARK_TABLE)
+    total = 0
+    for r in range(len(mask) // width):
+        row = mask[r * width:(r + 1) * width]
+        total += row[:x0].count(1) + row[x1:].count(1)
+    return total
+
+
+def decide_cut(tools, png, width, height, want_pt, base):
+    """Return (cut px, cut pt, reason, refused list) for a page with the CamScanner mark.
+
+    Try the wanted cut first. If the strip holds dark pixels outside the allowed
+    columns, refuse it and try the plain 50 pt cut. cut px is 0 if all tries fail.
+    """
+    tries = [want_pt] if want_pt == CUT_PT else [want_pt, CUT_PT]
+    refused = []
+    for pt in tries:
+        px = cut_px(pt)
+        x0, x1 = allowed_x(width, pt > CUT_PT)
+        gray = read_gray(tools, png, crop_height(height, px), width, px, base)
+        dark = count_dark_outside(gray, width, x0, x1)
+        if dark == 0:
+            reason = "mark" if pt == CUT_PT and want_pt == CUT_PT else (
+                "mark+extra" if pt == want_pt else "mark (extra refused)")
+            return px, pt, reason, refused
+        refused.append((pt, dark))
+    return 0, 0.0, "refused", refused
 
 
 def list_pages(books_dir, folder):
@@ -141,33 +365,50 @@ def run_cmd(cmd):
         raise RuntimeError("%s exit %d: %s" % (os.path.basename(cmd[0]), r.returncode, err))
 
 
-def convert_one(item, out_dir, tmp_dir, tools, force):
-    """Convert one page. Return (status, out_bytes, seconds, error)."""
-    gs, cwebp = tools
+def convert_one(item, out_dir, tmp_dir, tools, force, crop_extra=None):
+    """Convert one page. Return (status, out_bytes, seconds, error, facts).
+
+    facts is None for a skipped page. Else it is a dict with the keys mark, cut_px, cut_pt,
+    reason, refused (list of (pt, dark pixel count)), width, height_in, height_out.
+    """
+    gs, cwebp = tools[0], tools[1]
     final = os.path.join(out_dir, item["rel"])
     t0 = time.time()
     if not force:
         try:
             if os.path.getsize(final) > 0:
-                return "skip", os.path.getsize(final), 0.0, ""
+                return "skip", os.path.getsize(final), 0.0, "", None
         except OSError:
             pass
     tag = item["pid"].replace("/", "__")
     png = os.path.join(tmp_dir, tag + ".png")
     webp = os.path.join(tmp_dir, tag + ".webp")
     device = "png16m" if item["mode"] == "color" else "pnggray"
+    facts = None
     try:
+        info = item.get("info") or scan_pdf(item["pdf"])
         run_cmd([gs] + GS_BASE + ["-sDEVICE=" + device, "-sOutputFile=" + png, item["pdf"]])
         if not os.path.exists(png) or os.path.getsize(png) == 0:
             raise RuntimeError("gs made no PNG")
-        run_cmd([cwebp, "-quiet", "-q", WEBP_QUALITY, png, "-o", webp])
+        width, height = png_size(png)
+        facts = {"mark": info["mark"], "cut_px": 0, "cut_pt": 0.0, "reason": "", "refused": [],
+                 "width": width, "height_in": height, "height_out": height}
+        crop_args = []
+        if info["mark"]:
+            want = (crop_extra or {}).get(item["slug"], CUT_PT)
+            px, pt, reason, refused = decide_cut(tools, png, width, height, want, os.path.join(tmp_dir, tag))
+            facts.update(cut_px=px, cut_pt=pt, reason=reason, refused=refused)
+            if px:
+                facts["height_out"] = crop_height(height, px)
+                crop_args = ["-crop", "0", "0", str(width), str(facts["height_out"])]
+        run_cmd([cwebp, "-quiet", "-q", WEBP_QUALITY] + crop_args + [png, "-o", webp])
         if not os.path.exists(webp) or os.path.getsize(webp) == 0:
             raise RuntimeError("cwebp made no WebP")
         os.makedirs(os.path.dirname(final), exist_ok=True)
         os.replace(webp, final)
-        return "ok", os.path.getsize(final), time.time() - t0, ""
+        return "ok", os.path.getsize(final), time.time() - t0, "", facts
     except Exception as e:  # one failed page must not stop the run
-        return "fail", 0, time.time() - t0, str(e)
+        return "fail", 0, time.time() - t0, str(e), facts
     finally:
         for p in (png, webp):
             try:
@@ -201,31 +442,74 @@ def write_manifest(out_dir, color_ids):
     return len(rows)
 
 
+STAT_KEYS = ("cut", "deep", "refused", "plain", "skip", "fail")
+
+
+def book_stats_line(slug, st):
+    return ("  %-22s cut 50 pt %4d, cut deeper %4d, refused %3d, no mark %5d, skipped %5d, failed %3d"
+            % (slug, st["cut"], st["deep"], st["refused"], st["plain"], st["skip"], st["fail"]))
+
+
+def count_page(st, status, facts):
+    """Add one page result to the stats of its book. Return the stat key."""
+    if status == "skip":
+        key = "skip"
+    elif status == "fail":
+        key = "fail"
+    elif not facts["mark"]:
+        key = "plain"
+    elif not facts["cut_px"]:
+        key = "refused"
+    elif facts["cut_pt"] > CUT_PT:
+        key = "deep"
+    else:
+        key = "cut"
+    st[key] += 1
+    return key
+
+
+def scan_plan(plan, workers):
+    """Read the PDF of every plan page (head and tail) and set item["info"]."""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
+        for item, info in zip(plan, ex.map(lambda p: scan_pdf(p["pdf"]), plan)):
+            item["info"] = info
+
+
 def run(slugs, out_dir, books_dir=None, books=None, pages=None, workers=4, color_list=None,
-        force=False, dry_run=False, limit=None, only_color=False, quiet=False):
+        force=False, dry_run=False, limit=None, only_color=False, quiet=False,
+        crop_extra=None, only_marked=False):
     """Run the conversion. Return the exit code (0 all good, 1 if any page failed)."""
     workers = max(1, min(int(workers), MAX_WORKERS))
     with open(slugs, encoding="utf-8") as f:
         slug_data = json.load(f)
     books_dir = books_dir or slug_data["books_dir"]
     color_ids = set(load_color_list(color_list or DEFAULT_COLOR_LIST))
+    extra = load_crop_extra(DEFAULT_CROP_EXTRA if crop_extra is None else crop_extra)
     page_range = parse_range(pages) if pages else None
     known_slugs = {r["slug"] for r in slug_data["books"]}
     for b in books or []:
         if b not in known_slugs:
             raise ValueError("unknown book slug %r" % b)
+    for b in extra:
+        if b not in known_slugs:
+            raise ValueError("crop list has an unknown book slug %r" % b)
     report = []
     plan = build_plan(slug_data, books_dir, set(books or []), page_range, color_ids, report)
     if only_color:
         plan = [p for p in plan if p["mode"] == "color"]
         force = True
+    if only_marked:
+        scan_plan(plan, workers)
+        print("Read %d PDF files: %d have the CamScanner mark." % (len(plan), sum(1 for p in plan if p["info"]["mark"])))
+        plan = [p for p in plan if p["info"]["mark"]]
+        force = True
     if limit is not None:
         plan = plan[:limit]
     for line in report:
         print(line)
-    print("Plan: %d pages, %d books, %d in color list, workers %d, out %s"
+    print("Plan: %d pages, %d books, %d in color list, %d books in crop list, workers %d, out %s"
           % (len(plan), len({p["slug"] for p in plan}), sum(1 for p in plan if p["mode"] == "color"),
-             workers, out_dir))
+             len(extra), workers, out_dir))
     if dry_run:
         per = {}
         for p in plan:
@@ -244,24 +528,39 @@ def run(slugs, out_dir, books_dir=None, books=None, pages=None, workers=4, color
     os.makedirs(tmp_dir)
     log_dir = os.path.join(out_dir, "_log")
     os.makedirs(log_dir, exist_ok=True)
-    log_path = os.path.join(log_dir, "convert-%s.tsv" % datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    suffix = ""
+    while os.path.exists(os.path.join(log_dir, "convert-%s%s.tsv" % (stamp, suffix))):
+        suffix = "-%d" % (int(suffix[1:] or 1) + 1)
+    log_path = os.path.join(log_dir, "convert-%s%s.tsv" % (stamp, suffix))
+    crop_path = os.path.join(log_dir, "crop-%s%s.tsv" % (stamp, suffix))
     counts = {"ok": 0, "skip": 0, "fail": 0}
+    stats = {}
     written = 0
     t_start = time.time()
     done = 0
     total = len(plan)
-    with open(log_path, "w", encoding="utf-8") as log:
+    with open(log_path, "w", encoding="utf-8") as log, open(crop_path, "w", encoding="utf-8") as clog:
         log.write("page_id\tmode\tstatus\tsrc_MB\tout_MB\tseconds\terror\n")
+        clog.write("page_id\tcut_px\tcut_pt\treason\trefused\twidth\theight_in\theight_out\n")
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
-            futures = {ex.submit(convert_one, p, out_dir, tmp_dir, tools, force): p for p in plan}
+            futures = {ex.submit(convert_one, p, out_dir, tmp_dir, tools, force, extra): p for p in plan}
             try:
                 for fut in concurrent.futures.as_completed(futures):
                     item = futures[fut]
-                    status, size, secs, err = fut.result()
+                    status, size, secs, err, facts = fut.result()
                     counts[status] += 1
                     done += 1
+                    st = stats.setdefault(item["slug"], dict.fromkeys(STAT_KEYS, 0))
+                    count_page(st, status, facts)
                     if status == "ok":
                         written += size
+                    if facts and facts["mark"]:
+                        clog.write("%s\t%d\t%g\t%s\t%s\t%d\t%d\t%d\n"
+                                   % (item["pid"], facts["cut_px"], facts["cut_pt"], facts["reason"],
+                                      ",".join("%gpt:%d" % r for r in facts["refused"]),
+                                      facts["width"], facts["height_in"], facts["height_out"]))
+                        clog.flush()
                     try:
                         src = os.path.getsize(item["pdf"]) / MB
                     except OSError:
@@ -271,6 +570,9 @@ def run(slugs, out_dir, books_dir=None, books=None, pages=None, workers=4, color
                     log.flush()
                     if status == "fail":
                         print("FAIL %s: %s" % (item["pid"], err), flush=True)
+                    if facts and facts["mark"] and not facts["cut_px"]:
+                        print("REFUSED %s: dark pixels in the cut strip (%s)"
+                              % (item["pid"], ",".join("%gpt:%d" % r for r in facts["refused"])), flush=True)
                     if done % 200 == 0 and not quiet:
                         el = time.time() - t_start
                         conv = counts["ok"] + counts["fail"]
@@ -287,9 +589,99 @@ def run(slugs, out_dir, books_dir=None, books=None, pages=None, workers=4, color
     shutil.rmtree(tmp_dir, ignore_errors=True)
     n_manifest = write_manifest(out_dir, color_ids)
     el = time.time() - t_start
-    print("Finished: %d ok, %d skip, %d fail, %.1f MB written, %.1f s. Log: %s. Manifest: %d lines."
-          % (counts["ok"], counts["skip"], counts["fail"], written / MB, el, log_path, n_manifest), flush=True)
+    print("Per book:")
+    for slug in sorted(stats):
+        print(book_stats_line(slug, stats[slug]))
+    print("Finished: %d ok, %d skip, %d fail, %.1f MB written, %.1f s. Log: %s. Crop log: %s. Manifest: %d lines."
+          % (counts["ok"], counts["skip"], counts["fail"], written / MB, el, log_path, crop_path, n_manifest), flush=True)
     return 1 if counts["fail"] else 0
+
+
+def make_png(width, height, dark_blocks):
+    """Return PNG bytes of a white 8-bit gray image with black blocks (x0, y0, x1, y1)."""
+    rows = []
+    for y in range(height):
+        row = bytearray(b"\xff" * width)
+        for x0, y0, x1, y1 in dark_blocks:
+            if y0 <= y < y1:
+                row[x0:x1] = b"\x00" * (x1 - x0)
+        rows.append(b"\x00" + bytes(row))
+
+    def chunk(kind, body):
+        return (struct.pack(">I", len(body)) + kind + body
+                + struct.pack(">I", zlib.crc32(kind + body) & 0xFFFFFFFF))
+
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 0, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(b"".join(rows))) + chunk(b"IEND", b""))
+
+
+def fake_pdf(content, media=b"[0 0 595 842]", crop=b""):
+    """Return PDF bytes with one Flate content stream and a page object."""
+    body = zlib.compress(content)
+    return (b"%PDF-1.7\n3 0 obj\n<</Filter/FlateDecode/Length " + str(len(body)).encode() + b">>\nstream\n" + body
+            + b"\nendstream\nendobj\n9 0 obj\n<</Type/Page/MediaBox" + media + crop
+            + b"/Contents 3 0 R>>\nendobj\n")
+
+
+def selftest_crop(check, args):
+    """Self checks for the CamScanner mark crop. They use no PDF folder."""
+    scan = b"q Q q /Perceptual ri q 497.2842 0 0 790 48.85789 52 cm /Im1 Do Q "
+    info = pdf_info(fake_pdf(scan + b"q 80 0 0 30 500 10\ncm /Im2 Do Q Q", crop=b"/CropBox[0 50 595 842]"))
+    check("mark draw (80 0 0 30 500 10 cm) is found in a Flate content stream", info["mark"] and info["draws"])
+    check("MediaBox and CropBox are read", info["media"] == [0, 0, 595, 842] and info["crop"] == [0, 50, 595, 842])
+    check("mark draw within 1 pt is found",
+          pdf_info(fake_pdf(b"q 79.5 0 0 30.9 500.9 9.1 cm /Im2 Do Q"))["mark"])
+    check("scan draw alone is not the mark", not pdf_info(fake_pdf(scan))["mark"])
+    check("draw 2 pt away is not the mark", not pdf_info(fake_pdf(b"q 80 0 0 30 502 10 cm /Im2 Do Q"))["mark"])
+    check("draw of another size is not the mark", not pdf_info(fake_pdf(b"q 82 0 0 30 500 10 cm /Im2 Do Q"))["mark"])
+    check("a cut-off content stream is reported as open",
+          pdf_info(fake_pdf(scan)[:60])["open"] and not pdf_info(fake_pdf(scan))["open"])
+    check("cut of 50 pt at 150 dpi is 104 px", cut_px(50) == 104)
+    check("cut of 90 pt at 150 dpi is 188 px", cut_px(90) == 188)
+    check("cut of 50 pt at 72 dpi is 50 px", cut_px(50, 72) == 50)
+    check("page 1754 px high with a 104 px cut is 1650 px", crop_height(1754, 104) == 1650)
+    try:
+        crop_height(1754, 900)
+        check("cut of more than half the page gives an error", False)
+    except ValueError:
+        check("cut of more than half the page gives an error", True)
+    check("allowed columns at 150 dpi are 1030 to 1230", allowed_x(1240, False) == (1030, 1230))
+    gray = bytes([255] * 100 * 4)
+    left = bytearray(gray)
+    left[2 * 100 + 10] = 0
+    right = bytearray(gray)
+    right[2 * 100 + 90] = 0
+    check("dark pixel outside the allowed columns is counted", count_dark_outside(bytes(left), 100, 80, 100) == 1)
+    check("dark pixel inside the allowed columns is not counted", count_dark_outside(bytes(right), 100, 80, 100) == 0)
+    check("crop list parses slug and pt, with comments",
+          parse_crop_extra("# note\n\nkata_full 90  # logo\nmen1 60.5\n") == {"kata_full": 90.0, "men1": 60.5})
+    for text, why in (("kata full 90\n", "bad slug"), ("kata_full\n", "no pt"), ("kata_full 20\n", "pt below 50"),
+                      ("kata_full 90\nkata_full 80\n", "twice")):
+        try:
+            parse_crop_extra(text, "test list")
+            check("crop list with %s gives an error" % why, False)
+        except ValueError as e:
+            check("crop list with %s gives an error that names the line" % why, "line" in str(e))
+    tools = need_tools()
+    tmp = tempfile.mkdtemp(prefix="convert_pages_selftest_crop_")
+    try:
+        def decide(blocks, want):
+            png = os.path.join(tmp, "t.png")
+            with open(png, "wb") as pf:
+                pf.write(make_png(1240, 400, blocks))
+            return decide_cut(tools, png, 1240, 400, want, os.path.join(tmp, "t"))
+
+        px, pt, reason, refused = decide([(1100, 350, 1200, 390)], 50)
+        check("mark box in the strip is allowed, cut is 104 px", (px, pt, reason, refused) == (104, 50, "mark", []))
+        px, pt, reason, refused = decide([(100, 350, 110, 390)], 50)
+        check("dark pixels outside the mark box refuse the cut", px == 0 and reason == "refused" and refused == [(50, 400)])
+        px, pt, reason, refused = decide([(1000, 250, 1010, 290)], 90)
+        check("deeper cut allows the logo columns, cut is 188 px", (px, pt, reason) == (188, 90, "mark+extra"))
+        px, pt, reason, refused = decide([(100, 250, 110, 260)], 90)
+        check("refused deeper cut falls back to 50 pt", (px, pt, reason) == (104, 50, "mark (extra refused)")
+              and refused == [(90, 100)])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def selftest(args):
@@ -317,16 +709,25 @@ def selftest(args):
         check("bad page range gives an error", False)
     except ValueError:
         check("bad page range gives an error", True)
+    selftest_crop(check, args)
     tmp = tempfile.mkdtemp(prefix="convert_pages_selftest_")
     try:
         code = run(args.slugs, tmp, books_dir=args.books_dir, books=["left_foot_full"], pages="1-2",
-                   workers=2, color_list=args.color_list, quiet=True)
+                   workers=2, color_list=args.color_list, quiet=True, crop_extra=args.crop_extra)
         check("real run of 2 pages exits 0", code == 0)
+        with open(args.slugs, encoding="utf-8") as sf:
+            sdata = json.load(sf)
+        folder = [r["folder"] for r in sdata["books"] if r["slug"] == "left_foot_full"][0]
         for n in (1, 2):
             p = os.path.join(tmp, "left_foot_full", "p%03d.webp" % n)
             head = open(p, "rb").read(12) if os.path.exists(p) else b""
             check("p%03d.webp starts with RIFF and holds WEBP at bytes 8 to 11" % n,
                   head[:4] == b"RIFF" and head[8:12] == b"WEBP")
+            pdf = os.path.join(args.books_dir or sdata["books_dir"], folder, "page_%03d.pdf" % n)
+            marked = scan_pdf(pdf)["mark"]
+            size = webp_size(p) if os.path.exists(p) else None
+            check("p%03d.webp height is 1650 with the mark (1754 without it): mark %s, size %s" % (n, marked, size),
+                  size is not None and size == (1240, 1650 if marked else 1754))
         check("temporary folder removed", not os.path.exists(os.path.join(tmp, ".tmp")))
         check("manifest has 2 lines plus header",
               os.path.exists(os.path.join(tmp, "manifest.tsv"))
@@ -346,6 +747,10 @@ def main():
     ap.add_argument("--pages", default=None, help="page number range, for example 10-20")
     ap.add_argument("--workers", type=int, default=4, help="parallel workers (default 4, maximum 6)")
     ap.add_argument("--color-list", default=DEFAULT_COLOR_LIST, help="file with color page IDs")
+    ap.add_argument("--crop-extra", default=DEFAULT_CROP_EXTRA,
+                    help="file with deeper bottom cuts per book (default: crop-extra.txt)")
+    ap.add_argument("--only-marked", action="store_true",
+                    help="convert only the pages with the CamScanner mark, and overwrite them")
     ap.add_argument("--only-color-list", action="store_true",
                     help="convert only the pages in the color list, in color, and overwrite them")
     ap.add_argument("--force", action="store_true", help="overwrite existing outputs")
@@ -360,7 +765,8 @@ def main():
             need_tools()
             return selftest(args)
         return run(args.slugs, os.path.abspath(args.out), args.books_dir, args.book, args.pages,
-                   args.workers, args.color_list, args.force, args.dry_run, args.limit, args.only_color_list)
+                   args.workers, args.color_list, args.force, args.dry_run, args.limit, args.only_color_list,
+                   crop_extra=args.crop_extra, only_marked=args.only_marked)
     except (ValueError, OSError, json.JSONDecodeError) as e:
         sys.exit("Error: %s" % e)
 

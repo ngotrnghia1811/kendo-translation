@@ -6,7 +6,7 @@ This folder holds the tracked source files for the v2 PocketBase. The binary and
 
 - `pb_migrations/1793300000_v2_users_rules.js` adds the `role` and `disabled` fields to `users`. It sets the v2 rules for `users` and the sign-in rule `disabled = false`.
 - `pb_migrations/1793300001_v2_collections.js` creates six collections: `own_translations`, `comments`, `run_marks`, `catalog_items`, `magazine_chapters` and `page_runs`.
-- `pb_users.py` lists users, adds users, sets passwords, sets roles, and disables or enables users.
+- `pb_users.py` lists users, adds users, sets passwords, sets roles, and disables or enables users. A reader that it adds or sets gets `approved` true (unit RC3).
 - `test_local.py` is a throwaway test. It starts a temp PocketBase on port 8091 and checks every rule. It deletes the temp data at the end.
 
 - `pb_migrations/1793300002_v2_batch.js` turns on the batch API (`POST /api/batch`) with `maxRequests` 200 and `timeout` 10. The Save of the human-translation-view uses it (`app/lib/pb.ts` line 226), so that a page saves all records or none. All six migrations are safe to run twice (see sections 7 and 8). Each one adds only what is missing or sets the same values again.
@@ -170,7 +170,7 @@ Reader pages. Owner answers 3, 4, 5, 6, and 7 of round 63. Every file creates on
 - `1793300009_v2_reader_rules.js` sets the list and view rule of `page_runs` to `@request.auth.role = "translator" || @request.auth.role = "admin"`. It adds the theme names `sepia`, `solarized-light`, and `solarized-dark` to `user_settings.theme`.
 - Down of 1793300009: `page_runs` goes back to every signed-in user (the state of 1793300003). The theme values stay.
 - A server that started before these files existed must restart once. Start it in a normal terminal or with Python `subprocess.Popen(..., start_new_session=True)`.
-- `pb_users.py` makes users with `approved` false. A translator and an admin read anyway (READ_OK). A reader that `pb_users.py` makes must be approved on `/admin/readers`.
+- `pb_users.py` makes a reader with `approved` true since unit RC3 (round 66 answer 7). A translator and an admin read anyway (READ_OK). A reader who signs up on the web page waits for an admin on `/admin/readers`.
 - The test `test_local.py` now checks ten migrations. Check 13b removes 10 history rows. Check 15a runs `migrate down 10`. The new checks 19 to 22 cover the sign-up rule, the approval, the closed `page_runs`, and the reader collections. Checks 10d2 and 10d3 changed: a reader no longer reads `page_runs`.
 - The last run of unit RC1 gave `Total: 219 PASS, 0 FAIL` (shape fresh). The live shape was not run.
 
@@ -211,3 +211,12 @@ The file `pb_hooks/page_images.pb.js` serves the page images of the reader pages
 - The last run of unit RC2 gave `Total: 82 PASS, 0 FAIL`.
 - The env variable `PB_TEST_BIN` replaces the path of the PocketBase binary.
 - JavaScript handlers of PocketBase cannot see variables outside the handler. The hook keeps all helpers inside the handler.
+
+## Unit RC3 notes (round 66)
+
+- `pb_users.py add --role reader` creates the reader with `approved` true. The reader can open the reader pages at once.
+- `pb_users.py set-role EMAIL reader` also sets `approved` true. A change to another role leaves `approved` as it is.
+- `pb_users.py list` shows the column `approved` after `role`.
+- `add` for a translator or an admin leaves `approved` false. A translator and an admin read anyway.
+- The script still never prints a password or a token. `test_local.py` checks the new behavior (checks 16f to 16r and 19p).
+- The last run of unit RC3 gave `Total: 232 PASS, 0 FAIL` for `test_local.py` (shape `fresh`).

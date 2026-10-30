@@ -35,6 +35,20 @@ function ToolSeg<T extends string>({ label, value, options, onPick, disabled = f
   );
 }
 
+/** Title of the Image button when it is disabled (scroll view). Unit RC3, round 66 answer 5. */
+const IMAGE_PAGE_ONLY = "Page image shows in Page view only";
+
+/** One button in the reader bar that turns a setting on or off. It looks like one option of ToolSeg. Unit RC3 (round 66 answer 1 and 5). */
+function ToolToggle({ label, pressed, onToggle, disabled = false, disabledTitle }: { label: string; pressed: boolean; onToggle: () => void; disabled?: boolean; disabledTitle?: string }) {
+  return (
+    <div role="group" aria-label={label} className="flex overflow-hidden rounded border border-line text-sm" title={disabled ? disabledTitle : undefined}>
+      <button type="button" disabled={disabled} aria-pressed={pressed} data-toolbar={`${label}:toggle`} onClick={onToggle} className={"min-h-[44px] px-2.5 py-1 disabled:opacity-50 md:min-h-0 " + (pressed ? "bg-accent font-semibold text-white" : "")}>
+        {label}
+      </button>
+    </div>
+  );
+}
+
 function emptyPage(slug: string, n: number, digits: number): ReaderPageData {
   return { pageId: `${slug}/p${pad(n, digits)}`, n, name: pageLabel(n), hasText: false, rows: [], terms: {}, extras: [], hasHuman: false, label: { agent: "", human: "" }, checked: false };
 }
@@ -422,7 +436,10 @@ export default function ReaderBook({
             <h1 className="mr-2 max-w-[16rem] truncate text-sm font-semibold" title={index.titleEn || index.titleJa}>
               {index.titleEn || index.titleJa}
             </h1>
-            <ToolSeg label="View" value={s.view} options={[{ value: "page", label: "Page view" }, { value: "scroll", label: "Scroll view" }]} onPick={changeView} />
+            <div className="flex items-center gap-2" data-view-tools>
+              <ToolSeg label="View" value={s.view} options={[{ value: "page", label: "Page view" }, { value: "scroll", label: "Scroll view" }]} onPick={changeView} />
+              {index.images ? <ToolToggle label="Image" pressed={s.image} onToggle={() => save({ image: !s.image })} disabled={s.view !== "page"} disabledTitle={IMAGE_PAGE_ONLY} /> : null}
+            </div>
             <ToolSeg label="Text" value={s.text} options={[{ value: "en", label: "EN" }, { value: "ja", label: "JA" }, { value: "pair", label: "Pairing" }]} onPick={(v) => save({ text: v })} />
             <ToolSeg label="English text" value={s.en} options={[{ value: "agent", label: "Agent" }, { value: "human", label: "Human" }]} onPick={(v) => save({ en: v })} disabled={!hasHumanHere} />
             {!hasHumanHere ? <span className="text-xs text-muted" data-no-human>No human version for this page</span> : null}
@@ -496,7 +513,7 @@ export default function ReaderBook({
           {sideIndex(true, () => setSheet(false))}
         </div>
       ) : null}
-      {showSettings ? <ReaderSettingsPanel s={s} theme={theme} hasHuman={hasHumanHere} hasImages={index.images} onChange={(p) => {
+      {showSettings ? <ReaderSettingsPanel s={s} theme={theme} hasHuman={hasHumanHere} onChange={(p) => {
           const { view, ...rest } = p;
           if (Object.keys(rest).length) save(rest);
           if (view) changeView(view);

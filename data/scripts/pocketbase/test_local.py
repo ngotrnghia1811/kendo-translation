@@ -609,6 +609,62 @@ def check_user_script(ctx):
         ctx.check("16e unknown email gives a clear error", False, "no error")
     except pb_users.PbError as err:
         ctx.check("16e unknown email gives a clear error", "No user" in str(err), str(err)[:100])
+    check_user_script_approved(ctx)
+
+
+def check_user_script_approved(ctx):
+    """Unit RC3 (round 66 answer 7): pb_users.py approves the readers that the superuser makes. Each check below is one behavior."""
+    su = ctx.su_token
+    users = "/api/collections/users/records"
+    ctx.check("16f add_user with role reader makes the account with approved true (rd1 of the setup)", pb_users.find_user(BASE, su, addr("rd1")).get("approved") is True, "")
+    ctx.check("16g add_user with role translator does not approve (approved stays false, the PocketBase default)", pb_users.find_user(BASE, su, addr("tr1")).get("approved") is False, "")
+    status, data = http("GET", "/api/collections/reader_pages/records", token=ctx.token["rd1"])
+    ctx.check("16h a reader made by the script opens the reader_pages list at once (status 200, no admin step)", is_ok(status), "status " + str(status))
+    pw = secrets.token_urlsafe(18)
+    pb_users.add_user(BASE, su, addr("rc3a"), "translator", pw, name="rc3a")
+    before = pb_users.find_user(BASE, su, addr("rc3a"))
+    pb_users.set_role(BASE, su, addr("rc3a"), "reader")
+    after = pb_users.find_user(BASE, su, addr("rc3a"))
+    ctx.check("16i set_role to reader sets approved true (unit default: the superuser names that person)", before.get("approved") is False and after.get("role") == "reader" and after.get("approved") is True, "approved " + str(after.get("approved")))
+    pb_users.set_role(BASE, su, addr("rc3a"), "translator")
+    back = pb_users.find_user(BASE, su, addr("rc3a"))
+    ctx.check("16j set_role to translator leaves approved as it is (true stays true)", back.get("role") == "translator" and back.get("approved") is True, "approved " + str(back.get("approved")))
+    http("PATCH", users + "/" + back["id"], {"approved": False}, su)
+    pb_users.set_role(BASE, su, addr("rc3a"), "admin")
+    ctx.check("16k set_role to admin leaves approved as it is (false stays false)", pb_users.find_user(BASE, su, addr("rc3a")).get("approved") is False, "")
+    text = pb_users.format_users([pb_users.find_user(BASE, su, addr("rd1")), pb_users.find_user(BASE, su, addr("tr1"))])
+    lines = text.splitlines()
+    cols = lines[0].split("\t")
+    ctx.check("16l format_users has the column approved after role", cols[:3] == ["email", "role", "approved"] and len(cols) == 6, lines[0])
+    ctx.check("16m format_users shows approved true for the reader and false for the translator", lines[1].split("\t")[2] == "True" and lines[2].split("\t")[2] == "False", str(lines[1:]))
+    ctx.check("16n format_users output holds no password and no token", ctx.pw["rd1"] not in text and su not in text and "passwordHash" not in text, "")
+    # The command line path: main() with a fake getpass. The output and the error text must not hold any password.
+    import contextlib
+    import io
+    cli_pw = secrets.token_urlsafe(18)
+    answers = iter([cli_pw, cli_pw, ctx.su_pw])
+    real_getpass = pb_users.getpass.getpass
+    pb_users.getpass.getpass = lambda prompt="": next(answers)
+    out, err = io.StringIO(), io.StringIO()
+    try:
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = pb_users.main(["--url", BASE, "--superuser", ctx.su_email, "add", addr("rc3b"), "--role", "reader"])
+    finally:
+        pb_users.getpass.getpass = real_getpass
+    shown = out.getvalue() + err.getvalue()
+    ctx.check("16o the command add --role reader exits 0, says that the reader is approved, and the account has approved true", code == 0 and "approved" in shown and pb_users.find_user(BASE, su, addr("rc3b")).get("approved") is True, shown[:150])
+    ctx.check("16p the command prints no password (new user password and superuser password)", cli_pw not in shown and ctx.su_pw not in shown, "password in output")
+    status, _ = user_sign_in(addr("rc3b"), cli_pw)
+    ctx.check("16q the reader that the command made signs in with the password that was typed", status == 200, "status " + str(status))
+    answers = iter([ctx.su_pw])
+    pb_users.getpass.getpass = lambda prompt="": next(answers)
+    out = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(out):
+            code = pb_users.main(["--url", BASE, "--superuser", ctx.su_email, "list"])
+    finally:
+        pb_users.getpass.getpass = real_getpass
+    ctx.check("16r the command list prints the header with approved and the row of rc3b with True, and no password", code == 0 and "\tapproved\t" in out.getvalue() and any(l.startswith(addr("rc3b")) and "\tTrue\t" in l for l in out.getvalue().splitlines()) and cli_pw not in out.getvalue(), out.getvalue()[:150])
 
 
 def get_collection(ctx, name):
@@ -774,7 +830,8 @@ def check_reader_pages(ctx):
     # an approved reader made by the superuser
     pw2 = secrets.token_urlsafe(18)
     ctx.id["rd2"] = pb_users.add_user(BASE, su, addr("rd2"), "reader", pw2, name="rd2")["id"]
-    ctx.check("19p an account that the superuser makes has approved false", http("GET", users + "/" + ctx.id["rd2"], token=su)[1].get("approved") is False, "")
+    ctx.check("19p a reader account that the superuser makes has approved true (unit RC3, round 66 answer 7)", http("GET", users + "/" + ctx.id["rd2"], token=su)[1].get("approved") is True, "")
+    http("PATCH", users + "/" + ctx.id["rd2"], {"approved": False}, su)
     status, data = http("PATCH", users + "/" + ctx.id["rd2"], {"approved": True}, t["admin1"])
     ctx.check("19q an admin approves a reader", is_ok(status) and data.get("approved") is True, "status " + str(status))
     ctx.token["rd2"] = user_sign_in(addr("rd2"), pw2)[1]

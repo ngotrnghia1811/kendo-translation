@@ -73,7 +73,7 @@ The collection magazine_chapters always gets all rows of item-metadata/magazine-
 The collection reader_pages gets one record for each selected page with an agent translation to show: the run of the admin run mark, else the newest PASS run.
 A page with only FAIL runs gets no record. The record holds no verdict, no score, no TL_3 panel, and no reasoning. The report lists the count and the sizes in MB.
 The collection catalog_items always gets the 36 book folders of pilot-sample/book-slugs.json, plus the item of each selected run (for example the web article 18d4ac29).
-The column row of catalog_items holds the metadata row without the six research fields (sources, confidence, filled_by, confirmed_by, notes, source_url).
+The column row of catalog_items holds the metadata row without 14 research keys (sources, confidence, filled_by, confirmed_by, notes, source_url, hint_secondary, confidence_draft, notes_draft, issue_evidence, status, title_en_source, author_en_source, synopsis_source).
 An --apply run replaces the row of a record that exists already, so one run cleans the records of an earlier run.
 The password comes from a hidden prompt on the terminal. If stdin is not a terminal, the command reads one line from stdin.
 The command never takes a password from an option, an env variable, or a file. It never prints the password or the token.
@@ -449,7 +449,11 @@ async function loadChapters(dataDir) {
 
 // Research fields of a metadata row (unit RC2, round 65; owner round 64 answer 7: "Strip research fields"). Every signed-in user can read catalog_items,
 // so the column row must not hold them. VISION-viewer 15.19.4 names the six. The files in item-metadata keep them.
-const RESEARCH_FIELDS = ["sources", "confidence", "filled_by", "confirmed_by", "notes", "source_url"];
+// Unit RC3 (round 66 answer 6, Q-A 2026-10-29 l32): eight more keys leave the row. hint_secondary holds a file path of the Mac of the owner.
+const RESEARCH_FIELDS = [
+  "sources", "confidence", "filled_by", "confirmed_by", "notes", "source_url",
+  "hint_secondary", "confidence_draft", "notes_draft", "issue_evidence", "status", "title_en_source", "author_en_source", "synopsis_source",
+];
 
 function withoutResearch(row) {
   if (!row || typeof row !== "object") return row ?? null;

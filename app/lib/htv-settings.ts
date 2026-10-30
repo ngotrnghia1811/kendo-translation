@@ -151,7 +151,7 @@ export interface PaneSettings {
  *   view    page = one page at a time (default, round 63 answer 7), scroll = all pages in one scroll
  *   fontEn  serif or sans. fontJa  mincho or gothic. size in px. line = line height. width  narrow (about 72 characters) or wide.
  *   focus   true = focus mode (text only)
- *   image   true = show the original page image next to the text (page view only; unit RC2, round 65)
+ *   image   true = show the original page image next to the text (page view only; default true since unit RC3, round 66)
  *   index   false = the book index is closed
  */
 export type ReaderText = "en" | "ja" | "pair";
@@ -181,7 +181,7 @@ export const READER_DEFAULTS: Required<ReaderSettings> = {
   line: 1.7,
   width: "narrow",
   focus: false,
-  image: false, // [unit default, round 65] off; the owner can turn it on in the settings panel
+  image: true, // Unit RC3 (round 66 answer 4): on by default in the page view. A reader who saved off keeps off. The Image button in the reader bar turns it on or off.
   index: true,
 };
 

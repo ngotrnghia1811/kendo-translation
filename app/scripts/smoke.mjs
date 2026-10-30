@@ -1815,6 +1815,17 @@ async function imageChecks({ anon, cr, tr1c, ad, adminToken, pbUrl, LF, put, cou
   r = await rawGet(cr, `/api/read/image/${LF}/p048?x=1`);
   check("Page image (files): a query string does not matter (200)", r.status === 200 && r.bytes.equals(want48));
 
+  // --- Unit RC3 (round 66 answers 1, 4, 5): the Image button sits in the reader bar, the default is on, the Settings panel has no switch
+  const btnTag = (html) => (html.match(/<button[^>]*data-toolbar="Image:toggle"[^>]*>/) ?? [""])[0];
+  const fresh = await cr.req(`/read/${LF}?view=page&at=p048`);
+  check("Default (this reader saved no image value): the page view shows the page image pane without any setting", fresh.status === 200 && /data-with-image/.test(fresh.body) && /data-page-image/.test(fresh.body), `status ${fresh.status}`);
+  check("Default: the Image button is in the bar next to the View buttons, pressed (aria-pressed true), not disabled", /aria-pressed="true"/.test(btnTag(fresh.body)) && !/\sdisabled=""/.test(btnTag(fresh.body)) && /data-view-tools[\s\S]*data-toolbar="View:page"[\s\S]*data-toolbar="Image:toggle"/.test(fresh.body), btnTag(fresh.body).slice(0, 120));
+  check("The Image button comes after the View buttons and before the Text buttons (same bar row)", fresh.body.indexOf('data-toolbar="View:scroll"') < fresh.body.indexOf('data-toolbar="Image:toggle"') && fresh.body.indexOf('data-toolbar="Image:toggle"') < fresh.body.indexOf('data-toolbar="Text:en"'));
+  const scrollBtn = await cr.req(`/read/${LF}?view=scroll&at=p048`);
+  check("Scroll view: the Image button stays, is disabled, and its title says 'Page image shows in Page view only'", /\sdisabled=""/.test(btnTag(scrollBtn.body)) && /title="Page image shows in Page view only"/.test(scrollBtn.body), btnTag(scrollBtn.body).slice(0, 120));
+  const webBtn = await cr.req("/read/18d4ac29?view=page&at=p001");
+  check("Web article (no page images): no Image button in the bar", webBtn.status === 200 && btnTag(webBtn.body) === "");
+  check("The Settings panel code has no 'Page image' switch (no data-setting 'Page image' in the page HTML)", !/data-setting="Page image/.test(fresh.body));
   // --- the setting "Page image": saved in the account like the other reader settings
   r = await put(cr, { image: "yes" });
   check("Setting image: a value that is not true or false gives 400 (nothing valid to save)", r.status === 400, `status ${r.status}`);
@@ -1836,18 +1847,25 @@ async function imageChecks({ anon, cr, tr1c, ad, adminToken, pbUrl, LF, put, cou
   check("Web article with Page image on: no image pane", web.status === 200 && !/data-with-image/.test(web.body) && !/data-page-image/.test(web.body), `status ${web.status}`);
   r = await put(cr, { image: false });
   const pageOff = await cr.req(`/read/${LF}?view=page&at=p048`);
-  check("Page image off (the unit default): no image pane in the page view", r.status === 200 && pageOff.status === 200 && !/data-with-image/.test(pageOff.body) && !/data-page-image/.test(pageOff.body));
+  check("Page image off (saved by the reader, RC3: the default is on): no image pane in the page view, the Image button shows aria-pressed false", r.status === 200 && pageOff.status === 200 && !/data-with-image/.test(pageOff.body) && !/data-page-image/.test(pageOff.body) && /aria-pressed="false"/.test(btnTag(pageOff.body)));
+  r = await put(cr, { image: true });
+  check("Image saved on again: the image pane returns (the reader stays at the default state for the next checks)", r.status === 200 && r.json?.reader?.image === true);
   const waiting = anon;
   r = await waiting.req(`/read/${LF}?view=page&at=p048`);
   check("No session: the page view still goes to the sign-in page (no image pane)", /^\/sign-in/.test(r.go));
 
   // --- research fields are not in catalog_items.row after S2
-  const RESEARCH = ["sources", "confidence", "filled_by", "confirmed_by", "notes", "source_url"];
+  // Unit RC3 (round 66 answer 6): 14 keys, the six of round 65 plus eight more (hint_secondary holds a file path of the Mac of the owner).
+  const RESEARCH = ["sources", "confidence", "filled_by", "confirmed_by", "notes", "source_url", "hint_secondary", "confidence_draft", "notes_draft", "issue_evidence", "status", "title_en_source", "author_en_source", "synopsis_source"];
   const cat = await pbCall(pbUrl, "GET", "/api/collections/catalog_items/records?perPage=500", adminToken);
   const items = cat.json?.items ?? [];
   const withRow = items.filter((x) => x.row && typeof x.row === "object");
   const leaked = withRow.filter((x) => RESEARCH.some((k) => k in x.row)).map((x) => x.item_id);
-  check(`catalog_items: ${items.length} records, none holds a research field in row (sources, confidence, filled_by, confirmed_by, notes, source_url)`, items.length === 37 && withRow.length > 0 && leaked.length === 0, `records ${items.length}, with row ${withRow.length}, leaking ${leaked.join(",")}`);
+  check(`catalog_items: ${items.length} records, none holds one of the 14 research keys in row (${RESEARCH.join(", ")})`, items.length === 37 && withRow.length > 0 && leaked.length === 0 && RESEARCH.length === 14, `records ${items.length}, with row ${withRow.length}, leaking ${leaked.join(",")}`);
+  const leakedKeys = [...new Set(withRow.flatMap((x) => RESEARCH.filter((k) => k in x.row)))];
+  check("catalog_items: for each of the 14 keys, no record holds it (checked one key at a time)", RESEARCH.every((k) => !withRow.some((x) => k in x.row)) && leakedKeys.length === 0, `keys found: ${leakedKeys.join(",")}`);
+  check("catalog_items: no row holds a Mac path (no '/Volumes/' and no '/Users/' in any row)", !withRow.some((x) => /\/Volumes\/|\/Users\//.test(JSON.stringify(x.row))));
+  check("catalog_items: the keys that the reader pages use stay (isbn and synopsis of left_foot_full)", (() => { const x = withRow.find((y) => y.item_id === LF); return Boolean(x) && "synopsis" in x.row && "isbn" in x.row; })());
   const lf = items.find((x) => x.item_id === LF);
   check("catalog_items: the other fields of row stay (title_en, isbn, synopsis, pages) for left_foot_full", Boolean(lf?.row?.title_en && lf.row.isbn && lf.row.synopsis && lf.row.pages === 120) && lf.title_en === lf.row.title_en, JSON.stringify(Object.keys(lf?.row ?? {})));
   const crCat = await pbCall(pbUrl, "GET", "/api/collections/catalog_items/records?perPage=500", cr.token());

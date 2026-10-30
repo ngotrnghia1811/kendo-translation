@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Manage v2 users in a PocketBase server. Python 3 standard library only.
 
-Commands: list, add, set-password, set-role, disable, enable.
+Commands: list, add, set-password, set-role, disable, enable. Unit RC3 (round 66 answer 7): add --role reader and set-role reader set approved true.
 
 Password rules:
   - The superuser password comes only from a getpass prompt.
@@ -111,6 +111,8 @@ def add_user(base_url, token, email, role, password, name=""):
     check_role(role)
     body = {"email": email, "password": password, "passwordConfirm": password,
             "verified": True, "emailVisibility": True, "role": role, "disabled": False}
+    if role == "reader":  # unit RC3: the superuser names this reader, so no admin step is needed
+        body["approved"] = True
     if name:
         body["name"] = name
     return request(base_url, "POST", USERS_PATH, body, token)
@@ -128,7 +130,7 @@ def set_password(base_url, token, email, password):
 
 def set_role(base_url, token, email, role):
     check_role(role)
-    return update_user(base_url, token, email, {"role": role})
+    return update_user(base_url, token, email, {"role": role, "approved": True} if role == "reader" else {"role": role})  # unit RC3: reader also approves
 
 
 def set_disabled(base_url, token, email, disabled):
@@ -141,10 +143,10 @@ def check_role(role):
 
 
 def format_users(users):
-    """Return text lines: email, role, disabled, verified, created. No password, no token."""
-    lines = ["email\trole\tdisabled\tverified\tcreated"]
+    """Return text lines: email, role, approved, disabled, verified, created. No password, no token."""
+    lines = ["email\trole\tapproved\tdisabled\tverified\tcreated"]
     for user in users:
-        lines.append("\t".join(str(user.get(key, "")) for key in ("email", "role", "disabled", "verified", "created")))
+        lines.append("\t".join(str(user.get(key, "")) for key in ("email", "role", "approved", "disabled", "verified", "created")))
     return "\n".join(lines)
 
 
@@ -155,13 +157,13 @@ def build_parser():
                         help="superuser email (or env PB_SUPERUSER_EMAIL)")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("list", help="list users")
-    add = sub.add_parser("add", help="create a verified user")
+    add = sub.add_parser("add", help="create a verified user (a reader is approved at once)")
     add.add_argument("email")
     add.add_argument("--role", required=True, choices=ROLES)
     add.add_argument("--name", default="")
     pw = sub.add_parser("set-password", help="set a new password for a user")
     pw.add_argument("email")
-    role = sub.add_parser("set-role", help="change the role of a user")
+    role = sub.add_parser("set-role", help="change the role of a user (the role reader also approves the user)")
     role.add_argument("email")
     role.add_argument("role", choices=ROLES)
     for name, text in (("disable", "block sign-in for a user"), ("enable", "allow sign-in for a user")):
@@ -191,13 +193,13 @@ def run(args):
         print(format_users(list_users(base_url, token)))
     elif args.command == "add":
         add_user(base_url, token, args.email, args.role, new_password, args.name)
-        print("Added " + args.email + " with role " + args.role + ".")
+        print("Added " + args.email + " with role " + args.role + "." + (" The reader is approved." if args.role == "reader" else ""))
     elif args.command == "set-password":
         set_password(base_url, token, args.email, new_password)
         print("Password changed for " + args.email + ".")
     elif args.command == "set-role":
         set_role(base_url, token, args.email, args.role)
-        print("Role of " + args.email + " is now " + args.role + ".")
+        print("Role of " + args.email + " is now " + args.role + "." + (" The reader is approved." if args.role == "reader" else ""))
     elif args.command in ("disable", "enable"):
         set_disabled(base_url, token, args.email, args.command == "disable")
         print(args.command.capitalize() + "d " + args.email + ".")

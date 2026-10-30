@@ -497,7 +497,7 @@ All keys are environment variables. An empty variable counts as not set. Only th
 
 1. Put the images in `data/page-images/<book>/p048.webp`. Use 4 digits (`p0839.webp`) for a book of more than 999 pages.
 2. Start the app as usual. The route `/api/read/image/<book>/<page>` reads the file.
-3. Sign in as a reader, a translator, or an admin. Open a page. Open the settings panel and turn on "Page image".
+3. Sign in as a reader, a translator, or an admin. Open a page in Page view. The page image shows by default. Press "Image" in the bar to turn it off.
 
 ### Signed mode (deploy)
 
@@ -510,16 +510,25 @@ All keys are environment variables. An empty variable counts as not set. Only th
 - Access: an approved reader, a translator, or an admin. No session gives 401. A reader that waits for approval gives 403.
 - A bad page ID gives 400. An unknown book, a page that is not in the book, and the web article give 404.
 - The image shows in the page view only. The scroll view and focus mode show text only.
-- A missing image shows "No page image available". Page image is off until the reader turns it on.
+- A missing image shows "No page image available". Page image is on by default since unit RC3. The button "Image" in the reader bar turns it off and on.
 - Make sure that no log, message, or page shows the key.
 
 ### Tests
 
-- `node scripts/smoke.mjs read` runs 231 checks. They need the setup of `run_all.py` and two more variables: `VIEWER_PAGE_IMAGE_DIR` (test images, with one link that leaves the folder) and `VIEWER_PAGE_IMAGE_TEST_KEY` (the key of the test PocketBase). Without them the page image checks give one SKIP.
+- `node scripts/smoke.mjs read` runs 241 checks. They need the setup of `run_all.py` and two more variables: `VIEWER_PAGE_IMAGE_DIR` (test images, with one link that leaves the folder) and `VIEWER_PAGE_IMAGE_TEST_KEY` (the key of the test PocketBase). Without them the page image checks give one SKIP.
 - The checks start extra copies of the app on other ports for signed mode and for the wrong settings. They stop them at the end.
-- The Chrome checks of the page image view (1440 px and 390 px) are in the work folder of unit RC2 (`browser_rc2.mjs`).
+- The Chrome checks of the page image view and the Image button (1440 px and 390 px) are in the work folder of unit RC3 (`browser_rc2.mjs`, 100 checks).
 
 ### Other changes of unit RC2
 
-- S2 drops `sources`, `confidence`, `filled_by`, `confirmed_by`, `notes`, and `source_url` from `catalog_items.row`. An `--apply` run cleans the records that hold them.
+- S2 drops six keys (`sources`, `confidence`, `filled_by`, `confirmed_by`, `notes`, and `source_url`) from `catalog_items.row`. Unit RC3 drops eight more. See the notes of unit RC3 below.
 - `scripts/ts-resolve-hook.mjs` uses `module.registerHooks()`. Node 26 prints no DEP0205 warning. Call `installTsResolveHook()` before the first import of an app file.
+
+## Unit RC3 notes (round 66)
+
+- The reader bar has a button "Image" right of the View buttons. It turns the page image on and off and saves `reader.image` like the other reader settings. The Settings panel has no "Page image" switch.
+- The button shows only for a book with page images. In Scroll view it stays and is disabled. Its title is "Page image shows in Page view only".
+- Page image is on by default. A reader who saved Off keeps Off. The Reset button of the Settings panel sets it to on.
+- S2 drops 14 keys from `catalog_items.row`: the six above plus `hint_secondary`, `confidence_draft`, `notes_draft`, `issue_evidence`, `status`, `title_en_source`, `author_en_source`, and `synopsis_source`.
+- `node scripts/smoke.mjs read` now fails if one of the 14 keys is in a `catalog_items` record.
+- A copy of the app in a work folder must point at the throwaway PocketBase in `viewer.config.json` (key `pocketbaseUrl`). Without the key the app uses port 8090.

@@ -1,0 +1,10 @@
+# Deeper bottom cut for a whole book. One line per book: <slug> <cut in pt>
+# The script reads this list on every run. A page that has the CamScanner mark loses
+# the larger of 50 pt and the value on its line. A page without the mark is not cut.
+# The script makes sure that the deeper strip holds no dark pixels outside the mark box
+# and the logo columns. If a page fails this check, the script cuts 50 pt and logs it.
+#
+# kata_full: the scan holds a second "CS CamScanner" logo, 135 to 169 px (65 to 81 pt)
+# above the page bottom, in columns 986 to 1164 px. The page number sits 236 px (113 pt)
+# above the bottom. A cut of 90 pt (188 px) removes the logo and keeps the page number.
+kata_full 90

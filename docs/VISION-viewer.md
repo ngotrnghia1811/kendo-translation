@@ -1228,7 +1228,7 @@ Status: open.
 
 - Sign-in. S2 signs in as superuser, as `pb_users.py` does `[file: data/scripts/pocketbase/pb_users.py:77-84]`:
   - The call is `POST /api/collections/_superusers/auth-with-password` with the body `identity` and `password`.
-  - The email comes from `--superuser EMAIL` or from the variable `PB_SUPERUSER_EMAIL` `[file: data/scripts/pocketbase/pb_users.py:154-155]`.
+  - The email comes from `--superuser EMAIL` or from the variable `PB_SUPERUSER_EMAIL` `[file: data/scripts/pocketbase/pb_users.py:156-157]`.
   - The password comes from a hidden prompt, and not from argv, env, or a file `[file: data/scripts/pocketbase/pb_users.py:6-10]`.
   - The token stays in memory.
   - The URL check allows plain http only for 127.0.0.1 and localhost. Any other host needs https `[file: data/scripts/pocketbase/pb_users.py:36-43]`.
@@ -3153,7 +3153,7 @@ Status: open. The code of this design is in section 15.20 (unit RC1).
 - Open item: the owner check of the default theme reading (Solarized light for the reader pages only).
 - Closed by unit RC2 (round 65): S2 drops `sources`, `confidence`, `filled_by`, `confirmed_by`, `notes`, and `source_url` from `catalog_items.row`. See section 15.21.5.
 - Open item: the title of the web article `18d4ac29`. The card shows "Web article 18d4ac29".
-- Open item: `pb_users.py` makes readers with `approved` false. The admin page approves them.
+- Closed by unit RC3 (round 66 answer 7): `pb_users.py` makes readers with `approved` true. See section 15.22.4.
 
 Status: built in unit RC1, owner check pending.
 
@@ -3169,9 +3169,9 @@ Status: built in unit RC1, owner check pending.
 - Route `GET /api/read/image/<book>/<page>` in `app/app/api/read/image/[slug]/[page]/route.ts`. Example: `/api/read/image/left_foot_full/p048`.
 - Four app keys in `app/lib/config.ts`: `VIEWER_PAGE_IMAGE_SOURCE`, `VIEWER_PAGE_IMAGE_DIR`, `VIEWER_PAGE_IMAGE_URL`, and `VIEWER_PAGE_IMAGE_KEY`.
 - PocketBase hook `data/scripts/pocketbase/pb_hooks/page_images.pb.js` with the route `GET /page-images/{slug}/{file}`.
-- Component `app/components/ReaderImage.tsx` and the setting "Page image" in the settings panel.
+- Component `app/components/ReaderImage.tsx`. Since unit RC3 the setting is a button "Image" in the reader bar (section 15.22.1).
 - Test script `data/scripts/pocketbase/test_page_images.py` for the hook.
-- S2 drops six research fields from `catalog_items.row`. The resolve hook of Node (`app/scripts/ts-resolve-hook.mjs`) uses `module.registerHooks()`.
+- S2 drops six research fields from `catalog_items.row` (14 keys since unit RC3). The resolve hook of Node (`app/scripts/ts-resolve-hook.mjs`) uses `module.registerHooks()`.
 
 #### 15.21.2 The contract of the route and the hook
 
@@ -3191,25 +3191,25 @@ Status: built in unit RC1, owner check pending.
 - The route accepts `slug` with `^[a-z0-9_]+$` and `page` with `^p\d{3,4}$`. Else 400.
 - The route asks `catalog_items` for the page count of the book. An unknown book, a page count of 0 (the web article 18d4ac29), a page after the last page, and a wrong number of digits give 404. A book of up to 999 pages has 3 digits. A longer book has 4.
 - Files mode builds the path with `resolveInside` of `app/lib/safe-path.ts`. A link inside the image folder that points outside gives 403.
-- The web article has no page image. The toggle does not show for it.
+- The web article has no page image. The button "Image" does not show for it.
 
 #### 15.21.4 Screen rules and unit defaults
 
-- The settings panel has "Page image" (Off, On). It shows only for an item with page images. The setting is `reader.image` in `user_settings.panes`, like the other reader settings.
+- The button "Image" in the reader bar (next to the View buttons) turns the page image on or off. It shows only for an item with page images. The Settings panel has no switch since unit RC3. The setting is `reader.image` in `user_settings.panes`, like the other reader settings.
 - Wide screen with Page image On in the page view: the image on the left, the text on the right. The image column is 42 percent wide. The link "Open full size" is above the image and opens the route in a new tab.
 - Phone width (below the `md` breakpoint of 768 px): two tabs "Text | Image" above the text. The first tab is Text. The tabs are 44 px high. No horizontal scroll bar appears at 390 px.
 - A missing image or a load error shows "No page image available". A page with no agent translation (kendojidai_2014/p0839) shows "No agent translation yet" and its page image.
 - The image is a plain `<img>` with `loading="lazy"`, `decoding="async"`, and `alt="Original page image, Page 48"`. The route can send the browser to another host, and `next/image` is made for fixed hosts `[agent inference]`. One line disables the lint rule `@next/next/no-img-element` with the reason.
-- Unit default: Page image is Off. Reason: the brief of the unit said so. See open item 1.
+- Page image is On by default since unit RC3 (round 66 answer 4). A reader who saved Off keeps Off. See open item 1.
 - Unit default: the scroll view and focus mode show text only. See open item 2.
 - Unit default: the image shows as it is in every theme (no color change). See open item 3.
 - Unit default: the keys of the app come from the environment only. The file `viewer.config.json` does not hold them, because one of them is a secret.
 
 #### 15.21.5 S2 and the research fields
 
-- Step 1: the six fields are `sources`, `confidence`, `filled_by`, `confirmed_by`, `notes`, and `source_url` `[file: docs/VISION-viewer.md:2558]`. No screen reads one of them from `catalog_items.row`. The app reads `row.isbn` and `row.synopsis` only `[file: app/lib/pb.ts:524-526]`.
+- Step 1: the six fields of unit RC2 are `sources`, `confidence`, `filled_by`, `confirmed_by`, `notes`, and `source_url` `[file: docs/VISION-viewer.md:2558]`. Unit RC3 adds eight keys (section 15.22.3). No screen reads one of them from `catalog_items.row`. The app reads `row.isbn` and `row.synopsis` only `[file: app/lib/pb.ts:524-526]`.
 - The monitor tab Books shows the six fields. It reads the files of the Translator, not PocketBase `[file: app/lib/books.ts:77,97]` and `[file: app/lib/meta-fields.ts:11]`. The monitor is off on the deployed app. So S2 can drop the fields.
-- Step 2: S2 builds `row` without the six fields. An `--apply` run compares the stored `row` with the new `row`. A record that holds a field gets an update, so one run cleans the records of an earlier run. The files in `item-metadata` keep all fields.
+- Step 2: S2 builds `row` without the research keys (six in unit RC2, 14 since unit RC3). An `--apply` run compares the stored `row` with the new `row`. A record that holds a key gets an update, so one run cleans the records of an earlier run. The files in `item-metadata` keep all fields.
 - Step 3: the test seeded `left_foot_full` with all 26 keys of its metadata row on the throwaway PocketBase (port 8092). The dry run planned an update. After `--apply`, the six fields were gone and the other 20 keys stayed with the same values. The next dry run said "unchanged".
 - S2 was not run against port 8090. The first run there belongs to aki-main (round 65 answer 7).
 
@@ -3240,12 +3240,79 @@ Status: built in unit RC1, owner check pending.
 
 #### 15.21.9 Open items
 
-- Item 1: the default of Page image. Option A (recommended): On in the page view, because the owner wants to view the page image. Option B: Off, as built, and the reader turns it on in the settings panel. The change is one value in `READER_DEFAULTS` in `app/lib/htv-settings.ts`.
+- Item 1: closed by unit RC3 (round 66 answer 4, "On in Page view (Recommended)"). Page image is On by default in the page view. A reader who saved Off keeps Off. The value is `image` in `READER_DEFAULTS` in `app/lib/htv-settings.ts`.
 - Item 2: the scroll view and focus mode show text only. Option A (recommended): keep it. Option B: show the image in the scroll view too. That needs a lazy image for each of up to 1,000 pages.
 - Item 3: dark themes show the image as it is. Option A (recommended): keep it, because the scan is gray. Option B: dim the image in the dark themes.
-- Item 4: other fields of `row` look like research fields: `confidence_draft` (36 of 36 books), `notes_draft` (11), `hint_secondary` (34), `issue_evidence` (9), `status` (36), `title_en_source`, `author_en_source`, and `synopsis_source`. Option A (recommended): keep them until the owner names them. Option B: add them to the list `RESEARCH_FIELDS` in S2.
+- Item 4: closed by unit RC3 (round 66 answer 6). S2 now drops `confidence_draft`, `notes_draft`, `hint_secondary`, `issue_evidence`, `status`, `title_en_source`, `author_en_source`, and `synopsis_source` too. See section 15.22.3.
 - Item 5: in signed mode each page view asks for a new link, so the browser cannot reuse an image from an earlier visit. Option A (recommended): keep it (about 0.09 MB for each page). Option B: round `exp` to a 5-minute step so that the URL repeats.
 - Item 6: the settings of the reader save 400 ms after the last change. A reload within that time loses the change. This is the behavior of unit RC1 for all reader settings.
-- Item 7: the toggle sits in the settings panel only. Option A (recommended): keep it. Option B: add a button "Image" to the toolbar.
+- Item 7: closed by unit RC3 (round 66 answers 1 and 5). The button "Image" sits in the reader bar next to the View buttons. The Settings panel has no switch.
 
 Status: built in unit RC2, owner check pending.
+
+### 15.22 Reader pages code state (RC3, round 66)
+
+- Source: owner answers of round 66 `[file: .opencode/reminders/qa/qa-memory-2026-10-29.md:27-36]`. Evidence tags: `[check: RC3 2026-10-29 HH:MM command]` marks a result of the unit. `[agent inference]` marks a guess. "Not verified" marks a fact without evidence.
+- Scope: the button "Image" in the reader bar, the default On, 14 research keys in S2, and the approved flag in `pb_users.py`. Not in scope: the CamScanner mark on the scans (unit PC4) and the owner steps file (unit DP4).
+- Answer 1, line 27, point 1: "Move the image outside of setting. It should be on the same bar as the view type".
+- Answer 4, line 30: "On in Page view (Recommended)". Answer 5, line 31: "Add an Image button to the bar". Answer 6, line 32: eight more research keys. Answer 7, line 33: "Script approves its readers (Recommended)".
+- Answer 8, line 34: the owner runs S2 once on port 8090 after RC3. Answer 10, line 36: "New link each view (Recommended)". The signed links did not change.
+- The reading of answer 1 and 5 (the bar of the view type, not the Previous and Next bar) is a note of aki-main and waits for the owner check `[file: .opencode/reminders/qa/qa-memory-2026-10-29.md:40]`.
+
+#### 15.22.1 The button Image in the reader bar
+
+- File `app/components/ReaderBook.tsx`. The new function `ToolToggle` draws one button with `aria-pressed` and the classes of one option of `ToolSeg`. So it looks like the View buttons in every theme.
+- The button sits in a `div` with `data-view-tools`, right of the View buttons. The `div` keeps both controls in one row when the bar wraps on a phone.
+- A click saves `reader.image` through `save({ image: !s.image })`. This is the path of the other reader settings (PUT `/api/read/settings` after 400 ms).
+- The button shows only if `index.images` is true. The web article has no page images, so it has no button.
+- In the scroll view the button stays and is disabled. The title says "Page image shows in Page view only". Focus mode has no bar, so the question does not arise.
+- The Settings panel has no "Page image" switch. The prop `hasImages` is gone. The Reset button sends `READER_DEFAULTS`, so it sets `reader.image` to true.
+- The tabs "Text | Image" of unit RC2 did not change. They show on a phone while the image is On.
+
+#### 15.22.2 Default On
+
+- `READER_DEFAULTS.image` is `true` in `app/lib/htv-settings.ts`. The reader merges the saved settings over the defaults, so a reader who saved Off keeps Off.
+- The check on port 8090 was read only. The `user_settings` collection has 2 records and 1 of them holds `reader.image`. The value is `false` and the account is `reader@kendo-translation.local`. That reader sees no image until the button is pressed `[check: RC3 2026-10-29 18:48 read8090.py, GET calls with a superuser token, no write]`.
+
+#### 15.22.3 S2 and the 14 research keys
+
+- `RESEARCH_FIELDS` in `app/scripts/sync-runs.mjs` has 14 keys. The six of unit RC2 are `sources`, `confidence`, `filled_by`, `confirmed_by`, `notes`, and `source_url`.
+- Unit RC3 adds `hint_secondary`, `confidence_draft`, `notes_draft`, `issue_evidence`, `status`, `title_en_source`, `author_en_source`, and `synopsis_source`. The key `hint_secondary` holds the path of a file on the Mac of the owner.
+- The monitor tab Books reads these keys from the files of the Translator. It does not read `catalog_items` `[file: app/lib/meta-fields.ts:8-12]` and `[file: app/lib/books.ts:77,97]`. The reader pages use `row.isbn` and `row.synopsis` only. Both stay.
+- The test seeded `left_foot_full` with its full metadata row of 26 keys. That row holds 12 of the 14 keys. The dry run planned an update. After `--apply`, the 12 keys were gone and the other 14 keys kept the same values. The next dry run said "unchanged" `[check: RC3 2026-10-29 18:52 run_all.py s2research read hook]`.
+- The `read` checks now test, for each of the 14 keys, that no `catalog_items` record holds it. They also test that no row holds the text `/Volumes/` or `/Users/`.
+- Nobody ran S2 against port 8090. The owner decision is one run after the owner accepts RC3 (answer 8).
+
+#### 15.22.4 pb_users.py and the approved flag
+
+- `add --role reader` creates the account with `approved` true. `add` for a translator or an admin leaves `approved` as the PocketBase default (false).
+- Unit default: `set-role <email> reader` also sets `approved` true, because the superuser names that person. A change to another role leaves `approved` as it is. Other option: `set-role` changes the role only, and an admin approves on `/admin/readers`.
+- `list` shows the new column `approved` after `role`.
+- A reader who signs up on the web page still has `approved` false and waits for an admin. The migration and the rules did not change.
+- The script still prints no password and no token. A test runs `main()` with a fake `getpass` and searches the output.
+
+#### 15.22.5 Test results
+
+- `npx tsc --noEmit` and `npm run lint` in the copy: no error and no warning. `npm run build`: exit 0.
+- `node scripts/contrast-dark.mjs`: 0 failures. The lowest pair of each theme did not change.
+- `node scripts/smoke.mjs smoke`: 70 PASS. `htv` with files: 262 PASS. `htv` with PocketBase: 262 PASS. `deploy`: 34 PASS. `read`: 241 PASS (231 earlier and 10 new). All with 0 FAIL.
+- `test_page_images.py`: 82 PASS. The hook checks on the PocketBase of the `read` run: 62 PASS. `test_local.py`: 232 PASS (219 earlier and 13 new).
+- Chrome headless: 100 PASS, 0 FAIL (82 kept from RC2, 18 new, 4 RC2 checks removed or replaced). 48 screenshots.
+- Contrast of the Image button, text on background, measured in the browser: Light 10.28 (pressed) and 15.84. High-contrast dark 16.21 and 21. Sepia 9.45 and 13.38. Solarized light 6.24 and 13.92. Solarized dark 9.02 and 13.92. The values equal those of the View buttons in each state.
+- New screenshots: `image-button-p048-<theme>-1440x900.png` and `image-button-p048-<theme>-off-1440x900.png` for the five themes, `image-button-p048-phone-390x844.png`, `image-button-scroll-view-1440x900.png`, and `settings-panel-no-image-1440x900.png`.
+- The tests ran in a copy of the app with a throwaway PocketBase on port 8092. The harness of unit RC2 gave `rd2` the state "not approved" by hand, because `pb_users.py` now approves readers.
+
+#### 15.22.6 Not verified
+
+- The owner check of the bar position (answer 1 and 5 reading).
+- The button on a real phone, Safari, and Firefox.
+- The button and the image on the deployed app.
+- The effect of the CamScanner crop of unit PC4 on the page view.
+
+#### 15.22.7 Open items
+
+- Item 1: the Image button in the scroll view. Option A (recommended): keep it, disabled, with the title. Option B: hide it in the scroll view.
+- Item 2: `set-role <email> reader`. Option A (recommended): approve the reader. Option B: leave `approved` as it is.
+- Item 3: the account `reader@kendo-translation.local` saved Off earlier. Option A (recommended): the owner presses the button once. Option B: an admin removes `reader.image` from the saved settings of that account.
+
+Status: built in unit RC3, owner check pending.

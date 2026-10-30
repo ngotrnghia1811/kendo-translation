@@ -70,7 +70,7 @@ Options:
 For each page, the script runs these steps:
 
 1. `gs -q -dNOPAUSE -dBATCH -dSAFER -r150 -dTextAlphaBits=4 -dGraphicsAlphaBits=4 -sDEVICE=pnggray` renders the PDF to a temporary PNG.
-2. `cwebp -quiet -q 70` encodes the PNG to a temporary WebP.
+2. `cwebp -quiet -q 70` encodes the PNG to a temporary WebP. For a page with the CamScanner mark, `-crop` cuts the bottom first (see the last section).
 3. The script renames the temporary WebP to `<out>/<slug>/p<NNN>.webp`.
 4. The script deletes the PNG.
 
@@ -91,7 +91,7 @@ Do not run two copies of the script on the same output folder at the same time.
 
 Measured on this Mac (8 cores) with local tools only.
 
-- Pilot: 29 pages that unit PC2 converted before. All 29 files have the same bytes and the same sha256 as the PC2 gray files.
+- Pilot (before unit PC4): 29 pages that unit PC2 converted before. All 29 files have the same bytes and the same sha256 as the PC2 gray files.
   - Command: one `convert_pages.py --book <slug> --pages N-N` run for each page, then a byte and sha256 compare.
 - Worker test: 60 pages of `kendojidai_2014` (pages 100 to 159). Command: `convert_pages.py --book kendojidai_2014 --pages 100-159 --workers N`.
 
@@ -102,8 +102,8 @@ Measured on this Mac (8 cores) with local tools only.
 | 4 | 7.6 | 0.13 |
 | 6 | 5.4 | 0.09 |
 
-- Full run: `convert_pages.py --slugs <slugs> --workers 6`. Result: 13,278 pages ok, 0 skip, 0 fail. Time: 1,415.4 s (23 min 35 s), 0.107 s per page.
-- Size: 1,903.1 MB of WebP files (sum of file sizes), 0.143 MB per page. `du -sm` of the output folder shows 1,931 MB because of disk block rounding and the log files.
+- Full run (unit PC3, before unit PC4): `convert_pages.py --slugs <slugs> --workers 6`. Result: 13,278 pages ok, 0 skip, 0 fail. Time: 1,415.4 s (23 min 35 s), 0.107 s per page.
+- Size after unit PC4: 1,895.9 MB of WebP files (sum of file sizes), 0.143 MB per page. Before PC4 the sum was 1,903.1 MB. `du -sm` of the output folder shows 1,925 MB (was 1,932 MB) because of disk block rounding and the log files.
 - Second run without `--force`: 13,278 skip, 0 ok, 5.8 s. The manifest stayed the same (`cmp` showed no difference).
 - Self checks: all passed.
 
@@ -116,3 +116,79 @@ Measured on this Mac (8 cores) with local tools only.
 ## Upload to the server
 
 The upload steps for the server are in `<P>/.opencode/aki-main/owner-hand-steps.md`, section 8 (unit DP3). `<P>` is the project folder `/Users/nghiango-mbp/projects/kendo-translation`.
+
+## CamScanner mark crop (unit PC4, round 66)
+
+Some scans carry a "Scanned with CamScanner" box at the bottom right. The script now cuts it out of the page images.
+
+Owner words (round 66 answer 1, 2026-10-29): "Some of the page has marker (`camscaner`) at bottom right, crop them all out (if the first page has it, the whole book will have it)". The script reads this as: cut the bottom 50 pt of every page that draws the mark. The owner has not yet confirmed this reading.
+
+### Rule
+
+- The mark is a small image (240 x 90 px) that the page content stream draws at `80 0 0 30 500 10 cm`. The script allows 1 pt of tolerance on each number.
+- The script finds the mark in each PDF page, not in each book. The rule "the first page has it, so the whole book has it" does not hold. In `tanden_full`, pages 1 to 12 have no mark and pages 13 to 276 have it.
+- A page with the mark loses the bottom 50 pt. At 150 dpi this is 104 px. The page image changes from 1240 x 1754 px to 1240 x 1650 px.
+- `cwebp -crop 0 0 1240 1650` makes the cut. The page is encoded once, so the cut adds no second lossy step.
+- A page without the mark keeps its old bytes.
+- The scan starts at 52 pt or higher on every page that draws the mark. So the cut removes only white page background and the mark.
+- Safety check: before the cut, the script decodes the bottom strip and counts the pixels below 128 outside the columns 1030 to 1230 px. If the count is not 0, the script does not cut the page. It writes the count to the crop log.
+- Eight books have `/CropBox [0 50 595 842]` on all 1,650 of their pages: `baba1_clean`, `baba2_clean`, `day_breath_clean`, `ki_breath_full_clean`, `mental2_clean`, `ogawa_lecture_part1`, `ogawa_lecture_part2` and `ogawa_lecture_part3`. Ghostscript ignores the CropBox, so the old images of these books had a white band at the bottom. The new cut removes the band.
+- `kata_full` has a second logo ("CS CamScanner") inside the scan, 135 to 169 px above the page bottom. The file `crop-extra.txt` holds the line `kata_full 90`. The 48 pages of this book lose 90 pt (188 px) and keep the page number. Their size is 1240 x 1566 px.
+- If a deeper cut fails the safety check, the script cuts 50 pt on that page and writes the page to the crop log. This did not happen.
+
+### Counts (run of 2026-10-29)
+
+| Item | Pages |
+|---|---|
+| Pages with the mark (25 books) | 5,045 |
+| Cut 50 pt (1240 x 1650 px) | 4,997 |
+| Cut 90 pt (`kata_full`, 1240 x 1566 px) | 48 |
+| Cut refused by the safety check | 0 |
+| Pages without the mark (11 books fully, 6 books partly) | 8,233 |
+
+- The 8,233 pages without the mark have the same sha256 in `manifest.tsv` as before. The check compared every row with the archived manifest.
+- The detection found the same 5,045 pages as the survey by aki-main (`survey.tsv`, 13,278 PDF files, 0 differences).
+- Run: `convert_pages.py --slugs <slugs> --only-marked --workers 6`. The script read the start and end of 13,278 PDF files in about 8 min. It converted 5,045 pages in 571.6 s and wrote 536.5 MB.
+- The 5,045 marked pages went from 543.7 MB to 536.5 MB. All 13,278 files total 1,895.9 MB.
+- A second run without `--force` skipped 13,278 pages in 4.9 s. The manifest stayed the same.
+
+### Commands
+
+Show how many pages have the mark in each book. The command writes nothing:
+
+```
+python3 -B convert_pages.py --slugs <slugs> --only-marked --dry-run
+```
+
+Convert the marked pages again and overwrite them. Use this on an output folder that holds old files:
+
+```
+python3 -B convert_pages.py --slugs <slugs> --only-marked --workers 6
+```
+
+A normal run (`--workers 6`) cuts the marked pages too. It skips files that exist. So use `--only-marked` after you change `crop-extra.txt`.
+
+| Option | Meaning |
+|---|---|
+| `--only-marked` | Convert only the pages with the CamScanner mark. It overwrites their files. It prints the counts for each book. |
+| `--crop-extra <file>` | List of deeper cuts. Default is `crop-extra.txt` next to the script. |
+
+### Crop list
+
+`crop-extra.txt` has one line for each book: `<slug> <pt>`. The value is from 50 to 200. Lines that start with `#` are comments. The deeper cut applies only to pages with the mark.
+
+### Logs
+
+- `<out>/_log/crop-<YYYYMMDD-HHMMSS>.tsv` has one line for each marked page of that run. Columns: page_id, cut_px, cut_pt, reason, refused, width, height_in, height_out.
+- Reason is `mark` (50 pt), `mark+extra` (deeper cut), `mark (extra refused)` (50 pt after a refused deeper cut) or `refused` (no cut).
+- Column refused lists the refused tries as `<pt>pt:<dark pixel count>`.
+- The full list of this run is `crop-20261029-190417.tsv`. A later run that converts no marked page writes a crop log with the header only.
+- The upload skips the `_log/` folder.
+
+### Old files
+
+The old files (before PC4) need no copy. The script of commit `faefb03` makes them again with identical bytes, because the render is deterministic. Get that script with `git show faefb03:data/scripts/page-images/convert_pages.py`. If you uploaded the folder to the server before PC4, upload the 5,045 changed files and `manifest.tsv` again.
+
+### Self checks
+
+`--selftest` now has cases for the mark detection (small synthetic PDF), the cut height, the refused cut, the deeper cut with its fallback, and the crop list. The command passes.
