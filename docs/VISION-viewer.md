@@ -314,11 +314,11 @@
   - (Before round 44: the translator and the admin see and do the same, and the admin has admin functions in addition.) Round 42 answer 16 `[user 2026-10-26 12:56]` "admin just have extra admin function" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:92]`. Round 43 answer 5 `[accepted recommendation 2026-10-26 15:17]` `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:109]`. Round 44 answer 6 replaces the same-actions part: only the admin role opens the monitor and uses approve, undo, and pause `[accepted recommendation 2026-10-26 21:33]` "Admins only (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:135]` (section 15.6).
   - The bar "professional book reading website" and the bar of clarity and intuitiveness apply to the monitor. Round 42 answer 16 `[user 2026-10-26 12:56]` "yes" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:92]`. Round 43 answer 5 `[accepted recommendation 2026-10-26 15:17]` `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:109]`. The quote of the first bar is in section 2 `[user 2026-10-07 14:05]` "Make it like a professional book reading website."
   - Explanation text, the reasoning text of each box, shows on request. Round 42 answer 16 `[user 2026-10-26 12:56]` "on request" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:92]`. Round 43 answer 5 `[accepted recommendation 2026-10-26 15:17]` `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:109]`.
-  - The first view has two tabs, Runs first and Books second. Each tab has full width, and one click switches the tab. Round 43 answer 6 `[user 2026-10-26 15:17]` "option 1." `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:110]`, which is the option "Two tabs (Recommended)". Round 42 answer 12 `[user 2026-10-26 12:56]` "list of runs and list of books" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:88]`.
+  - The first view has two tabs, Runs first and Books second. Each tab has full width, and one click switches the tab. Round 43 answer 6 `[user 2026-10-26 15:17]` "option 1." `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:110]`, which is the option "Two tabs (Recommended)". Round 42 answer 12 `[user 2026-10-26 12:56]` "list of runs and list of books" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:88]`. Round 70 (section 15.24): the first tab becomes the Monitor dashboard with one row for each book, and the table of lists moves to the tab Lists `[reading pending owner check]`.
   - Seven extra items are off by default. The user ticks an item to show it. Round 42 answer 13 `[user 2026-10-26 12:56]` "all of them, off by default, user can tick to show thme" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:89]`.
     - The seven items: cost and seconds per call, exact text sent to each box, dictionary and aligned memory hits, failed and flagged calls, program check results, critiques with the note for the next critic, and critique counts against N `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:89]`.
     - The ticks are saved with the account for every page and device, as for the layout in section 7. Round 43 answer 7 `[accepted recommendation 2026-10-26 15:17]` "Saved per account (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:111]`.
-  - Pause: the Viewer writes a pause file into the list folder of the run. The run program checks for the file before each new model call. Running calls finish. Resume deletes the file. Round 43 answer 8 `[accepted recommendation 2026-10-26 15:17]` "Pause before next call (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:112]`. Round 42 answer 14 `[user 2026-10-26 12:56]` "pause,  write a comment" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:90]`. Round 44 answer 6: only the admin role uses pause `[accepted recommendation 2026-10-26 21:33]` `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:135]`.
+  - Pause: the Viewer writes a pause file into the list folder of the run. The run program checks for the file before each new model call. Running calls finish. Resume deletes the file. Round 43 answer 8 `[accepted recommendation 2026-10-26 15:17]` "Pause before next call (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:112]`. Round 42 answer 14 `[user 2026-10-26 12:56]` "pause,  write a comment" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:90]`. Round 44 answer 6: only the admin role uses pause `[accepted recommendation 2026-10-26 21:33]` `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:135]`. Round 70 (section 15.24.4.5): a file `PAUSE` for one book joins the file of the list folder `[reading pending owner check]`.
   - Live data: a small local server reads `progress.json` and the page folders of the Translator. The browser polls every few seconds. Round 43 answer 10 `[accepted recommendation 2026-10-26 15:17]` "Read files, refresh often (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:114]`.
 - 15.4 Technical decisions. The owner answered these for the Viewer. They came with the monitor questions. Whether they cover the whole Viewer is an `[agent inference]`.
   - Code stack: Next.js, React, TypeScript, and Tailwind. The stack is chosen fresh for v2, because no v1 decision carries over (section 3). No database and no hosting yet. History: round 51 answer 6 sets PocketBase records as the storage `[user 2026-10-28 08:21]` "Option 3? Have we design any database yet? we need to setup for deployment soon" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:51]` (section 15.11.6). The Viewer reads the files in the Translator `data/` folder. Round 43 answer 11 `[accepted recommendation 2026-10-26 15:17]` "Next.js, React, TS (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:115]`. Tailwind is Not verified in the Q-A line.
@@ -350,11 +350,11 @@
   - Source: owner answer 9 of round 48 `[accepted recommendation 2026-10-27 16:18]` "V2 Viewer for chain runs (Recommended), M2 magazine data fix (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-27.md:55]`. The Q-A file stores the label only. The option text comes from the unit V2 brief and is Not verified in the Q-A file: the Viewer shows the chain state per book, skipped pages, the book translation memory pairs, the previous page pair, the critic mode and the session turn, the compare table, the web candidates per chapter, and the Books Details part loaded on request.
   - Source for the web parts: round 48 answer 7 `[accepted option 2026-10-27 16:18]` "One web article per entry" `[file: .opencode/reminders/qa/qa-memory-2026-10-27.md:53]`. The note of aki-main says that only the best web match links to a table of contents entry `[reading pending owner check]` `[file: .opencode/reminders/qa/qa-memory-2026-10-27.md:60]`.
   - The run view of a chain list shows the list kind, the critic mode, and the book jobs. It shows a table with one row for each book, a skipped reason for each page that did not run, and the forward failures apart from the critic failures `[agent inference]`.
-  - The run view also shows the book translation memory pairs of each book, grouped by page, and the compare table of the two critic modes `[agent inference]`. The Runs tab shows the list kind, the critic mode, and the book jobs in one column `[agent inference]`.
+  - The run view also shows the book translation memory pairs of each book, grouped by page, and the compare table of the two critic modes `[agent inference]`. The Runs tab shows the list kind, the critic mode, and the book jobs in one column `[agent inference]`. Round 70: the tab Lists at `/runs` shows this column (section 15.24.4.1).
   - The page view shows the critic mode and the session turns in its header. Two new Extra detail items sit in the menu, off at start like the seven decided items: "Chain inputs" and "Critic-only runs" `[agent inference]`. Round 42 answer 13 named only seven items `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:89]`. The owner has not decided items 8 and 9 `[reading pending owner check]`.
   - The Books tab loads the Details part of one item on request. A magazine chapter shows its articles with the key `web_link` and the candidate list of the web rows that point at the chapter, with the link status `[agent inference]`.
   - Placement: all of these parts go to the agent-translation-monitor only. The human-translation-view has no task that needs them (section 6, task rule "split by task") `[agent inference]`.
-  - The parts only read files. The pause file stays the only write of the Viewer `[file: app/README.md]`.
+  - The parts only read files. The pause file stays the only write of the Viewer `[file: app/README.md]`. Round 70 (section 15.24.6) adds two writes in the folder `config` of the Translator: the settings file and its history.
 
 ### 15.10 Human-translation-view parts (round 50)
 
@@ -3323,14 +3323,14 @@ Status: built in unit RC3, owner check pending.
 - Evidence tags: `[file: path:line]` marks a file that unit DV69 read. `[check: DV69 2026-10-29 HH:MM command]` marks a result of the unit. `[agent inference]` marks a guess. "Not verified" marks a fact without evidence.
 - The checks on the local PocketBase (port 8090) used GET calls. The one POST was the sign-in for the superuser token. The scripts `q1.py` to `q7.py` sit in the folder `r69/DV69/` of the temp folder of the unit.
 - Scope: the reader dashboard at `/read` (folds, progress, search), the first-visit panel, and the front door `/` of the hosted site.
-- The monitor home and the config panel are not in this section. They wait for the restatement of aki-main in round 69.
+- The monitor home and the config panel are in section 15.24 (round 70).
 - A *work* is one dashboard row: a book folder, a magazine year, a web capture, or a web article. A *fold* is a row group under one heading.
 
 #### 15.23.1 Owner words and older decisions
 
 Round 68 answers (asked 19:47, answered 2026-10-29 20:47) `[file: .opencode/reminders/qa/qa-memory-2026-10-29.md:60-69]`:
 
-- Answer 2, line 62, part A: "A. Reader home (Recommended)" `[accepted recommendation plus option C plus user typed 2026-10-29 20:47]`. Part C and the typed text are about the monitor home. They are not in this section.
+- Answer 2, line 62, part A: "A. Reader home (Recommended)" `[accepted recommendation plus option C plus user typed 2026-10-29 20:47]`. Part C and the typed text are about the monitor home. They are in section 15.24.
 - Answer 3, line 63: "Folds and search together" `[accepted option 2 2026-10-29 20:47]`.
 - Answer 4, line 64: "/ opens the dashboard (Recommended)" `[accepted recommendation 2026-10-29 20:47]`.
 - Answer 5, line 65: "Close only at Start reading (Recommended)" `[accepted recommendation 2026-10-29 20:47]`.
@@ -3663,7 +3663,7 @@ Phone sketch (a sheet over the lower part of the text):
 
 #### 15.23.7 Front door `/`
 
-Round 68 answer 4: "/ opens the dashboard (Recommended)". The hosted site runs with the monitor off. The Mac runs with the monitor on, and the monitor keeps `/` there (line 74). The monitor home design waits for the restatement of aki-main in round 69.
+Round 68 answer 4: "/ opens the dashboard (Recommended)". The hosted site runs with the monitor off. The Mac runs with the monitor on, and the monitor keeps `/` there (line 74). The monitor home design is in section 15.24 (round 70).
 
 Where `/` goes on the hosted site (monitor off), by role `[unit default]`:
 
@@ -3675,7 +3675,7 @@ Where `/` goes on the hosted site (monitor off), by role `[unit default]`:
 | Translator | `/translate` | The human-translation-view. The bar of the dashboard holds the links "All books" and "Human translation" `[file: app/components/ReaderBar.tsx:21-34]`. |
 | Admin | `/translate` | Same as the translator, plus the admin links. |
 
-On the Mac (monitor on): `/` shows the runs table for every role, as today. The code of `/` has no session check `[file: app/app/page.tsx:9-12]` `[file: app/lib/htv-session.ts:10]`. The dashboard opens by the address `/read`.
+On the Mac (monitor on): `/` shows the Monitor dashboard for every role (section 15.24). Today it shows the runs table. The code of `/` has no session check `[file: app/app/page.tsx:9-12]` `[file: app/lib/htv-session.ts:10]`. The dashboard opens by the address `/read`.
 
 Mechanism options (open item 7). The default is the redirect:
 
@@ -3710,7 +3710,7 @@ New tests:
 
 - Smoke mode `read`: the 3 first-level folds with counts (25, 9, 313 works). The rows "English: 6 of 120 pages finished (5.0 percent)", "English: 5 of 1051 pages finished (0.5 percent)", and "English: 0 of 176 pages finished (0.0 percent)". The unapproved reader gets progress and no link to a page.
 - Search: "seme" gives 10 pages in 3 works. "Chūzumi" and "chuzumi" both give `left_foot_full` p048 and p049. "kendo" finds p046. 攻め gives 10 pages. An unapproved reader gets no page hit.
-- Front door: `/` sends a visitor to `/sign-in`, a reader to `/read`, and a translator to `/translate`, in signed mode. With the monitor on, `/` shows the runs table.
+- Front door: `/` sends a visitor to `/sign-in`, a reader to `/read`, and a translator to `/translate`, in signed mode. With the monitor on, `/` shows the Monitor dashboard.
 - First-visit panel: the panel is present when `panelSeen` is missing. It stays open after a change. The button "Start reading" and Esc close it and save the mark. "Reset text settings" keeps the mark. The panel is absent at the next visit.
 - Chrome checks at 1440 x 900 and 390 x 844. They test the two-click paths of section 15.23.3.5, the fold buttons by keyboard, the panel on both sizes, and screenshots in the five themes. `node scripts/contrast-dark.mjs` must show 0 failures for the new elements.
 - S2: a dry run plans 310 new `catalog_items`. A second run says "unchanged".
@@ -3764,4 +3764,645 @@ New tests:
 - The size of 310 more `catalog_items` records.
 - Lines 2540 and 2547 of this file describe the unapproved reader and the 37 cards of unit RC1. They stay as the history of that unit. Section 15.23 replaces them when the code unit lands.
 
-Status: design, waiting for the owner check (round 69).
+Status: design, accepted by the owner (round 69 answer 6).
+
+### 15.24 Monitor dashboard and config panel (design, round 70)
+
+- Source: owner answers of round 68 and round 69 `[file: .opencode/reminders/qa/qa-memory-2026-10-29.md:60-113]`. Unit DM70 wrote this section. It is a design. It changes no code.
+- Evidence tags: `[file: path:line]` marks a file that unit DM70 read. `[check: DM70 2026-10-29 HH:MM command]` marks a result of the unit. `[agent inference]` marks a guess. `[unit default]` marks a choice of the unit. "Not verified" marks a fact without evidence.
+- The unit read files only. It started no process, called no model, and spent 0 USD. The script `facts.py` in the folder `r70/DM70/` of the temp folder of the unit prints the numbers of this section.
+- Scope: the Monitor dashboard (`/` on the Mac), the book detail view, the config panel, and the resume path. It also covers the files that the Viewer reads and writes. Translator code is out of scope. Unit TR70 writes the Translator side of the same contract.
+- Names: the *Monitor dashboard* is the page `/` on the Mac. It lists books. The owner calls it "Monitor Home". The *Reader dashboard* is `/read` (section 15.23). The *config panel* is the page `/settings/run`. The *settings file* is `translator-settings.json` in the folder `config` of the Translator.
+- Two counts differ. The Monitor dashboard counts pages that a run finished. The Reader dashboard counts pages that have reader text. Section 15.24.4.3 gives one example.
+- New words in this section, each defined at first use:
+  - *book row*: one dashboard row for one book.
+  - *Needs attention*: the group of books that do not go on alone.
+  - *derived row*: a book row built from old list folders.
+  - *heartbeat*: a time stamp that a live run writes at short intervals.
+  - *stop reason*: the cause that a run writes when it ends.
+
+#### 15.24.1 Owner words and older decisions
+
+Round 68 (asked 19:47, answered 2026-10-29 20:47) `[file: .opencode/reminders/qa/qa-memory-2026-10-29.md:60-69]`:
+
+- Answer 2, line 62, option C and the typed text, verbatim: "A. Reader home (Recommended), C. Monitor home /, * Monitor Home:\n\n  * Similar to Reader Home, but for monitoring the agent running process (phase 4)\n  * Note that the agent will run async for each book:\n\n    * We are not running each book fully one-by-one\n    * We may run any book - at anytime - resuming from the latest stopping point of that book\n    * The monitor home will show the running status of each book: what is running? what was stopped? When? Errors? and so on" `[accepted recommendation plus option C plus user typed 2026-10-29 20:47]`.
+- Answer 6, line 66, the typed part, verbatim: "B5 memory pairs (Recommended), B1 neighbor link rule (Recommended), Agent Process Running config: for monitor view, I should be able to change the value of the hyper-parameters of the running process, including N. Create a config panel that I can update the config values as needed" `[accepted two recommendations plus user typed 2026-10-29 20:47]`.
+
+Round 69 (asked 21:14, answered 2026-10-29 21:49) `[file: .opencode/reminders/qa/qa-memory-2026-10-29.md:79-101]`:
+
+- Answer 8, line 87, verbatim: "Next time be clear Reader Dashboard or Monitor Dashboard\nWhat finished? where?" `[user 2026-10-29 21:49]`. This section always names the screen, says what a number counts, and says where it shows.
+- Answer 16, line 95, verbatim: "Option 1. Theses are part of the UI UX desgin. Implement them with optimal UI UX in mind, as intuitive and clear information as possible" `[user 2026-10-29 21:49]`. This is the main quality bar of this section.
+- Answer 17, line 96: "Per-book store, design first (Recommended)" `[accepted recommendation 2026-10-29 21:49]`.
+- Answer 18, line 97: "N (Recommended), Model and effort per level (Recommended), Box critic model (Recommended), Cost limit per page (Recommended), Jobs and book jobs (Recommended), Critic mode (Recommended), Memory and link constants, Call timeout and retries" `[accepted options 2026-10-29 21:49]`. All eight groups go into the config panel.
+- Answer 19, line 98: "New settings file, next page (Recommended)" `[accepted recommendation 2026-10-29 21:49]`.
+- Answer 20, line 99, verbatim: "Option 1. Name them agent-phase-2/3/4" `[user 2026-10-29 21:49]`. The phase keys are "agent-phase-2", "agent-phase-3", and "agent-phase-4".
+- Answer 21, line 100: "Reading right (Recommended)" `[accepted recommendation 2026-10-29 21:49]`. The deploy waits for these parts:
+  - The Reader dashboard with search, the first-visit panel, the front door, the Monitor dashboard, and the config panel are built and accepted.
+  - Phase 2 is finished with prompt rewrites.
+  - Phase 3 is tested on the first 20 pages of one book and watched in the Monitor dashboard.
+- Answer 11, line 90: "Reading right (Recommended)" `[accepted recommendation 2026-10-29 21:49]`. The front door redirect is for the hosted site. With the monitor on (the Mac), `/` keeps the monitor (section 15.23.7).
+
+Phase words of the owner, round 35 answer 1 `[user 2026-10-25 02:53]` `[file: kendo-translation-translator/docs/drafts/translator-design.md:2549]`, verbatim: "+ Phase 2 using the paired dataset right? why is the training set on 40 article? there are more than 300\n+ Phase 3. Warm Initialization:  should be the warm intialization of the whole networks for a target book. Given the first 20 pages, the systems run  optimization for the whole network (TS to QA, freeze disabled), in self-supervised manner (no label) update signal come from judge feedback.\n+ Phase 4. Production run: Start from the beginning of the target book with phase 3 updated system. Follow same self-supervised optmization process, but with freeze enabled, gradually freeze model update."
+
+- Phase 2 runs on the paired dataset (web articles with human English). It does not run on one target book.
+- Phases 3 and 4 run on one target book. Phase 4 starts at the beginning of the book.
+- The prompts update in phases 2 and 3. In phase 4, the box types stop updates one by one `[file: kendo-translation-translator/docs/VISION.md:245]`.
+
+Older decisions that bind this design:
+
+- The monitor is desktop only `[file: docs/VISION-viewer.md:334]` `[file: docs/VISION-viewer.md:2493]`.
+- Translator pages and the monitor default to the theme Light. Solarized light is the default on reader pages only (round 64 answer 3) `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:332]`.
+- The hosted site runs with the monitor off `[file: docs/VISION-viewer.md:3365]`. Monitor routes give "not found" there `[file: app/lib/monitor.ts:7-9,28-31]`.
+- The monitor has no sign-in `[file: app/README.md:165]`. The pause button is the only write of the monitor under the Translator folder `[file: app/lib/runs.ts:135-140]`.
+- The bar "professional book reading website", clear and intuitive, applies to the monitor (line 315).
+- The process of round 42 answer 9 applies `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:85]`. The owner states a need and aki-main restates it. The owner validates. A docs unit writes the design. A code unit builds it.
+
+Notes of aki-main, not owner words `[file: .opencode/reminders/qa/qa-memory-2026-10-29.md:111-113]`:
+
+- Line 111: unit DM70 writes this design with a strong UI and UX focus. Code follows after the owner checks the design.
+- Line 112: the memory and link constants and the call timeout and retries need Translator code that reads them from the settings file.
+- Line 113: the phase key values are "agent-phase-2", "agent-phase-3", and "agent-phase-4".
+
+#### 15.24.2 Facts about today
+
+Viewer `[check: DM70 2026-10-29 21:59 cat -n of the files named below]`:
+
+- `/` shows the runs table. It has one row for each list folder. The columns are List, Kind, State, Pages, Calls, Failed, Flagged, Cost (models), Cost (listed), Started, and Updated `[file: app/components/RunsTable.tsx:27-37]` `[file: app/app/page.tsx:9-12]`.
+- The table polls `/api/runs` every 3000 ms while one row runs or pauses `[file: app/components/useLive.tsx:4,20-25]` `[file: app/components/RunsTable.tsx:12]`. A failed poll is silent `[file: app/components/useLive.tsx:15-18]`.
+- The time helper `dateTime` shows the time of the browser without a zone name `[file: app/lib/format.ts:8-13]`.
+- The state colors cover running, paused, completed, done, completed with failures, failed, interrupted, and waiting `[file: app/components/Pills.tsx:3-12]`. A pill has color and a word.
+- The pause button writes the file `PAUSE` into one list folder. It accepts a list in the state running or paused `[file: app/lib/runs.ts:141-170]`. The route refuses a foreign Origin. It does not check the Host header `[file: app/app/api/pause/route.ts:15-19]`.
+- The Books tab lists the 36 books of `book-slugs.json` and adds any ID that has run folders `[file: app/lib/books.ts:38-104]`.
+- The file reader accepts paths inside `<T2>/data` only `[file: app/lib/safe-path.ts:6-17]` `[file: app/lib/config.ts:132-136]`. The folder `<T2>/config` lies outside. So the settings file needs one new path rule.
+- The tabs are Runs, Books, and Human translation `[file: app/components/Nav.tsx:8-13]`. The dark theme switch sits in the same bar `[file: app/components/Nav.tsx:42]`.
+
+Translator `[check: DM70 2026-10-29 22:00 grep and python3 -B read of the Translator files]`:
+
+- Three list folders exist: `20261026T182511Z`, `20261028T023006Z`, and `20261029T051152Z`. The folder `data/pilot-run/books/` does not exist `[check: DM70 2026-10-29 22:08 python3 -B facts.py]`.
+- No file holds a phase key, a process ID, or a heartbeat. The code has no `getpid`, no `heartbeat`, and no `"phase"` key `[check: DM70 2026-10-29 22:00 grep -rn 'getpid\|heartbeat\|"phase"' in translator_run.py and translator/*.py]`.
+- `progress.json` is written after each call event, atomically `[file: data/scripts/translator/progress.py:5,246-252]`. A list in the state running shows the warning "no update" after 600 s `[file: data/scripts/translator/progress.py:304-305]`.
+- A call times out after 1500 s `[file: data/scripts/translator/launcher.py:17]`. A call makes at most 2 attempts `[file: data/scripts/translator_run.py:526]`. The longest call of the T7 pages took 414.8 s (`ED_0` of `left_foot_full/p048`) `[check: DM70 2026-10-29 22:08 python3 -B facts.py]`.
+- Ctrl-C ends a chain list with the state "interrupted" and exit code 130. The program prints the resume command `[file: data/scripts/translator_run.py:2142-2146,2173-2177]`. Not verified: what a killed process leaves. The code has no handler for a kill signal.
+- `run-chain --resume LISTDIR` works for one list folder. It reuses the stored mode, jobs, book jobs, and cost limit `[file: data/scripts/translator_run.py:1945-1953]`.
+- A QA_3 FAIL does not stop a chain any more (round 51 answer 1) `[file: data/scripts/translator_run.py:1904-1906]`. A resume reopens a chain that an older session stopped on a QA_3 FAIL `[file: data/scripts/translator_run.py:1918-1919]`.
+- The program reads `config/translator-models.yaml` with `load_config_for` at the start of each page run. The function sits at line 1318. The calls sit at lines 1372 and 1578 `[file: data/scripts/translator_run.py:1318,1372,1578]`.
+- `jobs` is the count of calls in parallel inside one page. `book_jobs` is the count of books in parallel. `max_usd` is a cost limit for each page. The help texts say so `[file: data/scripts/translator_run.py:6088-6090]`. A page stops with "cost guard" when the limit is reached `[file: data/scripts/translator_run.py:278-283]`.
+- `run.json` holds the keys page, levels, critic, critic_mode, jobs, max_usd, started_utc, models, and voyage. It holds no settings block `[check: DM70 2026-10-29 22:08 python3 -B facts.py]`.
+- Today's values: N is 2 (`config/translator-models.yaml:664-665`). The models are in `level_0` (line 275), `level_1` (285), `level_2` (295), `level_3` (307), and `box-critic` (372). `MEMORY_K` is 3 `[file: data/scripts/translator/book_memory.py:31]`. `JOIN_PAGE_END` is true (line 47). `WINDOW_LINES` is 1 `[file: data/scripts/translator/programs.py:341]`. `NEIGHBOR_SKIP_CITES` is 5 (line 354).
+- Today N only sets the marks "reached N" in `summary.json`. The note in the file says: "reached N, an update point would start here. The run program has no update step yet." No freeze code exists. A comment about K = 3 sits in `config/translator-models.yaml:593`.
+
+Real data `[check: DM70 2026-10-29 22:08 python3 -B facts.py]`:
+
+- The 3 list folders hold 12 books. 11 of them are in `book-slugs.json`. The 12th is the web article `18d4ac29`. The other 25 slugs never ran.
+- The table gives the numbers that a derived row shows. Pages done counts pages in the state done. Times are local PDT.
+
+| Book | Pages done | Cost (models) | Page time | Lists | Last page end |
+|---|---|---|---|---|---|
+| `left_foot_full` | 6 of 120 | $22.16 | 413.6 min | 3 | Oct 29 00:50 |
+| `kendojidai_2014` | 6 of 1051 | $15.77 | 269.0 min | 2 | Oct 27 21:46 |
+| `mental_full` | 2 of 169 | $5.48 | 102.3 min | 2 | Oct 27 19:56 |
+| `100_practice_full` | 2 of 367 | $4.61 | 99.0 min | 1 | Oct 26 14:26 |
+| `eiga_full` | 2 of 204 | $3.27 | 66.9 min | 1 | Oct 26 14:03 |
+| `sumiss_train_full` | 2 of 142 | $4.05 | 80.1 min | 1 | Oct 26 13:54 |
+| `ogawa_lecture_part3` | 2 of 102 | $3.66 | 71.1 min | 1 | Oct 26 13:20 |
+| `kendojidai_2012` | 2 of 949 | $3.88 | 91.9 min | 1 | Oct 26 13:16 |
+| `lifelong_full` | 2 of 279 | $3.70 | 81.4 min | 1 | Oct 26 12:50 |
+| `ogawa_lecture_part2` | 1 of 150 | $3.73 | 76.3 min | 1 | Oct 26 12:25 |
+| `men0` | 1 of 11 | $2.14 | 44.0 min | 1 | Oct 26 12:09 |
+| `18d4ac29` | 1 of unknown | $1.51 | 25.3 min | 1 | Oct 26 11:50 |
+
+- The sum of the cost column is $73.95. It equals the sum of the three lists: 46.026293 + 19.623303 + 8.296852.
+- T7 chain, list `20261029T051152Z`, `left_foot_full` p046 to p050. All 5 pages are done with QA_3 PASS. The cost is 8.296852 USD and the list ran 9517.7 s (158.6 min). 26 memory pairs exist. The critique counts are TL 13, ED 17, QA 3, and TS 1 against N = 2.
+- Retry: `kendojidai_2012/p350`, run `20261026T191803Z-r41`. The box TL_0 made 2 attempts. Try 1 ended with `"reason":"length"` and 62292 reasoning tokens (`raw/TL_0.try1.jsonl`). Try 2 passed. The page cost 2.509567 USD, took 3520.0 s, and got QA_3 PASS 9.5.
+- Critic failure: list `20261026T182511Z`, page `ogawa_lecture_part2/p089`. The state is "completed with failures". The text is `box-critic.TS_3: invalid JSON: Expecting ',' delimiter: line 1 column 913 (char 912)`. The file is `data/pilot-run/ogawa_lecture_part2_p089/20261026T185029Z-r41/failed/box-critic.TS_3.json`.
+- FAIL verdict: `kendojidai_2014/p0839`, run `20261026T205441Z-r41`. QA_2 and QA_3 are FAIL. The page cost 4.379641 USD and took 4491.5 s.
+- Stop by an old rule: list `20261028T023006Z` (started Oct 27 19:30 PDT) holds 3 chains. The chain `mental_full` has the state "stopped: QA_3 FAIL on mental_full/p014". The pages p015 to p018 stay in the state waiting. The list cost 19.623303 USD. `left_foot_full` appears in 3 separate list folders today.
+
+#### 15.24.3 Users and tasks
+
+The user is one person: the owner, in the admin role, at the Mac. The screen is desktop only. The owner starts runs in the Terminal. He runs any book at any time and comes back after hours. He needs to know in seconds if a run needs him.
+
+Tasks, in order of how often they happen `[agent inference]`:
+
+1. Look at the state of all books after an absence.
+2. Find out why a book stopped and when.
+3. Resume a book from its last stop.
+4. Pause a book or a list that costs too much.
+5. Change a run value, for example N or a model, while a book runs.
+6. Start a book that never ran.
+7. Check the cost and the time of one book.
+
+The Monitor dashboard must answer these questions, in this order. Each question has one place on the screen.
+
+1. Does any book need me now? The group Needs attention answers. It sits at the top. It always shows, also when empty.
+2. What runs now, on which page and box, and is it alive? The group Running answers. Each row shows page, box, and the time of the last sign of life.
+3. What is paused or stopped, since when, and why? The groups Paused and Stopped answer. The state label holds the reason in words.
+4. What is the last error, in words? The second line of the row shows the error text.
+5. How far is each book, and which page comes next? The progress bar and the text "Next page" answer.
+6. What did the book cost, and how long did it take? Two columns answer.
+7. Which phase does the book run? One column answers.
+8. Which books never ran? The closed group Not started answers.
+
+#### 15.24.4 Monitor dashboard (`/` on the Mac)
+
+##### 15.24.4.1 Layout and groups
+
+- One screen shows the overview. A summary line sits at the top. Groups follow. A group is a heading and a list of book rows.
+- The summary line counts the groups in one sentence. It also shows the model cost of all books. Example: "1 needs attention · 0 running · 0 paused · 11 stopped · 0 completed · 25 not started". The reader sees the whole state before the first row.
+- The order of the groups is: Needs attention, Running, Paused, Stopped, Completed, Not started. Reason: exceptions come first because a stopped book wastes time at every minute. Live work comes second because it needs a look and no action. Paused and Stopped books wait for the owner. Completed and Not started books need nothing.
+- Needs attention and Running always show. When empty they show one line: "Nothing needs attention." and "Nothing runs now. The last list ended Oct 29 00:50 PDT (21 h ago)." An empty group that disappears makes the owner doubt the page.
+- Paused, Stopped, and Completed show when they hold a row. Not started shows always, closed.
+- Needs attention, Running, Paused, and Stopped start open. Completed and Not started start closed. A group uses the HTML elements `details` and `summary`, so the keyboard works without script `[unit default]`. The browser keeps the open state of each group, like the checklist of the extra items `[file: app/components/extras-store.ts:4-7]`.
+- Inside a group, the newest event comes first. Not started books sort by slug.
+- The tab title shows the count of the group Needs attention, for example "(1) Monitor dashboard". The owner sees a problem from another tab.
+- The bar holds five tabs: Monitor dashboard (`/`), Lists (`/runs`), Books (`/books`), Run settings (`/settings/run`), and Human translation. The Lists tab keeps the old runs table, one row for each list folder. Reason: the column "Cost (listed)" and the list counts still help when the owner audits one list.
+
+##### 15.24.4.2 States and the exact rules
+
+A *state label* is a symbol and a word. Color is never the only sign. The symbols differ in shape.
+
+Plain meaning of each label:
+
+- Running: a process works on the book now.
+- Running, pause requested: the owner asked for a pause. Calls that run now finish first.
+- Paused: the process lives and waits before its next model call.
+- Stopped: the process ended on purpose. Ctrl-C or the end of the target page set the stop.
+- Stopped unexpectedly: the file says "running", but the process is gone or silent.
+- Stopped by failure: the run ended because of a failure or a rule. The book does not go on alone.
+- Completed: the book reached the target of its phase.
+- Not started: no run for this book exists.
+
+| Label | Group | Rule when `status.json` exists | Rule for a derived row |
+|---|---|---|---|
+| ● Running | Running | `state` is "running". The pid is alive. The heartbeat is not older than 120 s. | The newest list that holds the book is in the state "running". The chain of the book is "running", or a page of the book is "running". `updated_epoch` is not older than 1800 s. |
+| ● Running, pause requested | Running | A file `PAUSE` exists (book or list). The state is still "running". | Same as Running. The file `PAUSE` exists in the list folder. |
+| ‖ Paused | Paused | `state` is "paused". | The list state is "paused". |
+| ■ Stopped | Stopped | `state` is "stopped". `stop_reason` is "ctrl-c" or "target-reached". | The list is final. The chain is "completed", "interrupted", or "stopped: interrupted". No page of the book has a forward failure. |
+| ▲ Stopped unexpectedly | Needs attention | `state` is "running" in the file. The pid is gone, or the heartbeat is older than 120 s. | The list is "running". `updated_epoch` is older than 1800 s. |
+| ▲ Stopped by failure | Needs attention | `state` is "stopped". `stop_reason` is "forward-failure", "cost-guard", or "rule". | The chain state starts with "stopped:" and is not "stopped: interrupted". |
+| ✓ Completed | Completed | `state` is "completed". All pages of the phase target are accepted. | Never. See the note below. |
+| ○ Not started | Not started | `state` is "not-started". | No list folder holds the book, and no `status.json` exists. |
+
+Notes on the rules:
+
+- The word "alive" means the pid answers a check with signal 0. The check sends no signal. Another process can reuse a pid, so the rule adds the heartbeat check `[agent inference]`.
+- The limit 120 s is four heartbeats of 30 s `[agent inference]`. The heartbeat must come from a thread that does not wait for a model call. A call can last 1500 s `[file: data/scripts/translator/launcher.py:17]`.
+- The limit 1800 s for derived rows is the call timeout 1500 s plus 300 s `[agent inference]`. The old warning at 600 s `[file: data/scripts/translator/progress.py:304-305]` is too short. A retried call took 771.1 s in the run of `kendojidai_2012/p350` `[check: DM70 2026-10-29 22:00 python3 -B read of calls.jsonl]`. Between 600 s and 1800 s, a Running row shows the warning "No update for N min. A long call can take 25 min."
+- A critic failure does not move a book to Needs attention. Example: `box-critic.TS_3` on `ogawa_lecture_part2/p089`. The chain went on. The row shows the error text in red and counts it in the summary line as "1 error". Needs attention means that the book does not go on without the owner.
+- A QA_3 FAIL does not move a book to Needs attention. The chain goes on (round 51 answer 1). The row shows "1 FAIL page" when the data holds it.
+- A derived row is never Completed. The old lists hold test lists of 5 pages, not the target of a phase. Example: `left_foot_full` shows 6 of 120 pages after a completed list of 5 pages. The row says "Stopped at p050: the list finished".
+- Pages done counts pages in the state "done" in `progress.json`. A page is done when its calls and critic calls all ended without a failure. The QA_3 verdict can be PASS or FAIL.
+
+##### 15.24.4.3 One book row
+
+A row has two lines. Line 1 holds the facts in fixed columns. Line 2 holds one sentence in words. Reason: the left edge shows the state first, so the eye scans for the symbol. The sentence explains what the symbol means.
+
+Line 1, from left to right:
+
+1. State label, for example "▲ Stopped by failure".
+2. Title in English and the slug in a mono font, for example "Making the Difference on the Day (`mental_full`)". The title comes from the item metadata `[file: app/lib/books.ts:107-111]`. The slug stays if no title exists.
+3. Phase, for example "Phase 3" with the owner words "warm initialization", or "Phase 4" with "production run". A derived row shows "Phase not stored".
+4. Progress: a bar and the text "5 of 20 pages". The bar has a text next to it and the role `progressbar` with values. The count is pages done of the pages in the phase target. Phase 3 has 20 pages. Phase 4 has all pages of the book.
+5. Cost: "$8.30". It counts the model cost (`cost_usd_models`) of the book in the current phase. For a derived row it counts all list folders.
+6. Time: "159 min". It is the sum of the page times, with no pauses. It is not the clock time between start and end.
+7. Actions: the buttons of section 15.24.4.5.
+
+Line 2 is a sentence. Examples with real data:
+
+- "Stopped at p014: QA_3 FAIL (old rule). Oct 27 19:56 PDT, 2 days ago. Next page: p015."
+- "Stopped at p050: the list finished. Oct 29 00:50 PDT, 21 h ago. 3 list folders. Next page: not stored."
+- "Now: p051, box TL_2. Running since Oct 29 21:12 PDT (54 min). Last sign of life 4 s ago."
+- "No update for 12 min: the process is gone. Last page done: p050."
+
+A third line shows only when an error text exists. It is red and it names the page, the box, and the text. It never cuts the text. A link opens the file. Example: "Error on p089, box `box-critic.TS_3`: invalid JSON: Expecting ',' delimiter: line 1 column 913 (char 912)".
+
+What each number counts, and where it shows:
+
+- "Pages done" counts finished pages on the Monitor dashboard. The Reader dashboard (`/read`) shows "finished" pages, which are pages with reader text `[file: docs/VISION-viewer.md:3462]`.
+- Example: `kendojidai_2014` has 6 pages done on the Monitor dashboard: p0794 to p0798 and p0839. The Reader dashboard shows 5 of 1051 pages, because p0839 has a QA_3 FAIL and no reader text `[file: docs/VISION-viewer.md:3458,3724]`.
+- "Cost" counts what the models charged. It does not count Voyage `[file: data/pilot-run/lists/20261029T051152Z/progress.json, key cost_models_usd]`.
+
+##### 15.24.4.4 Phase 2
+
+Phase 2 runs on the paired dataset. The paired dataset holds web articles with human English. The owner wrote that it holds more than 300 articles (quote in 15.24.1). A phase 2 run has no book, so it has no book row.
+
+- The dashboard shows one closed line below Not started: "Phase 2 (paired dataset): no run record yet." The line stays until the Translator writes a phase 2 record.
+- Reason: no phase 2 run exists. The Translator has no phase key and no command for it `[check: DM70 2026-10-29 22:06 sed of build_parser in translator_run.py]`. A made-up row shows invented data.
+- Open item 7 holds the options for the later shape.
+
+##### 15.24.4.5 Actions
+
+- Pause. A row of a book in the state Running has the button "Pause". Today the pause file belongs to a list folder. One list can hold several books. Example: list `20261028T023006Z` holds `mental_full`, `left_foot_full`, and `kendojidai_2014`.
+  - A list with one book pauses at once, with no dialog. The action is reversible.
+  - A list with more than one book in the state Running opens a dialog (sketch 5 shows a similar dialog). The dialog names every book that will wait. Open item 3 holds the option for one pause file per book.
+- Resume of a paused book. The button "Resume" deletes the pause file, as today `[file: app/components/PauseButton.tsx:24-39,52]`. It needs no dialog.
+- Resume of a stopped book. The button "Resume…" opens a dialog with the exact command and a button "Copy command". Section 15.24.7 holds the options.
+- Start of a book that never ran. The button "Start…" opens the same dialog with the command for phase 3.
+- Next phase. A Completed book of phase 3 shows "Start phase 4…". The dialog shows the command for phase 4. Phase 4 starts at the beginning of the book (owner quote).
+- Details. The title and the button "Details" open the book detail view (section 15.24.5).
+- A button is disabled with a reason in words. Example (the pid is made up): "Resume… is off because this book runs now (pid 4821)".
+
+##### 15.24.4.6 Time, refresh, and the empty, first-load, and error states
+
+- Time. Each time shows as local time with the zone name, then the relative time. Example: "Oct 29 00:50 PDT (21 h ago)". The tooltip and the detail view show the UTC stamp of the file, for example "2026-10-29T07:50:31Z" `[file: data/pilot-run/lists/20261029T051152Z/progress.json, key updated_utc]`.
+- Relative time: under 1 min "just now", under 60 min "N min ago", under 48 h "N h ago", else "N days ago". The relative text updates every 30 s in the browser, with no request.
+- Refresh. While one row is Running, Pause requested, or Paused, the page polls every 3000 ms, as today `[file: app/components/useLive.tsx:4]`. With no live row, the page loads once, and the owner uses the button "Refresh" or comes back to the tab. The poll stops while the tab is hidden `[unit default]`.
+- The header shows "Updated 22:06:12 PDT (3 s ago)". After 3 failed polls, a banner shows: "The Viewer server does not answer. This page shows the data from 22:06:12 PDT." The banner goes away at the next good poll. Today a failed poll is silent.
+- First paint. The server sends the rows with the page, as today `[file: app/app/page.tsx:11]`. No spinner shows at the first load. A route change shows grey placeholder rows.
+- Empty. If no list folder and no `status.json` exists: "No run found. Start a book in the Terminal:" and the start command for phase 3 of the first book.
+- Error. If the data folder is not readable: "The Monitor dashboard cannot read the Translator data folder. Check the key translatorDataDir in viewer.config.json." The message names the file, not the Mac path.
+- A broken `status.json` shows the row with the label "Status file unreadable" and the file path. The other rows stay.
+
+##### 15.24.4.7 Keyboard and contrast
+
+- Tab order: the summary line, the group headings, then for each row the title link, the buttons, and the file link. Enter or Space toggles a group. Enter on the title opens the detail view.
+- A group heading is a `summary` element. A button has a visible focus ring with at least 3:1 contrast.
+- Color never works alone. Every state has a symbol and a word. Every error text is red and has the word "Error". A bar has the text "5 of 20 pages".
+- All text pairs must reach 4.5:1 in the themes Light and High-contrast dark. The check is `node scripts/contrast-dark.mjs`, which must show 0 failures for the new elements.
+- The summary line has the role `status` and `aria-live="polite"`. It announces a change of the count of Needs attention only.
+
+#### 15.24.5 Book detail view (`/monitor/<slug>`)
+
+The detail view answers the question "why is this book in this state, and what happened". It shows the facts in layers: book, list folder, page, box.
+
+1. Header: title, slug, phase, state label with sentence, and the actions of the row. Below: pages done, cost, page time, list folders, and the count of errors.
+2. Last error: the newest error text, the page, the box, the time, and the file path of the failed file. Example path: `data/pilot-run/ogawa_lecture_part2_p089/20261026T185029Z-r41/failed/box-critic.TS_3.json`. If none: "No error stored for this book."
+3. Timeline: one fold for each list folder, newest first. The newest fold starts open. The fold heading shows the stamp, start and end in local time, the kind, the critic mode, the book jobs, and the list state. The page table below has these columns: Page, State, Calls, QA_3, Cost, Time, Critiques against N, Memory pairs, and Settings.
+4. Boxes: a page row opens a grid of 4 box types by 4 levels. Each cell shows ok, failed, running, or waiting, with a word. A failed cell links to the file in `failed/` or `raw/`. A page in the state running shows the boxes in `running` of `progress.json` `[file: app/lib/runs.ts:108]`.
+5. Memory pairs: the count for each page and the list of pairs, reused from the panel of today `[file: app/components/ChainPanels.tsx:69-160]`. Example: p046 wrote 5 pairs, p047 6, p048 5, p049 4, p050 6. The total is 26.
+6. Critiques against N: for each page, the count of each box type, with a star when the count reached N. A total row sums the pages. Example: TS 1, TL 13, ED 17, QA 3 against N = 2. The note stays: "The run program has no update step yet."
+7. Settings used: each page row shows N (key `update_N` of `summary.json`) and the models (`run.json`). A mark "Settings changed before this page" shows when a page used other values than the page before. Today `run.json` holds models, mode, jobs, and the cost limit. After unit TR70, it also holds the block `settings` and its sha1.
+
+Where each fact comes from:
+
+- `progress.json`: page state, cost, and time.
+- `summary.json` of the page run folder: QA_3, critique counts, and memory counts.
+- `calls.jsonl`: box states and retries.
+- `list-summary.json`: failure texts.
+- `run.json`: settings.
+- `book-memory/<book>.jsonl` or the book store: pairs.
+
+#### 15.24.6 Config panel (`/settings/run`)
+
+The config panel edits the settings file. The panel is under the Monitor dashboard: the button "Run settings" and the tab with the same name open it. It exists on the Mac only. With the monitor off, the page and its API route give "not found", like the pause route `[file: app/lib/monitor.ts:28-31]`.
+
+Page layout:
+
+- At the top, one sentence names the books that run now and says when a change reaches them. Example: "left_foot_full runs now at p051. It reads new values at the start of p052."
+- The left column lists the 8 groups as links. The right column shows the groups as forms. Reason: the owner jumps to one value and sees the other groups in context.
+- Each field shows the name and one sentence of plain meaning. It shows the input. It shows the default with a button "Reset". It shows the allowed values, the unit, and the time when a change takes effect.
+- A mark "Changed" shows next to an unsaved field. A mark "Not default" shows next to a saved value that differs from the default.
+- A bar at the bottom shows "3 unsaved changes" with the buttons "Review changes" and "Discard".
+
+The 8 groups. "Today" is the value of the Translator now. It is also the default, because the settings file does not exist yet. Allowed ranges are `[unit default]` unless a file names them.
+
+| Group | Key | Plain meaning | Today | Allowed | Unit | Takes effect |
+|---|---|---|---|---|---|---|
+| 1 N | `update.N` | Critique count of one box type that starts a prompt rewrite. | 2 | whole number, 1 or more | critiques | next page |
+| 2 Model and effort per level | `levels."0"` to `levels."3"`, each with `model` and `variant` | The model and the effort of the four boxes of one level. | level 0: google/antigravity-gemini-3.8-flash-high, high. Level 1: anthropic/claude-haiku-5-5, xhigh. Level 2: xai/grok-4.7, low. Level 3: anthropic/claude-sonnet-5-5, high. | model ID from the list, effort from the list | none | next page |
+| 3 Box critic model | `box_critic.model`, `box_critic.variant` | The model of the critic that reads each box. | anthropic/claude-opus-5-5, medium | same as group 2 | none | next page |
+| 4 Cost limit per page | `run.max_usd_per_page` | A page stops with "cost guard" when its cost reaches the limit. | no limit | empty, or a number above 0 | USD | next page |
+| 5 Jobs and book jobs | `run.jobs`, `run.book_jobs` | Calls in parallel inside one page. Books in parallel. | 1 and 1 | whole numbers, 1 or more | calls, books | next list or book start |
+| 6 Critic mode | `run.critic_mode` | "separate": one critic session per box, 16 calls per page. "session": one critic session per page. | separate | separate or session | none | next list or book start |
+| 7 Memory and link constants | `memory.memory_k`, `memory.join_page_end`, `links.neighbor_skip_cites`, `links.window_lines` | Memory pairs for one box. Join a pair across the page end. Cited items that skip the neighbor link. Lines of the neighbor window. | 3, on, 5, 1 | whole number 1 or more, on or off, whole number 0 or more (0 is off), whole number 0 or more | pairs, lines | next page |
+| 8 Call timeout and retries | `calls.call_timeout_s`, `calls.max_attempts` | Seconds before one call times out. Attempts for one call. | 1500, 2 | whole numbers, 60 or more and 1 or more | seconds, attempts | next page |
+
+Notes on the groups:
+
+- Group 1: the panel shows the line "Today N only sets the marks 'reached N'. The run program has no update step yet." The line goes when the Translator builds the update step.
+- Group 2 and 3: the list of model IDs comes from the IDs in `config/translator-models.yaml`, plus the field "Other…". An ID from "Other…" shows the warning "The Viewer cannot check this ID. A wrong ID stops the page at the start with CONFIG ERROR." Open item 6 holds the options.
+- Group 4: the field shows a hint from real data: "The pages of the last list cost $1.24 to $1.93 each." The most expensive page in the three list folders cost $4.38 (`kendojidai_2014/p0839`).
+- Group 4: an empty field means no limit. The command line value `--max-usd` also exists. Open item 5 holds the rule for the two.
+- Group 5 and 6: the conflict. A list that runs cannot change jobs, book jobs, or the critic mode. The list reads them at its start, and a resume reuses the stored mode. The Translator says: "RESUME ERROR: %s ran with --critic-mode %s. A resume must use the same mode." `[file: data/scripts/translator_run.py:1953]`. The panel shows the badge "Next list or book start" on these three fields. It does not hide them. Round 69 answer 19 says "next page" for the file. Open item 4 holds the options.
+- Group 7 and 8: the Translator must read these keys. Today the values are constants in code (note of aki-main, line 112).
+
+Validation:
+
+- The panel checks each field when the owner leaves it, and again at save. The server runs the same checks (one shared function `validateSettings`).
+- A wrong value shows a sentence at the field. Example: "N must be a whole number, 1 or more."
+- A key that the panel does not know stays in the file unchanged. The panel never shows a value whose key name holds "key", "token", "secret", or "password".
+
+Review, save, history, and reset:
+
+- "Review changes" opens a dialog (sketch 5). It lists each change as "name: old → new (when it takes effect)". It names the books that read the new values.
+- "Save" writes the whole file: a temporary file in the same folder, then a rename. A reader of the file never sees half a file. The form holds the sha1 of the file it loaded. If the sha1 differs at save, the server answers 409 and the panel says: "The file changed since you opened this page. Reload and check your changes."
+- Each save adds one line to `translator-settings.history.jsonl`: time, the changed keys with old and new value, and the sha1 before and after. The panel shows the last 20 lines under the form as "Change history", with a link to the full file.
+- "Reset" on a field restores the default in the form. "Reset all" does it for all fields. Both need a save. A reset saves the default value as an explicit value.
+- Only the Viewer on the Mac writes. The write route has four conditions `[agent inference]`:
+  - The monitor is on.
+  - The body is JSON.
+  - The Origin matches the Host.
+  - The Host is `localhost`, `127.0.0.1`, or `[::1]`.
+- Open item 9 holds the reason for the last condition.
+
+#### 15.24.7 Resume per book
+
+The owner resumes a book from the screen. A book can stop at any page. The resume point is the next page after the last accepted page. Three ways exist.
+
+- Option 1, copy the exact command (recommended). The button "Resume…" shows the command and a button "Copy command". The owner pastes it in the Terminal. Benefit: the web app gets no new power. No visitor of port 3000 can start a paid run. The command is visible and can be checked. Cost: one manual step in the Terminal.
+- Option 2, a request file that the Translator watches. The Viewer writes a file and a Translator process starts the work. Benefit: one click. Cost: a process must watch, and a stopped book has no process. So a new always-on Translator process is needed. That is a new component for unit TR70.
+- Option 3, the Viewer starts the process. The Viewer runs the command on the Mac. Benefit: one click, no Terminal. Cost: the monitor has no sign-in. Any person who reaches the port can start a paid run. The run ends with the Next server. This is the largest risk of the three.
+
+The dialog of option 1 shows:
+
+- The book, the page where it continues, and the phase.
+- The command in a code block, with the folder to run it from.
+- A command for a check without any write, when one exists. Example: `python3 data/scripts/translator_run.py run-chain --resume data/pilot-run/lists/20261028T023006Z --dry-run`.
+- A warning when the book runs now, with the pid. The button "Copy command" stays enabled but the text says "This book runs now".
+
+Commands:
+
+- For a book with a store (after unit TR70): `python3 data/scripts/translator_run.py run-book --book left_foot_full --phase agent-phase-3` `[agent inference]` (draft name of aki-main, not built).
+- For a derived row whose list has pages in the state waiting: `python3 data/scripts/translator_run.py run-chain --resume data/pilot-run/lists/20261028T023006Z` (the book `mental_full`). The list holds 3 chains. The resume runs the chains that have pages in the state waiting. In this list only `mental_full` has such pages (p015 to p018).
+- For a derived row whose list finished all pages (for example `left_foot_full`): the dialog says "The old list folder has no page in the state waiting. Start the next pages with run-book, which unit TR70 builds." No command shows.
+
+The paused book is the one exception to option 1. "Resume" deletes the pause file, because the process still lives and the Viewer has this power today.
+
+#### 15.24.8 Text sketches
+
+Desktop, 1440 px wide. A row marked [real] uses the derived numbers of section 15.24.2. A row marked [example] is an illustration with T7 numbers.
+
+Sketch 1: Monitor dashboard today, with the data on this Mac (no list runs now).
+
+```
+Monitor   Lists   Books   Run settings   Human translation                                            Light  [High-contrast dark]
+-------------------------------------------------------------------------------------------------------------------------------
+Monitor dashboard                                       Updated 22:06:12 PDT (3 s ago)   [Refresh]   [Run settings]
+1 needs attention · 0 running · 0 paused · 11 stopped · 0 completed · 25 not started          Model cost in list folders: $73.95
+-------------------------------------------------------------------------------------------------------------------------------
+v ▲ Needs attention (1)
+  ▲ Stopped by failure  Making the Difference on the Day (mental_full)  Phase not stored  2 of 169 pages [#.........]  $5.48  102 min  [Resume…] [Details]
+      Stopped at p014: QA_3 FAIL (old rule). Oct 27 19:56 PDT, 2 days ago. Next page: p015.                                    [real]
+
+v ● Running (0)
+  Nothing runs now. The last list ended Oct 29 00:50 PDT (21 h ago).
+
+v ■ Stopped (11)
+  ■ Stopped  The Secret of Kendo and the Left Foot (left_foot_full)  Phase not stored  6 of 120 pages [#.........]  $22.16  414 min  [Resume…] [Details]
+      Stopped at p050: the list finished. Oct 29 00:50 PDT, 21 h ago. 3 list folders. Next page: not stored.                   [real]
+  ■ Stopped  Kendo Jidai 2014 (kendojidai_2014)  Phase not stored  6 of 1051 pages [..........]  $15.77  269 min  [Resume…] [Details]
+      Stopped at p0798: the list finished. Oct 27 21:46 PDT, 2 days ago. 2 list folders. Next page: not stored.                [real]
+      (6 more rows)
+  ■ Stopped  Lectures on Kendo, New Edition (ogawa_lecture_part2)  Phase not stored  1 of 150 pages [..........]  $3.73  76 min  [Resume…] [Details]
+      Stopped at p089: the list ended with 1 error. Oct 26 12:25 PDT, 3 days ago.                                              [real]
+      Error on p089, box box-critic.TS_3: invalid JSON: Expecting ',' delimiter: line 1 column 913 (char 912)
+      File: data/pilot-run/ogawa_lecture_part2_p089/20261026T185029Z-r41/failed/box-critic.TS_3.json
+      (2 more rows)
+
+> ○ Not started (25)
+> Phase 2 (paired dataset): no run record yet.
+```
+
+Sketch 2: the same screen when books run. The rows are examples that use the T7 numbers of `left_foot_full`. They are not real data.
+
+```
+1 needs attention · 1 running · 1 paused · 9 stopped · 0 completed · 25 not started
+v ▲ Needs attention (1)
+  ▲ Stopped unexpectedly  Kendo Jidai 2012 (kendojidai_2012)  Phase 3 · warm initialization  2 of 20 pages [#.........]  $3.88  92 min  [Resume…] [Details]
+      No update for 12 min: the process is gone. Last page done: p711. The call of box TL_2 on the next page did not end.   [example]
+v ● Running (1)
+  ● Running  The Secret of Kendo and the Left Foot (left_foot_full)  Phase 3 · warm initialization  5 of 20 pages [##........]  $8.30  159 min  [Pause] [Details]
+      Now: p051, box TL_2. Running since Oct 29 21:12 PDT (54 min). Last sign of life 4 s ago. Next page: p052.                 [example]
+v ‖ Paused (1)
+  ‖ Paused  Making the Difference on the Day (mental_full)  Phase 3 · warm initialization  2 of 20 pages [#.........]  $5.48  102 min  [Resume] [Details]
+      Paused since 21:40 PDT (26 min ago). The run waits before its next model call. Next page: p015.                                   [example]
+```
+
+Sketch 3: book detail of `left_foot_full`, real derived data.
+
+```
+< Monitor dashboard
+The Secret of Kendo and the Left Foot (left_foot_full)                                                         [Resume…]
+■ Stopped at p050: the list finished. Oct 29 00:50 PDT (2026-10-29T07:50:31Z), 21 h ago. Phase not stored.
+6 of 120 pages · Model cost $22.16 · 414 min of page time · 3 list folders · Errors: none stored
+
+v List 20261029T051152Z   Oct 28 22:11 PDT to Oct 29 00:50 PDT   chain · critic separate · 1 book job · completed
+  Page  State  Calls   QA_3        Cost   Time      Critiques (N = 2)           Memory pairs  Settings
+  p046  done   32/32   PASS 9.5    $1.60  31.2 min  TS 0  TL 3*  ED 4*  QA 0    5            N 2 · models of run.json
+  p047  done   32/32   PASS 9.5    $1.93  34.5 min  TS 0  TL 4*  ED 6*  QA 1    6            same
+  p048  done   32/32   PASS 9.5    $1.72  32.7 min  TS 0  TL 3*  ED 4*  QA 1    5            same
+  p049  done   32/32   PASS 10.0   $1.24  25.0 min  TS 0  TL 0   ED 0   QA 0    4            same
+  p050  done   32/32   PASS 9.0    $1.81  35.3 min  TS 1  TL 3*  ED 3*  QA 1    6            same
+  Total                            $8.30  159 min   TS 1  TL 13  ED 17  QA 3    26
+  * the count reached N. The run program has no update step yet.
+
+  p050 boxes     Level 0   Level 1   Level 2   Level 3        (cell words: ok, failed, running, waiting)
+     TS          ok        ok        ok        ok
+     TL          ok        ok        ok        ok
+     ED          ok        ok        ok        ok
+     QA          ok        ok        ok        ok
+
+> List 20261028T023006Z   Oct 27 19:30 PDT to Oct 27 21:58 PDT   chain · critic session · 6 book jobs · completed with failures
+> List 20261026T182511Z   Oct 26 11:25 PDT to Oct 26 15:09 PDT   list · 4 jobs · completed with failures
+```
+
+Sketch 4: config panel. Groups 1, 4, 5, and 6 are drawn in full. The settings file does not exist yet. The unsaved values and the running book are an example.
+
+```
+Monitor dashboard > Run settings                     Settings file: translator-settings.json · not created yet. The Translator uses today's values.
+left_foot_full runs now at p051. It reads new values at the start of p052. Jobs, book jobs, and critic mode apply at the next list or book start.
++------------------+--------------------------------------------------------------------------------------------------------+
+| 1 N              | 1 N                                                                                                    |
+| 2 Models         |   Critiques of one box type that start a prompt rewrite.                                               |
+| 3 Box critic     |   Value [ 3 ]  Changed      Default 2  [Reset]     Whole number, 1 or more · critiques                 |
+| 4 Cost limit     |   Takes effect: next page.                                                                             |
+| 5 Jobs           |   Today N only sets the marks "reached N". The run program has no update step yet.                     |
+| 6 Critic mode    |                                                                                                        |
+| 7 Memory, links  | 4 Cost limit per page                                                                                  |
+| 8 Timeout        |   A page stops with "cost guard" when its cost reaches the limit.                                      |
+|                  |   Value [ 3.00 ] USD  Changed   Default: no limit  [Reset]    Empty or above 0                         |
+|                  |   The pages of the last list cost $1.24 to $1.93 each. The highest page cost $4.38.                    |
+|                  |                                                                                                        |
+|                  | 5 Jobs and book jobs                                           Badge: next list or book start          |
+|                  |   Calls in parallel inside one page   [ 1 ]    Default 1                                               |
+|                  |   Books in parallel                   [ 1 ]    Default 1                                               |
+|                  | 6 Critic mode   (o) separate   ( ) session                     Badge: next list or book start          |
+|                  |   A resume must use the same mode as the list.                                                         |
+|                  | ...                                                                                                    |
+|                  | Change history                                                                                         |
+|                  |   No entry yet.                                                                                        |
++------------------+--------------------------------------------------------------------------------------------------------+
+2 unsaved changes                                                                         [Discard]  [Review changes]
+```
+
+Sketch 5: confirm dialog after "Review changes". The values are an example. The book `left_foot_full` at p051 is the example of sketch 2.
+
+```
++--------------------------------------------------------------------------------------+
+| Save 2 changes to translator-settings.json?                                          |
+|                                                                                      |
+|   N                       2 → 3                 next page                            |
+|   Cost limit per page     no limit → 3.00 USD   next page                            |
+|   "Next page" means the start of the next page of each book.                         |
+|                                                                                      |
+| Books that read the new values:                                                      |
+|   left_foot_full          runs now at p051. It reads them at the start of p052.      |
+|                                                                                      |
+| The file changes on this Mac only. You can undo with the button "Reset".             |
+|                                                                                      |
+|                                                      [Cancel]   [Save 2 changes]     |
++--------------------------------------------------------------------------------------+
+```
+
+The focus starts on "Cancel". Esc closes the dialog. The dialog has the role `dialog` and a label.
+
+#### 15.24.9 Data contract and how the Viewer reads it
+
+This contract refines the draft of aki-main. Unit TR70 writes the Translator side. The list after the block names the points where this design differs from the draft.
+
+```
+Settings file (round 69 answers 18, 19)
+  path:    <T2>/config/translator-settings.json (next to translator-models.yaml)
+  read:    by the Translator at the start of each page, when it reads translator-models.yaml
+  defaults: <T2>/config/translator-settings.defaults.json (read only for the Viewer, written by the Translator)
+  keys:    update.N, levels."0".model, levels."0".variant, ... levels."3".*, box_critic.model, box_critic.variant,
+           run.max_usd_per_page, run.jobs, run.book_jobs, run.critic_mode,
+           memory.memory_k, memory.join_page_end, links.neighbor_skip_cites, links.window_lines,
+           calls.call_timeout_s, calls.max_attempts
+  a key that is absent means: use today's value
+  each page run writes run.json: a "settings" block with the values it used, and "settings_sha1"
+History of the settings file
+  path:    <T2>/config/translator-settings.history.jsonl  (the Viewer appends one line for each save)
+Per-book store (round 69 answer 17)
+  folder:  <T2>/data/pilot-run/books/<book>/
+  status.json
+    book, phase ("agent-phase-2" | "agent-phase-3" | "agent-phase-4")
+    state: "not-started" | "running" | "paused" | "stopped" | "completed"
+    stop_reason: null | "ctrl-c" | "target-reached" | "forward-failure" | "cost-guard" | "rule"
+    stop_text: the sentence of the stop, for example "stopped: QA_3 FAIL on mental_full/p014"
+    list_stamp, pid, heartbeat_utc (written every 30 s by a thread that does not wait for a call)
+    running_page, running_boxes (for example ["TL_2"])
+    last_accepted_page, next_page
+    pages_done, pages_total (pages of the target of this phase: 20 for phase 3, all pages for phase 4), book_pages
+    fail_pages (list of pages with QA_3 FAIL)
+    cost_usd_models_phase, seconds_phase (page time of this phase)
+    last_error {page, box, text, file, utc}
+    settings_sha1, updated_utc
+  book-memory.jsonl   book translation memory that survives list folders
+  history.jsonl       one event per line: list started, page done, page failed, paused, resumed, stopped, phase changed, settings changed
+  PAUSE               pause file of the book (the Translator checks it before each new model call, like the list file)
+"phase" also sits in list.json, progress.json, and run.json
+```
+
+Differences from the draft of aki-main:
+
+- New keys `stop_reason`, `stop_text`, `running_boxes`, `book_pages`, and `fail_pages`. The screen needs them to say why a book stopped and what runs.
+- `pages_total` counts the pages of the phase target. The draft left this open. Phase 3 needs 20, not the pages of the book.
+- The cost and the time count one phase. A phase change writes the old totals to `history.jsonl`.
+- The heartbeat comes from a thread that does not wait for a model call. A call can last 1500 s.
+- A file `PAUSE` for one book. The draft had the list file only.
+- A defaults file, so that the Viewer shows the default of each key without a copy of the table.
+- A history file of the settings file. The draft had no place for who changed what.
+
+How the Viewer reads it:
+
+- Book set: the slugs of `pilot-sample/book-slugs.json`, plus any book ID in a `status.json` or in a list folder. This matches the rule of the Books tab `[file: app/lib/books.ts:66-103]`.
+- For each book, a `status.json` is the truth when it exists. The Viewer checks the pid with signal 0 and the heartbeat age, and sets the label by the table in 15.24.4.2.
+- A book without `status.json` gets a derived row: the Viewer reads every `progress.json` and `list.json` of the list folders, and `list-summary.json` for the failure texts. It builds the row by the derived column of the table in 15.24.4.2.
+- Pages done is the count of distinct page IDs in the state "done". Cost and page time are sums over all list folders. The last event is the latest `ended_epoch` of the book. The phase is "not stored". The next page is the first page in the state waiting of the newest list, else "not stored".
+- The Viewer reads a file again only when its modification time changed `[agent inference]`. The poll runs every 3 s. 37 books and many lists must not slow it.
+- A broken or half file gives the row "Status file unreadable". It never stops the page.
+- The Viewer writes three kinds of files: `PAUSE` (list or book), `translator-settings.json`, and `translator-settings.history.jsonl`. The last two sit in `<T2>/config`. A new function in `app/lib/safe-path.ts` accepts only these two names in that folder. The key `translatorConfigDir` in `viewer.config.json` sets the folder. The default is the folder `config` next to `translatorDataDir`.
+
+#### 15.24.10 Plan for the code unit
+
+All paths start in the folder `app/` of the Viewer repository. The routes sit in `app/app/`.
+
+Files to add:
+
+- `app/app/runs/page.tsx`: the old runs table, tab Lists.
+- `app/app/monitor/[slug]/page.tsx`: the book detail view.
+- `app/app/settings/run/page.tsx`: the config panel.
+- `app/app/api/monitor/books/route.ts` (GET, the poll) and `app/app/api/monitor/books/[slug]/route.ts` (GET).
+- `app/app/api/settings/run/route.ts` (GET and PUT).
+- `app/lib/book-status.ts`: server code. It reads `status.json`, derives rows, and checks the pid.
+- `app/lib/book-status-rules.ts`: a pure function from file contents and a clock to labels, groups, and sentences. It has no file access, so a test runs it without the server.
+- `app/lib/settings-run.ts`: server code. It reads, validates, and writes the settings file and the history.
+- `app/lib/settings-schema.ts`: a pure module with the field table, `validateSettings`, and the diff.
+- `app/components/MonitorDashboard.tsx`, `BookRow.tsx`, `StateLabel.tsx`, `ResumeDialog.tsx`, `BookDetail.tsx`, `RunSettingsForm.tsx`, and `ConfirmDialog.tsx`.
+
+Files to change:
+
+- `app/app/page.tsx`: shows the Monitor dashboard.
+- `app/lib/safe-path.ts`: the allowlist function for the two config files.
+- `app/lib/config.ts`: the optional key `translatorConfigDir`.
+- `app/lib/monitor.ts`: a check for the Host header of write routes.
+- `app/lib/runs.ts`: `setPause` also handles the pause file of one book.
+- `app/lib/format.ts`: local time with the zone name, and relative time.
+- `app/lib/types.ts`: new types.
+- `app/components/Nav.tsx`: the five tabs. The match of the first tab becomes `p === "/"` or `p.startsWith("/monitor")`.
+- `app/components/Pills.tsx`: the new labels.
+- `app/components/useLive.tsx`: the banner after 3 failed polls, and no poll in a hidden tab.
+- `app/components/PauseButton.tsx`: the dialog for a list with several books.
+- `app/components/RunsTable.tsx`: the heading says "Lists". `app/components/RunView.tsx`: the back link says "← Lists".
+- `app/scripts/smoke.mjs`: a new mode `monitor`. `app/scripts/contrast-dark.mjs`: the new elements. `app/README.md`: the new routes and files.
+- Migrations: none. Nothing goes to PocketBase.
+
+Tests:
+
+- Pure functions, run with the resolve hook `[file: app/scripts/ts-resolve-hook.mjs]`:
+  - Every row of the state table in 15.24.4.2, with the real examples. `mental_full` gives Stopped by failure. `left_foot_full` gives Stopped with 6 of 120 pages. `ogawa_lecture_part2` gives Stopped with an error text.
+  - The limits 120 s and 1800 s, at the edge.
+  - Relative time.
+  - `validateSettings` for all 21 keys, with a good and a bad value, and the diff.
+- Smoke mode `monitor` with a fixture folder that holds copies of the 3 list folders and a `config` folder. It adds fake `status.json` files: running (own pid), stopped unexpectedly (pid of a finished process), paused, completed, and a broken file. It checks the rows, the groups, the summary line, and the 404 answers with the monitor off.
+- Settings write tests: the file is written by temp file and rename, with no temp file left. A stale sha1 gives 409. A foreign Origin and a foreign Host give 403. A key that the panel does not know stays. A save writes one line in the history. No other path in the fixture changes.
+- Pause tests extend the mode `pause`: the list with 3 books shows the dialog, and one pause file per book works.
+- Chrome checks at 1440 x 900:
+  - Keyboard through all groups and buttons.
+  - The focus ring.
+  - A screenshot in the themes Light and High-contrast dark.
+  - `node scripts/contrast-dark.mjs` with 0 failures.
+
+#### 15.24.11 Open items
+
+- Item 1: how the owner resumes a book. Example: `mental_full` stopped at p014 on Oct 27 19:56 PDT. Section 15.24.7 holds the three options.
+  - Option A (recommended): copy the command. Benefit: no new power in the web app. Cost: one step in the Terminal.
+  - Option B: a request file. Benefit: one click. Cost: a new always-on Translator process.
+  - Option C: the Viewer starts the process. Benefit: one click. Cost: the monitor has no sign-in, so any visitor of the port can start a paid run.
+- Item 2: Needs attention rows for old problems. Example: `mental_full` stays in Needs attention until a resume, and it stopped 2 days ago.
+  - Option A (recommended): the row stays until the book runs again. Benefit: no new write, and a real problem does not hide. Cost: an old accepted problem keeps a row at the top.
+  - Option B: a button "Mark as seen" writes an event to the book history. Benefit: the group empties. Cost: a new write of the Viewer, and the Translator must write the store first.
+- Item 3: the scope of Pause. Example: list `20261028T023006Z` holds 3 books. While that list runs, a pause on the row of `mental_full` stops all 3.
+  - Option A (recommended): one pause file per book for `run-book`, and a dialog for old lists that names all books. Benefit: the owner pauses one book. Cost: unit TR70 must check one more file before each model call.
+  - Option B: the pause file stays per list. Benefit: no Translator change. Cost: one book cannot pause alone, and a dialog is needed.
+- Item 4: jobs, book jobs, and critic mode. Round 69 answer 19 says "next page". A list that runs reads these three at its start. Example: a resume of `left_foot_full` (mode separate) with the mode session gives "RESUME ERROR".
+  - Option A (recommended): the three fields save at once and show the badge "Next list or book start". The dialog says so. Benefit: the owner sets the next run in advance. Cost: the change does not reach a list that runs, and the owner must read the badge.
+  - Option B: the three fields are disabled while any book runs. Benefit: no wrong hope. Cost: the owner cannot prepare the next run.
+  - Option C: the three fields apply at the next page. Benefit: it follows answer 19 to the letter. Cost: unit TR70 must build parallel pools that change size `[agent inference]`, and a mode change breaks the resume of a started book.
+- Item 5: the command line value `--max-usd` and the settings file. Example: a list that starts with `--max-usd 3` and a file that says no limit.
+  - Option A (recommended): the file wins for keys that it holds, and the row of the book shows "limit from the settings file". Benefit: the panel has the last word, as the owner asked. Cost: a command line value is ignored after the file holds the key.
+  - Option B: the command line wins, and the panel shows "overridden by the command line". Benefit: nothing changes for old commands. Cost: the panel can lie to the owner.
+- Item 6: the allowed models. Example: the owner types "anthropic/claude-sonet-5-5" with one letter left out.
+  - Option A (recommended): a list with the IDs of `translator-models.yaml` and a field "Other…" with a warning. Benefit: no typo for known IDs. Cost: a new model needs "Other…".
+  - Option B: free text only. Benefit: simple. Cost: a typo stops a page at the start with CONFIG ERROR. Not verified: what the chain does after that error.
+  - Option C: the Translator writes a catalog file of the models that the account can call. Benefit: a complete list. Cost: a new file and a new step in unit TR70.
+- Item 7: the shape of the phase 2 record. Example: the paired dataset holds more than 300 articles.
+  - Option A (recommended): the closed line "no run record yet" now, and the shape later with the phase 2 run. Benefit: no invented data. Cost: phase 2 is not visible until it exists.
+  - Option B: define now a file `<T2>/data/pilot-run/phase2/status.json` with the same fields, where a page means an article. Benefit: the Viewer is ready. Cost: a guess about a run that has no design.
+- Item 8: the stale limits. Example: a retried call took 771.1 s.
+  - Option A (recommended): heartbeat 30 s and limit 120 s for new rows, limit 1800 s for derived rows. Benefit: no false alarm for a long call. Cost: a gone process in an old list shows after 30 min.
+  - Option B: keep the 600 s warning of `progress.py` for derived rows. Benefit: earlier alarm. Cost: false alarms for long calls.
+- Item 9: write routes only from the Mac itself. Example: the dev server listens on a network address, and a person on the same network opens the settings page and changes N. Not verified: the address on which the server listens.
+  - Option A (recommended): write routes check the Host header and accept loopback names only. The pause route gets the same check. Benefit: no change of settings from another computer. Cost: one more check, and a test.
+  - Option B: no check. Benefit: no code. Cost: the monitor has no sign-in, so the risk stays.
+- Item 10: the first tab. Example: the owner opens `/` and wants the old table of lists.
+  - Option A (recommended): the Monitor dashboard is `/` and the old table moves to the tab Lists at `/runs`. Benefit: the owner sees books first, as asked. Cost: the old table is one click away.
+  - Option B: keep the table on `/` and add the dashboard at `/monitor`. Benefit: no change of `/`. Cost: it breaks round 68 answer 2, which names `/` as the Monitor home.
+- Item 11: what "pages done" counts. Example: `kendojidai_2014` has 6 pages done on the Monitor dashboard and 5 finished pages on the Reader dashboard.
+  - Option A (recommended): the Monitor dashboard counts finished runs of any verdict, and the row shows "1 FAIL page" when known. Benefit: the number shows the work of the agent. Cost: it differs from the Reader dashboard.
+  - Option B: count PASS pages only. Benefit: closer to the Reader dashboard. Cost: a FAIL page that cost 4.38 USD does not show as work.
+
+#### 15.24.12 Not verified
+
+- The behavior of a killed Translator process. The code has no handler, and the unit did not kill a process.
+- Whether the retry of a call writes `progress.json` again. The limit of 1800 s for derived rows depends on it.
+- The address on which the Next server listens on this Mac.
+- Whether a page stops or the chain stops after a CONFIG ERROR at the start of a page.
+- The command `run-book` and the file `translator-settings.defaults.json`. Unit TR70 has not built them. The names are drafts.
+- The speed of the poll with many list folders. Today only 3 exist.
+- The panel and the dashboard in a browser, in both themes, and by keyboard. The unit wrote a design and ran no browser.
+- How the Translator reads a settings file that changes while a page runs. The design says: at the start of each page. Round 69 answer 19 gave that rule.
+- Titles for all 12 books on the dashboard. The unit read the titles of 4 books from `docs/VISION-viewer.md` only.
+
+Status: design, waiting for the owner check (round 70).
