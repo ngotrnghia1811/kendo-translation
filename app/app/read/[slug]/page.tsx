@@ -40,7 +40,8 @@ export default async function ReadBook({ params, searchParams }: { params: Promi
   if (s.user.approved) {
     bookmarks = await loadBookmarks(s.token, s.user, slug);
     if (at !== null) {
-      const nums = view === "page" ? [at] : index.textPages.filter((n) => Math.abs(n - at) <= SCROLL_WINDOW);
+      // Unit RT73a: the scroll view also loads pages that have only Original text rows or a v1 file (dataPages), not only the translated pages.
+      const nums = view === "page" ? [at] : index.dataPages.filter((n) => Math.abs(n - at) <= SCROLL_WINDOW);
       initial = await loadReaderPages(s.token, slug, nums, index.digits);
     }
   }

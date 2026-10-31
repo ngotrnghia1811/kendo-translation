@@ -3909,7 +3909,7 @@ The Monitor dashboard must answer these questions, in this order. Each question 
 
 - One screen shows the overview. A summary line sits at the top. Groups follow. A group is a heading and a list of book rows.
 - The summary line counts the groups in one sentence. It also shows the model cost of all books. Example: "1 needs attention · 0 waiting for a run · 0 running · 0 paused · 11 stopped · 0 completed · 25 not started". The reader sees the whole state before the first row.
-- The order of the groups is: Needs attention, Waiting for a run, Running, Paused, Stopped, Completed, Not started. The group Waiting for a run is new (round 73b answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:85`, "New group"). Reason: exceptions come first because a stopped book wastes time at every minute. A book with a Run or Resume mark comes second, because the owner pressed a button and waits for an opencode agent to start the process. Live work comes third because it needs a look and no action. Paused and Stopped books wait for the owner. Completed and Not started books need nothing. The name "Waiting for a run" and the position after Needs attention are unit defaults of DD73 `[agent inference]`. Other name: "Mark waiting". Other position: after Running. Benefit of that position: live work stays second. Cost: a mark that nobody picked up sits below the live rows, and the owner can miss it.
+- The order of the groups is: Needs attention, Waiting for a run, Running, Paused, Stopped, Completed, Not started. The group Waiting for a run is new (round 73b answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:85`, "New group"). Reason: exceptions come first because a stopped book wastes time at every minute. A book with a Run or Resume mark comes second, because the owner pressed a button and waits for an opencode agent to start the process. Live work comes third because it needs a look and no action. Paused and Stopped books wait for the owner. Completed and Not started books need nothing. The name "Waiting for a run" and the position after Needs attention are unit defaults of DD73 `[agent inference]`. Other name: "Mark waiting". Other position: after Running. Benefit of that position: live work stays second. Cost: a mark that nobody picked up sits below the live rows, and the owner can miss it. A Restart mark puts the book row in this group too (round 73d answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:132`).
 - Needs attention and Running always show. When empty they show one line: "Nothing needs attention." and "Nothing runs now. The last list ended Oct 29 00:50 PDT (21 h ago)." An empty group that disappears makes the owner doubt the page.
 - Waiting for a run, Paused, Stopped, and Completed show when they hold a row. Not started shows always, closed. Example: the group Waiting for a run shows no heading while no book holds a mark `[unit default of DD73, agent inference]`. Other option: it shows always, with the line "No mark waits." as Running does. Benefit: the layout never jumps. Cost: one more empty group on the screen.
 - Needs attention, Waiting for a run, Running, Paused, and Stopped start open. Completed and Not started start closed. A group uses the HTML elements `details` and `summary`, so the keyboard works without script `[unit default]`. The browser keeps the open state of each group, like the checklist of the extra items `[file: app/components/extras-store.ts:4-7]`.
@@ -3925,7 +3925,7 @@ Plain meaning of each label:
 
 - Running: a process works on the book now.
 - Running, pause requested: the owner asked for a pause. The process finishes the current page (forward boxes, critic and critique steps backward, memory write), then ends.
-- Paused: the process ended on purpose after the page that it finished at the pause. Resume writes a mark (round 71 answer 10). Between the mark and the first sign of the process, the row shows the state Mark waiting: "Mark waiting: Resume requested HH:MM" (round 72 answer 17, `.opencode/reminders/qa/qa-memory-2026-10-30.md:45`). The row moves into the group Waiting for a run (round 73b answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:85`, "New group"). Example: the owner presses Resume on `mental_full` at 10:42. The row leaves Needs attention and shows "Mark waiting: Resume requested 10:42" in the group Waiting for a run. The row leaves the group at the first sign of the process, and the book goes to Running. A Run mark shows "Mark waiting: Run requested HH:MM" in the same group (unit default of DU73, accepted in round 73b answer 2, `qa-memory-2026-10-30.md:83`). A mark waits while the book folder holds `request.json` `[file: <T2>/data/scripts/translator/store.py:246-250]` `[agent inference]`.
+- Paused: the process ended on purpose after the page that it finished at the pause. Resume writes a mark (round 71 answer 10). Between the mark and the first sign of the process, the row shows the state Mark waiting: "Mark waiting: Resume requested HH:MM" (round 72 answer 17, `.opencode/reminders/qa/qa-memory-2026-10-30.md:45`). The row moves into the group Waiting for a run (round 73b answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:85`, "New group"). Example: the owner presses Resume on `mental_full` at 10:42. The row leaves Needs attention and shows "Mark waiting: Resume requested 10:42" in the group Waiting for a run. The row leaves the group at the first sign of the process, and the book goes to Running. A Run mark shows "Mark waiting: Run requested HH:MM" in the same group (unit default of DU73, accepted in round 73b answer 2, `qa-memory-2026-10-30.md:83`). A Restart mark shows "Mark waiting: Restart ED_2 requested HH:MM" in the same group (round 73d answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:132`, "option 1." `[user 2026-10-30 22:04]`). Example: the owner presses Restart on the flag of ED_2 in the detail view of `left_foot_full`. A mark waits while the book folder holds `request.json` `[file: <T2>/data/scripts/translator/store.py:246-250]` `[agent inference]`.
 - Stopped: the process ended on purpose. Ctrl-C sets the stop. The end of the target page set gives Completed.
 - Stopped unexpectedly: the file says "running", but the process is gone or silent.
 - Stopped by failure: the run ended because of a failure or a rule. The book does not go on alone.
@@ -4000,7 +4000,7 @@ Phase 2 runs on the paired dataset. The paired dataset holds web articles with h
 - Start of a book that never ran. The button "Run" writes a mark `request.json` with the action "run" and the phase "agent-phase-3". Draft DM70: the button "Start…" opened a dialog with the command.
 - Next phase. A Completed book of phase 3 shows the button "Run phase 4" `[unit default]`. The button writes a mark with the phase "agent-phase-4". Phase 4 starts at the beginning of the book (owner quote). Draft DM70: the button "Start phase 4…" opened a dialog.
 - Details. The title and the button "Details" open the book detail view (section 15.24.5).
-- A button is disabled with a reason in words. Example (the pid is made up): "Resume is off because this book runs now (pid 4821)". The button Restart does not sit on the book row. It sits on the flag of a stopped box in the book detail view (section 15.24.5, item 6, round 73b answer 3).
+- A button is disabled with a reason in words. Example (the pid is made up): "Resume is off because this book runs now (pid 4821)". The button Restart does not sit on the book row. It sits on the flag of a stopped box in the book detail view (section 15.24.5, item 6, round 73b answer 3). Resume and Restart differ (round 73d answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:132`, owner question "What is the different between Restart and Resume again?"). Resume continues a whole book. Its button sits on the book row, and the run starts at the next page after the last accepted page (section 15.24.7). Restart starts one stopped prompt box again, for example ED_2 after 3 double REJECTs in a row. Its button sits on the stopped-box flag in the book detail view. The book can keep running while one box is stopped. The run program reads the Restart mark at the next page start.
 
 ##### 15.24.4.6 Time, refresh, and the empty, first-load, and error states
 
@@ -4643,7 +4643,7 @@ All in `.opencode/reminders/qa/qa-memory-2026-10-30.md`.
 - l110, answer 4 `[user 2026-10-30 20:17]`: "option 3. Do the text-only button also". Option 3 was the Viewer vision section 7 in full.
 - l111, answer 5: "Separate component, off at first (Recommended)". l112, answer 6: "Small tag after the sentence". l113, answer 7: "From kendojidai.com (Recommended)".
 - l114, answer 8: "Drop them, small Translator fix (Recommended)". l116, answer 10: "Run program reads the mark per page (Recommended)". l119, answer 13: "Row stays until the book runs (Recommended)". l120, answer 14: "DW73 + TF73 now, RT73 after DW73 check (Recommended)".
-- l122 to l124, notes of aki-main (not owner words): the v1 placeholder counts in no number on any screen. The v1 ZH placeholder shows as one component. Answer 4 widens round 62 answer 8. All three are `[reading pending owner check]`.
+- l122 to l124, notes of aki-main (not owner words): the v1 placeholder counts in no number on any screen. The v1 ZH placeholder shows as one component. Answer 4 widens round 62 answer 8. All three were `[reading pending owner check]`. Round 73d answer 2 validated the readings of answers 2 and 3 `[validated reading 2026-10-30 22:04]` (`.opencode/reminders/qa/qa-memory-2026-10-30.md:130`). The reading of answer 4 (l124) stays `[reading pending owner check]`.
 
 ###### 15.26.1.3 Earlier decisions that this design applies
 
@@ -4664,7 +4664,7 @@ All in `.opencode/reminders/qa/qa-memory-2026-10-30.md`.
 
 ###### 15.26.1.4 Conflicts between decisions
 
-- Conflict 1, ZH. Round 62 answer 11 (`qa-memory-2026-10-28.md:293`, `[accepted recommendation 2026-10-29 10:36]`) says "ZH, KO, VI stay out (Recommended)". Round 73b answer 14 (`qa-memory-2026-10-30.md:95`) says "If ZH is available in v1, User can view the ZH v1 placeholder". Round 73c answer 3 (`qa-memory-2026-10-30.md:109`) picks option 1: the v1 ZH placeholder shows, "for display testing purpose ONLY". ZH agent text stays out. This section applies that reading `[reading pending owner check]`.
+- Conflict 1, ZH. Round 62 answer 11 (`qa-memory-2026-10-28.md:293`, `[accepted recommendation 2026-10-29 10:36]`) says "ZH, KO, VI stay out (Recommended)". Round 73b answer 14 (`qa-memory-2026-10-30.md:95`) says "If ZH is available in v1, User can view the ZH v1 placeholder". Round 73c answer 3 (`qa-memory-2026-10-30.md:109`) picks option 1: the v1 ZH placeholder shows, "for display testing purpose ONLY". ZH agent text stays out. This section applies that reading `[validated reading 2026-10-30 22:04]` (`.opencode/reminders/qa/qa-memory-2026-10-30.md:130`, round 73d answer 2).
 - Conflict 2, pages of a web article. Round 73 answer 7 (`qa-memory-2026-10-30.md:68`, 2026-10-30 10:42) says "Are they really just 1-page per article? If yes then option 2." Round 73b answer 6 (`qa-memory-2026-10-30.md:87`, 2026-10-30 15:35) asks for the A4 split. Round 73c answer 2 accepts "Reading 1, A4 pages". The A4 split holds.
 - Conflict 3, the control for the EN texts. Round 73 answer 2 (`qa-memory-2026-10-30.md:63`) accepted the toolbar "EN text: Agent | Human". Round 73b answers 13 and 14 ask for swap, both, and "WHAT IS AVAILABLE IN THE VIEWER VISION". Round 73c answer 4 picks the Viewer vision section 7 in full. The component list replaces the toolbar control (15.26.6.4).
 - Conflict 4, views of the first reader version. Round 62 answer 8 (`qa-memory-2026-10-28.md:290`) lists the views. The list has no panel move, resize, hide, or show. Vision l189 asks for them. Round 73c answer 4 widens the first reader version `[reading pending owner check]` (`qa-memory-2026-10-30.md:124`).
@@ -4791,7 +4791,7 @@ The v1 JA line on a page with no run and no `units.jsonl` rows (unit default D20
 
 - Page line of that panel: "v1 Gemini placeholder text."
 - Other option: "v1 Gemini translation placeholder.", the owner line for v1 EN. Benefit: one line for all v1 text. Cost: the JA line is not a translation, so the line is wrong for JA.
-- The owner gave only the line for v1 EN (`qa-memory-2026-10-30.md:92`). The JA line is a unit default `[reading pending owner check]`.
+- The owner gave only the line for v1 EN (`qa-memory-2026-10-30.md:92`). The JA line is a unit default. Round 73d answers 5 to 7 accepted it `[validated reading 2026-10-30 22:04]` (`.opencode/reminders/qa/qa-memory-2026-10-30.md:133-135`, reading 11 of unit DW73).
 - On a page with a run, the Original text panel shows the `TS_3` JA lines and the v1 JA line stays unseen.
 
 ##### 15.26.6 Component list and panels
@@ -5256,9 +5256,9 @@ Not verified: the number of rows that carry a tag, because several marks share o
 
 ##### 15.26.9 The v1 placeholder
 
-Decided: `qa-memory-2026-10-30.md:71` (use it), `:91` (no count, no search), `:92` (page line), `:95` (keep the notes, ZH shows), `:108` ("`placeholder` DOES NOT COUNT AS ANYTHING"), `:109` ("for display testing purpose ONLY"), `:111` (separate component, off at first).
+Decided: `qa-memory-2026-10-30.md:71` (use it), `:91` (no count, no search), `:92` (page line), `:95` (keep the notes, ZH shows), `:108` ("`placeholder` DOES NOT COUNT AS ANYTHING"), `:109` ("for display testing purpose ONLY"), `:111` (separate component, off at first), `:130` (the readings of answers 2 and 3 are right), `:136` (round 73d answer 8: the v1 files are copied into `<V2>/data/v1-md/` on this Mac).
 
-Rule for all counts `[reading pending owner check]` (`qa-memory-2026-10-30.md:122`): the v1 placeholder counts in no number on any screen.
+Rule for all counts `[validated reading 2026-10-30 22:04]` (`.opencode/reminders/qa/qa-memory-2026-10-30.md:130`, reading at `qa-memory-2026-10-30.md:122`): the v1 placeholder counts in no number on any screen.
 
 - Not translated: it does not count as a translated page on the Reader dashboard `/read`.
 - Not searched: its text is not in the search columns.
@@ -5268,7 +5268,7 @@ Rule for all counts `[reading pending owner check]` (`qa-memory-2026-10-30.md:12
 
 Source and block rule (unit default D28, from unit DT73):
 
-- Source: `<BP>/<folder>/pages/page_NNN.md`. The number NNN equals the PDF page number and the image `p<NNN>.webp`. Map by number, never by count.
+- Source: `<BP>/<folder>/pages/page_NNN.md`. The number NNN equals the PDF page number and the image `p<NNN>.webp`. Map by number, never by count. Round 73d answer 8 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:136`, "This Mac, copy in data folder (Recommended)" `[accepted recommendation 2026-10-30 22:04]`): the 13,282 md files (about 85 MB) are copied from `/Volumes/NghiaHDD2T/universal-agent_v2/book-postprocessing` into `<V2>/data/v1-md/` (git-ignored). The Viewer reads the copy when a page opens. Layout default `<V2>/data/v1-md/<slug>/page_NNN.md`, not final until RT73a reports. The hosted site has no such folder, so it shows no placeholder.
 - Folder to slug: the field `folder` of `items.filled.jsonl`. 36 of 37 folders have a slug. "Chinese Translation Sword Theory Part 1" (199 files) has none and stays out (`qa-memory-2026-10-30.md:98`). "Mental 2 clean" maps to `mental2_clean`, which the Reader dashboard hides.
 - A block is the text between lines of `---`. The "Page N" header and the tag `【Heading】` are not part of a row. In a block of 3 or 4 lines, line 1 is JA, line 2 is EN, and line 3 is ZH. In a block of 4 lines, line 4 (a page reference such as "p. 948") joins the EN row. A block of 1 line, or of 5 lines or more, gives one row with no JA and no ZH.
 - The markdown mark `*x*` loses the asterisks.
@@ -5361,15 +5361,15 @@ Proposal (unit default):
 | Human version of web pages | `reader_versions`, `chosen_by` empty means chosen by default | 1,124 | 5.60 MB with rows `{key, text, facts}` |
 | Same Human version, so an admin can choose it again (D26) | `own_translations` under a disabled user "kendojidai.com", `version` 1 | 32,937 | about 11.84 MB (estimate) |
 | Search columns | `search_ja`, `search_en` of the 1,124 `reader_pages` records | | 3.68 MB and 3.37 MB |
-| v1 placeholder (JA, EN, ZH) (D27) | New collection `reader_v1`, one record per page | about 12,717 | about 100 MB without ZH and about 120 MB with ZH `[agent inference]` |
+| v1 placeholder (JA, EN, ZH) (D27) | Replaced in round 73d answer 8 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:136`): no PocketBase record. The md files sit in `<V2>/data/v1-md/` on this Mac only. Old default D27: collection `reader_v1`, one record per page | 0 records. Old default: about 12,717 | about 85 MB on disk for 13,282 files, 0 MB on the server. Old default: about 100 MB without ZH and about 120 MB with ZH `[agent inference]` |
 
 Sources of the figures `[check: DT73b 2026-10-30 15:56 python3 -B facts_sizes.py]`. The largest JSON field of one page record is 0.014 MB, far below the 5 MB limit. The v1 figure comes from unit DT73 (EN 36.66 MB, JA 24.42 MB) plus 21.18 MB of ZH lines. It is not measured as records.
 
 - Sentence rows keep the Human rows small. A Human row holds the key, the text, and the marks. It holds no JA copy. With a JA copy per row the version needs 10.62 MB instead of 5.60 MB.
 - `reader_pages` needs a way to say what a record holds. The `run_id` value "web-ja" says "JA only, no agent text". `textPages` (agent pages) counts only the records with an agent run.
 - Why `own_translations` at all: after "Remove the choice" the admin must be able to choose the kendojidai.com version again. `reader_versions` keeps one record per page and the remove deletes it. Option without `own_translations`: only a new S2 run brings the text back. Benefit: 32,937 fewer records and no system user. Cost: no way back on `/admin/versions`.
-- Migration 1793300011 (new): add `own_translations.facts` (JSON, 1 MB), add the collection `reader_v1`, and add a field that says which components a page has. It must run twice without error, as the earlier migrations do. Not verified: `pb_users.py` can create a disabled user.
-- Open item 1 (15.26.18) asks whether `reader_v1` goes to the server at all.
+- Migration 1793300011 (new): add `own_translations.facts` (JSON, 1 MB), and add a field that says which components a page has. Old text, replaced in round 73d answer 8: it also added the collection `reader_v1`. It must run twice without error, as the earlier migrations do. Not verified: `pb_users.py` can create a disabled user.
+- Open item 1 (15.26.18) is decided in round 73d answer 8 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:136`): no collection `reader_v1`, no v1 record on any server.
 
 ##### 15.26.14 Search and print link
 
@@ -5382,24 +5382,24 @@ Sources of the figures `[check: DT73b 2026-10-30 15:56 python3 -B facts_sizes.py
 
 Repo `<V2>`, paths under `app/` unless a path says more. Read each file before the change.
 
-Recommendation `[agent inference]`: run RT73 as two code units.
+Decided in round 73d answer 9 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:137`, "Two units, RT73a first (Recommended)" `[accepted recommendation 2026-10-30 22:04]`): run RT73 as two code units. The draft had this as a recommendation `[agent inference]`.
 
-- RT73a, data and counts. S2, the Python page file, migration 1793300011, folds, counts, A4 pages, the Human version, the v1 store, and the work block. It has about 10 files and a test by dry run and smoke counts. It needs a scope grant for one new file in `<T2>`.
+- RT73a, data and counts. S2, the Python page file, migration 1793300011, folds, counts, A4 pages, the Human version, the v1 copy in `<V2>/data/v1-md/` (round 73d answer 8), and the work block. It has about 10 files and a test by dry run and smoke counts. It needs a scope grant for one new file in `<T2>`.
 - RT73b, components and panels. The component list, the panels, the first layout, the saved layout, the phone tabs, fast comparison, fact marks, and the Original text button. It has about 10 files and a browser test.
 - Reason: RT73a is checkable with numbers (1,124 pages, 33,953 rows, 1,151 of 14,116) and has no layout risk. RT73b changes the main reading screen and needs a browser check by the owner. One unit with both is too large to review.
-- After RT73a alone, the old controls still work. The Human version shows through "English text: Human", and the JA text through "Text: JA". The screen is clumsy but usable `[agent inference]`. RT73b must follow RT73a.
+- After RT73a alone, the old controls still work. The Human version shows through "English text: Human", and the JA text through "Text: JA". The screen is clumsy but usable `[agent inference]`. RT73b must follow RT73a. The S2 upload to the local PocketBase `127.0.0.1:8090` after RT73a: aki-main runs it once (round 73d answer 10, `.opencode/reminders/qa/qa-memory-2026-10-30.md:138`, "aki-main runs it once (Recommended)" `[accepted recommendation 2026-10-30 22:04]`), after a copy of `pb_data`. Later S2 runs stay by hand by the owner (round 56 answer 4, `qa-memory-2026-10-28.md:164`, "You start S2 by hand (Recommended)").
 
 RT73a:
 
 | File | Change |
 |---|---|
-| `data/scripts/pocketbase/pb_migrations/1793300011_v2_components.js` (new) | `own_translations.facts`, collection `reader_v1`, components field. Copy to `<T2>` on commit. |
+| `data/scripts/pocketbase/pb_migrations/1793300011_v2_components.js` (new) | `own_translations.facts` and components field. The collection `reader_v1` is dropped (round 73d answer 8). Copy to `<T2>` on commit. |
 | `<T2>/data/scripts/web_pages.py` (new, outside `<V2>`) | Imports `programs.a4_cut` and writes the page of every unit. Needs a scope grant. |
-| `scripts/sync-runs.mjs` (header l9-12, `catalogBody` l536, `countTranslated` l763-778, report l814-819) | Reads the page file. Builds sentence rows. Writes web `pages`, JA records, Human versions, `own_translations`, v1 records. Counts a page as translated by the new rule. |
+| `scripts/sync-runs.mjs` (header l9-12, `catalogBody` l536, `countTranslated` l763-778, report l814-819) | Reads the page file. Builds sentence rows. Writes web `pages`, JA records, Human versions, `own_translations`. It writes no v1 record (round 73d answer 8). Counts a page as translated by the new rule. |
 | `lib/reader-folds.ts` (l52, l127-130, l253) | `workPages` returns `w.pages` (at least 1). Year fold title "Kendo Jidai " + year. |
-| `lib/reader-translated.ts:18` | `isTranslatedPage` takes `{ agent, human }` and gives false for "web-ja" and v1 records alone. |
+| `lib/reader-translated.ts:18` | `isTranslatedPage` takes `{ agent, human }` and gives false for "web-ja" records and for a page with a v1 file alone (round 73d answer 8). |
 | `lib/reader-data.ts` (l166-185, l195-219, l226-250) | `loadReaderIndex`: `images` needs the kind. `mergeRows`: Human rows by key. `loadReaderPages`: components of each page. |
-| `lib/pb.ts` (l477, l483, l615, l717-739, l793-805) | Read v1 records. Carry `facts`. `readerTextPages` returns agent pages only. |
+| `lib/pb.ts` (l477, l483, l615, l717-739, l793-805) | No v1 records (round 73d answer 8). RT73a places the code that reads the v1 md files. Carry `facts`. `readerTextPages` returns agent pages only. |
 | `lib/reader-search.ts` | Search columns of web pages. No v1 text. |
 | `components/ReaderBook.tsx` (l333, l341-343, l361) | Work block lines. "1 page". Start link. |
 | `scripts/smoke.mjs`, `data/scripts/pocketbase/test_local.py` | Checks below. |
@@ -5461,14 +5461,14 @@ Cost: 0 USD. No model call and no network call outside localhost.
 | D17 | The list hides EN-original. | Grey row. |
 | D18 | Phone: tabs, no move, no resize. | None. |
 | D19 | Scroll view: bands, sticky title bars, no Page image. Focus mode: text panels, no title bars. | Focus mode with the first text panel only. |
-| D20 | The v1 JA line fills Original text. Page line "v1 Gemini placeholder text." | "v1 Gemini translation placeholder." |
+| D20 | The v1 JA line fills Original text. Page line "v1 Gemini placeholder text." Accepted in round 73d answer 7 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:135`). | "v1 Gemini translation placeholder." |
 | D21 | A JA-only row of a type other than `site_text` shows a muted line with the tag "fact dropped" in the Human panel. | No line for any JA-only row, or a line for all. |
 | D22 | A changed fact with no EN words gets a tag "fact changed". | A dotted line under the whole sentence. |
 | D23 | One tag for each kind in a sentence. The pop-up lists all facts. | One tag for each fact. |
 | D24 | `en_fixed` never shows. | Show it with an AI label. |
 | D25 | Credit lines get no mark. | Mark them. |
 | D26 | The Human version is also copied into `own_translations`. | `reader_versions` only. |
-| D27 | The v1 placeholder lives in `reader_v1` records. | Mac only (open item 1). |
+| D27 | Replaced in round 73d answer 8 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:136`): the v1 placeholder lives in md files copied to `<V2>/data/v1-md/` on this Mac. Old default: `reader_v1` records. | Records on every server (the old D27). |
 | D28 | The block rule of 15.26.9. Asterisks go. Notes stay. | Cut dictionary remarks. |
 | D29 | A page with an image and no text shows the image and names the absent components. | None. |
 
@@ -5503,13 +5503,13 @@ Cost: 0 USD. No model call and no network call outside localhost.
 
 ##### 15.26.18 Open items for the owner
 
-One item. A code unit cannot decide it alone, because it changes what the hosted site holds.
+No open item remains. The one item below was decided in round 73d answer 8 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:136`, "This Mac, copy in data folder (Recommended)" `[accepted recommendation 2026-10-30 22:04]`). The text stays as history.
 
 1. Where the v1 placeholder lives. Example: `left_foot_full` p051 has no Agent text. Its page image shows on `v2.kendotranslation.com` (when it goes live). The v1 EN line "Kendo is about hidari-te, hidari-koshi, and hidari-ashi." exists in the md file on this Mac. You said that the v1 text is "for display testing purpose ONLY" (`qa-memory-2026-10-30.md:109`).
-   - (a) Recommended `[agent inference]`: the v1 placeholder shows on this Mac only. The Viewer reads the md files at request time when a switch is on. Benefit: 0 MB on the server, no migration for it, and nothing to delete later. Cost: the hosted site shows no placeholder, and the code has one more switch.
+   - (a) Chosen in round 73d answer 8: the v1 placeholder shows on this Mac only. The Viewer reads the md files from the copy in `<V2>/data/v1-md/` when a page opens. The old text said: "at request time when a switch is on". Benefit: 0 MB on the server, no migration for it, and nothing to delete later. Cost: the hosted site shows no placeholder, and the code has one more switch.
    - (b) The v1 placeholder goes into `reader_v1` records on every server. Benefit: the hosted site shows it, as a test reader needs. Cost: about 100 to 120 MB on the server, a larger S2 upload, and a clean-up later.
 
-All other choices of this section are unit defaults (15.26.16). The restatement of unit DW73 asks the owner to check the readings of the panel design before RT73b runs.
+All other choices of this section are unit defaults (15.26.16). The restatement of unit DW73 asks the owner to check the readings of the panel design before RT73b runs. The owner checked the readings in round 73d answers 5, 6, and 7 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:133-135`): "All 5 right (Recommended)", "All 5 right (Recommended)", "All 4 right (Recommended)" `[accepted recommendation 2026-10-30 22:04]`. The defaults D4 to D23 are the design behind these readings `[agent inference]`.
 
 ##### 15.26.19 What changes against the DT73b draft and against the current docs
 
@@ -5552,3 +5552,16 @@ Against the current docs and code:
 - The kendo term highlights of 18d4ac29 p001.
 - The number of rows that carry a tag "fact dropped" or "fact changed".
 - The test numbers of round 72. They come from the brief.
+
+##### 15.26.21 Decided in round 73d (unit DY73)
+
+Source: `.opencode/reminders/qa/qa-memory-2026-10-30.md:129-141`, owner answers of 2026-10-30 22:04. The lines above carry the same facts in place.
+
+- Answer 2 (`:130`): the readings of round 73c answers 2, 3, 9, and 11 are right `[validated reading 2026-10-30 22:04]`. Example: the v1 placeholder of `left_foot_full` p051 counts in no number on the Reader dashboard `/read`.
+- Answer 4 (`:132`): the row of a book with a waiting Restart mark reads "Mark waiting: Restart ED_2 requested HH:MM" in the group "Waiting for a run" on the Monitor dashboard `/` (15.24.4.1). Section 15.24.4.5 explains Resume and Restart.
+- Answers 5, 6, and 7 (`:133-135`): the readings 1 to 14 of unit DW73 are right `[validated reading 2026-10-30 22:04]`. Example: the v1 JA line of `left_foot_full` p051 has the page line "v1 Gemini placeholder text."
+- Answer 8 (`:136`): the v1 placeholder lives in `<V2>/data/v1-md/` on this Mac. It replaces the default D27 (collection `reader_v1`) and decides open item 1 of 15.26.18.
+- Answer 9 (`:137`): RT73 runs as two units. RT73a does the data and the counts. RT73b does the components and the panels.
+- Answer 10 (`:138`): aki-main runs the S2 upload to the local PocketBase `127.0.0.1:8090` once, after RT73a. Later runs stay by hand by the owner.
+- Open: the reading of round 73c answer 4 (`:124`) has no validation in answer 2. It stays `[reading pending owner check]` in 15.26.1.2 and 15.26.1.4 (conflict 4).
+- Not changed in this unit: the lines l3433, l4446, and l4577 that still say 1 page. RT73a measures the new numbers and a later docs unit changes them.

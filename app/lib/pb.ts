@@ -1,7 +1,8 @@
 import "server-only";
 import { loadConfig } from "./config";
 import type { ChapterHead, CommentView, HtvRun, Role, SavedRow, SessionUser, TermEntry, VersionInfo } from "./htv-types";
-import type { BookmarkView, DashArticle, DashChapter, DashWork, ReaderBookFacts, ReaderExtra, ReaderMark, ReaderPageRecord } from "./reader-types";
+import type { BookmarkView, DashArticle, DashChapter, DashWork, ReaderBookFacts, ReaderExtra, ReaderFact, ReaderMark, ReaderPageRecord } from "./reader-types";
+import { hasAgentRecord } from "./reader-web";
 import type { PaneSettings, ThemeName } from "./htv-settings";
 import { isTheme } from "./htv-settings";
 
@@ -459,7 +460,7 @@ function toReaderPage(r: J): ReaderPageRecord {
     itemId: String(r.item_id ?? ""),
     n: Number(r.n ?? 0),
     runId: String(r.run_id ?? ""),
-    rows: rows.map((x) => ({ key: String(x.key), shortKey: String(x.shortKey ?? ""), part: x.part === "block_title" ? "block_title" : "lines", ja: String(x.ja ?? ""), ed3: String(x.ed3 ?? ""), jaMarks: toMarks(x.jaMarks), edMarks: toMarks(x.edMarks) })),
+    rows: rows.map((x) => ({ key: String(x.key), shortKey: String(x.shortKey ?? ""), part: x.part === "block_title" ? "block_title" : "lines", ja: String(x.ja ?? ""), ed3: String(x.ed3 ?? ""), jaMarks: toMarks(x.jaMarks), edMarks: toMarks(x.edMarks), ...(x.site === true ? { site: true } : {}) })),
     terms: r.terms && typeof r.terms === "object" ? (r.terms as Record<string, TermEntry>) : {},
     extras: (Array.isArray(r.extras) ? r.extras : []) as ReaderExtra[],
     agree: (Array.isArray(r.agree) ? r.agree : []).map(String),
@@ -473,10 +474,57 @@ export async function readerPageRecords(token: string, pageIds: string[]): Promi
   return recs.map(toReaderPage);
 }
 
-/** Page numbers of a book that have reader text (no rows are read). */
+/**
+ * Page numbers of a work that have a reader_pages record (no rows are read), split by what the record holds (unit RT73a, VISION-viewer 15.26.13):
+ * `agent` = records with an Agent text, `web` = records with run_id "web-ja" (Original text rows of a web article, no Agent text).
+ */
+export async function readerPageNumbers(token: string, slug: string): Promise<{ agent: number[]; web: number[] }> {
+  const recs = await listAll(token, "reader_pages", { filter: `item_id=${q(slug)}`, fields: "n,run_id", sort: "n" });
+  const out = { agent: [] as number[], web: [] as number[] };
+  for (const r of recs) {
+    const n = Number(r.n);
+    if (!Number.isFinite(n) || n <= 0) continue;
+    (hasAgentRecord({ run_id: String(r.run_id ?? "") }) ? out.agent : out.web).push(n);
+  }
+  return out;
+}
+
+/** Page numbers of a book that have an Agent text (no rows are read). A "web-ja" record has none (unit RT73a). */
 export async function readerTextPages(token: string, slug: string): Promise<number[]> {
-  const recs = await listAll(token, "reader_pages", { filter: `item_id=${q(slug)}`, fields: "n", sort: "n" });
-  return recs.map((r) => Number(r.n)).filter((n) => Number.isFinite(n) && n > 0);
+  return (await readerPageNumbers(token, slug)).agent;
+}
+
+/** Page numbers of a work that have a Human version in reader_versions (unit RT73a). */
+export async function readerVersionPages(token: string, slug: string): Promise<number[]> {
+  const recs = await listAll(token, "reader_versions", { filter: `page_id~${q(slug + "/")}`, fields: "page_id" });
+  return recs
+    .map((r) => String(r.page_id))
+    .filter((id) => id.startsWith(slug + "/p"))
+    .map((id) => parseInt(id.slice(id.lastIndexOf("/p") + 2), 10))
+    .filter((n) => Number.isFinite(n) && n > 0)
+    .sort((a, b) => a - b);
+}
+
+/** Rows of a Human version in the app form. A row of a translator has no facts. A row of the kendojidai.com text has them (unit RT73a, VISION-viewer 15.26.8). */
+function toHumanRows(v: unknown): ReaderHumanRow[] {
+  return ((Array.isArray(v) ? v : []) as J[]).map((x) => ({
+    key: String(x.key),
+    text: String(x.text ?? ""),
+    agree: x.agree === true,
+    ed3Text: String(x.ed3Text ?? ""),
+    jaText: String(x.jaText ?? ""),
+    ...(Array.isArray(x.facts) && x.facts.length ? { facts: toFacts(x.facts) } : {}),
+  }));
+}
+
+function toFacts(v: J[]): ReaderFact[] {
+  return v.map((f) => ({
+    start: typeof f.start === "number" ? f.start : null,
+    end: typeof f.end === "number" ? f.end : null,
+    ja: String(f.ja ?? ""),
+    type: String(f.type ?? ""),
+    kind: f.kind === "dropped" ? "dropped" : "changed",
+  }));
 }
 
 /** The human version that an admin chose for some pages: page ID to version. */
@@ -489,7 +537,9 @@ export async function readerVersionRecords(token: string, pageIds: string[]): Pr
       pageId: String(r.page_id),
       version: Number(r.version ?? 0),
       runId: String(r.run_id ?? ""),
-      rows: ((Array.isArray(r.rows) ? r.rows : []) as J[]).map((x) => ({ key: String(x.key), text: String(x.text ?? ""), agree: x.agree === true, ed3Text: String(x.ed3Text ?? ""), jaText: String(x.jaText ?? "") })),
+      rows: toHumanRows(r.rows),
+      // chosen_by empty = the default choice of S2 (round 73 answer 5). A relation to an admin = chosen by an admin.
+      byDefault: String(r.chosen_by ?? "") === "",
     });
   }
   return out;
@@ -503,7 +553,7 @@ export async function pageCheckDates(token: string, slug: string): Promise<Map<s
 
 /** Title, author, year, pages, and the synopsis of the books. The research fields of the metadata row stay out (sources, confidence, notes). */
 export async function catalogFacts(token: string, slug?: string): Promise<ReaderBookFacts[]> {
-  const params: Record<string, string> = { fields: "item_id,title_en,title_ja,author_en,author_ja,publisher,publish_year,pages,row", sort: "item_id" };
+  const params: Record<string, string> = { fields: "item_id,kind,title_en,title_ja,author_en,author_ja,publisher,publish_year,pages,row", sort: "item_id" };
   if (slug) params.filter = `item_id=${q(slug)}`;
   const recs = await listAll(token, "catalog_items", params);
   const text = (v: unknown) => (typeof v === "string" ? v : v === null || v === undefined ? "" : String(v));
@@ -517,6 +567,7 @@ export async function catalogFacts(token: string, slug?: string): Promise<Reader
     isbn: text(r.row?.isbn),
     pages: typeof r.pages === "number" ? r.pages : 0,
     synopsis: text(r.row?.synopsis),
+    kind: text(r.kind) || (/^[0-9a-f]{8}$/.test(String(r.item_id)) ? "web-article" : ""),
   }));
 }
 
@@ -715,8 +766,15 @@ export async function adminVersionsOfPage(token: string, pageId: string): Promis
 
 /** The rows of one saved version of one translator (admin). */
 export async function adminVersionRows(token: string, pageId: string, userId: string, version: number): Promise<ReaderHumanRow[]> {
-  const recs = await listAll(token, "own_translations", { filter: `page_id=${q(pageId)} && user=${q(userId)} && version=${Math.trunc(version)}`, sort: "created", fields: "group_key,text,agree,ed3_text,ja_text" });
-  return recs.map((r) => ({ key: String(r.group_key), text: String(r.text ?? ""), agree: r.agree === true, ed3Text: String(r.ed3_text ?? ""), jaText: String(r.ja_text ?? "") }));
+  const recs = await listAll(token, "own_translations", { filter: `page_id=${q(pageId)} && user=${q(userId)} && version=${Math.trunc(version)}`, sort: "created", fields: "group_key,text,agree,ed3_text,ja_text,facts" });
+  return recs.map((r) => ({
+    key: String(r.group_key),
+    text: String(r.text ?? ""),
+    agree: r.agree === true,
+    ed3Text: String(r.ed3_text ?? ""),
+    jaText: String(r.ja_text ?? ""),
+    ...(Array.isArray(r.facts) && r.facts.length ? { facts: toFacts(r.facts) } : {}),
+  }));
 }
 
 /** The chosen human version of a page, or null. */
@@ -731,7 +789,8 @@ export async function chosenVersionOf(token: string, pageId: string): Promise<(R
     pageId,
     version: Number(rec.version ?? 0),
     runId: String(rec.run_id ?? ""),
-    rows: ((Array.isArray(rec.rows) ? rec.rows : []) as J[]).map((x) => ({ key: String(x.key), text: String(x.text ?? ""), agree: x.agree === true, ed3Text: String(x.ed3Text ?? ""), jaText: String(x.jaText ?? "") })),
+    rows: toHumanRows(rec.rows),
+    byDefault: String(rec.chosen_by ?? "") === "",
   };
 }
 
@@ -740,7 +799,7 @@ export async function chooseVersion(token: string, admin: SessionUser, pageId: s
   const found = await pbFetch("GET", `/api/collections/reader_versions/records?perPage=1&skipTotal=1&fields=id&filter=${encodeURIComponent(`page_id=${q(pageId)}`)}`, { token });
   if (!ok(found)) throw failure(found, "PocketBase could not read the chosen version.");
   const id = found.data.items?.[0]?.id;
-  const body = { page_id: pageId, user: v.userId, version: v.version, run_id: v.runId, chosen_by: admin.id, rows: v.rows.map((x) => ({ key: x.key, text: x.text, agree: x.agree, ed3Text: x.ed3Text, jaText: x.jaText })) };
+  const body = { page_id: pageId, user: v.userId, version: v.version, run_id: v.runId, chosen_by: admin.id, rows: v.rows.map((x) => ({ key: x.key, text: x.text, agree: x.agree, ed3Text: x.ed3Text, jaText: x.jaText, ...(x.facts?.length ? { facts: x.facts } : {}) })) };
   const r = id
     ? await pbFetch("PATCH", `/api/collections/reader_versions/records/${encodeURIComponent(String(id))}`, { token, body })
     : await pbFetch("POST", "/api/collections/reader_versions/records", { token, body });
@@ -796,6 +855,8 @@ export interface ReaderHumanRow {
   agree: boolean;
   ed3Text: string;
   jaText: string;
+  /** Fact marks of the kendojidai.com text (unit RT73a). A row of a translator has none. */
+  facts?: ReaderFact[];
 }
 
 export interface ReaderHumanVersion {
@@ -803,6 +864,8 @@ export interface ReaderHumanVersion {
   version: number;
   runId: string;
   rows: ReaderHumanRow[];
+  /** True when chosen_by is empty: the default choice of S2 (unit RT73a). False when an admin chose it. */
+  byDefault?: boolean;
 }
 
 export interface AdminVersion {

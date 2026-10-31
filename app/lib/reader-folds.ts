@@ -49,7 +49,7 @@ export interface Counts {
 export interface WorkRow {
   type: "work";
   work: DashWork;
-  /** Pages for the progress line. A web article counts as 1 page (VISION-viewer 15.23.3.2). */
+  /** Pages for the progress line. A web article counts its A4 pages (unit RT73a, VISION-viewer 15.26.3). */
   pages: number;
   translated: number;
   /** First translated page, or null. */
@@ -124,9 +124,12 @@ export function isHidden(w: DashWork, all: DashWork[]): boolean {
   return Boolean(w.partOf) && w.partOf !== w.slug && all.some((o) => o.slug === w.partOf && o.kind === w.kind);
 }
 
-/** Pages of a work for the progress line. A web article has pages 0 in catalog_items and counts as 1 page. */
+/**
+ * Pages of a work for the progress line. A web article counts its A4 pages (catalog_items.pages, written by S2 from the Translator page file,
+ * VISION-viewer 15.26.3). While S2 has not written them yet, the column is 0 and the article counts as 1 page.
+ */
 export function workPages(w: DashWork): number {
-  return isWeb(w) ? 1 : Math.max(w.pages, 0);
+  return isWeb(w) ? Math.max(w.pages, 1) : Math.max(w.pages, 0);
 }
 
 export function rowOf(w: DashWork): WorkRow {
@@ -241,7 +244,12 @@ function groupWebs(webs: DashWork[], stamped: StampedPlace): Map<number, Map<num
   return out;
 }
 
-function yearFold(year: number, idBase: string, mag: DashWork | null, chapters: DashChapter[], webMonths: Map<number, DashWork[]>): Fold {
+/** Title of a year fold that has no magazine volume (the years 2019 to 2025): "Kendo Jidai 2019" (round 73 answer 7: "Also add kendojidai to the book name 2019 -> 2025"). */
+export function yearFoldTitle(year: number): string {
+  return `Kendo Jidai ${year}`;
+}
+
+function yearFold(year: number, idBase: string, mag: DashWork | null, chapters: DashChapter[], webMonths: Map<number, DashWork[]>, inWebFold = false): Fold {
   const webList = [...webMonths.values()].flat();
   const webRows = webList.map(rowOf);
   let counts = mag ? { works: 1, pages: workPages(mag), translated: mag.translated.length } : zero();
@@ -250,7 +258,7 @@ function yearFold(year: number, idBase: string, mag: DashWork | null, chapters: 
   if (!year) return { type: "fold", id: idBase, title: "Date unknown", titleJa: "", level: 2, counts, note: "", head: null, children: [...webList].sort(byDateThenTitle).map(rowOf) };
   const { nodes } = monthFolds(year, idBase, mag, chapters, webMonths);
   const note = [mag ? `${workPages(mag).toLocaleString("en-US")} pages` : "", webList.length ? plural(webList.length, "web article", "web articles") : ""].filter(Boolean).join(" · ");
-  return { type: "fold", id: idBase, title: mag ? mag.titleEn || mag.titleJa || mag.slug : String(year), titleJa: "", level: 2, counts, note, head: mag ? rowOf(mag) : null, children: nodes };
+  return { type: "fold", id: idBase, title: mag ? mag.titleEn || mag.titleJa || mag.slug : inWebFold ? String(year) : yearFoldTitle(year), titleJa: "", level: 2, counts, note, head: mag ? rowOf(mag) : null, children: nodes };
 }
 
 /** The works of the Books fold: works with the same English title form one fold. Another work is a row. */
@@ -308,7 +316,7 @@ export function buildFolds(all: DashWork[], chapters: DashChapter[], options: Fo
   if (kj.length) folds.push(first("kj", "Kendo Jidai", "剣道時代", kj));
 
   if (options.webPlace === "separate") {
-    const wy = [...webYears.keys()].sort(later).map((y) => yearFold(y, `web-${y || "unknown"}`, null, [], webYears.get(y)!));
+    const wy = [...webYears.keys()].sort(later).map((y) => yearFold(y, `web-${y || "unknown"}`, null, [], webYears.get(y)!, true));
     if (wy.length) folds.push(first("web", "Web articles", "", wy));
   }
   if (others.length) folds.push(first("other", "Other works", "", others.map(rowOf)));

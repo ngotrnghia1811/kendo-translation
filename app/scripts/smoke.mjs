@@ -13,9 +13,12 @@
 //   node scripts/smoke.mjs read                        reader pages (unit RC1, round 63). Needs a throwaway PocketBase after the S2 upload (reader_pages), a saved version of
 //                                                      translator tr1 on left_foot_full/p048 (run_all.py prepares it), and the env variables HTV_ADMIN_*, HTV_TR1_*, HTV_READER_*
 //                                                      (approved) and HTV_READER2_* (not approved). It writes sign-up, approval, choice, check, bookmark, and progress records.
+//   node scripts/smoke.mjs web                         text-only works and the v1 placeholder (unit RT73a, round 73). Needs a throwaway PocketBase after the S2 upload with the page file
+//                                                      of the web articles, the env variables HTV_ADMIN_*, HTV_READER_* (approved), HTV_READER2_* (not approved), VIEWER_V1_DIR (a test
+//                                                      folder, run_all.py prepares it), and RT73A_WEB_PAGES (the page file). It writes settings, one choice, and one removal of a choice.
 //   node scripts/smoke.mjs folds                       Reader dashboard rules (unit RC4, round 70): the folds, the hidden works, the fold rule of the search, and the progress words.
 //                                                      Pure code on the real metadata files. It starts no server and needs no PocketBase.
-//   node scripts/smoke.mjs tolerance                   Reader dashboard on a PocketBase that has the migrations up to 1793300009 only (unit RC4, round 70). Needs the old S2 upload,
+//   node scripts/smoke.mjs tolerance                   Reader dashboard on a PocketBase that has the migrations up to 1793300010 only, the state before unit RT73a (unit RC4, round 70). Needs the old S2 upload,
 //                                                      the env variables HTV_ADMIN_*, HTV_TR1_*, HTV_READER_* (approved) and HTV_READER2_* (not approved). It writes the sign-in and one settings record.
 // The script starts `next start` on a free port and stops it at the end (the mode folds starts no server).
 // Run `npm run build` first. Run the script in a copy of the app, not in the folder of the dev server.
@@ -1338,7 +1341,7 @@ async function deployTest() {
   r = await stale.req("/");
   check("Deploy front door: a cookie with a bad token counts as no session and goes to /sign-in", r.status === 307 && /\/sign-in$/.test(r.location), `status ${r.status}, location ${r.location}`);
   r = await cr.req("/read");
-  check("Deploy: /read works with the monitor off (Reader dashboard heading, 31 rows at once and the total 342 works)", r.status === 200 && /<h1[^>]*>Reader dashboard<\/h1>/.test(r.body) && (r.body.match(/data-book="/g) ?? []).length === 31 && /342 works, 13,303 pages/.test(htvText(r.body)), `status ${r.status}`);
+  check("Deploy: /read works with the monitor off (Reader dashboard heading, 31 rows at once and the total 342 works and 14,116 pages)", r.status === 200 && /<h1[^>]*>Reader dashboard<\/h1>/.test(r.body) && (r.body.match(/data-book="/g) ?? []).length === 31 && /342 works, 14,116 pages/.test(htvText(r.body)), `status ${r.status}`);
   r = await cr.req("/translate/left_foot_full?at=p048");
   check("Deploy: reader at /translate/left_foot_full?at=p048 goes to /read and sees no row", r.go === "/read" && !/data-row="/.test(r.body), `status ${r.status}, go ${r.go}`);
   r = await cr.req("/api/htv/save", { method: "POST", json: { pageId: P, runId: "x", rows: [] } });
@@ -1358,6 +1361,8 @@ async function deployTest() {
 // The pages /read, /read/<slug>, /translate, and / must answer without a 500 error. The dashboard shows the data that exists, and a search says "Search needs the next database update (S2)."
 
 async function toleranceTest() {
+  // Unit RT73a: the state of the owner PocketBase on 8090 before this unit. The migrations stop at 1793300010 and the old S2 filled it: 347 catalog rows, 29 reader_pages records
+  // (28 on the dashboard, because men0 is hidden), no web page, no Human version, no field own_translations.facts. The new app must open every page there.
   const accounts = { admin: envPair("ADMIN"), tr1: envPair("TR1"), reader: envPair("READER"), reader2: envPair("READER2") };
   const pbUrl = (process.env.VIEWER_POCKETBASE_URL ?? (JSON.parse(await fs.readFile(configFile ? path.resolve(configFile) : path.resolve("viewer.config.json"), "utf-8")).pocketbaseUrl ?? "")).replace(/\/+$/, "");
   check("Tolerance: the app uses the throwaway PocketBase (port 8092)", pbUrl === "http://127.0.0.1:8092", pbUrl);
@@ -1367,52 +1372,232 @@ async function toleranceTest() {
     return { c, r };
   };
   const countOf = (html, re) => (html.match(re) ?? []).length;
+  const keysOf = (html) => [...html.matchAll(/data-row="([^"]+)"/g)].map((m) => m[1]);
+  const label = (html) => htvText((html.match(/<p[^>]*data-ai-label[^>]*>[\s\S]*?<\/p>/) ?? [""])[0]).trim();
   const cr = (await login("reader")).c;
   const wr = (await login("reader2")).c;
   const tr = (await login("tr1")).c;
   const ad = (await login("admin")).c;
   const probe = await pbCall(pbUrl, "GET", "/api/collections/catalog_items/records?perPage=1", ad.token());
-  check("Tolerance: the old database state holds 37 catalog_items rows and no field translated (the first record has no key translated)", probe.json?.totalItems === 37 && !("translated" in (probe.json?.items?.[0] ?? {})), `rows ${probe.json?.totalItems}`);
+  const ownCol = await pbCall(pbUrl, "GET", "/api/collections/own_translations", ad.token());
+  const rp = await pbCall(pbUrl, "GET", "/api/collections/reader_pages/records?perPage=1", ad.token());
+  const rv = await pbCall(pbUrl, "GET", "/api/collections/reader_versions/records?perPage=1", ad.token());
+  check("Tolerance: the database state of 8090 before RT73a: 347 catalog_items rows with the key translated, 29 reader_pages records, 0 reader_versions, and no field own_translations.facts", probe.json?.totalItems === 347 && "translated" in (probe.json?.items?.[0] ?? {}) && rp.json?.totalItems === 29 && rv.json?.totalItems === 0 && !(ownCol.json?.fields ?? []).some((f) => f.name === "facts"), `rows ${probe.json?.totalItems}, reader_pages ${rp.json?.totalItems}`);
 
   let r = await cr.req("/read");
   let text = htvText(r.body);
-  check("Tolerance, approved reader: /read answers 200 with the heading 'Reader dashboard' and 32 works (37 rows, 5 hidden)", r.status === 200 && /<h1[^>]*>Reader dashboard<\/h1>/.test(r.body) && countOf(r.body, /data-book="/g) === 32, `status ${r.status}, works ${countOf(r.body, /data-book="/g)}`);
-  check("Tolerance, approved reader: the progress comes from reader_pages: left_foot_full 'English: 6 of 120 pages translated (5.0 percent)' and 'Start at Page 46'", /English: 6 of 120 pages translated \(5\.0 percent\)/.test(text) && /Start at Page 46/.test(text));
-  check("Tolerance, approved reader (RC4b): the word 'finished' is not in the HTML of /read", !/finished/i.test(r.body));
-  check("Tolerance, approved reader: the web article 18d4ac29 (no metadata row in the old record) shows with its fallback title and sits in the fold 'Date unknown'", /Web article 18d4ac29/.test(text) && /Date unknown/.test(text) && /data-book="18d4ac29"/.test(r.body));
+  check("Tolerance, approved reader: /read answers 200 with the heading 'Reader dashboard' and the numbers of today: '342 works, 13,303 pages. English: 28 of 13,303 pages translated (0.2 percent).' (a web article with pages 0 counts as 1 page until S2 runs)", r.status === 200 && /<h1[^>]*>Reader dashboard<\/h1>/.test(r.body) && /342 works, 13,303 pages\. English: 28 of 13,303 pages translated \(0\.2 percent\)\./.test(text), (text.match(/342 works[^.]*\. English: [\d,]+ of [\d,]+ pages translated \([\d.]+ percent\)/) ?? [""])[0]);
+  check("Tolerance, approved reader: the word 'finished' is not in /read, no research field leaks, and the year folds 2019 to 2025 already read 'Kendo Jidai 2019' to 'Kendo Jidai 2025'", !/finished/i.test(r.body) && !/confidence|filled_by/.test(r.body) && [2019, 2020, 2021, 2022, 2023, 2024, 2025].every((y) => htvText((r.body.match(new RegExp(`<details[^>]*data-fold="kj-${y}"[\\s\\S]*?</summary>`)) ?? [""])[0]).trim().startsWith(`Kendo Jidai ${y}`)));
   const tMonths = [...r.body.matchAll(/data-fold="(kj-\d{4}-\d{2})"/g)].map((m) => m[1]);
   const tApi = await Promise.all(tMonths.map((id) => cr.req(`/api/read/month?id=${id}`)));
-  check(`Tolerance, approved reader: ${tMonths.length} month folds show with no rows in the HTML, and the month API gives the 1,155 article rows (magazine_chapters exist)`, countOf(r.body, /<li data-article=/g) === 0 && /data-fold="kj-2014-10"/.test(r.body) && tApi.every((x) => x.status === 200) && tApi.reduce((t, x) => t + (x.json?.children ?? []).filter((n) => n.type === "article").length, 0) === 1155, `months ${tMonths.length}`);
-  check("Tolerance: no research field and no error text in the page", !/confidence|filled_by/.test(r.body) && !/Application error|Internal Server Error/.test(r.body));
+  check(`Tolerance, approved reader: ${tMonths.length} month folds show with no rows in the HTML, and the month API gives the 1,155 article rows`, countOf(r.body, /<li data-article=/g) === 0 && tApi.every((x) => x.status === 200) && tApi.reduce((t, x) => t + (x.json?.children ?? []).filter((n) => n.type === "article").length, 0) === 1155, `months ${tMonths.length}`);
   r = await cr.req("/read?q=seme");
-  check("Tolerance, search 'seme': the line 'Search needs the next database update (S2).' in place of the page hits, status 200, no page hit", r.status === 200 && htvText(r.body).includes("Search needs the next database update (S2).") && !/data-hit-page/.test(r.body), `status ${r.status}`);
-  r = await cr.req("/read?q=" + encodeURIComponent("Kendo Jidai 2014"));
-  check("Tolerance, search by title 'Kendo Jidai 2014': the work kendojidai_2014 is a hit and the S2 line shows", /data-book="kendojidai_2014"/.test(r.body) && /Search needs the next database update \(S2\)\./.test(htvText(r.body)));
-
+  const sumOf = (html) => htvText((html.match(/data-search-summary[\s\S]*?<\/p>/) ?? [""])[0]);
+  check("Tolerance, search 'seme': 10 pages in 3 works (the agent pages only, no web text in the database yet)", r.status === 200 && /10 pages in 3 works by text/.test(sumOf(r.body)), sumOf(r.body));
   r = await wr.req("/read");
   text = htvText(r.body);
-  check("Tolerance, waiting reader: /read answers 200 with the waiting line, 32 works, no progress line (the counts are not readable yet), and no link to a page", r.status === 200 && text.includes("Your account waits for approval by an admin.") && countOf(r.body, /data-book="/g) === 32 && countOf(r.body, /<span data-progress="true"/g) === 0 && !/data-start|data-resume|data-article-link/.test(r.body) && !/ translated \(/.test(text), `works ${countOf(r.body, /data-book="/g)}`);
-  r = await wr.req("/read?q=seme");
-  check("Tolerance, waiting reader: a search gives 200 and the waiting note, no 500", r.status === 200 && htvText(r.body).includes("Page text search opens after approval."));
+  check("Tolerance, waiting reader: /read answers 200 with the waiting line, the total, the progress lines, and no link to a page", r.status === 200 && text.includes("Your account waits for approval by an admin.") && /342 works, 13,303 pages/.test(text) && countOf(r.body, /<span data-progress="true"/g) > 0 && !/data-start|data-resume|data-article-link/.test(r.body), `status ${r.status}`);
 
+  // the example pages
   r = await cr.req("/read/left_foot_full");
-  check("Tolerance: /read/left_foot_full (book screen) answers 200 with 120 pages", r.status === 200 && countOf(r.body, /data-index-page="p\d+"/g) === 120, `status ${r.status}`);
+  check("Tolerance: /read/left_foot_full (book screen) answers 200 with 120 pages and the work block 'AI translation: 6 of 120 pages. Human check: 0 of 6 pages.'", r.status === 200 && countOf(r.body, /data-index-page="p\d+"/g) === 120 && htvText(r.body).includes("AI translation: 6 of 120 pages. Human check: 0 of 6 pages."), `status ${r.status}`);
+  await cr.req("/api/read/settings", { method: "PUT", json: { reader: { panelSeen: true, text: "en", en: "agent", image: true } } });
   r = await cr.req("/read/left_foot_full?view=page&at=p048");
-  check("Tolerance: /read/left_foot_full?view=page&at=p048 answers 200 with 5 rows and the first-visit panel (panelSeen needs no migration)", r.status === 200 && countOf(r.body, /data-row=/g) === 5 && /data-start-reading/.test(r.body), `status ${r.status}`);
-  const put = await cr.req("/api/read/settings", { method: "PUT", json: { reader: { panelSeen: true } } });
-  r = await cr.req("/read/left_foot_full?view=page&at=p048");
-  check("Tolerance: panelSeen saves (PUT 200) and the next visit has no panel", put.status === 200 && !/data-reader-settings/.test(r.body));
+  check("Tolerance: left_foot_full p048 answers 200 with 5 agent rows and the AI label", r.status === 200 && keysOf(r.body).length === 5 && /AI translation/.test(label(r.body)), `status ${r.status}, rows ${keysOf(r.body).length}`);
+  r = await cr.req("/read/left_foot_full?view=page&at=p051");
+  check("Tolerance: left_foot_full p051 (no record) answers 200 with the v1 EN placeholder in 17 rows and the page line 'v1 Gemini translation placeholder.'", r.status === 200 && keysOf(r.body).length === 17 && label(r.body) === "v1 Gemini translation placeholder.", `status ${r.status}, rows ${keysOf(r.body).length}`);
+  r = await cr.req("/read/ogawa_lecture_part1?view=page&at=p281");
+  check("Tolerance: ogawa_lecture_part1 p281 answers 200 with the line 'No text for this page yet.'", r.status === 200 && htvText(r.body).includes("No text for this page yet."), `status ${r.status}`);
   r = await cr.req("/read/18d4ac29?view=page&at=p001");
-  check("Tolerance: /read/18d4ac29 (the web article) answers 200", r.status === 200 && countOf(r.body, /data-row=/g) >= 1, `status ${r.status}`);
+  check("Tolerance: 18d4ac29 p001 answers 200 with the agent rows and the AI label (no Human version in the database yet)", r.status === 200 && keysOf(r.body).length >= 5 && /AI translation/.test(label(r.body)), `status ${r.status}`);
+  r = await cr.req("/read/d7835263");
+  check("Tolerance: /read/d7835263 (a web article that S2 has not given A4 pages yet) answers 200: the metadata line says '1 page' and the work block says 'AI translation: 0 of 1 page.'", r.status === 200 && /\b1 page\b/.test(htvText(r.body)) && htvText(r.body).includes("AI translation: 0 of 1 page.") && !/1 pages/.test(htvText(r.body)), `status ${r.status}`);
+  r = await cr.req("/read/d7835263?view=page&at=p001");
+  check("Tolerance: /read/d7835263?view=page&at=p001 answers 200 with the line 'No text for this page yet.' and no crash", r.status === 200 && htvText(r.body).includes("No text for this page yet."), `status ${r.status}`);
+  r = await cr.req("/read/d7835263?view=page&at=p002");
+  check("Tolerance: /read/d7835263?view=page&at=p002 (the A4 page 2 is unknown before S2) answers 200 with the note, no 500", r.status === 200 && /No such page/.test(htvText(r.body)), `status ${r.status}`);
+  r = await cr.req("/api/read/page?ids=d7835263/p001,d7835263/p002");
+  check("Tolerance: the page API answers 200 for a web page that has no record (hasText false, hasAgent false, hasHuman false)", r.status === 200 && r.json?.pages?.length === 2 && r.json.pages.every((p) => p.hasText === false && p.hasAgent === false && p.hasHuman === false), `status ${r.status}`);
   r = await cr.req("/read/63654ba0");
-  check("Tolerance: /read/<slug> of a web article that the old database does not hold gives the 404 page (no 500)", r.missing && r.status !== 500, `status ${r.status}`);
-
+  check("Tolerance: /read/63654ba0 (the Teramoto article) answers 200", r.status === 200 && !r.missing, `status ${r.status}`);
+  r = await ad.req("/admin/versions");
+  check("Tolerance: the admin page /admin/versions answers 200 with the 29 pages that have reader text", r.status === 200 && new Set([...r.body.matchAll(/href="\/admin\/versions\?page=([^"]+)"/g)].map((m) => m[1])).size === 29, `status ${r.status}`);
   r = await tr.req("/translate");
   check("Tolerance: /translate answers 200 for a translator with 37 rows", r.status === 200 && countOf(r.body, /data-book="/g) === 37, `status ${r.status}, rows ${countOf(r.body, /data-book="/g)}`);
   r = await new Client("anon").req("/");
   check("Tolerance: / answers 200 with the runs table (the monitor is on in this config)", r.status === 200 && /Runs/.test(htvText(r.body)), `status ${r.status}`);
   r = await cr.req("/api/read/page?ids=left_foot_full/p048");
   check("Tolerance: the page API answers 200", r.status === 200, `status ${r.status}`);
+}
+
+// Unit RT73a (round 73; VISION-viewer 15.26): text-only works and the v1 placeholder. Run after S2 --apply with the page file on a throwaway PocketBase (8092).
+// The environment variable VIEWER_V1_DIR names a test folder with left_foot_full page_050.md and page_051.md (real copies), a file link that leaves the folder
+// (left_foot_full page_052.md) and a folder link that leaves the folder (ogawa_lecture_part2). The variable RT73A_WEB_PAGES names the page file.
+async function webTest() {
+  const accounts = { admin: envPair("ADMIN"), reader: envPair("READER"), reader2: envPair("READER2") };
+  const pbUrl = (process.env.VIEWER_POCKETBASE_URL ?? (JSON.parse(await fs.readFile(configFile ? path.resolve(configFile) : path.resolve("viewer.config.json"), "utf-8")).pocketbaseUrl ?? "")).replace(/\/+$/, "");
+  check("Web: the app uses the throwaway PocketBase (port 8092)", pbUrl === "http://127.0.0.1:8092", pbUrl);
+  const cfg = JSON.parse(await fs.readFile(configFile ? path.resolve(configFile) : path.resolve("viewer.config.json"), "utf-8"));
+  const file = process.env.RT73A_WEB_PAGES ? path.resolve(process.env.RT73A_WEB_PAGES) : path.join(path.resolve(cfg.translatorDataDir), "item-metadata/web-pages.jsonl");
+  const PG = new Map();
+  for (const line of (await fs.readFile(file, "utf-8")).split("\n")) if (line.trim()) PG.set(JSON.parse(line).page_id, JSON.parse(line));
+  check("Web: the page file holds 1,124 pages", PG.size === 1124, `pages ${PG.size}`);
+  const countOf = (html, re) => (html.match(re) ?? []).length;
+  const keysOf = (html) => [...html.matchAll(/data-row="([^"]+)"/g)].map((m) => m[1]);
+  const label = (html) => htvText((html.match(/<p[^>]*data-ai-label[^>]*>[\s\S]*?<\/p>/) ?? [""])[0]).trim();
+  // The tag of the English text button (Agent or Human) in the reader bar, and whether it is disabled.
+  const enButton = (html, which) => (html.match(new RegExp(`<button[^>]*data-toolbar="English text:${which}"[^>]*>`)) ?? [""])[0];
+  const isOff = (tag) => /\sdisabled=""/.test(tag);
+  const login = async (who) => {
+    const c = new Client(who);
+    const r = await c.req("/api/htv/login", { method: "POST", json: accounts[who] });
+    return { c, r };
+  };
+  const cr = (await login("reader")).c;
+  const ad = (await login("admin")).c;
+  const wr = (await login("reader2")).c;
+  const putText = (c, reader) => c.req("/api/read/settings", { method: "PUT", json: { reader } });
+  await putText(cr, { text: "en", en: "agent", image: true, view: "page", panelSeen: true });
+
+  // --- Reader dashboard /read
+  let r = await cr.req("/read");
+  let text = htvText(r.body);
+  check("Reader dashboard /read: '342 works, 14,116 pages. English: 1,151 of 14,116 pages translated (8.2 percent).' (28 agent pages, 28 - 1 + 1,124)", /342 works, 14,116 pages\. English: 1,151 of 14,116 pages translated \(8\.2 percent\)\./.test(text), (text.match(/342 works[^.]*\. English: [\d,]+ of [\d,]+ pages translated \([\d.]+ percent\)/) ?? [""])[0]);
+  const kjSum = htvText((r.body.match(/<details[^>]*data-fold="kj"[\s\S]*?<\/summary>/) ?? [""])[0]);
+  check("Reader dashboard /read: the Kendo Jidai fold reads '320 works · 9,295 pages English: 1,131 of 9,295 pages translated (12.2 percent)' (2 + 5 magazine pages + 1,124 A4 pages; 18d4ac29 p001 counts once)", /320 works · 9,295 pages English: 1,131 of 9,295 pages translated \(12\.2 percent\)/.test(kjSum), kjSum);
+  const yearTitles = [2019, 2020, 2021, 2022, 2023, 2024, 2025].map((y) => htvText((r.body.match(new RegExp(`<details[^>]*data-fold="kj-${y}"[\\s\\S]*?</summary>`)) ?? [""])[0]).trim());
+  check("Reader dashboard /read: the year folds are named 'Kendo Jidai 2019' to 'Kendo Jidai 2025'", yearTitles.every((t, i) => t.startsWith(`Kendo Jidai ${2019 + i}`)), yearTitles.map((t) => t.slice(0, 30)).join(" | "));
+  check("Reader dashboard /read: no fold of 2019 to 2025 is named only with the year", !yearTitles.some((t) => /^20\d\d\b/.test(t)));
+  const feb = await cr.req("/read?open=kj-2012-02");
+  const row = (feb.body.match(/<li data-book="d7835263"[\s\S]*?<\/li>/) ?? [""])[0];
+  check("Reader dashboard /read: the row of d7835263 reads 'English: 3 of 3 pages translated (100.0 percent)' and has the link 'Start at Page 1'", /English: 3 of 3 pages translated \(100\.0 percent\)/.test(htvText(row)) && hasLink(row, "/read/d7835263?view=page&amp;at=p001", "data-start", "Start at Page 1"), htvText(row).slice(0, 160));
+  check("Reader dashboard /read: no number or word of the dashboard names the v1 placeholder", !/\bv1\b|placeholder|Gemini/i.test(htvText(r.body)), "");
+
+  // --- book screen
+  r = await cr.req("/read/d7835263");
+  text = htvText(r.body);
+  check("Book screen /read/d7835263: the metadata line reads '3 pages', the work block reads 'AI translation: 0 of 3 pages. Human translation: 3 of 3 pages.', and the button 'Start reading at Page 1' shows", /\b3 pages\b/.test(text) && text.includes("AI translation: 0 of 3 pages. Human translation: 3 of 3 pages.") && !/Human check/.test(text) && /Start reading at Page 1/.test(text), (text.match(/AI translation:[^.]*\.[^.]*\./) ?? [""])[0]);
+  r = await cr.req("/read/left_foot_full");
+  text = htvText(r.body);
+  check("Book screen /read/left_foot_full: the work block reads 'AI translation: 6 of 120 pages. Human check: 0 of 6 pages.' with no Human translation line and no v1 line (the v1 folder holds p050 and p051)", text.includes("AI translation: 6 of 120 pages. Human check: 0 of 6 pages.") && !/Human translation/.test(text) && !/\bv1\b|placeholder|Gemini/i.test(text), (text.match(/AI translation:[^.]*\.[^.]*\./) ?? [""])[0]);
+  r = await cr.req("/read/18d4ac29");
+  text = htvText(r.body);
+  check("Book screen /read/18d4ac29: '1 page' (not '1 pages') and the work block 'AI translation: 1 of 1 page. Human check: 0 of 1 page. Human translation: 1 of 1 page.'", /\b1 page\b/.test(text) && !/1 pages/.test(text) && text.includes("AI translation: 1 of 1 page. Human check: 0 of 1 page. Human translation: 1 of 1 page."), (text.match(/AI translation:[^]*?Human translation:[^.]*\./) ?? [""])[0]);
+
+  // --- page view d7835263
+  const want = (pid, f) => PG.get(pid)[f];
+  const jaRows = (pid) => want(pid, "ja_rows").filter((x) => x.ja.trim()).length;
+  const enRows = (pid) => want(pid, "human_rows").length;
+  r = await cr.req("/read/d7835263?view=page&at=p001");
+  check("d7835263 p001, default settings (Text EN, EN text Agent): the page shows the 32 Human rows (JA-only rows stay out), the page line 'Human translation from kendojidai.com.', no AI label, no Image button", r.status === 200 && keysOf(r.body).length === 32 && keysOf(r.body).every((k) => /^d7835263\/p001\/web\/U\d+$/.test(k)) && label(r.body) === "Human translation from kendojidai.com." && !/AI translation/.test(htvText(r.body)) && !/data-toolbar="Image:toggle"/.test(r.body), `rows ${keysOf(r.body).length}, label ${label(r.body)}`);
+  check("d7835263 p001: the Human text of U004 'Why is kendo all about men?' shows, and the English text control shows Human pressed and disabled (nothing to swap, no Agent text)", htvText(r.body).includes("Why is kendo all about men?") && /aria-pressed="true"/.test(enButton(r.body, "human")) && isOff(enButton(r.body, "human")) && isOff(enButton(r.body, "agent")), enButton(r.body, "human").slice(0, 150));
+  await putText(cr, { text: "ja" });
+  r = await cr.req("/read/d7835263?view=page&at=p001");
+  check(`d7835263 p001, Text JA: the Original text shows ${jaRows("d7835263/p001")} rows (the EN-only row U006 stays out), the first row is 剣道はなぜ面なのか。 after the note line`, keysOf(r.body).length === jaRows("d7835263/p001") && htvText(r.body).includes("剣道はなぜ面なのか。") && htvText(r.body).includes("※この記事は『剣道時代 2012年2月号』に掲載されたものです。"), `rows ${keysOf(r.body).length}`);
+  await putText(cr, { text: "pair" });
+  r = await cr.req("/read/d7835263?view=page&at=p001");
+  check("d7835263 p001, Text Pairing: 32 rows with the JA text beside the Human text (data-pair)", keysOf(r.body).length === 32 && countOf(r.body, /data-pair/g) === 32, `rows ${keysOf(r.body).length}`);
+  await putText(cr, { text: "en" });
+  r = await cr.req("/read/d7835263?view=page&at=p003");
+  check(`d7835263 p003: ${enRows("d7835263/p003")} Human rows (20 rows, the JA-only row 関連 stays out), label 'Human translation from kendojidai.com.'`, keysOf(r.body).length === enRows("d7835263/p003") && enRows("d7835263/p003") === 19 && label(r.body) === "Human translation from kendojidai.com.", `rows ${keysOf(r.body).length}`);
+  r = await cr.req("/read/d7835263?view=page&at=p004");
+  check("d7835263 p004 (beyond the 3 pages) gives the note, not a crash", r.status === 200 && /No such page/.test(htvText(r.body)) || r.missing === false, `status ${r.status}`);
+  r = await cr.req("/read/d7835263?view=scroll&at=p002");
+  check("d7835263 scroll view: 3 page sections and Human rows of p001 to p003 within the window", r.status === 200 && countOf(r.body, /data-section="d7835263\/p00\d"/g) >= 3 && keysOf(r.body).length >= 32, `rows ${keysOf(r.body).length}`);
+
+  // --- 18d4ac29 : Agent text and Human version
+  r = await cr.req("/read/18d4ac29?view=page&at=p001");
+  const agentKeys = keysOf(r.body);
+  check("18d4ac29 p001, EN text Agent: the agent rows (ts3 keys) show with the AI label, and the control offers Agent and Human", r.status === 200 && agentKeys.length >= 5 && agentKeys.every((k) => /\/ts3\//.test(k)) && /AI translation/.test(label(r.body)) && !isOff(enButton(r.body, "human")) && !isOff(enButton(r.body, "agent")) && /aria-pressed="true"/.test(enButton(r.body, "agent")), `rows ${agentKeys.length}, label ${label(r.body)}, ${enButton(r.body, "human").slice(0, 120)}`);
+  await putText(cr, { en: "human" });
+  r = await cr.req("/read/18d4ac29?view=page&at=p001");
+  const humanKeys = keysOf(r.body);
+  check(`18d4ac29 p001, EN text Human: ${enRows("18d4ac29/p001")} Human rows (web keys) with the page line 'Human translation from kendojidai.com.' and no AI label`, humanKeys.length === enRows("18d4ac29/p001") && humanKeys.every((k) => /\/web\/U/.test(k)) && label(r.body) === "Human translation from kendojidai.com.", `rows ${humanKeys.length}, label ${label(r.body)}`);
+  await putText(cr, { text: "pair" });
+  r = await cr.req("/read/18d4ac29?view=page&at=p001");
+  check("18d4ac29 p001, Text Pairing with Human: the web Original text rows pair with the Human rows (24 rows with JA beside EN)", countOf(r.body, /data-pair/g) === enRows("18d4ac29/p001") && htvText(r.body).includes("Due to the effects of the coronavirus") || /Due to the effects/.test(htvText(r.body)), `pairs ${countOf(r.body, /data-pair/g)}`);
+  await putText(cr, { text: "en", en: "agent" });
+
+  // --- a book page with an Agent text, a book page with only a v1 file, a page with nothing
+  r = await cr.req(`/read/left_foot_full?view=page&at=p050`);
+  check("left_foot_full p050 (Agent text, v1 file exists): the agent rows show with the AI label and the page image, and no v1 text shows", r.status === 200 && keysOf(r.body).length >= 5 && /AI translation/.test(label(r.body)) && !/v1 Gemini/.test(htvText(r.body)) && /api\/read\/image\/left_foot_full\/p050/.test(r.body), `label ${label(r.body)}`);
+  r = await cr.req(`/read/left_foot_full?view=page&at=p051`);
+  const t51 = htvText(r.body);
+  check("left_foot_full p051 (no Agent text, v1 file): the v1 EN placeholder shows in 17 rows with the page line 'v1 Gemini translation placeholder.', no AI label, with the page image", r.status === 200 && keysOf(r.body).length === 17 && label(r.body) === "v1 Gemini translation placeholder." && !/AI translation/.test(t51) && t51.includes("Kendo is about hidari-te, hidari-koshi, and hidari-ashi.") && !t51.includes("*") && /api\/read\/image\/left_foot_full\/p051/.test(r.body), `rows ${keysOf(r.body).length}, label ${label(r.body)}`);
+  check("left_foot_full p051: the v1 row keys have the form left_foot_full/p051/v1/NN", keysOf(r.body)[0] === "left_foot_full/p051/v1/01" && keysOf(r.body).at(-1) === "left_foot_full/p051/v1/17", keysOf(r.body).slice(0, 2).join(","));
+  await putText(cr, { text: "ja" });
+  r = await cr.req(`/read/left_foot_full?view=page&at=p051`);
+  check("left_foot_full p051, Text JA: the v1 JA line shows with the page line 'v1 Gemini placeholder text.'", label(r.body) === "v1 Gemini placeholder text." && htvText(r.body).includes("剣道は左手・左腰・左足である"), `label ${label(r.body)}`);
+  await putText(cr, { text: "en" });
+  r = await cr.req(`/api/read/page?ids=left_foot_full/p051`);
+  const pg51 = r.json?.pages?.[0];
+  check("API p051: hasText false, hasAgent false, hasHuman false, 17 v1 blocks, the first block has JA, EN, and ZH, the last block has EN only", r.status === 200 && pg51?.hasText === false && pg51.hasAgent === false && pg51.hasHuman === false && pg51.v1?.length === 17 && pg51.v1[0].ja === "剣道は左手・左腰・左足である" && pg51.v1[0].zh === "Kendo在于hidari-te、hidari-koshi与hidari-ashi。" && pg51.v1[16].ja === "" && pg51.v1[16].zh === "", JSON.stringify(pg51?.v1?.[0]));
+  r = await cr.req(`/api/read/page?ids=left_foot_full/p050`);
+  check("API p050: hasAgent true, hasHuman false, and the v1 blocks (EN and ZH for a later component) come with the page", r.json?.pages?.[0]?.hasAgent === true && r.json.pages[0].hasHuman === false && r.json.pages[0].v1.length > 5 && r.json.pages[0].v1.every((x) => x.key.startsWith("left_foot_full/p050/v1/")), `v1 ${r.json?.pages?.[0]?.v1?.length}`);
+  r = await cr.req(`/read/ogawa_lecture_part1?view=page&at=p281`);
+  check("ogawa_lecture_part1 p281 (no text, no v1 file): the page image and the line 'No text for this page yet.'", r.status === 200 && /data-no-text/.test(r.body) && htvText(r.body).includes("No text for this page yet.") && /api\/read\/image\/ogawa_lecture_part1\/p281/.test(r.body), `status ${r.status}`);
+
+  // --- the v1 path guard
+  r = await cr.req(`/read/left_foot_full?view=page&at=p052`);
+  const api52 = await cr.req(`/api/read/page?ids=left_foot_full/p052`);
+  check("v1 path guard: a file link that leaves the v1 folder (left_foot_full page_052.md) gives no v1 text and no secret, in the page and in the API", r.status === 200 && !/SECRET-OUTSIDE/.test(r.body) && !/SECRET-OUTSIDE/.test(api52.body) && api52.json?.pages?.[0]?.v1?.length === 0 && /No text for this page yet\./.test(htvText(r.body)), `v1 ${api52.json?.pages?.[0]?.v1?.length}`);
+  const apiDir = await cr.req(`/api/read/page?ids=ogawa_lecture_part2/p001`);
+  const scrollDir = await cr.req(`/read/ogawa_lecture_part2?view=scroll&at=p001`);
+  check("v1 path guard: a folder link that leaves the v1 folder (ogawa_lecture_part2) gives no v1 text and no secret", apiDir.status === 200 && !/SECRET-DIR/.test(apiDir.body) && !/SECRET-DIR/.test(scrollDir.body) && apiDir.json?.pages?.[0]?.v1?.length === 0, `v1 ${apiDir.json?.pages?.[0]?.v1?.length}`);
+  const bad = await cr.req(`/api/read/page?ids=${encodeURIComponent("left_foot_full/p051/../../x")}`);
+  check("v1 path guard: a page ID with .. is refused (400 or 403) and shows no text", [400, 403, 404].includes(bad.status) && !/SECRET/.test(bad.body), `status ${bad.status}`);
+
+  // --- v1 adds to no count and no search
+  const pre = await cr.req("/read");
+  const sH = await cr.req("/read?q=" + encodeURIComponent("hidari-koshi"));
+  const hitsOf = (html) => [...html.matchAll(/data-hit-page="([^"]+)"/g)].map((m) => m[1]);
+  const sV = await cr.req("/read?q=" + encodeURIComponent("Kendo在于"));
+  check("v1 placeholder, search: the v1 EN text of p051 ('hidari-koshi') finds no hit on p051, and the v1 ZH text finds no page", !hitsOf(sH.body).includes("left_foot_full/p051") && hitsOf(sV.body).length === 0, `hits ${hitsOf(sH.body).length}`);
+  check("v1 placeholder, counts: the dashboard total is the same with a v1 folder as without (1,151 translated of 14,116) and the p051 and p052 pages add 0", /English: 1,151 of 14,116 pages translated/.test(htvText(pre.body)), "");
+
+  // --- search finds the kendojidai.com text
+  const sW = await cr.req("/read?q=" + encodeURIComponent("Why is kendo all about men"));
+  check("Search by the kendojidai.com text 'Why is kendo all about men': d7835263/p001 is a page hit with the words marked", hitsOf(sW.body).includes("d7835263/p001") && /<mark[^>]*>/.test(sW.body), hitsOf(sW.body).slice(0, 3).join(","));
+  const sJ = await cr.req("/read?q=" + encodeURIComponent("剣道はなぜ面なのか"));
+  check("Search by the Japanese text of a web article '剣道はなぜ面なのか': d7835263/p001 is a page hit", hitsOf(sJ.body).includes("d7835263/p001"), hitsOf(sJ.body).slice(0, 3).join(","));
+
+  // --- waiting reader
+  const wRead = await wr.req("/read/d7835263?view=page&at=p001");
+  check("A reader who waits for approval gets the book screen with the work block and no text on /read/d7835263?at=p001", wRead.status === 200 && !/Why is kendo all about men/.test(wRead.body) && /waits for approval/.test(htvText(wRead.body)), `status ${wRead.status}`);
+
+  // --- admin: the default choice, remove the choice, choose again
+  const apiV = await ad.req("/api/admin/versions?pageId=d7835263/p001");
+  const sysV = (apiV.json?.versions ?? []).find((v) => v.userName === "kendojidai.com");
+  check("Admin /api/admin/versions: the page d7835263/p001 lists the version 'kendojidai.com' #1 with 32 rows, and it is the chosen one", apiV.status === 200 && sysV?.version === 1 && sysV.rows === 32 && apiV.json.chosen?.userId === sysV.userId && apiV.json.chosen.version === 1, JSON.stringify(apiV.json?.chosen));
+  r = await ad.req("/admin/versions?page=" + encodeURIComponent("d7835263/p001"));
+  check("Admin page /admin/versions?page=d7835263/p001 answers 200 and lists the page", r.status === 200 && r.body.includes('data-version-panel="d7835263/p001"'), `status ${r.status}`);
+  const prev = await ad.req(`/api/admin/versions?pageId=d7835263/p001&userId=${sysV?.userId}&version=1`);
+  check("Admin preview of the kendojidai.com version: 32 rows (web keys) with the Japanese text and the Human text, kind own", prev.status === 200 && prev.json?.rows?.length === 32 && prev.json.rows.filter((x) => x.human).length >= 31 && prev.json.rows.every((x) => x.kind === "own"), `rows ${prev.json?.rows?.length}`);
+  const clr = await ad.req("/api/admin/versions", { method: "POST", json: { action: "clear", pageId: "d7835263/p001" } });
+  r = await cr.req("/read/d7835263?view=page&at=p001");
+  check("Admin 'Remove the choice' on d7835263/p001: the page still shows the full Original text (31 JA rows) with the note, and no Human text", clr.status === 200 && keysOf(r.body).length === jaRows("d7835263/p001") && !/Why is kendo all about men/.test(r.body) && htvText(r.body).includes("No English text for this page yet. The Original text shows.") && htvText(r.body).includes("剣道はなぜ面なのか。"), `rows ${keysOf(r.body).length}`);
+  r = await cr.req("/read/d7835263");
+  check("After the removal the work block reads 'Human translation: 2 of 3 pages.' and d7835263 p001 is not translated any more on the book screen", htvText(r.body).includes("AI translation: 0 of 3 pages. Human translation: 2 of 3 pages."), (htvText(r.body).match(/AI translation:[^]*?Human translation:[^.]*\./) ?? [""])[0]);
+  const pick = await ad.req("/api/admin/versions", { method: "POST", json: { action: "choose", pageId: "d7835263/p001", userId: sysV?.userId, version: 1 } });
+  r = await cr.req("/read/d7835263?view=page&at=p001");
+  check("Admin chooses the kendojidai.com version again: the page line reads 'Human translation. Chosen by an admin.' and the 32 rows return", pick.status === 200 && keysOf(r.body).length === 32 && label(r.body) === "Human translation. Chosen by an admin.", `label ${label(r.body)}`);
+
+  // --- PocketBase facts
+  const ownRec = await pbCall(pbUrl, "GET", "/api/collections/own_translations/records?perPage=5&filter=" + encodeURIComponent('group_key="d7835263/p003/web/U071"'), ad.token());
+  check("PocketBase: the own_translations copy of d7835263/p003/web/U071 holds one fact mark (kind changed, JA その上がった手元に小手を打たれる)", ownRec.status === 200 && ownRec.json?.items?.length === 1 && ownRec.json.items[0].facts?.length === 1 && ownRec.json.items[0].facts[0].kind === "changed" && ownRec.json.items[0].facts[0].ja === "その上がった手元に小手を打たれる", JSON.stringify(ownRec.json?.items?.[0]?.facts));
+  const dRec = await pbCall(pbUrl, "GET", "/api/collections/reader_versions/records?perPage=1&filter=" + encodeURIComponent('page_id="d7835263/p003"'), ad.token());
+  const u071 = (dRec.json?.items?.[0]?.rows ?? []).find((x) => x.key.endsWith("U071"));
+  const u072 = (dRec.json?.items?.[0]?.rows ?? []).find((x) => x.key.endsWith("U072"));
+  check("PocketBase: the reader_versions record of d7835263/p003 (default choice, chosen_by empty) has the changed mark of U071 on a phrase and the dropped mark of U072 on the whole sentence", dRec.json?.items?.[0]?.chosen_by === "" && u071?.facts?.[0]?.kind === "changed" && u071.facts[0].start === 75 && u071.facts[0].end === 111 && u072?.facts?.[0]?.kind === "dropped" && u072.facts[0].start === null, JSON.stringify({ u071: u071?.facts, u072: u072?.facts, by: dRec.json?.items?.[0]?.chosen_by }));
+  const jaRec = await pbCall(pbUrl, "GET", "/api/collections/reader_pages/records?perPage=1&filter=" + encodeURIComponent('page_id="d7835263/p003"'), ad.token());
+  check("PocketBase: the reader_pages record of d7835263/p003 has run_id web-ja, 20 rows, ed3 empty on every row, and site true on the 4 site_text rows U083 to U086", jaRec.json?.items?.[0]?.run_id === "web-ja" && jaRec.json.items[0].rows.length === 20 && jaRec.json.items[0].rows.every((x) => x.ed3 === "") && jaRec.json.items[0].rows.filter((x) => x.site === true).length === 4, `rows ${jaRec.json?.items?.[0]?.rows?.length}, site ${jaRec.json?.items?.[0]?.rows?.filter((x) => x.site).length}`);
+  const dApi = await cr.req("/api/read/page?ids=d7835263/p003");
+  const rowsApi = dApi.json?.pages?.[0]?.rows ?? [];
+  check("API d7835263/p003: hasAgent false, hasHuman true, humanBy admin (after the second choice), 20 rows with web true, and the facts of U071 come with the Human row", dApi.json?.pages?.[0]?.hasAgent === false && dApi.json.pages[0].hasHuman === true && rowsApi.length === 20 && rowsApi.every((x) => x.web === true) && rowsApi.find((x) => x.key.endsWith("U071"))?.human?.facts?.[0]?.kind === "changed" && rowsApi.filter((x) => x.site).length === 4, `rows ${rowsApi.length}`);
+  const dApi1 = await cr.req("/api/read/page?ids=d7835263/p002");
+  check("API d7835263/p002: humanBy default (this choice stays the default one), the label line is 'Human translation from kendojidai.com.'", dApi1.json?.pages?.[0]?.humanBy === "default" && dApi1.json.pages[0].label.human === "Human translation from kendojidai.com.", dApi1.json?.pages?.[0]?.humanBy);
+  const sysUsers = await pbCall(pbUrl, "GET", "/api/collections/users/records?perPage=5&filter=" + encodeURIComponent('name="kendojidai.com"'), ad.token());
+  check("PocketBase: the system account exists with disabled true and role reader and approved false", sysUsers.json?.items?.length === 1 && sysUsers.json.items[0].disabled === true && sysUsers.json.items[0].approved === false && sysUsers.json.items[0].name === "kendojidai.com", JSON.stringify(sysUsers.json?.items?.[0] && { d: sysUsers.json.items[0].disabled, r: sysUsers.json.items[0].role }));
 }
 
 async function readTest() {
@@ -1493,7 +1678,7 @@ async function readTest() {
   r = await nr.req("/read");
   let text = htvText(r.body);
   // RC4 (round 70): the old checks "the 37 books" and "the book cards show no progress line" changed. The Reader dashboard shows 342 works and their progress to a reader who waits (round 69 answer 9), and no link to a page.
-  check("Waiting reader: /read shows the heading 'Reader dashboard', the line 'Your account waits for approval by an admin.', the total '342 works, 13,303 pages', and the two first-level folds Books (22 works) and Kendo Jidai (320 works)", r.status === 200 && /<h1[^>]*>Reader dashboard<\/h1>/.test(r.body) && text.includes("Your account waits for approval by an admin.") && /342 works, 13,303 pages/.test(text) && countOf(r.body, /data-fold-level="1"/g) === 2 && /Books[^<]*<\/span>[^<]*<span[^>]*>22 works/.test(r.body.replace(/<!--[\s\S]*?-->/g, "")) && /Kendo Jidai[\s\S]{0,200}320 works/.test(r.body.replace(/<!--[\s\S]*?-->/g, "")), `rows ${countOf(r.body, /data-book="/g)}`);
+  check("Waiting reader: /read shows the heading 'Reader dashboard', the line 'Your account waits for approval by an admin.', the total '342 works, 14,116 pages' (RT73a: a web article counts its A4 pages), and the two first-level folds Books (22 works) and Kendo Jidai (320 works)", r.status === 200 && /<h1[^>]*>Reader dashboard<\/h1>/.test(r.body) && text.includes("Your account waits for approval by an admin.") && /342 works, 14,116 pages/.test(text) && countOf(r.body, /data-fold-level="1"/g) === 2 && /Books[^<]*<\/span>[^<]*<span[^>]*>22 works/.test(r.body.replace(/<!--[\s\S]*?-->/g, "")) && /Kendo Jidai[\s\S]{0,200}320 works/.test(r.body.replace(/<!--[\s\S]*?-->/g, "")), `rows ${countOf(r.body, /data-book="/g)}`);
   check("Waiting reader: the 22 books and the 9 year volumes show their progress line at once, also at zero, and the row of left_foot_full reads 'English: 6 of 120 pages translated (5.0 percent)'", countOf(r.body, /data-book="/g) === 31 && countOf(r.body, /<span data-progress="true"/g) === 31 && /English: 6 of 120 pages translated \(5\.0 percent\)/.test(text) && /English: 0 of 176 pages translated \(0\.0 percent\)/.test(text));
   const nrMonth = await nr.req("/read?open=kj-2011-08");
   check("Waiting reader: no row and no month article links to a page (no Start at, no Continue at, no link with ?view=page), also in an opened month", !/data-start|data-resume|data-article-link/.test(r.body + nrMonth.body) && !/view=page&amp;at=p|view=page&at=p/.test(r.body + nrMonth.body) && !/Start at Page|Continue at Page/.test(text) && countOf(nrMonth.body, /<li data-article=/g) === 14, `articles ${countOf(nrMonth.body, /<li data-article=/g)}`);
@@ -1562,7 +1747,7 @@ async function readTest() {
   // The synopsis and its AI note moved away from the row (the book screen keeps them, check below). The progress line has the new words (round 69 answer 8).
   const dashRow = (slug) => (r.body.match(new RegExp(`<li data-book="${slug}"[\\s\\S]*?</li>`)) ?? [""])[0];
   check("Reader dashboard: the two first-level folds Books (22 works) and Kendo Jidai (320 works), 31 rows at once (22 books and 9 year volumes), the 311 web articles in the month folds, no waiting line", r.status === 200 && countOf(r.body, /data-book="/g) === 31 && countOf(r.body, /data-fold-level="1"/g) === 2 && /data-fold="books"/.test(r.body) && /data-fold="kj"/.test(r.body) && /22 works/.test(text) && /320 works/.test(text) && !text.includes("waits for approval"), `rows ${countOf(r.body, /data-book="/g)}`);
-  check("Reader dashboard: the heading 'Reader dashboard', the search box, and the total line '342 works, 13,303 pages. English: 28 of 13,303 pages translated (0.2 percent).'", /<h1[^>]*>Reader dashboard<\/h1>/.test(r.body) && /data-search-input/.test(r.body) && /342 works, 13,303 pages\. English: 28 of 13,303 pages translated \(0\.2 percent\)\./.test(text), (text.match(/342 works[^.]*\. English: \d+ of [\d,]+ pages translated \([\d.]+ percent\)/) ?? [""])[0]);
+  check("Reader dashboard: the heading 'Reader dashboard', the search box, and the total line '342 works, 14,116 pages. English: 1,151 of 14,116 pages translated (8.2 percent).' (RT73a: 28 agent pages, men0 hidden, so 28 - 1 + 1,124 = 1,151)", /<h1[^>]*>Reader dashboard<\/h1>/.test(r.body) && /data-search-input/.test(r.body) && /342 works, 14,116 pages\. English: 1,151 of 14,116 pages translated \(8\.2 percent\)\./.test(text), (text.match(/342 works[^.]*\. English: [\d,]+ of [\d,]+ pages translated \([\d.]+ percent\)/) ?? [""])[0]);
   const lfRow = htvText(dashRow("left_foot_full"));
   check("Reader dashboard: the left_foot_full row shows the English title, the Japanese title, the author, the year, and the page count, and no synopsis", /The Secret of Kendo and the Left Foot/.test(lfRow) && /剣道の極意と左足/.test(lfRow) && /Mitsuru Kobayashi/.test(lfRow) && /2017/.test(lfRow) && /120 pages/.test(lfRow) && !/Written by an AI agent/.test(lfRow), lfRow.slice(0, 160));
   check("Reader dashboard: the left_foot_full row reads 'English: 6 of 120 pages translated (5.0 percent)' and the link 'Start at Page 46' (the first translated page)", /English: 6 of 120 pages translated \(5\.0 percent\)/.test(lfRow) && hasLink(dashRow("left_foot_full"), "/read/left_foot_full?view=page&amp;at=p046", "data-start", "Start at Page 46"), lfRow.slice(-80));
@@ -1610,10 +1795,10 @@ async function readTest() {
   const chuHtml = (await cr.req("/read?q=chuzumi")).body;
   check("Reader dashboard (RC4b): the word 'finished' is in none of the HTML of /read, of the opened month August 2011, and of the search result 'chuzumi'", ![r.body, openR.body, chuHtml].some((b) => /finished/i.test(b)), [r.body, openR.body, chuHtml].map((b) => (b.match(/finished/gi) ?? []).length).join("/"));
   const foldTexts = [...r.body.matchAll(/<span[^>]*data-fold-progress[^>]*>([^<]*)<\/span>/g)].map((m) => m[1]);
-  check(`Reader dashboard (RC4b): each of the ${foldTexts.length} fold lines (first level, year, month) has the full form 'English: N of M pages translated (P percent)'`, foldTexts.length > 180 && foldTexts.every((x) => /^English: \d+ of [\d,]+ pages? translated \([\d.]+ percent\)$/.test(x)), foldTexts.filter((x) => !/of [\d,]+ pages? translated/.test(x)).slice(0, 2).join(" | "));
+  check(`Reader dashboard (RC4b): each of the ${foldTexts.length} fold lines (first level, year, month) has the full form 'English: N of M pages translated (P percent)'`, foldTexts.length > 180 && foldTexts.every((x) => /^English: [\d,]+ of [\d,]+ pages? translated \([\d.]+ percent\)$/.test(x)), foldTexts.filter((x) => !/of [\d,]+ pages? translated/.test(x)).slice(0, 2).join(" | "));
   const yearFold = (id) => htvText((r.body.match(new RegExp(`<details[^>]*data-fold="${id}"[\\s\\S]*?</summary>`)) ?? [""])[0]);
-  check("Reader dashboard (RC4b): the year rows of Kendo Jidai 2012 and 2014 read 'English: N of M pages translated' (before: 'English: 2 finished')", /English: \d+ of [\d,]+ pages translated \([\d.]+ percent\)/.test(yearFold("kj-2012")) && /English: 5 of [\d,]+ pages translated \(0\.\d percent\)/.test(yearFold("kj-2014")), `${yearFold("kj-2012").slice(0, 120)} || ${yearFold("kj-2014").slice(0, 120)}`);
-  check("Reader dashboard (RC4b): the first-level folds read the full form with the thousands separator of their page count (Books 22 works, Kendo Jidai 320 works)", /22 works · [\d,]+ pages English: \d+ of [\d,]+ pages translated \([\d.]+ percent\)/.test(text) && /320 works · [\d,]+ pages English: \d+ of [\d,]+ pages translated \([\d.]+ percent\)/.test(text), text.slice(text.indexOf("22 works") - 10, text.indexOf("22 works") + 110));
+  check("Reader dashboard (RC4b): the year rows of Kendo Jidai 2012 and 2014 read 'English: 11 of 958 pages translated' and 'English: 15 of 1,061 pages translated' (RT73a: the magazine pages plus the A4 pages of the web articles of the year)", /English: 11 of 958 pages translated \(1\.1 percent\)/.test(yearFold("kj-2012")) && /English: 15 of 1,061 pages translated \(1\.4 percent\)/.test(yearFold("kj-2014")) && /Kendo Jidai 2012 949 pages · 3 web articles/.test(yearFold("kj-2012")), `${yearFold("kj-2012").slice(0, 120)} || ${yearFold("kj-2014").slice(0, 120)}`);
+  check("Reader dashboard (RC4b): the first-level folds read the full form with the thousands separator of their page count (Books 22 works, Kendo Jidai 320 works)", /22 works · [\d,]+ pages English: [\d,]+ of [\d,]+ pages translated \([\d.]+ percent\)/.test(text) && /320 works · [\d,]+ pages English: [\d,]+ of [\d,]+ pages translated \([\d.]+ percent\)/.test(text), text.slice(text.indexOf("22 works") - 10, text.indexOf("22 works") + 110));
   check("Reader dashboard: the folds are details and summary (keyboard works without script): " + countOf(r.body, /<summary/g) + " summaries, the first level open and the deeper levels closed", countOf(r.body, /<summary/g) > 40 && countOf(r.body, /<details open=""[^>]*data-fold-level="1"/g) === 2 && countOf(r.body, /<details open=""[^>]*data-fold-level="[23]"/g) === 0);
   check("Reader dashboard: a field that is empty does not show the word unknown", !/unknown/i.test(text.replace(/Date unknown/g, "")));
   check("Reader dashboard: no research field of the metadata row (sources, confidence, filled_by, confirmed_by)", !/confidence|filled_by|confirmed_by|"sources"/.test(r.body));
@@ -1663,11 +1848,16 @@ async function readTest() {
   // --- search (round 68 answer 3, round 69 answer 10)
   const hitsOf = (html) => [...html.matchAll(/data-hit-page="([^"]+)"/g)].map((m) => m[1]);
   const sumOf = (html) => htvText((html.match(/data-search-summary[\s\S]*?<\/p>/) ?? [""])[0]);
-  const SEME = ["100_practice_full/p067", "kendojidai_2014/p0794", "kendojidai_2014/p0795", "kendojidai_2014/p0796", "kendojidai_2014/p0797", "kendojidai_2014/p0798", "left_foot_full/p046", "left_foot_full/p047", "left_foot_full/p048", "left_foot_full/p075"];
   const sq = await cr.req("/read?q=seme");
-  check("Search 'seme': 10 pages in 3 works (left_foot_full p046 p047 p048 p075, kendojidai_2014 p0794 to p0798, 100_practice_full p067)", sq.status === 200 && JSON.stringify(hitsOf(sq.body).sort()) === JSON.stringify([...SEME].sort()) && /10 pages in 3 works by text/.test(sumOf(sq.body)), sumOf(sq.body));
+  // RT73a: the 10 agent pages (left_foot_full p046 p047 p048 p075, kendojidai_2014 p0794 to p0798, 100_practice_full p067) plus the web pages that hold the word (page file, own fold).
+  // 18d4ac29/p001 may add one page and one work: its search columns hold the agent text and the Human text.
+  const wSeme = await webHits("seme");
+  const nOf = (html) => Number(/(\d+) pages? in (\d+) works? by text/.exec(sumOf(html))?.[1] ?? -1);
+  const mOf = (html) => Number(/(\d+) pages? in (\d+) works? by text/.exec(sumOf(html))?.[2] ?? -1);
+  check(`Search 'seme': the 10 agent pages in 3 works plus ${wSeme.pages.size} web pages in ${wSeme.works.size} web articles (page file), 18d4ac29/p001 may add one`, sq.status === 200 && nOf(sq.body) - 10 - wSeme.pages.size >= 0 && nOf(sq.body) - 10 - wSeme.pages.size <= 1 && mOf(sq.body) - 3 - wSeme.works.size >= 0 && mOf(sq.body) - 3 - wSeme.works.size <= 1 && hitsOf(sq.body).length >= 10, `${sumOf(sq.body)} | expected ${10 + wSeme.pages.size} pages in ${3 + wSeme.works.size} works`);
   const sqJa = await cr.req("/read?q=" + encodeURIComponent("攻め"));
-  check("Search 攻め: the same 10 pages", sqJa.status === 200 && JSON.stringify(hitsOf(sqJa.body).sort()) === JSON.stringify([...SEME].sort()), sumOf(sqJa.body));
+  const wJa = await webHits("攻め");
+  check(`Search 攻め: the 10 agent pages plus ${wJa.pages.size} web pages (page file, own fold), 18d4ac29/p001 may add one`, sqJa.status === 200 && nOf(sqJa.body) - 10 - wJa.pages.size >= 0 && nOf(sqJa.body) - 10 - wJa.pages.size <= 1, `${sumOf(sqJa.body)} | expected ${10 + wJa.pages.size} pages`);
   const sqC1 = await cr.req("/read?q=chuzumi");
   const sqC2 = await cr.req("/read?q=" + encodeURIComponent("Chūzumi"));
   const CHU = ["left_foot_full/p048", "left_foot_full/p049"];
@@ -1679,7 +1869,7 @@ async function readTest() {
   const sqKAll = [sqK, ...(await Promise.all(Array.from({ length: screensK - 1 }, (_, i) => cr.req(`/read?q=kendo&screen=${i + 2}`))))];
   check(`Search 'kendo' finds Kendō on left_foot_full p046 (the fold rule removes the macron): ${screensK} screens, the title hits come first and the page hits follow`, sqKAll.some((x) => hitsOf(x.body).includes("left_foot_full/p046")), sqKAll.map((x) => hitsOf(x.body).length).join(","));
   const sqT = await cr.req("/read?q=droplet");
-  check("Search 'droplet': the work 18d4ac29 'Kendo droplet guard' is a hit by title, and its page p001 is a page hit with the word marked", /data-book="18d4ac29"/.test(sqT.body) && /1 work by title or author/.test(sumOf(sqT.body)) && JSON.stringify(hitsOf(sqT.body)) === '["18d4ac29/p001"]' && /<mark[^>]*>Droplet<\/mark>/.test(sqT.body), sumOf(sqT.body));
+  check("Search 'droplet': the work 18d4ac29 'Kendo droplet guard' is a hit by title, and its page p001 is a page hit with the word marked", /data-book="18d4ac29"/.test(sqT.body) && /1 work by title or author/.test(sumOf(sqT.body)) && hitsOf(sqT.body).includes("18d4ac29/p001") && /<mark[^>]*>Droplet<\/mark>/.test(sqT.body), sumOf(sqT.body));
   const sqAu = await cr.req("/read?q=" + encodeURIComponent("kobayashi"));
   check("Search by author 'kobayashi': the work left_foot_full is a hit by author", /data-book="left_foot_full"/.test(sqAu.body));
   const sqNone = await cr.req("/read?q=qqzzxx");
@@ -1771,11 +1961,11 @@ async function readTest() {
   // --- scroll view and focus mode
   r = await cr.req(`/read/${LF}?view=scroll&at=p048`);
   const secs = [...new Set([...r.body.matchAll(/data-section="([^"]+)"/g)].map((m) => m[1]))];
-  check("Scroll view: all 120 pages are sections, 5 pages near p048 hold text (p046 to p050), p075 loads later, and the other pages say 'No agent translation yet'", r.status === 200 && /data-view="scroll"/.test(r.body) && secs.length === 120 && countOf(r.body, /data-lazy="75"/g) === 1 && countOf(r.body, /data-row="/g) >= 25 && countOf(htvText(r.body), /No agent translation yet/g) === 114, `sections ${secs.length}, lazy75 ${countOf(r.body, /data-lazy="75"/g)}`);
+  check("Scroll view: all 120 pages are sections, 5 pages near p048 hold text (p046 to p050), p075 loads later, and the pages with a v1 file (p051, p052 in this test folder) load later too, and the other 112 pages say 'No text for this page yet.'", r.status === 200 && /data-view="scroll"/.test(r.body) && secs.length === 120 && countOf(r.body, /data-lazy="75"/g) === 1 && countOf(r.body, /data-lazy="51"/g) === 1 && countOf(r.body, /data-lazy="52"/g) === 1 && countOf(r.body, /data-row="/g) >= 25 && countOf(htvText(r.body), /No text for this page yet\./g) === 112, `sections ${secs.length}, lazy75 ${countOf(r.body, /data-lazy="75"/g)}, empty ${countOf(htvText(r.body), /No text for this page yet\./g)}`);
   r = await cr.req(`/api/read/page?ids=${LF}/p075`);
   check("Scroll view lazy load: GET /api/read/page for p075 gives the page with text", r.status === 200 && r.json?.pages?.[0]?.hasText === true && r.json.pages[0].rows.length === 13, `rows ${r.json?.pages?.[0]?.rows?.length}`);
   r = await cr.req(`/api/read/page?ids=${LF}/p051`);
-  check("GET /api/read/page for p051 (no text) gives hasText false", r.status === 200 && r.json?.pages?.[0]?.hasText === false && r.json.pages[0].rows.length === 0);
+  check("GET /api/read/page for p051 (no reader_pages record) gives hasText false, no rows, hasAgent false, hasHuman false (the v1 blocks are the test of mode web)", r.status === 200 && r.json?.pages?.[0]?.hasText === false && r.json.pages[0].rows.length === 0 && r.json.pages[0].hasAgent === false && r.json.pages[0].hasHuman === false);
   r = await cr.req(`/api/read/page?ids=${LF}/p046,mental_full/p014`);
   check("GET /api/read/page for two books in one call gives 400", r.status === 400, `status ${r.status}`);
   r = await cr.req(`/api/read/page?ids=${LF}/p001,${LF}/p002,${LF}/p003,${LF}/p004,${LF}/p005,${LF}/p006,${LF}/p007,${LF}/p008,${LF}/p009`);
@@ -1864,7 +2054,7 @@ async function readTest() {
   r = await cr.req(`/read/${LF}?view=page&at=p048`);
   check("After the page check is removed, the label is 'AI translation, not yet checked by a person' again", /AI translation, not yet checked by a person/.test(htvText(r.body)));
   r = await ad.req("/admin/versions?page=" + encodeURIComponent(P48));
-  check("Admin page /admin/versions: the page list has the pages with reader text and the panel of p048", r.status === 200 && new Set([...r.body.matchAll(/href="\/admin\/versions\?page=([^"]+)"/g)].map((m) => m[1])).size === 29 && r.body.includes(`data-version-panel="${P48}"`), `links ${new Set([...r.body.matchAll(/href="\/admin\/versions\?page=([^"]+)"/g)].map((m) => m[1])).size}`);
+  check("Admin page /admin/versions: the page list has the pages with reader text and the panel of p048", r.status === 200 && new Set([...r.body.matchAll(/href="\/admin\/versions\?page=([^"]+)"/g)].map((m) => m[1])).size === 1152 && r.body.includes(`data-version-panel="${P48}"`), `links ${new Set([...r.body.matchAll(/href="\/admin\/versions\?page=([^"]+)"/g)].map((m) => m[1])).size}`);
   r = await cr.req("/admin/versions");
   check("A reader at /admin/versions goes to /read", r.go === "/read", `go ${r.go}`);
 
@@ -1935,7 +2125,7 @@ async function readTest() {
   check("PocketBase: a translator still reads page_runs", trRuns.status === 200 && (trRuns.json?.items ?? []).length === 1);
   const rpList = await pbCall(pbUrl, "GET", "/api/collections/reader_pages/records?perPage=500", cr.token());
   const rpKeys = [...walkKeys(rpList.json)].filter((k) => LEAK_KEYS.has(k));
-  check("PocketBase: the reader_pages records (29) hold no key verdict, score, panel, reasoning, result, detail, tsIds", rpList.json?.totalItems === 29 && rpKeys.length === 0, `total ${rpList.json?.totalItems}, keys ${rpKeys.join(",")}`);
+  check("PocketBase: the reader_pages records (29 agent records and 1,123 web-ja records) hold no key verdict, score, panel, reasoning, result, detail, tsIds (the first 500 are read)", rpList.json?.totalItems === 1152 && rpKeys.length === 0, `total ${rpList.json?.totalItems}, keys ${rpKeys.join(",")}`);
   const htvApi = await cr.req(`/api/htv/page?ids=${P48}`);
   check("The human-translation-view API gives a reader 403 and no page data", htvApi.status === 403 && !LEAK_HTML.test(htvApi.body), `status ${htvApi.status}`);
   for (const u of ["/translate", `/translate/${LF}`, `/translate/${LF}/p048`, "/translate/mental_full?at=p014"]) {
@@ -2180,6 +2370,26 @@ async function imageChecks({ anon, cr, tr1c, ad, adminToken, pbUrl, LF, put, cou
 }
 
 // Parity of the reader_pages rows with the build of the human-translation-view (VISION-viewer 15.19.10).
+// Unit RT73a: pages and works of the web articles whose kendojidai.com text or Japanese text holds a folded query, read from the page file (with the fold rule of the app).
+// 18d4ac29/p001 is left out: its search columns hold the agent text and the Human text together.
+async function webHits(query) {
+  const { pathToFileURL } = await import("node:url");
+  const { installTsResolveHook } = await import(pathToFileURL(path.resolve("scripts/ts-resolve-hook.mjs")).href);
+  installTsResolveHook();
+  const S = await import(pathToFileURL(path.resolve("lib/reader-search.ts")).href);
+  const cfg = JSON.parse(await fs.readFile(configFile ? path.resolve(configFile) : path.resolve("viewer.config.json"), "utf-8"));
+  const file = process.env.RT73A_WEB_PAGES ? path.resolve(process.env.RT73A_WEB_PAGES) : path.join(path.resolve(cfg.translatorDataDir), "item-metadata/web-pages.jsonl");
+  const q = S.foldQuery(query);
+  const pages = new Set();
+  for (const line of (await fs.readFile(file, "utf-8")).split("\n")) {
+    if (!line.trim()) continue;
+    const pg = JSON.parse(line);
+    if (pg.page_id === "18d4ac29/p001") continue;
+    if (S.foldText(pg.human_rows.map((h) => h.text).join(" ")).includes(q) || S.foldText(pg.ja_rows.map((x) => x.ja).join(" ")).includes(q)) pages.add(pg.page_id);
+  }
+  return { pages, works: new Set([...pages].map((x) => x.split("/")[0])) };
+}
+
 async function parityReaderRows(pbUrl, adminToken) {
   const { pathToFileURL } = await import("node:url");
   const { installTsResolveHook } = await import(pathToFileURL(path.resolve("scripts/ts-resolve-hook.mjs")).href);
@@ -2190,7 +2400,8 @@ async function parityReaderRows(pbUrl, adminToken) {
   const tb = build.parseTermbase(await fs.readFile(path.join(dataDir, "termbase/termbase.draft.jsonl"), "utf-8"));
   const rj = async (f) => JSON.parse(await fs.readFile(f, "utf-8").catch(() => "null"));
   const rt = (f) => fs.readFile(f, "utf-8").catch(() => null);
-  const recs = (await pbCall(pbUrl, "GET", "/api/collections/reader_pages/records?perPage=500", adminToken)).json?.items ?? [];
+  // Unit RT73a: only the agent records (run_id is not "web-ja"). 18d4ac29/p001 also holds the web Original text rows, merged by key. They are not part of the run build.
+  const recs = ((await pbCall(pbUrl, "GET", "/api/collections/reader_pages/records?perPage=500&filter=" + encodeURIComponent('run_id != "web-ja"'), adminToken)).json?.items ?? []).map((x) => ({ ...x, rows: x.rows.filter((r) => !/\/web\/[A-Za-z0-9_]+$/.test(r.key)) }));
   let same = 0;
   const diffs = [];
   for (const rec of recs) {
@@ -2229,7 +2440,16 @@ async function foldsTest() {
   const jsonl = async (name) => (await fs.readFile(path.join(dir, name), "utf-8")).split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
   const rows = await jsonl("items.filled.jsonl");
   const stamps = new Map((await jsonl("web-magazine-candidates.jsonl")).map((r) => [r.record_id, r]));
-  const translatedOf = { left_foot_full: [46, 47, 48, 49, 50, 75], kendojidai_2014: [794, 795, 796, 797, 798], "18d4ac29": [1] };
+  // Unit RT73a: a web article has the pages of the A4 cut and a Human version on each of them (the page file of the Translator, S2 default choice).
+  const webFile = process.env.RT73A_WEB_PAGES ? path.resolve(process.env.RT73A_WEB_PAGES) : path.join(dir, "web-pages.jsonl");
+  const webPageCount = new Map();
+  for (const line of (await fs.readFile(webFile, "utf-8")).split("\n")) {
+    if (!line.trim()) continue;
+    const pg = JSON.parse(line);
+    webPageCount.set(pg.item_id, Math.max(webPageCount.get(pg.item_id) ?? 0, pg.n));
+  }
+  const translatedOf = { left_foot_full: [46, 47, 48, 49, 50, 75], kendojidai_2014: [794, 795, 796, 797, 798] };
+  for (const [slug, n] of webPageCount) translatedOf[slug] = Array.from({ length: n }, (_, i) => i + 1);
   const works = rows.map((r) => {
     const web = r.kind === "web-article";
     const slug = web ? r.item_id.slice(0, 8) : r.item_id;
@@ -2237,7 +2457,7 @@ async function foldsTest() {
     const st = web ? stamps.get(r.item_id) : null;
     return {
       slug, kind: r.kind, titleEn: r.title_en ?? "", titleJa: r.title_ja ?? "", author: r.author_en ?? "", publisher: r.publisher ?? "", year: r.publish_year == null ? "" : String(r.publish_year),
-      pages: typeof r.pages === "number" ? r.pages : 0, synopsis: r.synopsis ?? "", isbn: "", partOf: r.part_of ?? "", webDate: web ? r.publish_date_text : "",
+      pages: web ? webPageCount.get(slug) ?? 0 : typeof r.pages === "number" ? r.pages : 0, synopsis: r.synopsis ?? "", isbn: "", partOf: r.part_of ?? "", webDate: web ? r.publish_date_text : "",
       placement: { webYear: d ? Number(d[1]) : null, webMonth: d ? Number(d[2]) : null, printYear: st?.stamp_year ?? null, printMonth: st?.stamp_month ?? null },
       translated: translatedOf[slug] ?? [], known: true, resumeAt: null,
     };
@@ -2256,6 +2476,16 @@ async function foldsTest() {
     return null;
   };
   const rowSlugs = (nodes) => nodes.flatMap((n) => (n.type === "fold" ? [...(n.head ? [n.head.work.slug] : []), ...rowSlugs(n.children)] : n.type === "work" ? [n.work.slug] : []));
+  const rowsOf = (nodes, slug) => {
+    for (const n of nodes) {
+      if (n.type === "work" && n.work.slug === slug) return n;
+      if (n.type === "fold") {
+        const hit = rowsOf([...(n.head ? [n.head] : []), ...n.children], slug);
+        if (hit) return hit;
+      }
+    }
+    return null;
+  };
   const articleCount = (nodes) => nodes.reduce((t, n) => t + (n.type === "fold" ? articleCount(n.children) : n.type === "article" ? 1 : 0), 0);
 
   // --- default reading A
@@ -2264,7 +2494,10 @@ async function foldsTest() {
   check("Folds A: two first-level folds, Books and Kendo Jidai", A.folds.map((f) => f.id).join(",") === "books,kj" && A.folds.every((f) => f.level === 1), A.folds.map((f) => f.id).join(","));
   check("Folds A: Books holds 22 works (25 books, men0, men1, and mental2_clean hidden)", A.folds[0].counts.works === 22, `works ${A.folds[0].counts.works}`);
   check("Folds A: Kendo Jidai holds 320 works (9 year volumes and 311 web articles)", A.folds[1].counts.works === 320, `works ${A.folds[1].counts.works}`);
-  check("Folds A: 342 visible works in all, and 13,303 pages (a web article counts as 1 page)", A.visible.length === 342 && A.totals.works === 342 && A.totals.pages === 13303, `works ${A.totals.works}, pages ${A.totals.pages}`);
+  check("Folds A: 342 visible works in all, and 14,116 pages (RT73a: 4,821 book pages + 8,171 magazine pages + 1,124 A4 pages of the web articles)", A.visible.length === 342 && A.totals.works === 342 && A.totals.pages === 14116, `works ${A.totals.works}, pages ${A.totals.pages}`);
+  check("Folds A (RT73a): d7835263 is a work row with 3 pages and 3 translated pages, and 18d4ac29 has 1 page", (() => { const r3 = rowsOf(A.folds, "d7835263"); const r1 = rowsOf(A.folds, "18d4ac29"); return r3?.pages === 3 && r3.translated === 3 && r3.start === 1 && r1?.pages === 1 && r1.translated === 1 && R.progressLine(r3.translated, r3.pages) === "English: 3 of 3 pages translated (100.0 percent)"; })());
+  check("Folds A (RT73a): the year folds 2019 to 2025 are named 'Kendo Jidai 2019' to 'Kendo Jidai 2025'; 2013 and 2014 keep the titles of the magazine volumes", (() => { const t = (y) => find(A.folds, `kj-${y}`)?.title; return [2019, 2020, 2021, 2022, 2023, 2024, 2025].every((y) => t(y) === `Kendo Jidai ${y}`) && t(2013) === "Kendo Jidai 2013" && t(2014) === "Kendo Jidai 2014"; })(), [2019, 2025, 2013].map((y) => find(A.folds, `kj-${y}`)?.title).join(" | "));
+  check("Folds A (RT73a): Books 6 translated of 4,821 pages, Kendo Jidai 9,295 pages (8,171 + 1,124) with 1,129 translated pages (5 + 1,124)", A.folds[0].counts.pages === 4821 && A.folds[0].counts.translated === 6 && A.folds[1].counts.pages === 9295 && A.folds[1].counts.translated === 1129, `kj pages ${A.folds[1].counts.pages}, translated ${A.folds[1].counts.translated}`);
   const hidden = ["men0", "men1", "mental2_clean", "matsubara", "morishima"];
   check("Folds: hidden works are absent from the rows (men0, men1, mental2_clean, matsubara, morishima; round 69 answers 12 and 15)", hidden.every((h) => !rowSlugs(A.folds).includes(h)) && hidden.every((h) => !A.visible.some((w) => w.slug === h)));
   check("Folds: ogawa_lecture_part1, part2, and part3 stay as three rows in one fold", find(A.folds, "books-series-1")?.children.length === 3 && ["ogawa_lecture_part1", "ogawa_lecture_part2", "ogawa_lecture_part3"].every((x) => rowSlugs(A.folds).includes(x)));
@@ -2325,8 +2558,22 @@ async function foldsTest() {
   check("Progress words: 'English: 0 of 176 pages translated (0.0 percent)' for etiqu1_full", R.progressLine(0, 176) === "English: 0 of 176 pages translated (0.0 percent)");
   check("Progress words: 'English: 1 of 1 page translated (100.0 percent)' for a web article", R.progressLine(1, 1) === "English: 1 of 1 page translated (100.0 percent)");
   check("Progress words: the fold form is the full form 'English: 20 of 4,821 pages translated (0.4 percent)' with the thousands separator of the fold line (round 70 answer 9)", R.foldProgress(20, 4821) === "English: 20 of 4,821 pages translated (0.4 percent)", R.foldProgress(20, 4821));
-  check("Translated rule: a page counts when a reader_pages record exists, else not", R.isTranslatedPage({ page_id: "left_foot_full/p048" }) === true && R.isTranslatedPage(undefined) === false && R.isTranslatedPage(null) === false && R.TRANSLATED_WORD === "translated");
-  check("Progress words (RC4b): the total line of the folds data (12 translated pages) is 'English: 12 of 13,303 pages translated (0.1 percent)' and the first-level folds have the full form", (() => { const t = A.totals; return R.foldProgress(t.translated, t.pages) === "English: 12 of 13,303 pages translated (0.1 percent)" && A.folds.every((f) => /^English: \d+ of [\d,]+ pages translated \([\d.]+ percent\)$/.test(R.foldProgress(f.counts.translated, f.counts.pages))); })(), `${A.totals.translated} of ${A.totals.pages}`);
+  check("Translated rule (RT73a): a page counts when it has an Agent text or a Human version; a page with only the Original text rows (web-ja) or only a v1 placeholder does not", R.isTranslatedPage({ agent: true }) === true && R.isTranslatedPage({ human: true }) === true && R.isTranslatedPage({ agent: true, human: true }) === true && R.isTranslatedPage({ agent: false, human: false }) === false && R.isTranslatedPage({}) === false && R.isTranslatedPage(undefined) === false && R.isTranslatedPage(null) === false && R.TRANSLATED_WORD === "translated");
+  const WEBM = await import("../lib/reader-web.ts");
+  check("Web rule (RT73a): a reader_pages record counts as an agent record unless its run_id is empty or 'web-ja'", WEBM.hasAgentRecord({ run_id: "20261026T182512Z-r41" }) === true && WEBM.hasAgentRecord({ runId: "20261026T182512Z-r41" }) === true && WEBM.hasAgentRecord({ run_id: "web-ja" }) === false && WEBM.hasAgentRecord({ run_id: "" }) === false && WEBM.hasAgentRecord(null) === false && WEBM.isWebKey("d7835263/p001/web/U004") === true && WEBM.isWebKey("left_foot_full/p048/ts3/L01-L05") === false);
+  const V1 = await import("../lib/reader-v1.ts");
+  {
+    const md = await fs.readFile("/Volumes/NghiaHDD2T/universal-agent_v2/book-postprocessing/Left foot full/pages/page_051.md", "utf-8").catch(() => null);
+    if (md === null) skip("v1 block rule on the real file left_foot_full page_051.md", "the v1 folder is not mounted");
+    else {
+      const v = V1.parseV1Md(md, "left_foot_full/p051");
+      check("v1 block rule (RT73a): page_051.md has 17 blocks, the first is the heading block (JA, EN without asterisks, ZH without asterisks), the key form is <page_id>/v1/<NN>, the last block (1 line) has EN only", v.length === 17 && v[0].key === "left_foot_full/p051/v1/01" && v[0].ja === "剣道は左手・左腰・左足である" && v[0].en === "Kendo is about hidari-te, hidari-koshi, and hidari-ashi." && v[0].zh === "Kendo在于hidari-te、hidari-koshi与hidari-ashi。" && v[16].ja === "" && v[16].zh === "" && v[16].en.startsWith("[Figure/Diagram referenced in original]") && v.filter((x) => x.zh !== "").length === 16, JSON.stringify(v[0]));
+    }
+    const t4 = V1.parseV1Md("Page 9\n\n---\n\nJA line\nEN line with *marks* and [T/N: a note]\nZH line\np. 948\n\n---\n\nonly one\n\n---\n\na\nb\nc\nd\ne\n\n---\n\nJA two\nEN two\n", "x/p009");
+    check("v1 block rule (RT73a): a block of 4 lines joins line 4 to EN, asterisks go, [T/N: ...] notes stay, a block of 1 or 5 lines is EN only, a block of 2 lines is JA and EN, 'Page N' is not a row", t4.length === 4 && t4[0].en === "EN line with marks and [T/N: a note] p. 948" && t4[0].zh === "ZH line" && t4[1].ja === "" && t4[1].en === "only one" && t4[2].ja === "" && t4[2].en === "a b c d e" && t4[3].ja === "JA two" && t4[3].en === "EN two" && t4[3].zh === "" && t4[0].key === "x/p009/v1/01" && t4[3].key === "x/p009/v1/04", JSON.stringify(t4));
+    check("v1 file names (RT73a): page 51 is page_051.md, page 794 is page_794.md, page 1000 is page_1000.md", V1.v1FileName(51) === "page_051.md" && V1.v1FileName(794) === "page_794.md" && V1.v1FileName(1000) === "page_1000.md" && V1.v1PageOfFile("page_1000.md") === 1000 && V1.v1PageOfFile("._page_001.md") === 0 && V1.v1PageOfFile("page_1.md") === 0);
+  }
+  check("Progress words (RC4b): the total line of the folds data (1,135 translated pages: 6 + 5 + 1,124) is 'English: 1,135 of 14,116 pages translated (8.0 percent)' and the first-level folds have the full form", (() => { const t = A.totals; return R.foldProgress(t.translated, t.pages) === "English: 1,135 of 14,116 pages translated (8.0 percent)" && A.folds.every((f) => /^English: [\d,]+ of [\d,]+ pages translated \([\d.]+ percent\)$/.test(R.foldProgress(f.counts.translated, f.counts.pages))); })(), `${A.totals.translated} of ${A.totals.pages}`);
   check("Progress words (RC4b): a fold of one page reads '1 of 1 page translated' (singular) and a fold with 0 pages reads '0 of 0 pages translated (0.0 percent)'", R.foldProgress(1, 1) === "English: 1 of 1 page translated (100.0 percent)" && R.foldProgress(0, 0) === "English: 0 of 0 pages translated (0.0 percent)");
   check("Progress words (RC4b): the word 'finished' is in none of the progress forms", ![R.progressLine(6, 120), R.foldProgress(21, 5067), R.foldProgress(0, 0), R.progressLine(1, 1)].some((x) => /finished/i.test(x)));
 }
@@ -2344,6 +2591,7 @@ try {
   else if (mode === "htv") await htvTest();
   else if (mode === "deploy") await deployTest();
   else if (mode === "read") await readTest();
+  else if (mode === "web") await webTest();
   else await smoke();
 } finally {
   server.kill("SIGTERM");

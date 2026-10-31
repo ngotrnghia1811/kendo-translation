@@ -26,9 +26,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string; p
     const { slug, page } = await ctx.params;
     if (!/^[a-z0-9_]+$/.test(slug) || !/^p\d{3,4}$/.test(page)) return jsonResponse({ error: "Bad page ID." }, 400);
     const cfg = loadPageImageConfig();
-    const pages = (await catalogInfo(g.token, slug)).get(slug)?.pages ?? 0;
+    const info = (await catalogInfo(g.token, slug)).get(slug);
+    const pages = info?.pages ?? 0;
     const n = parseInt(page.slice(1), 10);
-    if (pages === 0 || n < 1 || n > pages || page.length - 1 !== idDigits(pages)) return jsonResponse({ error: NO_IMAGE }, 404);
+    // Unit RT73a: a web article has A4 pages now, but no page image. The kind test replaces the test "pages is 0" for it.
+    if (info?.kind === "web-article" || pages === 0 || n < 1 || n > pages || page.length - 1 !== idDigits(pages)) return jsonResponse({ error: NO_IMAGE }, 404);
 
     if (cfg.source === "signed") {
       const exp = Math.floor(Date.now() / 1000) + LINK_SECONDS;

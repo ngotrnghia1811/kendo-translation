@@ -7,8 +7,9 @@ import {
   magazineChapters,
   PbError,
   readerPageRecords,
+  readerPageNumbers,
   readerTextNumbers,
-  readerTextPages,
+  readerVersionPages,
   searchReaderPages,
   SEARCH_HIT_CAP,
   readerVersionRecords,
@@ -21,6 +22,8 @@ import {
   LABEL_AGENT_CHECKED,
   LABEL_AGENT_UNCHECKED,
   LABEL_HUMAN,
+  LABEL_HUMAN_DEFAULT,
+  LABEL_V1,
   pageLabel,
   type BookmarkView,
   type ReaderBookFacts,
@@ -30,6 +33,8 @@ import {
   type ReaderViewRow,
 } from "./reader-types";
 import type { SessionUser } from "./htv-types";
+import { hasAgentRecord, isWebKey } from "./reader-web";
+import { v1PageNumbers, v1PageRows } from "./reader-v1-files";
 import { buildFolds, matchWorks, type Dashboard } from "./reader-folds";
 import { foldQuery, snippetOf, type Snippet } from "./reader-search";
 import type { DashWork } from "./reader-types";
@@ -132,11 +137,14 @@ export async function loadDashboard(token: string, user: SessionUser, rawQuery: 
   const slice = all.slice((screen - 1) * SEARCH_PER_SCREEN, screen * SEARCH_PER_SCREEN);
   const ids = slice.flatMap((x) => ("hit" in x ? [x.hit.pageId] : []));
   const recs = new Map((await soft<ReaderPageRecord[]>([], () => readerPageRecords(token, ids))).map((r) => [r.pageId, r]));
+  // Unit RT73a: the English text of a web article page is its Human version (reader_versions). A hit in that text shows a snippet of it.
+  const versions = ids.length ? await soft(new Map<string, ReaderHumanVersion>(), () => readerVersionRecords(token, ids)) : new Map<string, ReaderHumanVersion>();
+  const humanText = (id: string) => (versions.get(id)?.rows ?? []).map((r) => r.text).filter(Boolean).join(" ");
   const items: SearchItem[] = slice.map((x) => {
     if ("w" in x) return { type: "work", work: x.w };
     const w = visibleSlugs.get(x.hit.itemId)!;
     const rec = recs.get(x.hit.pageId);
-    const en = rec ? plainEn(rec) : "";
+    const en = rec ? [plainEn(rec), humanText(x.hit.pageId)].filter(Boolean).join(" ") : "";
     const snippet = rec ? snippetOf(en, folded) ?? snippetOf(plainJa(rec), folded) : null;
     const digits = x.hit.pageId.length - x.hit.pageId.lastIndexOf("/p") - 2;
     return { type: "page", slug: w.slug, title: w.titleEn || w.titleJa || w.slug, n: x.hit.n, digits, snippet, fallback: snippet ? "" : en.replace(/\s+/g, " ").slice(0, 140) };
@@ -159,25 +167,40 @@ export async function loadDashboard(token: string, user: SessionUser, rawQuery: 
 }
 
 function factsOf(slug: string, f: ReaderBookFacts | undefined): ReaderBookFacts {
-  return f ?? { slug, titleEn: "", titleJa: "", author: "", publisher: "", year: "", isbn: "", pages: 0, synopsis: "" };
+  return f ?? { slug, titleEn: "", titleJa: "", author: "", publisher: "", year: "", isbn: "", pages: 0, synopsis: "", kind: "" };
 }
+
+/** True for a work with page images: a book or a magazine year. A web article has none, also when it has A4 pages (unit RT73a, VISION-viewer 15.26.6.1). */
+function hasPageImages(kind: string, pages: number): boolean {
+  return kind !== "web-article" && kind !== "web-capture" && pages > 0;
+}
+
+const sortedUnion = (...lists: number[][]): number[] => [...new Set(lists.flat())].sort((a, b) => a - b);
 
 /** The index of one book, or null when the book is not in catalog_items. */
 export async function loadReaderIndex(token: string, user: SessionUser, slug: string): Promise<ReaderBookIndex | null> {
   const f = (await catalogFacts(token, slug))[0];
   if (!f) return null;
-  const textPages = await soft<number[]>([], () => readerTextPages(token, slug));
+  // Unit RT73a: a page is translated when it has an Agent text or a Human version. A page with only Original text rows or a v1 file is not (VISION-viewer 15.26.10).
+  const nums = await soft<{ agent: number[]; web: number[] }>({ agent: [], web: [] }, () => readerPageNumbers(token, slug));
+  const humanPages = await soft<number[]>([], () => readerVersionPages(token, slug));
+  const v1Pages = await v1PageNumbers(slug);
+  const textPages = sortedUnion(nums.agent, humanPages);
   const checks = await pageCheckDates(token, slug).catch(() => new Map<string, string>());
   const chapters = (await magazineChapters(token, slug)).filter((c) => c.pageStart > 0);
   const progress = await soft(new Map<string, string>(), () => readingProgress(token, user.id));
   const at = progress.get(slug);
-  const pages = Math.max(f.pages, ...textPages, 1);
+  const pages = Math.max(f.pages, ...textPages, ...nums.web, 1);
   return {
     ...factsOf(slug, f),
     pages,
     digits: idDigits(pages),
-    images: f.pages > 0,
+    images: hasPageImages(f.kind, f.pages),
+    kind: f.kind,
     textPages,
+    agentPages: nums.agent,
+    humanPages,
+    dataPages: sortedUnion(nums.agent, nums.web, humanPages, v1Pages),
     checkedPages: [...checks.keys()].map(numberOf).filter((n) => n > 0).sort((a, b) => a - b),
     chapters,
     resumeAt: at ? numberOf(at) || null : null,
@@ -185,25 +208,39 @@ export async function loadReaderIndex(token: string, user: SessionUser, slug: st
 }
 
 /**
- * The rows of the screen: the agent rows of the shown run, and the human row for each of them when an admin chose a version.
+ * The rows of the screen: the agent rows of the shown run, and the human row for each of them when the page has a Human version.
  * Row rules for a chosen version (VISION-viewer 15.19.5):
  *   - the translator wrote a text: the own text, no AI label
  *   - the translator ticked agree and left the box empty: the agent text that the translator accepted, with the tag "AI translation, checked by a translator"
  *   - else the agent text of the shown run for the same group key
  * A group key that the agent rows do not have goes to the end of the page, with its JA text from the saved row.
+ * Unit RT73a (VISION-viewer 15.26.4 and 15.26.13): a row with a web key (<page_id>/web/<unit>) belongs to a web article. Its Human text is the kendojidai.com text.
+ * A web row with no Human text (a JA-only sentence) gets an empty Human text, never the agent text. The fact marks of the Human row go with it.
  */
 export function mergeRows(rec: ReaderPageRecord, human: ReaderHumanVersion | null): ReaderViewRow[] {
   const agreed = new Set(rec.agree);
   const byKey = new Map((human?.rows ?? []).map((r) => [r.key, r]));
   const rows: ReaderViewRow[] = rec.rows.map((r) => {
     const h = byKey.get(r.key);
+    const web = isWebKey(r.key);
     let humanRow: ReaderViewRow["human"] = null;
     if (human) {
-      if (h && h.text.trim()) humanRow = { text: h.text, marks: [], kind: "own" };
-      else if (h && h.agree) humanRow = { text: h.ed3Text, marks: h.ed3Text === r.ed3 ? r.edMarks : [], kind: "agree" };
-      else humanRow = { text: r.ed3, marks: r.edMarks, kind: "agent" };
+      if (h && h.text.trim()) humanRow = { text: h.text, marks: [], kind: "own", facts: h.facts ?? [] };
+      else if (h && h.agree) humanRow = { text: h.ed3Text, marks: h.ed3Text === r.ed3 ? r.edMarks : [], kind: "agree", facts: [] };
+      else if (web) humanRow = { text: "", marks: [], kind: "own", facts: [] };
+      else humanRow = { text: r.ed3, marks: r.edMarks, kind: "agent", facts: [] };
     }
-    return { key: r.key, shortKey: r.shortKey, part: r.part, ja: r.ja, jaMarks: r.jaMarks, agent: { text: r.ed3, marks: r.edMarks, agreedByTranslator: agreed.has(r.key) }, human: humanRow };
+    return {
+      key: r.key,
+      shortKey: r.shortKey,
+      part: r.part,
+      ja: r.ja,
+      jaMarks: r.jaMarks,
+      agent: { text: r.ed3, marks: r.edMarks, agreedByTranslator: agreed.has(r.key) },
+      human: humanRow,
+      web,
+      site: r.site === true,
+    };
   });
   if (human) {
     const have = new Set(rec.rows.map((r) => r.key));
@@ -212,26 +249,30 @@ export function mergeRows(rec: ReaderPageRecord, human: ReaderHumanVersion | nul
       const shortKey = h.key.slice(h.key.lastIndexOf("/") + 1);
       const kind = h.text.trim() ? "own" : h.agree ? "agree" : "agent";
       const text = h.text.trim() ? h.text : h.agree ? h.ed3Text : "";
-      rows.push({ key: h.key, shortKey, part: "lines", ja: h.jaText, jaMarks: [], agent: { text: "", marks: [], agreedByTranslator: false }, human: { text, marks: [], kind } });
+      rows.push({ key: h.key, shortKey, part: "lines", ja: h.jaText, jaMarks: [], agent: { text: "", marks: [], agreedByTranslator: false }, human: { text, marks: [], kind, facts: h.facts ?? [] }, web: isWebKey(h.key), site: false });
     }
   }
   return rows;
 }
 
 function noText(n: number): ReaderPageData {
-  return { pageId: "", n, name: pageLabel(n), hasText: false, rows: [], terms: {}, extras: [], hasHuman: false, label: { agent: "", human: "" }, checked: false };
+  return { pageId: "", n, name: pageLabel(n), hasText: false, rows: [], terms: {}, extras: [], hasHuman: false, hasAgent: false, humanBy: null, v1: [], label: { agent: "", human: "", v1: LABEL_V1 }, checked: false };
 }
 
-/** The data of some pages of a book. A page without reader text answers hasText false. */
+/**
+ * The data of some pages of a book. A page without a reader_pages record answers hasText false.
+ * Unit RT73a: each page also carries the v1 placeholder blocks of its md file (v1), when this machine has the file. They count in no number.
+ */
 export async function loadReaderPages(token: string, slug: string, nums: number[], digits: number): Promise<ReaderPageData[]> {
   const ids = nums.map((n) => `${slug}/${pageName(n, digits)}`);
   const recs = new Map((await soft<ReaderPageRecord[]>([], () => readerPageRecords(token, ids))).map((r) => [r.pageId, r]));
   const versions = await soft(new Map<string, ReaderHumanVersion>(), () => readerVersionRecords(token, [...recs.keys()]));
   const checks = await pageCheckDates(token, slug).catch(() => new Map<string, string>());
+  const v1 = await Promise.all(nums.map((n, i) => v1PageRows(slug, n, ids[i])));
   return nums.map((n, i) => {
     const id = ids[i];
     const rec = recs.get(id);
-    if (!rec) return { ...noText(n), pageId: id };
+    if (!rec) return { ...noText(n), pageId: id, v1: v1[i] };
     const human = versions.get(id) ?? null;
     const checkedOn = checks.get(id);
     return {
@@ -243,7 +284,10 @@ export async function loadReaderPages(token: string, slug: string, nums: number[
       terms: rec.terms,
       extras: rec.extras,
       hasHuman: human !== null,
-      label: { agent: checkedOn ? `${LABEL_AGENT_CHECKED} (${checkedOn})` : LABEL_AGENT_UNCHECKED, human: LABEL_HUMAN },
+      hasAgent: hasAgentRecord({ runId: rec.runId }),
+      humanBy: human ? (human.byDefault ? "default" : "admin") : null,
+      v1: v1[i],
+      label: { agent: checkedOn ? `${LABEL_AGENT_CHECKED} (${checkedOn})` : LABEL_AGENT_UNCHECKED, human: human?.byDefault ? LABEL_HUMAN_DEFAULT : LABEL_HUMAN, v1: LABEL_V1 },
       checked: Boolean(checkedOn),
     };
   });

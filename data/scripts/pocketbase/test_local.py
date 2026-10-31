@@ -962,6 +962,52 @@ def check_dashboard_fields(ctx):
     ctx.check("23o the RC4 test records are removed again", all(http("GET", "/api/collections/" + c + "/records?perPage=1", token=su)[1].get("totalItems") == 0 for c in ("reader_pages", "catalog_items")), "")
 
 
+def check_web_fields(ctx):
+    """Migration 1793300011 (unit RT73a, round 73): own_translations.facts for the kendojidai.com text of the web articles, the default choice with an empty chosen_by,
+    and the system account that can never sign in. There is no collection reader_v1 (owner answer 8 of round 73d)."""
+    su = ctx.su_token
+    t = ctx.token
+
+    def field(collection, name):
+        return next((f for f in (get_collection(ctx, collection) or {}).get("fields", []) if f.get("name") == name), None)
+
+    f = field("own_translations", "facts")
+    ctx.check("24a own_translations.facts exists with the type json and maxSize 1 MB", bool(f) and f.get("type") == "json" and f.get("maxSize") == 1048576, "field " + str(f))
+    ctx.check("24b the migration adds no collection reader_v1", get_collection(ctx, "reader_v1") is None, "")
+    ctx.check("24c the rules of own_translations did not change", all((get_collection(ctx, "own_translations") or {}).get(k) == EXPECTED_RULES["own_translations"][k] for k in ("listRule", "viewRule", "createRule", "updateRule", "deleteRule")), "rules differ")
+    facts = [{"start": 75, "end": 111, "ja": "その上がった手元に小手を打たれる", "type": "action", "kind": "changed"}, {"start": None, "end": None, "ja": "右足", "type": "body_part", "kind": "dropped"}]
+    pw = secrets.token_urlsafe(18)
+    status, system = http("POST", "/api/collections/users/records", {"email": "kendojidai-com@system.invalid", "name": "kendojidai.com", "password": pw, "passwordConfirm": pw,
+                                                                    "verified": True, "emailVisibility": False, "role": "reader", "approved": False, "disabled": True}, su)
+    ctx.check("24d the superuser creates the system account kendojidai.com (email ending .invalid, role reader, approved false, disabled true)", is_ok(status) and system.get("disabled") is True, "status " + str(status) + " " + str(system)[:200])
+    status, _ = user_sign_in("kendojidai-com@system.invalid", pw)
+    ctx.check("24e the system account cannot sign in, even with the right password (users.authRule is disabled = false)", is_denied(status), "status " + str(status))
+    page = "rt73x/p001"
+    row = {"user": system["id"], "item_id": "rt73x", "page_id": page, "group_key": page + "/web/U071", "ts_ids": [], "part": "lines", "ja_text": "詰めたところから", "run_id": "",
+           "ed3_text": "", "text": "If you try to strike from there", "version": 1, "agree": False, "facts": facts}
+    status, rec = http("POST", "/api/collections/own_translations/records", row, su)
+    ctx.check("24f the superuser writes an own_translations row of the system account with two fact marks", is_ok(status) and rec.get("facts") == facts, "status " + str(status) + " " + str(rec)[:200])
+    status, _ = http("POST", "/api/collections/own_translations/records", dict(row, group_key=page + "/web/U072", facts=[{"ja": "x" * 1100000}]), su)
+    ctx.check("24g facts above 1 MB of JSON fail (explicit limit)", is_denied(status), "status " + str(status))
+    status, data = http("GET", "/api/collections/own_translations/records?filter=" + urllib.parse.quote('page_id="' + page + '"'), token=t["admin1"])
+    ctx.check("24h an admin reads the row of the system account with the facts", is_ok(status) and data.get("totalItems") == 1 and data["items"][0].get("facts") == facts, "status " + str(status))
+    status, data = http("GET", "/api/collections/own_translations/records?filter=" + urllib.parse.quote('page_id="' + page + '"'), token=t["tr1"])
+    ctx.check("24i a translator does not see the row of the system account (list rule: own rows or admin)", is_ok(status) and data.get("totalItems") == 0, "status " + str(status))
+    version = {"page_id": page, "user": system["id"], "version": 1, "run_id": "", "rows": [{"key": page + "/web/U071", "text": row["text"], "facts": facts}]}
+    status, rv = http("POST", "/api/collections/reader_versions/records", version, su)
+    ctx.check("24j reader_versions takes the default choice with an empty chosen_by (no change of the collection needed)", is_ok(status) and rv.get("chosen_by") == "" and rv.get("rows") == version["rows"], "status " + str(status) + " " + str(rv)[:200])
+    status, data = http("GET", "/api/collections/reader_versions/records?filter=" + urllib.parse.quote('page_id="' + page + '"'), token=t["rd1"])
+    ctx.check("24k an approved reader reads the default choice with the facts", is_ok(status) and data.get("totalItems") == 1 and data["items"][0]["rows"][0].get("facts") == facts, "status " + str(status))
+    status, _ = http("POST", "/api/collections/reader_versions/records", dict(version, page_id="rt73x/p002"), t["rd1"])
+    ctx.check("24l a reader cannot write reader_versions", is_denied(status), "status " + str(status))
+    for coll, flt in (("own_translations", 'item_id="rt73x"'), ("reader_versions", 'page_id~"rt73x/"')):
+        status, data = http("GET", "/api/collections/" + coll + "/records?perPage=50&filter=" + urllib.parse.quote(flt), token=su)
+        for item_ in data.get("items", []):
+            http("DELETE", "/api/collections/" + coll + "/records/" + item_["id"], token=su)
+    http("DELETE", "/api/collections/users/records/" + system["id"], token=su)
+    ctx.check("24m the RT73a test records and the test account are removed again", all(http("GET", "/api/collections/" + c + "/records?perPage=1&filter=" + urllib.parse.quote(fl), token=su)[1].get("totalItems") == 0 for c, fl in (("own_translations", 'item_id="rt73x"'), ("reader_versions", 'page_id~"rt73x/"'), ("users", 'name="kendojidai.com"'))), "")
+
+
 def count_records(ctx):
     counts = {}
     for name in ("own_translations", "comments", "run_marks", "page_runs", "user_settings"):
@@ -1035,7 +1081,7 @@ def check_restart(ctx, server, shape_dir, counts):
     ctx.check("13a records survive the restart", count_records(ctx) == counts, "counts differ")
     server.stop()
     removed = forget_v2_history(shape_dir)
-    ctx.check("13b v2 history rows removed for the test (11 expected, unit RC4 added migration 1793300010)", removed == 11, "removed " + str(removed))
+    ctx.check("13b v2 history rows removed for the test (12 expected, unit RT73a added migration 1793300011)", removed == 12, "removed " + str(removed))
     try:
         server.start()
         ok, reason = True, ""
@@ -1060,14 +1106,17 @@ def check_restart(ctx, server, shape_dir, counts):
               is_ok(status) and data.get("items") and data["items"][0].get("approved") is False, "status " + str(status))
     dash_lines = len(re.findall(r"v2 migration: field (?:catalog_items\.translated|catalog_items\.placement|reader_pages\.search_ja|reader_pages\.search_en) exists, left as it is", log))
     ctx.check("13b the second run reports that the 4 fields of migration 1793300010 exist (translated, placement, search_ja, search_en) and leaves them", dash_lines == 4, "lines " + str(dash_lines))
+    web_lines = len(re.findall(r"v2 migration: field own_translations\.facts exists, left as it is", log))
+    ctx.check("13b the second run reports that the field own_translations.facts exists (migration 1793300011) and leaves it", web_lines == 1, "lines " + str(web_lines))
     agree_lines = len(re.findall(r"v2 migration: field agree exists, left as it is", log))
     ctx.check("13b the second run reports that the field agree exists (migration 1793300004)", agree_lines == 1, "lines " + str(agree_lines))
 
 
 def check_down_up(ctx, server, shape_dir):
     server.stop()
-    code, output = run_cli(server, ["migrate", "down", "11"])
-    ctx.check("15a migrate down 11 exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
+    code, output = run_cli(server, ["migrate", "down", "12"])
+    ctx.check("15a migrate down 12 exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
+    ctx.check("15q down of migration 1793300011 prints that the field own_translations.facts stays (soft down)", "the field own_translations.facts stays" in output, output.strip()[-300:])
     ctx.check("15o down of migration 1793300010 prints that the 4 fields stay (soft down)", "the fields catalog_items.translated, catalog_items.placement, reader_pages.search_ja, and reader_pages.search_en stay" in output, output.strip()[-300:])
     ctx.check("15g down turns the batch API off", batch_enabled_db(shape_dir) is False, "batch " + repr(batch_enabled_db(shape_dir)))
     ctx.check("15b down sets users authRule to empty", users_auth_rule(shape_dir) == "", "authRule " + repr(users_auth_rule(shape_dir)))
@@ -1129,6 +1178,7 @@ def run_shape(shape, v1_dir, res):
         check_user_settings(ctx)
         check_reader_pages(ctx)
         check_dashboard_fields(ctx)
+        check_web_fields(ctx)
         counts = count_records(ctx)
         check_restart(ctx, server, shape_dir, counts)
         check_down_up(ctx, server, shape_dir)

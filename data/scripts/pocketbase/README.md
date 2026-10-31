@@ -244,3 +244,13 @@ The Reader dashboard needs four new fields. Design: `docs/VISION-viewer.md` sect
 - A throwaway database that applied the old file keeps its field `finished`. It does not run the file again. Make a new database for it.
 - The down line now names `catalog_items.translated`. The second run prints "v2 migration: field catalog_items.translated exists, left as it is".
 - `test_local.py` has one new check, 23p (the old field name is gone). The last run gave `Total: 258 PASS, 0 FAIL` (shape `fresh`). The test `test_page_images.py` gave `Total: 82 PASS, 0 FAIL`.
+
+## Unit RT73a notes (round 73): migration 1793300011
+
+- `1793300011_v2_components.js` adds the JSON field `own_translations.facts` (up to 1 MB). It holds the fact marks of the kendojidai.com text of a web article. A row of a translator has no facts.
+- The migration adds no collection `reader_v1`. The Viewer reads the v1 md files from a folder on this Mac.
+- `reader_versions.chosen_by` stays optional. An empty value means that S2 chose the version by default.
+- The migration is safe to run twice. The down function keeps the field.
+- S2 creates the disabled account `kendojidai-com@system.invalid` (name "kendojidai.com", role reader, approved false, disabled true) with a random password that nobody sees. The rule `authRule` "disabled = false" refuses its sign-in.
+- S2 `--apply` stops with the line "Restart PocketBase so that migration 1793300011 runs." if the field is missing. Restart PocketBase so that it runs the new file.
+- `test_local.py` checks 24a to 24m cover the field, the account, and the default choice. The restart check removes 12 history rows. The down check uses `migrate down 12`.

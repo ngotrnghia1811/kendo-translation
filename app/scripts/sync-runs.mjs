@@ -14,7 +14,11 @@
 // The shown run of a page is the run of the admin run mark (collection run_marks), else the newest PASS run. A page with only FAIL runs gets no record.
 // A record holds the rows (JA text, agent EN text, term marks), the term entries that the marks cite, the captions and the running head (extras),
 // and the group keys that a translator ticked "agree" for exactly this agent text (agree, without any name). It holds no verdict, no score, no TL_3 panel, and no reasoning.
-// The same safety rules apply to all four collections: dry run by default, compare then skip or update, never delete.
+// Unit RT73a (round 73, VISION-viewer 15.26): it also reads the page file of the Translator (item-metadata/web-pages.jsonl, made by data/scripts/web_pages.py)
+// and uploads the 311 web articles as 1,124 A4 pages: reader_pages records with run_id "web-ja" (Original text rows), the kendojidai.com text as the chosen
+// Human version (reader_versions, chosen_by empty), a copy of that text in own_translations under the disabled system account "kendojidai.com" (version 1),
+// and the page counts of catalog_items. The v1 placeholder is not uploaded (owner answer 8 of round 73d: the Viewer reads the v1 md files on this Mac).
+// The same safety rules apply to all collections: dry run by default, compare then skip or update, never delete.
 // The deployed app cannot read the run folders, so it reads these records (config key runSource "pocketbase").
 //
 // Dry run is the default and writes nothing. Only --apply writes. The command is safe to run twice:
@@ -22,6 +26,7 @@
 // A record whose run folder is gone stays on the server. The report lists it as "on the server only".
 // Node built-ins only. The build rules come from app/lib/htv-build.ts, the same file that the app uses.
 // Run `node scripts/sync-runs.mjs --help` in the app folder.
+import { randomBytes } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -33,7 +38,8 @@ installTsResolveHook();
 const { buildRun, finishedRunOf, makeReaderPage, makeSnapshot, parseTermbase, readerExtras, RUN_FOLDER_RULE, SNAPSHOT_FORMAT, sortRuns } = await import("../lib/htv-build.ts");
 const { folderToPageId } = await import("../lib/format.ts");
 const { isTranslatedPage } = await import("../lib/reader-translated.ts");
-const { SEARCH_COLUMN_MAX } = await import("../lib/reader-search.ts");
+const { SEARCH_COLUMN_MAX, searchColumns } = await import("../lib/reader-search.ts");
+const { hasAgentRecord, WEB_RUN_ID, WEB_SYSTEM_EMAIL, WEB_SYSTEM_NAME, WEB_VERSION } = await import("../lib/reader-web.ts");
 
 // ---------------------------------------------------------------- constants and small helpers
 
@@ -72,6 +78,7 @@ Options:
   --list PATH        Sync the pages of a list: a folder with list.json (key pages), a .json file, or a text file with one page ID per line.
   --apply            Write to PocketBase. Without it the command writes nothing.
   --offline          Dry run without sign-in. It skips the compare with the server.
+  --web-pages FILE   Page file of the web articles. Default: <data>/item-metadata/web-pages.jsonl (made by data/scripts/web_pages.py in the Translator folder).
   --help             Show this text.
 
 Without --page and --list the command syncs every page with a finished run.
@@ -82,6 +89,10 @@ The collection catalog_items always gets all rows of item-metadata/items.filled.
 The slug of a web article is the first 8 characters of its item_id. The column translated holds the English pages that readers can read (a reader_pages record exists for the page).
 The column placement of a web article holds the web date and the print stamp of web-magazine-candidates.jsonl (the folds of the Reader dashboard use it).
 The columns search_ja and search_en of reader_pages hold the folded text for the search. Migration 1793300010 adds the four columns. Without it, --apply stops.
+The page file of the web articles (unit RT73a) gives the 311 web articles their A4 pages: 1,124 pages. For each page S2 writes a reader_pages record with run_id "web-ja"
+(the Original text rows, no Agent text), the kendojidai.com text as the chosen Human version in reader_versions (chosen_by empty, written once: a page whose choice an admin removed stays without it),
+and a copy of that text in own_translations under the disabled account kendojidai.com (version 1). S2 creates the account if it is missing. It has a random password that nobody sees.
+catalog_items.pages of a web article is the A4 page count. The search columns hold the kendojidai.com text. The v1 placeholder is not uploaded. Migration 1793300011 adds own_translations.facts. Without it, --apply stops.
 The column row of catalog_items holds the metadata row without 14 research keys (sources, confidence, filled_by, confirmed_by, notes, source_url, hint_secondary, confidence_draft, notes_draft, issue_evidence, status, title_en_source, author_en_source, synopsis_source).
 An --apply run replaces the row of a record that exists already, so one run cleans the records of an earlier run.
 The password comes from a hidden prompt on the terminal. If stdin is not a terminal, the command reads one line from stdin.
@@ -92,7 +103,7 @@ Sizes are in MB (1 MB = 1,048,576 bytes).
 // ---------------------------------------------------------------- options
 
 function parseArgs(argv) {
-  const o = { url: DEFAULT_URL, superuser: process.env.PB_SUPERUSER_EMAIL ?? "", data: "", pages: [], list: "", apply: false, offline: false, help: false };
+  const o = { url: DEFAULT_URL, superuser: process.env.PB_SUPERUSER_EMAIL ?? "", data: "", pages: [], list: "", apply: false, offline: false, help: false, webPages: "" };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const value = () => {
@@ -105,6 +116,7 @@ function parseArgs(argv) {
     else if (a === "--data") o.data = value();
     else if (a === "--page") o.pages.push(value());
     else if (a === "--list") o.list = value();
+    else if (a === "--web-pages") o.webPages = value();
     else if (a === "--apply") o.apply = true;
     else if (a === "--offline") o.offline = true;
     else if (a === "--help" || a === "-h") o.help = true;
@@ -259,10 +271,12 @@ class Pb {
       throw new Error(`Superuser sign-in failed for ${email}: ${e.message}`);
     }
   }
-  async listAll(collection) {
+  /** All records of a collection. opts: filter (a PocketBase filter), fields (a field list), perPage (default 100, 500 at most). */
+  async listAll(collection, opts = {}) {
     const out = [];
+    const extra = (opts.filter ? `&filter=${encodeURIComponent(opts.filter)}` : "") + (opts.fields ? `&fields=${encodeURIComponent(opts.fields)}` : "");
     for (let page = 1; page < 500; page++) {
-      const d = await this.call("GET", `/api/collections/${collection}/records?perPage=100&page=${page}&sort=id`);
+      const d = await this.call("GET", `/api/collections/${collection}/records?perPage=${opts.perPage ?? 100}&page=${page}&sort=id${extra}`);
       out.push(...(d.items ?? []));
       if (page >= Number(d.totalPages ?? 1)) break;
     }
@@ -275,6 +289,19 @@ function describeFailure(status, data) {
   let msg = `HTTP ${status} ${typeof data?.message === "string" ? data.message : ""}`.trim();
   for (const [field, info] of Object.entries(data?.data ?? {})) msg += ` [${field}: ${info?.message ?? ""}]`;
   return msg;
+}
+
+/** Run fn for every item with `size` calls at the same time. The own_translations copy of the web articles has 32,937 records. */
+async function pool(items, size, fn) {
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(size, items.length) }, async () => {
+      while (next < items.length) {
+        const k = next++;
+        await fn(items[k], k);
+      }
+    }),
+  );
 }
 
 // ---------------------------------------------------------------- compare
@@ -327,6 +354,11 @@ function readerRecordEqual(stored, want) {
     String(stored.search_ja ?? "") === want.search_ja &&
     String(stored.search_en ?? "") === want.search_en
   );
+}
+
+/** A reader_pages row of a web article page (unit RT73a, VISION-viewer 15.26.4): the Original text of one aligned unit, with no Agent text. "site" marks page chrome (site_text). */
+function webRowOf(r) {
+  return { key: r.key, shortKey: r.shortKey, part: r.part, ja: r.ja, ed3: "", jaMarks: [], edMarks: [], ...(r.site ? { site: true } : {}) };
 }
 
 function chapterRecordEqual(stored, want) {
@@ -533,13 +565,14 @@ function withoutResearch(row) {
   return Object.fromEntries(Object.entries(row).filter(([k]) => !RESEARCH_FIELDS.includes(k)));
 }
 
-function catalogBody(slug, row, folderPages = 0, translated = [], placement = null) {
+function catalogBody(slug, row, folderPages = 0, translated = [], placement = null, webPageCount = 0) {
   const text = (v) => (v === null || v === undefined ? "" : String(v));
   return {
     item_id: slug,
     kind: text(row?.kind),
     folder: text(row?.folder),
-    pages: typeof row?.pages === "number" ? row.pages : folderPages,
+    // Unit RT73a (VISION-viewer 15.26.3): a web article has the pages of the A4 cut (page file of the Translator). Without the page file the column stays as before.
+    pages: webPageCount > 0 && row?.kind === "web-article" ? webPageCount : typeof row?.pages === "number" ? row.pages : folderPages,
     title_ja: text(row?.title_ja),
     title_en: text(row?.title_en),
     author_ja: text(row?.author_ja),
@@ -640,6 +673,38 @@ for (const slug of slugs) {
 
 const chapters = await loadChapters(dataDir);
 
+// 2b. Web articles (unit RT73a, round 73; VISION-viewer 15.26.3 and 15.26.13). The page file of the Translator holds one line for each A4 page.
+const webFile = o.webPages ? path.resolve(o.webPages) : path.join(dataDir, "item-metadata/web-pages.jsonl");
+const webAll = [];
+{
+  const text = await readTextFile(webFile);
+  if (text === null) console.error(`Warning: the page file ${webFile} is missing. The web articles get no pages. Run python3 -B data/scripts/web_pages.py in the Translator folder.`);
+  else {
+    for (const line of text.split("\n")) {
+      if (!line.trim()) continue;
+      let p = null;
+      try {
+        p = JSON.parse(line);
+      } catch {
+        /* skip a broken line */
+      }
+      if (p && typeof p.page_id === "string" && PAGE_ID_RULE.test(p.page_id) && Array.isArray(p.ja_rows) && Array.isArray(p.human_rows)) webAll.push(p);
+    }
+  }
+}
+const webById = new Map(webAll.map((p) => [p.page_id, p]));
+const webPageCount = new Map(); // slug -> number of A4 pages
+for (const p of webAll) webPageCount.set(p.item_id, Math.max(webPageCount.get(p.item_id) ?? 0, p.n));
+const webSel = filtered ? webAll.filter((p) => filter.has(p.page_id)) : webAll;
+const webTotals = { articles: webPageCount.size, pages: webAll.length, rows: 0, human: 0, changed: 0, dropped: 0 };
+for (const p of webAll) {
+  webTotals.rows += p.ja_rows.length;
+  webTotals.human += p.human_rows.length;
+  for (const h of p.human_rows) for (const f of h.facts ?? []) webTotals[f.kind === "dropped" ? "dropped" : "changed"]++;
+}
+for (const slug of webPageCount.keys()) if (!meta.map.has(slug)) problems.push(`The page file has the article ${slug}, and items.filled.jsonl has no row with this slug.`);
+const fmt = (n) => Number(n).toLocaleString("en-US");
+
 // 3. Compare with the server.
 const pb = new Pb(base);
 let serverRuns = null;
@@ -647,7 +712,10 @@ let serverItems = null;
 let serverChapters = null;
 let serverReader = null;
 let marks = new Map(); // page ID to the run ID of the admin run mark
-let ownRows = []; // all saved own translations, for the agree ticks (names are not copied)
+let ownRows = []; // all saved own translations of the translators, for the agree ticks (names are not copied). The copies of the system account stay out.
+let sysUser = null; // the disabled system account kendojidai.com (unit RT73a), or null
+let sysOwn = null; // its own_translations records: "pageId|groupKey" -> record
+let serverVersions = null; // reader_versions: page ID -> record
 if (!o.offline) {
   if (!o.superuser) fail("Name the superuser with --superuser EMAIL or the env variable PB_SUPERUSER_EMAIL.");
   let password = await readPassword(`Password for ${o.superuser}: `);
@@ -686,7 +754,19 @@ if (!o.offline) {
     }
     serverReader = new Map((await pb.listAll("reader_pages")).map((r) => [String(r.page_id), r]));
     marks = new Map((await pb.listAll("run_marks")).map((r) => [String(r.page_id), String(r.run_id)]));
-    ownRows = await pb.listAll("own_translations");
+    // Unit RT73a: the system account of the web articles, its copy of the kendojidai.com text, and the chosen versions.
+    const ownFields = new Set(((await pb.call("GET", "/api/collections/own_translations")).fields ?? []).map((f) => f.name));
+    if (webAll.length > 0 && !ownFields.has("facts")) {
+      const text = "The server has no field own_translations.facts. Restart PocketBase so that migration 1793300011 runs.";
+      if (o.apply) fail(text);
+      console.error("Warning: " + text + " The dry run goes on, and the copies of the web articles count as different.");
+    }
+    const qs = (v) => JSON.stringify(String(v)); // a PocketBase filter text
+    sysUser = (await pb.listAll("users", { filter: `email=${qs(WEB_SYSTEM_EMAIL)}`, fields: "id,email,disabled" }))[0] ?? null;
+    ownRows = await pb.listAll("own_translations", sysUser ? { filter: `user!=${qs(sysUser.id)}` } : {});
+    sysOwn = new Map();
+    if (sysUser) for (const r of await pb.listAll("own_translations", { filter: `user=${qs(sysUser.id)}`, perPage: 500, fields: "id,page_id,group_key,item_id,part,ja_text,text,version,facts" })) sysOwn.set(`${r.page_id}|${r.group_key}`, r);
+    serverVersions = new Map((await pb.listAll("reader_versions")).map((r) => [String(r.page_id), r]));
   } catch (e) {
     console.error("Error: " + e.message);
     process.exit(1);
@@ -747,6 +827,13 @@ for (const [pageId, xs] of [...runsByPage].sort((a, b) => (a[0] < b[0] ? -1 : 1)
   }
   const agree = pick.built.rows.filter((r) => agreedTexts.get(`${pageId}|${r.key}`)?.has(r.ed3)).map((r) => r.key);
   const body = makeReaderPage(pageId, pick.slug, pick.run.runId, pick.built, pick.extras, agree);
+  // Unit RT73a (VISION-viewer 15.26.14): an agent page that also has a Human version (18d4ac29/p001) searches the kendojidai.com text too. The rows stay as they are.
+  // It also gets the web Original text rows (keys <page_id>/web/<unit>), merged by key, so that the Human rows find their Japanese text (VISION-viewer 15.26.13).
+  const webHere = webById.get(pageId);
+  if (webHere) {
+    body.rows = [...body.rows, ...webHere.ja_rows.map(webRowOf)];
+    body.search_en = searchColumns({ ja: [], en: [body.search_en, ...webHere.human_rows.map((h) => h.text)] }).search_en;
+  }
   const bytes = Buffer.byteLength(JSON.stringify(body), "utf-8");
   for (const f of ["rows", "terms", "extras", "agree"]) {
     const fb = Buffer.byteLength(JSON.stringify(body[f]), "utf-8");
@@ -758,24 +845,78 @@ for (const [pageId, xs] of [...runsByPage].sort((a, b) => (a[0] < b[0] ? -1 : 1)
   const action = !serverReader ? "not compared" : !stored ? "create" : readerRecordEqual(stored, body) ? "unchanged" : "update";
   readerPlan.push({ pageId, x: pick, why, body, bytes, action, id: stored?.id });
 }
-const readerServerOnly = serverReader ? [...serverReader.keys()].filter((id) => !readerPlan.some((p) => p.pageId === id) && (!filtered || filter.has(id))) : [];
+const readerServerOnly = serverReader ? [...serverReader.keys()].filter((id) => !readerPlan.some((p) => p.pageId === id) && !webById.has(id) && (!filtered || filter.has(id))) : [];
 
-// 3c. catalog_items (unit RC4, round 70). The translated pages of a work are the pages with a reader_pages record, by the one rule function isTranslatedPage:
-// the pages of the plan, and the records that stay on the server (a record whose run folder is gone, or a page outside --page and --list).
+// 3b2. Web articles (unit RT73a). For each A4 page of the page file:
+//   reader_pages    a record with run_id "web-ja" (Original text rows, no Agent text). A page with an agent record keeps that record.
+//   reader_versions the chosen Human version, chosen_by empty (chosen by default, round 73 answer 5). S2 writes it once. A choice that an admin removed or changed stays.
+//   own_translations a copy of each Human row under the disabled system account (design D26), so that an admin can choose the version again.
+const sys = { id: sysUser?.id ?? "" };
+const webReaderPlan = [];
+const webKept = [];
+const versionPlan = [];
+const ownPlan = [];
+const sysPages = new Set(sysOwn ? [...sysOwn.values()].map((r) => String(r.page_id)) : []);
+const humanPages = new Set(serverVersions ? serverVersions.keys() : []);
+const agentPlanned = new Set(readerPlan.map((p) => p.pageId));
+for (const w of webSel) {
+  const pageId = w.page_id;
+  const stored = serverReader?.get(pageId);
+  if (agentPlanned.has(pageId) || (stored && hasAgentRecord(stored))) {
+    webKept.push(`${pageId}: agent record`);
+  } else {
+    const rows = w.ja_rows.map(webRowOf);
+    const cols = searchColumns({ ja: w.ja_rows.map((r) => r.ja), en: w.human_rows.map((h) => h.text) });
+    if (cols.cut) searchCut.push(`${pageId} web`);
+    const body = { page_id: pageId, item_id: w.item_id, n: w.n, run_id: WEB_RUN_ID, rows, terms: {}, extras: [], agree: [], search_ja: cols.search_ja, search_en: cols.search_en };
+    const bytes = Buffer.byteLength(JSON.stringify(body), "utf-8");
+    const fb = Buffer.byteLength(JSON.stringify(rows), "utf-8");
+    if (fb >= READER_FIELD_LIMIT) problems.push(`${pageId} reader_pages.rows: ${mb(fb)}. The limit is 5 MB.`);
+    const action = !serverReader ? "not compared" : !stored ? "create" : readerRecordEqual(stored, body) ? "unchanged" : "update";
+    webReaderPlan.push({ pageId, body, bytes, action, id: stored?.id });
+  }
+  if (w.human_rows.length === 0) continue;
+  const versionRows = w.human_rows.map((h) => ({ key: h.key, text: h.text, ...(h.facts?.length ? { facts: h.facts } : {}) }));
+  const vbody = { page_id: pageId, user: sys.id, version: WEB_VERSION, run_id: "", rows: versionRows };
+  const vbytes = Buffer.byteLength(JSON.stringify(vbody), "utf-8");
+  if (Buffer.byteLength(JSON.stringify(versionRows), "utf-8") >= READER_FIELD_LIMIT) problems.push(`${pageId} reader_versions.rows: over 5 MB.`);
+  const sv = serverVersions?.get(pageId);
+  let vaction;
+  if (!serverVersions) vaction = "not compared";
+  else if (sv) vaction = String(sv.chosen_by ?? "") !== "" ? "kept (chosen by an admin)" : same(sv.rows ?? null, versionRows) && (!sys.id || String(sv.user ?? "") === sys.id) && Number(sv.version) === WEB_VERSION ? "unchanged" : "update";
+  else vaction = sysPages.has(pageId) ? "kept (choice removed by an admin)" : "create";
+  versionPlan.push({ pageId, body: vbody, bytes: vbytes, action: vaction, id: sv?.id });
+  if (vaction === "create" || vaction === "not compared") humanPages.add(pageId);
+  const jaOf = new Map(w.ja_rows.map((r) => [r.key, r]));
+  for (const h of w.human_rows) {
+    const jr = jaOf.get(h.key);
+    const body = { user: sys.id, item_id: w.item_id, page_id: pageId, group_key: h.key, ts_ids: [], part: jr?.part ?? "lines", ja_text: jr?.ja ?? "", run_id: "", ed3_text: "", text: h.text, version: WEB_VERSION, agree: false, facts: h.facts ?? [] };
+    const st = sysOwn?.get(`${pageId}|${h.key}`);
+    const factsOf = (v) => (Array.isArray(v) && v.length ? v : []);
+    const equal = st && String(st.item_id ?? "") === body.item_id && String(st.part ?? "") === body.part && String(st.ja_text ?? "") === body.ja_text && String(st.text ?? "") === body.text && Number(st.version) === WEB_VERSION && same(factsOf(st.facts), factsOf(body.facts));
+    ownPlan.push({ pageId, key: h.key, body, bytes: Buffer.byteLength(JSON.stringify(body), "utf-8"), action: !sysOwn ? "not compared" : !st ? "create" : equal ? "unchanged" : "update", id: st?.id });
+  }
+}
+
+
+// 3c. catalog_items (unit RC4, round 70). The translated pages of a work are the pages with an Agent text or a Human version, by the one rule function isTranslatedPage
+// (unit RT73a, round 73c answer 2): the pages of the plan, and the records that stay on the server (a record whose run folder is gone, or a page outside --page and --list).
+// A page with only the Original text rows of a web article (run_id "web-ja") does not count. The v1 placeholder is not in this script at all.
 // The body of each record holds them, so that a reader who waits for approval sees the progress with one request (round 69 answer 9).
 const translatedBy = new Map(); // slug -> Set of page numbers
-const countTranslated = (rec) => {
-  if (!isTranslatedPage(rec)) return;
+const countTranslated = (rec, agent, human) => {
+  if (!isTranslatedPage({ agent, human })) return;
   const slug = String(rec.item_id);
   const n = Number(rec.n);
   if (!Number.isInteger(n) || n < 1) return;
   if (!translatedBy.has(slug)) translatedBy.set(slug, new Set());
   translatedBy.get(slug).add(n);
 };
-const planned = new Set(readerPlan.map((p) => p.pageId));
-for (const p of readerPlan) countTranslated(p.body);
-if (serverReader) for (const [id, rec] of serverReader) if (!planned.has(id)) countTranslated(rec);
-for (const it of items) it.body = catalogBody(it.slug, it.row, it.folderPages, [...(translatedBy.get(it.slug) ?? [])].sort((a, b) => a - b), it.placement);
+const planned = new Set([...readerPlan, ...webReaderPlan].map((p) => p.pageId));
+for (const p of readerPlan) countTranslated(p.body, hasAgentRecord(p.body), humanPages.has(p.pageId));
+for (const p of webReaderPlan) countTranslated(p.body, false, humanPages.has(p.pageId));
+if (serverReader) for (const [id, rec] of serverReader) if (!planned.has(id)) countTranslated(rec, hasAgentRecord(rec), humanPages.has(id));
+for (const it of items) it.body = catalogBody(it.slug, it.row, it.folderPages, [...(translatedBy.get(it.slug) ?? [])].sort((a, b) => a - b), it.placement, webPageCount.get(it.slug) ?? 0);
 const catalogBytes = items.reduce((t, it) => t + Buffer.byteLength(JSON.stringify(it.body), "utf-8"), 0);
 for (const it of items) {
   const fb = Buffer.byteLength(JSON.stringify(it.body.translated), "utf-8");
@@ -799,7 +940,8 @@ const webItems = items.filter((it) => it.body.kind === "web-article");
 const stamped = webItems.filter((it) => it.placement?.print_year);
 console.log(`Catalog: ${meta.rows} metadata rows (${items.length - webItems.length} other items, ${webItems.length} web articles), ${bookSlugs.size} book folders of book-slugs.json, ${items.length} rows in all, ${mb(catalogBytes)}`);
 console.log(`Placement: ${webItems.length} web articles, ${stamped.length} with a print stamp, ${placements.changed.length} override row(s) change a month${placements.changed.length ? " (" + placements.changed.join("; ") + ")" : ""}`);
-console.log(`Translated pages (rule isTranslatedPage, a reader_pages record exists): ${[...translatedBy.values()].reduce((t, set) => t + set.size, 0)} in ${translatedBy.size} work(s)`);
+console.log(`Translated pages (rule isTranslatedPage, an Agent text or a Human version exists): ${[...translatedBy.values()].reduce((t, set) => t + set.size, 0)} in ${translatedBy.size} work(s)`);
+console.log(`Web articles (page file ${webFile}): articles ${fmt(webTotals.articles)}, pages ${fmt(webTotals.pages)}, rows ${fmt(webTotals.rows)}, Human rows ${fmt(webTotals.human)}, changed marks ${fmt(webTotals.changed)}, dropped marks ${fmt(webTotals.dropped)}${filtered ? ` (selected by --page and --list: ${fmt(webSel.length)} pages)` : ""}`);
 console.log("");
 console.log("page_id | run_id | verdict | score | snapshot size | action");
 for (const p of plan) {
@@ -811,12 +953,15 @@ console.log("catalog_items | title | translated pages | action");
 const countsOf = (list) => ({ create: list.filter((p) => p.action === "create").length, update: list.filter((p) => p.action === "update").length, unchanged: list.filter((p) => p.action === "unchanged").length });
 // The 36 folders and the items of the selected runs show one line each. The web articles without a run show one summary line (311 lines would hide the rest).
 for (const p of itemPlan) {
-  const quiet = p.it.body.kind === "web-article" && p.it.body.translated.en.length === 0 && !selected.some((x) => x.slug === p.it.slug);
+  const quiet = p.it.body.kind === "web-article" && !selected.some((x) => x.slug === p.it.slug);
   if (!quiet) console.log(`${p.it.slug} | ${p.it.body.title_en || p.it.body.title_ja || "(no title: no metadata row has this item_id)"} | ${p.it.body.translated.en.length} | ${p.action}`);
 }
 {
-  const c = countsOf(itemPlan.filter((p) => p.it.body.kind === "web-article" && p.it.body.translated.en.length === 0 && !selected.some((x) => x.slug === p.it.slug)));
-  console.log(`web articles without a translated page | ${c.create + c.update + c.unchanged} rows | 0 | ${serverItems ? `create ${c.create}, update ${c.update}, unchanged ${c.unchanged}` : "not compared"}`);
+  const quietPlans = itemPlan.filter((p) => p.it.body.kind === "web-article" && !selected.some((x) => x.slug === p.it.slug));
+  const c = countsOf(quietPlans);
+  const tp = quietPlans.reduce((t, p) => t + p.it.body.translated.en.length, 0);
+  const pg = quietPlans.reduce((t, p) => t + p.it.body.pages, 0);
+  console.log(`web articles | ${quietPlans.length} rows | ${fmt(tp)} translated pages of ${fmt(pg)} pages | ${serverItems ? `create ${c.create}, update ${c.update}, unchanged ${c.unchanged}` : "not compared"}`);
 }
 console.log("");
 console.log("magazine_chapters | rows | create | update | unchanged");
@@ -829,6 +974,19 @@ console.log("");
 console.log("reader_pages | page_id | run_id | why | size | rows | agree | action");
 for (const p of readerPlan) console.log(`reader_pages | ${p.pageId} | ${p.x.run.runId} | ${p.why} | ${mb(p.bytes)} | ${p.body.rows.length} | ${p.body.agree.length} | ${p.action}`);
 console.log("");
+{
+  const cnt = (list) => ({ create: list.filter((p) => p.action === "create").length, update: list.filter((p) => p.action === "update").length, unchanged: list.filter((p) => p.action === "unchanged").length, kept: list.filter((p) => p.action.startsWith("kept")).length });
+  const w1 = cnt(webReaderPlan);
+  const w2 = cnt(versionPlan);
+  const w3 = cnt(ownPlan);
+  const sum = (list) => list.reduce((t, p) => t + p.bytes, 0);
+  console.log("web articles | collection | records | size | create | update | unchanged | kept");
+  console.log(`web articles | reader_pages (run_id web-ja) | ${fmt(webReaderPlan.length)} | ${mb(sum(webReaderPlan))} | ${w1.create} | ${w1.update} | ${w1.unchanged} | ${webKept.length} agent record(s) kept${webKept.length ? " (" + webKept.join(", ") + ")" : ""}`);
+  console.log(`web articles | reader_versions (chosen_by empty) | ${fmt(versionPlan.length)} | ${mb(sum(versionPlan))} | ${w2.create} | ${w2.update} | ${w2.unchanged} | ${w2.kept}`);
+  console.log(`web articles | own_translations (account ${WEB_SYSTEM_NAME}) | ${fmt(ownPlan.length)} | ${mb(sum(ownPlan))} | ${w3.create} | ${w3.update} | ${w3.unchanged} | 0`);
+  console.log(`web articles | system account ${WEB_SYSTEM_EMAIL} | 1 | - | ${serverReader ? (sysUser ? "exists" : "create") : "not compared"} | | |`);
+  console.log("");
+}
 if (problems.length) {
   console.log("Snapshot checks FAILED:");
   for (const m of problems) console.log("  " + m);
@@ -848,6 +1006,14 @@ const done = { created: [], updated: [], unchanged: [], failed: [] };
 const itemDone = { created: [], updated: [], unchanged: [], failed: [] };
 const chapterDone = { created: [], updated: [], unchanged: [], failed: [] };
 const readerDone = { created: [], updated: [], unchanged: [], failed: [] };
+// Unit RT73a: results of the web articles. user is "created", "exists", or "".
+const webDone = {
+  user: sysUser ? "exists" : "",
+  reader: { created: [], updated: [], unchanged: [], failed: [] },
+  versions: { created: [], updated: [], unchanged: [], kept: [], failed: [] },
+  own: { created: [], updated: [], unchanged: [], failed: [] },
+};
+if (sysUser && sysUser.disabled !== true) console.error(`Warning: the system account ${WEB_SYSTEM_EMAIL} is not disabled. S2 does not change it. Disable it in PocketBase.`);
 if (o.apply) {
   for (const p of plan) {
     const x = p.x;
@@ -903,11 +1069,79 @@ if (o.apply) {
       readerDone.failed.push(`${p.pageId}: ${e.message}`);
     }
   }
+  // Unit RT73a. 1. The system account (a random password that nobody sees, disabled, so it can never sign in). 2. reader_pages "web-ja". 3. own_translations. 4. reader_versions.
+  for (const p of webReaderPlan) {
+    if (p.action === "unchanged") {
+      webDone.reader.unchanged.push(p.pageId);
+      continue;
+    }
+    try {
+      if (p.action === "create") await pb.call("POST", "/api/collections/reader_pages/records", p.body);
+      else await pb.call("PATCH", `/api/collections/reader_pages/records/${encodeURIComponent(p.id)}`, p.body);
+      (p.action === "create" ? webDone.reader.created : webDone.reader.updated).push(p.pageId);
+    } catch (e) {
+      webDone.reader.failed.push(`${p.pageId}: ${e.message}`);
+    }
+  }
+  const needAccount = [...versionPlan, ...ownPlan].some((p) => p.action === "create" || p.action === "update");
+  if (needAccount && !sys.id) {
+    try {
+      const pw = randomBytes(24).toString("base64url"); // in memory only, never printed, never stored by S2
+      const d = await pb.call("POST", "/api/collections/users/records", {
+        email: WEB_SYSTEM_EMAIL, name: WEB_SYSTEM_NAME, password: pw, passwordConfirm: pw, verified: true, emailVisibility: false, role: "reader", approved: false, disabled: true,
+      });
+      sys.id = String(d.id);
+      webDone.user = "created";
+    } catch (e) {
+      webDone.own.failed.push(`system account ${WEB_SYSTEM_EMAIL}: ${e.message}`);
+    }
+  }
+  if (sys.id) {
+    for (const p of [...versionPlan, ...ownPlan]) p.body.user = sys.id;
+    await pool(ownPlan, 8, async (p) => {
+      if (p.action === "unchanged") {
+        webDone.own.unchanged.push(p.key);
+        return;
+      }
+      try {
+        if (p.action === "create") await pb.call("POST", "/api/collections/own_translations/records", p.body);
+        else await pb.call("PATCH", `/api/collections/own_translations/records/${encodeURIComponent(p.id)}`, p.body);
+        (p.action === "create" ? webDone.own.created : webDone.own.updated).push(p.key);
+      } catch (e) {
+        webDone.own.failed.push(`${p.key}: ${e.message}`);
+      }
+    });
+    for (const p of versionPlan) {
+      if (p.action === "unchanged") {
+        webDone.versions.unchanged.push(p.pageId);
+        continue;
+      }
+      if (p.action.startsWith("kept")) {
+        webDone.versions.kept.push(p.pageId);
+        continue;
+      }
+      try {
+        if (p.action === "create") await pb.call("POST", "/api/collections/reader_versions/records", p.body);
+        else await pb.call("PATCH", `/api/collections/reader_versions/records/${encodeURIComponent(p.id)}`, p.body);
+        (p.action === "create" ? webDone.versions.created : webDone.versions.updated).push(p.pageId);
+      } catch (e) {
+        webDone.versions.failed.push(`${p.pageId}: ${e.message}`);
+      }
+    }
+  }
 } else {
   for (const p of readerPlan) if (p.action !== "not compared") (p.action === "create" ? readerDone.created : p.action === "update" ? readerDone.updated : readerDone.unchanged).push(p.pageId);
   for (const p of chapterPlan) if (p.action !== "not compared") (p.action === "create" ? chapterDone.created : p.action === "update" ? chapterDone.updated : chapterDone.unchanged).push(p.c.chapter);
   for (const p of plan) if (p.action !== "not compared") (p.action === "create" ? done.created : p.action === "update" ? done.updated : done.unchanged).push(`${p.x.pageId} ${p.x.run.runId}`);
   for (const p of itemPlan) if (p.action !== "not compared") (p.action === "create" ? itemDone.created : p.action === "update" ? itemDone.updated : itemDone.unchanged).push(p.it.slug);
+  // Unit RT73a
+  const sortIn = (done, list, id) => {
+    for (const p of list) if (p.action !== "not compared") (p.action === "create" ? done.created : p.action === "update" ? done.updated : p.action.startsWith("kept") ? (done.kept ?? done.unchanged) : done.unchanged).push(id(p));
+  };
+  sortIn(webDone.reader, webReaderPlan, (p) => p.pageId);
+  sortIn(webDone.own, ownPlan, (p) => p.key);
+  sortIn(webDone.versions, versionPlan, (p) => p.pageId);
+  if (serverReader && !sysUser && [...versionPlan, ...ownPlan].some((p) => p.action === "create")) webDone.user = "would create";
 }
 
 // 6. Report.
@@ -940,6 +1174,19 @@ chapterLine(word[0], chapterDone.created);
 chapterLine(word[1], chapterDone.updated);
 chapterLine(word[2], chapterDone.unchanged);
 if (o.apply) console.log(`  failed: ${chapterDone.failed.length}${chapterDone.failed.length ? " (" + chapterDone.failed.join(", ") + ")" : ""}`);
+console.log("web articles (unit RT73a)");
+{
+  const cmp = (name, list) => (o.offline ? console.log(`  ${name}: not compared`) : console.log(`  ${name}: ${fmt(list.length)}`));
+  console.log(`  system account ${WEB_SYSTEM_EMAIL}: ${o.offline ? "not compared" : webDone.user || "none needed"}`);
+  for (const [name, d] of [["reader_pages web-ja", webDone.reader], ["reader_versions", webDone.versions], ["own_translations", webDone.own]]) {
+    cmp(`${name} ${word[0]}`, d.created);
+    cmp(`${name} ${word[1]}`, d.updated);
+    cmp(`${name} ${word[2]}`, d.unchanged);
+    if (d.kept) cmp(`${name} kept (choice removed or changed by an admin)`, d.kept);
+    if (o.apply) line(`${name} failed`, d.failed);
+  }
+  line("agent records kept (no web-ja record written)", webKept);
+}
 console.log("reader_pages");
 compared(word[0], readerDone.created);
 compared(word[1], readerDone.updated);
@@ -951,4 +1198,4 @@ line("on the server only (kept)", readerServerOnly);
 console.log(`Total snapshot size: ${mb(total)} for ${selected.length} run(s)`);
 console.log(`Total reader_pages size: ${mb(readerTotal)} for ${readerPlan.length} record(s)`);
 if (!o.apply) console.log("Nothing was written. Add --apply to write.");
-process.exit(done.failed.length || itemDone.failed.length || chapterDone.failed.length || readerDone.failed.length ? 1 : 0);
+process.exit(done.failed.length || itemDone.failed.length || chapterDone.failed.length || readerDone.failed.length || webDone.reader.failed.length || webDone.versions.failed.length || webDone.own.failed.length ? 1 : 0);

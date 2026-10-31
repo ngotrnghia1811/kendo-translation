@@ -6,13 +6,13 @@ import { TermPopup, type PickedTerm } from "./HtvMarkedText";
 import { CollapsedBar, CollapseButton } from "./HtvPanelFrame";
 import { THEME_EVENT } from "./ThemeSwitch";
 import ReaderIndex from "./ReaderIndex";
-import ReaderPageView, { type EffectiveSettings } from "./ReaderPageView";
+import ReaderPageView, { enSourceOf, type EffectiveSettings } from "./ReaderPageView";
 import ReaderWithImage from "./ReaderImage";
 import ReaderSettingsPanel from "./ReaderSettingsPanel";
 import { parsePageNumber } from "@/lib/htv-format";
 import { READER_DEFAULTS, type ReaderSettings, type ThemeName } from "@/lib/htv-settings";
 import { pad, readHref, type ReaderView } from "@/lib/reader-links";
-import { LABEL_SYNOPSIS, WAITING, pageLabel, type BookmarkView, type ReaderBookIndex, type ReaderPageData } from "@/lib/reader-types";
+import { LABEL_SYNOPSIS, LABEL_V1, WAITING, pageLabel, type BookmarkView, type ReaderBookIndex, type ReaderPageData } from "@/lib/reader-types";
 import type { Role } from "@/lib/htv-types";
 
 /*
@@ -70,7 +70,26 @@ function ToolToggle({ label, pressed, onToggle, disabled = false, disabledTitle 
 }
 
 function emptyPage(slug: string, n: number, digits: number): ReaderPageData {
-  return { pageId: `${slug}/p${pad(n, digits)}`, n, name: pageLabel(n), hasText: false, rows: [], terms: {}, extras: [], hasHuman: false, label: { agent: "", human: "" }, checked: false };
+  return { pageId: `${slug}/p${pad(n, digits)}`, n, name: pageLabel(n), hasText: false, rows: [], terms: {}, extras: [], hasHuman: false, hasAgent: false, humanBy: null, v1: [], label: { agent: "", human: "", v1: LABEL_V1 }, checked: false };
+}
+
+const pagesWord = (n: number) => (n === 1 ? "page" : "pages");
+
+/**
+ * The lines of the work block (unit RT73a, round 73c answer 2, VISION-viewer 15.26.10):
+ *   "AI translation: 6 of 120 pages. Human check: 0 of 6 pages."            a book with Agent text
+ *   "AI translation: 0 of 3 pages. Human translation: 3 of 3 pages."        a web article with the kendojidai.com text
+ * The line "Human check" shows when the work has an agent page. The line "Human translation" shows when at least one page has a Human version.
+ * The v1 placeholder has no line (round 73c answer 2: "`placeholder` DOES NOT COUNT AS ANYTHING").
+ */
+export function workBlockLine(index: Pick<ReaderBookIndex, "pages" | "agentPages" | "humanPages" | "checkedPages">): string {
+  const a = index.agentPages.length;
+  const h = index.humanPages.length;
+  const checked = index.checkedPages.filter((n) => index.agentPages.includes(n)).length;
+  const parts = [`AI translation: ${a} of ${index.pages} ${pagesWord(index.pages)}.`];
+  if (a > 0) parts.push(`Human check: ${checked} of ${a} ${pagesWord(a)}.`);
+  if (h > 0) parts.push(`Human translation: ${h} of ${index.pages} ${pagesWord(index.pages)}.`);
+  return parts.join(" ");
 }
 
 async function sendJson(method: string, url: string, body: unknown): Promise<{ ok: boolean; json: Record<string, unknown> }> {
@@ -118,7 +137,8 @@ export default function ReaderBook({
   const pending = useRef<ReaderSettings>({});
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requested = useRef(new Set<number>());
-  const textSet = useMemo(() => new Set(index.textPages), [index.textPages]);
+  // Pages that the scroll view fetches: every page with a reader_pages record or a v1 file (unit RT73a). The v1 file adds to no count.
+  const textSet = useMemo(() => new Set(index.dataPages), [index.dataPages]);
 
   // Follow the server: a new address brings a new view and a new page, and a new render brings the bookmarks of the account.
   // React guide "Adjusting state when a prop changes": store the old props in state and set the state during the render.
@@ -312,6 +332,9 @@ export default function ReaderBook({
   }
 
   const hasHumanHere = here !== null && Boolean(pages[here]?.hasHuman);
+  // Unit RT73a: a page with a Human version and no Agent text shows the Human version, so the control shows "Human" and has nothing to swap.
+  const hasAgentHere = here !== null && Boolean(pages[here]?.hasAgent);
+  const enShown = here !== null && pages[here] ? enSourceOf(pages[here], s.en) : s.en;
   const onPick = useCallback((p: PickedTerm) => setPicked(p), []);
   const entryOf = (id: string) => {
     for (const p of Object.values(pages)) if (p.terms[id]) return p.terms[id];
@@ -330,7 +353,7 @@ export default function ReaderBook({
         </p>
       ) : null}
       <p className="mt-1 text-sm text-muted">
-        {[index.author, index.publisher, index.year, index.isbn ? `ISBN ${index.isbn}` : "", index.pages ? `${index.pages} pages` : ""].filter(Boolean).join(" · ")}
+        {[index.author, index.publisher, index.year, index.isbn ? `ISBN ${index.isbn}` : "", index.pages ? `${index.pages} ${pagesWord(index.pages)}` : ""].filter(Boolean).join(" · ")}
       </p>
       {index.synopsis ? (
         <p className="mt-2 max-w-3xl text-sm" data-synopsis>
@@ -339,7 +362,7 @@ export default function ReaderBook({
       ) : null}
       {user.approved ? (
         <p className="mt-2 text-sm" data-ai-summary>
-          AI translation: {index.textPages.length} of {index.pages} pages. Human check: {index.checkedPages.length} of {index.textPages.length} pages.
+          {workBlockLine(index)}
         </p>
       ) : null}
     </section>
@@ -510,7 +533,7 @@ export default function ReaderBook({
               {index.images ? <ToolToggle label="Image" pressed={s.image} onToggle={() => save({ image: !s.image })} disabled={s.view !== "page"} disabledTitle={IMAGE_PAGE_ONLY} /> : null}
             </div>
             <ToolSeg label="Text" value={s.text} options={[{ value: "en", label: "EN" }, { value: "ja", label: "JA" }, { value: "pair", label: "Pairing" }]} onPick={(v) => save({ text: v })} />
-            <ToolSeg label="English text" value={s.en} options={[{ value: "agent", label: "Agent" }, { value: "human", label: "Human" }]} onPick={(v) => save({ en: v })} disabled={!hasHumanHere} />
+            <ToolSeg label="English text" value={enShown === "none" ? s.en : enShown} options={[{ value: "agent", label: "Agent" }, { value: "human", label: "Human" }]} onPick={(v) => save({ en: v })} disabled={!hasHumanHere || !hasAgentHere} />
             {!hasHumanHere ? <span className="text-xs text-muted" data-no-human>No human version for this page</span> : null}
             <span className="ml-auto flex flex-wrap items-center gap-2">
               {s.view === "page" ? (

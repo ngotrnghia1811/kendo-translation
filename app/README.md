@@ -648,3 +648,34 @@ The Reader dashboard is the page `/read`. It replaces the card grid of unit RC1.
 - `node scripts/smoke.mjs read` runs 297 checks (5 new). The 5 checks cover the article rows of August 2011 and October 2014, the number M, the chapter lines, and the absence of "N translated" without "English:".
 - The Chrome checks run 159 checks (21 new). They cover the keys, the title hint, the first and last page, the Scroll view, focus mode, and the screens with a panel or pop-up.
 - Other counts stay: `smoke` 70, `htv` 262 (files) and 262 (PocketBase), `deploy` 39, `folds` 44, `tolerance` 20, hook checks 62. The test `test_page_images.py` gave 82 PASS. The test `test_local.py` gave 258 PASS.
+
+## Text-only works and the v1 placeholder (unit RT73a, round 73)
+
+Design: section 15.26 of `docs/VISION-viewer.md`. This unit is part a of two. It builds the data and the counts. Unit RT73b builds the component list, the panels, the Original text button, and the fact marks on the screen.
+
+### Web articles on the Reader dashboard `/read`
+
+- A web article has A4 pages (40 characters, 36 lines). The Translator script `data/scripts/web_pages.py` writes the page file `item-metadata/web-pages.jsonl`. It has 311 articles and 1,124 pages.
+- S2 reads that page file (option `--web-pages FILE`, default `<data>/item-metadata/web-pages.jsonl`). For each page it writes a `reader_pages` record with `run_id` "web-ja" (Original text rows), the kendojidai.com text as the chosen Human version in `reader_versions` (`chosen_by` empty), and a copy in `own_translations` under the disabled account `kendojidai-com@system.invalid` (name "kendojidai.com", version 1).
+- S2 writes the default choice once. A choice that an admin removed or changed stays. A page with an agent record (18d4ac29 p001) keeps that record. It gets the web Original text rows (keys `<page_id>/web/<unit>`) and the Human text in its search column.
+- A page counts as translated when it has an Agent text or a Human version (`lib/reader-translated.ts`). A page with only the "web-ja" record does not count. The v1 placeholder counts in no number.
+- The total line reads "English: 1,151 of 14,116 pages translated (8.2 percent)" with the data of the throwaway test. The year folds 2019 to 2025 read "Kendo Jidai 2019" to "Kendo Jidai 2025".
+- S2 `--apply` stops with the line "Restart PocketBase so that migration 1793300011 runs." if `own_translations.facts` is missing.
+
+### Book screen `/read/<slug>`
+
+- The work block reads "AI translation: 6 of 120 pages. Human check: 0 of 6 pages." for a book, and "AI translation: 0 of 3 pages. Human translation: 3 of 3 pages." for d7835263. The metadata line says "1 page" for one page.
+- A web article page shows its Human version (page line "Human translation from kendojidai.com.", no AI label). With the Text control "JA" it shows the Original text. 18d4ac29 has an Agent text and a Human version. The control "English text: Agent | Human" swaps them.
+- A page with no Agent text and no Human version shows the v1 EN placeholder, if the md file exists (page line "v1 Gemini translation placeholder."). A page with nothing shows "No text for this page yet.".
+- The kind of the work decides the Image button, not the page count (`lib/reader-data.ts`).
+
+### v1 placeholder
+
+- The v1 md files sit in `data/v1-md/<slug>/page_NNN.md` (copies of the files of the v1 folders, 13,083 files). The env variable `VIEWER_V1_DIR` names another folder. A missing folder gives no placeholder.
+- `lib/reader-v1.ts` holds the block rule. `lib/reader-v1-files.ts` reads the files and refuses any path that leaves the folder.
+- The placeholder is not uploaded, not searched, and not counted.
+
+### Tests
+
+- `node scripts/smoke.mjs web` runs the checks of this unit. The runner `run_all.py` of the unit prepares the test folder with `VIEWER_V1_DIR` and `RT73A_WEB_PAGES`.
+- `node scripts/smoke.mjs folds` needs the page file (env variable `RT73A_WEB_PAGES`, else `<data>/item-metadata/web-pages.jsonl`).
