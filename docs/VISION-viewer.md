@@ -256,7 +256,7 @@
 - The reading of the rule `[validated reading 2026-10-07 23:47]` "Correct reading (Recommended)".
   - The rule applies to every article without printed page numbers. Today, these are the 313 kendojidai articles `[validated reading 2026-10-07 23:47]`. 313 article pairs were collected. Dataset 1.1.0 holds 311 after 2 exclusions `[file: kendo-translation-translator/data/full/dataset/dataset-summary.json]` `[check: VF 2026-10-26 10:53]`.
   - Books keep their printed pages `[validated reading 2026-10-07 23:47]`.
-  - The JA original is split into pages by the line count of an A4 page `[validated reading 2026-10-07 23:47]`.
+  - The JA original is split into pages by the line count of an A4 page `[validated reading 2026-10-07 23:47]`. Round 73c answer 8: a page that holds no unit is dropped `[accepted recommendation 2026-10-30 20:17]` "Drop them, small Translator fix (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-30.md:114]`. Example: `c7bb369d` has 4 A4 pages by the old cut and 3 pages after the drop (section 15.26.3).
   - The page is the unit for the AI label, the admin human-check record, and the research layer `[validated reading 2026-10-07 23:47]`.
   - Each translation follows the JA page breaks `[validated reading 2026-10-07 23:47]`.
   - The line count and the font size are set in the design phase `[validated reading 2026-10-07 23:47]`. Decided: 40 characters per line, 36 lines, 10.5 pt, 1,440 characters per page `[accepted recommendation 2026-10-25 13:56]` "40 x 36, 10.5 pt (Recommended)".
@@ -2757,8 +2757,8 @@ Term highlight in a human version:
 
 The switch for the reader:
 
-- In the toolbar: "EN text: Agent | Human". The control is active only on pages that have a chosen version. On other pages the agent text shows and the control is grey with the note "No human version for this page".
-- The choice is saved in the account as `reader.en` (section 15.19.6). The default is "Agent".
+- In the toolbar: "EN text: Agent | Human". The control is active only on pages that have a chosen version. On other pages the agent text shows and the control is grey with the note "No human version for this page". Replaced in round 73c answer 4 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:110`), see 15.26.6.4: the component list holds the check boxes Agent text and Human version. The reader can show one or both.
+- The choice is saved in the account as `reader.en` (section 15.19.6). The default is "Agent". Replaced in round 73c answer 4 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:110`), see 15.26.6.9: the saved value `reader.shown` holds the checked components, and an old `reader.en` turns into it.
 - The page line names the shown text: "AI translation, human check: not yet" or "Human translation. Chosen by an admin." No translator name shows unless the owner asks (question 7).
 
 AI label text `[file: docs/VISION-viewer.md:240-251]`:
@@ -2785,7 +2785,7 @@ Proposal: a new key `reader` next to `panes` and `ui`:
 | Key | Values | Default |
 |---|---|---|
 | `reader.text` | `en`, `ja`, `pair` | `en` |
-| `reader.en` | `agent`, `human` | `agent` |
+| `reader.en` | `agent`, `human` | `agent` (replaced in round 73c answer 4, see 15.26.6.9) |
 | `reader.view` | `page`, `scroll` | `page` (question 13) |
 | `reader.font` | EN: `serif`, `sans`. JA: `mincho`, `gothic` | `serif`, `mincho` |
 | `reader.size` | 12 to 28 px, step 0.5 | 18 |
@@ -2798,7 +2798,7 @@ Proposal: a new key `reader` next to `panes` and `ui`:
 - The theme stays in `user_settings.theme` and the cookie `theme`. The reader pages use the same switch as the other views `[file: app/lib/theme.ts]`. Two themes exist now: light and high-contrast dark. The number of themes is question 11.
 - The limits of size and line come from `SIZE_LIMITS` and `LINE_LIMITS` `[file: app/lib/htv-settings.ts:69-70]`. The fonts come from `FONT_STACKS` `[file: app/lib/htv-settings.ts:37-43]`.
 - Per account, all devices `[file: .opencode/reminders/qa/qa-memory-2026-10-07.md:67]`. A phone and a desktop use the same record. Size and width on a phone can differ from the desktop because of the screen. A separate set for the phone is not planned `[agent inference]`.
-- The settings panel opens from one cog in the reader bar. It holds: Text (EN, JA, Pairing), EN text (Agent, Human), View, Theme, Font, Size, Line height, Width, Focus mode, and Reset. The button Image sits in the reader bar since unit RC3 (section 15.22.1).
+- The settings panel opens from one cog in the reader bar. It holds: Text (EN, JA, Pairing), EN text (Agent, Human), View, Theme, Font, Size, Line height, Width, Focus mode, and Reset. The button Image sits in the reader bar since unit RC3 (section 15.22.1). Replaced in round 73c answer 4 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:110`), see 15.26.6.4: Text and EN text leave the settings panel. The Components button in the reader bar opens the component list.
 - The first visit: "Reader picks first" `[file: docs/VISION-viewer.md:190]`. The first page view opens the settings panel once. Round 68 answer 5: the panel closes only at the button "Start reading" or the Esc key, not at the first change. The panel shows the defaults. See section 15.23.6.
 - The size of the `reader` key is small (under 400 bytes) `[agent inference]`. The limit of 20,000 bytes stays.
 
@@ -3440,7 +3440,7 @@ Notes on the tree:
 
 - "v" marks an open fold and ">" marks a closed fold. The sketch opens two folds only to show the content.
 - The Men and Mental folds of the first design are gone (round 69 answer 12, "Show only the full book"). `men0`, `men1`, and `mental2_clean` are hidden. `men_full` and `mental_full` are plain rows.
-- Web articles count as 1 page each. The `pages` value of a web article stays 0 in `catalog_items`, so the button Image stays off for it `[file: docs/VISION-viewer.md:3267]`. The dashboard uses the denominator 1 for the kind `web-article` `[agent inference]`.
+- History, replaced in round 73b answer 6: "Web articles count as 1 page each. The `pages` value of a web article stays 0 in `catalog_items`, so the button Image stays off for it `[file: docs/VISION-viewer.md:3267]`. The dashboard uses the denominator 1 for the kind `web-article` `[agent inference]`." This old statement contradicts section 12 (A4 rule, 40 characters by 36 lines, 1,440 characters per page). Rule now: a web article has as many pages as its A4 cut. The 311 web articles have 1,126 pages together (1 page: 6 articles, 2 pages: 36, 3: 100, 4: 116, 5: 39, 6: 10, 7: 3, 8: 1). Example: `d7835263` has 3 pages and `18d4ac29` has 1 page. The button Image stays off for a web article, because it has no page image. Owner words: "We talked about splitting article into A4 page right? Did you need do it for 2019->2025 kendojidai?" `[user 2026-10-30 15:35]` `[file: .opencode/reminders/qa/qa-memory-2026-10-30.md:87]` `[check: aki-main 2026-10-30 15:39 a4count.py]` `[check: DD73 2026-10-30 15:51 python3 -B a4count.py, 311 articles, 1126 pages]`. The code still counts 1 page for a web article. Unit RT73 fixes the code. Not verified: the `pages` value in `catalog_items` after the fix.
 - The month rows come from `magazine_chapters`. October 2014 spans pages 778 to 868, which is 91 pages. The 5 translated pages p0794 to p0798 lie inside that range `[check: DV69 2026-10-29 20:54 q2.py and 20:55 q4.py]`.
 
 ##### 15.23.3.3 One row
@@ -3591,8 +3591,8 @@ When it opens:
 
 What it holds:
 
-- The title "Reading settings" and every control of today. These are Text, English text, View, Theme, English font, Japanese font, Size, Line height, Width, Focus mode, and Reset text settings.
-- One line: "Use the Image button in the bar above the text to show or hide the page image." The line shows only for a work with page images. The web article has no Image button `[file: docs/VISION-viewer.md:3267]`.
+- The title "Reading settings" and every control of today. These are Text, English text, View, Theme, English font, Japanese font, Size, Line height, Width, Focus mode, and Reset text settings. Replaced in round 73c answer 4 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:110`), see 15.26.6.4: Text and English text leave the panel, and the panel starts with the component list.
+- One line: "Use the Image button in the bar above the text to show or hide the page image." The line shows only for a work with page images. The web article has no Image button `[file: docs/VISION-viewer.md:3267]`. Replaced in round 73c answer 4 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:110`), see 15.26.6.4: a web article now has the Original text button, and the panel names it.
 - The button "Start reading". It replaces the button "Close".
 
 How it closes:
@@ -3886,7 +3886,7 @@ Tasks, in order of how often they happen `[agent inference]`:
 
 1. Look at the state of all books after an absence.
 2. Find out why a book stopped and when.
-3. Mark a book to resume from its last stop.
+3. Mark a book to resume from its last stop. Also mark a stopped box to restart (round 73b answer 3).
 4. Pause a book or a list that costs too much.
 5. Change a run value, for example N or a model, while a book runs.
 6. Mark a book that never ran to start.
@@ -3896,7 +3896,7 @@ The Monitor dashboard must answer these questions, in this order. Each question 
 
 1. Does any book need me now? The group Needs attention answers. It sits at the top. It always shows, also when empty.
 2. What runs now, on which page and box, and is it alive? The group Running answers. Each row shows page, box, and the time of the last sign of life.
-3. What is paused or stopped, since when, and why? The groups Paused and Stopped answer. The state label holds the reason in words.
+3. What is paused or stopped, since when, and why? The groups Paused and Stopped answer. The state label holds the reason in words. A book with a Run or Resume mark that no process picked up yet sits in the group Waiting for a run.
 4. What is the last error, in words? The second line of the row shows the error text.
 5. How far is each book, and which page comes next? The progress bar and the text "Next page" answer.
 6. What did the book cost, and how long did it take? Two columns answer.
@@ -3908,11 +3908,11 @@ The Monitor dashboard must answer these questions, in this order. Each question 
 ##### 15.24.4.1 Layout and groups
 
 - One screen shows the overview. A summary line sits at the top. Groups follow. A group is a heading and a list of book rows.
-- The summary line counts the groups in one sentence. It also shows the model cost of all books. Example: "1 needs attention · 0 running · 0 paused · 11 stopped · 0 completed · 25 not started". The reader sees the whole state before the first row.
-- The order of the groups is: Needs attention, Running, Paused, Stopped, Completed, Not started. Reason: exceptions come first because a stopped book wastes time at every minute. Live work comes second because it needs a look and no action. Paused and Stopped books wait for the owner. Completed and Not started books need nothing.
+- The summary line counts the groups in one sentence. It also shows the model cost of all books. Example: "1 needs attention · 0 waiting for a run · 0 running · 0 paused · 11 stopped · 0 completed · 25 not started". The reader sees the whole state before the first row.
+- The order of the groups is: Needs attention, Waiting for a run, Running, Paused, Stopped, Completed, Not started. The group Waiting for a run is new (round 73b answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:85`, "New group"). Reason: exceptions come first because a stopped book wastes time at every minute. A book with a Run or Resume mark comes second, because the owner pressed a button and waits for an opencode agent to start the process. Live work comes third because it needs a look and no action. Paused and Stopped books wait for the owner. Completed and Not started books need nothing. The name "Waiting for a run" and the position after Needs attention are unit defaults of DD73 `[agent inference]`. Other name: "Mark waiting". Other position: after Running. Benefit of that position: live work stays second. Cost: a mark that nobody picked up sits below the live rows, and the owner can miss it.
 - Needs attention and Running always show. When empty they show one line: "Nothing needs attention." and "Nothing runs now. The last list ended Oct 29 00:50 PDT (21 h ago)." An empty group that disappears makes the owner doubt the page.
-- Paused, Stopped, and Completed show when they hold a row. Not started shows always, closed.
-- Needs attention, Running, Paused, and Stopped start open. Completed and Not started start closed. A group uses the HTML elements `details` and `summary`, so the keyboard works without script `[unit default]`. The browser keeps the open state of each group, like the checklist of the extra items `[file: app/components/extras-store.ts:4-7]`.
+- Waiting for a run, Paused, Stopped, and Completed show when they hold a row. Not started shows always, closed. Example: the group Waiting for a run shows no heading while no book holds a mark `[unit default of DD73, agent inference]`. Other option: it shows always, with the line "No mark waits." as Running does. Benefit: the layout never jumps. Cost: one more empty group on the screen.
+- Needs attention, Waiting for a run, Running, Paused, and Stopped start open. Completed and Not started start closed. A group uses the HTML elements `details` and `summary`, so the keyboard works without script `[unit default]`. The browser keeps the open state of each group, like the checklist of the extra items `[file: app/components/extras-store.ts:4-7]`.
 - Inside a group, the newest event comes first. Not started books sort by slug.
 - The tab title shows the count of the group Needs attention, for example "(1) Monitor dashboard". The owner sees a problem from another tab.
 - The bar holds five tabs: Monitor dashboard (`/`), Lists (`/runs`), Books (`/books`), Run settings (`/settings/run`), and Human translation. The Lists tab keeps the old runs table, one row for each list folder. Reason: the column "Cost (listed)" and the list counts still help when the owner audits one list.
@@ -3925,7 +3925,7 @@ Plain meaning of each label:
 
 - Running: a process works on the book now.
 - Running, pause requested: the owner asked for a pause. The process finishes the current page (forward boxes, critic and critique steps backward, memory write), then ends.
-- Paused: the process ended on purpose after the page that it finished at the pause. Resume writes a mark (round 71 answer 10).
+- Paused: the process ended on purpose after the page that it finished at the pause. Resume writes a mark (round 71 answer 10). Between the mark and the first sign of the process, the row shows the state Mark waiting: "Mark waiting: Resume requested HH:MM" (round 72 answer 17, `.opencode/reminders/qa/qa-memory-2026-10-30.md:45`). The row moves into the group Waiting for a run (round 73b answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:85`, "New group"). Example: the owner presses Resume on `mental_full` at 10:42. The row leaves Needs attention and shows "Mark waiting: Resume requested 10:42" in the group Waiting for a run. The row leaves the group at the first sign of the process, and the book goes to Running. A Run mark shows "Mark waiting: Run requested HH:MM" in the same group (unit default of DU73, accepted in round 73b answer 2, `qa-memory-2026-10-30.md:83`). A mark waits while the book folder holds `request.json` `[file: <T2>/data/scripts/translator/store.py:246-250]` `[agent inference]`.
 - Stopped: the process ended on purpose. Ctrl-C sets the stop. The end of the target page set gives Completed.
 - Stopped unexpectedly: the file says "running", but the process is gone or silent.
 - Stopped by failure: the run ended because of a failure or a rule. The book does not go on alone.
@@ -4000,7 +4000,7 @@ Phase 2 runs on the paired dataset. The paired dataset holds web articles with h
 - Start of a book that never ran. The button "Run" writes a mark `request.json` with the action "run" and the phase "agent-phase-3". Draft DM70: the button "Start…" opened a dialog with the command.
 - Next phase. A Completed book of phase 3 shows the button "Run phase 4" `[unit default]`. The button writes a mark with the phase "agent-phase-4". Phase 4 starts at the beginning of the book (owner quote). Draft DM70: the button "Start phase 4…" opened a dialog.
 - Details. The title and the button "Details" open the book detail view (section 15.24.5).
-- A button is disabled with a reason in words. Example (the pid is made up): "Resume is off because this book runs now (pid 4821)".
+- A button is disabled with a reason in words. Example (the pid is made up): "Resume is off because this book runs now (pid 4821)". The button Restart does not sit on the book row. It sits on the flag of a stopped box in the book detail view (section 15.24.5, item 6, round 73b answer 3).
 
 ##### 15.24.4.6 Time, refresh, and the empty, first-load, and error states
 
@@ -4030,7 +4030,7 @@ The detail view answers the question "why is this book in this state, and what h
 3. Timeline: one fold for each list folder, newest first. The newest fold starts open. The fold heading shows the stamp, start and end in local time, the kind, the critic mode, the book jobs, and the list state. The page table below has these columns: Page, State, Calls, QA_3, Cost, Time, Critiques against N, Memory pairs, and Settings.
 4. Boxes: a page row opens a grid of 4 box types by 4 levels. Each cell shows ok, failed, running, or waiting, with a word. A failed cell links to the file in `failed/` or `raw/`. A page in the state running shows the boxes in `running` of `progress.json` `[file: app/lib/runs.ts:108]`.
 5. Memory pairs: the count for each page and the list of pairs, reused from the panel of today `[file: app/components/ChainPanels.tsx:69-160]`. Example: p046 wrote 5 pairs, p047 6, p048 5, p049 4, p050 6. The total is 26.
-6. Critiques against N: for each page, the count of each box type, with a star when the count reached N. A total row sums the pages. Example: TS 1, TL 13, ED 17, QA 3 against N = 2. The note stays: "The run program has no update step yet."
+6. Critiques against N: for each page, the count of each box type, with a star when the count reached N. A total row sums the pages. Example: TS 1, TL 13, ED 17, QA 3 against N = 2. The note stays: "The run program has no update step yet." A box that stopped after 3 double REJECTs in a row shows a flag next to its count (round 72 answer 11, `.opencode/reminders/qa/qa-memory-2026-10-30.md:39`). The flag text is "ED_2 stopped after 3 double REJECTs" for the box ED_2 (round 73b answer 2, `qa-memory-2026-10-30.md:83`). The flag holds a button Restart. The button writes a restart mark in the book store folder, and an opencode agent runs it, like Run and Resume (round 73b answer 3, `qa-memory-2026-10-30.md:84`, "Restart mark (Recommended)"). Translator design: section 9.23.9, item 10.
 7. Settings used: each page row shows N (key `update_N` of `summary.json`) and the models (`run.json`). A mark "Settings changed before this page" shows when a page used other values than the page before. Today `run.json` holds models, mode, jobs, and the cost limit. After unit TR70, it also holds the block `settings` and its sha1.
 
 Where each fact comes from:
@@ -4058,7 +4058,7 @@ The 8 groups. "Today" is the value of the Translator now. It is also the default
 
 | Group | Key | Plain meaning | Today | Allowed | Unit | Takes effect |
 |---|---|---|---|---|---|---|
-| 1 N | `update.N` | Critique count of one box type that starts a prompt rewrite. | 2 | whole number, 1 or more | critiques | next page |
+| 1 N | `update.N` | Critique count of one box type that starts a prompt rewrite. | 5 (N = 5 from phase 3, round 72 answer 7, `.opencode/reminders/qa/qa-memory-2026-10-30.md:35`. Unit UN73 sets 5 in the config files, round 73b answer 5, `qa-memory-2026-10-30.md:86`. It was 2.) | whole number, 1 or more | critiques | next page |
 | 2 Model and effort per level | `levels."0"` to `levels."3"`, each with `model` and `variant` | The model and the effort of the four boxes of one level. | level 0: google/antigravity-gemini-3.8-flash-high, high. Level 1: anthropic/claude-haiku-5-5, xhigh. Level 2: xai/grok-4.7, low. Level 3: anthropic/claude-sonnet-5-5, high. | model ID from the list, effort from the list | none | next page |
 | 3 Box critic model | `box_critic.model`, `box_critic.variant` | The model of the critic that reads each box. | anthropic/claude-opus-5-5, medium | same as group 2 | none | next page |
 | 4 Cost limit per page | `run.max_usd_per_page` | A page stops with "cost guard" when its cost reaches the limit. | no limit | empty, or a number above 0 | USD | next page |
@@ -4097,7 +4097,7 @@ Review, save, history, and reset:
 
 #### 15.24.7 Resume per book
 
-The owner marks a book from the screen and asks an opencode agent to run it. A book can stop at any page. The resume point is the next page after the last accepted page. DM70 drafted three ways. The owner chose another way in round 70 answer 11 and confirmed it in round 71 answer 9. Owner words, round 70 answer 11: "Actually, the [Run] and [Resume] button should only `mark` the book for run start/continue. I will only run through asking agent to run on opencode, where the agent will read the mark and perform the action needed. The monitor just need to reflect the changes during/after the run" [user 2026-10-29 23:36]. Round 71 answer 9 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:14`): "Reading right (Recommended)" [accepted recommendation 2026-10-30 02:37]. The flow: the button Run or Resume writes `request.json` in the book store folder. The owner asks an opencode agent. The agent runs `translator_run.py marks` and then the printed `run-book` command. The handled mark becomes `request.done.json`. The Monitor dashboard shows the progress.
+The owner marks a book from the screen and asks an opencode agent to run it. A book can stop at any page. The resume point is the next page after the last accepted page. DM70 drafted three ways. The owner chose another way in round 70 answer 11 and confirmed it in round 71 answer 9. Owner words, round 70 answer 11: "Actually, the [Run] and [Resume] button should only `mark` the book for run start/continue. I will only run through asking agent to run on opencode, where the agent will read the mark and perform the action needed. The monitor just need to reflect the changes during/after the run" [user 2026-10-29 23:36]. Round 71 answer 9 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:14`): "Reading right (Recommended)" [accepted recommendation 2026-10-30 02:37]. The flow: the button Run, Resume, or Restart (the stopped-box flag, round 73b answer 3) writes `request.json` in the book store folder. The owner asks an opencode agent. The agent runs `translator_run.py marks` and then the printed `run-book` command. The handled mark becomes `request.done.json`. The Monitor dashboard shows the progress.
 
 - Draft option 1, copy the exact command (DM70 recommendation, not chosen). In the draft, the button "Resume…" showed the command and a button "Copy command". The owner pasted it in the Terminal. Benefit: the web app gets no new power. No visitor of port 3000 can start a paid run. The command is visible and can be checked. Cost: one manual step in the Terminal.
 - Draft option 2, a request file that the Translator watches. The owner chose the file of this option and replaced the process that watches with an opencode agent (round 70 answer 11). The Viewer writes a file and a Translator process starts the work. Benefit: one click. Cost: a process must watch, and a stopped book has no process. So a new always-on Translator process is needed. That is a new component for unit TR70.
@@ -4128,7 +4128,7 @@ Sketch 1: Monitor dashboard today, with the data on this Mac (no list runs now).
 Monitor   Lists   Books   Run settings   Human translation                                            Light  [High-contrast dark]
 -------------------------------------------------------------------------------------------------------------------------------
 Monitor dashboard                                       Updated 22:06:12 PDT (3 s ago)   [Refresh]   [Run settings]
-1 needs attention · 0 running · 0 paused · 11 stopped · 0 completed · 25 not started          Model cost in list folders: $73.95
+1 needs attention · 0 waiting for a run · 0 running · 0 paused · 11 stopped · 0 completed · 25 not started          Model cost in list folders: $73.95
 -------------------------------------------------------------------------------------------------------------------------------
 v ▲ Needs attention (1)
   ▲ Stopped by failure  Making the Difference on the Day (mental_full)  Phase not stored  2 of 169 pages [#.........]  $5.48  102 min  [Resume] [Details]
@@ -4156,7 +4156,7 @@ v ■ Stopped (11)
 Sketch 2: the same screen when books run. The rows are examples that use the T7 numbers of `left_foot_full`. They are not real data.
 
 ```
-1 needs attention · 1 running · 1 paused · 9 stopped · 0 completed · 25 not started
+1 needs attention · 0 waiting for a run · 1 running · 1 paused · 9 stopped · 0 completed · 25 not started
 v ▲ Needs attention (1)
   ▲ Stopped unexpectedly  Kendo Jidai 2012 (kendojidai_2012)  Phase 3 · warm initialization  2 of 20 pages [#.........]  $3.88  92 min  [Resume] [Details]
       No update for 12 min: the process is gone. Last page done: p711. The call of box TL_2 on the next page did not end.   [example]
@@ -4204,7 +4204,7 @@ left_foot_full runs now at p051. It reads new values at the start of p052. Jobs,
 +------------------+--------------------------------------------------------------------------------------------------------+
 | 1 N              | 1 N                                                                                                    |
 | 2 Models         |   Critiques of one box type that start a prompt rewrite.                                               |
-| 3 Box critic     |   Value [ 3 ]  Changed      Default 2  [Reset]     Whole number, 1 or more · critiques                 |
+| 3 Box critic     |   Value [ 3 ]  Changed      Default 5  [Reset]     Whole number, 1 or more · critiques                 |
 | 4 Cost limit     |   Takes effect: next page.                                                                             |
 | 5 Jobs           |   Today N only sets the marks "reached N". The run program has no update step yet.                     |
 | 6 Critic mode    |                                                                                                        |
@@ -4290,7 +4290,7 @@ Differences from the draft of aki-main:
 - `pages_total` counts the pages of the phase target. The draft left this open. Phase 3 needs 20, not the pages of the book.
 - The cost and the time count one phase. A phase change writes the old totals to `history.jsonl`.
 - The heartbeat comes from a thread that does not wait for a model call. A call can last 1500 s.
-- A file `PAUSE` for one book. The draft had the list file only. The Monitor dashboard also writes the mark `request.json` in the book folder (round 70 answer 11, round 71 answer 9). The mark holds the keys schema ("book-request-v1"), book, action ("run" or "resume"), phase, requested_utc, and requested_by `[file: <T2>/data/scripts/translator/store.py, function write_mark]`. `run-book` keeps the handled mark as `request.done.json`.
+- A file `PAUSE` for one book. The draft had the list file only. The Monitor dashboard also writes the mark `request.json` in the book folder (round 70 answer 11, round 71 answer 9). The mark holds the keys schema ("book-request-v1"), book, action ("run" or "resume"), phase, requested_utc, and requested_by `[file: <T2>/data/scripts/translator/store.py, function write_mark]`. The restart mark (round 73b answer 3, `.opencode/reminders/qa/qa-memory-2026-10-30.md:84`) uses the same file with the action "restart" and one more key `box`, for example "ED_2" (unit default of DD73 `[agent inference]`). Not verified: `write_mark` has no "restart" action today, so a Translator unit must add it. `run-book` keeps the handled mark as `request.done.json`. The run program reads the restart mark at each page start. So a mark for a stopped box reaches a book that runs at the next page (round 73c answer 10, `.opencode/reminders/qa/qa-memory-2026-10-30.md:116`, "Run program reads the mark per page (Recommended)" `[accepted recommendation 2026-10-30 20:17]`).
 - A defaults file, so that the Viewer shows the default of each key without a copy of the table.
 - A history file of the settings file. The draft had no place for who changed what.
 
@@ -4302,7 +4302,7 @@ How the Viewer reads it:
 - Pages done is the count of distinct page IDs in the state "done". Cost and page time are sums over all list folders. The last event is the latest `ended_epoch` of the book. The phase is "not stored". The next page is the first page in the state waiting of the newest list, else "not stored".
 - The Viewer reads a file again only when its modification time changed `[agent inference]`. The poll runs every 3 s. 37 books and many lists must not slow it.
 - A broken or half file gives the row "Status file unreadable". It never stops the page.
-- The Viewer writes four kinds of files: `PAUSE` (list or book), `request.json` (book), `translator-settings.json`, and `translator-settings.history.jsonl`. The last two sit in `<T2>/config`. A new function in `app/lib/safe-path.ts` accepts only these two names in that folder. The key `translatorConfigDir` in `viewer.config.json` sets the folder. The default is the folder `config` next to `translatorDataDir`. Another check accepts only the names `PAUSE` and `request.json` in a folder `book-store/<book>/` `[unit default]`.
+- The Viewer writes four kinds of files: `PAUSE` (list or book), `request.json` (book, a Run, Resume, or Restart mark), `translator-settings.json`, and `translator-settings.history.jsonl`. The last two sit in `<T2>/config`. A new function in `app/lib/safe-path.ts` accepts only these two names in that folder. The key `translatorConfigDir` in `viewer.config.json` sets the folder. The default is the folder `config` next to `translatorDataDir`. Another check accepts only the names `PAUSE` and `request.json` in a folder `book-store/<book>/` `[unit default]`.
 
 #### 15.24.10 Plan for the code unit
 
@@ -4319,7 +4319,7 @@ Files to add:
 - `app/lib/book-status-rules.ts`: a pure function from file contents and a clock to labels, groups, and sentences. It has no file access, so a test runs it without the server.
 - `app/lib/settings-run.ts`: server code. It reads, validates, and writes the settings file and the history.
 - `app/lib/settings-schema.ts`: a pure module with the field table, `validateSettings`, and the diff.
-- `app/components/MonitorDashboard.tsx`, `BookRow.tsx`, `StateLabel.tsx`, `MarkButton.tsx` (the buttons Run and Resume, no dialog), `BookDetail.tsx`, `RunSettingsForm.tsx`, and `ConfirmDialog.tsx`.
+- `app/components/MonitorDashboard.tsx`, `BookRow.tsx`, `StateLabel.tsx`, `MarkButton.tsx` (the buttons Run and Resume, no dialog, and the button Restart on the stopped-box flag), `BookDetail.tsx`, `RunSettingsForm.tsx`, and `ConfirmDialog.tsx`.
 
 Files to change:
 
@@ -4347,7 +4347,7 @@ Tests:
   - `validateSettings` for all 21 keys, with a good and a bad value, and the diff.
 - Smoke mode `monitor` with a fixture folder that holds copies of the 3 list folders and a `config` folder. It adds fake `status.json` files: running (own pid), stopped unexpectedly (pid of a finished process), paused, completed, and a broken file. It checks the rows, the groups, the summary line, and the 404 answers with the monitor off.
 - Settings write tests: the file is written by temp file and rename, with no temp file left. A stale sha1 gives 409. A foreign Origin and a foreign Host give 403. A key that the panel does not know stays. A save writes one line in the history. No other path in the fixture changes.
-- Pause tests extend the mode `pause`: the list with 3 books shows the dialog, and one pause file per book works. Mark tests: the button writes `request.json` in the book folder and no other file.
+- Pause tests extend the mode `pause`: the list with 3 books shows the dialog, and one pause file per book works. Mark tests: the button writes `request.json` in the book folder and no other file. The same test covers the button Restart.
 - Chrome checks at 1440 x 900:
   - Keyboard through all groups and buttons.
   - The focus ring.
@@ -4356,18 +4356,18 @@ Tests:
 
 #### 15.24.11 Open items
 
-- Item 1: how the owner resumes a book. Decided in round 70 answer 11: "Actually, the [Run] and [Resume] button should only `mark` the book for run start/continue. I will only run through asking agent to run on opencode, where the agent will read the mark and perform the action needed. The monitor just need to reflect the changes during/after the run" [user 2026-10-29 23:36]. Round 71 answer 9 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:14`): "Reading right (Recommended)" [accepted recommendation 2026-10-30 02:37]. The button writes `request.json`. An opencode agent runs `translator_run.py marks` and then the printed `run-book` command. The handled mark becomes `request.done.json`. Section 15.24.7 holds the flow. Example: `mental_full` stopped at p014 on Oct 27 19:56 PDT. Open: what the row shows between the mark and the first sign of the process. The design has no text for it yet.
+- Item 1: how the owner resumes a book. Decided in round 70 answer 11: "Actually, the [Run] and [Resume] button should only `mark` the book for run start/continue. I will only run through asking agent to run on opencode, where the agent will read the mark and perform the action needed. The monitor just need to reflect the changes during/after the run" [user 2026-10-29 23:36]. Round 71 answer 9 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:14`): "Reading right (Recommended)" [accepted recommendation 2026-10-30 02:37]. The button writes `request.json`. An opencode agent runs `translator_run.py marks` and then the printed `run-book` command. The handled mark becomes `request.done.json`. Section 15.24.7 holds the flow. Example: `mental_full` stopped at p014 on Oct 27 19:56 PDT. Decided in round 72 answer 17 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:45`): "Accept all 3 (Recommended)" [accepted recommendation 2026-10-30 09:28]. Between the mark and the first sign of the process, the row shows "Mark waiting: Resume requested HH:MM". Example: a resume mark for `mental_full` at 10:42 shows "Mark waiting: Resume requested 10:42". For a Run mark, the row shows "Mark waiting: Run requested HH:MM" (unit default of DU73, round 73 [agent inference]). Section 15.24.4.2 names this state.
   - Draft option A (DM70 recommendation, not chosen): copy the command. Benefit: no new power in the web app. Cost: one step in the Terminal.
   - Draft option B (the file is the owner choice): a request file. Benefit: one click. Cost: a new always-on Translator process. The owner removed this cost, because an opencode agent reads the mark.
   - Draft option C (not chosen): the Viewer starts the process. Benefit: one click. Cost: the monitor has no sign-in, so any visitor of the port can start a paid run.
-- Item 2: Needs attention rows for old problems. Example: `mental_full` stays in Needs attention until a resume, and it stopped 2 days ago.
-  - Option A (recommended): the row stays until the book runs again. Benefit: no new write, and a real problem does not hide. Cost: an old accepted problem keeps a row at the top.
-  - Option B: a button "Mark as seen" writes an event to the book history. Benefit: the group empties. Cost: a new write of the Viewer, and the Translator must write the store first.
+- Item 2: Needs attention rows for old problems. Example: `mental_full` stays in Needs attention until a resume, and it stopped 2 days ago. Decided in round 73c answer 13 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:119`): "Row stays until the book runs (Recommended)" `[accepted recommendation 2026-10-30 20:17]`. Option A is chosen.
+  - Option A (chosen, recommended): the row stays until the book runs again. Benefit: no new write, and a real problem does not hide. Cost: an old accepted problem keeps a row at the top.
+  - Option B (not chosen): a button "Mark as seen" writes an event to the book history. Benefit: the group empties. Cost: a new write of the Viewer, and the Translator must write the store first.
 - Item 3: the scope of Pause. Decided in round 70 answer 12: "Each book with running process has a Pause button. When click, the running process finishing the process (forward and backward) for current page and stop the process." [user 2026-10-29 23:36] Round 71 answer 10: "Reading right (Recommended)" [accepted recommendation 2026-10-30 02:37]. The button writes `PAUSE` in the book store folder. The process finishes the current page (16 boxes forward, critic and critique steps backward, memory write), then ends. The Monitor dashboard shows Paused. Resume writes a mark. Draft option A is the built one for `run-book`. Example: list `20261028T023006Z` holds 3 books, and a pause on the row of `mental_full` stopped all 3 in the draft. Not verified: the pause of an old list folder in the new design. The old list file stays `[agent inference]`.
   - Draft option A (chosen for `run-book`): one pause file per book for `run-book`, and a dialog for old lists that names all books. Benefit: the owner pauses one book. Cost: the Translator must check one more file after each page.
   - Draft option B (not chosen): the pause file stays per list. Benefit: no Translator change. Cost: one book cannot pause alone, and a dialog is needed.
-- Item 4: jobs, book jobs, and critic mode. Round 69 answer 19 says "next page". A list that runs reads these three at its start. Example: a resume of `left_foot_full` (mode separate) with the mode session gives "RESUME ERROR".
-  - Option A (recommended): the three fields save at once and show the badge "Next list or book start". The dialog says so. Benefit: the owner sets the next run in advance. Cost: the change does not reach a list that runs, and the owner must read the badge.
+- Item 4: jobs, book jobs, and critic mode. Decided in round 72 answer 17 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:45`): "Accept all 3 (Recommended)" [accepted recommendation 2026-10-30 09:28]. Option A. Round 69 answer 19 says "next page". A list that runs reads these three at its start. Example: a resume of `left_foot_full` (mode separate) with the mode session gives "RESUME ERROR".
+  - Option A (chosen): the three fields save at once and show the badge "Next list or book start". The dialog says so. Benefit: the owner sets the next run in advance. Cost: the change does not reach a list that runs, and the owner must read the badge.
   - Option B: the three fields are disabled while any book runs. Benefit: no wrong hope. Cost: the owner cannot prepare the next run.
   - Option C: the three fields apply at the next page. Benefit: it follows answer 19 to the letter. Cost: unit TR70 must build parallel pools that change size `[agent inference]`, and a mode change breaks the resume of a started book.
 - Item 5: the command line value `--max-usd` and the settings file. Decided in round 70 answer 14: "Settings file wins (Recommended)" [accepted recommendation 2026-10-29 23:36]. Unit TB71 built it `[file: <T2>/data/scripts/translator/settings.py:10-12]`. Example: a list that starts with `--max-usd 3` and a file that says no limit.
@@ -4389,8 +4389,8 @@ Tests:
 - Item 10: the first tab. Example: the owner opens `/` and wants the old table of lists.
   - Option A (recommended): the Monitor dashboard is `/` and the old table moves to the tab Lists at `/runs`. Benefit: the owner sees books first, as asked. Cost: the old table is one click away.
   - Option B: keep the table on `/` and add the dashboard at `/monitor`. Benefit: no change of `/`. Cost: it breaks round 68 answer 2, which names `/` as the Monitor home.
-- Item 11: what "pages done" counts. Example: `kendojidai_2014` has 6 pages done on the Monitor dashboard and 5 translated pages on the Reader dashboard.
-  - Option A (recommended): the Monitor dashboard counts finished runs of any verdict, and the row shows "1 FAIL page" when known. Benefit: the number shows the work of the agent. Cost: it differs from the Reader dashboard.
+- Item 11: what "pages done" counts. Decided in round 72 answer 17 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:45`): "Accept all 3 (Recommended)" [accepted recommendation 2026-10-30 09:28]. Option A. Example: `kendojidai_2014` has 6 pages done on the Monitor dashboard and 5 translated pages on the Reader dashboard.
+  - Option A (chosen): the Monitor dashboard counts finished runs of any verdict, and the row shows "1 FAIL page" when known. Benefit: the number shows the work of the agent. Cost: it differs from the Reader dashboard.
   - Option B: count PASS pages only. Benefit: closer to the Reader dashboard. Cost: a FAIL page that cost 4.38 USD does not show as work.
 
 #### 15.24.12 Not verified
@@ -4405,7 +4405,7 @@ Tests:
 - How the Translator reads a settings file that changes while a page runs. The design says: at the start of each page. Round 69 answer 19 gave that rule.
 - Titles for all 12 books on the dashboard. The unit read the titles of 4 books from `docs/VISION-viewer.md` only.
 
-Status: design accepted (round 70 answer 10), Run, Resume, Pause, and store folder lines updated by unit DF72 (round 72).
+Status: design accepted (round 70 answer 10), Run, Resume, Pause, and store folder lines updated by unit DF72 (round 72). Items 1, 4 and 11 of 15.24.11 decided in round 72 answer 17, written by unit DU73 (round 73).
 
 #### 15.25 Code state of the Reader dashboard (units RC4 and RC4b, rounds 70 and 71)
 
@@ -4445,7 +4445,7 @@ Status: design accepted (round 70 answer 10), Run, Resume, Pause, and store fold
 - Two folds on the first level: Books and Kendo Jidai. Both start open. The deeper folds start closed `[check: RC4 smoke-read.log:25]`.
 - Books holds 22 works, 4,821 pages, and 20 translated pages. Kendo Jidai holds 320 works, 8,482 pages, and 8 translated pages `[check: DV71 2026-10-30 00:12 python3 -B calc.py]`.
 - The 320 works are 9 year volumes and 311 web articles. All 311 web articles come from kendojidai.net with web dates from 2019 to 2025 (round 70 answer 5).
-- Total line: 342 visible works, 13,303 pages, and 28 translated pages (0.2 percent). A web article counts as 1 page `[check: RC4 smoke-folds.log:5]`.
+- Total line: 342 visible works, 13,303 pages, and 28 translated pages (0.2 percent). A web article counts as 1 page `[check: RC4 smoke-folds.log:5]`. History, replaced in round 73b answer 6: this count of 1 page contradicts section 12. A web article has as many pages as its A4 cut, so 311 web articles have 1,126 pages `[file: .opencode/reminders/qa/qa-memory-2026-10-30.md:87]` `[check: aki-main 2026-10-30 15:39 a4count.py]`. If the 8,482 pages of Kendo Jidai count each web article as 1 page, the Kendo Jidai total becomes 9,297 pages (8,482 minus 311 plus 1,126) and the total line becomes 14,118 pages `[agent inference]`. Unit RT73 fixes the code.
 - Kendo Jidai holds 16 year folds, 2010 to 2025, and 172 month folds. It shows 1,155 magazine article rows and 311 web article rows `[check: RC4 smoke-read.log:57]`.
 - Hidden works: `men0`, `men1`, `mental2_clean`, `matsubara`, and `morishima` (round 69 answers 12 and 15). The page `/translate` keeps all folders.
 - A stamped web article sits in its print month (round 70 answer 6). Example: `63654ba0` (Teramoto, part 2) sits in Kendo Jidai > 2011 > August 2011. That month holds 14 articles and 2 web articles `[check: RC4 smoke-folds.log:11-12]`.
@@ -4578,3 +4578,977 @@ Source: `[file: .opencode/reminders/qa/qa-memory-2026-10-29.md:116-124]`.
 - Open item 3, owner check. The owner looks at the Reader dashboard (/read) on port 8090 with the steps in `.opencode/aki-main/owner-hand-steps.md` section 11. The check is still pending.
 
 Status: code built, local PocketBase updated, waiting for the owner check (round 71).
+
+#### 15.26 Text-only works, reader components and panels (design, unit DW73, rounds 72 to 73c)
+
+- Status: design. No code, no database record, and no data file changed. Unit RT73 builds it after the owner checks the readings of 15.26.18 and the restatement of unit DW73.
+- This section replaces the draft of unit DT73b. The draft lived in the temp folder only. It never sat in this file.
+- Screens: "Reader dashboard `/read`" lists the works. "Book screen `/read/<slug>`" shows one work page by page. "Monitor dashboard `/` on this Mac" is not part of this section. "`/translate`" is the page of the translators.
+- Words: a *component* is one item in the list that the reader checks. A *panel* is one screen area that holds one component `[file: docs/VISION-viewer.md:53-54]`.
+- More words: "Agent text" is the EN-trans-machine text (the `ED_3` text of a run). "Human version" is the EN-trans-human text. "JA source text" is the Japanese text of the work. "Page image" is the scan of the printed page.
+- More words: "v1 placeholder" is the text of the v1 md files that the browser Gemini agent made in v1. It fills the display until a v2 text exists. "Page line" is the short line at the top of a text panel `[file: docs/VISION-viewer.md:249]`. "Work block" is the metadata block of the book screen.
+- Words of the new design: the "Components button" opens the "component list". The "title bar" is the top bar of a panel. A "fact mark" shows a fact of the JA that the EN changed or left out.
+- Evidence tags: `[file: path:line]` for a file. `[check: DW73 2026-10-30 HH:MM command]` for a command of this unit. `[check: DT73b ...]` for a number that unit DT73b checked. `[agent inference]` for a conclusion. A fact without a tag is Not verified.
+- Check scripts of this unit: `<TMP>/r73/DW73/check/` (`jaonly.py`, `jaonly2.py`). Check scripts of unit DT73b: `<TMP>/r73/DT73b/check/`.
+- Size unit: 1 MB = 1,048,576 bytes, as in `app/scripts/sync-runs.mjs:42`.
+- Each design point carries one mark: "decided" (owner quote and Q-A line), "unit default" (with the other option), or "open item" (for the owner).
+- Lines of this file that still say "1 page" for a web article are l3433, l4446, and l4577. Unit RT73 fixes them with the code.
+
+##### 15.26.1 Sources and owner words
+
+###### 15.26.1.1 Vision lines that this design follows
+
+- l40 `[user 2026-10-07 20:05]`: "Viewer focus on two objection:\n+ Best user reading experience and efficiency\n+ user Flexible and customizable UI for reading components".
+- l49, fast comparison: "a tap on a sentence marks its pair in the other panels, and the panels scroll together". See 15.26.6.6.
+- l53 and l54: a component is "one item in the list that the reader checks, for example a text in one language". A panel is "one screen area that holds one component".
+- l102 to l107: three EN kinds. EN-original, EN-trans-human (the kendojidai EN of the 313 article pairs), and EN-trans-machine (the `ED_3` text).
+- l108 to l110: "No EN-original item enters the Viewer now". So no EN-original component has data.
+- l111 to l113: "As published, facts marked". "A mark on each changed fact shows the JA fact".
+- l116: "Content arrives EN first, then ZH, KO, and VI, per work".
+- l120: "The JA source is always a component".
+- l129 to l131: the raw data view of a book is "a page image plus JA text with ruby". The raw data view of an article is "the JA text".
+- l158 to l161: pair 252, record `b5106cae-44f6-4a27-a91f-8c75312fcce9`. The JA says 世界選手権大会団体優勝4回. The EN-trans-human text says "team title 3 times". "Its fact mark shows the JA fact 4".
+- l178 `[user 2026-10-07 14:05]`: "add/remove components (raw images, text in different languages, ruby, bilingual pairing, etc) - these components should be a list that reader checks to selects. User should also able to move, resize, hide, show, etc customize their panels".
+- l180 to l187, the component list. It names the page image of the original (books only), the JA source text, and ruby. It also names EN-trans-human, EN-trans-machine, and ZH KO VI text "when each arrives". The last two items are bilingual pairing and kendo term highlights.
+- l188 to l192: "The reader checks components in the list". "The reader moves, resizes, hides, and shows panels". "Reader picks first". "The layout is saved per account, across all devices". "Phones are in scope, with a simpler layout".
+- l212 and l213: the Reader dashboard `/read` counts a page as translated when readers can view its English text. Any page opens, also a page with no translated text.
+- l214: "Search covers all works in all languages".
+- l246 to l251: the AI label sits in the work block and on the page line. "Human versions carry no AI label".
+- l255 to l262, section 12: A4 pages for articles without printed page numbers. "Each translation follows the JA page breaks". Decided size: 40 characters per line, 36 lines, 1,440 characters per page.
+- l2716 to l2769, section 15.19.5: the agent text is the default. An admin chooses one Human version per page on `/admin/versions`. The toolbar reads "EN text: Agent | Human". The page line of a chosen version reads "Human translation. Chosen by an admin.".
+- l2780 to l2803, section 15.19.6: the `reader` key of `user_settings.panes`. The settings panel holds "Text (EN, JA, Pairing), EN text (Agent, Human)".
+- l2805 to l2834, section 15.19.7: the phone layout. One column. "Bilingual pairing stacks JA above EN for each row". "The original page image is a tab above the text".
+
+###### 15.26.1.2 Owner words of rounds 72 to 73c
+
+All in `.opencode/reminders/qa/qa-memory-2026-10-30.md`.
+
+- l30, round 72 answer 2 `[user 2026-10-30 09:28]`: "Why is there an articlw with only 1 page? \nEven if there is no translated data, you still have to show the full original data\nIn case of text only article, show the original text\nAlso most of the kendojidai article 2019-2025 HAVE the translation (human translation). Why they are not shown? What happen to the discussion we have about different translation data type that user can choose to view?"
+- l31, round 72 answer 3: "Check previous answer. We talked about this. For ones with only original text instead of image, read the image button with original-text button".
+- l62 and l63, round 73 answers 1 and 2 `[accepted recommendation 2026-10-30 10:42]`: "Reading right (Recommended)".
+- l65 to l67, round 73 answers 4 to 6 `[accepted recommendation 2026-10-30 10:42]`: "Source A, units.jsonl (Recommended)", "Chosen by default (Recommended)", "All 311 go in (Recommended)".
+- l68, round 73 answer 7 `[user 2026-10-30 10:42]`: "Are they really just 1-page per article? If yes then option 2.\nAlso add kendojidai to the book name 2019 -> 2025".
+- l71, round 73 answer 10 `[user 2026-10-30 10:42]`: "option 1. But for now, you can use the v1 data in universal-agent as place-holder text (those are data generated by browser-based gemini agent)."
+- l87, round 73b answer 6 `[user 2026-10-30 15:35]`: "We talked about splitting article into A4 page right? Did you need do it for 2019->2025 kendojidai?"
+- l88, round 73b answer 7: "We talked about it in Viewer Vision no? There is original-EN (text that is originally written in EN),  human-EN (text that is translated by human to EN), agent-EN (text that is translated by agent to EN), and reader can choose what to show in their customizable UI\nDid you even review the Viewer vision yet?"
+- l89, answer 8: "Also dropped facts" `[accepted option 2026-10-30 15:35]`.
+- l90, answer 9: "JA column beside EN (Recommended)" `[accepted recommendation 2026-10-30 15:35]`.
+- l91, answer 10: "Not translated, not searched (Recommended)" `[accepted recommendation 2026-10-30 15:35]`.
+- l92, answer 11: "v1 Gemini translation placeholder." `[user 2026-10-30 15:35]`.
+- l93, answer 12: "No link now (Recommended)" `[accepted recommendation 2026-10-30 15:35]`.
+- l94, answer 13: "User can swap between them, and also show both of them." `[user 2026-10-30 15:35]`.
+- l95, answer 14 `[user 2026-10-30 15:35]`: "+ sentence row\n+ I SAID USER CAN VIEW WHAT IS AVAILABLE IN THE VIEWER VISION. Review it properly\n+ keep it\n+ If ZH is available in v1, User can view the ZH v1 placeholder".
+- l108, round 73c answer 2 `[accepted recommendation 2026-10-30 20:17]` `[user 2026-10-30 20:17]`: "Reading 1, A4 pages (Recommended), Reading 2, sentence rows (Recommended), Reading 3, what is available (Recommended), Reading 4, Agent text first (Recommended), Reading 5, counts (Recommended), Reading 6, Kendo Jidai 2019 (Recommended), `placeholder` DOES NOT COUNT AS ANYTHING. They are just placeholder and will be replaced in the future".
+- l109, answer 3 `[user 2026-10-30 20:17]`: "option 1. v1 tranlsation are simply just placeholder, for display testing purpose ONLY."
+- l110, answer 4 `[user 2026-10-30 20:17]`: "option 3. Do the text-only button also". Option 3 was the Viewer vision section 7 in full.
+- l111, answer 5: "Separate component, off at first (Recommended)". l112, answer 6: "Small tag after the sentence". l113, answer 7: "From kendojidai.com (Recommended)".
+- l114, answer 8: "Drop them, small Translator fix (Recommended)". l116, answer 10: "Run program reads the mark per page (Recommended)". l119, answer 13: "Row stays until the book runs (Recommended)". l120, answer 14: "DW73 + TF73 now, RT73 after DW73 check (Recommended)".
+- l122 to l124, notes of aki-main (not owner words): the v1 placeholder counts in no number on any screen. The v1 ZH placeholder shows as one component. Answer 4 widens round 62 answer 8. All three are `[reading pending owner check]`.
+
+###### 15.26.1.3 Earlier decisions that this design applies
+
+- `qa-memory-2026-10-07.md:37` `[user]`: "Reader can have diffent component options for the same languagues (i.e., EN-original, EN-translated)".
+- `qa-memory-2026-10-07.md:97`: "Need to specif `EN-translated` to `EN-trans-human` (human translation), and `EN-trans-machine` (machine translation)".
+- `qa-memory-2026-10-07.md:106`: "option 1. But for articles with no page number, pagify the original content based on A4 size number of lines." The reading is validated at l132: "Correct reading (Recommended)".
+- `qa-memory-2026-10-07.md:129`: "option 1. but EN-original mean the item is originally written in English".
+- `qa-memory-2026-10-07.md:130`: "As published, facts marked (Recommended)".
+- `qa-memory-2026-10-08.md:45`: human versions carry no AI label.
+- `qa-memory-2026-10-25.md:114`: "40 x 36, 10.5 pt (Recommended)". `qa-memory-2026-10-25.md:147`: "Each block starts a new line (Recommended)".
+- `qa-memory-2026-10-26.md:134` `[user 2026-10-26 21:33]`: "Human translation are stored as separate user's translation, not an update of agent translation".
+- `qa-memory-2026-10-28.md:289`, round 62 answer 7 `[user 2026-10-29 10:36]`: "option 3, with option 1 as default. Admin can choose which human versionn to show". The text of options 1 and 3 is not in the Q-A files. Line 300 holds the reading of aki-main: the agent text is the default and an admin chooses one Human version per page `[reading pending owner check]`.
+- `qa-memory-2026-10-28.md:290`, round 62 answer 8: "Single language EN or JA (Recommended), Bilingual pairing (Recommended), Themes, fonts, size (Recommended), Page and Scroll switch (Recommended), Original page image, Focus mode".
+- `qa-memory-2026-10-28.md:293`, round 62 answer 11 `[accepted recommendation 2026-10-29 10:36]`: "ZH, KO, VI stay out (Recommended), Report button stays out (Recommended), Ruby stays out (Recommended)".
+- `qa-memory-2026-10-28.md:310`, round 63 answer 6: "Admin page /admin/versions (Recommended), Collection page_checks (Recommended)".
+- `qa-memory-2026-10-29.md:118` (round 70 answer 3): "Pages with translation that reader can view\nuse the CORRECT word. `translated` instead of `finished`\nAlso reader can open any page, just no translated data. Be concise with your wording."
+- `qa-memory-2026-10-02.md:71`: triplet.json is "level-0 machine output, baseline only, never reference". The rule is about Translator retrieval. The v1 placeholder is a display use in the Reader `[agent inference]`. Round 73 answer 10 is the owner decision for it.
+
+###### 15.26.1.4 Conflicts between decisions
+
+- Conflict 1, ZH. Round 62 answer 11 (`qa-memory-2026-10-28.md:293`, `[accepted recommendation 2026-10-29 10:36]`) says "ZH, KO, VI stay out (Recommended)". Round 73b answer 14 (`qa-memory-2026-10-30.md:95`) says "If ZH is available in v1, User can view the ZH v1 placeholder". Round 73c answer 3 (`qa-memory-2026-10-30.md:109`) picks option 1: the v1 ZH placeholder shows, "for display testing purpose ONLY". ZH agent text stays out. This section applies that reading `[reading pending owner check]`.
+- Conflict 2, pages of a web article. Round 73 answer 7 (`qa-memory-2026-10-30.md:68`, 2026-10-30 10:42) says "Are they really just 1-page per article? If yes then option 2." Round 73b answer 6 (`qa-memory-2026-10-30.md:87`, 2026-10-30 15:35) asks for the A4 split. Round 73c answer 2 accepts "Reading 1, A4 pages". The A4 split holds.
+- Conflict 3, the control for the EN texts. Round 73 answer 2 (`qa-memory-2026-10-30.md:63`) accepted the toolbar "EN text: Agent | Human". Round 73b answers 13 and 14 ask for swap, both, and "WHAT IS AVAILABLE IN THE VIEWER VISION". Round 73c answer 4 picks the Viewer vision section 7 in full. The component list replaces the toolbar control (15.26.6.4).
+- Conflict 4, views of the first reader version. Round 62 answer 8 (`qa-memory-2026-10-28.md:290`) lists the views. The list has no panel move, resize, hide, or show. Vision l189 asks for them. Round 73c answer 4 widens the first reader version `[reading pending owner check]` (`qa-memory-2026-10-30.md:124`).
+- Observation, not a conflict of the owner: the table of 15.19.6 says `reader.image` defaults to `false` (l2795). The code sets `image: true` since unit RC3 `[file: app/lib/htv-settings.ts:187]`.
+
+##### 15.26.2 The problem today
+
+Example. The web article d7835263-fe16-4f05-8c51-98b2a8aa0a3e. Title JA 王者は面をどう打つか：北条将臣. Title EN "How do elite swordsmen hit men? : Hojo Masaomi". It was published on kendojidai.net on 2019-10-21. It was printed in Kendo Jidai 2012 February (stamp "2012.2 KENDOJIDAI"). It has 90 units: 86 aligned units and 4 added units `[check: DT73b 2026-10-30 15:56 python3 -B a4_rows.py]`.
+
+What a reader sees today. This list comes from code reading. Not verified on a live screen.
+
+- Reader dashboard `/read`: the row of d7835263 reads "English: 0 of 1 page translated (0.0 percent)". It has no "Start at" link `[file: app/lib/reader-folds.ts:127-134]`.
+- Book screen `/read/d7835263`: the metadata line reads "1 pages" `[file: app/components/ReaderBook.tsx:333]`. The screen has no "Start reading" button, because `start` is `resumeAt ?? textPages[0] ?? null` `[file: app/components/ReaderBook.tsx:361]`.
+- At `?at=p001` the screen draws `emptyPage` with the line "No agent translation yet" `[file: app/components/ReaderBook.tsx:423]` `[file: app/lib/reader-types.ts:178]`.
+- The JA source text never shows. The reader bar has no Image button for a web article `[file: app/components/ReaderBook.tsx:510]`. The Human version never shows.
+- Cause: the sync command S2 builds `reader_pages` only from agent page runs. The 311 web articles have `pages` 0 `[file: app/scripts/sync-runs.mjs:9-14]`.
+
+The same gap exists for books. Example: `left_foot_full` page 51 has a page image and no agent run. The page shows "No agent translation yet" and nothing else. The v1 md file of this page holds JA, EN, and ZH lines (15.26.9).
+
+The owner rule that the system broke: "Even if there is no translated data, you still have to show the full original data" (`qa-memory-2026-10-30.md:30`). And: "USER CAN VIEW WHAT IS AVAILABLE IN THE VIEWER VISION" (`qa-memory-2026-10-30.md:95`).
+
+##### 15.26.3 A4 pages of a web article
+
+Decided: `qa-memory-2026-10-07.md:106`, `qa-memory-2026-10-25.md:114,147`, and round 73c answer 2 "Reading 1, A4 pages" (`qa-memory-2026-10-30.md:108`). Vision l262 gives the size.
+
+The Translator already cuts the pages. The agent runs and the Human version use the same cut, so that "each translation follows the JA page breaks" (l261).
+
+- Constants: 40 characters per line, 36 lines `[file: <T2>/data/scripts/translator/programs.py:30-31]`.
+- `load_web_units` takes the units of one article that have JA text and are not `site_text` `[file: <T2>/data/scripts/translator/programs.py:55-70]`.
+- `a4_cut` starts each JA block on a new line. A unit stays whole on the page of its first line `[file: <T2>/data/scripts/translator/programs.py:73-99]`.
+- `translator_run.py` uses the cut and writes `a4_cut.json` `[file: <T2>/data/scripts/translator_run.py:443-456]`.
+- Page ID form: `<slug>/p<NNN>` with 3 digits. Example `d7835263/p002`. The pilot page `18d4ac29/p001` keeps its ID `[check: DT73b 2026-10-30 15:54 cat page.json]`.
+
+Result for the 311 articles `[check: DT73b 2026-10-30 15:56 python3 -B a4_rows.py]`:
+
+| Pages per article | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| Articles | 6 | 36 | 100 | 116 | 39 | 10 | 3 | 1 |
+
+- The cut gives 1,126 pages. 1,124 pages hold at least one unit. Two pages hold none: `c7bb369d` page 4 of 4 and `ba9de4c8` page 5 of 5 `[check: DT73b 2026-10-30 15:56 python3 -B empty_pages.py]`.
+- Decided in round 73c answer 8 (`qa-memory-2026-10-30.md:114`): "Drop them, small Translator fix (Recommended)". The two empty pages go away. `c7bb369d` has 3 pages. `ba9de4c8` has 4 pages. The Reader uses 1,124 pages.
+- Unit TF73 fixes `a4_cut` in the Translator (round 73c answer 14, `qa-memory-2026-10-30.md:120`). Not verified: the result of TF73. Until TF73 returns, the page file of 15.26.3 can hold 1,126 pages. Unit RT73 must test for 1,124.
+- Observation: `translator_run.py:452` reads `cut["units"][0]`. For an empty page this raises an IndexError `[agent inference, not run]`.
+- 31 pages hold more than 1,440 JA characters, because a unit stays whole. The largest page holds 1,511 characters `[check: DT73b 2026-10-30 15:56 python3 -B a4_rows.py]`.
+
+Worked example, d7835263 `[check: DT73b 2026-10-30 15:56 python3 -B a4_rows.py]`:
+
+| Page | A4 units (first to last) | A4 lines | JA characters | Rows (first to last, count) | EN characters |
+|---|---|---|---|---|---|
+| `d7835263/p001` | U003 to U034 (31) | 36 | 1,325 | U003 to U034 (32) | 3,342 |
+| `d7835263/p002` | U035 to U066 (32) | 36 | 1,337 | U035 to U066 (32) | 3,844 |
+| `d7835263/p003` | U067 to U082 (16) | 17 | 585 | U067 to U086 (20) | 1,584 |
+
+- Page 1 starts with U003, the note "※この記事は『剣道時代 2012年2月号』に掲載されたものです。" (block type `magazine_note`). The units U001 "Tweet" and U002 "Pocket" make no row (15.26.4).
+- Page 1 holds the row U006 with the EN "Profile" and no JA. The A4 cut skips it, because it has no JA. It takes the page of the row before it.
+- Page 3 holds four rows after U082: U083 "Debana-men" (EN only), U084 "関連" (JA only), U085 "Hojo Masaomi", and U086 "Men". They are `site_text` rows that the A4 cut skips.
+- For 18d4ac29: 1 page, 21 A4 lines, 522 JA characters `[check: DT73b 2026-10-30 15:56 python3 -B a4_rows.py]`. This equals `a4_cut.json` of the pilot run `[check: DT73b 2026-10-30 15:54 python3 read of a4_cut.json]`.
+
+Where the other units go (unit default D1):
+
+- A unit that the A4 cut skips takes the page of the unit before it in file order. It takes page 1 if no unit is before it. Cases: 649 `site_text` units and 633 units with no JA text, 1,282 in all.
+- 52 articles start with such a unit. Example: 18d4ac29 U001 "無料記事" with the EN "FREE ARTICLE" goes to page 1.
+- The other option, the page of the next unit, moves only 1 of the 1,282 units. The choice has almost no effect.
+- The 1,419 added units make no row and get no page (D2). Each added unit holds no EN text of its own. Its field `source_en` equals the EN text of its source unit in 1,419 of 1,419 cases. Its JA text (`ja_added`) comes from an annotator agent, not from the author. Example: `u_d7835263_U042_A01` has `ja_added` "手が先に動くと" for the EN words "your hands move first". Its source unit U042 sits on page 2 and shows the EN already.
+
+Effect on the Reader dashboard `/read` `[check: DT73b 2026-10-30 15:56 python3 -B a4_rows.py]`:
+
+- Today: Books 4,821 pages, magazine years 8,171 pages, web articles 311 pages (1 each). Total 13,303 pages. This equals the live line "342 works, 13,303 pages" `[file: docs/VISION-viewer.md:4448]`.
+- New: 4,821 + 8,171 + 1,124 = 14,116 pages.
+- Code: `workPages` returns 1 for a web article `[file: app/lib/reader-folds.ts:127-130]`. It must return the page count that S2 writes into `catalog_items.pages`.
+- `loadReaderIndex` sets `images: f.pages > 0` `[file: app/lib/reader-data.ts:179]`. With real page counts, the test is true for a web article, and the screen shows an Image button with no image. The code needs a kind test (15.26.6.1).
+
+S2 is a Node script and `a4_cut` is Python. S2 cannot call it `[file: app/scripts/sync-runs.mjs:23]` ("Node built-ins only"). Unit default D3: a small Python script in the Translator repo imports `programs.a4_cut` and writes one file with the page of every unit. S2 reads that file. Other option: a copy of the rule in JavaScript. Cost: two copies of one rule can drift. A test must compare both on all 311 articles.
+
+##### 15.26.4 Sentence rows
+
+Decided: round 73b answer 14, "+ sentence row" (`qa-memory-2026-10-30.md:95`), and round 73c answer 2 "Reading 2, sentence rows".
+
+- One row for each aligned unit of `units.jsonl`, in file order. The key form is `<slug>/p<NNN>/web/<work_unit_id>`. Example: `d7835263/p001/web/U004`. The agent rows use `<page_id>/ts3/<first>-<last>` `[file: docs/VISION-viewer.md:2751]`.
+- Counts `[check: DT73b 2026-10-30 15:56 python3 -B a4_rows.py and facts_sizes.py]`: 34,575 aligned units, minus 622 units "Tweet" and "Pocket", give 33,953 rows. 32,937 rows have EN text. 1,016 rows have JA only. 765 rows have EN only.
+- The two noise sentences "Tweet" and "Pocket" make no row. The rebuilt JA and EN have the same count of characters as the snapshot in 311 of 311 records `[check: DT73b 2026-10-30 16:03 python3 -B rebuild_check.py, variant Z]`.
+- JA text of a row: line breaks inside the unit become nothing. EN text: a line break becomes one space. Example: U003 JA "※この記事は『\n\n剣道時代 2012年2月号\n\n』に掲載されたものです。" becomes "※この記事は『剣道時代 2012年2月号』に掲載されたものです。".
+- Row type: a row of block type `heading` or `name_heading` is a title row (`part` "block_title"). Other rows are `lines` `[file: app/lib/reader-types.ts:19]`.
+- A row with one side empty is allowed. Example: U006 has the EN "Profile" and no JA. U084 has the JA "関連" and no EN.
+
+Rows of d7835263 page 1, the first five `[check: DT73b 2026-10-30 16:00 python3 -B, sample_rows.txt]`:
+
+| Row | JA | EN as published |
+|---|---|---|
+| U003 | ※この記事は『剣道時代 2012年2月号』に掲載されたものです。 | 2012.2　KENDOJIDAI |
+| U004 | 剣道はなぜ面なのか。 | Why is kendo all about men? |
+| U005 | これぞ会心の面。面を打ちたいあなたのために寺本将司、髙鍋進、北条将臣、佐藤博光があきらかにする。 | To attain the ultimate men-strike, we bring the expert views of Teramoto Shoji, Takanabe Susumu, Hojo Masaomi and Sato Hiromitsu to you. |
+| U006 | (none) | Profile |
+| U007 | 北条将臣（ほうじょう・まさおみ）／教士七段　昭和４９年神奈川県生まれ。 | Hojo Masaomi Kyoshi 7th dan, born 1974 in Kanagawa Prefecture. |
+
+Why sentence rows help. A tap on the EN row U004 marks the JA row U004 in the Original text panel (vision l49). The Human version rows share their keys with the JA rows, so the version needs no copy of the JA text (15.26.13).
+
+##### 15.26.5 Components of a page
+
+Components follow vision l180 to l187. A page draws a component only when the page has data for it. The component list shows a component with no data on this page in grey, with a short reason. This applies the owner words "USER CAN VIEW WHAT IS AVAILABLE IN THE VIEWER VISION" (`qa-memory-2026-10-30.md:95`).
+
+Table. "Yes" means that the page has the data. The cell names the source.
+
+| Component | d7835263 p001 (web, no run) | 18d4ac29 p001 (web, run) | left_foot_full p050 (run) | left_foot_full p051 (no run) | ogawa_lecture_part1 p281 (no run, no md file) |
+|---|---|---|---|---|---|
+| Page image | No. Text only. | No. Text only. | Yes. `p050.webp` | Yes. `p051.webp` | Yes. `p281.webp` |
+| JA source text | Yes. Rows of `units.jsonl`. | Yes. `TS_3` lines of the run. | Yes. `TS_3` lines of the run. | Yes. The v1 JA line (a v1 placeholder). | No. |
+| Agent text | No. | Yes. `ED_3` of the run. | Yes. `ED_3` of the run. | No. | No. |
+| Human version | Yes. The kendojidai.com EN. | Yes. The kendojidai.com EN. | No data. | No data. | No data. |
+| v1 EN placeholder | No. | No. | Yes. | Yes. | No. |
+| v1 ZH placeholder | No. | No. | Yes. | Yes. | No. |
+| EN-original | No data (vision l110). | No data. | No data. | No data. | No data. |
+| Kendo term highlights | No. | Not verified. | Yes. Marks of the run. | No. | No. |
+
+Sources of the v1 cells `[check: DT73b 2026-10-30 15:58 python3 -B v1_zh_check.py]`. The 31 visible book and magazine folders hold 12,992 pages. 12,717 pages have a v1 file with an EN line (4,696 book pages and 8,021 magazine pages). 11,317 pages have a ZH line (a line with Han characters and no kana). The page `ogawa_lecture_part1/p281` has no md file `[check: DT73b 2026-10-30 16:01 ls page-images and book-postprocessing]`.
+
+Not in the first reader version (decided):
+
+- Ruby: `qa-memory-2026-10-28.md:293` "Ruby stays out (Recommended)". The component list has no ruby row.
+- ZH, KO, and VI agent text: `qa-memory-2026-10-28.md:293`. The v1 ZH placeholder is in (round 73c answer 3).
+- EN-original: no data (vision l108 to l110). The component list does not show it until an item exists (D17). The saved value accepts its ID `enorig`, so a later unit needs no change of the sanitizer.
+
+The v1 JA line on a page with no run and no `units.jsonl` rows (unit default D20). Example: `left_foot_full` p051. The v1 JA line is a v1 placeholder too, so it counts as nothing (round 73c answer 2). It fills the Original text panel when the page has no other JA source text.
+
+- Page line of that panel: "v1 Gemini placeholder text."
+- Other option: "v1 Gemini translation placeholder.", the owner line for v1 EN. Benefit: one line for all v1 text. Cost: the JA line is not a translation, so the line is wrong for JA.
+- The owner gave only the line for v1 EN (`qa-memory-2026-10-30.md:92`). The JA line is a unit default `[reading pending owner check]`.
+- On a page with a run, the Original text panel shows the `TS_3` JA lines and the v1 JA line stays unseen.
+
+##### 15.26.6 Component list and panels
+
+Decided: round 73c answer 4, "option 3. Do the text-only button also" (`qa-memory-2026-10-30.md:110`). The design below follows vision l178 to l192. Every point is a unit default unless it names an owner line. The code unit RT73 builds it (15.26.15).
+
+###### 15.26.6.1 Parts and kinds of work
+
+Parts of the book screen `/read/<slug>` on a wide screen, from the left:
+
+- The page index, as today `[file: app/components/ReaderBook.tsx:492]`. It stays and collapses to a bar, as today.
+- The reader bar. It holds the title, the view tools, the Components button, the page controls, Bookmark, Focus, and Settings `[file: app/components/ReaderBook.tsx:504-543]`.
+- The panel row under the reader bar. One panel for each checked component that has data on the page.
+- A panel has a title bar and a body. The title bar holds the name, the buttons Move left and Move right, the button Hide, and a resize handle at the right edge. The body holds the page line and the rows.
+
+Two kinds of work (used for the saved layout and for the first layout):
+
+- Kind `book`: a work with page images. Books and magazine years. `ReaderBookIndex.images` is true `[file: app/lib/reader-types.ts:155]`.
+- Kind `article`: a work with no page image. The 311 web articles.
+- The code test is `catalog_items.kind` (`web-article`) and not `f.pages > 0`, because a web article now has pages `[file: app/lib/reader-data.ts:179]`.
+
+###### 15.26.6.2 The component list
+
+Where it opens (unit default D4): a button "Components" in the reader bar, right after the view tools. A click opens the list as a dialog, like the settings dialog `[file: app/components/ReaderSettingsPanel.tsx:60-66]`. On a wide screen the dialog sits at the right edge. On a phone it is a sheet over the text. The button "Close" or the Esc key closes it.
+
+- Other option: the list is a part of the settings panel of the cog. Benefit: one control less in the reader bar. Cost: two clicks to reach it, and the settings panel grows tall.
+- The first-visit panel holds the same list as its first group (unit default D5). This follows vision l190 "Reader picks first" and `[file: docs/VISION-viewer.md:3594]`.
+
+What the list holds. One row for each component, in the saved order. A row has a check box, the name, and a short note.
+
+| ID | Name in the list | Note |
+|---|---|---|
+| `image` | Page image | Books and magazines only. |
+| `ja` | Original text | The JA source text. |
+| `agent` | Agent text | "AI translation". |
+| `human` | Human version | "from kendojidai.com" or "chosen by an admin". |
+| `v1en` | v1 EN placeholder | "v1 Gemini translation placeholder." |
+| `v1zh` | v1 ZH placeholder | "for display testing purpose ONLY". |
+
+Below the six rows, a group "Added to the panels" holds two check boxes: "Bilingual pairing" (15.26.6.5) and "Kendo term highlights" (vision l187). The button "Reset layout" ends the list.
+
+Rules of the list:
+
+- The list shows a component when the work has data for it on at least one page. Example: the list of `left_foot_full` has no Human version row, because no page has one. The list of d7835263 has no Page image row and no v1 rows.
+- A row is grey when the work has the component but this page lacks it. The check box is disabled and keeps its saved state. The note gives the reason.
+- Reasons: "No page image for this page". "Page view only" (Scroll view and Focus mode). "No Japanese text for this page". "No agent translation yet" (`NO_TEXT`, `[file: app/lib/reader-types.ts:178]`). "No human version for this page" `[file: app/components/ReaderBook.tsx:514]`. "No v1 text for this page". "No term marks on this page". "Needs Original text and one English text" (for Bilingual pairing).
+- Other option for a grey row: the check box stays enabled. Benefit: the reader can choose a component for later pages. Cost: a check that changes nothing on this page confuses the reader.
+- The button "Reset layout" removes `components`, `shown`, `widths`, `pair`, and `terms` from the saved value (15.26.6.9). The page then uses the first layout (15.26.6.7). The button "Reset text settings" in the settings panel does not change the layout.
+
+Mockup of the list, d7835263 p001 and left_foot_full p051 (grey rows show the reason):
+
+```
+Components                       [Close]     Components                              [Close]
+ [x] Original text (JA)                       [x] Page image
+ [x] Human version                            [ ] Original text (JA)
+     from kendojidai.com                      [ ] Agent text    No agent translation yet
+ Added to the panels                          [x] v1 EN placeholder
+ [ ] Bilingual pairing                        [ ] v1 ZH placeholder
+ [x] Kendo term highlights                    Added to the panels
+     No term marks on this page               [ ] Bilingual pairing   (grey: needs Original text)
+ [Reset layout]                               [ ] Kendo term highlights  No term marks on this page
+```
+
+The left list is the first layout of d7835263 p001. The right list is the first layout of left_foot_full p051.
+
+###### 15.26.6.3 Panels: order, move, resize, hide, show
+
+Order (unit default D6). The panels draw in the saved order `components`. The default order is: Page image, Original text, Agent text, Human version, v1 EN placeholder, v1 ZH placeholder.
+
+- The Page image is first, as the image column is today `[file: app/components/ReaderImage.tsx:65]`.
+- Other option: Original text first. Benefit: the reader meets the Japanese first. Cost: the image moves to the right of the text, against the habit of a book.
+
+Move (unit default D7). Two ways, and both write the same saved order.
+
+- The buttons "Move left" and "Move right" in the title bar. They are the keyboard way. The label reads "Move the Agent text panel left". The first panel has no Move left. The last panel has no Move right.
+- A drag of the title bar. The reader presses on the name, drags over the other title bars, and drops. The new place is where the pointer lands.
+- A move swaps with the next drawn panel. Components that the page does not draw keep their places in the order.
+- Other option: buttons only. Benefit: less code and no drag test. Cost: the vision asks the reader to "move" panels, and most readers expect a drag.
+
+Resize (unit default D8). One handle sits on the right edge of every panel except the last. It is the `DragHandle` of `HtvPanelFrame.tsx`.
+
+- `DragHandle` is a client function with the props `side`, `width`, `min`, `max`, `onWidth`, `label`, and `attr` `[file: app/components/HtvPanelFrame.tsx:54-71]`.
+- It has `role="separator"` and a pointer drag `[file: app/components/HtvPanelFrame.tsx:78,87-96]`.
+- The arrow keys change the width by 16 px: "if (e.key === wider) onWidth(clamp(width + 16, min, max))" `[file: app/components/HtvPanelFrame.tsx:100-101]`.
+- The book index already uses it with `side="right"` `[file: app/components/HtvIndex.tsx:103]`. Its limits are 160 to 400 px with 192 px as default `[file: app/lib/htv-settings.ts:121]`.
+- The TL_3 information panel uses 280 to 720 px with 416 px as default `[file: app/lib/htv-settings.ts:93]`.
+- Reader panels use the limits 280 and 720 px. They have no default in px.
+- A panel with no saved width shares the free width of the row with the other such panels, in equal parts. The last panel always takes the rest.
+- A drag sets a width in px for the panel on the left of the handle. The width goes into `widths` under the ID of that panel.
+- If the panels need more width than the row has, the row scrolls sideways.
+- Other option: widths as percent shares of the row, as `SHARE_LIMITS` does for the JA and agent columns `[file: app/lib/htv-settings.ts:95]`. Benefit: the layout fits any screen width. Cost: the handle code needs a new unit, and the owner words in round 58 answer 5 say "drag width" in px.
+
+Hide and show (unit default D9).
+
+- The button "Hide" (a cross) in the title bar unchecks the component. The panel goes away and its width stays saved.
+- The reader shows the panel again with its check box in the component list.
+- The last drawn panel has no Hide button. Its title reads "Keep at least one panel". Other option: allow zero panels and show the line "Check a component in the list". Benefit: the reader has full control. Cost: a blank screen against the owner rule that the reader sees what is available.
+
+###### 15.26.6.4 Controls of today: what stays and what the list replaces
+
+Round 73c answer 4 replaces the control "EN text: Agent | Human" of 15.19.5 (l2760) and the Text control. The table names each control.
+
+| Control of today | Where | After RT73 |
+|---|---|---|
+| View: Page view, Scroll view | `ReaderBook.tsx:509` | Stays. |
+| Button Image (books) | `ReaderBook.tsx:510` | Stays as a quick button. It checks or unchecks Page image. It is grey in Scroll view and Focus mode, as `IMAGE_PAGE_ONLY` says now. |
+| Button Original text (new) | reader bar | Quick button on a work with no page image. It checks or unchecks Original text. It replaces Image on such a work (round 72 answer 3). |
+| Text: EN, JA, Pairing | `ReaderBook.tsx:512` | The list replaces it. EN means Agent text, Human version, or v1 EN checked. JA means Original text checked. Pairing is the check box "Bilingual pairing". |
+| English text: Agent, Human | `ReaderBook.tsx:513-514` | The list replaces it (round 73c answer 4). The note "No human version for this page" moves to the grey row. |
+| Focus | `ReaderBook.tsx:536` | Stays (15.26.6.11). |
+| Settings (cog) | `ReaderBook.tsx:539` | Stays. It loses the rows Text and English text `[file: app/components/ReaderSettingsPanel.tsx:75-83]`. |
+| Components (new) | reader bar | Opens the component list. |
+
+- Unit default D10: only the buttons Image and Original text stay as quick buttons.
+- Other option: keep the Text control as a quick preset (EN, JA, Pairing) next to the Components button. Benefit: one click gives Japanese only. Cost: two controls change the same state, and the preset must handle every combination.
+- The first-visit line about the Image button `[file: app/components/ReaderSettingsPanel.tsx:110-113]` stays for a work with page images. For a work with no page image it reads "Use the Original text button in the bar above the text to show or hide the Japanese text."
+- The page keys (Left and Right arrow) stay as built `[file: app/components/ReaderBook.tsx:49]`.
+
+###### 15.26.6.5 Bilingual pairing
+
+Vision l186 lists "Bilingual pairing" as a component. In the list it is a check box in the group "Added to the panels" (unit default D11).
+
+- When it is checked, the Original text panel and the first EN panel in the order draw as one panel. Each row shows the JA text beside the EN text. This is the pair mode of today `[file: app/components/ReaderPageView.tsx:102-106]`.
+- The title bar reads "Original text and Agent text". The Hide button of this panel unchecks Bilingual pairing. The two panels then return side by side.
+- The other EN panels stay as separate panels.
+- Example: d7835263 p001 with Bilingual pairing checked. One panel shows U004 JA "剣道はなぜ面なのか。" beside the EN "Why is kendo all about men?".
+- Other option: the pairing panel is a third panel and the two source panels stay. Benefit: the reader moves each panel alone. Cost: the same text shows twice.
+- The box needs the JA source text and one EN text on the page. Else it is grey.
+- On a phone the pairing tab stacks JA above EN (15.19.7, l2827).
+
+###### 15.26.6.6 Fast comparison
+
+Vision l49: "a tap on a sentence marks its pair in the other panels, and the panels scroll together". Two panels pair when their rows carry the same row key. A row key is the value of `data-row` `[file: app/components/ReaderPageView.tsx:99]`.
+
+Row keys by data:
+
+| Key form | Panels that carry it |
+|---|---|
+| `<page_id>/ts3/<first>-<last>` (run key) | Original text and Agent text of a page with a run. Human version of a book page `[file: docs/VISION-viewer.md:2751]`. |
+| `<slug>/p<NNN>/web/<work_unit_id>` (web key) | Original text and Human version of a web page with no run. |
+| `<page_id>/v1/<NN>` (v1 key, new) | Original text (v1 JA), v1 EN placeholder, and v1 ZH placeholder of one md block. |
+
+Which panels pair, with the real pages:
+
+- d7835263 p001: Original text and Human version share web keys. They pair.
+- 18d4ac29 p001: Original text and Agent text share run keys. The Human version has web keys. It does not pair with the other two (unit default D13).
+- left_foot_full p050: Original text and Agent text pair. The v1 panels pair with each other and not with the Agent text.
+- left_foot_full p051: Original text (v1 JA), v1 EN, and v1 ZH share v1 keys. All three pair.
+
+Unit default D12:
+
+- A tap on a row, outside a term mark or a fact mark, makes that row the active row. The row and its pairs in the other panels get the class `data-pair-active`, with a tint and a left border.
+- The panels that hold the pair scroll so that the pair row is in view.
+- A scroll in one panel moves each panel that shares keys with it, to the row at the same place. If a panel lacks the row, it moves to the row before it.
+- A second tap on the same row, or the Esc key, clears the mark.
+- If no other panel holds the key, the tapped row marks in its own panel only. No panel moves. No note shows.
+- Other option for that case: a short note "No pair for this row in the other panels." Benefit: the reader learns why nothing moved. Cost: more noise on a page where pairs are rare.
+- Other option for the whole rule: mark only and no scroll together. Benefit: no scroll code. Cost: it breaks vision l49.
+- Limit of this design: rows take no focus, so the tap has no keyboard way. A keyboard reader uses Bilingual pairing for aligned rows.
+- Each panel body scrolls on its own, like `HtvPanelFrame` (`min-h-0 flex-1 overflow-auto` `[file: app/components/HtvPanelFrame.tsx:142]`). Scroll together needs that.
+- The other option for 18d4ac29 (D13): S2 maps each agent row to its unit. The file `source_parts.json` of the run holds the `unit_id` of each part `[check: DT73b 2026-10-30 15:54 python3 read of source_parts.json and TS_3.json]`. Benefit: all three panels pair. Cost: a step in S2 that maps the rows, for 1 of 1,124 pages today.
+
+###### 15.26.6.7 First layout
+
+The first layout is the set of panels that a page draws in two cases. The account has no saved layout for the kind. Or the saved layout draws nothing on this page. The first layout is not saved until the reader changes it.
+
+Rules (unit default D14):
+
+- R1. The account has `shown` for the kind of work. If at least one of its components has data on this page, the page draws those that have data (15.26.6.8).
+- R2. Else the page uses the first layout R3.
+- R3a. Page image, if the page has one.
+- R3b. Original text, if the work has no page image (kind `article`).
+- R3c. The first EN text that the page has. The order is Agent text, Human version, v1 EN placeholder. This is "Reading 4, Agent text first" of round 73c answer 2.
+- R3d. Nothing else. The v1 placeholder is off when an Agent text or a Human version exists (round 73c answer 5, "Separate component, off at first"). The v1 ZH placeholder is off. Bilingual pairing is off. Kendo term highlights are on.
+- R3e. If the page has no EN text, R3b applies to every kind of work. The page draws the Original text if it exists.
+- R3f. If the page has no component at all, the page shows the line "No text for this page yet." (15.26.6.12).
+- When the reader changes the list on a page that uses R2, the change starts from the layout on the screen. The result goes into `shown` for the kind.
+
+First layout of the five pages:
+
+| Page | Panels at first | One click away |
+|---|---|---|
+| `d7835263/p001` | Original text, Human version | Bilingual pairing. |
+| `18d4ac29/p001` | Original text, Agent text | Human version (swap or both, round 73b answer 13). |
+| `left_foot_full/p050` | Page image, Agent text | Original text, v1 EN placeholder, v1 ZH placeholder. |
+| `left_foot_full/p051` | Page image, v1 EN placeholder | Original text (the v1 JA line), v1 ZH placeholder. |
+| `ogawa_lecture_part1/p281` | Page image | Nothing. The page has no other data. |
+
+- Other option for R3: show every EN text that exists, in the order Agent text, Human version, v1 EN placeholder. Benefit: the reader sees all data at once, as "USER CAN VIEW WHAT IS AVAILABLE" reads. Cost: three narrow panels on a normal screen, and the owner chose "off at first" for the v1 placeholder.
+- Why Original text is on for an article and off for a book: a book has the Page image as its original data. An article has only the JA text. Round 72 answer 2: "you still have to show the full original data". Round 73b answer 9: "JA column beside EN".
+
+###### 15.26.6.8 A checked component with no data on the page
+
+Example. An account saved `shown.book` = Page image and Agent text. The reader turns from `left_foot_full` p050 to p051. The page has the image and no Agent text.
+
+- Unit default D16: the page draws the Page image only. A one-line note sits above the panel row: "Not on this page: Agent text. On this page, in the Components list: Original text, v1 EN placeholder, v1 ZH placeholder."
+- The note shows only when a checked component lacks data and the page has other components.
+- The saved `shown` stays as it is. The next page that has an Agent text draws the panel again.
+- Other option: a thin bar of 28 px stands in for the absent panel, like the collapsed bar `[file: app/components/HtvPanelFrame.tsx:12,17-35]`. Benefit: the other panels do not change width when the reader turns the page. Cost: a bar that looks like a collapsed panel but opens nothing.
+- If none of the checked components has data, R2 applies (the first layout). Example: `shown.article` = Human version only, and the admin removed the choice on d7835263. The page draws Original text.
+
+###### 15.26.6.9 Saved layout
+
+Where: `user_settings.panes`, key `reader` `[file: app/lib/htv-settings.ts:141-142]`. The column holds at most 20,000 bytes `[file: app/lib/htv-settings.ts:215]`. The new keys use about 300 bytes `[agent inference]`.
+
+Shape (unit default D15). The text after `//` is a comment for this document.
+
+```
+reader: {
+  components: ["image","ja","agent","human","v1en","v1zh"],   // order of the panels, left to right
+  shown: { book: ["image","agent"], article: ["ja","human"] }, // checked components for each kind of work
+  widths: { "agent": 420 },                                    // px, 280 to 720, only for panels that the reader resized
+  pair: false,                                                 // Bilingual pairing
+  terms: true,                                                 // Kendo term highlights
+  text: "en", en: "agent", image: true                         // old keys, read when shown is absent
+}
+```
+
+- `components` and `widths` are the same for all kinds of work. `shown` has one list for each kind, because a book and an article have different components.
+- Other option: one `shown` list for all works. Benefit: a smaller value. Cost: a layout that the reader built on a book draws nothing useful on an article, so R2 runs more often.
+
+Old values turn into the new value when the account has no `shown` (read time, no write):
+
+| Old value | New value |
+|---|---|
+| `text` "en", `en` "agent" | `shown.book` Agent text (and Page image if `image` is true). `shown.article` Agent text. `pair` false. |
+| `text` "en", `en` "human" | Same, with Human version instead of Agent text. |
+| `text` "ja" | Original text only (and Page image if `image` is true). |
+| `text` "pair", `en` "human" | Original text and Human version. `pair` true. |
+| `image` false | Page image not in `shown.book`. |
+
+- Example: the account `reader@kendo-translation.local` saved `reader.image` Off (round 67 answer 5). Its `shown.book` has no Page image until the reader presses Image once.
+- The next write adds the new keys. The old keys stay in the value and are ignored when `shown` exists. This keeps a rollback possible. Cost: about 40 bytes.
+
+What the sanitizer `sanitizeReader` must accept `[file: app/lib/htv-settings.ts:191-210]`:
+
+- `components`: a list of at most 7 unique IDs from `image`, `ja`, `agent`, `human`, `v1en`, `v1zh`, `enorig`. It drops other IDs. It appends IDs that the list lacks, in the default order.
+- `shown`: an object with the keys `book` and `article`. Each value is a list of the same IDs, without repeats.
+- `widths`: an object that maps an ID to a number. The number is clamped to 280 to 720 and rounded to a whole number, as `num(v, 280, 720, 0)` does.
+- `pair` and `terms`: booleans.
+- The old keys `text`, `en`, and `image` stay accepted.
+- `READER_DEFAULTS` is typed `Required<Omit<ReaderSettings, "panelSeen">>` `[file: app/lib/htv-settings.ts:177]`. The new keys need defaults, or they must sit outside it, as `panelSeen` does.
+- Not verified: how `save(patch)` in `ReaderBook.tsx` merges a patch, and whether the route `PUT /api/read/settings` can clear a key. "Reset layout" needs a way to clear.
+
+###### 15.26.6.10 Phone layout
+
+Vision l192 and 15.19.7: one column, a simpler layout. Round 44 answer 8 keeps the phone layout for the reader pages (vision l192).
+
+- Unit default D18: the panels become tabs. The tab row follows the pattern of `ReaderImage.tsx:57-68`: `role="tablist"`, a button for each tab, at least 44 px high, shown below the `md` width.
+- One tab for each drawn panel, in the saved order. With Bilingual pairing the pair is one tab.
+- The tab that opens first is the first EN text. If the page has no EN text, it is the first tab.
+- No resize and no move on a phone. The list sets which tabs exist. The Hide button does not show.
+- A tap on a row marks its pair. When the reader switches to the tab of a paired panel, that tab scrolls to the marked row.
+- The Components button opens the list as a sheet.
+
+```
++--------------------------------+
+| <  Left foot full        [cog] |
+|--------------------------------|
+| [ Page image ][ v1 EN placeholder ] |
+|--------------------------------|
+| Page 51                        |
+| v1 Gemini translation          |
+| placeholder.                   |
+| Kendo is about hidari-te,      |
+| hidari-koshi, and hidari-ashi. |
+|--------------------------------|
+| Pages   <  [51]  >   [Components] |
++--------------------------------+
+```
+
+###### 15.26.6.11 Scroll view and Focus mode
+
+- Scroll view (unit default D19): each page is one band. A band holds the text panels side by side with the widths of the Page view. The Page image panel does not show in Scroll view, as today `[file: app/components/ReaderBook.tsx:399]`.
+- In Scroll view, the title bars sit in one sticky row under the reader bar, so that Move, Resize, and Hide work for all bands.
+- Pairing and scroll together work inside one band.
+- Focus mode: the text panels stay, in their order, with equal widths. The title bars, the handles, and the Page image panel are hidden. The button "Leave focus mode (Esc)" stays `[file: app/components/ReaderBook.tsx:452]`.
+- Other option for Focus mode: only the first text panel shows. Benefit: the purest reading view. Cost: no comparison in Focus mode.
+
+###### 15.26.6.12 Mockups
+
+Wide screen, Page view. The text of the rows is real where the rows are quoted. The panels draw under a line "Page N".
+
+Mockup 1. d7835263 p001, first layout. The reader bar has Original text and no Image.
+
+```
+How do elite swordsmen hit men? : Hojo Masaomi
+[Page view|Scroll view] [Original text] [Components]       < Previous [1 of 3] Next >  [Focus] [Settings]
+Page 1
++----------------------------------+------------------------------------------------+
+| Original text         [>] [x]    | Human version                      [<] [x]     |
+|                                  | Human translation from kendojidai.com.         |
+| ※この記事は『剣道時代 2012年2月号』  | 2012.2　KENDOJIDAI                             |
+| に掲載されたものです。              | Why is kendo all about men?                    |
+| 剣道はなぜ面なのか。                | To attain the ultimate men-strike, we bring    |
+| これぞ会心の面。面を打ちたいあなた    | the expert views of Teramoto Shoji, Takanabe   |
+| のために寺本将司、髙鍋進、北条将臣、   | Susumu, Hojo Masaomi and Sato Hiromitsu to you.|
+| 佐藤博光があきらかにする。           | Profile                                        |
+| 北条将臣（ほうじょう・まさおみ）／教士 | Hojo Masaomi Kyoshi 7th dan, born 1974 in      |
+| 七段　昭和４９年神奈川県生まれ。       | Kanagawa Prefecture.                           |
++----------------------------------+------------------------------------------------+
+```
+
+Mockup 2. 18d4ac29 p001, first layout. The reader then checks Human version in the list and gets a third panel. Rows U004 and U005 are real `[check: DT73b 2026-10-30 16:00 python3 read of units.jsonl]`.
+
+```
+Kendo droplet guard
+[Page view|Scroll view] [Original text] [Components]       < Previous [1 of 1] Next >  [Focus] [Settings]
+Page 1
++------------------------+--------------------------------+------------------------------+
+| Original text  [>] [x] | Agent text           [<] [>] [x]| Human version        [<] [x] |
+|                        | AI translation, not yet checked| Human translation from       |
+|                        | by a person                    | kendojidai.com.              |
+| 新型コロナウイルスの影響で、| Due to the impact of the novel | Due to the effects of the    |
+| 剣道の稽古再開時には…      | coronavirus, measures to …     | coronavirus, measures to …   |
+| 稽古者個人の感染…          | Please make use of the         | Please use this “Kendo Men   |
+|                        | "Kendō Droplet Guard" …        | Shield” as a measure to …    |
++------------------------+--------------------------------+------------------------------+
+```
+
+- In the Human panel, “Kendo Men Shield” and “those responsible” carry fact marks (15.26.8). The JA facts are 剣道飛沫ガード and 稽古責任者 `[check: DT73b 2026-10-30 16:00 python3 read of units.jsonl, 18d4ac29 U005]`.
+- The Agent rows carry the keys `18d4ac29/p001/ts3/L01`, `L02`, and so on. The Human rows carry `18d4ac29/p001/web/U004`. A tap on an Agent row marks its pair in the Original text panel. A tap on a Human row marks no pair (D13).
+- Swap: the reader unchecks Agent text and checks Human version. Both: the reader checks both.
+
+Mockup 3. left_foot_full p050, first layout. The Agent text rows are not quoted here.
+
+```
+The Secret of Kendo and the Left Foot
+[Page view|Scroll view] [Image] [Components]               < Previous [50 of 120] Next >  [Focus] [Settings]
+Page 50
++-----------------------+-----------------------------------------------------+
+| Page image      [>]   | Agent text                                  [<]     |
+|                       | AI translation, not yet checked by a person         |
+|   [image of p050]     | (rows of the run)                                   |
++-----------------------+-----------------------------------------------------+
+```
+
+Mockup 4. left_foot_full p051, first layout. The rows are real (`<BP>/Left foot full/pages/page_051.md`) `[check: DT73b 2026-10-30 15:58 cat page_051.md]`.
+
+```
+Page 51
++-----------------------+-----------------------------------------------------+
+| Page image      [>]   | v1 EN placeholder                           [<]     |
+|                       | v1 Gemini translation placeholder.                  |
+|   [image of p051]     | Kendo is about hidari-te, hidari-koshi, and         |
+|                       | hidari-ashi.                                        |
+|                       | It is said that they acquired smooth footwork, and  |
+|                       | I too performed it while imagining that and        |
+|                       | sending from the koshi.                             |
++-----------------------+-----------------------------------------------------+
+```
+
+Mockup 5. ogawa_lecture_part1 p281, first layout. One panel, so no Move and no Hide button.
+
+```
+Page 281
++--------------------------------------------------------------+
+| Page image                                                   |
+|   [image of p281]                                            |
++--------------------------------------------------------------+
+No text for this page yet. Only the page image exists.
+```
+
+###### 15.26.6.13 What this design does not decide
+
+- The look of the title bar in each theme. RT73 uses the colors of the reader theme.
+- The exact scroll code. The rule is in 15.26.6.6.
+- Not verified: that `DragHandle` works inside a grid or flex row of the reader. The component sits inside `HtvPanelFrame` and `HtvIndex` today.
+
+##### 15.26.7 Page lines and the Original text button
+
+Page lines (decided where the owner gave the words):
+
+| Panel | Page line | Source |
+|---|---|---|
+| Agent text | "AI translation, not yet checked by a person" (or "AI translation, checked by a person") | Vision l249, section 11 `[file: app/lib/reader-types.ts:173-174]`. |
+| Human version, default choice | "Human translation from kendojidai.com." | Round 73c answer 7, `qa-memory-2026-10-30.md:113`. |
+| Human version, chosen by an admin | "Human translation. Chosen by an admin." | Vision l2769 `[file: app/lib/reader-types.ts:175]`. |
+| v1 EN placeholder | "v1 Gemini translation placeholder." | Round 73b answer 11, `qa-memory-2026-10-30.md:92`. |
+| v1 ZH placeholder | "v1 Gemini translation placeholder." | Same line, same answer. |
+| Original text from v1 JA | "v1 Gemini placeholder text." | Unit default D20 (15.26.5). |
+
+- Human versions carry no AI label (vision l251, `qa-memory-2026-10-08.md:45`). The Human panel shows no "AI translation" tag and no row tag.
+- The Human version of a book page, chosen by an admin, keeps the row labels of 15.19.5.
+- The default choice and the admin choice differ by the field `chosen_by` of `reader_versions`. An empty value means a default choice (15.26.13).
+
+The "Original text" button (decided, round 72 answer 3, round 73b answer 9, round 73c answer 4):
+
+- It is a quick button that checks or unchecks the component Original text.
+- It shows on a work with no page image (all web articles). It replaces the Image button there.
+- On a work with page images, the Image button stays. The JA source text of a book page shows through the component list (unit default D10).
+- Other option: the button on books too. Cost: two panels at the left of the EN text, and little width.
+- The button has no new setting. It writes `shown.article`.
+
+##### 15.26.8 Fact marks
+
+Decided: "As published, facts marked (Recommended)" (`qa-memory-2026-10-07.md:130`), "Also dropped facts" (`qa-memory-2026-10-30.md:89`), and "Small tag after the sentence" (`qa-memory-2026-10-30.md:112`).
+
+The Human version shows the EN as kendojidai.com published it. A mark shows each fact where the EN differs from the JA.
+
+Counts over the 311 articles, by sentence rows `[check: DT73b 2026-10-30 15:56 python3 -B facts_sizes.py]`:
+
+| Kind of mark | Marks | On a phrase | On a whole sentence | Rows with a mark |
+|---|---|---|---|---|
+| Changed fact (unit label `fact_change`, no credit line) | 1,762 | 1,549 | 213 | 1,351 |
+| Dropped fact (unit label `omission` without `fact_change`) | 3,808 | 1,245 | 2,563 | 3,172 |
+
+Forms (decided in part, unit default D21 to D25):
+
+- A mark on a phrase: a dotted line under the EN words. A tap on the words opens a pop-up. This follows the vision example (l158 to l161).
+- A dropped fact where the EN has no words for it (round 73c answer 6): a small tag "fact dropped" after the EN sentence. The tag opens the same pop-up.
+- A changed fact where the EN has no words for it (213 marks, unit default D22): a small tag "fact changed" after the EN sentence. Other option: a dotted line under the whole sentence. Benefit: no new tag text. Cost: long sentences show much ink.
+- One sentence with several whole-sentence marks of one kind gets one tag. The pop-up lists each fact (D23).
+- The pop-up shows the JA fact only. `en_fixed` never shows (D24).
+- 31 credit-line units carry the label `fact_change`. They get no mark (D25). Example: U082 of d7835263, `Translation — Jouke van der Woude` against 翻訳＝小関ヤオカ.
+- The mark is a different mark from a kendo term highlight. It has no EN form check.
+
+Examples. Per page of d7835263 `[check: DT73b 2026-10-30 15:59 python3 -B d7835263_marks.py]`:
+
+| Page | Changed fact marks | Dropped fact marks |
+|---|---|---|
+| p001 | 0 | 1 (U013) |
+| p002 | 2 (U051, U062) | 1 (U059) |
+| p003 | 1 (U071) | 1 (U072) |
+
+Changed fact, U071 on page 3. The EN has words for the fact.
+
+```
+JA:        詰めたところから打っても空を切るだけですし、その上がった手元に小手を打たれる危険性もあります。
+Published: If you try to strike from there, you will cut air and it would be risky to try for kote when their hands are up like that.
+Mark:      dotted line under "try for kote when their hands are up"
+Pop-up:    Japanese says: その上がった手元に小手を打たれる
+```
+
+Dropped fact, U059 on page 2. The EN has no word for 右足 (the right foot).
+
+```
+JA:        前方に跳び込むのではなく、右足の踏み込みと手の内の決めで一本にするようにしています。
+Published: Rather than jumping forward, you can land it through a good fumikomi and tenouchi.
+Mark:      small tag "fact dropped" after the sentence
+Pop-up:    Japanese says: 右足. The English leaves this out.
+```
+
+Vision example (l158 to l161), record `b5106cae` unit U011. Three marks sit in one sentence `[check: DT73b 2026-10-30 15:59 python3 read of units.jsonl, b5106cae_example.txt]`:
+
+```
+JA fact 団体優勝4回   EN "team title 3 times"          dotted line under the phrase (changed fact)
+JA fact 熊本          no EN words                       small tag "fact dropped" after the sentence
+JA fact 全日本選抜剣道八段優勝大会  EN "8th Dan Tournament"  dotted line under the phrase (changed fact)
+```
+
+A whole JA sentence with no EN sentence (1,016 rows, unit default D21). Example: web article `396571c1` U055, JA また、攻防の際、間合取りにも注意しています。 and no EN `[check: DW73 2026-10-30 20:29 python3 -B jaonly2.py]`.
+
+- 377 of the 1,016 rows are `site_text` (web page chrome). Example: d7835263 U084 "関連". 639 rows are other block types: 396 `body`, 97 `profile`, 56 `heading`, and 90 more of seven other types `[check: DW73 2026-10-30 20:29 python3 -B jaonly.py]`.
+- Default: a `site_text` row makes no line in the Human panel. Every other JA-only row makes a muted line with the tag "fact dropped". The pop-up reads "Japanese says: また、攻防の際、間合取りにも注意しています。 The English leaves this out." Benefit: the reader sees that the published EN has no such sentence, and the rows stay level with the Original text panel. Cost: 639 tag-only lines.
+- Other option: no line for any JA-only row. Benefit: the Human panel shows only the published text. Cost: a dropped sentence leaves no trace in that panel, and the tap on the JA row finds no pair.
+- Another option: a line for all 1,016 rows. Cost: 377 lines for page chrome such as "関連".
+
+Data field (unit default): the Human row gets `facts`, a list of `{start, end, ja, type, kind}`. `kind` is "changed" or "dropped". `start` and `end` count characters in the EN text of the row. A whole-sentence fact has `start` and `end` null. A Human version from another source has no `facts`. The size is inside the sizes of 15.26.13.
+
+Not verified: the number of rows that carry a tag, because several marks share one tag.
+
+##### 15.26.9 The v1 placeholder
+
+Decided: `qa-memory-2026-10-30.md:71` (use it), `:91` (no count, no search), `:92` (page line), `:95` (keep the notes, ZH shows), `:108` ("`placeholder` DOES NOT COUNT AS ANYTHING"), `:109` ("for display testing purpose ONLY"), `:111` (separate component, off at first).
+
+Rule for all counts `[reading pending owner check]` (`qa-memory-2026-10-30.md:122`): the v1 placeholder counts in no number on any screen.
+
+- Not translated: it does not count as a translated page on the Reader dashboard `/read`.
+- Not searched: its text is not in the search columns.
+- No line in the work block.
+- No count on the Monitor dashboard `/` on this Mac.
+- It fills the display until a v2 text exists. When an Agent text or a Human version exists for the page, the placeholder stays a separate component, off at first.
+
+Source and block rule (unit default D28, from unit DT73):
+
+- Source: `<BP>/<folder>/pages/page_NNN.md`. The number NNN equals the PDF page number and the image `p<NNN>.webp`. Map by number, never by count.
+- Folder to slug: the field `folder` of `items.filled.jsonl`. 36 of 37 folders have a slug. "Chinese Translation Sword Theory Part 1" (199 files) has none and stays out (`qa-memory-2026-10-30.md:98`). "Mental 2 clean" maps to `mental2_clean`, which the Reader dashboard hides.
+- A block is the text between lines of `---`. The "Page N" header and the tag `【Heading】` are not part of a row. In a block of 3 or 4 lines, line 1 is JA, line 2 is EN, and line 3 is ZH. In a block of 4 lines, line 4 (a page reference such as "p. 948") joins the EN row. A block of 1 line, or of 5 lines or more, gives one row with no JA and no ZH.
+- The markdown mark `*x*` loses the asterisks.
+- The notes `[T/N: ...]` stay in the EN row (decided, `qa-memory-2026-10-30.md:95`, "+ keep it").
+- The row key is `<page_id>/v1/<NN>`, with NN the number of the block on the page.
+
+Real example. `left_foot_full` page 51 `[check: DT73b 2026-10-30 15:58 cat page_051.md and python3 -B v1_zh_check.py]`. The file has 17 blocks: 16 blocks of 3 lines and 1 block of 1 line.
+
+```
+JA  剣道は左手・左腰・左足である
+EN  Kendo is about hidari-te, hidari-koshi, and hidari-ashi.
+ZH  Kendo在于hidari-te、hidari-koshi与hidari-ashi。
+
+JA  て滑らかな足遣いを身につけたといいますが、わたしもそれをイメージしながら腰から送るようにして行ないました。
+EN  It is said that they acquired smooth footwork, and I too performed it while imagining that and sending from the koshi.
+ZH  据说他们掌握了流畅的步法，我也在心中构思着这种意象，像从koshi发力传送一样进行练习。
+```
+
+Data `[check: DT73b 2026-10-30 15:58 python3 -B v1_zh_check.py]`: `left_foot_full` has 120 files. 120 have an EN line and 120 have a ZH line. `ogawa_lecture_part1` has 280 files, 253 with an EN line and 181 with a 3-line block. All folders: 13,282 files, 13,085 with an EN line, 11,679 with a ZH line. The 31 visible folders: 12,992 pages, 12,717 with an EN line, 11,317 with a ZH line.
+
+On a page that has an Agent text (decided, round 73c answer 5): the v1 placeholder is a separate component, off at first. Example: `left_foot_full` p050. The reader checks "v1 EN placeholder" in the list and sees both panels. The panels do not pair row by row (15.26.6.6).
+
+##### 15.26.10 Counts and the word "translated"
+
+Rule today: a page counts as translated when a `reader_pages` record exists `[file: app/lib/reader-translated.ts:18]`.
+
+Rule after the change (unit default): a page counts as translated when the page has an Agent text or a Human version. The base is round 70 answer 3 (`qa-memory-2026-10-29.md:118`): "Pages with translation that reader can view". A page with only the v1 placeholder does not count (decided). A page with only the Original text does not count. The word on the screen stays "translated".
+
+New totals on the Reader dashboard `/read` `[check: DT73b 2026-10-30 15:56 python3 -B a4_rows.py]`. These numbers are `[agent inference]`. Unit RT73 must check them again after TF73 returns.
+
+| Line | Today | New |
+|---|---|---|
+| Works | 342 | 342 |
+| Pages | 13,303 | 14,116 |
+| Translated pages | 28 | 1,151 |
+| Percent | 0.2 | 8.2 |
+| Books fold | 22 works, 4,821 pages, 20 translated (0.4 percent) | no change |
+| Kendo Jidai fold | 320 works, 8,482 pages, 8 translated (0.1 percent) | 320 works, 9,295 pages, 1,131 translated (12.2 percent) |
+
+- Translated new = 28 - 1 + 1,124. The article 18d4ac29 page 1 is one of the 28 and one of the 1,124. It counts once.
+- All 1,124 article pages hold a Human version, so all count.
+- The live line reads "English: 28 of 13,303 pages translated (0.2 percent)" `[file: docs/VISION-viewer.md:4567]`. The new line reads "English: 1,151 of 14,116 pages translated (8.2 percent)".
+- The v1 placeholder adds nothing to these numbers (round 73c answer 2).
+
+Work block of the book screen. The AI label rule (vision l246 to l248) stays: "AI translation: A of N pages. Human check: C of A pages." One line is new (unit default):
+
+- d7835263: "AI translation: 0 of 3 pages. Human translation: 3 of 3 pages."
+- left_foot_full: "AI translation: 6 of 120 pages. Human check: 0 of 6 pages." No v1 line (round 73c answer 2).
+- The line "Human translation: N of M pages." shows when at least one page of the work has a Human version.
+
+The old code counts every `reader_pages` record as an AI page `[file: app/components/ReaderBook.tsx:342]`. With JA-only records for web pages that count is wrong. The record must say what it holds (15.26.13).
+
+Article row on the Reader dashboard `/read`: d7835263 reads "English: 3 of 3 pages translated (100.0 percent)" and "Start at Page 1".
+
+The metadata line reads "3 pages". The code writes "pages" for 1, so "1 page" needs a singular test `[file: app/components/ReaderBook.tsx:333]`.
+
+##### 15.26.11 Year folds
+
+Decided: `qa-memory-2026-10-30.md:68` "Also add kendojidai to the book name 2019 -> 2025", and round 73c answer 2 "Reading 6, Kendo Jidai 2019".
+
+- The folds 2019 to 2025 show "2019" today, because the code writes `String(year)` when no magazine volume exists `[file: app/lib/reader-folds.ts:253]`. The note of aki-main names l255. The line is l253.
+- They become "Kendo Jidai 2019" to "Kendo Jidai 2025", the same form as "Kendo Jidai 2013" `[file: docs/VISION-viewer.md:3422-3424]`.
+- The test of mode `folds` in `app/scripts/smoke.mjs` must change its expected titles.
+- Not verified: how the search matches a fold title.
+
+##### 15.26.12 Admin choice and labels
+
+Decided: `qa-memory-2026-10-30.md:66` "Chosen by default (Recommended)". `qa-memory-2026-10-28.md:310` "Admin page /admin/versions (Recommended)".
+
+- The kendojidai.com EN is the chosen Human version of all 311 articles from the start. An admin can press "Remove the choice" on `/admin/versions` (vision l2729) and choose again.
+- After "Remove the choice" on d7835263: the Human version row of the list turns grey with the reason "No human version for this page". The page uses R2 and draws Original text. The reader still sees the full original data (round 72 answer 2).
+- Human versions carry no AI label (vision l251).
+
+##### 15.26.13 Storage in PocketBase
+
+Technical default. It changes what the reader sees only through the choices above.
+
+Facts:
+
+- `reader_pages`: one record per page, `page_id` unique, JSON fields at most 5 MB, `run_id` required `[file: data/scripts/pocketbase/pb_migrations/1793300007_v2_reader_collections.js:50-71]`.
+- `reader_versions`: one record per page, `page_id` unique, `rows` JSON `[file: same file:73-91]`.
+- `own_translations`: one record per row and version. A record never changes `[file: data/scripts/pocketbase/pb_migrations/1793300001_v2_collections.js:27-60]`. S2 uses a superuser, so the rules do not stop it.
+- Migrations: `<V2>/data/scripts/pocketbase/pb_migrations/` and an identical copy in `<T2>/data/scripts/pocketbase/pb_migrations/`. The last number is 1793300010 `[check: DT73b 2026-10-30 15:53 ls]`.
+
+Proposal (unit default):
+
+| Data | Where | Records | Size |
+|---|---|---|---|
+| JA rows of web pages | `reader_pages`, `run_id` "web-ja", rows with `ed3` empty | 1,123 new (18d4ac29 p001 keeps its agent record) | 7.64 MB for 1,124 pages |
+| Human version of web pages | `reader_versions`, `chosen_by` empty means chosen by default | 1,124 | 5.60 MB with rows `{key, text, facts}` |
+| Same Human version, so an admin can choose it again (D26) | `own_translations` under a disabled user "kendojidai.com", `version` 1 | 32,937 | about 11.84 MB (estimate) |
+| Search columns | `search_ja`, `search_en` of the 1,124 `reader_pages` records | | 3.68 MB and 3.37 MB |
+| v1 placeholder (JA, EN, ZH) (D27) | New collection `reader_v1`, one record per page | about 12,717 | about 100 MB without ZH and about 120 MB with ZH `[agent inference]` |
+
+Sources of the figures `[check: DT73b 2026-10-30 15:56 python3 -B facts_sizes.py]`. The largest JSON field of one page record is 0.014 MB, far below the 5 MB limit. The v1 figure comes from unit DT73 (EN 36.66 MB, JA 24.42 MB) plus 21.18 MB of ZH lines. It is not measured as records.
+
+- Sentence rows keep the Human rows small. A Human row holds the key, the text, and the marks. It holds no JA copy. With a JA copy per row the version needs 10.62 MB instead of 5.60 MB.
+- `reader_pages` needs a way to say what a record holds. The `run_id` value "web-ja" says "JA only, no agent text". `textPages` (agent pages) counts only the records with an agent run.
+- Why `own_translations` at all: after "Remove the choice" the admin must be able to choose the kendojidai.com version again. `reader_versions` keeps one record per page and the remove deletes it. Option without `own_translations`: only a new S2 run brings the text back. Benefit: 32,937 fewer records and no system user. Cost: no way back on `/admin/versions`.
+- Migration 1793300011 (new): add `own_translations.facts` (JSON, 1 MB), add the collection `reader_v1`, and add a field that says which components a page has. It must run twice without error, as the earlier migrations do. Not verified: `pb_users.py` can create a disabled user.
+- Open item 1 (15.26.18) asks whether `reader_v1` goes to the server at all.
+
+##### 15.26.14 Search and print link
+
+- The Human version text goes into the search columns of the page record (vision l214). A search for "seme" finds 189 of the 311 articles in the published EN `[file: DT73 search_effect.txt]`. Not re-run in this unit.
+- The v1 placeholder stays out of the search (decided, `qa-memory-2026-10-30.md:91`).
+- The cap of 2,000 page hits stays `[file: app/lib/pb.ts:615]`. With 1,124 more pages in the search, a query like "kendo" (311 articles) fills more of the cap `[agent inference]`.
+- No link between a web article and its print pages (decided, `qa-memory-2026-10-30.md:93` "No link now (Recommended)"). Example: d7835263 sits in Kendo Jidai > 2012 > February 2012, print article 4 on PDF pages 140 to 178. The Reader shows no link.
+
+##### 15.26.15 Changes by file, tests, and the split of RT73
+
+Repo `<V2>`, paths under `app/` unless a path says more. Read each file before the change.
+
+Recommendation `[agent inference]`: run RT73 as two code units.
+
+- RT73a, data and counts. S2, the Python page file, migration 1793300011, folds, counts, A4 pages, the Human version, the v1 store, and the work block. It has about 10 files and a test by dry run and smoke counts. It needs a scope grant for one new file in `<T2>`.
+- RT73b, components and panels. The component list, the panels, the first layout, the saved layout, the phone tabs, fast comparison, fact marks, and the Original text button. It has about 10 files and a browser test.
+- Reason: RT73a is checkable with numbers (1,124 pages, 33,953 rows, 1,151 of 14,116) and has no layout risk. RT73b changes the main reading screen and needs a browser check by the owner. One unit with both is too large to review.
+- After RT73a alone, the old controls still work. The Human version shows through "English text: Human", and the JA text through "Text: JA". The screen is clumsy but usable `[agent inference]`. RT73b must follow RT73a.
+
+RT73a:
+
+| File | Change |
+|---|---|
+| `data/scripts/pocketbase/pb_migrations/1793300011_v2_components.js` (new) | `own_translations.facts`, collection `reader_v1`, components field. Copy to `<T2>` on commit. |
+| `<T2>/data/scripts/web_pages.py` (new, outside `<V2>`) | Imports `programs.a4_cut` and writes the page of every unit. Needs a scope grant. |
+| `scripts/sync-runs.mjs` (header l9-12, `catalogBody` l536, `countTranslated` l763-778, report l814-819) | Reads the page file. Builds sentence rows. Writes web `pages`, JA records, Human versions, `own_translations`, v1 records. Counts a page as translated by the new rule. |
+| `lib/reader-folds.ts` (l52, l127-130, l253) | `workPages` returns `w.pages` (at least 1). Year fold title "Kendo Jidai " + year. |
+| `lib/reader-translated.ts:18` | `isTranslatedPage` takes `{ agent, human }` and gives false for "web-ja" and v1 records alone. |
+| `lib/reader-data.ts` (l166-185, l195-219, l226-250) | `loadReaderIndex`: `images` needs the kind. `mergeRows`: Human rows by key. `loadReaderPages`: components of each page. |
+| `lib/pb.ts` (l477, l483, l615, l717-739, l793-805) | Read v1 records. Carry `facts`. `readerTextPages` returns agent pages only. |
+| `lib/reader-search.ts` | Search columns of web pages. No v1 text. |
+| `components/ReaderBook.tsx` (l333, l341-343, l361) | Work block lines. "1 page". Start link. |
+| `scripts/smoke.mjs`, `data/scripts/pocketbase/test_local.py` | Checks below. |
+
+RT73b:
+
+| File | Change |
+|---|---|
+| `components/ReaderBook.tsx` (l49, l399, l423, l504-514) | Components button, Original text button, panel row, note line, empty page. |
+| New `components/ReaderPanels.tsx` | Panel row, title bars, move, hide, tabs on a phone. |
+| New `components/ReaderComponentList.tsx` | The dialog with the list and "Reset layout". |
+| `components/ReaderPageView.tsx` (l59, l94) | One body per component. Page lines. Fact marks and pop-up. Pair mark. |
+| `components/HtvPanelFrame.tsx` | No change. Import `DragHandle`. |
+| `components/ReaderImage.tsx` | Panel body for the Page image. Tabs pattern for a phone. |
+| `components/ReaderSettingsPanel.tsx` (l66-72, l110-113) | Remove Text and English text. First-visit group with the list. |
+| `lib/htv-settings.ts` (l141-210) | New keys, defaults, sanitizer. |
+| `lib/reader-types.ts` (l155, l178) | Component IDs, `has` of a page, `facts`, labels. |
+| `app/api/admin/versions/route.ts`, `app/admin/versions/page.tsx` | List the version of "kendojidai.com". Show `facts` in the preview. Not verified: the code of `AdminVersionPanel`. |
+| `scripts/smoke.mjs` | Checks below. |
+
+Checks to add (expected numbers in brackets):
+
+- S2 dry run prints: articles 311, pages 1,124, rows 33,953, Human rows 32,937, changed marks 1,762, dropped marks 3,808, and the sizes of 15.26.13.
+- The page file of the Translator gives 1,124 pages that hold a unit and no empty page (after TF73).
+- Reader dashboard `/read`: "English: 1,151 of 14,116 pages translated (8.2 percent)" and the folds "Kendo Jidai 2019" to "Kendo Jidai 2025".
+- `/read/d7835263?view=page&at=p001`: button Original text, no button Image, panels Original text and Human version, 32 Human rows, no AI label on the Human panel.
+- `/read/18d4ac29?view=page&at=p001`: panels Original text and Agent text. After a check of Human version: three panels.
+- `/read/left_foot_full?view=page&at=p050`: panels Page image and Agent text. `at=p051`: Page image and v1 EN with the page line "v1 Gemini translation placeholder."
+- `/read/ogawa_lecture_part1?view=page&at=p281`: the image and the line "No text for this page yet."
+- Layout: Move right swaps two panels. A drag handle changes `widths`. Hide unchecks. The last panel has no Hide.
+- Old saved value `{text:"pair", en:"human"}` gives Original text and Human version with `pair` true.
+- A phone width of 390 px shows tabs and no horizontal scroll bar.
+- Fact marks: U071 shows the dotted line and the pop-up "Japanese says: その上がった手元に小手を打たれる". U059 shows the tag "fact dropped".
+- A database without migration 1793300011 still opens every page.
+- The v1 placeholder adds 0 to every count on the Reader dashboard `/read`.
+
+Cost: 0 USD. No model call and no network call outside localhost.
+
+##### 15.26.16 Unit defaults
+
+| # | Default | Other option |
+|---|---|---|
+| D1 | A unit that the A4 cut skips takes the page of the unit before it. | The page of the next unit (moves 1 unit). |
+| D2 | Added units make no row. | A row with `ja_added`. Cost: JA text that the author did not write. |
+| D3 | A Python script writes the page file. S2 reads it. | A JavaScript copy of `a4_cut`. |
+| D4 | A Components button in the reader bar opens the list. | The list sits in the settings panel of the cog. |
+| D5 | The first-visit panel holds the same list. | The list only on the button. |
+| D6 | Order: Page image, Original text, Agent text, Human version, v1 EN, v1 ZH. | Original text first. |
+| D7 | Move by buttons and by drag of the title bar. | Buttons only. |
+| D8 | Resize by `DragHandle`, 280 to 720 px, step 16 px, free width shared. | Percent shares. |
+| D9 | The Hide button unchecks. The last panel has no Hide button. | Allow zero panels. |
+| D10 | Image and Original text stay as quick buttons. The Text and English text controls go. | Keep the Text control as a preset. |
+| D11 | Bilingual pairing merges Original text and the first EN panel. | A third panel. |
+| D12 | A tap marks the pair. The panels that share keys scroll together. A tap with no pair marks its own row only. | A note, or mark only. |
+| D13 | Agent text and Human version of 18d4ac29 do not pair. | S2 maps agent rows to units. |
+| D14 | First layout R1 to R3. | Show every EN text that exists. |
+| D15 | `shown` has one list for each kind of work. | One list for all works. |
+| D16 | A checked component with no data draws no panel. One note line names it. | A 28 px bar. |
+| D17 | The list hides EN-original. | Grey row. |
+| D18 | Phone: tabs, no move, no resize. | None. |
+| D19 | Scroll view: bands, sticky title bars, no Page image. Focus mode: text panels, no title bars. | Focus mode with the first text panel only. |
+| D20 | The v1 JA line fills Original text. Page line "v1 Gemini placeholder text." | "v1 Gemini translation placeholder." |
+| D21 | A JA-only row of a type other than `site_text` shows a muted line with the tag "fact dropped" in the Human panel. | No line for any JA-only row, or a line for all. |
+| D22 | A changed fact with no EN words gets a tag "fact changed". | A dotted line under the whole sentence. |
+| D23 | One tag for each kind in a sentence. The pop-up lists all facts. | One tag for each fact. |
+| D24 | `en_fixed` never shows. | Show it with an AI label. |
+| D25 | Credit lines get no mark. | Mark them. |
+| D26 | The Human version is also copied into `own_translations`. | `reader_versions` only. |
+| D27 | The v1 placeholder lives in `reader_v1` records. | Mac only (open item 1). |
+| D28 | The block rule of 15.26.9. Asterisks go. Notes stay. | Cut dictionary remarks. |
+| D29 | A page with an image and no text shows the image and names the absent components. | None. |
+
+##### 15.26.17 Decided items
+
+| # | Item | Owner words | Tag | Q-A line |
+|---|---|---|---|---|
+| 1 | Every article page shows its full original data | "Even if there is no translated data, you still have to show the full original data" | `[user 2026-10-30 09:28]` | `qa-memory-2026-10-30.md:30` |
+| 2 | Original text button instead of the Image button | "read the image button with original-text button" | `[user 2026-10-30 09:28]` | `qa-memory-2026-10-30.md:31` |
+| 3 | Text source, default choice, all 311 | "Source A, units.jsonl (Recommended)", "Chosen by default (Recommended)", "All 311 go in (Recommended)" | `[accepted recommendation 2026-10-30 10:42]` | `qa-memory-2026-10-30.md:65-67` |
+| 4 | Year folds | "Also add kendojidai to the book name 2019 -> 2025" | `[user 2026-10-30 10:42]` | `qa-memory-2026-10-30.md:68` |
+| 5 | v1 data as placeholder | "option 1. But for now, you can use the v1 data in universal-agent as place-holder text" | `[user 2026-10-30 10:42]` | `qa-memory-2026-10-30.md:71` |
+| 6 | A4 pages for articles | "We talked about splitting article into A4 page right?" | `[user 2026-10-30 15:35]` | `qa-memory-2026-10-30.md:87` |
+| 7 | Reader chooses what to show | "reader can choose what to show in their customizable UI" | `[user 2026-10-30 15:35]` | `qa-memory-2026-10-30.md:88` |
+| 8 | Dropped facts | "Also dropped facts" | `[accepted option 2026-10-30 15:35]` | `qa-memory-2026-10-30.md:89` |
+| 9 | Original text beside EN | "JA column beside EN (Recommended)" | `[accepted recommendation 2026-10-30 15:35]` | `qa-memory-2026-10-30.md:90` |
+| 10 | v1 not counted, not searched | "Not translated, not searched (Recommended)" | `[accepted recommendation 2026-10-30 15:35]` | `qa-memory-2026-10-30.md:91` |
+| 11 | Page line of v1 text | "v1 Gemini translation placeholder." | `[user 2026-10-30 15:35]` | `qa-memory-2026-10-30.md:92` |
+| 12 | No link to print pages | "No link now (Recommended)" | `[accepted recommendation 2026-10-30 15:35]` | `qa-memory-2026-10-30.md:93` |
+| 13 | Swap and both | "User can swap between them, and also show both of them." | `[user 2026-10-30 15:35]` | `qa-memory-2026-10-30.md:94` |
+| 14 | Sentence rows, vision first, keep notes, ZH v1 | "+ sentence row", "+ keep it", "+ If ZH is available in v1, User can view the ZH v1 placeholder" | `[user 2026-10-30 15:35]` | `qa-memory-2026-10-30.md:95` |
+| 15 | Readings 1 to 6 and "placeholder DOES NOT COUNT AS ANYTHING" | "`placeholder` DOES NOT COUNT AS ANYTHING." | `[accepted recommendation 2026-10-30 20:17]` `[user 2026-10-30 20:17]` | `qa-memory-2026-10-30.md:108` |
+| 16 | v1 ZH placeholder shows as one component | "option 1. v1 tranlsation are simply just placeholder, for display testing purpose ONLY." | `[user 2026-10-30 20:17]` | `qa-memory-2026-10-30.md:109` |
+| 17 | Component list and panels, Original text button | "option 3. Do the text-only button also" | `[user 2026-10-30 20:17]` | `qa-memory-2026-10-30.md:110` |
+| 18 | v1 placeholder is its own component, off at first | "Separate component, off at first (Recommended)" | `[accepted recommendation 2026-10-30 20:17]` | `qa-memory-2026-10-30.md:111` |
+| 19 | Dropped fact with no EN words | "Small tag after the sentence" | `[accepted option 2026-10-30 20:17]` | `qa-memory-2026-10-30.md:112` |
+| 20 | Page line of the default Human version | "From kendojidai.com (Recommended)" | `[accepted recommendation 2026-10-30 20:17]` | `qa-memory-2026-10-30.md:113` |
+| 21 | Two empty A4 pages | "Drop them, small Translator fix (Recommended)" | `[accepted recommendation 2026-10-30 20:17]` | `qa-memory-2026-10-30.md:114` |
+| 22 | Restart mark read at each page start | "Run program reads the mark per page (Recommended)" | `[accepted recommendation 2026-10-30 20:17]` | `qa-memory-2026-10-30.md:116` |
+| 23 | Monitor dashboard row stays until the book runs | "Row stays until the book runs (Recommended)" | `[accepted recommendation 2026-10-30 20:17]` | `qa-memory-2026-10-30.md:119` |
+| 24 | Unit order | "DW73 + TF73 now, RT73 after DW73 check (Recommended)" | `[accepted recommendation 2026-10-30 20:17]` | `qa-memory-2026-10-30.md:120` |
+
+##### 15.26.18 Open items for the owner
+
+One item. A code unit cannot decide it alone, because it changes what the hosted site holds.
+
+1. Where the v1 placeholder lives. Example: `left_foot_full` p051 has no Agent text. Its page image shows on `v2.kendotranslation.com` (when it goes live). The v1 EN line "Kendo is about hidari-te, hidari-koshi, and hidari-ashi." exists in the md file on this Mac. You said that the v1 text is "for display testing purpose ONLY" (`qa-memory-2026-10-30.md:109`).
+   - (a) Recommended `[agent inference]`: the v1 placeholder shows on this Mac only. The Viewer reads the md files at request time when a switch is on. Benefit: 0 MB on the server, no migration for it, and nothing to delete later. Cost: the hosted site shows no placeholder, and the code has one more switch.
+   - (b) The v1 placeholder goes into `reader_v1` records on every server. Benefit: the hosted site shows it, as a test reader needs. Cost: about 100 to 120 MB on the server, a larger S2 upload, and a clean-up later.
+
+All other choices of this section are unit defaults (15.26.16). The restatement of unit DW73 asks the owner to check the readings of the panel design before RT73b runs.
+
+##### 15.26.19 What changes against the DT73b draft and against the current docs
+
+Against the DT73b draft:
+
+- The control for the EN texts (check boxes in the toolbar) becomes the full component list with movable and resizable panels (round 73c answer 4).
+- The v1 ZH placeholder is a component (round 73c answer 3). The draft left it open.
+- The v1 placeholder is a separate component, off at first (round 73c answer 5). The draft had it as option (a) of an open item.
+- A dropped fact with no EN words shows as a small tag (round 73c answer 6). The draft used a dotted line under the whole sentence.
+- The page line of the default Human version is "Human translation from kendojidai.com." (round 73c answer 7).
+- The two empty pages are dropped (round 73c answer 8). The Reader uses 1,124 pages.
+- The v1 placeholder counts in no number and has no line in the work block (round 73c answer 2). The draft had a v1 line in the work block.
+- New unit defaults. D20 is the JA line of a v1 file. D21 is the JA-only rows of the Human panel. D22 is the changed fact with no EN words.
+
+Against the current docs and code:
+
+- 15.19.5 l2760 and l2761, 15.19.6 l2788 and l2801, and 15.23.6 l3594 and l3595 state the toolbar control as the rule. They now carry a note that round 73c answer 4 replaces it.
+- Section 12 l259 now notes that a page with no unit is dropped.
+- 15.24.11 item 2 is decided: Option A.
+- The restart mark line (l4293) now says that the run program reads the mark at each page start.
+- Lines that still say 1 page: l3433, l4446, l4577. RT73a fixes them.
+- `app/lib/reader-folds.ts:127-130`: `workPages` returns 1 for a web article.
+- `app/lib/reader-data.ts:179`: `images: f.pages > 0`.
+- `app/components/ReaderBook.tsx:333`: "1 pages".
+- `app/components/ReaderBook.tsx:341-343`: the AI line counts every record.
+
+##### 15.26.20 Not verified
+
+- The screens of 15.26.2 on a live browser.
+- The text of options 1 and 3 of round 62 answer 7.
+- That the settings sanitizer and the save route handle the new keys and a clear (15.26.6.9).
+- That `pb_users.py` can create a disabled user.
+- The code of `AdminVersionPanel` and of `matchWorks`.
+- The size of the v1 records (about 100 to 120 MB is an estimate).
+- That the Translator crashes on an empty page (the claim comes from the code at `translator_run.py:452`).
+- The result of unit TF73. This section assumes that `a4_cut` gives 1,124 pages after TF73.
+- Whether the md JA lines equal the page images. Unit DT73b read pages 50 and 51 of `left_foot_full` only.
+- The count of pages with a Human version on the live database. This unit did not read PocketBase.
+- That `DragHandle` works inside the grid of the reader panels, and the scroll sync across panel bodies.
+- The kendo term highlights of 18d4ac29 p001.
+- The number of rows that carry a tag "fact dropped" or "fact changed".
+- The test numbers of round 72. They come from the brief.
