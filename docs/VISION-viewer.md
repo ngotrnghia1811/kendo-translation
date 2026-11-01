@@ -2713,7 +2713,7 @@ Rows that make no row:
 
 #### 15.19.5 EN text: agent text and human version
 
-Rule of the owner `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:289,300]`: the default EN text is the agent text. An admin chooses one human version per page. The reader can switch.
+Rule of the owner `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:289,300]`: the default EN text is the agent text. An admin chooses one human version per page. The reader can switch. Replaced in part in round 75 answer 3 (`qa-memory-2026-10-31.md:53`): readers see the agent text of a run only after the admin presses "Open to readers" for that run (section 15.28.2).
 
 What the data holds:
 
@@ -2903,10 +2903,10 @@ Changes to existing rules:
 Changes to S2 (`app/scripts/sync-runs.mjs`):
 
 - Build one `reader_pages` record for each page that has a usable run. Use the same `buildRun` as the snapshot, then drop the research fields.
-- Read `run_marks` from PocketBase to pick the run. The run of the admin mark wins. Else the newest usable run (question 5).
+- Read `run_marks` from PocketBase to pick the run. The run of the admin mark wins. Else the newest usable run (question 5). Replaced in round 75 answer 3 (`qa-memory-2026-10-31.md:53`): the candidate runs are the runs that the admin opened (section 15.28.2).
 - Add the caption items and the running head to `extras` if question 6 is answered yes.
 - Keep `catalog_items` as it is. No change for the book metadata.
-- A change of a run mark shows to readers at the next S2 run. A mark route that writes `reader_pages` with the admin token is a later option `[agent inference]`.
+- A change of a run mark shows to readers at the next S2 run. A mark route that writes `reader_pages` with the admin token is a later option `[agent inference]`. Still true after round 75 answer 3: readers see a change only after the next S2 run (section 15.28.2).
 - Not verified: the cost of a full S2 run with `reader_pages`.
 
 Changes on the Translator side: none (see `docs/drafts/viewer-translator-loop-notes.md`, not changed in round 62). The folio is not needed, because answer 10 chose the file number.
@@ -3004,7 +3004,7 @@ Each question gives the case, the options with benefit and cost, and the recomme
 ##### Question 5: which agent runs a reader sees
 
 - Case: 42 finished runs have a verdict: 39 PASS and 3 FAIL `[check: RVD 2026-10-29 10:43 python3 count of summary.json]`. One FAIL run is `mental_full/p014`, run `20261028T023007Z-r41`, score 8.5. Its first JA line is `はめた場合、普段の稽古への取り組み方を考える大きなヒントになります。大切なのは、稽` and the ED_3 line is `If you apply this, it becomes a great hint for thinking about how to approach your everyday Keiko (practice). What is important is that, during Keiko,`.
-- Option 1 (recommended): a page shows the run of the admin mark, else the newest PASS run. A page with only FAIL runs shows "No agent translation yet". Benefit: no reader sees text that QA_3 rejected. Cost: the 3 FAIL pages stay hidden until an admin marks a run, and the words "No agent translation yet" are not exact for them.
+- Option 1 (recommended): a page shows the run of the admin mark, else the newest PASS run. A page with only FAIL runs shows "No agent translation yet". Benefit: no reader sees text that QA_3 rejected. Cost: the 3 FAIL pages stay hidden until an admin marks a run, and the words "No agent translation yet" are not exact for them. Replaced in part in round 75 answer 3: the candidate runs are the opened runs. The rule "newest PASS" applies among them. A page with only FAIL runs still shows "No agent translation yet" (section 15.28.2).
 - Option 2: the same rule as the human-translation-view: the newest finished run, FAIL included. Benefit: more pages. Cost: a reader sees text with a failed check, and the reader cannot know it, because the verdict is hidden.
 - Option 3: PASS runs and FAIL runs with a score of 8.5 or more. Benefit: a middle way. Cost: a new threshold that no decision supports.
 
@@ -3721,7 +3721,7 @@ New tests:
   - Option A (recommended): S2 copies all 347 rows. Benefit: the dashboard matches line 210, and the title of `18d4ac29` becomes "Kendo droplet guard", which closes the open item about its empty title. Cost: 310 more records, a change in `htv-books.ts` so that `/translate` keeps its 37 rows, and a code unit for S2 with a slug rule.
   - Option B: the dashboard lists the 37 works of today. Benefit: no S2 change. Cost: it breaks line 210, and a reader sees 1 web article of 311.
   - Option C: S2 copies the 347 rows and the dashboard shows the web articles as one closed fold with counts only. Benefit: a short page. Cost: the reader cannot find an article without search.
-- Item 2 (closed by round 70 answer 3, the word is now "translated"): the old word "finished". Line 213 says: "Finished" means a final `ED_3` text with a `QA_3` verdict. S2 gives reader text to a page from the run of the admin mark, or else from the newest `PASS` run. The code says "A page with only FAIL runs gets no record" `[file: app/scripts/sync-runs.mjs:10,628-662]`. Example: `kendojidai_2014` p0839 has one run and the verdict is FAIL (`20261026T205441Z-r41`). The reader sees "No agent translation yet" there `[file: docs/VISION-viewer.md:3201]`. The admin run mark is the only other source of reader text, and the local `run_marks` collection holds 0 records `[check: DV69 2026-10-29 20:55 q4.py, GET run_marks]`. A second example: `mental_full` p014 has a PASS run (`20261026T195046Z-r41`) and a newer FAIL run (`20261028T023007Z-r41`). The reader sees the PASS text `[check: DV69 2026-10-29 20:55 q4.py, GET page_runs]`.
+- Item 2 (closed by round 70 answer 3, the word is now "translated"): the old word "finished". Line 213 says: "Finished" means a final `ED_3` text with a `QA_3` verdict. S2 gives reader text to a page from the run of the admin mark, or else from the newest `PASS` run. The code says "A page with only FAIL runs gets no record" `[file: app/scripts/sync-runs.mjs:10,628-662]`. Example: `kendojidai_2014` p0839 has one run and the verdict is FAIL (`20261026T205441Z-r41`). The reader sees "No agent translation yet" there `[file: docs/VISION-viewer.md:3201]`. The admin run mark is the only other source of reader text, and the local `run_marks` collection holds 0 records `[check: DV69 2026-10-29 20:55 q4.py, GET run_marks]`. A second example: `mental_full` p014 has a PASS run (`20261026T195046Z-r41`) and a newer FAIL run (`20261028T023007Z-r41`). The reader sees the PASS text `[check: DV69 2026-10-29 20:55 q4.py, GET page_runs]`. Replaced in round 75 answer 3: S2 gives reader text only from a run that the admin opened (section 15.28.2). In the example of `mental_full` p014, the reader sees the PASS text only while the admin keeps the PASS run open.
   - Option A (recommended): translated = the page has reader text. `kendojidai_2014` shows 5 of 1051 pages (0.5 percent). Benefit: the number matches what the reader can open. Cost: line 213 needs new words after the owner agrees.
   - Option B: translated = a page with any `QA_3` verdict, also FAIL. `kendojidai_2014` shows 6 of 1051 pages (0.6 percent). Benefit: it counts all agent work. Cost: the link "Start at Page 839" opens a page with no text.
   - Option C: show both numbers, "5 translated, 1 failed". Benefit: nothing is hidden. Cost: more noise on each row, and a reader sees the word "failed".
@@ -3925,7 +3925,7 @@ Plain meaning of each label:
 
 - Running: a process works on the book now.
 - Running, pause requested: the owner asked for a pause. The process finishes the current page (forward boxes, critic and critique steps backward, memory write), then ends.
-- Paused: the process ended on purpose after the page that it finished at the pause. Resume writes a mark (round 71 answer 10). Between the mark and the first sign of the process, the row shows the state Mark waiting: "Mark waiting: Resume requested HH:MM" (round 72 answer 17, `.opencode/reminders/qa/qa-memory-2026-10-30.md:45`). The row moves into the group Waiting for a run (round 73b answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:85`, "New group"). Example: the owner presses Resume on `mental_full` at 10:42. The row leaves Needs attention and shows "Mark waiting: Resume requested 10:42" in the group Waiting for a run. The row leaves the group at the first sign of the process, and the book goes to Running. A Run mark shows "Mark waiting: Run requested HH:MM" in the same group (unit default of DU73, accepted in round 73b answer 2, `qa-memory-2026-10-30.md:83`). A Restart mark shows "Mark waiting: Restart requested HH:MM" in the same group `[unit default DZ73]`. Old text, replaced in round 74 answers 5 to 11: the row text named a box ("Mark waiting: Restart ED_2 requested HH:MM", round 73d answer 4) and the button sat on the flag of the box. Other text: "Mark waiting: Restart (prompts: start) requested HH:MM". Benefit of the other text: the row shows the prompt choice. Cost: a longer row. Example: the owner presses Restart on the book row of `left_foot_full` at 10:42. The row shows "Mark waiting: Restart requested 10:42" in the group Waiting for a run. A mark waits while the book folder holds `request.json` `[file: <T2>/data/scripts/translator/store.py:246-250]` `[agent inference]`.
+- Paused: the process ended on purpose after the page that it finished at the pause. Resume writes a mark (round 71 answer 10). Between the mark and the first sign of the process, the row shows the state Mark waiting: "Mark waiting: Resume requested HH:MM" (round 72 answer 17, `.opencode/reminders/qa/qa-memory-2026-10-30.md:45`). The row moves into the group Waiting for a run (round 73b answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:85`, "New group"). Example: the owner presses Resume on `mental_full` at 10:42. The row leaves Needs attention and shows "Mark waiting: Resume requested 10:42" in the group Waiting for a run. The row leaves the group at the first sign of the process, and the book goes to Running. A Run mark shows "Mark waiting: Run requested HH:MM" in the same group (unit default of DU73, accepted in round 73b answer 2, `qa-memory-2026-10-30.md:83`). A Restart mark shows "Mark waiting: Restart requested HH:MM" in the same group `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]` (DZ73 default 5, "Short mark row text"). Old text, replaced in round 74 answers 5 to 11: the row text named a box ("Mark waiting: Restart ED_2 requested HH:MM", round 73d answer 4) and the button sat on the flag of the box. Other text: "Mark waiting: Restart (prompts: start) requested HH:MM". Benefit of the other text: the row shows the prompt choice. Cost: a longer row. Example: the owner presses Restart on the book row of `left_foot_full` at 10:42. The row shows "Mark waiting: Restart requested 10:42" in the group Waiting for a run. A mark waits while the book folder holds `request.json` `[file: <T2>/data/scripts/translator/store.py:246-250]` `[agent inference]`.
 - Stopped: the process ended on purpose. Ctrl-C sets the stop. The end of the target page set gives Completed.
 - Stopped unexpectedly: the file says "running", but the process is gone or silent.
 - Stopped by failure: the run ended because of a failure or a rule. The book does not go on alone. A box with 3 double REJECTs in a row stops the whole book after the page is saved, with the stop reason "rule" (round 74 answer 5). The owner presses Resume to continue with the next page, or Restart to archive the run and run the book again from page 1.
@@ -4290,7 +4290,7 @@ Differences from the draft of aki-main:
 - `pages_total` counts the pages of the phase target. The draft left this open. Phase 3 needs 20, not the pages of the book.
 - The cost and the time count one phase. A phase change writes the old totals to `history.jsonl`.
 - The heartbeat comes from a thread that does not wait for a model call. A call can last 1500 s.
-- A file `PAUSE` for one book. The draft had the list file only. The Monitor dashboard also writes the mark `request.json` in the book folder (round 70 answer 11, round 71 answer 9). The mark holds the keys schema ("book-request-v1"), book, action ("run" or "resume"), phase, requested_utc, and requested_by `[file: <T2>/data/scripts/translator/store.py, function write_mark]`. The restart mark uses the same file with the action "restart" and no key `box` (round 74 answers 5 to 9). Old text, replaced: the key `box` named one stopped box (unit default of DD73). One more key sets the prompt choice (round 74 answer 8): `"prompts": "start"` (the default, the prompts that the archived run started with) or `"prompts": "last"` (the last live prompts of the archived run) `[unit default DZ73]`. Other option: two actions, "restart" and "restart-last". Benefit of the key: one action. Cost: the key is valid for the action "restart" only. A Restart mark on a running book makes the run program stop after the page is saved, archive the run, and start again from page 1 `[unit default DZ73]`. Other option in section 15.27.4. Not verified: `MARK_ACTIONS` in `store.py` holds only "run" and "resume" (l30), so a Translator unit must add "restart". `run-book` keeps the handled mark as `request.done.json`. The run program reads the restart mark at each page start. So a mark reaches a book that runs at the next page (round 73c answer 10, `.opencode/reminders/qa/qa-memory-2026-10-30.md:116`, "Run program reads the mark per page (Recommended)" `[accepted recommendation 2026-10-30 20:17]`).
+- A file `PAUSE` for one book. The draft had the list file only. The Monitor dashboard also writes the mark `request.json` in the book folder (round 70 answer 11, round 71 answer 9). The mark holds the keys schema ("book-request-v1"), book, action ("run" or "resume"), phase, requested_utc, and requested_by `[file: <T2>/data/scripts/translator/store.py, function write_mark]`. The restart mark uses the same file with the action "restart" and no key `box` (round 74 answers 5 to 9). Old text, replaced: the key `box` named one stopped box (unit default of DD73). One more key sets the prompt choice (round 74 answer 8): `"prompts": "start"` (the default, the prompts that the archived run started with) or `"prompts": "last"` (the last live prompts of the archived run) `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]` (DZ73 default 3, "One restart action"). Other option: two actions, "restart" and "restart-last". Benefit of the key: one action. Cost: the key is valid for the action "restart" only. A Restart mark on a running book makes the run program stop after the page is saved, archive the run, and start again from page 1 `[unit default DZ73]`, pending round 75 answer 10 (section 15.28.5). Other option in section 15.27.4. Not verified: `MARK_ACTIONS` in `store.py` holds only "run" and "resume" (l30), so a Translator unit must add "restart". `run-book` keeps the handled mark as `request.done.json`. The run program reads the restart mark at each page start. So a mark reaches a book that runs at the next page (round 73c answer 10, `.opencode/reminders/qa/qa-memory-2026-10-30.md:116`, "Run program reads the mark per page (Recommended)" `[accepted recommendation 2026-10-30 20:17]`).
 - A defaults file, so that the Viewer shows the default of each key without a copy of the table.
 - A history file of the settings file. The draft had no place for who changed what.
 
@@ -4347,7 +4347,7 @@ Tests:
   - `validateSettings` for all 21 keys, with a good and a bad value, and the diff.
 - Smoke mode `monitor` with a fixture folder that holds copies of the 3 list folders and a `config` folder. It adds fake `status.json` files: running (own pid), stopped unexpectedly (pid of a finished process), paused, completed, and a broken file. It checks the rows, the groups, the summary line, and the 404 answers with the monitor off.
 - Settings write tests: the file is written by temp file and rename, with no temp file left. A stale sha1 gives 409. A foreign Origin and a foreign Host give 403. A key that the panel does not know stays. A save writes one line in the history. No other path in the fixture changes.
-- Pause tests extend the mode `pause`: the list with 3 books shows the dialog, and one pause file per book works. Mark tests: the button writes `request.json` in the book folder and no other file. The same test covers the button Restart on the book row and in Details. A dialog test covers each process button: the dialog opens with the focus on Cancel, and Cancel writes no file `[unit default DZ73]`.
+- Pause tests extend the mode `pause`: the list with 3 books shows the dialog, and one pause file per book works. Mark tests: the button writes `request.json` in the book folder and no other file. The same test covers the button Restart on the book row and in Details. A dialog test covers each process button: the dialog opens with the focus on Cancel, and Cancel writes no file `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]` (DZ73 default 7, "Dialog test").
 - Chrome checks at 1440 x 900:
   - Keyboard through all groups and buttons.
   - The focus ring.
@@ -4437,7 +4437,7 @@ Status: design accepted (round 70 answer 10), Run, Resume, Pause, and store fold
 - Source of the table: `[file: data/scripts/pocketbase/pb_migrations/1793300010_v2_dashboard_fields.js:5-12]`.
 - Rule (name `isTranslatedPage`): a page counts as translated when a `reader_pages` record exists. That is, readers can view its English text `[file: app/lib/reader-translated.ts:18]`.
 - Every signed-in user can read `catalog_items`. So a count in `translated` needs no read of `reader_pages` (round 69 answer 9).
-- A page with only FAIL runs has no `reader_pages` record. Example: `kendojidai_2014` p0839 `[check: RC4 s2-apply.log, line "skipped (no PASS run and no run mark): 1"]`.
+- A page with only FAIL runs has no `reader_pages` record. Example: `kendojidai_2014` p0839 `[check: RC4 s2-apply.log, line "skipped (no PASS run and no run mark): 1"]`. Round 75 answer 3: a page with no opened run also has no `reader_pages` record (section 15.28.2).
 - Any page opens for an approved reader. The page p0839 opens and shows "No agent translation yet" `[file: docs/VISION-viewer.md:3724]`. The translated count skips it.
 
 ##### 15.25.3 Folds and counts
@@ -4764,7 +4764,7 @@ Why sentence rows help. A tap on the EN row U004 marks the JA row U004 in the Or
 
 ##### 15.26.5 Components of a page
 
-Components follow vision l180 to l187. A page draws a component only when the page has data for it. The component list shows a component with no data on this page in grey, with a short reason. This applies the owner words "USER CAN VIEW WHAT IS AVAILABLE IN THE VIEWER VISION" (`qa-memory-2026-10-30.md:95`).
+Components follow vision l180 to l187. A page draws a component only when the page has data for it. The component list shows a component with no data on this page in grey, with a short reason. This applies the owner words "USER CAN VIEW WHAT IS AVAILABLE IN THE VIEWER VISION" (`qa-memory-2026-10-30.md:95`). RT73b default 9 (accepted in round 75 answers 13 and 14, `qa-memory-2026-10-31.md:63-64`): Page image counts as present when the work has page images.
 
 Table. "Yes" means that the page has the data. The cell names the source.
 
@@ -4839,7 +4839,7 @@ Rules of the list:
 - A row is grey when the work has the component but this page lacks it. The check box is disabled and keeps its saved state. The note gives the reason.
 - Reasons: "No page image for this page". "Page view only" (Scroll view and Focus mode). "No Japanese text for this page". "No agent translation yet" (`NO_TEXT`, `[file: app/lib/reader-types.ts:178]`). "No human version for this page" `[file: app/components/ReaderBook.tsx:514]`. "No v1 text for this page". "No term marks on this page". "Needs Original text and one English text" (for Bilingual pairing).
 - Other option for a grey row: the check box stays enabled. Benefit: the reader can choose a component for later pages. Cost: a check that changes nothing on this page confuses the reader.
-- The button "Reset layout" removes `components`, `shown`, `widths`, `pair`, and `terms` from the saved value (15.26.6.9). The page then uses the first layout (15.26.6.7). The button "Reset text settings" in the settings panel does not change the layout.
+- The button "Reset layout" removes `components`, `shown`, `widths`, `pair`, and `terms` from the saved value (15.26.6.9). The page then uses the first layout (15.26.6.7). The button "Reset text settings" in the settings panel does not change the layout. The button also removes `text`, `en`, and `image` through the field `clear` of `PUT /api/read/settings` (RT73b defaults 3 and 16, accepted in round 75 answers 13 and 14, `qa-memory-2026-10-31.md:63-64`) `[file: app/app/api/read/settings/route.ts:11-22]` `[file: app/lib/htv-settings.ts:206]`.
 
 Mockup of the list, d7835263 p001 and left_foot_full p051 (grey rows show the reason):
 
@@ -4880,7 +4880,7 @@ Resize (unit default D8). One handle sits on the right edge of every panel excep
 - The TL_3 information panel uses 280 to 720 px with 416 px as default `[file: app/lib/htv-settings.ts:93]`.
 - Reader panels use the limits 280 and 720 px. They have no default in px.
 - A panel with no saved width shares the free width of the row with the other such panels, in equal parts. The last panel always takes the rest.
-- A drag sets a width in px for the panel on the left of the handle. The width goes into `widths` under the ID of that panel.
+- A drag sets a width in px for the panel on the left of the handle. The width goes into `widths` under the ID of that panel. RT73b default 11 (accepted in round 75 answers 13 and 14, `qa-memory-2026-10-31.md:63-64`): the width of a merged pairing panel is stored under `ja`, and the last panel ignores its saved width.
 - If the panels need more width than the row has, the row scrolls sideways.
 - Other option: widths as percent shares of the row, as `SHARE_LIMITS` does for the JA and agent columns `[file: app/lib/htv-settings.ts:95]`. Benefit: the layout fits any screen width. Cost: the handle code needs a new unit, and the owner words in round 58 answer 5 say "drag width" in px.
 
@@ -4888,7 +4888,7 @@ Hide and show (unit default D9).
 
 - The button "Hide" (a cross) in the title bar unchecks the component. The panel goes away and its width stays saved.
 - The reader shows the panel again with its check box in the component list.
-- The last drawn panel has no Hide button. Its title reads "Keep at least one panel". Other option: allow zero panels and show the line "Check a component in the list". Benefit: the reader has full control. Cost: a blank screen against the owner rule that the reader sees what is available.
+- The last drawn panel has no Hide button. Its title reads "Keep at least one panel". Other option: allow zero panels and show the line "Check a component in the list". Benefit: the reader has full control. Cost: a blank screen against the owner rule that the reader sees what is available. RT73b default 4 (accepted in round 75 answers 13 and 14, `qa-memory-2026-10-31.md:63-64`): the only drawn panel cannot be unchecked `[file: app/components/ReaderPanels.tsx:75]`.
 
 ###### 15.26.6.4 Controls of today: what stays and what the list replaces
 
@@ -4919,7 +4919,7 @@ Vision l186 lists "Bilingual pairing" as a component. In the list it is a check 
 - The other EN panels stay as separate panels.
 - Example: d7835263 p001 with Bilingual pairing checked. One panel shows U004 JA "剣道はなぜ面なのか。" beside the EN "Why is kendo all about men?".
 - Other option: the pairing panel is a third panel and the two source panels stay. Benefit: the reader moves each panel alone. Cost: the same text shows twice.
-- The box needs the JA source text and one EN text on the page. Else it is grey.
+- The box needs the JA source text and one EN text on the page. Else it is grey. RT73b default 5 (accepted in round 75 answers 13 and 14, `qa-memory-2026-10-31.md:63-64`): the box is grey until Original text and one English panel are drawn. The reason reads "Needs Original text and one English text".
 - On a phone the pairing tab stacks JA above EN (15.19.7, l2827).
 
 ###### 15.26.6.6 Fast comparison
@@ -4937,7 +4937,7 @@ Row keys by data:
 Which panels pair, with the real pages:
 
 - d7835263 p001: Original text and Human version share web keys. They pair.
-- 18d4ac29 p001: Original text and Agent text share run keys. The Human version has web keys. It does not pair with the other two (unit default D13).
+- 18d4ac29 p001: Original text and Agent text share run keys. The Human version has web keys. It does not pair with the other two (unit default D13). RT73b default 6 (accepted in round 75 answers 13 and 14, `qa-memory-2026-10-31.md:63-64`): rows of two key families do not merge. The pair panel of 18d4ac29 uses the Human rows with their own JA.
 - left_foot_full p050: Original text and Agent text pair. The v1 panels pair with each other and not with the Agent text.
 - left_foot_full p051: Original text (v1 JA), v1 EN, and v1 ZH share v1 keys. All three pair.
 
@@ -4946,12 +4946,12 @@ Unit default D12:
 - A tap on a row, outside a term mark or a fact mark, makes that row the active row. The row and its pairs in the other panels get the class `data-pair-active`, with a tint and a left border.
 - The panels that hold the pair scroll so that the pair row is in view.
 - A scroll in one panel moves each panel that shares keys with it, to the row at the same place. If a panel lacks the row, it moves to the row before it.
-- A second tap on the same row, or the Esc key, clears the mark.
+- A second tap on the same row, or the Esc key, clears the mark. RT73b default 10 (accepted in round 75 answers 13 and 14, `qa-memory-2026-10-31.md:63-64`): the Esc key clears the pair mark first.
 - If no other panel holds the key, the tapped row marks in its own panel only. No panel moves. No note shows.
 - Other option for that case: a short note "No pair for this row in the other panels." Benefit: the reader learns why nothing moved. Cost: more noise on a page where pairs are rare.
 - Other option for the whole rule: mark only and no scroll together. Benefit: no scroll code. Cost: it breaks vision l49.
 - Limit of this design: rows take no focus, so the tap has no keyboard way. A keyboard reader uses Bilingual pairing for aligned rows.
-- Each panel body scrolls on its own, like `HtvPanelFrame` (`min-h-0 flex-1 overflow-auto` `[file: app/components/HtvPanelFrame.tsx:142]`). Scroll together needs that.
+- Each panel body scrolls on its own, like `HtvPanelFrame` (`min-h-0 flex-1 overflow-auto` `[file: app/components/HtvPanelFrame.tsx:142]`). Scroll together needs that. RT73b default 8 (accepted in round 75 answers 13 and 14, `qa-memory-2026-10-31.md:63-64`): the panel row height is the window height minus 9.5 rem in Page view, and the bodies scroll inside `[file: app/components/ReaderPanels.tsx:246]`.
 - The other option for 18d4ac29 (D13): S2 maps each agent row to its unit. The file `source_parts.json` of the run holds the `unit_id` of each part `[check: DT73b 2026-10-30 15:54 python3 read of source_parts.json and TS_3.json]`. Benefit: all three panels pair. Cost: a step in S2 that maps the rows, for 1 of 1,124 pages today.
 
 ###### 15.26.6.7 First layout
@@ -4988,7 +4988,7 @@ First layout of the five pages:
 Example. An account saved `shown.book` = Page image and Agent text. The reader turns from `left_foot_full` p050 to p051. The page has the image and no Agent text.
 
 - Unit default D16: the page draws the Page image only. A one-line note sits above the panel row: "Not on this page: Agent text. On this page, in the Components list: Original text, v1 EN placeholder, v1 ZH placeholder."
-- The note shows only when a checked component lacks data and the page has other components.
+- The note shows only when a checked component lacks data and the page has other components. RT73b default 7 (accepted in round 75 answers 13 and 14, `qa-memory-2026-10-31.md:63-64`): the note names only components that the work has on some page `[file: app/lib/reader-layout.ts:340-349]`.
 - The saved `shown` stays as it is. The next page that has an Agent text draws the panel again.
 - Other option: a thin bar of 28 px stands in for the absent panel, like the collapsed bar `[file: app/components/HtvPanelFrame.tsx:12,17-35]`. Benefit: the other panels do not change width when the reader turns the page. Cost: a bar that looks like a collapsed panel but opens nothing.
 - If none of the checked components has data, R2 applies (the first layout). Example: `shown.article` = Human version only, and the admin removed the choice on d7835263. The page draws Original text.
@@ -5029,12 +5029,12 @@ Old values turn into the new value when the account has no `shown` (read time, n
 What the sanitizer `sanitizeReader` must accept `[file: app/lib/htv-settings.ts:191-210]`:
 
 - `components`: a list of at most 7 unique IDs from `image`, `ja`, `agent`, `human`, `v1en`, `v1zh`, `enorig`. It drops other IDs. It appends IDs that the list lacks, in the default order.
-- `shown`: an object with the keys `book` and `article`. Each value is a list of the same IDs, without repeats.
+- `shown`: an object with the keys `book` and `article`. Each value is a list of the same IDs, without repeats. RT73b default 15 (accepted in round 75 answers 13 and 14, `qa-memory-2026-10-31.md:63-64`): an empty saved list is valid.
 - `widths`: an object that maps an ID to a number. The number is clamped to 280 to 720 and rounded to a whole number, as `num(v, 280, 720, 0)` does.
 - `pair` and `terms`: booleans.
 - The old keys `text`, `en`, and `image` stay accepted.
 - `READER_DEFAULTS` is typed `Required<Omit<ReaderSettings, "panelSeen">>` `[file: app/lib/htv-settings.ts:177]`. The new keys need defaults, or they must sit outside it, as `panelSeen` does.
-- Not verified: how `save(patch)` in `ReaderBook.tsx` merges a patch, and whether the route `PUT /api/read/settings` can clear a key. "Reset layout" needs a way to clear.
+- Old note, verified below: how `save(patch)` in `ReaderBook.tsx` merges a patch, and whether the route `PUT /api/read/settings` can clear a key. "Reset layout" needs a way to clear. Verified `[check: DZ74 2026-10-31 19:39 read of app/app/api/read/settings/route.ts:17-24 and app/components/ReaderBook.tsx:361,365,187]`: the route merges shallow (`{ ...old.reader, ...reader }`), and the client sends the whole `shown` and the whole `widths`. The route accepts `clear`, a list of layout keys to remove (RT73b default 16, accepted in round 75 answers 13 and 14, `qa-memory-2026-10-31.md:63-64`).
 
 ###### 15.26.6.10 Phone layout
 
@@ -5066,8 +5066,8 @@ Vision l192 and 15.19.7: one column, a simpler layout. Round 44 answer 8 keeps t
 ###### 15.26.6.11 Scroll view and Focus mode
 
 - Scroll view (unit default D19): each page is one band. A band holds the text panels side by side with the widths of the Page view. The Page image panel does not show in Scroll view, as today `[file: app/components/ReaderBook.tsx:399]`.
-- In Scroll view, the title bars sit in one sticky row under the reader bar, so that Move, Resize, and Hide work for all bands.
-- Pairing and scroll together work inside one band.
+- In Scroll view, the title bars sit in one sticky row under the reader bar, so that Move, Resize, and Hide work for all bands. Replaced by the code of RT73b (default 2, accepted in round 75 answers 13 and 14, `qa-memory-2026-10-31.md:63-64`): each band has its own title bars, and there is no sticky row `[file: app/components/ReaderPanels.tsx:12]`.
+- Pairing and scroll together work inside one band. Replaced by the code of RT73b (default 2): the bodies of a band have natural height, so the panels move with the page. There is no scroll together in a band `[file: app/components/ReaderPanels.tsx:12,167,198]`.
 - Focus mode: the text panels stay, in their order, with equal widths. The title bars, the handles, and the Page image panel are hidden. The button "Leave focus mode (Esc)" stays `[file: app/components/ReaderBook.tsx:452]`.
 - Other option for Focus mode: only the first text panel shows. Benefit: the purest reading view. Cost: no comparison in Focus mode.
 
@@ -5168,7 +5168,7 @@ Page lines (decided where the owner gave the words):
 | Panel | Page line | Source |
 |---|---|---|
 | Agent text | "AI translation, not yet checked by a person" (or "AI translation, checked by a person") | Vision l249, section 11 `[file: app/lib/reader-types.ts:173-174]`. |
-| Human version, default choice | "Human translation from kendojidai.com." | Round 73c answer 7, `qa-memory-2026-10-30.md:113`. |
+| Human version, default choice | "Human translation from kendojidai.com." | Round 73c answer 7, `qa-memory-2026-10-30.md:113`. Round 73e answer 4 (`qa-memory-2026-10-31.md:7`): "Leave until RT73b (Recommended)". RT73b fixes the page line (RT73b report). |
 | Human version, chosen by an admin | "Human translation. Chosen by an admin." | Vision l2769 `[file: app/lib/reader-types.ts:175]`. |
 | v1 EN placeholder | "v1 Gemini translation placeholder." | Round 73b answer 11, `qa-memory-2026-10-30.md:92`. |
 | v1 ZH placeholder | "v1 Gemini translation placeholder." | Same line, same answer. |
@@ -5201,8 +5201,8 @@ Counts over the 311 articles, by sentence rows `[check: DT73b 2026-10-30 15:56 p
 
 Forms (decided in part, unit default D21 to D25):
 
-- A mark on a phrase: a dotted line under the EN words. A tap on the words opens a pop-up. This follows the vision example (l158 to l161).
-- A dropped fact where the EN has no words for it (round 73c answer 6): a small tag "fact dropped" after the EN sentence. The tag opens the same pop-up.
+- A mark on a phrase: a dotted line under the EN words. A tap on the words opens a pop-up. This follows the vision example (l158 to l161). RT73b defaults 12 and 13 (accepted in round 75 answers 13 and 14, `qa-memory-2026-10-31.md:63-64`): the pop-up closes on any scroll `[file: app/components/ReaderPageView.tsx:79]`. A dropped fact on a phrase draws dotted words, and the pop-up reads "The English leaves this out." (d7835263 p001 U013 ３０歳).
+- A dropped fact where the EN has no words for it (round 73c answer 6): a small tag "fact dropped" after the EN sentence. The tag opens the same pop-up. RT73b default 14 (accepted in round 75 answers 13 and 14, `qa-memory-2026-10-31.md:63-64`): a fact that cannot be placed on EN words goes to the tag after the sentence.
 - A changed fact where the EN has no words for it (213 marks, unit default D22): a small tag "fact changed" after the EN sentence. Other option: a dotted line under the whole sentence. Benefit: no new tag text. Cost: long sentences show much ink.
 - One sentence with several whole-sentence marks of one kind gets one tag. The pop-up lists each fact (D23).
 - The pop-up shows the JA fact only. `en_fixed` never shows (D24).
@@ -5246,7 +5246,7 @@ JA fact 全日本選抜剣道八段優勝大会  EN "8th Dan Tournament"  dotted
 A whole JA sentence with no EN sentence (1,016 rows, unit default D21). Example: web article `396571c1` U055, JA また、攻防の際、間合取りにも注意しています。 and no EN `[check: DW73 2026-10-30 20:29 python3 -B jaonly2.py]`.
 
 - 377 of the 1,016 rows are `site_text` (web page chrome). Example: d7835263 U084 "関連". 639 rows are other block types: 396 `body`, 97 `profile`, 56 `heading`, and 90 more of seven other types `[check: DW73 2026-10-30 20:29 python3 -B jaonly.py]`.
-- Default: a `site_text` row makes no line in the Human panel. Every other JA-only row makes a muted line with the tag "fact dropped". The pop-up reads "Japanese says: また、攻防の際、間合取りにも注意しています。 The English leaves this out." Benefit: the reader sees that the published EN has no such sentence, and the rows stay level with the Original text panel. Cost: 639 tag-only lines.
+- Default: a `site_text` row makes no line in the Human panel. Every other JA-only row makes a muted line with the tag "fact dropped". The pop-up reads "Japanese says: また、攻防の際、間合取りにも注意しています。 The English leaves this out." Benefit: the reader sees that the published EN has no such sentence, and the rows stay level with the Original text panel. Cost: 639 tag-only lines. RT73b default 1 (accepted in round 75 answers 13 and 14, `qa-memory-2026-10-31.md:63-64`): a `site_text` row that has English text stays in the Human panel with its line. Example: d7835263 p003 U083 "Debana-men" keeps its line. U084 関連 has no English and gives no line `[file: app/lib/reader-layout.ts:138-143]`.
 - Other option: no line for any JA-only row. Benefit: the Human panel shows only the published text. Cost: a dropped sentence leaves no trace in that panel, and the tap on the JA row finds no pair.
 - Another option: a line for all 1,016 rows. Cost: 377 lines for page chrome such as "関連".
 
@@ -5404,7 +5404,7 @@ RT73a:
 | `components/ReaderBook.tsx` (l333, l341-343, l361) | Work block lines. "1 page". Start link. |
 | `scripts/smoke.mjs`, `data/scripts/pocketbase/test_local.py` | Checks below. |
 
-RT73b:
+RT73b (the files that RT73b changed beyond this table are in section 15.28.7):
 
 | File | Change |
 |---|---|
@@ -5417,7 +5417,7 @@ RT73b:
 | `components/ReaderSettingsPanel.tsx` (l66-72, l110-113) | Remove Text and English text. First-visit group with the list. |
 | `lib/htv-settings.ts` (l141-210) | New keys, defaults, sanitizer. |
 | `lib/reader-types.ts` (l155, l178) | Component IDs, `has` of a page, `facts`, labels. |
-| `app/api/admin/versions/route.ts`, `app/admin/versions/page.tsx` | List the version of "kendojidai.com". Show `facts` in the preview. Not verified: the code of `AdminVersionPanel`. |
+| `app/api/admin/versions/route.ts`, `components/AdminVersionPanel.tsx` | List the version of "kendojidai.com". Show `facts` in the preview. `app/admin/versions/page.tsx` needs no change `[check: DZ74 2026-10-31 19:39 git show --stat e9ebd81, no line for that file]`. |
 | `scripts/smoke.mjs` | Checks below. |
 
 Checks to add (expected numbers in brackets):
@@ -5457,12 +5457,12 @@ Cost: 0 USD. No model call and no network call outside localhost.
 | D13 | Agent text and Human version of 18d4ac29 do not pair. | S2 maps agent rows to units. |
 | D14 | First layout R1 to R3. | Show every EN text that exists. |
 | D15 | `shown` has one list for each kind of work. | One list for all works. |
-| D16 | A checked component with no data draws no panel. One note line names it. | A 28 px bar. |
+| D16 | A checked component with no data draws no panel. One note line names it. The note names only components that the work has (RT73b default 7, accepted in round 75 answer 13). | A 28 px bar. |
 | D17 | The list hides EN-original. | Grey row. |
 | D18 | Phone: tabs, no move, no resize. | None. |
-| D19 | Scroll view: bands, sticky title bars, no Page image. Focus mode: text panels, no title bars. | Focus mode with the first text panel only. |
+| D19 | Scroll view: bands, title bars per band (no scroll together in a band, RT73b default 2, accepted in round 75 answer 13), no Page image. Focus mode: text panels, no title bars. | Focus mode with the first text panel only. |
 | D20 | The v1 JA line fills Original text. Page line "v1 Gemini placeholder text." Accepted in round 73d answer 7 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:135`). | "v1 Gemini translation placeholder." |
-| D21 | A JA-only row of a type other than `site_text` shows a muted line with the tag "fact dropped" in the Human panel. | No line for any JA-only row, or a line for all. |
+| D21 | A JA-only row of a type other than `site_text` shows a muted line with the tag "fact dropped" in the Human panel. A `site_text` row with English text keeps its line (RT73b default 1, accepted in round 75 answer 13). | No line for any JA-only row, or a line for all. |
 | D22 | A changed fact with no EN words gets a tag "fact changed". | A dotted line under the whole sentence. |
 | D23 | One tag for each kind in a sentence. The pop-up lists all facts. | One tag for each fact. |
 | D24 | `en_fixed` never shows. | Show it with an AI label. |
@@ -5509,7 +5509,7 @@ No open item remains. The one item below was decided in round 73d answer 8 (`.op
    - (a) Chosen in round 73d answer 8: the v1 placeholder shows on this Mac only. The Viewer reads the md files from the copy in `<V2>/data/v1-md/` when a page opens. The old text said: "at request time when a switch is on". Benefit: 0 MB on the server, no migration for it, and nothing to delete later. Cost: the hosted site shows no placeholder, and the code has one more switch.
    - (b) The v1 placeholder goes into `reader_v1` records on every server. Benefit: the hosted site shows it, as a test reader needs. Cost: about 100 to 120 MB on the server, a larger S2 upload, and a clean-up later.
 
-All other choices of this section are unit defaults (15.26.16). The restatement of unit DW73 asks the owner to check the readings of the panel design before RT73b runs. The owner checked the readings in round 73d answers 5, 6, and 7 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:133-135`): "All 5 right (Recommended)", "All 5 right (Recommended)", "All 4 right (Recommended)" `[accepted recommendation 2026-10-30 22:04]`. The defaults D4 to D23 are the design behind these readings `[agent inference]`.
+All other choices of this section are unit defaults (15.26.16). The restatement of unit DW73 asks the owner to check the readings of the panel design before RT73b runs. The owner checked the readings in round 73d answers 5, 6, and 7 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:133-135`): "All 5 right (Recommended)", "All 5 right (Recommended)", "All 4 right (Recommended)" `[accepted recommendation 2026-10-30 22:04]`. The defaults D4 to D23 are the design behind these readings `[agent inference]`. The 16 unit defaults of RT73b are accepted (round 75 answers 13 and 14, `qa-memory-2026-10-31.md:63-64`, section 15.28.7).
 
 ##### 15.26.19 What changes against the DT73b draft and against the current docs
 
@@ -5540,7 +5540,7 @@ Against the current docs and code:
 
 - The screens of 15.26.2 on a live browser.
 - The text of options 1 and 3 of round 62 answer 7.
-- That the settings sanitizer and the save route handle the new keys and a clear (15.26.6.9).
+- That the settings sanitizer and the save route handle the new keys and a clear (15.26.6.9). Verified in part by DZ74 for the route and the sanitizer (15.26.6.9). The test numbers of RT73b are Not verified here.
 - That `pb_users.py` can create a disabled user.
 - The code of `AdminVersionPanel` and of `matchWorks`.
 - The size of the v1 records (about 100 to 120 MB is an estimate).
@@ -5548,7 +5548,7 @@ Against the current docs and code:
 - The result of unit TF73. This section assumes that `a4_cut` gives 1,124 pages after TF73.
 - Whether the md JA lines equal the page images. Unit DT73b read pages 50 and 51 of `left_foot_full` only.
 - The count of pages with a Human version on the live database. This unit did not read PocketBase.
-- That `DragHandle` works inside the grid of the reader panels, and the scroll sync across panel bodies.
+- That `DragHandle` works inside the grid of the reader panels, and the scroll sync across panel bodies. Replaced in part: the RT73b report says that the `DragHandle` in the panel row and the scroll together are tested in Firefox (accepted in round 75 answers 13 and 14, `qa-memory-2026-10-31.md:63-64`). DZ74 ran no browser test, so this stays Not verified by DZ74. A band has no scroll together (15.26.6.11).
 - The kendo term highlights of 18d4ac29 p001.
 - The number of rows that carry a tag "fact dropped" or "fact changed".
 - The test numbers of round 72. They come from the brief.
@@ -5589,7 +5589,7 @@ Pilot runs under `<T2>/data/pilot-run/` are not real runs (round 73e answer 10, 
 
 Reading of answer 12 `[reading pending owner check]`: each process button of the Monitor dashboard `/` on this Mac opens a confirm dialog. The buttons are Run, Pause, Resume, and Restart. Cancel is the first button.
 
-Dialog rules `[unit default DZ73]`:
+Dialog rules `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]` (DZ73 default 4, "Dialog text per button"):
 
 - Cancel is the first button and has the focus when the dialog opens. Esc closes the dialog. The dialog has the role `dialog` and a label. Sketch 5 in section 15.24.8 uses the same rules.
 - The dialog names the book and says what the button does.
@@ -5606,20 +5606,20 @@ Example (values are an example): the dialog of the button Restart on the book ro
 |   The current run moves to archive/<UTC time>/.                                      |
 |   The book runs again from page 1 in phase agent-phase-4.                            |
 |   Prompts:                                                                           |
-|     (o) The prompts that the archived run started with (ED_2 v3)                     |
-|     ( ) The last live prompts of the archived run (ED_2 v6)                          |
+|     (o) The prompts that the archived run started with (ED_2 v1.0)                   |
+|     ( ) The last live prompts of the archived run (ED_2 v1.6)                        |
 |                                                                                      |
 |                                                          [Cancel]   [Restart]        |
 +--------------------------------------------------------------------------------------+
 ```
 
-The other three dialogs follow the same frame `[unit default DZ73]`:
+The other three dialogs follow the same frame `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]`:
 
 - Run: "Run Making the Difference on the Day (mental_full) in phase agent-phase-3? The button writes a mark. An opencode agent starts the run."
 - Pause: "Pause Making the Difference on the Day (mental_full)? The process finishes the current page and its update point, then it stops." The source of the second sentence is round 72 answer 12 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:40`).
 - Resume: "Resume Making the Difference on the Day (mental_full)? The book continues with the next page after the last accepted page."
 
-The pilot component `app/components/PauseButton.tsx` has no dialog today `[check: DZ73 2026-10-31 15:35 grep -n -i "confirm\|dialog" app/components/PauseButton.tsx, no line]`. Section 15.27.10 holds the open item. This unit changes no code.
+The pilot component `app/components/PauseButton.tsx` has no dialog today `[check: DZ73 2026-10-31 15:35 grep -n -i "confirm\|dialog" app/components/PauseButton.tsx, no line]`. Section 15.27.10 holds the open item. This unit changes no code. Decided in round 75 answer 11: RT74 adds the dialog (section 15.28.6).
 
 ##### 15.27.3 Buttons of the Monitor dashboard
 
@@ -5648,12 +5648,12 @@ Resume (round 74 answers 5 and 6):
 
 Restart (round 73e answer 9, round 74 answers 7, 8, 9):
 
-- Restart moves the run files of the book into `<T2>/data/book-store/<book>/archive/<UTC time>/`. Nothing is deleted.
+- Restart moves the run files of the book into `<T2>/data/book-store/<book>/archive/<UTC time>/`. Nothing is deleted. The folder `prompts/` moves too (round 75 answer 9, section 15.28.4).
 - The file `history.jsonl` stays in place and gets one event "restart".
-- The new run uses the same phase and starts at page 1.
+- The new run uses the same phase and starts at page 1. Reader text after a Restart: readers keep the text of the opened run until the admin opens a run of the new start (round 75 answer 4, section 15.28.3).
 - The prompt choice is the key `prompts` of the mark.
 
-Mark `[unit default DZ73]`. Example values:
+Mark `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]` (DZ73 default 3, "One restart action"). Example values:
 
 ```
 {"schema": "book-request-v1", "book": "mental_full", "action": "restart", "phase": "agent-phase-4", "prompts": "start", "requested_utc": "2026-11-05T09:30:00Z", "requested_by": "Monitor dashboard"}
@@ -5662,20 +5662,20 @@ Mark `[unit default DZ73]`. Example values:
 - The key `prompts` is "start" (default) or "last". The keys schema, book, action, phase, requested_utc, and requested_by are the keys of `write_mark` `[file: <T2>/data/scripts/translator/store.py:253-262]`.
 - Other option: two actions, "restart" and "restart-last", and no key `prompts`. Benefit: each action has a fixed key list. Cost: a second action in `MARK_ACTIONS`.
 
-Restart mark on a running book `[unit default DZ73]`: the run program stops after the current page is saved, archives the run, and starts again from page 1.
+Restart mark on a running book `[unit default DZ73]`, pending round 75 answer 10 (section 15.28.5): the run program stops after the current page is saved, archives the run, and starts again from page 1.
 
 - Other option: the Monitor dashboard refuses Restart until the book is stopped or paused. Benefit: the archive never runs in a live process. Cost: the owner must press Pause first.
 
-Row text of a waiting Restart mark `[unit default DZ73]`: "Mark waiting: Restart requested HH:MM" (section 15.24.4.5).
+Row text of a waiting Restart mark `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]`: "Mark waiting: Restart requested HH:MM" (section 15.24.4.5).
 
 ##### 15.27.5 Details view: archived runs and critique share
 
-The Details view of a book gets two new parts `[unit default DZ73]`. The Viewer reads files only. It writes no prompt file.
+The Details view of a book gets two new parts `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]` (DZ73 default 6, "Details per box"). The Viewer reads files only. It writes no prompt file.
 
 ```
 Archived runs (1)
 UTC time          Phase          Pages done   Prompts at start     Prompts at end
-20261105T093000Z  agent-phase-4  80 of 169    ED_2 v3, TL_1 v2     ED_2 v6, TL_1 v2
+20261105T093000Z  agent-phase-4  80 of 169    ED_2 v1.0, TL_1 v1.0 ED_2 v1.6, TL_1 v1.2
 
 Critique share of the current run
 Box    Critiques used in live rewrites     Critiques dropped after a double REJECT
@@ -5684,25 +5684,25 @@ TL_1   5 of 5 (100.0 percent)              0 of 5 (0.0 percent)
 ```
 
 - The values are an example and not run data.
-- The archive folder name gives the UTC time. The archived `status.json` gives the phase, the pages done, and the prompt versions at the end `[agent inference]`.
+- The archive folder name gives the UTC time. The archived `status.json` gives the phase, the pages done, and the prompt versions at the end `[agent inference]`. The version labels follow round 75 answer 9: `v<run>.<updates>`, for example `v1.6` (section 15.28.4). The archive folder also holds the folder `prompts/` of the run `[reading pending owner check]`.
 - The prompt versions at the start come from the `prompts` block of `run.json` of the first archived page (`translator-design.md` section 9.23.5, item 10) `[agent inference]`.
 - The line of each box follows the owner words of round 74 answer 2. The count comes from the events `update point ended` in `history.jsonl` (`translator-design.md` section 9.25.2).
 - Other option: one share for the whole book, with no line for each box. Benefit: a shorter view. Cost: the owner cannot see which box loses its critiques.
 
-##### 15.27.6 Reader access to agent text (open item)
+##### 15.27.6 Reader access to agent text (decided in round 75 answer 3)
 
-Status: design pending owner check. DZ73 does not design the gate.
+Status: decided in round 75 answer 3 (`qa-memory-2026-10-31.md:53`): "Admin opens any run" `[accepted option 2 2026-10-31 19:21]`. The option text said: "The same button, but it shows for every run, also for unfinished runs and pilots. You decide each time. Benefit: you can show a sample early. Cost: nothing guards against a wrong click." Section 15.28.2 holds the design. DZ73 did not design the gate.
 
 Owner words, round 74 answer 10 (`qa-memory-2026-10-31.md:36`): "Reader should only have access to agent-translation that admin (me) open access to right? I will only show finished translation (all phase finish) to Reader anyway." `[user 2026-10-31 15:17]`.
 
 Fact today:
 
-- S2 puts the run of the admin run mark, else the newest PASS run of `<T2>/data/pilot-run`, into `reader_pages` `[file: app/scripts/sync-runs.mjs:14,51,86,792-822]` `[check: DZ73 2026-10-31 15:35 grep -n "newest PASS\|PILOT" app/scripts/sync-runs.mjs]`.
+- S2 puts the run of the admin run mark, else the newest PASS run of `<T2>/data/pilot-run`, into `reader_pages` `[file: app/scripts/sync-runs.mjs:14,51,86,792-822]` `[check: DZ73 2026-10-31 15:35 grep -n "newest PASS\|PILOT" app/scripts/sync-runs.mjs]`. Replaced in round 75 answer 3 (`qa-memory-2026-10-31.md:53`): S2 uses the opened runs only (section 15.28.2).
 - So pilot agent text is in `reader_pages` now. The rule `isTranslatedPage` counts a page as translated when a `reader_pages` record exists, that is, when readers can view its English text (section 15.25.2).
 - S2 does not read `<T2>/data/book-store` `[check: DZ73 2026-10-31 15:35 grep -c -i "book-store" app/scripts/sync-runs.mjs, 0]`.
-- No admin step opens agent text to readers today `[check: aki-main 2026-10-31 15:18]`.
+- No admin step opens agent text to readers today `[check: aki-main 2026-10-31 15:18]`. Replaced in round 75 answer 3: the admin presses "Open to readers" for a run (section 15.28.2).
 
-Rule of the vision (`VISION-viewer.md` l2716): the default EN text is the agent text. An admin chooses one human version per page. The reader can switch.
+Rule of the vision (`VISION-viewer.md` l2716): the default EN text is the agent text. An admin chooses one human version per page. The reader can switch. Replaced in part in round 75 answer 3: the agent text reaches readers after the admin opens its run (section 15.28.2).
 
 ##### 15.27.7 Lines of this file that round 74 replaced
 
@@ -5734,26 +5734,219 @@ The checks read the RT73a logs in `/var/folders/sz/2hvwvpb16c77mfzqnvkb5gbc0000g
 
 ##### 15.27.9 Unit defaults of DZ73
 
-1. The wording of the four confirm dialogs and the layout of the Restart dialog (15.27.2). Other option: one generic text.
-2. The key `prompts` of the Restart mark (15.27.4). Other option: two actions.
-3. A Restart mark on a running book stops the run after the page is saved (15.27.4). Other option: the button refuses until the book is stopped or paused.
-4. The row text "Mark waiting: Restart requested HH:MM" (15.27.4). Other text: "Mark waiting: Restart (prompts: start) requested HH:MM".
-5. The two new parts of the Details view (15.27.5). Other option: one share for the whole book.
+1. The wording of the four confirm dialogs and the layout of the Restart dialog (15.27.2). Other option: one generic text. Accepted in round 75 answer 12 ("Dialog text per button (Recommended)", DZ73 default 4) `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]`.
+2. The key `prompts` of the Restart mark (15.27.4). Other option: two actions. Accepted in round 75 answer 12 ("One restart action (Recommended)", DZ73 default 3) `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]`.
+3. A Restart mark on a running book stops the run after the page is saved (15.27.4). Other option: the button refuses until the book is stopped or paused. Still a unit default of DZ73, pending round 75 answer 10 (DZ73 default 2, section 15.28.5).
+4. The row text "Mark waiting: Restart requested HH:MM" (15.27.4). Other text: "Mark waiting: Restart (prompts: start) requested HH:MM". Accepted in round 75 answer 12 ("Short mark row text (Recommended)", DZ73 default 5) `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]`.
+5. The two new parts of the Details view (15.27.5). Other option: one share for the whole book. Accepted in round 75 answer 12 ("Details per box (Recommended)", DZ73 default 6) `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]`.
 
 ##### 15.27.10 Open items for the owner
 
-1. The dialog of the pilot button `PauseButton.tsx`. Option 1 (recommended): add the dialog with the Monitor dashboard code unit, with `ConfirmDialog.tsx`. Benefit: one change, one component. Cost: the pilot button has no dialog until then. Option 2: add the dialog to `PauseButton.tsx` now. Benefit: the rule of answer 12 holds at once. Cost: a code unit for one button, and a second edit later.
-2. Reader access to agent text (15.27.6). Status: design pending owner check.
-3. The states that show the button Restart. Option 1 (recommended): every state with an archived or stored run, also Completed. Benefit: the owner can repeat a finished book. Cost: a mistake is possible, but the dialog asks first. Option 2: Stopped, Stopped by failure, and Paused only. Benefit: fewer mistakes. Cost: the owner cannot repeat a finished book.
-4. The unit defaults 3 and 5 of section 15.27.9.
+1. The dialog of the pilot button `PauseButton.tsx`. Option 1 (recommended): add the dialog with the Monitor dashboard code unit, with `ConfirmDialog.tsx`. Benefit: one change, one component. Cost: the pilot button has no dialog until then. Option 2: add the dialog to `PauseButton.tsx` now. Benefit: the rule of answer 12 holds at once. Cost: a code unit for one button, and a second edit later. Decided in round 75 answer 11 (`qa-memory-2026-10-31.md:61`): "Add it in the next code unit (Recommended)" `[accepted recommendation 2026-10-31 19:21]`. Option 1 is chosen. Unit RT74 builds the dialog now (section 15.28.6).
+2. Reader access to agent text (15.27.6). Decided in round 75 answer 3 (section 15.28.2).
+3. The states that show the button Restart. Option 1 (recommended): every state with an archived or stored run, also Completed. Benefit: the owner can repeat a finished book. Cost: a mistake is possible, but the dialog asks first. Option 2: Stopped, Stopped by failure, and Paused only. Benefit: fewer mistakes. Cost: the owner cannot repeat a finished book. Not decided. Round 75 answer 10 (`qa-memory-2026-10-31.md:60`) asks what the difference between Paused and Stopped is (section 15.28.5). If the owner merges the two states, option 2 names fewer states.
+4. The unit defaults 3 and 5 of section 15.27.9. Round 75 answer 12 accepted default 5 (Details per box). Default 3 stays pending round 75 answer 10.
 5. The prompt restore and the files that move at a Restart (`translator-design.md` section 9.25.6, item e).
 
 ##### 15.27.11 Not verified
 
 - No code ran. The Monitor dashboard code is not built, except the pilot `PauseButton.tsx`.
 - The reading of answer 12 is `[reading pending owner check]`.
-- The dialog texts, the mark key, and the Details view are unit defaults and not owner decisions.
+- The dialog texts, the mark key, and the Details view are unit defaults and not owner decisions. Round 75 answer 12 accepted the dialog texts, the key `prompts`, the row text, and the Details view (section 15.28.7). The Restart mark on a running book stays open.
 - The live check of aki-main at 2026-10-31 01:04 (section 15.27.8).
 - The tag text of the fact 熊本 for the kind "changed" with `start` and `end` null.
 
 Status: round 74 answers applied by unit DZ73. Waiting for the owner check.
+
+#### 15.28 Round 75 decisions: admin gate for agent text, reader text after Restart, Pause dialog, AI tag, Paused and Stopped (unit DZ74)
+
+Unit DZ74 wrote this section on 2026-10-31 (round 75). The Q-A file is `.opencode/reminders/qa/qa-memory-2026-10-31.md`, lines 50 to 76. The design side is in `<T2>/docs/drafts/translator-design.md`, section 9.26. Unit RT74 builds the code of sections 15.28.2 and 15.28.6 at the same time. Each line of this file that this section replaces carries a pointer to it. Section 15.28.8 lists those lines.
+
+Pilot runs under `<T2>/data/pilot-run/` are not real runs (round 73e answer 10). No real run exists yet `[check: DZ74 2026-10-31 19:35 ls data/book-store in <T2>, "No such file or directory"]`.
+
+##### 15.28.1 Owner words
+
+- Round 75 answer 3 (`qa-memory-2026-10-31.md:53`): "Admin opens any run" `[accepted option 2 2026-10-31 19:21]`. Option text: "The same button, but it shows for every run, also for unfinished runs and pilots. You decide each time. Benefit: you can show a sample early. Cost: nothing guards against a wrong click." Option 1 (not chosen) showed the button only after all phases finished.
+- Round 75 answer 4 (`qa-memory-2026-10-31.md:54`): "Keep the opened text (Recommended)" `[accepted recommendation 2026-10-31 19:21]`.
+- Round 75 answer 9 (`qa-memory-2026-10-31.md:59`): "option 2. but label using both run number and update number: v2.5 means that in book run #2 (1 restart), after 5 prompt updates" `[user 2026-10-31 19:21]`.
+- Round 75 answer 10 (`qa-memory-2026-10-31.md:60`): "What is there `paused` and `stopped`? they should be the same?" `[user 2026-10-31 19:21]`. Not decided.
+- Round 75 answer 11 (`qa-memory-2026-10-31.md:61`): "Add it in the next code unit (Recommended)" `[accepted recommendation 2026-10-31 19:21]`.
+- Round 75 answer 12 (`qa-memory-2026-10-31.md:62`): "Share from history (Recommended), One restart action (Recommended), Dialog text per button (Recommended), Short mark row text (Recommended), Details per box (Recommended), Dialog test (Recommended)" `[accepted recommendation 2026-10-31 19:21]`.
+- Round 75 answers 13 and 14 (`qa-memory-2026-10-31.md:63-64`): the 16 unit defaults of RT73b, each with "(Recommended)" `[accepted recommendation 2026-10-31 19:21]`. Section 15.28.7 lists them.
+- Round 75 answer 15 (`qa-memory-2026-10-31.md:65`): "Fix in next code unit (Recommended)" `[accepted recommendation 2026-10-31 19:21]`.
+- Round 74 answer 10 (`qa-memory-2026-10-31.md:36`) is the question behind answer 3: "Reader should only have access to agent-translation that admin (me) open access to right? I will only show finished translation (all phase finish) to Reader anyway."
+
+##### 15.28.2 Admin gate for agent text
+
+Problem today. S2 puts the run of the admin run mark, else the newest PASS run of `<T2>/data/pilot-run`, into `reader_pages` `[file: app/scripts/sync-runs.mjs:14,51,86,792-822]`. No admin step opens agent text. So the pilot pages of `left_foot_full` p046 to p050 are readable by approved readers now, and the owner never agreed to that.
+
+Rule (owner words, answer 3): the admin opens a run. The button shows for every run, also for unfinished runs and pilot runs. The admin decides each time.
+
+Design. Every part below that is not owner words carries the tag `[unit default RT74, pending owner check]`. Unit RT74 builds the same design now.
+
+1. Readers see the agent text of a run only after the admin presses "Open to readers" for that run `[agent inference]`. A run is one run stamp of one book. Pilot example: book `left_foot_full`, run `20261029T051154Z-r41`, pages p046 to p050.
+2. Nothing is open by default `[reading pending owner check]` (`qa-memory-2026-10-31.md:71`).
+3. Store `[unit default RT74, pending owner check]`: a new PocketBase collection `reader_opens`. The migration is `1793300012_v2_reader_opens.js`. One record holds one opened run: source, book, and run ID. Only an admin can read or write it. Other option: a field on `run_marks`. Benefit: no new collection. Cost: a run mark is per page, and an open is per run.
+4. Close `[unit default RT74, pending owner check]`: the admin can close a run again with "Close to readers". Other option: an open is final. Cost: a wrong click cannot be undone.
+5. Place of the button `[unit default RT74, pending owner check]`: the run view `/runs/<stamp>` on the Monitor dashboard. It shows one row for each book of the run. A status line sits on the admin page view `/page/<slug>/<page>`. It reads "Readers see: run <stamp>" or "Readers see no agent text for this page. No run of this page is open."
+6. Confirm dialog `[unit default RT74, pending owner check]`: Open and Close ask first. Cancel is the first button and has the focus. This is the rule of section 15.27.2. Example text `[unit default DZ74]`: "Open run 20261029T051154Z-r41 of left_foot_full to readers? Readers see its agent text after the next S2 run." Other option: one generic text.
+7. S2 rule `[unit default RT74, pending owner check]`. It replaces the old rule "run mark, else newest PASS". The candidate runs of a page are the opened runs. The shown run is one of three:
+   - the run of the admin run mark, if that run is open
+   - else the newest open PASS run
+   - else no agent text
+8. A page whose `reader_pages` record holds a run that is no longer open loses the agent text at the next S2 run. A web article page goes back to the Original text record `web-ja`. A book page loses its record.
+9. Readers see a change only after the next S2 run. The admin page views still show all runs.
+
+Example of the S2 rule (`mental_full` p014, data from the line 3724 of this file). The page has a PASS run `20261026T195046Z-r41` and a newer FAIL run `20261028T023007Z-r41`.
+
+- The admin opens the PASS run only. Readers see the PASS text.
+- The admin opens the FAIL run only. Readers see no agent text, because the rule takes the newest open PASS run.
+- The admin opens neither. Readers see no agent text.
+
+Effect at the next S2 run with nothing opened:
+
+- The 28 pilot agent pages leave `reader_pages`. They are 20 pages in Books and 8 pages in Kendo Jidai.
+- The Reader dashboard `/read` count goes from "English: 1,151 of 14,116 pages translated (8.2 percent)" to about 1,123 or 1,124. Not verified. RT74 measures it on a throwaway PocketBase.
+- The 311 web articles keep their Original text records `web-ja` and their Human versions (section 15.26).
+
+Open check for aki-main. The data names a run ID for each page: p046 has `20261029T051154Z-r41` and p047 has `20261029T054303Z-r41` `[check: DZ74 2026-10-31 19:41 ls data/pilot-run/left_foot_full_p046 and left_foot_full_p047]`. The list folder `20261029T051152Z` groups the 5 pages. So "one run stamp of one book" can mean the list stamp or the run ID of one page. Which one the record of `reader_opens` holds is Not verified. The report of RT74 states it.
+
+##### 15.28.3 Reader text after a Restart
+
+Owner words (answer 4): "Keep the opened text (Recommended)".
+
+Reading `[reading pending owner check]` (`qa-memory-2026-10-31.md:72`): after a Restart, readers keep the text of the opened run. They see it until the admin opens a run of the new start.
+
+- A Restart moves the run files into `<T2>/data/book-store/<book>/archive/<UTC time>/` (round 74 answer 7). S2 then reads the opened run from that archive folder.
+- S2 does not read `<T2>/data/book-store` today `[check: DZ73 2026-10-31 15:35 grep -c -i "book-store" app/scripts/sync-runs.mjs, 0]`. A code unit must add it.
+- Example (invented times): the admin opened run 1 of `mental_full`. The owner presses Restart at 09:30. The files of run 1 move to `archive/20261105T093000Z/`. Readers still see run 1. The admin later opens run 2. The S2 rule shows the newest open PASS run, which is run 2 `[unit default DZ74]`.
+- Other option for the last step: when the admin opens run 2, run 1 closes at once. Benefit: one open run for each book. Cost: a second click or a hidden side effect.
+
+##### 15.28.4 Version labels on the Monitor dashboard
+
+Owner words (answer 9): "label using both run number and update number: v2.5 means that in book run #2 (1 restart), after 5 prompt updates". The label is `v<run>.<updates>`. `<T2>/docs/drafts/translator-design.md`, section 9.26.4 holds the rule, the example of ED_2, and four open points.
+
+- The Restart dialog (section 15.27.2) shows the labels. Example line: "The prompts that the archived run started with (ED_2 v1.0)". The other line: "The last live prompts of the archived run (ED_2 v1.6)". The prompt files move into the archive with the run files, and the chosen versions are copied back as `v2.0`.
+- The Details view (section 15.27.5) lists the labels at the start and at the end of each archived run. Example row: start "ED_2 v1.0, TL_1 v1.0", end "ED_2 v1.6, TL_1 v1.2".
+- The grid "Prompt versions" of the book detail view shows the label of each box, for example "ED_2 v1.1" (`translator-design.md` section 9.23.7).
+- Open points i to iv of section 9.26.4 stay open. Example of point ii: `mental_full` ends phase 3 with ED_2 at `v1.4`. The owner starts phase 4. The label is `v1.5` or `v2.0`, and the owner has not said which.
+
+##### 15.28.5 Open item: Paused and Stopped
+
+Round 75 answer 10 is not decided. The owner asked: "What is there `paused` and `stopped`? they should be the same?"
+
+Facts:
+
+- The states are `("not-started", "running", "paused", "stopped", "completed")` `[file: <T2>/data/scripts/translator/store.py:26]`. The stop reasons are `("ctrl-c", "target-reached", "forward-failure", "cost-guard", "rule")` `[file: <T2>/data/scripts/translator/store.py:27]`. The labels are in the lines 32 to 35, and `label_of` is in the lines 74 to 97.
+- Paused: the owner pressed Pause on the Monitor dashboard. The Viewer wrote the file `PAUSE`. The process finishes the current page (16 boxes forward, critic and critique steps backward, memory write), then ends (round 70 answer 12, `VISION-viewer.md:3928` and `:4366`).
+- Stopped: the owner pressed Ctrl-C in the terminal. Running model calls end at once. The current page is not accepted `[file: <T2>/data/scripts/translator_run.py:2578-2595]`. The selftest text reads "Ctrl-C: the book stops with state stopped and reason ctrl-c, exit 130, and the page is not accepted" `[file: <T2>/data/scripts/translator_run.py:5180]`. `VISION-viewer.md:3929` holds the label.
+- Both states wait for Resume or Restart. The difference: whether the last page finished.
+- Example: `mental_full` runs p080. After Pause, p080 is saved and Resume starts at p081. After Ctrl-C, p080 is not accepted and Resume starts at p080 again.
+
+Options for the owner:
+
+- Option 1 `[agent inference]`: keep two states. Benefit: the owner sees at once whether the last page is in the book. No code changes. Cost: the owner must learn two words for "waits for Resume".
+- Option 2: one state "Stopped". The stop reason tells "pause" or "ctrl-c". Benefit: one idea. Cost: the state list, the labels, the group table, and the selftest change, and the row loses the sign that the last page finished.
+
+Items that wait for this answer:
+
+- DZ73 default 2: a Restart mark on a running book (section 15.27.4).
+- Section 15.27.10, item 3: the states that show the button Restart. If the owner merges the two states, option 2 of that item names fewer states.
+
+##### 15.28.6 Pause dialog and AI tag
+
+Pause dialog (answer 11, option 1 of section 15.27.10 item 1). The pilot component `app/components/PauseButton.tsx` has no dialog `[check: DZ73 2026-10-31 15:35 grep -n -i "confirm\|dialog" app/components/PauseButton.tsx, no line]`. Unit RT74 adds it now. The dialog follows the rules of section 15.27.2: Cancel is first and has the focus, Esc closes, and a press on Cancel writes no file. The Pause text is the text of section 15.27.2.
+
+AI tag in the page index (answer 15). Rule: the page index tag "AI" shows only on a page with Agent text. Vision l251: "Human versions carry no AI label".
+
+- Example: `/read/d7835263` has Human versions and no Agent text on any page. Its page index must show no "AI" tag.
+- Fact at the time of the read: the index marks every page of `textPages`, and `textPages` is the union of agent pages and human pages `[file: app/components/ReaderIndex.tsx:42,113]` `[file: app/lib/reader-data.ts:188,201]`. The line numbers can move while RT74 works.
+- Unit RT74 builds the fix. `agentPages` already exists in `ReaderIndex` data `[file: app/lib/reader-data.ts:201]`.
+
+##### 15.28.7 Accepted defaults of DZ73 and RT73b
+
+DZ73 defaults (answer 12) `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]`:
+
+| Default | Name in the answer | Place |
+|---|---|---|
+| 1 | Share from history | `translator-design.md` section 9.25.2 and 9.25.7 |
+| 3 | One restart action | section 15.27.4 and 15.27.9, item 2 |
+| 4 | Dialog text per button | section 15.27.2 and 15.27.9, item 1 |
+| 5 | Short mark row text | section 15.24.4.2, section 15.27.4 and 15.27.9, item 4 |
+| 6 | Details per box | section 15.27.5 and 15.27.9, item 5 |
+| 7 | Dialog test | section 15.24 test list (l4350) |
+
+DZ73 default 2 (a Restart mark on a running book) stays a unit default, pending round 75 answer 10.
+
+The numbers 1 to 7 are the numbers of the brief of DZ74. The list of section 15.27.9 has 5 items, and the list of `translator-design.md` section 9.25.7 has 2 items. The table maps the names.
+
+RT73b defaults (answers 13 and 14, `qa-memory-2026-10-31.md:63-64`), all accepted:
+
+| # | Default | Place |
+|---|---|---|
+| 1 | Site rows with English stay in the Human panel | 15.26.8, D21 |
+| 2 | Title bars per band, no scroll together in a band | 15.26.6.11, D19 |
+| 3 | Reset layout also removes `text`, `en`, `image` | 15.26.6.2 |
+| 4 | The only drawn panel cannot be unchecked | 15.26.6.3 |
+| 5 | Bilingual pairing is grey until two panels are drawn | 15.26.6.5 |
+| 6 | Rows of two key families do not merge | 15.26.6.6 |
+| 7 | The note line names only components of the work | 15.26.6.8, D16 |
+| 8 | Panel row height is the window minus 9.5 rem | 15.26.6.6 |
+| 9 | Page image counts when the work has page images | 15.26.5 |
+| 10 | Esc clears the pair mark first | 15.26.6.6 |
+| 11 | Merged width under `ja`, last panel ignores its width | 15.26.6.3 |
+| 12 | The fact pop-up closes on any scroll | 15.26.8 |
+| 13 | Dropped fact on a phrase: dotted words | 15.26.8 |
+| 14 | Fact that cannot be placed: tag after the sentence | 15.26.8 |
+| 15 | An empty saved list is valid | 15.26.6.9 |
+| 16 | `PUT /api/read/settings` accepts `clear` | 15.26.6.2, 15.26.6.9 |
+
+Doc fixes that RT73b listed, applied in place:
+
+- 15.26.6.11 and D19: title bars per band, no scroll together in a band.
+- 15.26.6.2: "Reset layout" also removes `text`, `en`, and `image` through `clear`.
+- 15.26.6.9: the route merges shallow, and the client sends the whole `shown` and `widths`. Verified by reading `route.ts` and `ReaderBook.tsx`.
+- 15.26.8 and D21: a site row with English text keeps its line. Example: d7835263 p003 U083 "Debana-men". U084 関連 has no English and gives no line.
+- 15.26.6.8 and D16: the note names only components that the work has.
+- 15.26.15, RT73b table. Files that RT73b changed beyond that table: `app/lib/reader-layout.ts` (new, 349 lines), `app/app/api/read/settings/route.ts`, `app/lib/reader-data.ts`, and `app/components/AdminVersionPanel.tsx`. The file `app/admin/versions/page.tsx` needs no change `[check: DZ74 2026-10-31 19:39 git show --stat e9ebd81]`.
+- 15.26.20: the `DragHandle` in the panel row and the scroll together are tested in Firefox, per the RT73b report. Not verified by DZ74.
+- Round 73e answer 4 note: the page line "Human translation from kendojidai.com." is fixed by RT73b, per the RT73b report.
+
+##### 15.28.8 Lines of this file that round 75 replaced
+
+| Lines | Subject | Action |
+|---|---|---|
+| 2716, 2906, 2909, 3007, 3724, 4440, 5700, 5703, 5705 | S2 rule "run mark, else newest PASS" | replaced note, pointer to 15.28.2 |
+| 5692, 5694, 5746 | reader access, open item | decided, pointer to 15.28.2 |
+| 5651, 5653 | Restart text | pointer to 15.28.3 and 15.28.4 |
+| 5609, 5610, 5678, 5687 | version labels "v3", "v6", "v2" | labels `v1.0`, `v1.6`, `v1.2` |
+| 5622, 5745 | dialog of the pilot Pause button | decided, RT74 builds it |
+| 5747, 5748, 5665, 5739 | states that show Restart, Restart mark on a running book | pending round 75 answer 10 |
+| 3928, 4293, 4350, 5592, 5616, 5656, 5669, 5673, 5737 to 5741, 5755 | tags of DZ73 defaults | accepted, round 75 answer 12 |
+| 4767, 4842, 4883, 4891, 4922, 4940, 4949, 4954, 4991, 5032, 5037, 5069, 5070, 5171, 5204, 5205, 5249, 5460, 5463, 5465, 5512, 5543, 5551 | RT73b defaults and doc fixes | accepted, round 75 answers 13 and 14 |
+| 5407, 5420 | RT73b file table | files added, `page.tsx` no change |
+
+##### 15.28.9 Unit defaults of DZ74
+
+1. `[unit default RT74, pending owner check]` The parts of the admin gate in 15.28.2 that are not owner words (items 3 to 9). The other option sits beside each item.
+2. `[unit default DZ74]` The example text of the Open dialog in 15.28.2, item 6. Other option: one generic text.
+3. `[unit default DZ74]` After a Restart, the older opened run stays open, and the S2 rule shows the newest open PASS run (15.28.3). Other option: when the admin opens the new run, the old run closes.
+4. `[unit default DZ74]` Option 1 of 15.28.5 is the recommended option `[agent inference]`. The owner decides.
+
+##### 15.28.10 Open items for the owner
+
+1. Paused and Stopped (15.28.5). Recommended: option 1, keep two states.
+2. Audit checks C3 and C4 (`translator-design.md` section 9.26.5). Recommended `[agent inference]`: option 2, C3 covers every group.
+3. Open points i to iv of the version labels (`translator-design.md` section 9.26.4). Recommended `[agent inference]`: point ii option 1 (the run number counts Restarts only) and point iii option 1 (phase 3 starts at `v1.0`).
+4. The admin gate (15.28.2): the owner checks items 3 to 9, and the meaning of "run" (the list stamp or the run ID of one page).
+5. How S2 finds an opened run inside `archive/<UTC time>/` (15.28.3). Not designed.
+
+##### 15.28.11 Not verified
+
+- No code ran in this unit. The Monitor dashboard and S2 changes are built by RT74 and are not checked here.
+- The count about 1,123 or 1,124 on the Reader dashboard `/read` is not measured.
+- The meaning of "run" for the gate (15.28.2, Open check).
+- The Firefox test of RT73b, the example U083 "Debana-men", and the example U013 ３０歳 come from the RT73b report. DZ74 did not open them.
+- The reading of answer 4 (`qa-memory-2026-10-31.md:72`) and the reading of answer 3 (`qa-memory-2026-10-31.md:71`) are `[reading pending owner check]`.
+
+Status: round 75 answers applied by unit DZ74. Items 15.28.5 and 15.28.10 wait for the owner.
