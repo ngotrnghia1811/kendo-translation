@@ -3896,7 +3896,7 @@ The Monitor dashboard must answer these questions, in this order. Each question 
 
 1. Does any book need me now? The group Needs attention answers. It sits at the top. It always shows, also when empty.
 2. What runs now, on which page and box, and is it alive? The group Running answers. Each row shows page, box, and the time of the last sign of life.
-3. What is paused or stopped, since when, and why? The groups Paused and Stopped answer. The state label holds the reason in words. A book with a Run or Resume mark that no process picked up yet sits in the group Waiting for a run.
+3. What is stopped, since when, and why? The group Stopped answers (round 76 answer 4, the group Paused is gone). The row text holds the cause and the next page in words. A book with a Run or Resume mark that no process picked up yet sits in the group Waiting for a run.
 4. What is the last error, in words? The second line of the row shows the error text.
 5. How far is each book, and which page comes next? The progress bar and the text "Next page" answer.
 6. What did the book cost, and how long did it take? Two columns answer.
@@ -3908,11 +3908,11 @@ The Monitor dashboard must answer these questions, in this order. Each question 
 ##### 15.24.4.1 Layout and groups
 
 - One screen shows the overview. A summary line sits at the top. Groups follow. A group is a heading and a list of book rows.
-- The summary line counts the groups in one sentence. It also shows the model cost of all books. Example: "1 needs attention · 0 waiting for a run · 0 running · 0 paused · 11 stopped · 0 completed · 25 not started". The reader sees the whole state before the first row.
-- The order of the groups is: Needs attention, Waiting for a run, Running, Paused, Stopped, Completed, Not started. The group Waiting for a run is new (round 73b answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:85`, "New group"). Reason: exceptions come first because a stopped book wastes time at every minute. A book with a Run or Resume mark comes second, because the owner pressed a button and waits for an opencode agent to start the process. Live work comes third because it needs a look and no action. Paused and Stopped books wait for the owner. Completed and Not started books need nothing. The name "Waiting for a run" and the position after Needs attention are unit defaults of DD73 `[agent inference]`. Other name: "Mark waiting". Other position: after Running. Benefit of that position: live work stays second. Cost: a mark that nobody picked up sits below the live rows, and the owner can miss it. A Restart mark puts the book row in this group too (round 73d answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:132`). Round 74 answer 5: a book that a box stopped sits in the group Needs attention until the owner presses Resume or Restart (section 15.27.4).
+- The summary line counts the groups in one sentence. It also shows the model cost of all books. Example: "1 needs attention · 0 waiting for a run · 0 running · 11 stopped · 0 completed · 25 not started". The reader sees the whole state before the first row.
+- The order of the groups is: Needs attention, Waiting for a run, Running, Stopped, Completed, Not started (round 76 answer 4, `.opencode/reminders/qa/qa-memory-2026-11-01.md:7`, the group Paused is gone). The group Waiting for a run is new (round 73b answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:85`, "New group"). Reason: exceptions come first because a stopped book wastes time at every minute. A book with a Run or Resume mark comes second, because the owner pressed a button and waits for an opencode agent to start the process. Live work comes third because it needs a look and no action. Stopped books wait for the owner, also a book that the owner paused. Completed and Not started books need nothing. The name "Waiting for a run" and the position after Needs attention are unit defaults of DD73 `[agent inference]`. Other name: "Mark waiting". Other position: after Running. Benefit of that position: live work stays second. Cost: a mark that nobody picked up sits below the live rows, and the owner can miss it. A Restart mark puts the book row in this group too (round 73d answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:132`). Round 74 answer 5: a book that a box stopped sits in the group Needs attention until the owner presses Resume or Restart (section 15.27.4).
 - Needs attention and Running always show. When empty they show one line: "Nothing needs attention." and "Nothing runs now. The last list ended Oct 29 00:50 PDT (21 h ago)." An empty group that disappears makes the owner doubt the page.
-- Waiting for a run, Paused, Stopped, and Completed show when they hold a row. Not started shows always, closed. Example: the group Waiting for a run shows no heading while no book holds a mark `[unit default of DD73, agent inference]`. Other option: it shows always, with the line "No mark waits." as Running does. Benefit: the layout never jumps. Cost: one more empty group on the screen.
-- Needs attention, Waiting for a run, Running, Paused, and Stopped start open. Completed and Not started start closed. A group uses the HTML elements `details` and `summary`, so the keyboard works without script `[unit default]`. The browser keeps the open state of each group, like the checklist of the extra items `[file: app/components/extras-store.ts:4-7]`.
+- Waiting for a run, Stopped, and Completed show when they hold a row. Not started shows always, closed. Example: the group Waiting for a run shows no heading while no book holds a mark `[unit default of DD73, agent inference]`. Other option: it shows always, with the line "No mark waits." as Running does. Benefit: the layout never jumps. Cost: one more empty group on the screen.
+- Needs attention, Waiting for a run, Running, and Stopped start open. Completed and Not started start closed. A group uses the HTML elements `details` and `summary`, so the keyboard works without script `[unit default]`. The browser keeps the open state of each group, like the checklist of the extra items `[file: app/components/extras-store.ts:4-7]`.
 - Inside a group, the newest event comes first. Not started books sort by slug.
 - The tab title shows the count of the group Needs attention, for example "(1) Monitor dashboard". The owner sees a problem from another tab.
 - The bar holds five tabs: Monitor dashboard (`/`), Lists (`/runs`), Books (`/books`), Run settings (`/settings/run`), and Human translation. The Lists tab keeps the old runs table, one row for each list folder. Reason: the column "Cost (listed)" and the list counts still help when the owner audits one list.
@@ -3925,8 +3925,8 @@ Plain meaning of each label:
 
 - Running: a process works on the book now.
 - Running, pause requested: the owner asked for a pause. The process finishes the current page (forward boxes, critic and critique steps backward, memory write), then ends.
-- Paused: the process ended on purpose after the page that it finished at the pause. Resume writes a mark (round 71 answer 10). Between the mark and the first sign of the process, the row shows the state Mark waiting: "Mark waiting: Resume requested HH:MM" (round 72 answer 17, `.opencode/reminders/qa/qa-memory-2026-10-30.md:45`). The row moves into the group Waiting for a run (round 73b answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:85`, "New group"). Example: the owner presses Resume on `mental_full` at 10:42. The row leaves Needs attention and shows "Mark waiting: Resume requested 10:42" in the group Waiting for a run. The row leaves the group at the first sign of the process, and the book goes to Running. A Run mark shows "Mark waiting: Run requested HH:MM" in the same group (unit default of DU73, accepted in round 73b answer 2, `qa-memory-2026-10-30.md:83`). A Restart mark shows "Mark waiting: Restart requested HH:MM" in the same group `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]` (DZ73 default 5, "Short mark row text"). Old text, replaced in round 74 answers 5 to 11: the row text named a box ("Mark waiting: Restart ED_2 requested HH:MM", round 73d answer 4) and the button sat on the flag of the box. Other text: "Mark waiting: Restart (prompts: start) requested HH:MM". Benefit of the other text: the row shows the prompt choice. Cost: a longer row. Example: the owner presses Restart on the book row of `left_foot_full` at 10:42. The row shows "Mark waiting: Restart requested 10:42" in the group Waiting for a run. A mark waits while the book folder holds `request.json` `[file: <T2>/data/scripts/translator/store.py:246-250]` `[agent inference]`.
-- Stopped: the process ended on purpose. Ctrl-C sets the stop. The end of the target page set gives Completed.
+- Stopped by a Pause (the old label Paused, merged into Stopped by round 76 answer 4, `qa-memory-2026-11-01.md:7`): the process ended on purpose after the page that it finished at the pause. Resume writes a mark (round 71 answer 10). Between the mark and the first sign of the process, the row shows the state Mark waiting: "Mark waiting: Resume requested HH:MM" (round 72 answer 17, `.opencode/reminders/qa/qa-memory-2026-10-30.md:45`). The row moves into the group Waiting for a run (round 73b answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:85`, "New group"). Example: the owner presses Resume on `mental_full` at 10:42. The row leaves Needs attention and shows "Mark waiting: Resume requested 10:42" in the group Waiting for a run. The row leaves the group at the first sign of the process, and the book goes to Running. A Run mark shows "Mark waiting: Run requested HH:MM" in the same group (unit default of DU73, accepted in round 73b answer 2, `qa-memory-2026-10-30.md:83`). A Restart mark shows "Mark waiting: Restart requested HH:MM" in the same group `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]` (DZ73 default 5, "Short mark row text"). Old text, replaced in round 74 answers 5 to 11: the row text named a box ("Mark waiting: Restart ED_2 requested HH:MM", round 73d answer 4) and the button sat on the flag of the box. Other text: "Mark waiting: Restart (prompts: start) requested HH:MM". Benefit of the other text: the row shows the prompt choice. Cost: a longer row. Example: the owner presses Restart on the book row of `left_foot_full` at 10:42. The row shows "Mark waiting: Restart requested 10:42" in the group Waiting for a run. A mark waits while the book folder holds `request.json` `[file: <T2>/data/scripts/translator/store.py:246-250]` `[agent inference]`.
+- Stopped: the process ended on purpose. The cause is a Pause or a Ctrl-C (round 76 answer 4). The row names the cause, the time, the last saved page, and the page where Resume starts. After a Pause: "Stopped by Pause at 16:40. Last saved page p080. Resume starts at p081." After Ctrl-C: "Stopped by Ctrl-C at 16:40. Page p080 was not saved. Resume starts at p080." The end of the target page set gives Completed.
 - Stopped unexpectedly: the file says "running", but the process is gone or silent.
 - Stopped by failure: the run ended because of a failure or a rule. The book does not go on alone. A box with 3 double REJECTs in a row stops the whole book after the page is saved, with the stop reason "rule" (round 74 answer 5). The owner presses Resume to continue with the next page, or Restart to archive the run and run the book again from page 1.
 - Completed: the book reached the target of its phase.
@@ -3936,8 +3936,8 @@ Plain meaning of each label:
 |---|---|---|---|
 | ● Running | Running | `state` is "running". The pid is alive. The heartbeat is not older than 120 s. | The newest list that holds the book is in the state "running". The chain of the book is "running", or a page of the book is "running". `updated_epoch` is not older than 1800 s. |
 | ● Running, pause requested | Running | A file `PAUSE` exists in the book folder. The state is still "running" until the current page ends. | Same as Running. The file `PAUSE` exists in the list folder. |
-| ‖ Paused | Paused | `state` is "paused". The process ended after the page, so no process lives (TB71 `status.json`, function `label_of` in `store.py`). | The list state is "paused". The gate of an old list waits before each call, so the process lives. |
-| ■ Stopped | Stopped | `state` is "stopped". `stop_reason` is "ctrl-c". The end of the target page set gives `state` "completed" (TB71 `run-book`). | The list is final. The chain is "completed", "interrupted", or "stopped: interrupted". No page of the book has a forward failure. |
+| ■ Stopped, cause Pause | Stopped | `state` is "stopped". `stop_reason` is "pause" `[unit default DZ75]`. The process ended after the page, so no process lives. The code of TB71 still writes `state` "paused" (function `label_of` in `store.py`). | The list state is "paused". The gate of an old list waits before each call, so the process lives. The label is Running, pause requested, in the group Running `[unit default DZ75]`. |
+| ■ Stopped, cause Ctrl-C | Stopped | `state` is "stopped". `stop_reason` is "ctrl-c". The end of the target page set gives `state` "completed" (TB71 `run-book`). | The list is final. The chain is "completed", "interrupted", or "stopped: interrupted". No page of the book has a forward failure. |
 | ▲ Stopped unexpectedly | Needs attention | `state` is "running" in the file. The pid is gone, or the heartbeat is older than 120 s. | The list is "running". `updated_epoch` is older than 1800 s. |
 | ▲ Stopped by failure | Needs attention | `state` is "stopped". `stop_reason` is "forward-failure", "cost-guard", or "rule". The reason "rule" also covers a box with 3 double REJECTs in a row (round 74 answer 5). | The chain state starts with "stopped:" and is not "stopped: interrupted". |
 | ✓ Completed | Completed | `state` is "completed". All pages of the phase target are accepted. | Never. See the note below. |
@@ -3995,7 +3995,7 @@ Phase 2 runs on the paired dataset. The paired dataset holds web articles with h
 - Pause. A row of a book in the state Running has the button "Pause" (round 70 answer 12: "Each book with running process has a Pause button. When click, the running process finishing the process (forward and backward) for current page and stop the process." [user 2026-10-29 23:36]). The button writes the file `PAUSE` in the book store folder (round 71 answer 10: "Reading right (Recommended)" [accepted recommendation 2026-10-30 02:37]). The process finishes the current page, then ends. An old list folder keeps one pause file for the list. One list can hold several books. Example: list `20261028T023006Z` holds `mental_full`, `left_foot_full`, and `kendojidai_2014`.
   - A list with one book pauses at once, with no dialog. The action is reversible. Replaced in round 74 answer 12 (`.opencode/reminders/qa/qa-memory-2026-10-31.md:38`) `[reading pending owner check]`: the button Pause opens a confirm dialog also for one book (section 15.27.2).
   - A list with more than one book in the state Running opens a dialog (sketch 5 shows a similar dialog). The dialog names every book that will wait. Item 3 of section 15.24.11 holds the decision for one pause file per book.
-- Resume of a paused book. The process ended at the pause, so no process lives to read a change. The button "Resume" writes a mark `request.json` in the book store folder, like "Run" (round 70 answer 11, round 71 answer 9). The owner asks an opencode agent. The agent runs `translator_run.py marks` and then the printed `run-book` command. The command deletes the file `PAUSE` at its start. Draft DM70: the button deleted the pause file `[file: app/components/PauseButton.tsx:24-39,52]`.
+- Resume of a book that stopped by a Pause. The process ended at the pause, so no process lives to read a change. The button "Resume" writes a mark `request.json` in the book store folder, like "Run" (round 70 answer 11, round 71 answer 9). The owner asks an opencode agent. The agent runs `translator_run.py marks` and then the printed `run-book` command. The command deletes the file `PAUSE` at its start. Draft DM70: the button deleted the pause file `[file: app/components/PauseButton.tsx:24-39,52]`.
 - Resume of a stopped book. The button "Resume" writes a mark `request.json` with the action "resume" and the phase. A confirm dialog opens first (round 74 answer 12, section 15.27.2). No command shows. Section 15.24.7 holds the flow. Draft DM70: the button "Resume…" opened a dialog with the exact command and a button "Copy command".
 - Start of a book that never ran. The button "Run" writes a mark `request.json` with the action "run" and the phase "agent-phase-3". Draft DM70: the button "Start…" opened a dialog with the command. Round 74 answer 12: the button "Run" opens a confirm dialog first (section 15.27.2).
 - Next phase. A Completed book of phase 3 shows the button "Run phase 4" `[unit default]`. The button writes a mark with the phase "agent-phase-4". Phase 4 starts at the beginning of the book (owner quote). Draft DM70: the button "Start phase 4…" opened a dialog. Round 74 answer 12: the button "Run phase 4" opens a confirm dialog first (section 15.27.2).
@@ -4006,7 +4006,7 @@ Phase 2 runs on the paired dataset. The paired dataset holds web articles with h
 
 - Time. Each time shows as local time with the zone name, then the relative time. Example: "Oct 29 00:50 PDT (21 h ago)". The tooltip and the detail view show the UTC stamp of the file, for example "2026-10-29T07:50:31Z" `[file: data/pilot-run/lists/20261029T051152Z/progress.json, key updated_utc]`.
 - Relative time: under 1 min "just now", under 60 min "N min ago", under 48 h "N h ago", else "N days ago". The relative text updates every 30 s in the browser, with no request.
-- Refresh. While one row is Running, Pause requested, or Paused, the page polls every 3000 ms, as today `[file: app/components/useLive.tsx:4]`. With no live row, the page loads once, and the owner uses the button "Refresh" or comes back to the tab. The poll stops while the tab is hidden `[unit default]`.
+- Refresh. While one row is Running or Pause requested, the page polls every 3000 ms, as today `[file: app/components/useLive.tsx:4]`. With no live row, the page loads once, and the owner uses the button "Refresh" or comes back to the tab. The poll stops while the tab is hidden `[unit default]`.
 - The header shows "Updated 22:06:12 PDT (3 s ago)". After 3 failed polls, a banner shows: "The Viewer server does not answer. This page shows the data from 22:06:12 PDT." The banner goes away at the next good poll. Today a failed poll is silent.
 - First paint. The server sends the rows with the page, as today `[file: app/app/page.tsx:11]`. No spinner shows at the first load. A route change shows grey placeholder rows.
 - Empty. If no list folder and no `status.json` exists: "No run found. Press Run on a book. The button writes a mark. Ask an opencode agent to run it."
@@ -4116,7 +4116,7 @@ Commands for the opencode agent. The agent runs them. The Viewer runs nothing:
 - Draft command for a derived row whose list has pages in the state waiting: `python3 data/scripts/translator_run.py run-chain --resume data/pilot-run/lists/20261028T023006Z` (the book `mental_full`). The list holds 3 chains. The resume runs the chains that have pages in the state waiting. In this list only `mental_full` has such pages (p015 to p018). The owner chose marks, and `run-book` ignores list folders and pilot data (round 70 answer 15: "Option 1. pilots are just testing. None of the pilot data should be retained for actual run" [user 2026-10-29 23:36]). So a mark for a derived row starts at p001 `[file: <T2>/data/scripts/translator_run.py, docstring of cmd_run_book]`.
 - Draft text for a derived row whose list finished all pages (for example `left_foot_full`): the dialog said "The old list folder has no page in the state waiting. Start the next pages with run-book, which unit TR70 builds." No command showed. Unit TB71 built `run-book`. A mark for this book makes `run-book` start at p001, because the store holds no accepted page.
 
-The paused book is no exception now. The process ended at the pause (round 70 answer 12), so "Resume" writes a mark like every other button. Draft DM70: "Resume" deleted the pause file, because the process still lived and the Viewer had this power.
+A book that stopped by a Pause is no exception now. The process ended at the pause (round 70 answer 12), so "Resume" writes a mark like every other button. Draft DM70: "Resume" deleted the pause file, because the process still lived and the Viewer had this power.
 
 #### 15.24.8 Text sketches
 
@@ -4128,7 +4128,7 @@ Sketch 1: Monitor dashboard today, with the data on this Mac (no list runs now).
 Monitor   Lists   Books   Run settings   Human translation                                            Light  [High-contrast dark]
 -------------------------------------------------------------------------------------------------------------------------------
 Monitor dashboard                                       Updated 22:06:12 PDT (3 s ago)   [Refresh]   [Run settings]
-1 needs attention · 0 waiting for a run · 0 running · 0 paused · 11 stopped · 0 completed · 25 not started          Model cost in list folders: $73.95
+1 needs attention · 0 waiting for a run · 0 running · 11 stopped · 0 completed · 25 not started          Model cost in list folders: $73.95
 -------------------------------------------------------------------------------------------------------------------------------
 v ▲ Needs attention (1)
   ▲ Stopped by failure  Making the Difference on the Day (mental_full)  Phase not stored  2 of 169 pages [#.........]  $5.48  102 min  [Resume] [Restart] [Details]
@@ -4156,16 +4156,16 @@ v ■ Stopped (11)
 Sketch 2: the same screen when books run. The rows are examples that use the T7 numbers of `left_foot_full`. They are not real data.
 
 ```
-1 needs attention · 0 waiting for a run · 1 running · 1 paused · 9 stopped · 0 completed · 25 not started
+1 needs attention · 0 waiting for a run · 1 running · 10 stopped · 0 completed · 25 not started
 v ▲ Needs attention (1)
   ▲ Stopped unexpectedly  Kendo Jidai 2012 (kendojidai_2012)  Phase 3 · warm initialization  2 of 20 pages [#.........]  $3.88  92 min  [Resume] [Details]
       No update for 12 min: the process is gone. Last page done: p711. The call of box TL_2 on the next page did not end.   [example]
 v ● Running (1)
   ● Running  The Secret of Kendo and the Left Foot (left_foot_full)  Phase 3 · warm initialization  5 of 20 pages [##........]  $8.30  159 min  [Pause] [Details]
       Now: p051, box TL_2. Running since Oct 29 21:12 PDT (54 min). Last sign of life 4 s ago. Next page: p052.                 [example]
-v ‖ Paused (1)
-  ‖ Paused  Making the Difference on the Day (mental_full)  Phase 3 · warm initialization  2 of 20 pages [#.........]  $5.48  102 min  [Resume] [Details]
-      Paused since 21:40 PDT (26 min ago). The process ended after the page. Next page: p015.                                   [example]
+v ■ Stopped (10)
+  ■ Stopped  Making the Difference on the Day (mental_full)  Phase 3 · warm initialization  2 of 20 pages [#.........]  $5.48  102 min  [Resume] [Restart] [Details]
+      Stopped by Pause at 21:40. Last saved page p014. Resume starts at p015.                                                    [example]
 ```
 
 Sketch 3: book detail of `left_foot_full`, real derived data.
@@ -4290,7 +4290,7 @@ Differences from the draft of aki-main:
 - `pages_total` counts the pages of the phase target. The draft left this open. Phase 3 needs 20, not the pages of the book.
 - The cost and the time count one phase. A phase change writes the old totals to `history.jsonl`.
 - The heartbeat comes from a thread that does not wait for a model call. A call can last 1500 s.
-- A file `PAUSE` for one book. The draft had the list file only. The Monitor dashboard also writes the mark `request.json` in the book folder (round 70 answer 11, round 71 answer 9). The mark holds the keys schema ("book-request-v1"), book, action ("run" or "resume"), phase, requested_utc, and requested_by `[file: <T2>/data/scripts/translator/store.py, function write_mark]`. The restart mark uses the same file with the action "restart" and no key `box` (round 74 answers 5 to 9). Old text, replaced: the key `box` named one stopped box (unit default of DD73). One more key sets the prompt choice (round 74 answer 8): `"prompts": "start"` (the default, the prompts that the archived run started with) or `"prompts": "last"` (the last live prompts of the archived run) `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]` (DZ73 default 3, "One restart action"). Other option: two actions, "restart" and "restart-last". Benefit of the key: one action. Cost: the key is valid for the action "restart" only. A Restart mark on a running book makes the run program stop after the page is saved, archive the run, and start again from page 1 `[unit default DZ73]`, pending round 75 answer 10 (section 15.28.5). Other option in section 15.27.4. Not verified: `MARK_ACTIONS` in `store.py` holds only "run" and "resume" (l30), so a Translator unit must add "restart". `run-book` keeps the handled mark as `request.done.json`. The run program reads the restart mark at each page start. So a mark reaches a book that runs at the next page (round 73c answer 10, `.opencode/reminders/qa/qa-memory-2026-10-30.md:116`, "Run program reads the mark per page (Recommended)" `[accepted recommendation 2026-10-30 20:17]`).
+- A file `PAUSE` for one book. The draft had the list file only. The Monitor dashboard also writes the mark `request.json` in the book folder (round 70 answer 11, round 71 answer 9). The mark holds the keys schema ("book-request-v1"), book, action ("run" or "resume"), phase, requested_utc, and requested_by `[file: <T2>/data/scripts/translator/store.py, function write_mark]`. The restart mark uses the same file with the action "restart" and no key `box` (round 74 answers 5 to 9). Old text, replaced: the key `box` named one stopped box (unit default of DD73). One more key sets the prompt choice (round 74 answer 8): `"prompts": "start"` (the default, the prompts that the archived run started with) or `"prompts": "last"` (the last live prompts of the archived run) `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]` (DZ73 default 3, "One restart action"). Other option: two actions, "restart" and "restart-last". Benefit of the key: one action. Cost: the key is valid for the action "restart" only. A Restart mark on a running book makes the run program stop after the page is saved, archive the run, and start again from page 1 `[accepted 2026-11-01 01:03, round 76 answer 5, qa-memory-2026-11-01.md:8]` (section 15.29.3). Other option in section 15.27.4, not chosen. Not verified: `MARK_ACTIONS` in `store.py` holds only "run" and "resume" (l30), so a Translator unit must add "restart". `run-book` keeps the handled mark as `request.done.json`. The run program reads the restart mark at each page start. So a mark reaches a book that runs at the next page (round 73c answer 10, `.opencode/reminders/qa/qa-memory-2026-10-30.md:116`, "Run program reads the mark per page (Recommended)" `[accepted recommendation 2026-10-30 20:17]`).
 - A defaults file, so that the Viewer shows the default of each key without a copy of the table.
 - A history file of the settings file. The draft had no place for who changed what.
 
@@ -4345,7 +4345,7 @@ Tests:
   - The limits 120 s and 1800 s, at the edge.
   - Relative time.
   - `validateSettings` for all 21 keys, with a good and a bad value, and the diff.
-- Smoke mode `monitor` with a fixture folder that holds copies of the 3 list folders and a `config` folder. It adds fake `status.json` files: running (own pid), stopped unexpectedly (pid of a finished process), paused, completed, and a broken file. It checks the rows, the groups, the summary line, and the 404 answers with the monitor off.
+- Smoke mode `monitor` with a fixture folder that holds copies of the 3 list folders and a `config` folder. It adds fake `status.json` files: running (own pid), stopped unexpectedly (pid of a finished process), stopped by a pause, completed, and a broken file. It checks the rows, the groups, the summary line, and the 404 answers with the monitor off.
 - Settings write tests: the file is written by temp file and rename, with no temp file left. A stale sha1 gives 409. A foreign Origin and a foreign Host give 403. A key that the panel does not know stays. A save writes one line in the history. No other path in the fixture changes.
 - Pause tests extend the mode `pause`: the list with 3 books shows the dialog, and one pause file per book works. Mark tests: the button writes `request.json` in the book folder and no other file. The same test covers the button Restart on the book row and in Details. A dialog test covers each process button: the dialog opens with the focus on Cancel, and Cancel writes no file `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]` (DZ73 default 7, "Dialog test").
 - Chrome checks at 1440 x 900:
@@ -4363,7 +4363,7 @@ Tests:
 - Item 2: Needs attention rows for old problems. Example: `mental_full` stays in Needs attention until a resume, and it stopped 2 days ago. Decided in round 73c answer 13 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:119`): "Row stays until the book runs (Recommended)" `[accepted recommendation 2026-10-30 20:17]`. Option A is chosen.
   - Option A (chosen, recommended): the row stays until the book runs again. Benefit: no new write, and a real problem does not hide. Cost: an old accepted problem keeps a row at the top.
   - Option B (not chosen): a button "Mark as seen" writes an event to the book history. Benefit: the group empties. Cost: a new write of the Viewer, and the Translator must write the store first.
-- Item 3: the scope of Pause. Decided in round 70 answer 12: "Each book with running process has a Pause button. When click, the running process finishing the process (forward and backward) for current page and stop the process." [user 2026-10-29 23:36] Round 71 answer 10: "Reading right (Recommended)" [accepted recommendation 2026-10-30 02:37]. The button writes `PAUSE` in the book store folder. The process finishes the current page (16 boxes forward, critic and critique steps backward, memory write), then ends. The Monitor dashboard shows Paused. Resume writes a mark. Draft option A is the built one for `run-book`. Example: list `20261028T023006Z` holds 3 books, and a pause on the row of `mental_full` stopped all 3 in the draft. Not verified: the pause of an old list folder in the new design. The old list file stays `[agent inference]`.
+- Item 3: the scope of Pause. Decided in round 70 answer 12: "Each book with running process has a Pause button. When click, the running process finishing the process (forward and backward) for current page and stop the process." [user 2026-10-29 23:36] Round 71 answer 10: "Reading right (Recommended)" [accepted recommendation 2026-10-30 02:37]. The button writes `PAUSE` in the book store folder. The process finishes the current page (16 boxes forward, critic and critique steps backward, memory write), then ends. The Monitor dashboard shows Stopped with the cause Pause (round 76 answer 4). Resume writes a mark. Draft option A is the built one for `run-book`. Example: list `20261028T023006Z` holds 3 books, and a pause on the row of `mental_full` stopped all 3 in the draft. Not verified: the pause of an old list folder in the new design. The old list file stays `[agent inference]`.
   - Draft option A (chosen for `run-book`): one pause file per book for `run-book`, and a dialog for old lists that names all books. Benefit: the owner pauses one book. Cost: the Translator must check one more file after each page.
   - Draft option B (not chosen): the pause file stays per list. Benefit: no Translator change. Cost: one book cannot pause alone, and a dialog is needed.
 - Item 4: jobs, book jobs, and critic mode. Decided in round 72 answer 17 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:45`): "Accept all 3 (Recommended)" [accepted recommendation 2026-10-30 09:28]. Option A. Round 69 answer 19 says "next page". A list that runs reads these three at its start. Example: a resume of `left_foot_full` (mode separate) with the mode session gives "RESUME ERROR".
@@ -5616,10 +5616,10 @@ Example (values are an example): the dialog of the button Restart on the book ro
 The other three dialogs follow the same frame `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]`:
 
 - Run: "Run Making the Difference on the Day (mental_full) in phase agent-phase-3? The button writes a mark. An opencode agent starts the run."
-- Pause: "Pause Making the Difference on the Day (mental_full)? The process finishes the current page and its update point, then it stops." The source of the second sentence is round 72 answer 12 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:40`).
+- Pause: "Pause Making the Difference on the Day (mental_full)? The process finishes the current page and its update point, then it stops." The source of the second sentence is round 72 answer 12 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:40`). This text is for the Pause button of a real book on the Monitor dashboard `/` on this Mac (round 70 answer 12). That button finishes the current page and ends the process. The pilot Pause button on the run view `/runs/<stamp>` has its own text, see below.
 - Resume: "Resume Making the Difference on the Day (mental_full)? The book continues with the next page after the last accepted page."
 
-The pilot component `app/components/PauseButton.tsx` has no dialog today `[check: DZ73 2026-10-31 15:35 grep -n -i "confirm\|dialog" app/components/PauseButton.tsx, no line]`. Section 15.27.10 holds the open item. This unit changes no code. Decided in round 75 answer 11: RT74 adds the dialog (section 15.28.6).
+The pilot component `app/components/PauseButton.tsx` has no dialog today `[check: DZ73 2026-10-31 15:35 grep -n -i "confirm\|dialog" app/components/PauseButton.tsx, no line]`. Section 15.27.10 holds the open item. This unit changes no code. Decided in round 75 answer 11: RT74 adds the dialog (section 15.28.6). RT74 added the dialog to the pilot Pause button on the run view `/runs/<stamp>` `[file: <V2>/app/components/PauseButton.tsx]`. Pause: title "Pause run <stamp>?" and body "The button creates the file PAUSE. Calls that run now finish. New calls wait until you press Resume." Resume: title "Resume run <stamp>?" and body "The button deletes the file PAUSE. A waiting run goes on within a few seconds." The texts follow `/api/pause` `[accepted 2026-11-01 01:03, round 76 answer 11, qa-memory-2026-11-01.md:14]` ("Pilot Pause dialog text (Recommended)").
 
 ##### 15.27.3 Buttons of the Monitor dashboard
 
@@ -5627,10 +5627,10 @@ The pilot component `app/components/PauseButton.tsx` has no dialog today `[check
 |---|---|---|---|
 | Run | Book row of a book that never ran, and "Run phase 4" of a completed phase 3 book | `request.json`, action "run", with the phase | Yes |
 | Pause | Book row of a book in the state Running | file `PAUSE` | Yes |
-| Resume | Book row of a Paused book or a Stopped book | `request.json`, action "resume" | Yes |
-| Restart | Book row and Details view only (round 74 answer 11) | `request.json`, action "restart", with the key `prompts` | Yes, with the prompt choice |
+| Resume | Book row of a Stopped book (cause Pause or Ctrl-C) | `request.json`, action "resume" | Yes |
+| Restart | Book row and Details view only (round 74 answer 11), in every state with a run (round 76 answer 5) | `request.json`, action "restart", with the key `prompts` | Yes, with the prompt choice |
 
-No Restart button sits on a stopped-box flag. The states that show the button Restart are not decided (section 15.27.10, item 3).
+No Restart button sits on a stopped-box flag. The states that show the button Restart are decided in round 76 answer 5: every state with a run (section 15.29.3).
 
 ##### 15.27.4 Rules of Stop, Resume, and Restart
 
@@ -5662,9 +5662,9 @@ Mark `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62
 - The key `prompts` is "start" (default) or "last". The keys schema, book, action, phase, requested_utc, and requested_by are the keys of `write_mark` `[file: <T2>/data/scripts/translator/store.py:253-262]`.
 - Other option: two actions, "restart" and "restart-last", and no key `prompts`. Benefit: each action has a fixed key list. Cost: a second action in `MARK_ACTIONS`.
 
-Restart mark on a running book `[unit default DZ73]`, pending round 75 answer 10 (section 15.28.5): the run program stops after the current page is saved, archives the run, and starts again from page 1.
+Restart mark on a running book `[accepted 2026-11-01 01:03, round 76 answer 5, qa-memory-2026-11-01.md:8]` ("Every state with a run (Recommended)", section 15.29.3): the run program stops after the current page is saved, archives the run, and starts again from page 1.
 
-- Other option: the Monitor dashboard refuses Restart until the book is stopped or paused. Benefit: the archive never runs in a live process. Cost: the owner must press Pause first.
+- Other option: the Monitor dashboard refuses Restart until the book is stopped (also after a Pause). Not chosen. Benefit: the archive never runs in a live process. Cost: the owner must press Pause first.
 
 Row text of a waiting Restart mark `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]`: "Mark waiting: Restart requested HH:MM" (section 15.24.4.5).
 
@@ -5736,7 +5736,7 @@ The checks read the RT73a logs in `/var/folders/sz/2hvwvpb16c77mfzqnvkb5gbc0000g
 
 1. The wording of the four confirm dialogs and the layout of the Restart dialog (15.27.2). Other option: one generic text. Accepted in round 75 answer 12 ("Dialog text per button (Recommended)", DZ73 default 4) `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]`.
 2. The key `prompts` of the Restart mark (15.27.4). Other option: two actions. Accepted in round 75 answer 12 ("One restart action (Recommended)", DZ73 default 3) `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]`.
-3. A Restart mark on a running book stops the run after the page is saved (15.27.4). Other option: the button refuses until the book is stopped or paused. Still a unit default of DZ73, pending round 75 answer 10 (DZ73 default 2, section 15.28.5).
+3. A Restart mark on a running book stops the run after the page is saved (15.27.4). Other option: the button refuses until the book is stopped (also after a Pause). Accepted in round 76 answer 5 (DZ73 default 2, `qa-memory-2026-11-01.md:8`, section 15.29.3).
 4. The row text "Mark waiting: Restart requested HH:MM" (15.27.4). Other text: "Mark waiting: Restart (prompts: start) requested HH:MM". Accepted in round 75 answer 12 ("Short mark row text (Recommended)", DZ73 default 5) `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]`.
 5. The two new parts of the Details view (15.27.5). Other option: one share for the whole book. Accepted in round 75 answer 12 ("Details per box (Recommended)", DZ73 default 6) `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]`.
 
@@ -5744,15 +5744,15 @@ The checks read the RT73a logs in `/var/folders/sz/2hvwvpb16c77mfzqnvkb5gbc0000g
 
 1. The dialog of the pilot button `PauseButton.tsx`. Option 1 (recommended): add the dialog with the Monitor dashboard code unit, with `ConfirmDialog.tsx`. Benefit: one change, one component. Cost: the pilot button has no dialog until then. Option 2: add the dialog to `PauseButton.tsx` now. Benefit: the rule of answer 12 holds at once. Cost: a code unit for one button, and a second edit later. Decided in round 75 answer 11 (`qa-memory-2026-10-31.md:61`): "Add it in the next code unit (Recommended)" `[accepted recommendation 2026-10-31 19:21]`. Option 1 is chosen. Unit RT74 builds the dialog now (section 15.28.6).
 2. Reader access to agent text (15.27.6). Decided in round 75 answer 3 (section 15.28.2).
-3. The states that show the button Restart. Option 1 (recommended): every state with an archived or stored run, also Completed. Benefit: the owner can repeat a finished book. Cost: a mistake is possible, but the dialog asks first. Option 2: Stopped, Stopped by failure, and Paused only. Benefit: fewer mistakes. Cost: the owner cannot repeat a finished book. Not decided. Round 75 answer 10 (`qa-memory-2026-10-31.md:60`) asks what the difference between Paused and Stopped is (section 15.28.5). If the owner merges the two states, option 2 names fewer states.
-4. The unit defaults 3 and 5 of section 15.27.9. Round 75 answer 12 accepted default 5 (Details per box). Default 3 stays pending round 75 answer 10.
+3. The states that show the button Restart. Option 1 (recommended): every state with an archived or stored run, also Completed. Benefit: the owner can repeat a finished book. Cost: a mistake is possible, but the dialog asks first. Option 2: Stopped, Stopped by failure, and Paused only. Benefit: fewer mistakes. Cost: the owner cannot repeat a finished book. Decided in round 76 answer 5 (`qa-memory-2026-11-01.md:8`): "Every state with a run (Recommended)" `[accepted recommendation 2026-11-01 01:03]`. Option 1 is chosen. The states are Running, Stopped, Stopped by failure, Stopped unexpectedly, and Completed (section 15.29.3). Round 76 answer 4 merged Paused into Stopped (section 15.29.2).
+4. The unit defaults 3 and 5 of section 15.27.9. Round 75 answer 12 accepted default 5 (Details per box). Round 76 answer 5 accepts default 3.
 5. The prompt restore and the files that move at a Restart (`translator-design.md` section 9.25.6, item e).
 
 ##### 15.27.11 Not verified
 
 - No code ran. The Monitor dashboard code is not built, except the pilot `PauseButton.tsx`.
 - The reading of answer 12 is `[reading pending owner check]`.
-- The dialog texts, the mark key, and the Details view are unit defaults and not owner decisions. Round 75 answer 12 accepted the dialog texts, the key `prompts`, the row text, and the Details view (section 15.28.7). The Restart mark on a running book stays open.
+- The dialog texts, the mark key, and the Details view are unit defaults and not owner decisions. Round 75 answer 12 accepted the dialog texts, the key `prompts`, the row text, and the Details view (section 15.28.7). The Restart mark on a running book is accepted in round 76 answer 5.
 - The live check of aki-main at 2026-10-31 01:04 (section 15.27.8).
 - The tag text of the fact 熊本 for the kind "changed" with `start` and `end` null.
 
@@ -5769,7 +5769,7 @@ Pilot runs under `<T2>/data/pilot-run/` are not real runs (round 73e answer 10).
 - Round 75 answer 3 (`qa-memory-2026-10-31.md:53`): "Admin opens any run" `[accepted option 2 2026-10-31 19:21]`. Option text: "The same button, but it shows for every run, also for unfinished runs and pilots. You decide each time. Benefit: you can show a sample early. Cost: nothing guards against a wrong click." Option 1 (not chosen) showed the button only after all phases finished.
 - Round 75 answer 4 (`qa-memory-2026-10-31.md:54`): "Keep the opened text (Recommended)" `[accepted recommendation 2026-10-31 19:21]`.
 - Round 75 answer 9 (`qa-memory-2026-10-31.md:59`): "option 2. but label using both run number and update number: v2.5 means that in book run #2 (1 restart), after 5 prompt updates" `[user 2026-10-31 19:21]`.
-- Round 75 answer 10 (`qa-memory-2026-10-31.md:60`): "What is there `paused` and `stopped`? they should be the same?" `[user 2026-10-31 19:21]`. Not decided.
+- Round 75 answer 10 (`qa-memory-2026-10-31.md:60`): "What is there `paused` and `stopped`? they should be the same?" `[user 2026-10-31 19:21]`. Decided in round 76 answer 4 (section 15.29.2).
 - Round 75 answer 11 (`qa-memory-2026-10-31.md:61`): "Add it in the next code unit (Recommended)" `[accepted recommendation 2026-10-31 19:21]`.
 - Round 75 answer 12 (`qa-memory-2026-10-31.md:62`): "Share from history (Recommended), One restart action (Recommended), Dialog text per button (Recommended), Short mark row text (Recommended), Details per box (Recommended), Dialog test (Recommended)" `[accepted recommendation 2026-10-31 19:21]`.
 - Round 75 answers 13 and 14 (`qa-memory-2026-10-31.md:63-64`): the 16 unit defaults of RT73b, each with "(Recommended)" `[accepted recommendation 2026-10-31 19:21]`. Section 15.28.7 lists them.
@@ -5782,34 +5782,34 @@ Problem today. S2 puts the run of the admin run mark, else the newest PASS run o
 
 Rule (owner words, answer 3): the admin opens a run. The button shows for every run, also for unfinished runs and pilot runs. The admin decides each time.
 
-Design. Every part below that is not owner words carries the tag `[unit default RT74, pending owner check]`. Unit RT74 builds the same design now.
+Design. Round 76 answers 10 and 11 (`.opencode/reminders/qa/qa-memory-2026-11-01.md:13-14`) accepted every part below that is not owner words. The tags show the answer. Unit RT74 built the design in commit f42e8e6.
 
-1. Readers see the agent text of a run only after the admin presses "Open to readers" for that run `[agent inference]`. A run is one run stamp of one book. Pilot example: book `left_foot_full`, run `20261029T051154Z-r41`, pages p046 to p050.
+1. Readers see the agent text of a run only after the admin presses "Open to readers" for that run `[accepted 2026-11-01 01:03, round 76 answer 10, qa-memory-2026-11-01.md:13]`. A record of `reader_opens` holds one run folder name of one page, and not one run stamp of one book. Pilot example: book `left_foot_full`, p046 has the folder `20261029T051154Z-r41` and p047 has `20261029T054303Z-r41`. The run view button writes one record for each page run. It opens or closes all 5 page runs of list `20261029T051152Z` in one step `[file: <V2>/app/lib/pb.ts:370-381]` `[file: <V2>/app/app/api/admin/opens/route.ts]` `[file: <V2>/app/components/ReaderOpenRows.tsx]`.
 2. Nothing is open by default `[reading pending owner check]` (`qa-memory-2026-10-31.md:71`).
-3. Store `[unit default RT74, pending owner check]`: a new PocketBase collection `reader_opens`. The migration is `1793300012_v2_reader_opens.js`. One record holds one opened run: source, book, and run ID. Only an admin can read or write it. Other option: a field on `run_marks`. Benefit: no new collection. Cost: a run mark is per page, and an open is per run.
-4. Close `[unit default RT74, pending owner check]`: the admin can close a run again with "Close to readers". Other option: an open is final. Cost: a wrong click cannot be undone.
-5. Place of the button `[unit default RT74, pending owner check]`: the run view `/runs/<stamp>` on the Monitor dashboard. It shows one row for each book of the run. A status line sits on the admin page view `/page/<slug>/<page>`. It reads "Readers see: run <stamp>" or "Readers see no agent text for this page. No run of this page is open."
-6. Confirm dialog `[unit default RT74, pending owner check]`: Open and Close ask first. Cancel is the first button and has the focus. This is the rule of section 15.27.2. Example text `[unit default DZ74]`: "Open run 20261029T051154Z-r41 of left_foot_full to readers? Readers see its agent text after the next S2 run." Other option: one generic text.
-7. S2 rule `[unit default RT74, pending owner check]`. It replaces the old rule "run mark, else newest PASS". The candidate runs of a page are the opened runs. The shown run is one of three:
+3. Store `[accepted 2026-11-01 01:03, round 76 answer 10, qa-memory-2026-11-01.md:13]`: a new PocketBase collection `reader_opens`. The migration is `1793300012_v2_reader_opens.js`. One record holds one opened page run: source, book, and run folder name. All five rules of the collection (list, view, create, update, delete) are admin only, also list and view. They are not the rules of `run_marks` `[file: <V2>/data/scripts/pocketbase/pb_migrations/1793300012_v2_reader_opens.js:49-53]`. Other option: a field on `run_marks`. Benefit: no new collection. Cost: a run mark is per page, and an open is per run.
+4. Close `[accepted 2026-11-01 01:03, round 76 answer 10, qa-memory-2026-11-01.md:13]`: the admin can close a run again with "Close to readers". Other option: an open is final. Cost: a wrong click cannot be undone.
+5. Place of the button `[accepted 2026-11-01 01:03, round 76 answer 10, qa-memory-2026-11-01.md:13]`: the run view `/runs/<stamp>` on the Monitor dashboard. It shows one row for each book of the run. The status line sits on the page `/translate/<slug>?at=pNNN` (component `HtvPageSection.tsx`), and not on `/page/<slug>/<page>`. It reads "Readers see: run X (opened)" or "Readers see: run X (opened, run mark)" or "Readers see no agent text for this page. No run of this page is open." A fourth text covers an open run without a PASS verdict: "Readers see no agent text for this page. The open run X has no PASS verdict." The line ends with "Readers see a change after the next S2 run." `[file: <V2>/app/lib/reader-opens-rule.ts:48-53]` `[file: <V2>/app/components/HtvPageSection.tsx:269]`.
+6. Confirm dialog `[accepted 2026-11-01 01:03, round 76 answer 11, qa-memory-2026-11-01.md:14]` ("Open dialog counts PASS pages"): Open and Close ask first. Cancel is the first button and has the focus. This is the rule of section 15.27.2. Text of the Open dialog in the code of RT74: title "Open run 20261029T051152Z of left_foot_full to readers?", body "Readers see the Agent text of 5 of 5 pages after the next S2 run. The number counts the pages whose run has the verdict PASS. You can close the run again.", buttons [Cancel] [Open to readers] `[file: <V2>/app/components/ReaderOpenRows.tsx]`. The title holds the stamp of the run view. The number 5 of 5 is the example of RT74 and is Not verified by DZ75. The example text of DZ74 is replaced.
+7. S2 rule `[accepted 2026-11-01 01:03, round 76 answer 10, qa-memory-2026-11-01.md:13]`. It replaces the old rule "run mark, else newest PASS". The candidate runs of a page are the opened runs. The shown run is one of three:
    - the run of the admin run mark, if that run is open
    - else the newest open PASS run
    - else no agent text
-8. A page whose `reader_pages` record holds a run that is no longer open loses the agent text at the next S2 run. A web article page goes back to the Original text record `web-ja`. A book page loses its record.
-9. Readers see a change only after the next S2 run. The admin page views still show all runs.
+8. A page whose `reader_pages` record holds a run that is no longer open loses the agent text at the next S2 run. A web article page goes back to the Original text record `web-ja`. A book page loses its record. `[accepted 2026-11-01 01:03, round 76 answer 11, qa-memory-2026-11-01.md:14]`.
+9. Readers see a change only after the next S2 run. The admin page views still show all runs. `[accepted 2026-11-01 01:03, round 76 answer 10, qa-memory-2026-11-01.md:13]`. If the collection `reader_opens` is missing, S2 stops with "Collection reader_opens is missing. Restart PocketBase so that migration 1793300012 runs." `[file: <V2>/app/scripts/sync-runs.mjs:774-776]`.
 
 Example of the S2 rule (`mental_full` p014, data from the line 3724 of this file). The page has a PASS run `20261026T195046Z-r41` and a newer FAIL run `20261028T023007Z-r41`.
 
 - The admin opens the PASS run only. Readers see the PASS text.
-- The admin opens the FAIL run only. Readers see no agent text, because the rule takes the newest open PASS run.
+- The admin opens the FAIL run only. Readers see no agent text, because the rule takes the newest open PASS run. `[accepted 2026-11-01 01:03, round 76 answer 11, qa-memory-2026-11-01.md:14]` ("Open FAIL run shows nothing").
 - The admin opens neither. Readers see no agent text.
 
 Effect at the next S2 run with nothing opened:
 
-- The 28 pilot agent pages leave `reader_pages`. They are 20 pages in Books and 8 pages in Kendo Jidai.
-- The Reader dashboard `/read` count goes from "English: 1,151 of 14,116 pages translated (8.2 percent)" to about 1,123 or 1,124. Not verified. RT74 measures it on a throwaway PocketBase.
+- The 28 pilot agent pages leave `reader_pages`. They are 20 pages in Books and 8 pages in Kendo Jidai. S2 removed 28 agent records and set `18d4ac29/p001` back to `web-ja`. So 29 records changed `[check: aki-main 2026-11-01, S2 --apply, relayed in the brief of DZ75]`.
+- The Reader dashboard `/read` count went from "English: 1,151 of 14,116 pages translated (8.2 percent)" to "English: 1,124 of 14,116 pages translated (8.0 percent)" `[check: aki-main 2026-11-01 01:08 live read of the Reader dashboard /read, relayed in the brief of DZ75]`. The drop is 27 and not 28, because `men0/p005` belongs to `men0`, which the Reader hides as part of `men_full` (round 69 answer 12, `[file: <V2>/app/lib/reader-folds.ts:29]`).
 - The 311 web articles keep their Original text records `web-ja` and their Human versions (section 15.26).
 
-Open check for aki-main. The data names a run ID for each page: p046 has `20261029T051154Z-r41` and p047 has `20261029T054303Z-r41` `[check: DZ74 2026-10-31 19:41 ls data/pilot-run/left_foot_full_p046 and left_foot_full_p047]`. The list folder `20261029T051152Z` groups the 5 pages. So "one run stamp of one book" can mean the list stamp or the run ID of one page. Which one the record of `reader_opens` holds is Not verified. The report of RT74 states it.
+Open check for aki-main. The data names a run ID for each page: p046 has `20261029T051154Z-r41` and p047 has `20261029T054303Z-r41` `[check: DZ74 2026-10-31 19:41 ls data/pilot-run/left_foot_full_p046 and left_foot_full_p047]`. The list folder `20261029T051152Z` groups the 5 pages. So "one run stamp of one book" can mean the list stamp or the run ID of one page. Which one the record of `reader_opens` holds is Not verified. The report of RT74 states it. Answer, checked by DZ75: the record holds the run folder name of one page `[file: <V2>/data/scripts/pocketbase/pb_migrations/1793300012_v2_reader_opens.js:7-13]`.
 
 ##### 15.28.3 Reader text after a Restart
 
@@ -5819,49 +5819,49 @@ Reading `[reading pending owner check]` (`qa-memory-2026-10-31.md:72`): after a 
 
 - A Restart moves the run files into `<T2>/data/book-store/<book>/archive/<UTC time>/` (round 74 answer 7). S2 then reads the opened run from that archive folder.
 - S2 does not read `<T2>/data/book-store` today `[check: DZ73 2026-10-31 15:35 grep -c -i "book-store" app/scripts/sync-runs.mjs, 0]`. A code unit must add it.
-- Example (invented times): the admin opened run 1 of `mental_full`. The owner presses Restart at 09:30. The files of run 1 move to `archive/20261105T093000Z/`. Readers still see run 1. The admin later opens run 2. The S2 rule shows the newest open PASS run, which is run 2 `[unit default DZ74]`.
+- Example (invented times): the admin opened run 1 of `mental_full`. The owner presses Restart at 09:30. The files of run 1 move to `archive/20261105T093000Z/`. Readers still see run 1. The admin later opens run 2. The S2 rule shows the newest open PASS run, which is run 2 `[accepted 2026-11-01 01:03, round 76 answer 12, qa-memory-2026-11-01.md:15]`.
 - Other option for the last step: when the admin opens run 2, run 1 closes at once. Benefit: one open run for each book. Cost: a second click or a hidden side effect.
 
 ##### 15.28.4 Version labels on the Monitor dashboard
 
-Owner words (answer 9): "label using both run number and update number: v2.5 means that in book run #2 (1 restart), after 5 prompt updates". The label is `v<run>.<updates>`. `<T2>/docs/drafts/translator-design.md`, section 9.26.4 holds the rule, the example of ED_2, and four open points.
+Owner words (answer 9): "label using both run number and update number: v2.5 means that in book run #2 (1 restart), after 5 prompt updates". The label is `v<run>.<updates>`. `<T2>/docs/drafts/translator-design.md`, section 9.26.4 holds the rule, the example of ED_2, and four open points. Round 76 answers 6 to 8 decided points i to iii (section 15.29.4).
 
 - The Restart dialog (section 15.27.2) shows the labels. Example line: "The prompts that the archived run started with (ED_2 v1.0)". The other line: "The last live prompts of the archived run (ED_2 v1.6)". The prompt files move into the archive with the run files, and the chosen versions are copied back as `v2.0`.
 - The Details view (section 15.27.5) lists the labels at the start and at the end of each archived run. Example row: start "ED_2 v1.0, TL_1 v1.0", end "ED_2 v1.6, TL_1 v1.2".
-- The grid "Prompt versions" of the book detail view shows the label of each box, for example "ED_2 v1.1" (`translator-design.md` section 9.23.7).
-- Open points i to iv of section 9.26.4 stay open. Example of point ii: `mental_full` ends phase 3 with ED_2 at `v1.4`. The owner starts phase 4. The label is `v1.5` or `v2.0`, and the owner has not said which.
+- The grid "Prompt versions" of the book detail view shows the phase and the label of each box, for example "ED_2 phase 3 v1.1" `[reading pending owner check]` (round 76 answer 7) (`translator-design.md` section 9.23.7).
+- Round 76 answers 6 to 8 decided points i to iii of section 9.26.4. Point iv (rollback) waits for the owner. Example of the per-phase rule (round 76 answer 7): `mental_full` ends phase 3 with ED_2 at `v1.4`. The owner starts phase 4. The label is "phase 4 v1.0", a full copy of phase 3 v1.4 `[reading pending owner check]`.
 
-##### 15.28.5 Open item: Paused and Stopped
+##### 15.28.5 Paused and Stopped (decided in round 76 answer 4: merge into Stopped)
 
-Round 75 answer 10 is not decided. The owner asked: "What is there `paused` and `stopped`? they should be the same?"
+Decided in round 76 answer 4 (`.opencode/reminders/qa/qa-memory-2026-11-01.md:7`): "Merge into Stopped (Recommended)" `[accepted recommendation 2026-11-01 01:03]`. The facts below describe the code and the screen before the merge (section 15.29.2). Round 75 answer 10 was not decided. The owner asked: "What is there `paused` and `stopped`? they should be the same?"
 
 Facts:
 
-- The states are `("not-started", "running", "paused", "stopped", "completed")` `[file: <T2>/data/scripts/translator/store.py:26]`. The stop reasons are `("ctrl-c", "target-reached", "forward-failure", "cost-guard", "rule")` `[file: <T2>/data/scripts/translator/store.py:27]`. The labels are in the lines 32 to 35, and `label_of` is in the lines 74 to 97.
-- Paused: the owner pressed Pause on the Monitor dashboard. The Viewer wrote the file `PAUSE`. The process finishes the current page (16 boxes forward, critic and critique steps backward, memory write), then ends (round 70 answer 12, `VISION-viewer.md:3928` and `:4366`).
-- Stopped: the owner pressed Ctrl-C in the terminal. Running model calls end at once. The current page is not accepted `[file: <T2>/data/scripts/translator_run.py:2578-2595]`. The selftest text reads "Ctrl-C: the book stops with state stopped and reason ctrl-c, exit 130, and the page is not accepted" `[file: <T2>/data/scripts/translator_run.py:5180]`. `VISION-viewer.md:3929` holds the label.
-- Both states wait for Resume or Restart. The difference: whether the last page finished.
+- Code before the merge. The states are `("not-started", "running", "paused", "stopped", "completed")` `[file: <T2>/data/scripts/translator/store.py:26]`. The stop reasons are `("ctrl-c", "target-reached", "forward-failure", "cost-guard", "rule")` `[file: <T2>/data/scripts/translator/store.py:27]`. The labels are in the lines 32 to 35, and `label_of` is in the lines 74 to 97.
+- Old state Paused (merged into Stopped): the owner pressed Pause on the Monitor dashboard. The Viewer wrote the file `PAUSE`. The process finishes the current page (16 boxes forward, critic and critique steps backward, memory write), then ends (round 70 answer 12, `VISION-viewer.md:3928` and `:4366`).
+- Stopped by Ctrl-C: the owner pressed Ctrl-C in the terminal. Running model calls end at once. The current page is not accepted `[file: <T2>/data/scripts/translator_run.py:2578-2595]`. The selftest text reads "Ctrl-C: the book stops with state stopped and reason ctrl-c, exit 130, and the page is not accepted" `[file: <T2>/data/scripts/translator_run.py:5180]`. `VISION-viewer.md:3929` holds the label.
+- Both cases wait for Resume or Restart. The difference: whether the last page finished.
 - Example: `mental_full` runs p080. After Pause, p080 is saved and Resume starts at p081. After Ctrl-C, p080 is not accepted and Resume starts at p080 again.
 
 Options for the owner:
 
-- Option 1 `[agent inference]`: keep two states. Benefit: the owner sees at once whether the last page is in the book. No code changes. Cost: the owner must learn two words for "waits for Resume".
-- Option 2: one state "Stopped". The stop reason tells "pause" or "ctrl-c". Benefit: one idea. Cost: the state list, the labels, the group table, and the selftest change, and the row loses the sign that the last page finished.
+- Option 1 `[agent inference]`: keep two states. Benefit: the owner sees at once whether the last page is in the book. No code changes. Cost: the owner must learn two words for "waits for Resume". Not chosen.
+- Option 2: one state "Stopped". The stop reason tells "pause" or "ctrl-c". Benefit: one idea. Cost: the state list, the labels, the group table, and the selftest change, and the row loses the sign that the last page finished. Chosen in round 76 answer 4. The stop reason "pause" names the cause `[unit default DZ75]`.
 
-Items that wait for this answer:
+Items that waited for this answer. Round 76 answer 5 decided them:
 
-- DZ73 default 2: a Restart mark on a running book (section 15.27.4).
-- Section 15.27.10, item 3: the states that show the button Restart. If the owner merges the two states, option 2 of that item names fewer states.
+- DZ73 default 2: a Restart mark on a running book (section 15.27.4). Accepted in round 76 answer 5.
+- Section 15.27.10, item 3: the states that show the button Restart. If the owner merges the two states, option 2 of that item names fewer states. Decided in round 76 answer 5: option 1, every state with a run.
 
 ##### 15.28.6 Pause dialog and AI tag
 
-Pause dialog (answer 11, option 1 of section 15.27.10 item 1). The pilot component `app/components/PauseButton.tsx` has no dialog `[check: DZ73 2026-10-31 15:35 grep -n -i "confirm\|dialog" app/components/PauseButton.tsx, no line]`. Unit RT74 adds it now. The dialog follows the rules of section 15.27.2: Cancel is first and has the focus, Esc closes, and a press on Cancel writes no file. The Pause text is the text of section 15.27.2.
+Pause dialog (answer 11, option 1 of section 15.27.10 item 1). The pilot component `app/components/PauseButton.tsx` has no dialog `[check: DZ73 2026-10-31 15:35 grep -n -i "confirm\|dialog" app/components/PauseButton.tsx, no line]`. Unit RT74 adds it now. The dialog follows the rules of section 15.27.2: Cancel is first and has the focus, Esc closes, and a press on Cancel writes no file. The Pause text is the text of section 15.27.2. RT74 added it. The pilot texts are in section 15.27.2 (run view `/runs/<stamp>`) `[accepted 2026-11-01 01:03, round 76 answer 11, qa-memory-2026-11-01.md:14]`.
 
 AI tag in the page index (answer 15). Rule: the page index tag "AI" shows only on a page with Agent text. Vision l251: "Human versions carry no AI label".
 
 - Example: `/read/d7835263` has Human versions and no Agent text on any page. Its page index must show no "AI" tag.
 - Fact at the time of the read: the index marks every page of `textPages`, and `textPages` is the union of agent pages and human pages `[file: app/components/ReaderIndex.tsx:42,113]` `[file: app/lib/reader-data.ts:188,201]`. The line numbers can move while RT74 works.
-- Unit RT74 builds the fix. `agentPages` already exists in `ReaderIndex` data `[file: app/lib/reader-data.ts:201]`.
+- Unit RT74 builds the fix. `agentPages` already exists in `ReaderIndex` data `[file: app/lib/reader-data.ts:201]`. RT74 built the fix: a page with only a Human version shows the tag "Human translation" in the page index and "Human" in the side index. A page with Agent text shows "AI translation" or "AI" `[file: <V2>/app/components/ReaderIndex.tsx:125-129]` `[accepted 2026-11-01 01:03, round 76 answer 11, qa-memory-2026-11-01.md:14]` ("Tag \"Human translation\" (Recommended)").
 
 ##### 15.28.7 Accepted defaults of DZ73 and RT73b
 
@@ -5876,7 +5876,7 @@ DZ73 defaults (answer 12) `[accepted 2026-10-31 19:21, round 75 answer 12, qa-me
 | 6 | Details per box | section 15.27.5 and 15.27.9, item 5 |
 | 7 | Dialog test | section 15.24 test list (l4350) |
 
-DZ73 default 2 (a Restart mark on a running book) stays a unit default, pending round 75 answer 10.
+DZ73 default 2 (a Restart mark on a running book) is accepted in round 76 answer 5 (`qa-memory-2026-11-01.md:8`, section 15.29.3).
 
 The numbers 1 to 7 are the numbers of the brief of DZ74. The list of section 15.27.9 has 5 items, and the list of `translator-design.md` section 9.25.7 has 2 items. The table maps the names.
 
@@ -5928,25 +5928,240 @@ Doc fixes that RT73b listed, applied in place:
 
 ##### 15.28.9 Unit defaults of DZ74
 
-1. `[unit default RT74, pending owner check]` The parts of the admin gate in 15.28.2 that are not owner words (items 3 to 9). The other option sits beside each item.
-2. `[unit default DZ74]` The example text of the Open dialog in 15.28.2, item 6. Other option: one generic text.
-3. `[unit default DZ74]` After a Restart, the older opened run stays open, and the S2 rule shows the newest open PASS run (15.28.3). Other option: when the admin opens the new run, the old run closes.
-4. `[unit default DZ74]` Option 1 of 15.28.5 is the recommended option `[agent inference]`. The owner decides.
+1. `[accepted 2026-11-01 01:03, round 76 answer 10, qa-memory-2026-11-01.md:13]` The parts of the admin gate in 15.28.2 that are not owner words (items 3 to 9). The other option sits beside each item.
+2. Replaced by the real text of RT74 (15.28.2, item 6) `[accepted 2026-11-01 01:03, round 76 answer 11, qa-memory-2026-11-01.md:14]`. The example text of DZ74 is gone.
+3. `[accepted 2026-11-01 01:03, round 76 answer 12, qa-memory-2026-11-01.md:15]` After a Restart, the older opened run stays open, and the S2 rule shows the newest open PASS run (15.28.3). Other option: when the admin opens the new run, the old run closes.
+4. Replaced by round 76 answer 4: the owner chose the merge, which is option 2 of 15.28.5.
 
 ##### 15.28.10 Open items for the owner
 
-1. Paused and Stopped (15.28.5). Recommended: option 1, keep two states.
-2. Audit checks C3 and C4 (`translator-design.md` section 9.26.5). Recommended `[agent inference]`: option 2, C3 covers every group.
-3. Open points i to iv of the version labels (`translator-design.md` section 9.26.4). Recommended `[agent inference]`: point ii option 1 (the run number counts Restarts only) and point iii option 1 (phase 3 starts at `v1.0`).
-4. The admin gate (15.28.2): the owner checks items 3 to 9, and the meaning of "run" (the list stamp or the run ID of one page).
+1. Paused and Stopped (15.28.5). Decided in round 76 answer 4: merge into Stopped (section 15.29.2). The old recommendation, option 1, is not chosen.
+2. Audit checks C3 and C4 (`translator-design.md` section 9.26.5). Decided in round 76 answer 3 (`qa-memory-2026-11-01.md:6`): C3 and C4 learn soft.
+3. Open points i to iv of the version labels (`translator-design.md` section 9.26.4). Decided in round 76 answers 6 to 8 (`qa-memory-2026-11-01.md:9-11`): each phase has its own series and starts at `v1.0` (section 15.29.4). Point iv (rollback) waits for the owner.
+4. The admin gate (15.28.2): accepted in round 76 answers 10 and 11 (section 15.29.5). The meaning of "run": the record holds the run folder name of one page.
 5. How S2 finds an opened run inside `archive/<UTC time>/` (15.28.3). Not designed.
 
 ##### 15.28.11 Not verified
 
 - No code ran in this unit. The Monitor dashboard and S2 changes are built by RT74 and are not checked here.
-- The count about 1,123 or 1,124 on the Reader dashboard `/read` is not measured.
-- The meaning of "run" for the gate (15.28.2, Open check).
+- The count about 1,123 or 1,124 on the Reader dashboard `/read` was not measured. Round 76: 1,124 (section 15.28.2).
+- The meaning of "run" for the gate (15.28.2, Open check). Answered by DZ75 in round 76.
 - The Firefox test of RT73b, the example U083 "Debana-men", and the example U013 ３０歳 come from the RT73b report. DZ74 did not open them.
 - The reading of answer 4 (`qa-memory-2026-10-31.md:72`) and the reading of answer 3 (`qa-memory-2026-10-31.md:71`) are `[reading pending owner check]`.
 
 Status: round 75 answers applied by unit DZ74. Items 15.28.5 and 15.28.10 wait for the owner.
+
+#### 15.29 Round 76 decisions: Stopped state, Restart states, version labels per phase, gate details (unit DZ75)
+
+Unit DZ75 wrote this section on 2026-11-01 (round 76). The Q-A file is `.opencode/reminders/qa/qa-memory-2026-11-01.md`, lines 3 to 29. The design side is in `<T2>/docs/drafts/translator-design.md`, section 9.27. Each line of this file that this section replaces carries a pointer to it. Section 15.29.6 lists those lines.
+
+Pilot runs under `<T2>/data/pilot-run/` are not real runs (round 73e answer 10). No real run exists yet `[check: DZ75 2026-11-01 01:19 ls data/book-store in <T2>, "No such file or directory"]`. All examples in this section are examples and not run data.
+
+##### 15.29.1 Owner words
+
+- Round 76 answer 3 (`qa-memory-2026-11-01.md:6`): "option 1. Also be more detail with the judge check rules." `[user 2026-11-01 01:03]`. The design side holds it (`translator-design.md`, section 9.27.2).
+- Round 76 answer 4 (`qa-memory-2026-11-01.md:7`): "Merge into Stopped (Recommended)" `[accepted recommendation 2026-11-01 01:03]`.
+- Round 76 answer 5 (`qa-memory-2026-11-01.md:8`): "Every state with a run (Recommended)" `[accepted recommendation 2026-11-01 01:03]`.
+- Round 76 answer 6 (`qa-memory-2026-11-01.md:9`): "A full copy (Recommended)" `[accepted recommendation 2026-11-01 01:03]`.
+- Round 76 answer 7 (`qa-memory-2026-11-01.md:10`): "Each phase keep separate version number (e.g. phase 3 v2.4 etc)" `[user 2026-11-01 01:03]`.
+- Round 76 answer 8 (`qa-memory-2026-11-01.md:11`): "Every book starts at v1.0 (Recommended)" `[accepted recommendation 2026-11-01 01:03]`.
+- Round 76 answer 9 (`qa-memory-2026-11-01.md:12`): "What rollback? is this stale?" `[user 2026-11-01 01:03]`. This is a question about the design side (`translator-design.md`, section 9.27.6).
+- Round 76 answer 10 (`qa-memory-2026-11-01.md:13`): "One record per page run (Recommended), New table reader_opens (Recommended), Admin only, also for listing (Recommended), Close to readers button (Recommended), Run view button, status line (Recommended), S2: mark if open, else newest open PASS (Recommended), Change shows after next S2 run (Recommended), S2 stops if the table is missing (Recommended)" `[accepted recommendation 2026-11-01 01:03]`.
+- Round 76 answer 11 (`qa-memory-2026-11-01.md:14`): "Closed run: page loses agent text (Recommended), Open FAIL run shows nothing (Recommended), Tag \"Human translation\" (Recommended), Pilot Pause dialog text (Recommended), Sign-in line for non-admins (Recommended), Open dialog counts PASS pages (Recommended)" `[accepted recommendation 2026-11-01 01:03]`.
+- Round 76 answer 12 (`qa-memory-2026-11-01.md:15`): "Optimizer told: text must differ (Recommended), Restart gives all 16 boxes v<run>.0 (Recommended), Old opened run stays open (Recommended)" `[accepted recommendation 2026-11-01 01:03]`.
+- The readings of aki-main for the answers 4 and 7 are `[reading pending owner check]` (`qa-memory-2026-11-01.md:25,27`).
+
+##### 15.29.2 Stopped state on the Monitor dashboard
+
+Decided in round 76 answer 4. One state "Stopped" in one group. The old label Paused and the old group Paused are gone.
+
+Group table (6 groups):
+
+| Group | Holds | Starts |
+|---|---|---|
+| Needs attention | Stopped unexpectedly, Stopped by failure | open, always shows |
+| Waiting for a run | a book with a Run, Resume, or Restart mark that no process picked up | open, shows when it holds a row |
+| Running | Running, Running with pause requested | open, always shows |
+| Stopped | Stopped (cause Pause or Ctrl-C) | open, shows when it holds a row |
+| Completed | Completed | closed, shows when it holds a row |
+| Not started | Not started | closed, always shows |
+
+Row text. The row names the cause, the time, and the next page. The two texts are the examples of the owner option:
+
+- After a Pause: "Stopped by Pause at 16:40. Last saved page p080. Resume starts at p081."
+- After Ctrl-C: "Stopped by Ctrl-C at 16:40. Page p080 was not saved. Resume starts at p080."
+- Stopped by failure and Stopped unexpectedly stay in the group Needs attention.
+- The Monitor builds the text from the status fields `stop_reason`, `updated_utc`, `last_accepted_page`, and `next_page` `[unit default DZ75]`. The design side holds the other option (`translator-design.md`, section 9.27.3).
+
+Buttons for each state:
+
+| State | Buttons | Source |
+|---|---|---|
+| Not started | Run | section 15.27.3 |
+| Running | Pause, Restart, Details | section 15.27.3, round 76 answer 5 |
+| Stopped | Resume, Restart, Details | section 15.27.3, round 76 answer 5 |
+| Stopped by failure | Resume, Restart, Details | sketch of section 15.24.8, round 76 answer 5 |
+| Stopped unexpectedly | Resume, Restart, Details | sketch of section 15.24.8, round 76 answer 5 |
+| Completed | Restart, Details, and "Run phase 4" after phase 3 | section 15.27.3, round 76 answer 5 |
+
+Example (values are an example): `mental_full` stopped at 21:40 after a Pause. The row sits in the group Stopped. It reads "Stopped by Pause at 21:40. Last saved page p014. Resume starts at p015." The buttons are [Resume] [Restart] [Details].
+
+Unit defaults of this part `[unit default DZ75]`:
+
+- Both causes use the symbol ■. Other option: keep ‖ for the cause Pause. Benefit of the default: one state, one symbol. Cost: the symbol does not tell the cause, but the row text does.
+- A pilot list in the state "paused" (an old list, the process lives and waits at the gate) shows as "Running, pause requested" in the group Running. Other option: show it as Stopped. Benefit of the default: the process lives, so the label is true. Cost: the label differs from the file value.
+- The pilot Pause and Resume on the run view `/runs/<stamp>` stay as they are `[reading pending owner check]`. They are a pilot behavior. The real-book Pause on the Monitor dashboard (round 70 answer 12) finishes the current page and ends the process.
+
+The contract text of section 15.24.9 (the block with `state: "not-started" | "running" | "paused" | ...`) and the history line of the book store folder still show `paused`. They describe the code of TB71. The code unit changes them with the state list.
+
+##### 15.29.3 Restart states
+
+Decided in round 76 answer 5. The button Restart shows on the book row and in the Details view (round 74 answer 11) for these states:
+
+- Running
+- Stopped
+- Stopped by failure
+- Stopped unexpectedly
+- Completed
+
+A Running book saves its current page, then restarts. This accepts DZ73 default 2, a Restart mark on a running book. The other option was a refusal until the book is stopped. It is not chosen.
+
+Example (values are an example): `mental_full` runs phase 4 at p080. The owner presses Restart in the dialog (Cancel is first). The run finishes p080 and saves it. The run files move to `<T2>/data/book-store/mental_full/archive/<UTC time>/`. The book runs again from p001 in phase 4. The row text of the mark is "Mark waiting: Restart requested HH:MM" until the process picks it up (section 15.24.4.2).
+
+The states Not started and Waiting for a run show no Restart button. This is `[agent inference]`, because the owner list has five states.
+
+##### 15.29.4 Version labels per phase
+
+Owner words (answer 7): "Each phase keep separate version number (e.g. phase 3 v2.4 etc)". Reading `[reading pending owner check]`: the screen shows the phase with the label. "phase 3 v2.4" means phase 3, run 2 of phase 3 (after 1 Restart in phase 3), after 4 updates. The design side holds the rules and the example table (`translator-design.md`, section 9.27.5).
+
+- A Restart gives all 16 boxes `v<run>.0`. The file is a full copy of the chosen version, not a link (answers 6 and 12).
+- Every phase of a book starts at `v1.0` (answers 7 and 8). Phase 4 `v1.0` is a full copy of the last live phase 3 prompt `[agent inference]`.
+- The grid "Prompt versions" of the book detail view shows the phase and the label of each box, for example "ED_2 phase 3 v1.1" `[reading pending owner check]`.
+- The Details view lists the labels at the start and at the end of each archived run. The column "Phase" of that list already gives the phase.
+- Open (item a in section 15.29.8): where the phase 3 prompt files go at the phase move. The Monitor dashboard cannot show the history of phase 3 until the owner decides.
+
+Rollback: the design side holds the text with a tag that says no owner source exists (`translator-design.md`, section 9.27.6). The Viewer has no rollback button. This unit adds none.
+
+##### 15.29.5 Admin gate: accepted parts and the seven fixes
+
+Round 76 answers 10 and 11 accepted the design of section 15.28.2. Unit RT74 built it in commit f42e8e6. Unit DZ75 checked each fix below against the code of that commit.
+
+| # | Place | Fix | Code checked |
+|---|---|---|---|
+| 1 | 15.28.2 item 1 | The record holds one run folder name of one page, not one run stamp of one book. The run view button opens or closes all 5 page runs of list `20261029T051152Z` in one step. | `app/lib/pb.ts` (`openRun`, `closeRun`), `app/app/api/admin/opens/route.ts`, `app/components/ReaderOpenRows.tsx` |
+| 2 | 15.28.2 item 3 | All five rules of `reader_opens` are admin only, also list and view. They are not the rules of `run_marks`. | migration `1793300012_v2_reader_opens.js`, lines 49 to 53 |
+| 3 | 15.28.2 item 5 | The status line sits on `/translate/<slug>?at=pNNN`, not on `/page/<slug>/<page>`. | `app/components/HtvPageSection.tsx:269`, `app/lib/reader-opens-rule.ts:48-53` |
+| 4 | 15.28.2 item 6 | The real Open dialog text replaces the example of DZ74. | `app/components/ReaderOpenRows.tsx` |
+| 5 | 15.28.2 effect | The count after the gate is 1,124 of 14,116 pages translated (8.0 percent). | live read of aki-main (not checked in code) |
+| 6 | 15.27.2 | The pilot Pause and Resume dialog text follows `/api/pause`. | `app/components/PauseButton.tsx` |
+| 7 | 15.28.6 | A Human-only page shows "Human translation" in the page index and "Human" in the side index. | `app/components/ReaderIndex.tsx:125-129` |
+
+Details:
+
+- Fix 3 texts: "Readers see: run X (opened)", "Readers see: run X (opened, run mark)", and "Readers see no agent text for this page. No run of this page is open." A fourth text covers an open run without a PASS verdict. The line ends with "Readers see a change after the next S2 run."
+- Fix 4 text: title "Open run 20261029T051152Z of left_foot_full to readers?", body "Readers see the Agent text of 5 of 5 pages after the next S2 run. The number counts the pages whose run has the verdict PASS. You can close the run again.", buttons [Cancel] [Open to readers]. The number 5 of 5 is the example of RT74.
+- Fix 5: S2 removed 28 agent records and set `18d4ac29/p001` back to `web-ja`. That is 29 records changed. The Reader dashboard `/read` drop is 27, because `men0/p005` belongs to `men0`, which the Reader hides as part of `men_full` (round 69 answer 12, `app/lib/reader-folds.ts:29`).
+- Fix 6: this is the pilot run view `/runs/<stamp>`. The real-book Pause on the Monitor dashboard (round 70 answer 12) finishes the current page and ends the process. Its dialog text is in section 15.27.2.
+- Fix 7: a page with Agent text shows "AI translation" in the page index and "AI" in the side index. A page with Agent text that a person checked shows "AI translation, checked by a person".
+
+##### 15.29.6 Lines of this file that round 76 replaced
+
+| Line | What changed | Source |
+|---|---|---|
+| 3899 | groups Paused and Stopped | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 3911 | summary line example | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 3912 | group order, group order reason | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 3914 | groups that show when not empty | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 3915 | groups that start open | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 3928 | label Paused | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 3929 | label Stopped and row texts | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 3939 | label table row Paused | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 3940 | label table row Stopped | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 3998 | Resume of a paused book | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 4009 | refresh rule | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 4119 | paused book text | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 4131 | sketch 1 summary line | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 4159 | sketch 2 summary line | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 4166 | sketch 2 group heading | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 4167 | sketch 2 row | round 76 answer 4, qa-memory-2026-11-01.md:7 and round 76 answer 5, qa-memory-2026-11-01.md:8 |
+| 4168 | sketch 2 row text | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 4293 | DZ73 default 2 tag | round 76 answer 5, qa-memory-2026-11-01.md:8 |
+| 4348 | smoke fixture list | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 4366 | item 3 Pause scope | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 5619 | Pause dialog text (fix 6) | RT74 fix 6, PauseButton.tsx |
+| 5622 | pilot Pause dialog text (fix 6) | round 76 answer 11, qa-memory-2026-11-01.md:14 |
+| 5630 | button table Resume | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 5631 | button table Restart | round 76 answer 5, qa-memory-2026-11-01.md:8 |
+| 5633 | Restart states not decided | round 76 answer 5, qa-memory-2026-11-01.md:8 |
+| 5665 | DZ73 default 2 tag | round 76 answer 5, qa-memory-2026-11-01.md:8 |
+| 5667 | refuse option | round 76 answer 5, qa-memory-2026-11-01.md:8 |
+| 5739 | DZ73 default 2 tag, refuse option | round 76 answer 5, qa-memory-2026-11-01.md:8 |
+| 5747 | item 3 Restart states | round 76 answer 5, qa-memory-2026-11-01.md:8 |
+| 5748 | item 4 default 3 pending | round 76 answer 5, qa-memory-2026-11-01.md:8 |
+| 5755 | Restart mark open | round 76 answer 5, qa-memory-2026-11-01.md:8 |
+| 5772 | answer 10 not decided | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 5785 | design tag intro | round 76 answers 10 and 11 |
+| 5787 | item 1 run | RT74 fix 1 |
+| 5789 | item 3 store and rules | RT74 fix 2 |
+| 5790 | item 4 tag | round 76 answer 10 |
+| 5791 | item 5 place and status line | RT74 fix 3 |
+| 5792 | item 6 dialog text | RT74 fix 4 |
+| 5793 | item 7 tag | round 76 answer 10 |
+| 5797 | item 8 tag | round 76 answer 11 |
+| 5798 | item 9 tag and S2 stop | round 76 answer 10 |
+| 5803 | FAIL run example tag | round 76 answer 11 |
+| 5808 | effect, records changed | RT74 fix 5 |
+| 5809 | effect, count after the gate | RT74 fix 5 |
+| 5812 | open check on run meaning | RT74 fix 1 |
+| 5822 | Restart and opened run tag | round 76 answer 12, qa-memory-2026-11-01.md:15 |
+| 5827 | four open points | round 76 answers 6 to 8, qa-memory-2026-11-01.md:9-11 |
+| 5831 | Prompt versions grid | round 76 answer 7, qa-memory-2026-11-01.md:10 |
+| 5832 | open points i to iv | round 76 answers 6 to 8 |
+| 5834 | heading 15.28.5 | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 5836 | answer 10 not decided | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 5840 | facts code state | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 5841 | Paused fact | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 5842 | Stopped fact | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 5843 | both states | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 5848 | option 1 keep two states | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 5849 | option 2 one state | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 5851 | items that wait | round 76 answer 5, qa-memory-2026-11-01.md:8 |
+| 5853 | DZ73 default 2 | round 76 answer 5, qa-memory-2026-11-01.md:8 |
+| 5854 | item 3 Restart states | round 76 answer 5, qa-memory-2026-11-01.md:8 |
+| 5858 | Pause dialog added | round 76 answer 11 |
+| 5864 | AI tag fix (fix 7) | round 76 answer 11 |
+| 5879 | DZ73 default 2 pending | round 76 answer 5, qa-memory-2026-11-01.md:8 |
+| 5931 | RT74 defaults tag | round 76 answers 10 and 11 |
+| 5932 | DZ74 default 5 example text | round 76 answer 11 |
+| 5933 | DZ74 default 3 tag | round 76 answer 12 |
+| 5934 | DZ74 default 4 recommended option | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 5938 | open item 1 | round 76 answer 4, qa-memory-2026-11-01.md:7 |
+| 5939 | open item 2 | round 76 answer 3 |
+| 5940 | open item 3 | round 76 answers 6 to 8 |
+| 5941 | open item 4 | round 76 answers 10 and 11 |
+| 5947 | not verified count | RT74 fix 5 |
+| 5948 | not verified run meaning | RT74 fix 1 |
+
+##### 15.29.7 Unit defaults of DZ75
+
+1. `[unit default DZ75]` The symbol ■ for both causes of Stopped (section 15.29.2). Other option: keep ‖ for the cause Pause. Benefit: one state, one symbol. Cost: the symbol does not tell the cause.
+2. `[unit default DZ75]` A pilot list in the state "paused" shows as "Running, pause requested" (section 15.29.2). Other option: show it as Stopped. Benefit: the label is true, because the process lives. Cost: the label differs from the file value.
+3. `[unit default DZ75]` The Monitor builds the row text of a Stopped book from the status fields (section 15.29.2). Other option: the run program writes the whole text into `stop_text`. Benefit: the text follows the fields. Cost: the Monitor holds the sentence patterns.
+4. `[unit default DZ75]` The grid "Prompt versions" shows "ED_2 phase 3 v1.1" (section 15.29.4). Other option: show the label only and put the phase in the heading. Benefit of the default: the label is complete in each cell. Cost: a longer cell.
+
+##### 15.29.8 Open items for the owner
+
+a. Where the phase 3 prompt files go at the phase move (`translator-design.md`, section 9.27.5). Recommended: option 1, `prompts/` moves with the phase. Example: ED_2 of `mental_full` has `v1.0` to `v1.4` in phase 3. The Monitor dashboard needs the old phase folder to show them.
+b. Rollback: aki-main answers the owner in round 77 (`translator-design.md`, section 9.27.6).
+c. The audit rule for a hard group that needs a dropped line (`translator-design.md`, section 9.27.9, item c).
+d. The readings of answers 4 and 7 (`qa-memory-2026-11-01.md:25,27`).
+
+##### 15.29.9 Not verified
+
+- No code ran in this unit. The Monitor dashboard code for the merged state is not built.
+- The Open dialog text and the status line texts come from the code of f42e8e6. The number "5 of 5 pages" is the example of RT74. DZ75 did not run the page.
+- The count 1,124 of 14,116 pages translated comes from a live read of aki-main at 2026-11-01 01:08. DZ75 did not repeat the read.
+- The S2 numbers (28 records removed, 29 records changed) come from the brief of aki-main.
+- The symbols and the label of a pilot list in the state "paused" are unit defaults.
+
+Status: round 76 answers applied by unit DZ75. Items in section 15.29.8 wait for the owner.

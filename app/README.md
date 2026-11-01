@@ -467,11 +467,11 @@ The reader pages are the book reading site for readers. Design: `docs/VISION-vie
 
 ### S2 and reader_pages
 
-- S2 builds one `reader_pages` record for each page with an agent translation. The run is the run mark of the admin, else the newest PASS run. A page with only FAIL runs gets no record.
+- S2 builds one `reader_pages` record for each page with an agent translation. The run is the run of the admin run mark if that run is open, else the newest open PASS run (round 75 answer 3, round 76 answers 10 and 11). An admin opens a run with "Open to readers" on the run view `/runs/<stamp>`. The collection `reader_opens` holds the opened runs. A page with no open PASS run gets no agent text. A book page loses its record, and a web article page goes back to its `web-ja` record. S2 stops if `reader_opens` is missing.
 - The record holds rows, term entries, captions (extras), the group keys with a translator tick (agree), and the folded search columns `search_ja` and `search_en` (unit RC4). It holds no name.
 - Dry run is the default. `--apply` writes. A second run changes nothing. The report lists the count and the sizes in MB.
 - Last test on a throwaway server (unit RC4, with the search columns): 29 records, min 0.01 MB, median 0.03 MB, max 0.06 MB, total 0.88 MB.
-- Run S2 again after an admin marks a run, a translator ticks agree, or a new run ends. The reader pages change at that time.
+- Run S2 again after an admin opens or closes a run, marks a run, a translator ticks agree, or a new run ends. The reader pages change at that time.
 
 ### Tests
 
