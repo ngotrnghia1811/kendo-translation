@@ -201,6 +201,7 @@ export async function loadReaderIndex(token: string, user: SessionUser, slug: st
     agentPages: nums.agent,
     humanPages,
     dataPages: sortedUnion(nums.agent, nums.web, humanPages, v1Pages),
+    v1Pages,
     checkedPages: [...checks.keys()].map(numberOf).filter((n) => n > 0).sort((a, b) => a - b),
     chapters,
     resumeAt: at ? numberOf(at) || null : null,

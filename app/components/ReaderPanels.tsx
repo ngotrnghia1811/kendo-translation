@@ -1,0 +1,270 @@
+"use client";
+import { useEffect, useRef, useState } from "react";
+import { DragHandle } from "./HtvPanelFrame";
+import { PANEL_WIDTH, type ComponentId } from "@/lib/htv-settings";
+
+/*
+ * The row of panels on the reader pages (unit RT73b, round 73c answer 4, round 73d answers 5 and 6; VISION-viewer 15.26.6).
+ * A panel has a title bar (name, Move left, Move right, Hide) and a body. The caller builds the bodies. This component does the layout:
+ *   - wide screen: the panels side by side. The title bar moves a panel by its buttons or by a drag. A handle on the right edge resizes it (DragHandle, 280 to 720 px).
+ *   - phone: one tab for each panel, no title bar, no handle, no move (15.26.6.10)
+ *   - Focus mode: no title bars and no handles, equal widths (15.26.6.11)
+ *   - band (Scroll view): the bodies have their natural height, so there is no scroll together in a band (unit default)
+ * A tap on a row marks the pair in the panels that share the row key. The panels scroll so that the pair is in view, and a scroll in one panel moves the others (15.26.6.6).
+ */
+
+export interface PanelSpec {
+  /** Key of the panel: the component ID, or "pair" for the merged panel of Bilingual pairing. */
+  key: string;
+  /** The components that the panel draws. */
+  ids: ComponentId[];
+  title: string;
+  body: React.ReactNode;
+}
+
+const BTN = "rounded border border-line bg-white px-1.5 text-sm leading-5 hover:bg-stone-100";
+
+function PanelBox({
+  spec,
+  index,
+  count,
+  saved,
+  last,
+  focus,
+  shownOnPhone,
+  onMove,
+  onHide,
+  onWidth,
+  onDragFrom,
+  getDragFrom,
+}: {
+  spec: PanelSpec;
+  index: number;
+  count: number;
+  saved: number | undefined;
+  last: boolean;
+  focus: boolean;
+  shownOnPhone: boolean;
+  onMove: (from: number, to: number) => void;
+  onHide: (spec: PanelSpec) => void;
+  onWidth: (spec: PanelSpec, w: number) => void;
+  onDragFrom: (i: number | null) => void;
+  getDragFrom: () => number | null;
+}) {
+  const box = useRef<HTMLElement>(null);
+  const [measured, setMeasured] = useState<number | null>(null);
+  // The handle needs the width in px at the start of a drag. A panel without a saved width has the width that the row gives it.
+  useEffect(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setMeasured(Math.round(el.getBoundingClientRect().width)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const fixed = saved !== undefined && !last && !focus;
+  const width = saved ?? measured ?? 400;
+  const cls = ["relative flex min-w-0 flex-col md:flex", shownOnPhone ? "" : "hidden", fixed ? "md:w-[var(--panel-w)] md:flex-none" : focus ? "md:flex-1 md:basis-0" : "md:min-w-[280px] md:flex-1 md:basis-0"].join(" ");
+  const style = fixed ? ({ "--panel-w": `${saved}px` } as React.CSSProperties) : undefined;
+  const only = count === 1;
+  return (
+    <section ref={box} className={cls} style={style} data-panel={spec.key} data-panel-width={fixed ? saved : undefined} aria-label={spec.title}>
+      {focus ? null : (
+        <div
+          className="hidden cursor-grab items-center gap-1 border-b border-line bg-stone-100 px-2 py-1 text-sm md:flex"
+          draggable={!only}
+          title={only ? "Keep at least one panel" : "Drag the title bar to move the panel"}
+          data-panel-title={spec.key}
+          onDragStart={(e) => {
+            e.dataTransfer.setData("text/plain", spec.key);
+            e.dataTransfer.effectAllowed = "move";
+            onDragFrom(index);
+          }}
+          onDragOver={(e) => {
+            if (getDragFrom() !== null) e.preventDefault();
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            const from = getDragFrom();
+            onDragFrom(null);
+            if (from !== null) onMove(from, index);
+          }}
+          onDragEnd={() => onDragFrom(null)}
+        >
+          <span className="min-w-0 flex-1 truncate font-semibold">{spec.title}</span>
+          {index > 0 ? (
+            <button type="button" className={BTN} aria-label={`Move the ${spec.title} panel left`} data-panel-move="left" onClick={() => onMove(index, index - 1)}>
+              <span aria-hidden="true">◀</span>
+            </button>
+          ) : null}
+          {index < count - 1 ? (
+            <button type="button" className={BTN} aria-label={`Move the ${spec.title} panel right`} data-panel-move="right" onClick={() => onMove(index, index + 1)}>
+              <span aria-hidden="true">▶</span>
+            </button>
+          ) : null}
+          {only ? null : (
+            <button type="button" className={BTN} aria-label={`Hide the ${spec.title} panel`} data-panel-hide onClick={() => onHide(spec)}>
+              <span aria-hidden="true">×</span>
+            </button>
+          )}
+        </div>
+      )}
+      <div className="relative min-h-0 px-3 py-2 md:flex-1 md:overflow-auto" data-panel-body={spec.key}>
+        {spec.body}
+      </div>
+      {!last && !focus ? (
+        <div className="hidden md:block">
+          <DragHandle side="right" width={width} min={PANEL_WIDTH.min} max={PANEL_WIDTH.max} onWidth={(w) => onWidth(spec, w)} label={`Drag to change the width of the ${spec.title} panel`} attr="data-reader-handle" />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+const nearly = (a: number, b: number) => Math.abs(a - b) < 2;
+
+export default function ReaderPanels({
+  panels,
+  widths,
+  focus,
+  band,
+  activeKey,
+  startTab,
+  onTap,
+  onMove,
+  onHide,
+  onWidth,
+}: {
+  panels: PanelSpec[];
+  widths: Partial<Record<ComponentId, number>>;
+  focus: boolean;
+  band: boolean;
+  /** The row key that the reader tapped, or null. */
+  activeKey: string | null;
+  /** Key of the panel whose tab opens first on a phone. */
+  startTab: string;
+  /** A tap on the row with this key. A second tap on the marked row clears the mark. */
+  onTap: (key: string) => void;
+  onMove: (from: number, to: number) => void;
+  onHide: (spec: PanelSpec) => void;
+  onWidth: (spec: PanelSpec, w: number) => void;
+}) {
+  const [tab, setTab] = useState(startTab);
+  const current = panels.some((p) => p.key === tab) ? tab : (panels[0]?.key ?? "");
+  const dragFrom = useRef<number | null>(null);
+  const holder = useRef<HTMLDivElement>(null);
+  // A panel that the code scrolls on purpose fires a scroll event. The map says "ignore it until this time", so the panels do not drive each other in a loop.
+  const quiet = useRef(new WeakMap<Element, number>());
+
+  const bodies = () => [...(holder.current?.querySelectorAll<HTMLElement>("[data-panel-body]") ?? [])];
+  const rowsOf = (body: HTMLElement) => [...body.querySelectorAll<HTMLElement>("[data-row]")];
+  const scrollBody = (body: HTMLElement, top: number) => {
+    quiet.current.set(body, performance.now() + 150);
+    body.scrollTop = Math.max(0, top);
+  };
+
+  // A tap marks the pair: each panel that holds the row scrolls so that the row is in view (15.26.6.6, D12).
+  useEffect(() => {
+    if (!activeKey || band) return;
+    const wide = window.matchMedia("(min-width: 768px)").matches;
+    for (const body of bodies()) {
+      const row = rowsOf(body).find((r) => r.dataset.row === activeKey);
+      if (!row) continue;
+      if (!wide) {
+        if (body.offsetParent) row.scrollIntoView({ block: "nearest" });
+        continue;
+      }
+      const top = row.offsetTop;
+      const inView = top >= body.scrollTop && top + row.offsetHeight <= body.scrollTop + body.clientHeight;
+      if (!inView) scrollBody(body, top - 12);
+    }
+    // The tab (current) is in the list: a switch to the tab of a paired panel scrolls that panel to the marked row.
+  }, [activeKey, band, current]);
+
+  // Esc clears the mark. The capture listener stops the key, so Esc does not also leave Focus mode in the same press.
+  useEffect(() => {
+    if (!activeKey) return;
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      onTap(activeKey);
+    };
+    window.addEventListener("keydown", key, true);
+    return () => window.removeEventListener("keydown", key, true);
+  }, [activeKey, onTap]);
+
+  // A scroll in one panel moves each panel that shares row keys with it, to the row at the same place. A panel without the row moves to the row before it.
+  function onScroll(e: React.UIEvent) {
+    const src = e.target;
+    if (band || !(src instanceof HTMLElement) || !src.hasAttribute("data-panel-body")) return;
+    if ((quiet.current.get(src) ?? 0) > performance.now()) return;
+    const srcRows = rowsOf(src);
+    const top = srcRows.find((r) => r.offsetTop + r.offsetHeight > src.scrollTop + 1) ?? srcRows.at(-1);
+    if (!top) return;
+    const keys = new Set(srcRows.map((r) => r.dataset.row));
+    const order = Number(top.dataset.order);
+    for (const body of bodies()) {
+      if (body === src) continue;
+      const rows = rowsOf(body);
+      if (!rows.some((r) => keys.has(r.dataset.row))) continue;
+      const exact = rows.find((r) => r.dataset.row === top.dataset.row);
+      const target = exact ?? rows.filter((r) => Number(r.dataset.order) <= order).at(-1) ?? rows[0];
+      const want = target.offsetTop + (exact ? src.scrollTop - top.offsetTop : 0);
+      if (!nearly(body.scrollTop, want)) scrollBody(body, want);
+    }
+  }
+
+  function onClick(e: React.MouseEvent) {
+    const t = e.target;
+    if (!(t instanceof HTMLElement) || t.closest("button, a, [data-fact], [data-term]")) return;
+    const row = t.closest<HTMLElement>("[data-row]");
+    if (row?.dataset.row) onTap(row.dataset.row);
+  }
+
+  return (
+    <div data-reader-panels>
+      {panels.length > 1 ? (
+        <div role="tablist" aria-label="Panels of the page" className="mb-2 flex overflow-hidden rounded border border-line text-sm md:hidden" data-panel-tabs>
+          {panels.map((p) => (
+            <button
+              key={p.key}
+              type="button"
+              role="tab"
+              aria-selected={current === p.key}
+              data-panel-tab={p.key}
+              onClick={() => setTab(p.key)}
+              className={"min-h-[44px] min-w-0 flex-1 px-1.5 py-1 text-xs leading-tight " + (current === p.key ? "bg-accent font-semibold text-white" : "")}
+            >
+              {p.title}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      <div
+        ref={holder}
+        onClick={onClick}
+        onScrollCapture={onScroll}
+        className={"md:flex md:items-stretch md:overflow-x-auto md:rounded md:border md:border-line " + (band ? "" : "md:h-[calc(100vh-9.5rem)] md:min-h-[24rem]")}
+        data-panel-row
+        data-panel-count={panels.length}
+      >
+        {panels.map((p, i) => (
+          <PanelBox
+            key={p.key}
+            spec={p}
+            index={i}
+            count={panels.length}
+            saved={widths[p.ids[0]]}
+            last={i === panels.length - 1}
+            focus={focus}
+            shownOnPhone={current === p.key}
+            onMove={onMove}
+            onHide={onHide}
+            onWidth={onWidth}
+            onDragFrom={(v) => (dragFrom.current = v)}
+            getDragFrom={() => dragFrom.current}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}

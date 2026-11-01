@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import { utcTime } from "@/lib/htv-format";
 import type { AdminVersion } from "@/lib/pb";
+import { factLine } from "@/lib/reader-layout";
+import type { ReaderFact } from "@/lib/reader-types";
 
 // Panel of one page on /admin/versions (unit RC1, round 63 answer 6, Q-A 2026-10-28 l310: "Admin page /admin/versions", "Collection page_checks").
 // It lists the saved human versions of the page (translator name, version number, date, row count), shows a preview, chooses one for the readers,
@@ -18,6 +20,8 @@ interface PreviewRow {
   agent: string;
   human: string;
   kind: string;
+  /** Fact marks of the kendojidai.com text (unit RT73b). Empty for the version of a translator. */
+  facts: ReaderFact[];
 }
 
 export default function AdminVersionPanel({ pageId }: { pageId: string }) {
@@ -128,6 +132,11 @@ export default function AdminVersionPanel({ pageId }: { pageId: string }) {
                       {r.human || <span className="text-muted">(empty)</span>}
                       <span className="ml-2 text-xs text-muted">{r.kind === "own" ? "own text" : r.kind === "agree" ? "agent text, agreed" : "agent text"}</span>
                     </p>
+                    {r.facts.map((f, i) => (
+                      <p key={i} lang="ja" className="mt-1 text-xs text-muted" data-preview-fact={f.kind}>
+                        fact {f.kind}: {factLine(f)}
+                      </p>
+                    ))}
                   </li>
                 ))}
               </ul>

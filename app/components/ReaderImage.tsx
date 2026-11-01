@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 /*
  * Original page image on the reader pages (unit RC2, round 65). VISION-viewer 15.19.4 and 15.19.7.
- * Wide screen: the image on the left, the text on the right. Phone: two tabs, "Text | Image", above the text. They are not side by side.
+ * Unit RT73b (round 73c answer 4): the image is the body of the panel "Page image" (ReaderPageView). The panels and the phone tabs are in ReaderPanels.
  * The image comes from GET /api/read/image/<book>/<page>. In signed mode that route sends the browser to a signed link on the PocketBase server.
  * A missing image (404) or a load error shows "No page image available". The image shows as it is in every theme (no color change).
  */
@@ -15,7 +15,7 @@ export function imageHref(pageId: string): string {
   return `/api/read/image/${pageId}`;
 }
 
-function ImagePane({ pageId, n }: { pageId: string; n: number }) {
+export function ImagePane({ pageId, n }: { pageId: string; n: number }) {
   const [failed, setFailed] = useState(false);
   const img = useRef<HTMLImageElement>(null);
   const src = imageHref(pageId);
@@ -42,33 +42,6 @@ function ImagePane({ pageId, n }: { pageId: string; n: number }) {
           <img ref={img} src={src} alt={`Original page image, Page ${n}`} loading="lazy" decoding="async" onError={() => setFailed(true)} className="block h-auto w-full rounded border border-line" data-page-image />
         </>
       )}
-    </div>
-  );
-}
-
-/**
- * The page text with the page image beside it (wide) or behind a tab (phone). `children` is the text of the page.
- * Give the component a key with the page ID, so that the tab and the error state start again on each page.
- */
-export default function ReaderWithImage({ pageId, n, children }: { pageId: string; n: number; children: React.ReactNode }) {
-  const [tab, setTab] = useState<"text" | "image">("text");
-  return (
-    <div data-with-image data-image-tab={tab}>
-      <div role="tablist" aria-label="Page text or page image" className="mb-3 flex overflow-hidden rounded border border-line text-sm md:hidden" data-image-tabs>
-        {(["text", "image"] as const).map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t} data-image-tab-button={t} onClick={() => setTab(t)} className={"min-h-[44px] flex-1 px-3 py-1 " + (tab === t ? "bg-accent font-semibold text-white" : "")}>
-            {t === "text" ? "Text" : "Image"}
-          </button>
-        ))}
-      </div>
-      <div className="md:flex md:items-start md:gap-6">
-        <div className={(tab === "image" ? "block" : "hidden") + " md:sticky md:top-16 md:block md:max-h-[calc(100vh-5rem)] md:w-[42%] md:shrink-0 md:overflow-auto"} data-image-column>
-          <ImagePane pageId={pageId} n={n} />
-        </div>
-        <div className={(tab === "text" ? "block" : "hidden") + " min-w-0 md:block md:flex-1"} data-text-column>
-          {children}
-        </div>
-      </div>
     </div>
   );
 }

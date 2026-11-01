@@ -145,23 +145,44 @@ export interface PaneSettings {
 // ---------------------------------------------------------------- reader pages (unit RC1, round 63)
 
 /**
- * Settings of the reader pages, kept per account (owner 2026-10-07 l67 "Per account, all devices"; VISION-viewer 15.19.6).
- *   text    en = single language English, ja = single language Japanese, pair = bilingual pairing
- *   en      agent = the agent translation (default), human = the human version that an admin chose for the page
+ * Components of the reader panels (unit RT73b, round 73c answer 4, VISION-viewer 15.26.6). A component is one item in the list that the reader checks.
+ * "enorig" (EN-original) has no data now (vision l108 to l110). The sanitizer accepts its ID, so a later unit needs no change here (15.26.5).
+ */
+export const COMPONENT_IDS = ["image", "ja", "agent", "human", "v1en", "v1zh", "enorig"] as const;
+export type ComponentId = (typeof COMPONENT_IDS)[number];
+/** Order of the panels without a saved order (unit default D6). */
+export const DEFAULT_COMPONENT_ORDER: ComponentId[] = ["image", "ja", "agent", "human", "v1en", "v1zh"];
+/** Width of a reader panel in px. A panel with no saved width shares the free width of the row (unit default D8). */
+export const PANEL_WIDTH = { min: 280, max: 720 };
+/** A work with page images (books, magazine years) or without (the web articles). The saved checked list is one list for each kind (unit default D15). */
+export type WorkKind = "book" | "article";
+export interface ReaderShown {
+  book?: ComponentId[];
+  article?: ComponentId[];
+}
+
+/**
+ * Settings of the reader pages, kept per account (owner 2026-10-07 l67 "Per account, all devices"; VISION-viewer 15.19.6 and 15.26.6.9).
  *   view    page = one page at a time (default, round 63 answer 7), scroll = all pages in one scroll
  *   fontEn  serif or sans. fontJa  mincho or gothic. size in px. line = line height. width  narrow (about 72 characters) or wide.
  *   focus   true = focus mode (text only)
- *   image   true = show the original page image next to the text (page view only; default true since unit RC3, round 66)
  *   index   false = the book index is closed
  *   panelSeen  true = the first-visit panel was closed once (unit RC4, round 69 answer 13: "Every account sees it once"). It is not in READER_DEFAULTS,
  *              so the button "Reset text settings" keeps it (VISION-viewer 15.23.6).
+ * Layout keys (unit RT73b, VISION-viewer 15.26.6.9):
+ *   components  order of the panels, left to right. Same for all kinds of work.
+ *   shown       the checked components, one list for each kind of work. Absent for a kind: the page uses the first layout (15.26.6.7).
+ *   widths      px of the panels that the reader resized, 280 to 720
+ *   pair        Bilingual pairing. terms  Kendo term highlights.
+ * Old keys (unit RC1 to RC3), read when the account has no "shown", never written by the new code (15.26.6.9):
+ *   text  en = single language English, ja = single language Japanese, pair = bilingual pairing
+ *   en    agent = the agent translation, human = the human version
+ *   image true = show the page image
  */
 export type ReaderText = "en" | "ja" | "pair";
 export type ReaderEn = "agent" | "human";
 export type ReaderWidth = "narrow" | "wide";
 export interface ReaderSettings {
-  text?: ReaderText;
-  en?: ReaderEn;
   view?: ViewName;
   fontEn?: "serif" | "sans";
   fontJa?: "mincho" | "gothic";
@@ -169,14 +190,24 @@ export interface ReaderSettings {
   line?: number;
   width?: ReaderWidth;
   focus?: boolean;
-  image?: boolean;
   index?: boolean;
   panelSeen?: boolean;
+  components?: ComponentId[];
+  shown?: ReaderShown;
+  widths?: Partial<Record<ComponentId, number>>;
+  pair?: boolean;
+  terms?: boolean;
+  text?: ReaderText;
+  en?: ReaderEn;
+  image?: boolean;
 }
 
-export const READER_DEFAULTS: Required<Omit<ReaderSettings, "panelSeen">> = {
-  text: "en",
-  en: "agent",
+/** The keys that "Reset layout" removes: the layout keys and the old keys (else the old keys would turn into the layout again, 15.26.6.9). */
+export const LAYOUT_KEYS = ["components", "shown", "widths", "pair", "terms", "text", "en", "image"] as const;
+export type LayoutKey = (typeof LAYOUT_KEYS)[number];
+
+/** Defaults of the text settings. The button "Reset text settings" sends these and leaves the layout alone (15.26.6.2). */
+export const READER_DEFAULTS: Required<Pick<ReaderSettings, "view" | "fontEn" | "fontJa" | "size" | "line" | "width" | "focus" | "index">> = {
   view: "page",
   fontEn: "serif",
   fontJa: "mincho",
@@ -184,9 +215,24 @@ export const READER_DEFAULTS: Required<Omit<ReaderSettings, "panelSeen">> = {
   line: 1.7,
   width: "narrow",
   focus: false,
-  image: true, // Unit RC3 (round 66 answer 4): on by default in the page view. A reader who saved off keeps off. The Image button in the reader bar turns it on or off.
   index: true,
 };
+
+/** The layout of an account without a saved layout. "shown" has no default: its absence means the first layout (15.26.6.7). */
+export const LAYOUT_DEFAULTS: Required<Pick<ReaderSettings, "components" | "widths" | "pair" | "terms">> = {
+  components: DEFAULT_COMPONENT_ORDER,
+  widths: {},
+  pair: false,
+  terms: true,
+};
+
+const isComponent = (v: unknown): v is ComponentId => typeof v === "string" && (COMPONENT_IDS as readonly string[]).includes(v);
+
+/** A list of unique component IDs, or undefined when the value is not a list. IDs that the app does not know drop out. */
+function idList(v: unknown): ComponentId[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  return [...new Set(v.filter(isComponent))];
+}
 
 export function sanitizeReader(v: unknown): ReaderSettings | undefined {
   if (!v || typeof v !== "object") return undefined;
@@ -206,7 +252,51 @@ export function sanitizeReader(v: unknown): ReaderSettings | undefined {
   if (typeof r.image === "boolean") out.image = r.image;
   if (typeof r.index === "boolean") out.index = r.index;
   if (typeof r.panelSeen === "boolean") out.panelSeen = r.panelSeen;
+  // Layout keys (unit RT73b, VISION-viewer 15.26.6.9). A list of panels has at most 7 unique IDs. The list adds the IDs of the default order that it lacks.
+  const order = idList(r.components);
+  if (order) out.components = [...order, ...DEFAULT_COMPONENT_ORDER.filter((id) => !order.includes(id))];
+  if (r.shown && typeof r.shown === "object") {
+    const sh = r.shown as Record<string, unknown>;
+    const shown: ReaderShown = {};
+    const book = idList(sh.book);
+    if (book) shown.book = book;
+    const article = idList(sh.article);
+    if (article) shown.article = article;
+    if (shown.book || shown.article) out.shown = shown;
+  }
+  if (r.widths && typeof r.widths === "object") {
+    const w: Partial<Record<ComponentId, number>> = {};
+    for (const id of COMPONENT_IDS) {
+      const x = num((r.widths as Record<string, unknown>)[id], PANEL_WIDTH.min, PANEL_WIDTH.max, 0);
+      if (x !== undefined) w[id] = x;
+    }
+    if (Object.keys(w).length) out.widths = w;
+  }
+  if (typeof r.pair === "boolean") out.pair = r.pair;
+  if (typeof r.terms === "boolean") out.terms = r.terms;
   return Object.keys(out).length ? out : undefined;
+}
+
+/** The keys of a "clear" list from a request: only the layout keys, no repeat. */
+export function sanitizeClear(v: unknown): LayoutKey[] {
+  if (!Array.isArray(v)) return [];
+  return [...new Set(v.filter((k): k is LayoutKey => typeof k === "string" && (LAYOUT_KEYS as readonly string[]).includes(k)))];
+}
+
+/**
+ * Turn the old keys text, en, and image into a checked list for each kind of work (VISION-viewer 15.26.6.9). Read time only, nothing is written.
+ *   text en + en agent       Agent text (and Page image on a book if image is not false)
+ *   text en + en human       the same with Human version
+ *   text ja                  Original text only (and Page image)
+ *   text pair + en human     Original text and Human version, pair true
+ * Returns null when the account has none of the three keys.
+ */
+export function legacyLayout(r: ReaderSettings): { shown: Required<ReaderShown>; pair: boolean } | null {
+  if (r.text === undefined && r.en === undefined && r.image === undefined) return null;
+  const text = r.text ?? "en";
+  const en = r.en ?? "agent";
+  const words: ComponentId[] = [...(text === "en" ? [] : (["ja"] as const)), ...(text === "ja" ? [] : [en])];
+  return { shown: { book: [...(r.image === false ? [] : (["image"] as const)), ...words], article: words }, pair: text === "pair" };
 }
 
 export const EMPTY_SETTINGS: PaneSettings = { v: 1, panes: {} };

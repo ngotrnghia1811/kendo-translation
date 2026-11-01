@@ -16,6 +16,8 @@
 //   node scripts/smoke.mjs web                         text-only works and the v1 placeholder (unit RT73a, round 73). Needs a throwaway PocketBase after the S2 upload with the page file
 //                                                      of the web articles, the env variables HTV_ADMIN_*, HTV_READER_* (approved), HTV_READER2_* (not approved), VIEWER_V1_DIR (a test
 //                                                      folder, run_all.py prepares it), and RT73A_WEB_PAGES (the page file). It writes settings, one choice, and one removal of a choice.
+//   node scripts/smoke.mjs layout                     reader panels (unit RT73b, round 73c answer 4): the saved layout, the conversion of the old keys text, en, and image, the first layout,
+//                                                      Bilingual pairing, Move and drag, the component list, and the rows of the components. Pure code, no server, no PocketBase.
 //   node scripts/smoke.mjs folds                       Reader dashboard rules (unit RC4, round 70): the folds, the hidden works, the fold rule of the search, and the progress words.
 //                                                      Pure code on the real metadata files. It starts no server and needs no PocketBase.
 //   node scripts/smoke.mjs tolerance                   Reader dashboard on a PocketBase that has the migrations up to 1793300010 only, the state before unit RT73a (unit RC4, round 70). Needs the old S2 upload,
@@ -363,6 +365,16 @@ class Client {
     return this.jar.get("htv_token") ?? "";
   }
 }
+
+// Unit RT73b (round 73c answer 4): the layout keys that the route clears ("Reset layout"), and readers of the panels in the HTML of a reader page.
+// A panel is <section data-panel="ja|agent|human|image|v1en|v1zh|pair">. The rows of a panel are the data-row attributes inside it.
+const LAYOUT_CLEAR = ["components", "shown", "widths", "pair", "terms", "text", "en", "image"];
+const clearLayout = (c) => c.req("/api/read/settings", { method: "PUT", json: { clear: LAYOUT_CLEAR } });
+const panelHtml = (html, id) => (html.match(new RegExp(`<section[^>]*data-panel="${id}"[\\s\\S]*?</section>`)) ?? [""])[0];
+const panelIds = (html) => [...html.matchAll(/<section[^>]*data-panel="([^"]+)"/g)].map((m) => m[1]);
+const rowKeysIn = (html, id) => [...panelHtml(html, id).matchAll(/data-row="([^"]+)"/g)].map((m) => m[1]);
+const panelLabel = (html, id) => htvText((panelHtml(html, id).match(/<p[^>]*data-ai-label[^>]*>[\s\S]*?<\/p>/) ?? [""])[0]).trim();
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 // Unit RC4: true when the HTML holds a link <a> with this href, this attribute (or none), and this label. Next writes the attributes in its own order.
 function hasLink(html, href, attr, label) {
@@ -1401,7 +1413,7 @@ async function toleranceTest() {
   // the example pages
   r = await cr.req("/read/left_foot_full");
   check("Tolerance: /read/left_foot_full (book screen) answers 200 with 120 pages and the work block 'AI translation: 6 of 120 pages. Human check: 0 of 6 pages.'", r.status === 200 && countOf(r.body, /data-index-page="p\d+"/g) === 120 && htvText(r.body).includes("AI translation: 6 of 120 pages. Human check: 0 of 6 pages."), `status ${r.status}`);
-  await cr.req("/api/read/settings", { method: "PUT", json: { reader: { panelSeen: true, text: "en", en: "agent", image: true } } });
+  await cr.req("/api/read/settings", { method: "PUT", json: { reader: { panelSeen: true }, clear: LAYOUT_CLEAR } });
   r = await cr.req("/read/left_foot_full?view=page&at=p048");
   check("Tolerance: left_foot_full p048 answers 200 with 5 agent rows and the AI label", r.status === 200 && keysOf(r.body).length === 5 && /AI translation/.test(label(r.body)), `status ${r.status}, rows ${keysOf(r.body).length}`);
   r = await cr.req("/read/left_foot_full?view=page&at=p051");
@@ -1443,11 +1455,7 @@ async function webTest() {
   for (const line of (await fs.readFile(file, "utf-8")).split("\n")) if (line.trim()) PG.set(JSON.parse(line).page_id, JSON.parse(line));
   check("Web: the page file holds 1,124 pages", PG.size === 1124, `pages ${PG.size}`);
   const countOf = (html, re) => (html.match(re) ?? []).length;
-  const keysOf = (html) => [...html.matchAll(/data-row="([^"]+)"/g)].map((m) => m[1]);
-  const label = (html) => htvText((html.match(/<p[^>]*data-ai-label[^>]*>[\s\S]*?<\/p>/) ?? [""])[0]).trim();
-  // The tag of the English text button (Agent or Human) in the reader bar, and whether it is disabled.
-  const enButton = (html, which) => (html.match(new RegExp(`<button[^>]*data-toolbar="English text:${which}"[^>]*>`)) ?? [""])[0];
-  const isOff = (tag) => /\sdisabled=""/.test(tag);
+
   const login = async (who) => {
     const c = new Client(who);
     const r = await c.req("/api/htv/login", { method: "POST", json: accounts[who] });
@@ -1457,7 +1465,8 @@ async function webTest() {
   const ad = (await login("admin")).c;
   const wr = (await login("reader2")).c;
   const putText = (c, reader) => c.req("/api/read/settings", { method: "PUT", json: { reader } });
-  await putText(cr, { text: "en", en: "agent", image: true, view: "page", panelSeen: true });
+  await clearLayout(cr);
+  await putText(cr, { view: "page", panelSeen: true });
 
   // --- Reader dashboard /read
   let r = await cr.req("/read");
@@ -1488,54 +1497,148 @@ async function webTest() {
   const want = (pid, f) => PG.get(pid)[f];
   const jaRows = (pid) => want(pid, "ja_rows").filter((x) => x.ja.trim()).length;
   const enRows = (pid) => want(pid, "human_rows").length;
+r = await cr.req("/read/d7835263?view=page&at=p001");
+  check("d7835263 p001, first layout (no saved layout): the bar has the button Original text and no button Image, the panels are Original text and Human version, the Human panel holds the 32 Human rows with the page line 'Human translation from kendojidai.com.', and the page shows no AI label", r.status === 200 && /data-toolbar="Original text:toggle"/.test(r.body) && !/data-toolbar="Image:toggle"/.test(r.body) && same(panelIds(r.body), ["ja", "human"]) && rowKeysIn(r.body, "human").length === 32 && rowKeysIn(r.body, "human").every((k) => /^d7835263\/p001\/web\/U\d+$/.test(k)) && panelLabel(r.body, "human") === "Human translation from kendojidai.com." && !/AI translation/.test(htvText(r.body)), `panels ${panelIds(r.body)}, human rows ${rowKeysIn(r.body, "human").length}, label ${panelLabel(r.body, "human")}`);
+  check(`d7835263 p001: the Original text panel holds the ${jaRows("d7835263/p001")} JA rows (the EN-only row U006 stays out), the Human text of U004 'Why is kendo all about men?' shows, and the button Components comes after the View buttons`, rowKeysIn(r.body, "ja").length === jaRows("d7835263/p001") && htvText(panelHtml(r.body, "human")).includes("Why is kendo all about men?") && htvText(panelHtml(r.body, "ja")).includes("剣道はなぜ面なのか。") && htvText(panelHtml(r.body, "ja")).includes("※この記事は『剣道時代 2012年2月号』に掲載されたものです。") && r.body.indexOf('data-toolbar="View:scroll"') < r.body.indexOf("data-components-open"), `ja rows ${rowKeysIn(r.body, "ja").length}`);
+  check("d7835263 p001: the first panel has Move right and Hide and no Move left, the last panel has Move left and Hide and no Move right (two panels, so both can hide)", /aria-label="Move the Original text panel right"/.test(r.body) && !/aria-label="Move the Original text panel left"/.test(r.body) && /aria-label="Move the Human version panel left"/.test(r.body) && !/aria-label="Move the Human version panel right"/.test(r.body) && /aria-label="Hide the Original text panel"/.test(r.body) && /aria-label="Hide the Human version panel"/.test(r.body));
+  check("d7835263 p001: the first panel has a handle to resize it, the last panel has none (aria-label 'Drag to change the width of the Original text panel')", /aria-label="Drag to change the width of the Original text panel"/.test(r.body) && !/aria-label="Drag to change the width of the Human version panel"/.test(r.body) && countOf(r.body, /data-reader-handle/g) === 1);
+  await putText(cr, { shown: { article: ["ja"] } });
   r = await cr.req("/read/d7835263?view=page&at=p001");
-  check("d7835263 p001, default settings (Text EN, EN text Agent): the page shows the 32 Human rows (JA-only rows stay out), the page line 'Human translation from kendojidai.com.', no AI label, no Image button", r.status === 200 && keysOf(r.body).length === 32 && keysOf(r.body).every((k) => /^d7835263\/p001\/web\/U\d+$/.test(k)) && label(r.body) === "Human translation from kendojidai.com." && !/AI translation/.test(htvText(r.body)) && !/data-toolbar="Image:toggle"/.test(r.body), `rows ${keysOf(r.body).length}, label ${label(r.body)}`);
-  check("d7835263 p001: the Human text of U004 'Why is kendo all about men?' shows, and the English text control shows Human pressed and disabled (nothing to swap, no Agent text)", htvText(r.body).includes("Why is kendo all about men?") && /aria-pressed="true"/.test(enButton(r.body, "human")) && isOff(enButton(r.body, "human")) && isOff(enButton(r.body, "agent")), enButton(r.body, "human").slice(0, 150));
-  await putText(cr, { text: "ja" });
+  check("d7835263 p001, only Original text checked: one panel with the 31 JA rows and no Human text, and the last panel has no Hide button and no Move button (its title bar says 'Keep at least one panel')", same(panelIds(r.body), ["ja"]) && rowKeysIn(r.body, "ja").length === jaRows("d7835263/p001") && !htvText(r.body).includes("Why is kendo all about men") && !/data-panel-hide/.test(r.body) && !/data-panel-move/.test(r.body) && /title="Keep at least one panel"/.test(r.body));
+  await putText(cr, { shown: { article: ["ja", "human"] }, pair: true });
   r = await cr.req("/read/d7835263?view=page&at=p001");
-  check(`d7835263 p001, Text JA: the Original text shows ${jaRows("d7835263/p001")} rows (the EN-only row U006 stays out), the first row is 剣道はなぜ面なのか。 after the note line`, keysOf(r.body).length === jaRows("d7835263/p001") && htvText(r.body).includes("剣道はなぜ面なのか。") && htvText(r.body).includes("※この記事は『剣道時代 2012年2月号』に掲載されたものです。"), `rows ${keysOf(r.body).length}`);
-  await putText(cr, { text: "pair" });
+  check("d7835263 p001, Bilingual pairing: Original text and Human version are ONE panel 'Original text and Human version' with 32 rows, the JA text beside the Human text (data-pair)", same(panelIds(r.body), ["pair"]) && rowKeysIn(r.body, "pair").length === 32 && countOf(r.body, /data-pair/g) === 32 && htvText(r.body).includes("Original text and Human version") && /aria-label="Hide the Original text and Human version panel"/.test(r.body) === false, `panels ${panelIds(r.body)}, pairs ${countOf(r.body, /data-pair/g)}`);
+  await clearLayout(cr);
+  await putText(cr, { text: "pair", en: "human" });
   r = await cr.req("/read/d7835263?view=page&at=p001");
-  check("d7835263 p001, Text Pairing: 32 rows with the JA text beside the Human text (data-pair)", keysOf(r.body).length === 32 && countOf(r.body, /data-pair/g) === 32, `rows ${keysOf(r.body).length}`);
-  await putText(cr, { text: "en" });
+  check("Old saved value {text: 'pair', en: 'human'} (no 'shown'): d7835263 p001 shows Original text and Human version as one pairing panel (pair true, read time only)", same(panelIds(r.body), ["pair"]) && countOf(r.body, /data-pair/g) === 32, `panels ${panelIds(r.body)}`);
+  await clearLayout(cr);
+  await putText(cr, { text: "ja", image: false });
+  r = await cr.req("/read/d7835263?view=page&at=p001");
+  check("Old saved value {text: 'ja'}: d7835263 p001 shows Original text only (one panel)", same(panelIds(r.body), ["ja"]), `panels ${panelIds(r.body)}`);
+  await clearLayout(cr);
+  await putText(cr, { text: "en", en: "agent" });
+  r = await cr.req("/read/d7835263?view=page&at=p001");
+  check("Old saved value {text: 'en', en: 'agent'}: d7835263 p001 has no Agent text, so no checked component has data and the first layout shows (Original text and Human version)", same(panelIds(r.body), ["ja", "human"]) && !/data-page-note/.test(r.body), `panels ${panelIds(r.body)}`);
+  await clearLayout(cr);
   r = await cr.req("/read/d7835263?view=page&at=p003");
-  check(`d7835263 p003: ${enRows("d7835263/p003")} Human rows (20 rows, the JA-only row 関連 stays out), label 'Human translation from kendojidai.com.'`, keysOf(r.body).length === enRows("d7835263/p003") && enRows("d7835263/p003") === 19 && label(r.body) === "Human translation from kendojidai.com.", `rows ${keysOf(r.body).length}`);
+  check(`d7835263 p003: the Human panel holds ${enRows("d7835263/p003")} rows (19: the JA-only site row 関連 makes no line), the page line is 'Human translation from kendojidai.com.'`, rowKeysIn(r.body, "human").length === enRows("d7835263/p003") && enRows("d7835263/p003") === 19 && panelLabel(r.body, "human") === "Human translation from kendojidai.com.", `rows ${rowKeysIn(r.body, "human").length}`);
+  // fact marks on the screen (VISION-viewer 15.26.8): U071 a changed fact on a phrase, U072 a dropped fact on the whole sentence, U059 a dropped fact with no EN words
+  const rowHtml = (html, id, key) => (panelHtml(html, id).match(new RegExp(`<div[^>]*data-row="${key}"[\\s\\S]*?</p></div>`)) ?? [""])[0];
+  const pf071 = want("d7835263/p003", "human_rows").find((x) => x.key.endsWith("U071"));
+  const phrase071 = Array.from(pf071.text).slice(pf071.facts[0].start, pf071.facts[0].end).join("");
+  const r071 = rowHtml(r.body, "human", "d7835263/p003/web/U071");
+  check(`Fact mark U071 (changed, on a phrase): the words '${phrase071}' are a button with a dotted line (data-fact="changed"), and the row has no tag`, new RegExp(`<button[^>]*data-fact="changed"[^>]*>${phrase071}</button>`).test(r071) && !/data-fact-tag/.test(r071), r071.slice(0, 200));
+  const r072 = rowHtml(r.body, "human", "d7835263/p003/web/U072");
+  check("Fact mark U072 (dropped, on the whole sentence): a tag 'fact dropped' after the sentence and no dotted words", /<button[^>]*data-fact-tag="dropped"[^>]*>fact dropped<\/button>/.test(r072) && !/data-fact="/.test(r072), r072.slice(0, 200));
+  const r2 = await cr.req("/read/d7835263?view=page&at=p002");
+  const r059 = rowHtml(r2.body, "human", "d7835263/p002/web/U059");
+  check("Fact mark U059 (dropped, the EN has no word for 右足): the tag 'fact dropped' follows the sentence 'Rather than jumping forward ...'", /Rather than jumping forward, you can land it through a good fumikomi and tenouchi\./.test(r059) && /<button[^>]*data-fact-tag="dropped"[^>]*>fact dropped<\/button>/.test(r059), r059.slice(0, 200));
+  const r1 = await cr.req("/read/d7835263?view=page&at=p001");
+  const r013 = rowHtml(r1.body, "human", "d7835263/p001/web/U013");
+  check("Fact mark U013 (the dropped mark of p001, a dropped mark on a phrase, the JA fact ３０歳): the mark is on a phrase, so it is one dotted button data-fact=\"dropped\" and the row has no tag", countOf(r013, /data-fact="dropped"/g) === 1 && !/data-fact-tag/.test(r013), r013.slice(0, 160));
+  // every page of three articles: the marks in the HTML equal the marks of the page file (phrase marks, tags, and muted lines of JA-only sentences)
+  const expectMarks = (pid) => {
+    const pg = PG.get(pid);
+    const hum = new Map(pg.human_rows.map((h) => [h.key, h]));
+    let phrase = 0, tags = 0, lines = 0;
+    for (const row of pg.ja_rows) {
+      const h = hum.get(row.key);
+      if (h && h.text.trim()) {
+        const cps = Array.from(h.text);
+        let edge = 0;
+        const whole = new Set();
+        for (const f of [...(h.facts ?? [])].sort((a, b) => (a.start ?? Infinity) - (b.start ?? Infinity))) {
+          if (f.start !== null && f.end !== null && f.start >= edge && f.end > f.start && f.end <= cps.length) { phrase++; edge = f.end; } else whole.add(f.kind);
+        }
+        tags += whole.size;
+      } else if (!row.site && row.ja.trim()) lines++;
+    }
+    return { phrase, tags: tags + lines, lines };
+  };
+  await putText(cr, { shown: { article: ["ja", "human"] } });
+  let marksOk = true;
+  const marksDetail = [];
+  for (const pid of ["d7835263/p001", "d7835263/p002", "d7835263/p003", "18d4ac29/p001", "396571c1/p001"]) {
+    if (!PG.has(pid)) continue;
+    const slug = pid.split("/")[0];
+    const html = (await cr.req(`/read/${slug}?view=page&at=${pid.split("/")[1]}`)).body;
+    const e = expectMarks(pid);
+    const human = panelHtml(html, "human");
+    const got = { phrase: countOf(human, /data-fact="/g), tags: countOf(human, /data-fact-tag="/g) };
+    if (got.phrase !== e.phrase || got.tags !== e.tags) marksOk = false;
+    marksDetail.push(`${pid} phrase ${got.phrase}/${e.phrase} tags ${got.tags}/${e.tags}`);
+  }
+  await clearLayout(cr);
+  check("Fact marks, 5 pages (d7835263 p001 to p003, 18d4ac29 p001, 396571c1 p001): the dotted words and the tags in the Human panel equal the marks of the page file (a JA-only sentence that is not site text makes a muted line with the tag 'fact dropped')", marksOk, marksDetail.join(" | "));
+  // a JA-only sentence that is not site text: the line has the tag and no text; a site_text row makes no line
+  let jaOnlyPid = null;
+  for (const [pid, pg] of PG) {
+    const hum = new Map(pg.human_rows.map((h) => [h.key, h]));
+    if (pg.ja_rows.some((x) => !x.site && x.ja.trim() && !(hum.get(x.key)?.text ?? "").trim())) { jaOnlyPid = pid; break; }
+  }
+  if (jaOnlyPid) {
+    const pg = PG.get(jaOnlyPid);
+    const hum = new Map(pg.human_rows.map((h) => [h.key, h]));
+    const row = pg.ja_rows.find((x) => !x.site && x.ja.trim() && !(hum.get(x.key)?.text ?? "").trim());
+    const html = (await cr.req(`/read/${jaOnlyPid.split("/")[0]}?view=page&at=${jaOnlyPid.split("/")[1]}`)).body;
+    const line = rowHtml(html, "human", row.key);
+    const siteRow = pg.ja_rows.find((x) => x.site && x.ja.trim() && !(hum.get(x.key)?.text ?? "").trim());
+    check(`JA-only sentence ${row.key} ('${row.ja.slice(0, 18)}'): the Human panel has a muted line with the tag 'fact dropped' and no English text${siteRow ? `, and the site_text row ${siteRow.key} makes no line` : ""}`, /data-fact-tag="dropped"/.test(line) && !/No English text/.test(line) && (!siteRow || !panelHtml(html, "human").includes(`data-row="${siteRow.key}"`)), line.slice(0, 200));
+  } else skip("JA-only sentence: no page in the page file has one", "");
+  await putText(cr, { pair: true, shown: { article: ["ja", "human"] } });
+  await clearLayout(cr);
+  r = await cr.req("/read/d7835263?view=scroll&at=p002");
+  check("d7835263 scroll view: 3 page sections, each band has its Original text and Human version panels (6 panels) within the window", r.status === 200 && countOf(r.body, /data-section="d7835263\/p00\d"/g) >= 3 && panelIds(r.body).length >= 6 && countOf(r.body, /data-row=/g) >= 64, `panels ${panelIds(r.body).length}`);
   r = await cr.req("/read/d7835263?view=page&at=p004");
   check("d7835263 p004 (beyond the 3 pages) gives the note, not a crash", r.status === 200 && /No such page/.test(htvText(r.body)) || r.missing === false, `status ${r.status}`);
-  r = await cr.req("/read/d7835263?view=scroll&at=p002");
-  check("d7835263 scroll view: 3 page sections and Human rows of p001 to p003 within the window", r.status === 200 && countOf(r.body, /data-section="d7835263\/p00\d"/g) >= 3 && keysOf(r.body).length >= 32, `rows ${keysOf(r.body).length}`);
 
-  // --- 18d4ac29 : Agent text and Human version
+  // --- 18d4ac29 : Original text, Agent text and Human version
   r = await cr.req("/read/18d4ac29?view=page&at=p001");
-  const agentKeys = keysOf(r.body);
-  check("18d4ac29 p001, EN text Agent: the agent rows (ts3 keys) show with the AI label, and the control offers Agent and Human", r.status === 200 && agentKeys.length >= 5 && agentKeys.every((k) => /\/ts3\//.test(k)) && /AI translation/.test(label(r.body)) && !isOff(enButton(r.body, "human")) && !isOff(enButton(r.body, "agent")) && /aria-pressed="true"/.test(enButton(r.body, "agent")), `rows ${agentKeys.length}, label ${label(r.body)}, ${enButton(r.body, "human").slice(0, 120)}`);
-  await putText(cr, { en: "human" });
+  const agentKeys = rowKeysIn(r.body, "agent");
+  check("18d4ac29 p001, first layout: the panels are Original text and Agent text, the agent rows (ts3 keys) show with the AI label, the Original text rows carry the same ts3 keys (they pair), and the bar has Original text and no Image", r.status === 200 && same(panelIds(r.body), ["ja", "agent"]) && agentKeys.length >= 5 && agentKeys.every((k) => /\/ts3\//.test(k)) && /AI translation/.test(panelLabel(r.body, "agent")) && rowKeysIn(r.body, "ja").length > 0 && rowKeysIn(r.body, "ja").every((k) => agentKeys.includes(k)) && /data-toolbar="Original text:toggle"/.test(r.body) && !/data-toolbar="Image:toggle"/.test(r.body), `panels ${panelIds(r.body)}, agent rows ${agentKeys.length}`);
+  await putText(cr, { shown: { article: ["ja", "agent", "human"] } });
   r = await cr.req("/read/18d4ac29?view=page&at=p001");
-  const humanKeys = keysOf(r.body);
-  check(`18d4ac29 p001, EN text Human: ${enRows("18d4ac29/p001")} Human rows (web keys) with the page line 'Human translation from kendojidai.com.' and no AI label`, humanKeys.length === enRows("18d4ac29/p001") && humanKeys.every((k) => /\/web\/U/.test(k)) && label(r.body) === "Human translation from kendojidai.com.", `rows ${humanKeys.length}, label ${label(r.body)}`);
-  await putText(cr, { text: "pair" });
+  const humanKeys = rowKeysIn(r.body, "human");
+  check(`18d4ac29 p001, after a check of Human version: three panels (Original text, Agent text, Human version), the Human panel holds ${enRows("18d4ac29/p001")} rows (web keys) with the page line 'Human translation from kendojidai.com.' and no AI label, the Agent panel keeps its label`, same(panelIds(r.body), ["ja", "agent", "human"]) && humanKeys.length === enRows("18d4ac29/p001") && humanKeys.every((k) => /\/web\/U/.test(k)) && panelLabel(r.body, "human") === "Human translation from kendojidai.com." && /AI translation/.test(panelLabel(r.body, "agent")), `rows ${humanKeys.length}, label ${panelLabel(r.body, "human")}`);
+  check("18d4ac29 p001: the Human version rows (web keys) share no key with the Agent text rows (ts3 keys), so they do not pair (unit default D13)", humanKeys.every((k) => !agentKeys.includes(k)) && agentKeys.every((k) => !humanKeys.includes(k)));
+  await putText(cr, { pair: true });
   r = await cr.req("/read/18d4ac29?view=page&at=p001");
-  check("18d4ac29 p001, Text Pairing with Human: the web Original text rows pair with the Human rows (24 rows with JA beside EN)", countOf(r.body, /data-pair/g) === enRows("18d4ac29/p001") && htvText(r.body).includes("Due to the effects of the coronavirus") || /Due to the effects/.test(htvText(r.body)), `pairs ${countOf(r.body, /data-pair/g)}`);
-  await putText(cr, { text: "en", en: "agent" });
+  check("18d4ac29 p001, Bilingual pairing: Original text merges with the FIRST EN panel (Agent text), the Human version stays a panel of its own", same(panelIds(r.body), ["pair", "human"]) && countOf(panelHtml(r.body, "pair"), /data-pair/g) === agentKeys.length && htvText(r.body).includes("Original text and Agent text"), `panels ${panelIds(r.body)}, pairs ${countOf(panelHtml(r.body, "pair"), /data-pair/g)}`);
+  await putText(cr, { pair: false, shown: { article: ["ja", "human"] } });
+  r = await cr.req("/read/18d4ac29?view=page&at=p001");
+  check("18d4ac29 p001, swap (round 73b answer 13): uncheck Agent text and check Human version, the panels are Original text and Human version", same(panelIds(r.body), ["ja", "human"]) && !/AI translation/.test(htvText(r.body)), `panels ${panelIds(r.body)}`);
+  await clearLayout(cr);
 
   // --- a book page with an Agent text, a book page with only a v1 file, a page with nothing
   r = await cr.req(`/read/left_foot_full?view=page&at=p050`);
-  check("left_foot_full p050 (Agent text, v1 file exists): the agent rows show with the AI label and the page image, and no v1 text shows", r.status === 200 && keysOf(r.body).length >= 5 && /AI translation/.test(label(r.body)) && !/v1 Gemini/.test(htvText(r.body)) && /api\/read\/image\/left_foot_full\/p050/.test(r.body), `label ${label(r.body)}`);
+  check("left_foot_full p050 (Agent text, v1 file exists), first layout: the panels are Page image and Agent text, the agent rows show with the AI label, the bar has Image and no Original text, and no v1 text shows", r.status === 200 && same(panelIds(r.body), ["image", "agent"]) && rowKeysIn(r.body, "agent").length >= 5 && /AI translation/.test(panelLabel(r.body, "agent")) && !/v1 Gemini/.test(htvText(r.body)) && /api\/read\/image\/left_foot_full\/p050/.test(r.body) && /data-toolbar="Image:toggle"/.test(r.body) && !/data-toolbar="Original text:toggle"/.test(r.body), `label ${panelLabel(r.body, "agent")}`);
   r = await cr.req(`/read/left_foot_full?view=page&at=p051`);
   const t51 = htvText(r.body);
-  check("left_foot_full p051 (no Agent text, v1 file): the v1 EN placeholder shows in 17 rows with the page line 'v1 Gemini translation placeholder.', no AI label, with the page image", r.status === 200 && keysOf(r.body).length === 17 && label(r.body) === "v1 Gemini translation placeholder." && !/AI translation/.test(t51) && t51.includes("Kendo is about hidari-te, hidari-koshi, and hidari-ashi.") && !t51.includes("*") && /api\/read\/image\/left_foot_full\/p051/.test(r.body), `rows ${keysOf(r.body).length}, label ${label(r.body)}`);
-  check("left_foot_full p051: the v1 row keys have the form left_foot_full/p051/v1/NN", keysOf(r.body)[0] === "left_foot_full/p051/v1/01" && keysOf(r.body).at(-1) === "left_foot_full/p051/v1/17", keysOf(r.body).slice(0, 2).join(","));
-  await putText(cr, { text: "ja" });
+  check("left_foot_full p051 (no Agent text, v1 file), first layout: the panels are Page image and v1 EN placeholder, the v1 EN panel has 17 rows with the page line 'v1 Gemini translation placeholder.', no AI label", r.status === 200 && same(panelIds(r.body), ["image", "v1en"]) && rowKeysIn(r.body, "v1en").length === 17 && panelLabel(r.body, "v1en") === "v1 Gemini translation placeholder." && !/AI translation/.test(t51) && t51.includes("Kendo is about hidari-te, hidari-koshi, and hidari-ashi.") && !t51.includes("*") && /api\/read\/image\/left_foot_full\/p051/.test(r.body), `panels ${panelIds(r.body)}, rows ${rowKeysIn(r.body, "v1en").length}, label ${panelLabel(r.body, "v1en")}`);
+  check("left_foot_full p051: the v1 row keys have the form left_foot_full/p051/v1/NN", rowKeysIn(r.body, "v1en")[0] === "left_foot_full/p051/v1/01" && rowKeysIn(r.body, "v1en").at(-1) === "left_foot_full/p051/v1/17", rowKeysIn(r.body, "v1en").slice(0, 2).join(","));
+  await putText(cr, { shown: { book: ["ja"] } });
   r = await cr.req(`/read/left_foot_full?view=page&at=p051`);
-  check("left_foot_full p051, Text JA: the v1 JA line shows with the page line 'v1 Gemini placeholder text.'", label(r.body) === "v1 Gemini placeholder text." && htvText(r.body).includes("剣道は左手・左腰・左足である"), `label ${label(r.body)}`);
-  await putText(cr, { text: "en" });
+  check("left_foot_full p051, Original text checked: the v1 JA line shows with the page line 'v1 Gemini placeholder text.' (16 rows, the one-line block has no JA)", same(panelIds(r.body), ["ja"]) && panelLabel(r.body, "ja") === "v1 Gemini placeholder text." && htvText(r.body).includes("剣道は左手・左腰・左足である") && rowKeysIn(r.body, "ja").length === 16, `label ${panelLabel(r.body, "ja")}, rows ${rowKeysIn(r.body, "ja").length}`);
+  await putText(cr, { shown: { book: ["image", "ja", "v1en", "v1zh"] } });
+  r = await cr.req(`/read/left_foot_full?view=page&at=p051`);
+  check("left_foot_full p051, all v1 components checked: the panels are Page image, Original text, v1 EN placeholder, v1 ZH placeholder (the ZH panel has 16 rows and the page line 'v1 Gemini translation placeholder.'), and all three text panels share the v1 keys", same(panelIds(r.body), ["image", "ja", "v1en", "v1zh"]) && rowKeysIn(r.body, "v1zh").length === 16 && panelLabel(r.body, "v1zh") === "v1 Gemini translation placeholder." && htvText(panelHtml(r.body, "v1zh")).includes("Kendo在于hidari-te") && rowKeysIn(r.body, "v1zh").every((k) => rowKeysIn(r.body, "v1en").includes(k) && rowKeysIn(r.body, "ja").includes(k)), `panels ${panelIds(r.body)}`);
+  await putText(cr, { pair: true });
+  r = await cr.req(`/read/left_foot_full?view=page&at=p051`);
+  check("left_foot_full p051, Bilingual pairing with the v1 components: Original text merges with v1 EN placeholder (the first EN panel), v1 ZH placeholder stays alone", same(panelIds(r.body), ["image", "pair", "v1zh"]) && countOf(panelHtml(r.body, "pair"), /data-pair/g) === 17, `panels ${panelIds(r.body)}`);
+  await putText(cr, { pair: false, shown: { book: ["image", "agent"] } });
+  r = await cr.req(`/read/left_foot_full?view=page&at=p051`);
+  check("left_foot_full p051, saved layout Page image + Agent text (no Agent text on this page): the page draws the Page image only, and the note line reads 'Not on this page: Agent text. On this page, in the Components list: Original text, v1 EN placeholder, v1 ZH placeholder.' (unit default D16)", same(panelIds(r.body), ["image"]) && htvText((r.body.match(/<p[^>]*data-page-note[^>]*>[\s\S]*?<\/p>/) ?? [""])[0]).trim() === "Not on this page: Agent text. On this page, in the Components list: Original text, v1 EN placeholder, v1 ZH placeholder.", htvText((r.body.match(/<p[^>]*data-page-note[^>]*>[\s\S]*?<\/p>/) ?? [""])[0]).trim());
+  r = await cr.req(`/read/left_foot_full?view=page&at=p050`);
+  check("left_foot_full p050 with the same saved layout: Page image and Agent text, no note", same(panelIds(r.body), ["image", "agent"]) && !/data-page-note/.test(r.body));
+  await clearLayout(cr);
   r = await cr.req(`/api/read/page?ids=left_foot_full/p051`);
   const pg51 = r.json?.pages?.[0];
   check("API p051: hasText false, hasAgent false, hasHuman false, 17 v1 blocks, the first block has JA, EN, and ZH, the last block has EN only", r.status === 200 && pg51?.hasText === false && pg51.hasAgent === false && pg51.hasHuman === false && pg51.v1?.length === 17 && pg51.v1[0].ja === "剣道は左手・左腰・左足である" && pg51.v1[0].zh === "Kendo在于hidari-te、hidari-koshi与hidari-ashi。" && pg51.v1[16].ja === "" && pg51.v1[16].zh === "", JSON.stringify(pg51?.v1?.[0]));
   r = await cr.req(`/api/read/page?ids=left_foot_full/p050`);
   check("API p050: hasAgent true, hasHuman false, and the v1 blocks (EN and ZH for a later component) come with the page", r.json?.pages?.[0]?.hasAgent === true && r.json.pages[0].hasHuman === false && r.json.pages[0].v1.length > 5 && r.json.pages[0].v1.every((x) => x.key.startsWith("left_foot_full/p050/v1/")), `v1 ${r.json?.pages?.[0]?.v1?.length}`);
   r = await cr.req(`/read/ogawa_lecture_part1?view=page&at=p281`);
-  check("ogawa_lecture_part1 p281 (no text, no v1 file): the page image and the line 'No text for this page yet.'", r.status === 200 && /data-no-text/.test(r.body) && htvText(r.body).includes("No text for this page yet.") && /api\/read\/image\/ogawa_lecture_part1\/p281/.test(r.body), `status ${r.status}`);
+  check("ogawa_lecture_part1 p281 (no text, no v1 file): one panel (Page image) with no Move and no Hide button, the page image, and the line 'No text for this page yet.'", r.status === 200 && same(panelIds(r.body), ["image"]) && /data-no-text/.test(r.body) && htvText(r.body).includes("No text for this page yet.") && /api\/read\/image\/ogawa_lecture_part1\/p281/.test(r.body) && !/data-panel-hide/.test(r.body) && !/data-panel-move/.test(r.body) && !/data-panel-tabs/.test(r.body), `status ${r.status}, panels ${panelIds(r.body)}`);
 
   // --- the v1 path guard
   r = await cr.req(`/read/left_foot_full?view=page&at=p052`);
@@ -1573,14 +1676,22 @@ async function webTest() {
   check("Admin page /admin/versions?page=d7835263/p001 answers 200 and lists the page", r.status === 200 && r.body.includes('data-version-panel="d7835263/p001"'), `status ${r.status}`);
   const prev = await ad.req(`/api/admin/versions?pageId=d7835263/p001&userId=${sysV?.userId}&version=1`);
   check("Admin preview of the kendojidai.com version: 32 rows (web keys) with the Japanese text and the Human text, kind own", prev.status === 200 && prev.json?.rows?.length === 32 && prev.json.rows.filter((x) => x.human).length >= 31 && prev.json.rows.every((x) => x.kind === "own"), `rows ${prev.json?.rows?.length}`);
+  const prev3 = await ad.req(`/api/admin/versions?pageId=d7835263/p003&userId=${sysV?.userId}&version=1`);
+  const p071 = (prev3.json?.rows ?? []).find((x) => x.key.endsWith("U071"));
+  const p072 = (prev3.json?.rows ?? []).find((x) => x.key.endsWith("U072"));
+  check("Admin preview of d7835263/p003: the row U071 carries its changed fact (JA その上がった手元に小手を打たれる) and U072 its dropped fact, so the preview can show them", prev3.status === 200 && p071?.facts?.[0]?.kind === "changed" && p071.facts[0].ja === "その上がった手元に小手を打たれる" && p072?.facts?.[0]?.kind === "dropped", JSON.stringify([p071?.facts, p072?.facts]).slice(0, 200));
   const clr = await ad.req("/api/admin/versions", { method: "POST", json: { action: "clear", pageId: "d7835263/p001" } });
   r = await cr.req("/read/d7835263?view=page&at=p001");
-  check("Admin 'Remove the choice' on d7835263/p001: the page still shows the full Original text (31 JA rows) with the note, and no Human text", clr.status === 200 && keysOf(r.body).length === jaRows("d7835263/p001") && !/Why is kendo all about men/.test(r.body) && htvText(r.body).includes("No English text for this page yet. The Original text shows.") && htvText(r.body).includes("剣道はなぜ面なのか。"), `rows ${keysOf(r.body).length}`);
+  check("Admin 'Remove the choice' on d7835263/p001, first layout: the page still shows the full Original text (one panel, 31 JA rows) and no Human text, and no note line", clr.status === 200 && same(panelIds(r.body), ["ja"]) && rowKeysIn(r.body, "ja").length === jaRows("d7835263/p001") && !/Why is kendo all about men/.test(r.body) && htvText(r.body).includes("剣道はなぜ面なのか。") && !/data-page-note/.test(r.body) && !/data-panel-hide/.test(r.body), `panels ${panelIds(r.body)}, rows ${rowKeysIn(r.body, "ja").length}`);
+  await putText(cr, { shown: { article: ["ja", "human"] } });
+  r = await cr.req("/read/d7835263?view=page&at=p001");
+  check("After the removal, with Original text and Human version checked: the page draws Original text only and the note line reads 'Not on this page: Human version.' (unit default D16)", same(panelIds(r.body), ["ja"]) && htvText((r.body.match(/<p[^>]*data-page-note[^>]*>[\s\S]*?<\/p>/) ?? [""])[0]).trim() === "Not on this page: Human version.");
+  await clearLayout(cr);
   r = await cr.req("/read/d7835263");
   check("After the removal the work block reads 'Human translation: 2 of 3 pages.' and d7835263 p001 is not translated any more on the book screen", htvText(r.body).includes("AI translation: 0 of 3 pages. Human translation: 2 of 3 pages."), (htvText(r.body).match(/AI translation:[^]*?Human translation:[^.]*\./) ?? [""])[0]);
   const pick = await ad.req("/api/admin/versions", { method: "POST", json: { action: "choose", pageId: "d7835263/p001", userId: sysV?.userId, version: 1 } });
   r = await cr.req("/read/d7835263?view=page&at=p001");
-  check("Admin chooses the kendojidai.com version again: the page line reads 'Human translation. Chosen by an admin.' and the 32 rows return", pick.status === 200 && keysOf(r.body).length === 32 && label(r.body) === "Human translation. Chosen by an admin.", `label ${label(r.body)}`);
+  check("Admin chooses the kendojidai.com version again: the Human panel returns with 32 rows and the page line 'Human translation. Chosen by an admin.'", pick.status === 200 && same(panelIds(r.body), ["ja", "human"]) && rowKeysIn(r.body, "human").length === 32 && panelLabel(r.body, "human") === "Human translation. Chosen by an admin.", `label ${panelLabel(r.body, "human")}`);
 
   // --- PocketBase facts
   const ownRec = await pbCall(pbUrl, "GET", "/api/collections/own_translations/records?perPage=5&filter=" + encodeURIComponent('group_key="d7835263/p003/web/U071"'), ad.token());
@@ -1598,6 +1709,30 @@ async function webTest() {
   check("API d7835263/p002: humanBy default (this choice stays the default one), the label line is 'Human translation from kendojidai.com.'", dApi1.json?.pages?.[0]?.humanBy === "default" && dApi1.json.pages[0].label.human === "Human translation from kendojidai.com.", dApi1.json?.pages?.[0]?.humanBy);
   const sysUsers = await pbCall(pbUrl, "GET", "/api/collections/users/records?perPage=5&filter=" + encodeURIComponent('name="kendojidai.com"'), ad.token());
   check("PocketBase: the system account exists with disabled true and role reader and approved false", sysUsers.json?.items?.length === 1 && sysUsers.json.items[0].disabled === true && sysUsers.json.items[0].approved === false && sysUsers.json.items[0].name === "kendojidai.com", JSON.stringify(sysUsers.json?.items?.[0] && { d: sysUsers.json.items[0].disabled, r: sysUsers.json.items[0].role }));
+
+  // --- saved layout keys (unit RT73b): sanitizer, widths, order, Reset layout
+  await clearLayout(cr);
+  let st = await putText(cr, { widths: { agent: 9999, ja: 10, image: 421.6, bogus: 400 }, components: ["agent", "bogus", "agent", "image"], shown: { book: ["image", "bogus", "agent", "image"], article: "ja", other: ["ja"] }, pair: "yes", terms: false });
+  check("Settings route (layout): widths are clamped to 280 to 720 and rounded (agent 720, ja 280, image 422), a key that is not a component drops out", st.status === 200 && st.json?.reader?.widths?.agent === 720 && st.json.reader.widths.ja === 280 && st.json.reader.widths.image === 422 && !("bogus" in st.json.reader.widths), JSON.stringify(st.json?.reader?.widths));
+  check("Settings route (layout): components keeps the order of the request without repeats and adds the missing IDs of the default order (agent, image, ja, human, v1en, v1zh)", same(st.json?.reader?.components, ["agent", "image", "ja", "human", "v1en", "v1zh"]), JSON.stringify(st.json?.reader?.components));
+  check("Settings route (layout): shown.book keeps image and agent once, shown.article as text and the key other drop out, pair as text drops out, terms false is saved", same(st.json?.reader?.shown, { book: ["image", "agent"] }) && st.json.reader.pair === undefined && st.json.reader.terms === false, JSON.stringify(st.json?.reader));
+  r = await cr.req("/read/left_foot_full?view=page&at=p050");
+  check("Saved order and width in the HTML: components with agent before image puts Agent text left of Page image, the Agent panel (first) has the saved width 720 px and a handle, the last panel has no handle", same(panelIds(r.body), ["agent", "image"]) && /data-panel="agent" data-panel-width="720"/.test(r.body) && countOf(r.body, /data-reader-handle/g) === 1, `panels ${panelIds(r.body)}`);
+  check("Saved terms false: no term highlight button in the page (data-term count 0)", countOf(r.body, /data-term="/g) === 0, `terms ${countOf(r.body, /data-term="/g)}`);
+  st = await cr.req("/api/read/settings", { method: "PUT", json: { clear: ["view", "size", "shown"] } });
+  check("Settings route (layout): a clear list keeps only layout keys (shown is cleared, view and size stay), and the answer holds no shown", st.status === 200 && !("shown" in (st.json?.reader ?? {})) && st.json.reader.view === "page" && st.json.reader.terms === false, JSON.stringify(st.json?.reader));
+  st = await cr.req("/api/read/settings", { method: "PUT", json: { clear: ["view", "size"] } });
+  check("Settings route (layout): a clear list with no layout key and no reader value gives 400", st.status === 400, `status ${st.status}`);
+  st = await putText(cr, { widths: { image: 400 }, pair: true, shown: { book: ["agent"] } });
+  const rs = await cr.req("/api/read/settings", { method: "PUT", json: { clear: LAYOUT_CLEAR } });
+  check("Reset layout: PUT with clear removes components, shown, widths, pair, terms and the old keys, and the text settings (view) and panelSeen stay", rs.status === 200 && ["components", "shown", "widths", "pair", "terms", "text", "en", "image"].every((k) => !(k in rs.json.reader)) && rs.json.reader.view === "page" && rs.json.reader.panelSeen === true, JSON.stringify(rs.json?.reader));
+  r = await cr.req("/read/left_foot_full?view=page&at=p050");
+  check("After Reset layout: the first layout returns (Page image and Agent text) and the term buttons return", same(panelIds(r.body), ["image", "agent"]) && countOf(r.body, /data-term="/g) >= 9, `panels ${panelIds(r.body)}`);
+  // the 'Reset text settings' button sends only the text settings: it leaves the layout alone
+  await putText(cr, { shown: { book: ["agent"] }, widths: { agent: 500 }, pair: false });
+  const resetText = await putText(cr, { view: "page", fontEn: "serif", fontJa: "mincho", size: 18, line: 1.7, width: "narrow", focus: false, index: true });
+  check("'Reset text settings' sends view, fonts, size, line, width, focus, and index only: the layout (shown, widths) stays", resetText.status === 200 && same(resetText.json?.reader?.shown, { book: ["agent"] }) && resetText.json.reader.widths?.agent === 500, JSON.stringify(resetText.json?.reader));
+  await clearLayout(cr);
 }
 
 async function readTest() {
@@ -1824,10 +1959,11 @@ async function readTest() {
   // --- first-visit panel (round 68 answer 5, round 69 answer 13): the HTML of a text screen for an account without the mark
   r = await cr.req(`/read/${LF}?view=page&at=p048`);
   check("First-visit panel: the page view p048 of an account without reader.panelSeen has the panel with 'Start reading', the Image line, and no 'Close' button", /data-first-visit/.test(r.body) && /data-start-reading/.test(r.body) && /Use the Image button in the bar above the text to show or hide the page image\./.test(htvText(r.body)) && !/data-settings-close/.test(r.body));
+  check("First-visit panel (unit default D5): the panel holds the component list as its first group: Page image, Original text, Agent text, v1 EN placeholder, v1 ZH placeholder (no Human version row, no page of this book has one), 'Added to the panels' with Bilingual pairing and Kendo term highlights, and the button Reset layout", /data-components-embedded/.test(r.body) && ["image", "ja", "agent", "v1en", "v1zh", "pair", "terms"].every((id) => new RegExp(`data-component-check="${id}"`).test(r.body)) && !/data-component-check="human"/.test(r.body) && /Added to the panels/.test(htvText(r.body)) && /Bilingual pairing/.test(htvText(r.body)) && /Kendo term highlights/.test(htvText(r.body)) && /data-layout-reset/.test(r.body) && r.body.indexOf("data-components-embedded") < r.body.indexOf(">Reading settings<"), `checks ${countOf(r.body, /data-component-check=/g)}`);
   r = await cr.req(`/read/${LF}`);
   check("First-visit panel: the book screen (no ?at) has no panel", !/data-reader-settings/.test(r.body));
   r = await cr.req("/read/18d4ac29?view=page&at=p001");
-  check("First-visit panel: for a web article (no page image) the panel has 'Start reading' and no Image line", /data-start-reading/.test(r.body) && !/Use the Image button/.test(htvText(r.body)));
+  check("First-visit panel: for a web article (no page image) the panel has 'Start reading', the line about the Original text button instead of the Image line, and a list without a Page image row (rows: Original text, Agent text, Human version)", /data-start-reading/.test(r.body) && !/Use the Image button/.test(htvText(r.body)) && /Use the Original text button in the bar above the text to show or hide the Japanese text\./.test(htvText(r.body)) && !/data-component-check="image"/.test(r.body) && ["ja", "agent", "human"].every((id) => new RegExp(`data-component-check="${id}"`).test(r.body)) && !/data-component-check="v1en"/.test(r.body));
   const wait2 = (await login("reader2", "waiting reader panel")).c;
   r = await wait2.req(`/read/${LF}?view=page&at=p048`);
   check("First-visit panel: an account that waits for approval gets no panel (no text screen)", r.status === 200 && /data-waiting/.test(r.body) && !/data-reader-settings/.test(r.body));
@@ -1835,7 +1971,7 @@ async function readTest() {
   check("First-visit panel: PUT /api/read/settings with panelSeen true gives 200 and keeps the key", keep0.status === 200 && keep0.json?.reader?.panelSeen === true, `status ${keep0.status}`);
   r = await cr.req(`/read/${LF}?view=page&at=p048`);
   check("First-visit panel: the next visit has no panel in the HTML (the panel is absent after the mark)", !/data-reader-settings/.test(r.body) && !/data-first-visit/.test(r.body));
-  const resetBody = { text: "en", en: "agent", view: "page", fontEn: "serif", fontJa: "mincho", size: 18, line: 1.7, width: "narrow", focus: false, image: true, index: true };
+  const resetBody = { view: "page", fontEn: "serif", fontJa: "mincho", size: 18, line: 1.7, width: "narrow", focus: false, index: true };
   const keep1 = await cr.req("/api/read/settings", { method: "PUT", json: { reader: resetBody } });
   check("First-visit panel: 'Reset text settings' (all defaults of READER_DEFAULTS, no panelSeen) keeps panelSeen true", keep1.status === 200 && keep1.json?.reader?.panelSeen === true && keep1.json.reader.size === 18, JSON.stringify(keep1.json?.reader).slice(0, 120));
   const keep2 = await cr.req("/api/read/settings", { method: "PUT", json: { reader: { panelSeen: "yes" } } });
@@ -1916,7 +2052,8 @@ async function readTest() {
   check("A page outside the book shows the book screen with a plain note", r.status === 200 && /No such page: p999/.test(htvText(r.body)) && /data-book-screen/.test(r.body));
 
   // --- page view, text modes
-  await put(cr, { text: "en", en: "agent", view: "page", focus: false });
+  await clearLayout(cr);
+  await put(cr, { view: "page", focus: false, shown: { book: ["agent"] } });
   r = await cr.req(`/read/${LF}?view=page&at=p048`);
   text = htvText(r.body);
   const rowKeys = [...new Set([...r.body.matchAll(/data-row="([^"]+)"/g)].map((m) => m[1]))];
@@ -1930,27 +2067,27 @@ async function readTest() {
   check("Page view p048: the page HTML holds no verdict, score, QA, TL_3, reasoning, or EN form check", !LEAK_HTML.test(r.body));
   check("Page view p048: no own box, no tick box, no Save, no comment box (the reader pages are read only)", !/aria-label="Own translation for /.test(r.body) && !/data-agree=/.test(r.body) && !/data-save=/.test(r.body) && !/Comments \(\d+\)/.test(text));
   check("Page view p048: no 'EN form check' line and no 'Version history'", !/EN form check/.test(text) && !/Version history/.test(text));
-  r = await put(cr, { text: "ja" });
-  check("Settings route: PUT /api/read/settings text ja is saved (200)", r.status === 200 && r.json?.reader?.text === "ja", `status ${r.status}`);
+  r = await put(cr, { shown: { book: ["ja"] } });
+  check("Settings route: PUT /api/read/settings with shown.book ['ja'] is saved (200)", r.status === 200 && same(r.json?.reader?.shown, { book: ["ja"] }), `status ${r.status}`);
   r = await cr.req(`/read/${LF}?view=page&at=p048`);
   text = htvText(r.body);
   check("Single language JA: the Japanese lines show (starts with the p048 sentence), no English line", squash(text).includes(squash(JA_START)) && countOf(r.body, /\sdata-ja(?:=|\s|>)/g) === 5 && countOf(r.body, /\sdata-en(?:=|\s|>)/g) === 0 && !text.includes("I keep applying"));
-  r = await put(cr, { text: "pair" });
+  r = await put(cr, { shown: { book: ["ja", "agent"] }, pair: true });
   r = await cr.req(`/read/${LF}?view=page&at=p048`);
   text = htvText(r.body);
   check("Bilingual pairing: each of the 5 rows has a pair of Japanese and English (red bar and blue bar), JA above EN on a phone", countOf(r.body, /\sdata-pair(?:=|\s|>)/g) === 5 && squash(text).includes(squash(JA_START)) && squash(text).includes(squash(EN_START)) && /md:grid-cols-2/.test(r.body) && /border-red-700/.test(r.body) && /border-blue-800/.test(r.body));
-  r = await put(cr, { text: "en", size: 20, line: 1.9, width: "wide", fontEn: "sans", fontJa: "gothic" });
+  r = await put(cr, { pair: false, shown: { book: ["agent"] }, size: 20, line: 1.9, width: "wide", fontEn: "sans", fontJa: "gothic" });
   r = await cr.req(`/read/${LF}?view=page&at=p048`);
   check("Settings: size 20 px, line height 1.9, and the sans font reach the text", /font-size:\s*20px/.test(r.body) && /line-height:\s*1\.9/.test(r.body) && /Helvetica/.test(r.body), `size ${/font-size:\s*20px/.test(r.body)}`);
-  r = await put(cr, { size: 99, text: "bad" });
-  check("Settings route: a size above 28 is clamped to 28, a bad text value is dropped", r.status === 200 && r.json?.reader?.size === 28 && r.json?.reader?.text === "en", JSON.stringify(r.json));
+  r = await put(cr, { size: 99, pair: "bad" });
+  check("Settings route: a size above 28 is clamped to 28, a bad pair value is dropped (pair stays false)", r.status === 200 && r.json?.reader?.size === 28 && r.json?.reader?.pair === false, JSON.stringify(r.json));
   r = await put(cr, { nonsense: 1 });
   check("Settings route: a body with no valid key gives 400", r.status === 400, `status ${r.status}`);
   r = await cr.req("/api/read/settings", { method: "PUT", json: { reader: { size: 18 } }, headers: { origin: "https://evil.example" } });
   check("Settings route: a foreign origin gives 403", r.status === 403, `status ${r.status}`);
   await put(cr, { size: 18, line: 1.7, width: "narrow", fontEn: "serif", fontJa: "mincho" });
   const st = await cr.req("/api/htv/settings");
-  check("The account keeps the reader key next to panes (GET /api/htv/settings returns reader.size 18 and reader.view)", st.status === 200 && st.json?.panes?.reader?.size === 18 && st.json?.panes?.reader?.text === "en", JSON.stringify(st.json?.panes?.reader));
+  check("The account keeps the reader key next to panes (GET /api/htv/settings returns reader.size 18 and the saved layout shown.book ['agent'])", st.status === 200 && st.json?.panes?.reader?.size === 18 && same(st.json?.panes?.reader?.shown, { book: ["agent"] }), JSON.stringify(st.json?.panes?.reader));
   const atr = await tr1c.req("/api/htv/settings", { method: "PUT", json: { panes: { v: 1, panes: { agent: { size: 21 } } } } });
   check("A translator saves pane settings and the reader key of that account stays (no reader key lost)", atr.status === 200);
   // reader key survives a pane-settings save of the same account
@@ -2016,23 +2153,27 @@ async function readTest() {
   const hrow = (sfx) => hp?.rows?.find((x) => x.key.endsWith("/" + sfx))?.human;
   check("Reader data after the choice: hasHuman true; L06-L10 own text; L01-L05 the agreed agent text (kind agree); T02 and L11-L12 the agent text (kind agent)", hp?.hasHuman === true && hrow("L06-L10")?.kind === "own" && /My own words for the second row/.test(hrow("L06-L10")?.text ?? "") && hrow("L01-L05")?.kind === "agree" && (hrow("L01-L05")?.text ?? "").startsWith(EN_START) && hrow("T02-T02")?.kind === "agent" && hrow("L11-L12")?.kind === "agent", JSON.stringify(hp?.rows?.map((x) => x.human?.kind)));
   check("Reader data after the choice: the data holds no translator name, no user ID, no version number", !/translator|"user"|userId|"version"|chosen_by|chosenBy/.test(JSON.stringify(hum.json)), "");
-  await put(cr, { en: "agent" });
+  await put(cr, { shown: { book: ["agent"] } });
   r = await cr.req(`/read/${LF}?view=page&at=p048`);
   text = htvText(r.body);
-  check("EN switch, default Agent: the agent text shows with the AI label, and the English switch is active", squash(text).includes(squash(EN_START)) && /AI translation, not yet checked by a person/.test(text) && !/No human version for this page/.test(text));
-  await put(cr, { en: "human" });
+  check("Layout with Agent text only: the agent text shows with the AI label", squash(text).includes(squash(EN_START)) && /AI translation, not yet checked by a person/.test(text) && !/No human version for this page/.test(text));
+  await put(cr, { shown: { book: ["human"] } });
   r = await cr.req(`/read/${LF}?view=page&at=p048`);
   text = htvText(r.body);
-  check("EN switch Human: the page label reads 'Human translation. Chosen by an admin.' and the own text of the translator shows", /Human translation\. Chosen by an admin\./.test(text) && /My own words for the second row/.test(text) && !/AI translation, not yet checked by a person/.test(text));
-  check("EN switch Human: the agreed row shows the agent text with the tag 'AI translation, checked by a translator', and the agent-kind rows carry the tag 'AI translation'", squash(text).includes(squash(EN_START)) && /AI translation, checked by a translator/.test(text) && countOf(r.body, /data-row-tag/g) >= 3, `tags ${countOf(r.body, /data-row-tag/g)}`);
-  check("EN switch Human: the human page shows no translator name", !new RegExp(v1?.userName ?? "@@@").test(text));
+  check("Layout with Human version only: the page label reads 'Human translation. Chosen by an admin.' and the own text of the translator shows", /Human translation\. Chosen by an admin\./.test(text) && /My own words for the second row/.test(text) && !/AI translation, not yet checked by a person/.test(text));
+  check("Layout with Human version only: the agreed row shows the agent text with the tag 'AI translation, checked by a translator', and the agent-kind rows carry the tag 'AI translation'", squash(text).includes(squash(EN_START)) && /AI translation, checked by a translator/.test(text) && countOf(r.body, /data-row-tag/g) >= 3, `tags ${countOf(r.body, /data-row-tag/g)}`);
+  check("Layout with Human version only: the human page shows no translator name", !new RegExp(v1?.userName ?? "@@@").test(text));
+  await put(cr, { shown: { book: ["agent", "human"] } });
+  r = await cr.req(`/read/${LF}?view=page&at=p048`);
+  check("Agent text and Human version both checked on p048: two panels, each with its own page line, and they share the run keys (the rows pair, D12)", same(panelIds(r.body), ["agent", "human"]) && /AI translation, not yet checked by a person/.test(panelLabel(r.body, "agent")) && panelLabel(r.body, "human") === "Human translation. Chosen by an admin." && same(rowKeysIn(r.body, "agent"), rowKeysIn(r.body, "human")) && rowKeysIn(r.body, "agent").length === 5, `panels ${panelIds(r.body)}`);
+  await put(cr, { shown: { book: ["human"] } });
   r = await cr.req(`/read/${LF}?view=page&at=p049`);
-  check("EN switch on a page with no human version: the agent text shows and the switch is disabled with the note 'No human version for this page'", /No human version for this page/.test(htvText(r.body)) && /AI translation, not yet checked by a person/.test(htvText(r.body)));
+  check("Only Human version checked, on a page with no human version (p049): the first layout shows (Page image and Agent text with the AI label) and no note", same(panelIds(r.body), ["image", "agent"]) && /AI translation, not yet checked by a person/.test(htvText(r.body)) && !/Human translation/.test(htvText(r.body)) && !/data-page-note/.test(r.body), `panels ${panelIds(r.body)}`);
   r = await ad.req("/api/admin/versions", { method: "POST", json: { action: "clear", pageId: P48 } });
   check("Admin removes the choice (200)", r.status === 200);
   const gone = await cr.req(`/api/read/page?ids=${P48}`);
   check("After the removal the page has no human version again", gone.json?.pages?.[0]?.hasHuman === false);
-  await put(cr, { en: "agent" });
+  await put(cr, { shown: { book: ["agent"] } });
 
   // --- page check
   r = await tr1c.req("/api/admin/checks", { method: "POST", json: { action: "set", pageId: P48 } });
@@ -2246,41 +2387,46 @@ async function imageChecks({ anon, cr, tr1c, ad, adminToken, pbUrl, LF, put, cou
   r = await rawGet(cr, `/api/read/image/${LF}/p048?x=1`);
   check("Page image (files): a query string does not matter (200)", r.status === 200 && r.bytes.equals(want48));
 
-  // --- Unit RC3 (round 66 answers 1, 4, 5): the Image button sits in the reader bar, the default is on, the Settings panel has no switch
+// --- Unit RC3 (round 66 answers 1, 4, 5) and RT73b: the Image button sits in the reader bar, the default is on, the Settings panel has no switch. The image is the panel "Page image".
   const btnTag = (html) => (html.match(/<button[^>]*data-toolbar="Image:toggle"[^>]*>/) ?? [""])[0];
+  await clearLayout(cr);
   const fresh = await cr.req(`/read/${LF}?view=page&at=p048`);
-  check("Default (this reader saved no image value): the page view shows the page image pane without any setting", fresh.status === 200 && /data-with-image/.test(fresh.body) && /data-page-image/.test(fresh.body), `status ${fresh.status}`);
+  check("Default (no saved layout): the page view shows the panel Page image without any setting (first layout: Page image and Agent text)", fresh.status === 200 && same(panelIds(fresh.body), ["image", "agent"]) && /data-page-image/.test(fresh.body), `panels ${panelIds(fresh.body)}`);
   check("Default: the Image button is in the bar next to the View buttons, pressed (aria-pressed true), not disabled", /aria-pressed="true"/.test(btnTag(fresh.body)) && !/\sdisabled=""/.test(btnTag(fresh.body)) && /data-view-tools[\s\S]*data-toolbar="View:page"[\s\S]*data-toolbar="Image:toggle"/.test(fresh.body), btnTag(fresh.body).slice(0, 120));
-  check("The Image button comes after the View buttons and before the Text buttons (same bar row)", fresh.body.indexOf('data-toolbar="View:scroll"') < fresh.body.indexOf('data-toolbar="Image:toggle"') && fresh.body.indexOf('data-toolbar="Image:toggle"') < fresh.body.indexOf('data-toolbar="Text:en"'));
+  check("The Image button comes after the View buttons and before the Components button (same bar row), and the bar has no Text button and no English text button", fresh.body.indexOf('data-toolbar="View:scroll"') < fresh.body.indexOf('data-toolbar="Image:toggle"') && fresh.body.indexOf('data-toolbar="Image:toggle"') < fresh.body.indexOf("data-components-open") && !/data-toolbar="Text:/.test(fresh.body) && !/data-toolbar="English text:/.test(fresh.body));
   const scrollBtn = await cr.req(`/read/${LF}?view=scroll&at=p048`);
   check("Scroll view: the Image button stays, is disabled, and its title says 'Page image shows in Page view only'", /\sdisabled=""/.test(btnTag(scrollBtn.body)) && /title="Page image shows in Page view only"/.test(scrollBtn.body), btnTag(scrollBtn.body).slice(0, 120));
   const webBtn = await cr.req("/read/18d4ac29?view=page&at=p001");
-  check("Web article (no page images): no Image button in the bar", webBtn.status === 200 && btnTag(webBtn.body) === "");
+  check("Web article (no page images): no Image button in the bar, the button Original text instead (pressed, aria-pressed true)", webBtn.status === 200 && btnTag(webBtn.body) === "" && /<button[^>]*data-toolbar="Original text:toggle"[^>]*aria-pressed="true"|<button[^>]*aria-pressed="true"[^>]*data-toolbar="Original text:toggle"/.test(webBtn.body));
   check("The Settings panel code has no 'Page image' switch (no data-setting 'Page image' in the page HTML)", !/data-setting="Page image/.test(fresh.body));
-  // --- the setting "Page image": saved in the account like the other reader settings
+  // --- the layout is saved in the account like the other reader settings
   r = await put(cr, { image: "yes" });
   check("Setting image: a value that is not true or false gives 400 (nothing valid to save)", r.status === 400, `status ${r.status}`);
-  r = await put(cr, { image: true });
-  check("Setting image: true is saved (200, reader.image true)", r.status === 200 && r.json?.reader?.image === true, `status ${r.status}`);
+  r = await put(cr, { shown: { book: ["image", "agent"] } });
+  check("Layout shown.book ['image', 'agent'] is saved (200)", r.status === 200 && same(r.json?.reader?.shown, { book: ["image", "agent"] }), `status ${r.status}`);
   const pageOn = await cr.req(`/read/${LF}?view=page&at=p048`);
-  check("Page view with Page image on: the image pane is in the page (alt, lazy, async, Open full size, tabs for a phone)", pageOn.status === 200 && /data-with-image/.test(pageOn.body) && /alt="Original page image, Page 48"/.test(pageOn.body) && /loading="lazy"/.test(pageOn.body) && /decoding="async"/.test(pageOn.body) && /Open full size/.test(pageOn.body) && /data-image-tabs/.test(pageOn.body), `status ${pageOn.status}`);
-  check("Page view with Page image on: the img src is the route /api/read/image/left_foot_full/p048 and the link opens a new tab", /<img[^>]*src="\/api\/read\/image\/left_foot_full\/p048"/.test(pageOn.body) && /<a[^>]*href="\/api\/read\/image\/left_foot_full\/p048"[^>]*target="_blank"/.test(pageOn.body));
-  check("Page view with Page image on: the 5 rows of the text stay", countOf(pageOn.body, /data-row="/g) === 5, `rows ${countOf(pageOn.body, /data-row="/g)}`);
+  check("Page view with Page image checked: the image panel is in the page (alt, lazy, async, Open full size) and, below a phone width, the panels have tabs", pageOn.status === 200 && same(panelIds(pageOn.body), ["image", "agent"]) && /alt="Original page image, Page 48"/.test(pageOn.body) && /loading="lazy"/.test(pageOn.body) && /decoding="async"/.test(pageOn.body) && /Open full size/.test(pageOn.body) && /role="tablist"[^>]*data-panel-tabs/.test(pageOn.body) && countOf(pageOn.body, /data-panel-tab="/g) === 2, `status ${pageOn.status}`);
+  check("Page view with Page image checked: the img src is the route /api/read/image/left_foot_full/p048 and the link opens a new tab", /<img[^>]*src="\/api\/read\/image\/left_foot_full\/p048"/.test(pageOn.body) && /<a[^>]*href="\/api\/read\/image\/left_foot_full\/p048"[^>]*target="_blank"/.test(pageOn.body));
+  check("Page view with Page image checked: the 5 rows of the text stay in the Agent panel", rowKeysIn(pageOn.body, "agent").length === 5, `rows ${rowKeysIn(pageOn.body, "agent").length}`);
   const noText = await cr.req("/read/kendojidai_2014?view=page&at=p0839");
-  check("A page with no agent translation (kendojidai_2014/p0839) shows its page image and the line 'No agent translation yet'", noText.status === 200 && /data-no-text/.test(noText.body) && /alt="Original page image, Page 839"/.test(noText.body) && /src="\/api\/read\/image\/kendojidai_2014\/p0839"/.test(noText.body), `status ${noText.status}`);
+  check("A page with no agent translation (kendojidai_2014/p0839) shows its page image and the line 'No text for this page yet.'", noText.status === 200 && /data-no-text/.test(noText.body) && same(panelIds(noText.body), ["image"]) && /alt="Original page image, Page 839"/.test(noText.body) && /src="\/api\/read\/image\/kendojidai_2014\/p0839"/.test(noText.body), `status ${noText.status}`);
   const scroll = await cr.req(`/read/${LF}?view=scroll&at=p048`);
-  check("Scroll view with Page image on: text only, no image", scroll.status === 200 && !/data-page-image/.test(scroll.body) && !/data-with-image/.test(scroll.body));
+  check("Scroll view with Page image checked: text only, no image", scroll.status === 200 && !/data-page-image/.test(scroll.body) && !/data-panel="image"/.test(scroll.body));
   r = await put(cr, { focus: true });
   const focus = await cr.req(`/read/${LF}?view=page&at=p048`);
-  check("Focus mode with Page image on: text only, no image", focus.status === 200 && /data-focus-mode/.test(focus.body) && !/data-page-image/.test(focus.body) && !/data-with-image/.test(focus.body));
+  check("Focus mode with Page image checked: text only, no image, no title bar, no handle", focus.status === 200 && /data-focus-mode/.test(focus.body) && !/data-page-image/.test(focus.body) && !/data-panel="image"/.test(focus.body) && !/data-panel-title=/.test(focus.body) && !/data-reader-handle/.test(focus.body) && same(panelIds(focus.body), ["agent"]), `panels ${panelIds(focus.body)}`);
   await put(cr, { focus: false });
   const web = await cr.req("/read/18d4ac29?view=page&at=p001");
-  check("Web article with Page image on: no image pane", web.status === 200 && !/data-with-image/.test(web.body) && !/data-page-image/.test(web.body), `status ${web.status}`);
-  r = await put(cr, { image: false });
+  check("Web article with Page image checked in the book layout: no image pane", web.status === 200 && !/data-panel="image"/.test(web.body) && !/data-page-image/.test(web.body), `status ${web.status}`);
+  r = await put(cr, { shown: { book: ["agent"] } });
   const pageOff = await cr.req(`/read/${LF}?view=page&at=p048`);
-  check("Page image off (saved by the reader, RC3: the default is on): no image pane in the page view, the Image button shows aria-pressed false", r.status === 200 && pageOff.status === 200 && !/data-with-image/.test(pageOff.body) && !/data-page-image/.test(pageOff.body) && /aria-pressed="false"/.test(btnTag(pageOff.body)));
-  r = await put(cr, { image: true });
-  check("Image saved on again: the image pane returns (the reader stays at the default state for the next checks)", r.status === 200 && r.json?.reader?.image === true);
+  check("Page image unchecked: no image panel in the page view, the Image button shows aria-pressed false", r.status === 200 && pageOff.status === 200 && !/data-panel="image"/.test(pageOff.body) && !/data-page-image/.test(pageOff.body) && /aria-pressed="false"/.test(btnTag(pageOff.body)));
+  await clearLayout(cr);
+  r = await put(cr, { image: false });
+  const legacyOff = await cr.req(`/read/${LF}?view=page&at=p048`);
+  check("Old saved value {image: false}: the page view has no image panel (read time conversion), Agent text only", r.status === 200 && same(panelIds(legacyOff.body), ["agent"]) && /aria-pressed="false"/.test(btnTag(legacyOff.body)), `panels ${panelIds(legacyOff.body)}`);
+  r = await clearLayout(cr);
+  check("Layout cleared again: the image panel returns (the reader stays at the default state for the next checks)", r.status === 200 && same(panelIds((await cr.req(`/read/${LF}?view=page&at=p048`)).body), ["image", "agent"]));
   const waiting = anon;
   r = await waiting.req(`/read/${LF}?view=page&at=p048`);
   check("No session: the page view still goes to the sign-in page (no image pane)", /^\/sign-in/.test(r.go));
@@ -2576,6 +2722,99 @@ async function foldsTest() {
   check("Progress words (RC4b): the total line of the folds data (1,135 translated pages: 6 + 5 + 1,124) is 'English: 1,135 of 14,116 pages translated (8.0 percent)' and the first-level folds have the full form", (() => { const t = A.totals; return R.foldProgress(t.translated, t.pages) === "English: 1,135 of 14,116 pages translated (8.0 percent)" && A.folds.every((f) => /^English: [\d,]+ of [\d,]+ pages translated \([\d.]+ percent\)$/.test(R.foldProgress(f.counts.translated, f.counts.pages))); })(), `${A.totals.translated} of ${A.totals.pages}`);
   check("Progress words (RC4b): a fold of one page reads '1 of 1 page translated' (singular) and a fold with 0 pages reads '0 of 0 pages translated (0.0 percent)'", R.foldProgress(1, 1) === "English: 1 of 1 page translated (100.0 percent)" && R.foldProgress(0, 0) === "English: 0 of 0 pages translated (0.0 percent)");
   check("Progress words (RC4b): the word 'finished' is in none of the progress forms", ![R.progressLine(6, 120), R.foldProgress(21, 5067), R.foldProgress(0, 0), R.progressLine(1, 1)].some((x) => /finished/i.test(x)));
+}
+
+// Unit RT73b (round 73c answer 4; VISION-viewer 15.26.6): the pure rules of the reader panels. Pure code, no server and no PocketBase.
+async function layoutTest() {
+  const { installTsResolveHook } = await import("./ts-resolve-hook.mjs");
+  installTsResolveHook();
+  const H = await import("../lib/htv-settings.ts");
+  const Y = await import("../lib/reader-layout.ts");
+  const T = await import("../lib/reader-types.ts");
+  const eff = (r) => Y.effectiveSettings(r, "page");
+
+  // --- old saved values turn into the new value at read time (15.26.6.9)
+  const conv = (r) => ({ shown: eff(r).shown, pair: eff(r).pair });
+  check("Old value {text: 'en', en: 'agent'} gives shown.book [image, agent], shown.article [agent], pair false", same(conv({ text: "en", en: "agent" }), { shown: { book: ["image", "agent"], article: ["agent"] }, pair: false }), JSON.stringify(conv({ text: "en", en: "agent" })));
+  check("Old value {text: 'en', en: 'human'} gives the same with Human version", same(conv({ text: "en", en: "human" }), { shown: { book: ["image", "human"], article: ["human"] }, pair: false }));
+  check("Old value {text: 'ja'} gives Original text only (and Page image on a book)", same(conv({ text: "ja" }), { shown: { book: ["image", "ja"], article: ["ja"] }, pair: false }));
+  check("Old value {text: 'pair', en: 'human'} gives Original text and Human version with pair true", same(conv({ text: "pair", en: "human" }), { shown: { book: ["image", "ja", "human"], article: ["ja", "human"] }, pair: true }), JSON.stringify(conv({ text: "pair", en: "human" })));
+  check("Old value {image: false} takes Page image out of shown.book (text en and en agent are the defaults)", same(conv({ image: false }), { shown: { book: ["agent"], article: ["agent"] }, pair: false }));
+  check("An account with none of the old keys and no 'shown' has no checked list (the first layout runs)", eff({ size: 20 }).shown === undefined && eff({}).shown === undefined);
+  check("When 'shown' exists the old keys are ignored (shown wins, pair comes from its own key)", same(conv({ shown: { book: ["image"] }, text: "pair", en: "human" }), { shown: { book: ["image"] }, pair: false }));
+  const d = eff({});
+  check("Defaults: the order is Page image, Original text, Agent text, Human version, v1 EN placeholder, v1 ZH placeholder, no widths, pair false, terms true", same(d.components, ["image", "ja", "agent", "human", "v1en", "v1zh"]) && same(d.widths, {}) && d.pair === false && d.terms === true);
+  check("READER_DEFAULTS (the button 'Reset text settings') holds no layout key and no old key", !["components", "shown", "widths", "pair", "terms", "text", "en", "image"].some((k) => k in H.READER_DEFAULTS), Object.keys(H.READER_DEFAULTS).join(","));
+
+  // --- the sanitizer
+  const san = H.sanitizeReader({ components: ["agent", "x", "agent", "enorig"], shown: { book: ["image", "q"], article: [] }, widths: { agent: 9999, ja: 1, human: 333.4, x: 5 }, pair: true, terms: "no" });
+  check("Sanitizer: components keep the order, drop repeats and unknown IDs (enorig is accepted) and append the IDs of the default order that are missing", same(san.components, ["agent", "enorig", "image", "ja", "human", "v1en", "v1zh"]), JSON.stringify(san.components));
+  check("Sanitizer: shown keeps known IDs per kind (an empty list stays), widths clamp to 280 to 720 and round, pair true stays, terms as text drops", same(san.shown, { book: ["image"], article: [] }) && same(san.widths, { ja: 280, agent: 720, human: 333 }) && san.pair === true && san.terms === undefined, JSON.stringify(san));
+  check("Sanitizer: a clear list keeps only layout keys", same(H.sanitizeClear(["shown", "size", "text", "view", "shown", 5]), ["shown", "text"]) && same(H.sanitizeClear("shown"), []));
+
+  // --- which panels a page draws (R1, R2, R3a to R3f) on the five pages of the design
+  const has = (o) => ({ image: false, ja: false, agent: false, human: false, v1en: false, v1zh: false, enorig: false, terms: false, ...o });
+  const order = d.components;
+  const ids = (h, shown, kind, imageOk = true) => Y.resolveLayout(has(h), order, shown, kind, imageOk).ids;
+  check("First layout d7835263 p001 (article, Original text and Human version): [ja, human]", same(ids({ ja: true, human: true }, undefined, "article"), ["ja", "human"]));
+  check("First layout 18d4ac29 p001 (article, Original text, Agent text, Human version): [ja, agent] and Human version is one click away", same(ids({ ja: true, agent: true, human: true }, undefined, "article"), ["ja", "agent"]));
+  check("First layout left_foot_full p050 (book, run, v1 file): [image, agent] (no Original text on a book, no v1 while an Agent text exists)", same(ids({ image: true, ja: true, agent: true, v1en: true, v1zh: true }, undefined, "book"), ["image", "agent"]));
+  check("First layout left_foot_full p051 (book, v1 file only): [image, v1en]", same(ids({ image: true, ja: true, v1en: true, v1zh: true }, undefined, "book"), ["image", "v1en"]));
+  check("First layout ogawa_lecture_part1 p281 (book, nothing else): [image]", same(ids({ image: true }, undefined, "book"), ["image"]));
+  check("R3e: a book page with a JA text and no EN text draws the Original text with the image", same(ids({ image: true, ja: true }, undefined, "book"), ["image", "ja"]));
+  check("R3f: a page with no component at all draws no panel", same(ids({}, undefined, "article"), []));
+  check("Scroll view and Focus mode (imageOk false): the first layout of a book page has no Page image", same(ids({ image: true, ja: true, agent: true }, undefined, "book", false), ["agent"]));
+  check("R1: the checked list wins when one of its components has data (shown.book [agent, image] draws the saved order, Page image first)", same(ids({ image: true, agent: true, human: true }, ["agent", "image"], "book"), ["image", "agent"]));
+  const lfIndex = { images: true, agentPages: [46, 47, 48, 49, 50, 75], humanPages: [], v1Pages: [50, 51] };
+  const miss = Y.resolveLayout(has({ image: true, ja: true, v1en: true, v1zh: true }), order, ["image", "agent"], "book", true);
+  check("D16: shown.book [image, agent] on p051 draws [image] and names the absent component in the note line", same(miss.ids, ["image"]) && same(miss.missing, ["agent"]) && Y.missingNote(miss, Y.workHas(lfIndex)) === "Not on this page: Agent text. On this page, in the Components list: Original text, v1 EN placeholder, v1 ZH placeholder.", Y.missingNote(miss, Y.workHas(lfIndex)));
+  check("D16, unit default: the note names only components that the work has on some page (a work with no Agent text on any page gets no 'Not on this page: Agent text.' note)", Y.missingNote(miss, Y.workHas({ ...lfIndex, agentPages: [] })) === "");
+  const none = Y.resolveLayout(has({ ja: true, human: false }), order, ["human"], "article", true);
+  check("R2 after 'Remove the choice': shown.article [human] with no Human version falls back to the first layout [ja] and shows no note", same(none.ids, ["ja"]) && none.first === true && Y.missingNote(none, Y.workHas({ images: false, agentPages: [], humanPages: [2, 3], v1Pages: [] })) === "");
+
+  // --- Bilingual pairing, move, drag, toggle
+  const g = (list, pair) => Y.groupsOf(list, pair).map((x) => (x.pair ? `pair:${x.ids.join("+")}` : x.ids[0]));
+  check("Bilingual pairing merges Original text and the first EN panel: [image, ja, agent, human] gives image, pair ja+agent, human", same(g(["image", "ja", "agent", "human"], true), ["image", "pair:ja+agent", "human"]));
+  check("Bilingual pairing off, or no Original text, or no EN panel: no merge", same(g(["ja", "agent"], false), ["ja", "agent"]) && same(g(["agent", "human"], true), ["agent", "human"]) && same(g(["image", "ja"], true), ["image", "ja"]));
+  check("Bilingual pairing with the EN panel before Original text: the merged panel stands at the first of the two", same(g(["human", "ja", "agent"], true), ["pair:human+ja", "agent"]));
+  const grp = (list) => Y.groupsOf(list, false);
+  check("Move right swaps with the next drawn panel and the components that the page does not draw keep their places: p050 [image, agent], Page image right gives [agent, ja, image, human, v1en, v1zh]", same(Y.moveGroups(order, grp(["image", "agent"]), 0, 1), ["agent", "ja", "image", "human", "v1en", "v1zh"]), JSON.stringify(Y.moveGroups(order, grp(["image", "agent"]), 0, 1)));
+  check("Move left on the second panel gives the same order, and a move out of range changes nothing", same(Y.moveGroups(order, grp(["image", "agent"]), 1, 0), ["agent", "ja", "image", "human", "v1en", "v1zh"]) && Y.moveGroups(order, grp(["image", "agent"]), 0, -1) === order && Y.moveGroups(order, grp(["image", "agent"]), 1, 2) === order);
+  check("A drag of the first title bar to the third place: [image, ja, agent] gives ja, agent, image", same(Y.moveGroups(order, grp(["image", "ja", "agent"]), 0, 2), ["ja", "agent", "image", "human", "v1en", "v1zh"]));
+  check("The merged panel moves as one block: groups [pair ja+agent, human], Move right gives human, ja, agent", same(Y.moveGroups(order, Y.groupsOf(["ja", "agent", "human"], true), 0, 1), ["image", "human", "ja", "agent", "v1en", "v1zh"]));
+  check("Toggle keeps the saved order: [agent] plus image gives [image, agent], minus agent gives [image]", same(Y.toggled(["agent"], "image", order), ["image", "agent"]) && same(Y.toggled(["image", "agent"], "agent", order), ["image"]));
+
+  // --- the component list
+  const drawn51 = Y.resolveLayout(has({ image: true, ja: true, v1en: true, v1zh: true }), order, undefined, "book", true);
+  const m51 = Y.componentRows(lfIndex, eff({}), has({ image: true, ja: true, v1en: true, v1zh: true }), drawn51, null, true, "book");
+  check("List, left_foot_full p051: the rows are Page image, Original text, Agent text, v1 EN placeholder, v1 ZH placeholder (no Human version row), checked: image and v1en, Agent text is grey with 'No agent translation yet'", same(m51.rows.map((x) => x.name), ["Page image", "Original text", "Agent text", "v1 EN placeholder", "v1 ZH placeholder"]) && same(m51.rows.filter((x) => x.checked).map((x) => x.id), ["image", "v1en"]) && m51.rows.find((x) => x.id === "agent").disabled && m51.rows.find((x) => x.id === "agent").note === "No agent translation yet", JSON.stringify(m51.rows.map((x) => [x.id, x.checked, x.disabled])));
+  check("List, p051: Bilingual pairing is grey ('Needs Original text and one English text') because Original text is not drawn, Kendo term highlights are grey ('No term marks on this page')", m51.pair.disabled && m51.pair.note === "Needs Original text and one English text" && m51.terms.disabled && m51.terms.note === "No term marks on this page");
+  const wIndex = { images: false, agentPages: [], humanPages: [1, 2, 3], v1Pages: [] };
+  const drawnW = Y.resolveLayout(has({ ja: true, human: true }), order, undefined, "article", true);
+  const mW = Y.componentRows(wIndex, eff({}), has({ ja: true, human: true }), drawnW, "default", true, "article");
+  check("List, d7835263 p001: the rows are Original text and Human version only (no Page image, no Agent text, no v1), the note of Human version is 'from kendojidai.com', Bilingual pairing is enabled", same(mW.rows.map((x) => x.name), ["Original text", "Human version"]) && mW.rows[1].note === "from kendojidai.com" && !mW.pair.disabled && same(mW.rows.map((x) => x.checked), [true, true]), JSON.stringify(mW.rows));
+  const drawnOne = Y.resolveLayout(has({ ja: true, human: true }), order, ["ja"], "article", true);
+  const mOne = Y.componentRows(wIndex, eff({ shown: { article: ["ja"] } }), has({ ja: true, human: true }), drawnOne, "admin", true, "article");
+  check("List, one panel left: the checked row of the last panel cannot be unchecked ('Keep at least one panel'), the note of Human version says 'chosen by an admin'", mOne.rows[0].disabled && mOne.rows[0].note === "Keep at least one panel" && !mOne.rows[1].disabled && mOne.rows[1].note === "chosen by an admin");
+  const mScroll = Y.componentRows(lfIndex, eff({}), null, { ids: [], missing: [], others: [], first: true }, null, false, "book");
+  check("List in Scroll view with the page not loaded: no row is grey except Page image ('Page view only')", mScroll.rows.find((x) => x.id === "image").note === "Page view only" && mScroll.rows.filter((x) => x.id !== "image").every((x) => !x.disabled));
+
+  // --- rows of the components
+  const web = (key, ja, text, extra = {}) => ({ key, shortKey: key.split("/").pop(), part: "lines", ja, jaMarks: [], agent: { text: "", marks: [], agreedByTranslator: false }, human: { text, marks: [], kind: "own", facts: extra.facts ?? [] }, web: true, site: extra.site === true });
+  const page = { pageId: "x/p001", n: 1, name: "Page 1", hasText: true, rows: [web("x/p001/web/U1", "日本語1", "English 1"), web("x/p001/web/U2", "日本語2", ""), web("x/p001/web/U3", "関連", "", { site: true }), web("x/p001/web/U4", "", "English only"), web("x/p001/web/U5", "日本語5", "Site English", { site: true })], terms: {}, extras: [], hasHuman: true, hasAgent: false, humanBy: "default", v1: [], label: { agent: "", human: "", v1: "" }, checked: false };
+  const rows = Y.pageRows(page);
+  check("Rows: Original text has the rows with a JA text (U1, U2, U3, U5), Human version has U1 and U4 and the site row with English U5, a JA-only sentence that is not site text (U2) is a 'dropped' line, a JA-only site row (U3) makes no line", same(rows.ja.map((r) => r.key.slice(-2)), ["U1", "U2", "U3", "U5"]) && same(rows.human.map((r) => r.key.slice(-2)), ["U1", "U2", "U4", "U5"]) && rows.human.find((r) => r.key.endsWith("U2")).dropped === true && rows.human.filter((r) => r.dropped).length === 1 && rows.agent.length === 0, JSON.stringify(rows.human.map((r) => [r.key.slice(-2), r.dropped])));
+  const withV1 = { ...page, rows: [], hasText: false, hasHuman: false, v1: [{ key: "x/p001/v1/01", ja: "日", en: "en", zh: "中" }, { key: "x/p001/v1/02", ja: "", en: "only en", zh: "" }] };
+  const rv = Y.pageRows(withV1);
+  check("Rows, v1: Original text takes the v1 JA lines (flag jaFromV1 true), v1 EN has 2 rows, v1 ZH has 1 row, all with the same keys", rv.jaFromV1 && same(rv.ja.map((r) => r.key), ["x/p001/v1/01"]) && rv.v1en.length === 2 && same(rv.v1zh.map((r) => r.key), ["x/p001/v1/01"]));
+  check("Fact lines (15.26.8): changed 'Japanese says: その上がった手元に小手を打たれる', dropped 'Japanese says: 右足. The English leaves this out.', a JA sentence keeps its own full stop", Y.factLine({ kind: "changed", ja: "その上がった手元に小手を打たれる" }) === "Japanese says: その上がった手元に小手を打たれる" && Y.factLine({ kind: "dropped", ja: "右足" }) === "Japanese says: 右足. The English leaves this out." && Y.factLine({ kind: "dropped", ja: "また、攻防の際、間合取りにも注意しています。" }) === "Japanese says: また、攻防の際、間合取りにも注意しています。 The English leaves this out.");
+  check("Words of the screen: the reasons and names follow VISION-viewer 15.26.6.2", T.NO_PAGE_TEXT === "No text for this page yet." && Y.COMPONENT_NAMES.v1en === "v1 EN placeholder" && T.KEEP_ONE === "Keep at least one panel" && T.PAGE_VIEW_ONLY === "Page view only");
+}
+
+if (mode === "layout") {
+  await layoutTest();
+  console.log(`\nFailures: ${failures}, skipped: ${skips}`);
+  process.exit(failures ? 1 : 0);
 }
 
 if (mode === "folds") {

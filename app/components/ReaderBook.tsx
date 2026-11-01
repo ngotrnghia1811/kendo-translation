@@ -6,13 +6,14 @@ import { TermPopup, type PickedTerm } from "./HtvMarkedText";
 import { CollapsedBar, CollapseButton } from "./HtvPanelFrame";
 import { THEME_EVENT } from "./ThemeSwitch";
 import ReaderIndex from "./ReaderIndex";
-import ReaderPageView, { enSourceOf, type EffectiveSettings } from "./ReaderPageView";
-import ReaderWithImage from "./ReaderImage";
+import ReaderComponentList from "./ReaderComponentList";
+import ReaderPageView, { type LayoutActions } from "./ReaderPageView";
 import ReaderSettingsPanel from "./ReaderSettingsPanel";
 import { parsePageNumber } from "@/lib/htv-format";
-import { READER_DEFAULTS, type ReaderSettings, type ThemeName } from "@/lib/htv-settings";
+import { LAYOUT_DEFAULTS, LAYOUT_KEYS, type ComponentId, type ReaderSettings, type ThemeName } from "@/lib/htv-settings";
 import { pad, readHref, type ReaderView } from "@/lib/reader-links";
-import { LABEL_SYNOPSIS, LABEL_V1, WAITING, pageLabel, type BookmarkView, type ReaderBookIndex, type ReaderPageData } from "@/lib/reader-types";
+import { componentRows, effectiveSettings, moveGroups, pageHas, pageRows, resolveLayout, toggled, workHas, workKind, type Drawn, type EffectiveSettings } from "@/lib/reader-layout";
+import { KEEP_ONE, LABEL_SYNOPSIS, LABEL_V1, WAITING, pageLabel, type BookmarkView, type ReaderBookIndex, type ReaderPageData } from "@/lib/reader-types";
 import type { Role } from "@/lib/htv-types";
 
 /*
@@ -20,10 +21,13 @@ import type { Role } from "@/lib/htv-types";
  *   no ?at     the book screen: the metadata block, the AI label summary, and every page of the book
  *   ?at=p048   the reading view: page view (one page, default) or scroll view (all pages in one scroll), with the toolbar and the side index
  * A reader who waits for approval sees the metadata block and the line "Your account waits for approval by an admin." and no page list, no text.
- * Settings (text mode, EN text, view, fonts, size, line height, width, focus, index) are kept in the account (PUT /api/read/settings).
+ * Settings (view, fonts, size, line height, width, focus, index, and the panel layout) are kept in the account (PUT /api/read/settings).
  * Unit RC4 (round 68 answer 5, round 69 answer 13): an account without reader.panelSeen sees the settings panel once, on the first text screen.
  * The button "Start reading" or the Esc key closes it and saves the mark. A change of a setting and the cog do not close it. VISION-viewer 15.23.6.
  * Unit RC5 (round 72): in the page view, an arrow key opens the previous or the next page (constant PAGE_KEYS).
+ * Unit RT73b (round 73c answer 4, VISION-viewer 15.26.6): the controls Text and "English text: Agent | Human" are gone. The button Components opens the component list
+ * (ReaderComponentList). The page draws one panel for each checked component that has data (ReaderPageView, ReaderPanels). The buttons Image (a book) and
+ * Original text (a web article) are quick buttons that check or uncheck one component. This file keeps the layout in the account and passes the actions to the panels.
  */
 
 function ToolSeg<T extends string>({ label, value, options, onPick, disabled = false }: { label: string; value: T; options: { value: T; label: string }[]; onPick: (v: T) => void; disabled?: boolean }) {
@@ -123,11 +127,12 @@ export default function ReaderBook({
   note: string;
 }) {
   const router = useRouter();
-  const [s, setS] = useState<EffectiveSettings>({ ...READER_DEFAULTS, ...settings, view: initialView });
+  const [s, setS] = useState<EffectiveSettings>(() => effectiveSettings(settings, initialView));
   const [theme, setTheme] = useState<ThemeName>(initialTheme);
   const [loaded, setLoaded] = useState<Record<number, ReaderPageData>>({});
   const [picked, setPicked] = useState<PickedTerm | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showList, setShowList] = useState(false);
   const [panelSeen, setPanelSeen] = useState(Boolean(settings.panelSeen));
   const [sheet, setSheet] = useState(false);
   const [bookmarks, setBookmarks] = useState<BookmarkView[]>(initialBookmarks);
@@ -172,6 +177,16 @@ export default function ReaderBook({
     }, 400);
   }, []);
 
+  // "Reset layout" (VISION-viewer 15.26.6.2): remove the layout keys and the old keys from the account. The page then uses the first layout.
+  function resetLayout() {
+    setS((x) => ({ ...x, components: LAYOUT_DEFAULTS.components, widths: {}, pair: LAYOUT_DEFAULTS.pair, terms: LAYOUT_DEFAULTS.terms, shown: undefined }));
+    const rest: ReaderSettings = { ...pending.current };
+    for (const k of LAYOUT_KEYS) delete rest[k];
+    pending.current = {};
+    if (timer.current) clearTimeout(timer.current);
+    void sendJson("PUT", "/api/read/settings", { ...(Object.keys(rest).length ? { reader: rest } : {}), clear: LAYOUT_KEYS });
+  }
+
   function changeView(v: ReaderView) {
     if (v === s.view) return;
     save({ view: v });
@@ -194,23 +209,24 @@ export default function ReaderBook({
     save({ panelSeen: true });
   }, [save]);
 
-  // Esc closes the first-visit panel first. Else Esc leaves focus mode (round 62 answer 8). With both open, the first Esc closes the panel and the second leaves focus mode.
+  // Esc closes the first-visit panel first, then the component list. Else Esc leaves focus mode (round 62 answer 8). With several open, each Esc closes one.
   useEffect(() => {
-    if (!s.focus && !firstVisit) return;
+    if (!s.focus && !firstVisit && !showList) return;
     const key = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (firstVisit) closeFirstVisit();
+      else if (showList) setShowList(false);
       else save({ focus: false });
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [s.focus, firstVisit, closeFirstVisit, save]);
+  }, [s.focus, firstVisit, showList, closeFirstVisit, save]);
 
   // Arrow keys in the page view (unit RC5): the same address as the links Previous and Next, so the same place save runs (the effect below).
   // The keys do nothing while the settings panel, the first-visit panel, or the term pop-up is open. Scroll view keeps the arrow keys of the browser.
   useEffect(() => {
     if (at === null || !user.approved || s.view !== "page") return;
-    if (showSettings || firstVisit || picked) return;
+    if (showSettings || showList || firstVisit || picked) return;
     const key = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.repeat || e.isComposing || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
       if (e.key !== PAGE_KEYS.previous && e.key !== PAGE_KEYS.next) return;
@@ -222,7 +238,7 @@ export default function ReaderBook({
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [at, user.approved, s.view, showSettings, firstVisit, picked, index.pages, index.slug, index.digits, router]);
+  }, [at, user.approved, s.view, showSettings, showList, firstVisit, picked, index.pages, index.slug, index.digits, router]);
 
   // Page view: save the place at each page.
   useEffect(() => {
@@ -331,10 +347,31 @@ export default function ReaderBook({
     router.push(readHref(index.slug, s.view, n, index.digits));
   }
 
-  const hasHumanHere = here !== null && Boolean(pages[here]?.hasHuman);
-  // Unit RT73a: a page with a Human version and no Agent text shows the Human version, so the control shows "Human" and has nothing to swap.
-  const hasAgentHere = here !== null && Boolean(pages[here]?.hasAgent);
-  const enShown = here !== null && pages[here] ? enSourceOf(pages[here], s.en) : s.en;
+  // ---------------------------------------------------------------- layout (VISION-viewer 15.26.6)
+  const kind = workKind(index.images);
+  // The Page image draws in the page view only, not in the scroll view and not in focus mode (unit RC2, round 65).
+  const imageOk = s.view === "page" && !s.focus;
+  // The page on the screen: the list of components and the quick buttons follow it. While the scroll view has not loaded it, nothing is grey.
+  const curData: ReaderPageData | null = here === null ? null : (pages[here] ?? (textSet.has(here) ? null : emptyPage(index.slug, here, index.digits)));
+  const curHas = curData ? pageHas(pageRows(curData), index.images) : null;
+  const curDrawn: Drawn | null = curHas ? resolveLayout(curHas, s.components, s.shown?.[kind], kind, imageOk) : null;
+  // The checked list: the saved list of the kind, else the panels that the first layout draws (the change starts from the layout on the screen, R2).
+  const checkedNow: ComponentId[] = s.shown?.[kind] ?? curDrawn?.ids ?? [];
+  const keepOne = (id: ComponentId) => curDrawn !== null && curDrawn.ids.length === 1 && curDrawn.ids[0] === id && checkedNow.includes(id);
+  const toggleComponent = (id: ComponentId) => save({ shown: { ...s.shown, [kind]: toggled(checkedNow, id, s.components) } });
+  const actions: LayoutActions = {
+    move: (groups, from, to) => save({ components: moveGroups(s.components, groups, from, to) }),
+    hide: (g, drawnIds) => (g.pair ? save({ pair: false }) : save({ shown: { ...s.shown, [kind]: (s.shown?.[kind] ?? drawnIds).filter((x) => x !== g.ids[0]) } })),
+    width: (id, w) => save({ widths: { ...s.widths, [id]: w } }),
+  };
+  const listModel = componentRows(index, s, curHas, curDrawn ?? { ids: [], missing: [], others: [], first: true }, curData?.humanBy ?? null, imageOk, kind);
+  const componentList = (embedded: boolean) => (
+    <ReaderComponentList model={listModel} embedded={embedded} onToggle={toggleComponent} onPair={() => save({ pair: !s.pair })} onTerms={() => save({ terms: !s.terms })} onReset={resetLayout} onClose={() => setShowList(false)} />
+  );
+  const toggleSettings = () => {
+    setShowList(false);
+    setShowSettings((v) => !v);
+  };
   const onPick = useCallback((p: PickedTerm) => setPicked(p), []);
   const entryOf = (id: string) => {
     for (const p of Object.values(pages)) if (p.terms[id]) return p.terms[id];
@@ -418,32 +455,22 @@ export default function ReaderBook({
 
   // ---------------------------------------------------------------- reading view
   const nums = s.view === "page" ? [at] : Array.from({ length: index.pages }, (_, i) => i + 1);
-  // Unit RC2 (round 65): the page image shows in the page view only. The scroll view and focus mode show text only.
-  const withImage = s.image && index.images && s.view === "page" && !s.focus;
-  const wrap = (n: number, node: React.ReactNode) => {
-    if (!withImage) return node;
-    const pageId = `${index.slug}/p${pad(n, index.digits)}`;
-    return (
-      <ReaderWithImage key={pageId} pageId={pageId} n={n}>
-        {node}
-      </ReaderWithImage>
-    );
-  };
+  const band = s.view === "scroll" || s.focus;
+  const view = (data: ReaderPageData, key: number) => <ReaderPageView key={key} data={data} s={s} kind={kind} images={index.images} work={workHas(index)} imageOk={imageOk} band={band} onPick={onPick} focus={s.focus} actions={actions} />;
   const content = (
     <div className="space-y-10" data-reading data-view={s.view}>
       {nums.map((n) => {
         const data = pages[n];
-        if (data) return wrap(n, <ReaderPageView key={n} data={data} s={s} onPick={onPick} focus={s.focus} />);
+        if (data) return view(data, n);
         if (textSet.has(n)) {
-          return wrap(
-            n,
+          return (
             <section key={n} id={`p${pad(n, index.digits)}`} data-lazy={n} data-page-n={n} data-section={`${index.slug}/p${pad(n, index.digits)}`} className="mx-auto min-h-[12rem] w-full max-w-[72ch] scroll-mt-28">
               <h2 className="mb-2 border-b border-line pb-1 text-base font-semibold">{pageLabel(n)}</h2>
               <p className="text-sm text-muted">Loading…</p>
-            </section>,
+            </section>
           );
         }
-        return wrap(n, <ReaderPageView key={n} data={emptyPage(index.slug, n, index.digits)} s={s} onPick={onPick} focus={s.focus} />);
+        return view(emptyPage(index.slug, n, index.digits), n);
       })}
     </div>
   );
@@ -453,7 +480,6 @@ export default function ReaderBook({
     <ReaderSettingsPanel
       s={s}
       theme={theme}
-      hasHuman={hasHumanHere}
       onChange={(p) => {
         const { view, ...rest } = p;
         if (Object.keys(rest).length) save(rest);
@@ -462,7 +488,8 @@ export default function ReaderBook({
       onTheme={changeTheme}
       onClose={firstVisit ? closeFirstVisit : () => setShowSettings(false)}
       firstVisit={firstVisit}
-      imageNote={index.images}
+      images={index.images}
+      componentList={componentList(true)}
     />
   );
 
@@ -530,11 +557,24 @@ export default function ReaderBook({
             </h1>
             <div className="flex items-center gap-2" data-view-tools>
               <ToolSeg label="View" value={s.view} options={[{ value: "page", label: "Page view" }, { value: "scroll", label: "Scroll view" }]} onPick={changeView} />
-              {index.images ? <ToolToggle label="Image" pressed={s.image} onToggle={() => save({ image: !s.image })} disabled={s.view !== "page"} disabledTitle={IMAGE_PAGE_ONLY} /> : null}
+              {index.images ? (
+                <ToolToggle label="Image" pressed={checkedNow.includes("image")} onToggle={() => toggleComponent("image")} disabled={!imageOk || keepOne("image")} disabledTitle={imageOk ? KEEP_ONE : IMAGE_PAGE_ONLY} />
+              ) : (
+                <ToolToggle label="Original text" pressed={checkedNow.includes("ja")} onToggle={() => toggleComponent("ja")} disabled={keepOne("ja")} disabledTitle={KEEP_ONE} />
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSettings(false);
+                  setShowList((v) => !v);
+                }}
+                aria-expanded={showList}
+                data-components-open
+                className="min-h-[44px] rounded border border-line px-2.5 py-1 text-sm md:min-h-0"
+              >
+                Components
+              </button>
             </div>
-            <ToolSeg label="Text" value={s.text} options={[{ value: "en", label: "EN" }, { value: "ja", label: "JA" }, { value: "pair", label: "Pairing" }]} onPick={(v) => save({ text: v })} />
-            <ToolSeg label="English text" value={enShown === "none" ? s.en : enShown} options={[{ value: "agent", label: "Agent" }, { value: "human", label: "Human" }]} onPick={(v) => save({ en: v })} disabled={!hasHumanHere || !hasAgentHere} />
-            {!hasHumanHere ? <span className="text-xs text-muted" data-no-human>No human version for this page</span> : null}
             <span className="ml-auto flex flex-wrap items-center gap-2">
               {s.view === "page" ? (
                 <>
@@ -559,7 +599,7 @@ export default function ReaderBook({
               <button type="button" onClick={() => save({ focus: true })} data-focus-enter className="rounded border border-line px-2 py-1 text-sm">
                 Focus
               </button>
-              <button type="button" onClick={() => setShowSettings((v) => !v)} aria-expanded={showSettings || firstVisit} data-settings-open className="rounded border border-line px-2 py-1 text-sm">
+              <button type="button" onClick={toggleSettings} aria-expanded={showSettings || firstVisit} data-settings-open className="rounded border border-line px-2 py-1 text-sm">
                 Settings
               </button>
             </span>
@@ -590,7 +630,7 @@ export default function ReaderBook({
         <button type="button" onClick={() => void toggleBookmark()} aria-pressed={Boolean(marked)} className="min-h-[44px] rounded border border-line px-3 text-sm">
           {marked ? "Marked" : "Mark"}
         </button>
-        <button type="button" onClick={() => setShowSettings((v) => !v)} className="min-h-[44px] rounded border border-line px-3 text-sm">
+        <button type="button" onClick={toggleSettings} className="min-h-[44px] rounded border border-line px-3 text-sm">
           Aa
         </button>
       </div>
@@ -606,6 +646,7 @@ export default function ReaderBook({
         </div>
       ) : null}
       {showSettings || firstVisit ? settingsPanel : null}
+      {showList && !firstVisit ? componentList(false) : null}
       {popup}
     </div>
   );

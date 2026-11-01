@@ -193,6 +193,8 @@ export interface ReaderBookIndex extends ReaderBookFacts {
   humanPages: number[];
   /** Pages that the scroll view asks the server for: every page with a reader_pages record, and every page with a v1 md file. The v1 file adds to no count. */
   dataPages: number[];
+  /** Pages with a v1 md file on this machine (unit RT73b). The component list shows the v1 rows when this list is not empty. They add to no count. */
+  v1Pages: number[];
   /** Page numbers with a page check. */
   checkedPages: number[];
   chapters: ReaderChapter[];
@@ -219,6 +221,15 @@ export const LABEL_V1_JA = "v1 Gemini placeholder text.";
 export const LABEL_AGREE_ROW = "AI translation, checked by a translator";
 export const LABEL_SYNOPSIS = "Written by an AI agent";
 export const NO_TEXT = "No agent translation yet";
+/** Reasons in the component list for a component that the page lacks (VISION-viewer 15.26.6.2). NO_TEXT is the reason of Agent text. */
+export const NO_HUMAN = "No human version for this page";
+export const NO_JA = "No Japanese text for this page";
+export const NO_V1 = "No v1 text for this page";
+export const NO_TERMS = "No term marks on this page";
+export const NO_IMAGE = "No page image for this page";
+export const PAGE_VIEW_ONLY = "Page view only";
+export const PAIR_NEEDS = "Needs Original text and one English text";
+export const KEEP_ONE = "Keep at least one panel";
 /** A page with no Agent text, no Human version, no Original text, and no v1 file (unit default D29). */
 export const NO_PAGE_TEXT = "No text for this page yet.";
 export const WAITING = "Your account waits for approval by an admin.";
