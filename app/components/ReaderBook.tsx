@@ -447,7 +447,7 @@ export default function ReaderBook({
         ) : null}
         <section aria-label="Pages of the book" className="max-w-3xl">
           <h2 className="mb-1 text-lg font-semibold">Pages</h2>
-          <ReaderIndex slug={index.slug} pages={index.pages} digits={index.digits} textPages={index.textPages} checkedPages={index.checkedPages} chapters={index.chapters} current={null} view={s.view} dense={false} />
+          <ReaderIndex slug={index.slug} pages={index.pages} digits={index.digits} textPages={index.textPages} agentPages={index.agentPages} humanPages={index.humanPages} checkedPages={index.checkedPages} chapters={index.chapters} current={null} view={s.view} dense={false} />
         </section>
       </div>
     );
@@ -528,7 +528,7 @@ export default function ReaderBook({
   );
   const sideIndex = (dense: boolean, onNavigate?: () => void) => (
     <>
-      <ReaderIndex slug={index.slug} pages={index.pages} digits={index.digits} textPages={index.textPages} checkedPages={index.checkedPages} chapters={index.chapters} current={here} view={s.view} dense={dense} onNavigate={onNavigate} />
+      <ReaderIndex slug={index.slug} pages={index.pages} digits={index.digits} textPages={index.textPages} agentPages={index.agentPages} humanPages={index.humanPages} checkedPages={index.checkedPages} chapters={index.chapters} current={here} view={s.view} dense={dense} onNavigate={onNavigate} />
       {bookmarkList}
     </>
   );

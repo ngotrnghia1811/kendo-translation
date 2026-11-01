@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CommentView, HtvBookPage, HtvPageData, HtvRow, Role, SavedRow, VersionInfo } from "@/lib/htv-types";
 import { utcTime } from "@/lib/htv-format";
+import { readersSeeLine } from "@/lib/reader-opens-rule";
 import { VerdictPill } from "./Pills";
 import { MarkedText, TermPopup, type PickedTerm } from "./HtvMarkedText";
 import RowComments from "./HtvComments";
@@ -88,6 +89,22 @@ export default function HtvPageSection({ page, data, user, pinned, canPin, onPin
   const [markRun, setMarkRun] = useState(data.runs[0]?.runId ?? "");
   const [markBusy, setMarkBusy] = useState(false);
   const closePopup = useCallback(() => setPicked(null), []);
+  // Round 75 answer 3 (qa-memory-2026-10-31.md:53): the status line "Readers see ..." for the admin. null = not loaded (no line).
+  const [openIds, setOpenIds] = useState<Set<string> | null>(null);
+  const isAdmin = user.role === "admin";
+  useEffect(() => {
+    if (!isAdmin) return;
+    let alive = true;
+    void fetch(`/api/admin/opens?book=${encodeURIComponent(data.slug)}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { opens: { runId: string }[] } | null) => {
+        if (alive && j) setOpenIds(new Set(j.opens.map((o) => o.runId)));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [isAdmin, data.slug, data.markedRunId]);
 
   const dirty = useMemo(
     () => keys.some((k) => (texts[k] ?? "") !== (baseline[k] ?? "") || !!agrees[k] !== !!baseAgree[k]),
@@ -246,6 +263,11 @@ export default function HtvPageSection({ page, data, user, pinned, canPin, onPin
             Clear the run mark
           </button>
         </div>
+      ) : null}
+      {user.role === "admin" && openIds ? (
+        <p className="mt-1 text-sm" data-readers-see>
+          {readersSeeLine(data.runs, data.markedRunId, openIds)} <span className="text-muted">Readers see a change after the next S2 run.</span>
+        </p>
       ) : null}
 
       {!readOnly && versions.length > 0 ? (

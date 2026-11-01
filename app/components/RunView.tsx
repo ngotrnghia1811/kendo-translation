@@ -5,6 +5,7 @@ import { dateTime, isLive, minutes, usd } from "@/lib/format";
 import { StatePill, VerdictPill } from "./Pills";
 import { LiveBadge, useLive } from "./useLive";
 import PauseButton from "./PauseButton";
+import ReaderOpenRows from "./ReaderOpenRows";
 import { ChainTable, ComparePanel, FailureLists, MemoryPanel } from "./ChainPanels";
 
 // Round 44 answer 13 (Q-A l142): a list opens a run view with one row per page: state, calls, USD, minutes,
@@ -40,6 +41,7 @@ export default function RunView({ initial }: { initial: RunDetail }) {
       <div className="mb-4">
         <PauseButton stamp={run.stamp} state={run.state} fileExists={run.pauseFileExists} pausedSinceEpoch={run.pausedSinceEpoch} onDone={refresh} />
       </div>
+      <ReaderOpenRows stamp={run.stamp} pages={run.pages} />
       {isChain ? (
         <div className="mb-6 space-y-6">
           <section>

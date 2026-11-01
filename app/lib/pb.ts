@@ -3,6 +3,7 @@ import { loadConfig } from "./config";
 import type { ChapterHead, CommentView, HtvRun, Role, SavedRow, SessionUser, TermEntry, VersionInfo } from "./htv-types";
 import type { BookmarkView, DashArticle, DashChapter, DashWork, ReaderBookFacts, ReaderExtra, ReaderFact, ReaderMark, ReaderPageRecord } from "./reader-types";
 import { hasAgentRecord } from "./reader-web";
+import type { OpenSource, ReaderOpen } from "./reader-opens-rule";
 import type { PaneSettings, ThemeName } from "./htv-settings";
 import { isTheme } from "./htv-settings";
 
@@ -330,6 +331,64 @@ export async function clearRunMark(token: string, pageId: string): Promise<void>
   if (!id) return;
   const r = await pbFetch("DELETE", `/api/collections/run_marks/records/${encodeURIComponent(String(id))}`, { token });
   if (!ok(r)) throw failure(r, "The run mark was not cleared.");
+}
+
+// ---------------------------------------------------------------- reader opens (admin gate for agent text)
+
+/*
+ * Round 75 answer 3 (qa-memory-2026-10-31.md:53): "Admin opens any run". Collection reader_opens (migration 1793300012), admin only.
+ * One record opens one run of one book. S2 reads the collection. Readers see a change after the next S2 run.
+ */
+
+function openOf(rec: J): ReaderOpen {
+  return { source: rec.source === "book-store" ? "book-store" : "pilot-run", book: String(rec.book), runId: String(rec.run_id) };
+}
+
+/** The opened runs of one book. */
+export async function listOpensOfBook(token: string, source: OpenSource, book: string): Promise<ReaderOpen[]> {
+  const recs = await listAll(token, "reader_opens", { filter: `source=${q(source)} && book=${q(book)}`, fields: "source,book,run_id" });
+  return recs.map(openOf);
+}
+
+/** The opens of some run IDs, for all books. */
+export async function listOpensOfRuns(token: string, source: OpenSource, runIds: string[]): Promise<ReaderOpen[]> {
+  if (runIds.length === 0) return [];
+  const any = runIds.map((id) => `run_id=${q(id)}`).join(" || ");
+  const recs = await listAll(token, "reader_opens", { filter: `source=${q(source)} && (${any})`, fields: "source,book,run_id" });
+  return recs.map(openOf);
+}
+
+async function findOpenId(token: string, o: ReaderOpen): Promise<string | null> {
+  const f = encodeURIComponent(`source=${q(o.source)} && book=${q(o.book)} && run_id=${q(o.runId)}`);
+  const r = await pbFetch("GET", `/api/collections/reader_opens/records?perPage=1&skipTotal=1&fields=id&filter=${f}`, { token });
+  if (!ok(r)) throw failure(r, "PocketBase could not read the opened runs.");
+  const id = r.data.items?.[0]?.id;
+  return id ? String(id) : null;
+}
+
+/** Open a run to readers. Returns true when the record is new, false when the run was open already. */
+export async function openRun(token: string, user: SessionUser, o: ReaderOpen): Promise<boolean> {
+  if (await findOpenId(token, o)) return false;
+  const r = await pbFetch("POST", "/api/collections/reader_opens/records", { token, body: { source: o.source, book: o.book, run_id: o.runId, opened_by: user.id } });
+  if (!ok(r)) throw failure(r, "The run was not opened to readers.");
+  return true;
+}
+
+/** Close a run to readers. Returns true when a record was deleted, false when the run was not open. */
+export async function closeRun(token: string, o: ReaderOpen): Promise<boolean> {
+  const id = await findOpenId(token, o);
+  if (!id) return false;
+  const r = await pbFetch("DELETE", `/api/collections/reader_opens/records/${encodeURIComponent(id)}`, { token });
+  if (!ok(r)) throw failure(r, "The run was not closed to readers.");
+  return true;
+}
+
+/** True when page_runs holds a snapshot of this run of this book. The route that opens a run uses it when the app reads the runs from PocketBase (runSource "pocketbase"). */
+export async function pageRunExists(token: string, book: string, runId: string): Promise<boolean> {
+  const f = encodeURIComponent(`item_id=${q(book)} && run_id=${q(runId)}`);
+  const r = await pbFetch("GET", `/api/collections/page_runs/records?perPage=1&skipTotal=1&fields=id&filter=${f}`, { token });
+  if (!ok(r)) throw failure(r, "PocketBase could not read the page runs.");
+  return Boolean(r.data.items?.length);
 }
 
 // ---------------------------------------------------------------- page runs and catalog (filled by the sync command S2)

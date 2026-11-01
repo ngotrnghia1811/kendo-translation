@@ -10,12 +10,17 @@ import { NO_TEXT, type ReaderChapter } from "@/lib/reader-types";
  * Index of a book on the reader pages (unit RC1, round 63 answer 9, Q-A 2026-10-28 l291): month headings, every page, and "Go to page".
  * Round 58 answer 3 (l201): all pages are listed. A page without reader text shows "No agent translation yet" (full list) or a quiet mark (side index).
  * The page name is the file number: "Page 48" (round 62 answer 10).
+ * Round 75 answer 15 (qa-memory-2026-10-31.md:65): the tag "AI" shows only on a page that has Agent text. A page with only a Human version
+ * (example /read/d7835263 pages 1 to 3, text from kendojidai.com) gets the tag "Human translation" (VISION-viewer: "Human translation: 3 of 3 pages"), never "AI".
+ * A v1 placeholder is no text at all (round 73c answer 2), so a page with only a v1 file gets the tag "No agent translation yet".
  */
 export default function ReaderIndex({
   slug,
   pages,
   digits,
   textPages,
+  agentPages,
+  humanPages,
   checkedPages,
   chapters,
   current,
@@ -26,7 +31,12 @@ export default function ReaderIndex({
   slug: string;
   pages: number;
   digits: number;
+  /** Pages with any reader text (an Agent text or a Human version). */
   textPages: number[];
+  /** Pages with an Agent text. Only these get the tag "AI". */
+  agentPages: number[];
+  /** Pages with a Human version. */
+  humanPages: number[];
   checkedPages: number[];
   chapters: ReaderChapter[];
   current: number | null;
@@ -40,6 +50,8 @@ export default function ReaderIndex({
   const [value, setValue] = useState("");
   const [note, setNote] = useState("");
   const withText = new Set(textPages);
+  const withAgent = new Set(agentPages);
+  const withHuman = new Set(humanPages);
   const checked = new Set(checkedPages);
   const starts = new Map<number, ReaderChapter>();
   for (const c of chapters) if (c.pageStart >= 1 && c.pageStart <= pages && !starts.has(c.pageStart)) starts.set(c.pageStart, c);
@@ -108,9 +120,13 @@ export default function ReaderIndex({
                 className={"flex min-h-[44px] items-center justify-between gap-2 rounded px-1.5 py-0.5 text-sm hover:bg-stone-100 md:min-h-0 " + (current === n ? "bg-stone-200 font-semibold" : "")}
               >
                 <span>Page {n}</span>
-                {has ? (
+                {withAgent.has(n) ? (
                   <span className="text-xs text-green-800" data-index-tag="text">
                     {dense ? "AI" : checked.has(n) ? "AI translation, checked by a person" : "AI translation"}
+                  </span>
+                ) : withHuman.has(n) ? (
+                  <span className="text-xs text-green-800" data-index-tag="human">
+                    {dense ? "Human" : "Human translation"}
                   </span>
                 ) : dense ? null : (
                   <span className="text-xs text-muted" data-index-tag="none">

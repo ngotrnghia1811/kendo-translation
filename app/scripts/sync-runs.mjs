@@ -11,7 +11,10 @@
 // Each record also gets the column translated (the English pages that readers can read, round 69 answers 8 and 9) and, for a web article, the column placement
 // (web date and print stamp, for the folds of the Reader dashboard). Each reader_pages record gets the folded search columns search_ja and search_en (round 69 answer 10).
 // Unit RC1 (round 63 answer 3, Q-A 2026-10-28 l309): it also fills reader_pages, one record for each page that has an agent translation to show readers.
-// The shown run of a page is the run of the admin run mark (collection run_marks), else the newest PASS run. A page with only FAIL runs gets no record.
+// Unit RT74 (round 75 answer 3, qa-memory-2026-10-31.md:53: "Admin opens any run"): only an OPEN run can reach readers. The admin opens a run with the button "Open to readers"
+// (collection reader_opens, migration 1793300012). The shown run of a page is the run of the admin run mark (collection run_marks) if that run is open, else the newest open PASS run,
+// else no Agent text. A page whose record holds a run that is not open any more loses the Agent text: a web article page goes back to its Original text record (run_id web-ja),
+// a book page loses its record. Nothing is open by default. Without the collection reader_opens, S2 stops.
 // A record holds the rows (JA text, agent EN text, term marks), the term entries that the marks cite, the captions and the running head (extras),
 // and the group keys that a translator ticked "agree" for exactly this agent text (agree, without any name). It holds no verdict, no score, no TL_3 panel, and no reasoning.
 // Unit RT73a (round 73, VISION-viewer 15.26): it also reads the page file of the Translator (item-metadata/web-pages.jsonl, made by data/scripts/web_pages.py)
@@ -40,6 +43,7 @@ const { folderToPageId } = await import("../lib/format.ts");
 const { isTranslatedPage } = await import("../lib/reader-translated.ts");
 const { SEARCH_COLUMN_MAX, searchColumns } = await import("../lib/reader-search.ts");
 const { hasAgentRecord, WEB_RUN_ID, WEB_SYSTEM_EMAIL, WEB_SYSTEM_NAME, WEB_VERSION } = await import("../lib/reader-web.ts");
+const { openKey, pickReaderRun, PILOT_SOURCE } = await import("../lib/reader-opens-rule.ts");
 
 // ---------------------------------------------------------------- constants and small helpers
 
@@ -83,8 +87,10 @@ Options:
 
 Without --page and --list the command syncs every page with a finished run.
 The collection magazine_chapters always gets all rows of item-metadata/magazine-chapters.jsonl (the month headings of the book screen).
-The collection reader_pages gets one record for each selected page with an agent translation to show: the run of the admin run mark, else the newest PASS run.
-A page with only FAIL runs gets no record. The record holds no verdict, no score, no TL_3 panel, and no reasoning. The report lists the count and the sizes in MB.
+The collection reader_pages gets one record for each selected page with an agent translation to show. Only an OPEN run can show (round 75 answer 3: the admin opens a run with "Open to readers", collection reader_opens).
+The shown run is the run of the admin run mark if that run is open, else the newest open PASS run, else no Agent text. A page whose record holds a run that is not open loses it:
+a web article page goes back to its Original text record (run_id "web-ja"), a book page loses its record. Migration 1793300012 adds reader_opens. Without it, S2 stops.
+With --offline the server is not read, so the plan counts every run as open. The record holds no verdict, no score, no TL_3 panel, and no reasoning. The report lists the count and the sizes in MB.
 The collection catalog_items always gets all rows of item-metadata/items.filled.jsonl (347 rows: 36 folders and 311 web articles), plus the item of each selected run that has no row.
 The slug of a web article is the first 8 characters of its item_id. The column translated holds the English pages that readers can read (a reader_pages record exists for the page).
 The column placement of a web article holds the web date and the print stamp of web-magazine-candidates.jsonl (the folds of the Reader dashboard use it).
@@ -712,6 +718,7 @@ let serverItems = null;
 let serverChapters = null;
 let serverReader = null;
 let marks = new Map(); // page ID to the run ID of the admin run mark
+let openSet = null; // unit RT74: the opened runs, as openKey(source, book, run ID). null = not read (--offline): every run counts as open
 let ownRows = []; // all saved own translations of the translators, for the agree ticks (names are not copied). The copies of the system account stay out.
 let sysUser = null; // the disabled system account kendojidai.com (unit RT73a), or null
 let sysOwn = null; // its own_translations records: "pageId|groupKey" -> record
@@ -761,6 +768,14 @@ if (!o.offline) {
       if (o.apply) fail(text);
       console.error("Warning: " + text + " The dry run goes on, and the copies of the web articles count as different.");
     }
+    // Unit RT74 (round 75 answer 3): the opened runs. The plan needs them, so S2 stops without the collection (dry run too).
+    // Unit default RT74. Other option: treat as nothing open. Benefit: a dry run still works on an old database. Cost: the plan shows "remove" for every agent page and hides the real cause.
+    try {
+      await pb.call("GET", "/api/collections/reader_opens");
+    } catch {
+      fail("Collection reader_opens is missing. Restart PocketBase so that migration 1793300012 runs.");
+    }
+    openSet = new Set((await pb.listAll("reader_opens")).map((r) => openKey(String(r.source), String(r.book), String(r.run_id))));
     const qs = (v) => JSON.stringify(String(v)); // a PocketBase filter text
     sysUser = (await pb.listAll("users", { filter: `email=${qs(WEB_SYSTEM_EMAIL)}`, fields: "id,email,disabled" }))[0] ?? null;
     ownRows = await pb.listAll("own_translations", sysUser ? { filter: `user!=${qs(sysUser.id)}` } : {});
@@ -789,7 +804,9 @@ const serverOnly = serverRuns
   ? [...serverRuns.values()].filter((r) => !localAll.has(`${r.page_id}|${r.run_id}`) && (!filtered || filter.has(String(r.page_id))))
   : [];
 
-// 3b. reader_pages: the shown run of each selected page. The run mark of the admin wins. Else the newest PASS run. Only FAIL runs: no record.
+// 3b. reader_pages: the shown run of each selected page (unit RT74, round 75 answer 3). Only an open run can show. The run mark of the admin wins if that run is open.
+// Else the newest open PASS run. Else no Agent text: the page gets no record, and a record that it has is removed (book page) or goes back to the Original text (web article page).
+const isOpenRun = (book, runId) => openSet === null || openSet.has(openKey(PILOT_SOURCE, book, runId));
 const newestFirst = (a, b) => (a.run.startedUtc < b.run.startedUtc ? 1 : a.run.startedUtc > b.run.startedUtc ? -1 : a.run.runId < b.run.runId ? 1 : a.run.runId > b.run.runId ? -1 : 0);
 const runsByPage = new Map();
 for (const x of selected) {
@@ -811,20 +828,20 @@ for (const r of ownRows) {
 }
 const readerPlan = [];
 const readerSkipped = [];
+const readerNotOpen = []; // pages with a finished run and no open run: no Agent text
 const searchCut = [];
 for (const [pageId, xs] of [...runsByPage].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
   xs.sort(newestFirst);
   const markedId = marks.get(pageId);
-  let pick = markedId ? xs.find((x) => x.run.runId === markedId) : undefined;
-  let why = "run mark";
-  if (!pick) {
-    pick = xs.find((x) => x.run.verdict === "PASS");
-    why = markedId ? "newest PASS (the marked run has no finished folder here)" : "newest PASS";
-  }
-  if (!pick) {
-    readerSkipped.push(`${pageId}: only FAIL runs`);
+  const hit = pickReaderRun(xs.map((x) => ({ runId: x.run.runId, verdict: x.run.verdict, x })), markedId, (runId) => isOpenRun(xs[0].slug, runId));
+  if (!hit) {
+    if (xs.some((x) => isOpenRun(x.slug, x.run.runId))) readerSkipped.push(`${pageId}: no open PASS run`);
+    else readerNotOpen.push(pageId);
     continue;
   }
+  const pick = hit.run.x;
+  const markedHere = markedId ? xs.find((x) => x.run.runId === markedId) : undefined;
+  const why = hit.why === "run mark" ? "run mark (open)" : markedId ? `newest open PASS (${markedHere ? "the marked run is not open" : "the marked run has no finished folder here"})` : "newest open PASS";
   const agree = pick.built.rows.filter((r) => agreedTexts.get(`${pageId}|${r.key}`)?.has(r.ed3)).map((r) => r.key);
   const body = makeReaderPage(pageId, pick.slug, pick.run.runId, pick.built, pick.extras, agree);
   // Unit RT73a (VISION-viewer 15.26.14): an agent page that also has a Human version (18d4ac29/p001) searches the kendojidai.com text too. The rows stay as they are.
@@ -845,10 +862,23 @@ for (const [pageId, xs] of [...runsByPage].sort((a, b) => (a[0] < b[0] ? -1 : 1)
   const action = !serverReader ? "not compared" : !stored ? "create" : readerRecordEqual(stored, body) ? "unchanged" : "update";
   readerPlan.push({ pageId, x: pick, why, body, bytes, action, id: stored?.id });
 }
-const readerServerOnly = serverReader ? [...serverReader.keys()].filter((id) => !readerPlan.some((p) => p.pageId === id) && !webById.has(id) && (!filtered || filter.has(id))) : [];
+// Unit RT74: a stored record with an Agent text that the plan does not keep. A page that has finished local runs was decided above, so its record goes.
+// A page without any finished local run (the run folder is gone) keeps its record when its run is open (the old rule: S2 never deletes what it cannot judge). Its run is not open: the record goes.
+// The records of the web articles are handled in 3b2, and a page outside --page and --list stays as it is.
+const readerPlanned = new Set(readerPlan.map((p) => p.pageId));
+const readerRemove = []; // book pages that lose the record: { pageId, id, runId }
+const readerServerOnly = [];
+if (serverReader) {
+  for (const [id, rec] of serverReader) {
+    if (readerPlanned.has(id) || webById.has(id) || (filtered && !filter.has(id))) continue;
+    const agent = hasAgentRecord(rec);
+    if (agent && (runsByPage.has(id) || !isOpenRun(String(rec.item_id), String(rec.run_id)))) readerRemove.push({ pageId: id, id: rec.id, runId: String(rec.run_id) });
+    else readerServerOnly.push(id);
+  }
+}
 
 // 3b2. Web articles (unit RT73a). For each A4 page of the page file:
-//   reader_pages    a record with run_id "web-ja" (Original text rows, no Agent text). A page with an agent record keeps that record.
+//   reader_pages    a record with run_id "web-ja" (Original text rows, no Agent text). A page whose plan keeps an Agent text keeps that record. A page whose agent run is not open goes back to this record (unit RT74).
 //   reader_versions the chosen Human version, chosen_by empty (chosen by default, round 73 answer 5). S2 writes it once. A choice that an admin removed or changed stays.
 //   own_translations a copy of each Human row under the disabled system account (design D26), so that an admin can choose the version again.
 const sys = { id: sysUser?.id ?? "" };
@@ -862,7 +892,11 @@ const agentPlanned = new Set(readerPlan.map((p) => p.pageId));
 for (const w of webSel) {
   const pageId = w.page_id;
   const stored = serverReader?.get(pageId);
-  if (agentPlanned.has(pageId) || (stored && hasAgentRecord(stored))) {
+  // Unit RT74: an agent record of a web page stays only when the plan keeps an Agent text for the page, or when the page has no finished local run and the stored run is open.
+  // Else the page goes back to its Original text record (run_id web-ja) below. The compare with the stored record then says "update".
+  const storedAgent = Boolean(stored && hasAgentRecord(stored));
+  const keepStored = storedAgent && !runsByPage.has(pageId) && isOpenRun(String(stored.item_id), String(stored.run_id));
+  if (agentPlanned.has(pageId) || keepStored) {
     webKept.push(`${pageId}: agent record`);
   } else {
     const rows = w.ja_rows.map(webRowOf);
@@ -873,7 +907,7 @@ for (const w of webSel) {
     const fb = Buffer.byteLength(JSON.stringify(rows), "utf-8");
     if (fb >= READER_FIELD_LIMIT) problems.push(`${pageId} reader_pages.rows: ${mb(fb)}. The limit is 5 MB.`);
     const action = !serverReader ? "not compared" : !stored ? "create" : readerRecordEqual(stored, body) ? "unchanged" : "update";
-    webReaderPlan.push({ pageId, body, bytes, action, id: stored?.id });
+    webReaderPlan.push({ pageId, body, bytes, action, id: stored?.id, reverted: storedAgent ? String(stored.run_id) : "" });
   }
   if (w.human_rows.length === 0) continue;
   const versionRows = w.human_rows.map((h) => ({ key: h.key, text: h.text, ...(h.facts?.length ? { facts: h.facts } : {}) }));
@@ -915,7 +949,8 @@ const countTranslated = (rec, agent, human) => {
 const planned = new Set([...readerPlan, ...webReaderPlan].map((p) => p.pageId));
 for (const p of readerPlan) countTranslated(p.body, hasAgentRecord(p.body), humanPages.has(p.pageId));
 for (const p of webReaderPlan) countTranslated(p.body, false, humanPages.has(p.pageId));
-if (serverReader) for (const [id, rec] of serverReader) if (!planned.has(id)) countTranslated(rec, hasAgentRecord(rec), humanPages.has(id));
+const removedIds = new Set(readerRemove.map((r) => r.pageId));
+if (serverReader) for (const [id, rec] of serverReader) if (!planned.has(id)) countTranslated(rec, hasAgentRecord(rec) && !removedIds.has(id), humanPages.has(id));
 for (const it of items) it.body = catalogBody(it.slug, it.row, it.folderPages, [...(translatedBy.get(it.slug) ?? [])].sort((a, b) => a - b), it.placement, webPageCount.get(it.slug) ?? 0);
 const catalogBytes = items.reduce((t, it) => t + Buffer.byteLength(JSON.stringify(it.body), "utf-8"), 0);
 for (const it of items) {
@@ -973,6 +1008,16 @@ for (const book of [...new Set(chapters.map((c) => c.book))].sort()) {
 console.log("");
 console.log("reader_pages | page_id | run_id | why | size | rows | agree | action");
 for (const p of readerPlan) console.log(`reader_pages | ${p.pageId} | ${p.x.run.runId} | ${p.why} | ${mb(p.bytes)} | ${p.body.rows.length} | ${p.body.agree.length} | ${p.action}`);
+// Unit RT74: the pages that lose the Agent text because their run is not open (round 75 answer 3).
+{
+  const lose = [
+    ...readerRemove.map((r) => ({ pageId: r.pageId, runId: r.runId, action: "remove agent text (run not open)" })),
+    ...webReaderPlan.filter((p) => p.reverted).map((p) => ({ pageId: p.pageId, runId: p.reverted, action: "back to Original text record web-ja (run not open)" })),
+  ].sort((a, b) => (a.pageId < b.pageId ? -1 : 1));
+  for (const l of lose) console.log(`reader_pages | ${l.pageId} | ${l.runId} | ${l.action}`);
+  const warn = readerRemove.filter((r) => humanPages.has(r.pageId));
+  for (const r of warn) console.log(`Warning: ${r.pageId} has a Human version. After the removal of its record the page shows no text to readers.`);
+}
 console.log("");
 {
   const cnt = (list) => ({ create: list.filter((p) => p.action === "create").length, update: list.filter((p) => p.action === "update").length, unchanged: list.filter((p) => p.action === "unchanged").length, kept: list.filter((p) => p.action.startsWith("kept")).length });
@@ -1005,7 +1050,7 @@ else console.log("reader_pages sizes: 0 records");
 const done = { created: [], updated: [], unchanged: [], failed: [] };
 const itemDone = { created: [], updated: [], unchanged: [], failed: [] };
 const chapterDone = { created: [], updated: [], unchanged: [], failed: [] };
-const readerDone = { created: [], updated: [], unchanged: [], failed: [] };
+const readerDone = { created: [], updated: [], unchanged: [], removed: [], failed: [] };
 // Unit RT73a: results of the web articles. user is "created", "exists", or "".
 const webDone = {
   user: sysUser ? "exists" : "",
@@ -1067,6 +1112,15 @@ if (o.apply) {
       (p.action === "create" ? readerDone.created : readerDone.updated).push(p.pageId);
     } catch (e) {
       readerDone.failed.push(`${p.pageId}: ${e.message}`);
+    }
+  }
+  // Unit RT74: a book page whose run is not open loses its record. The web article pages go back to the Original text record in the loop below (update).
+  for (const r of readerRemove) {
+    try {
+      await pb.call("DELETE", `/api/collections/reader_pages/records/${encodeURIComponent(r.id)}`);
+      readerDone.removed.push(r.pageId);
+    } catch (e) {
+      readerDone.failed.push(`${r.pageId}: ${e.message}`);
     }
   }
   // Unit RT73a. 1. The system account (a random password that nobody sees, disabled, so it can never sign in). 2. reader_pages "web-ja". 3. own_translations. 4. reader_versions.
@@ -1131,6 +1185,7 @@ if (o.apply) {
   }
 } else {
   for (const p of readerPlan) if (p.action !== "not compared") (p.action === "create" ? readerDone.created : p.action === "update" ? readerDone.updated : readerDone.unchanged).push(p.pageId);
+  for (const r of readerRemove) readerDone.removed.push(r.pageId);
   for (const p of chapterPlan) if (p.action !== "not compared") (p.action === "create" ? chapterDone.created : p.action === "update" ? chapterDone.updated : chapterDone.unchanged).push(p.c.chapter);
   for (const p of plan) if (p.action !== "not compared") (p.action === "create" ? done.created : p.action === "update" ? done.updated : done.unchanged).push(`${p.x.pageId} ${p.x.run.runId}`);
   for (const p of itemPlan) if (p.action !== "not compared") (p.action === "create" ? itemDone.created : p.action === "update" ? itemDone.updated : itemDone.unchanged).push(p.it.slug);
@@ -1191,8 +1246,11 @@ console.log("reader_pages");
 compared(word[0], readerDone.created);
 compared(word[1], readerDone.updated);
 compared(word[2], readerDone.unchanged);
+compared(o.apply ? "removed (run not open)" : "would remove (run not open)", readerDone.removed);
 if (o.apply) line("failed", readerDone.failed);
-line("skipped (no PASS run and no run mark)", readerSkipped);
+line("no Agent text: the page has a finished run, but no open run", readerNotOpen);
+line("no Agent text: open run without PASS verdict and no run mark on an open run", readerSkipped);
+if (o.offline) console.log("  Opened runs: not read (--offline). The plan counts every run as open.");
 line("search column reached 100,000 characters and was cut", searchCut);
 line("on the server only (kept)", readerServerOnly);
 console.log(`Total snapshot size: ${mb(total)} for ${selected.length} run(s)`);
