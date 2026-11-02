@@ -3829,7 +3829,7 @@ Viewer `[check: DM70 2026-10-29 21:59 cat -n of the files named below]`:
 
 - `/` shows the runs table. It has one row for each list folder. The columns are List, Kind, State, Pages, Calls, Failed, Flagged, Cost (models), Cost (listed), Started, and Updated `[file: app/components/RunsTable.tsx:27-37]` `[file: app/app/page.tsx:9-12]`.
 - The table polls `/api/runs` every 3000 ms while one row runs or pauses `[file: app/components/useLive.tsx:4,20-25]` `[file: app/components/RunsTable.tsx:12]`. A failed poll is silent `[file: app/components/useLive.tsx:15-18]`.
-- The time helper `dateTime` shows the time of the browser without a zone name `[file: app/lib/format.ts:8-13]`.
+- The time helper `dateTime` shows the time of the browser without a zone name `[file: app/lib/format.ts:8-13]`. Changed in round 81 answers 17 and 18 (`qa-memory-2026-11-02.md:22,23`): every time shows PST. Unit VW77b1 builds the change (Not verified). See section 15.34.6.
 - The state colors cover running, paused, completed, done, completed with failures, failed, interrupted, and waiting `[file: app/components/Pills.tsx:3-12]`. A pill has color and a word.
 - The pause button writes the file `PAUSE` into one list folder. It accepts a list in the state running or paused `[file: app/lib/runs.ts:141-170]`. The route refuses a foreign Origin. It does not check the Host header `[file: app/app/api/pause/route.ts:15-19]`.
 - The Books tab lists the 36 books of `book-slugs.json` and adds any ID that has run folders `[file: app/lib/books.ts:38-104]`.
@@ -3924,7 +3924,7 @@ A *state label* is a symbol and a word. Color is never the only sign. The symbol
 Plain meaning of each label:
 
 - Running: a process works on the book now.
-- Running, pause requested: the owner asked for a pause. The process finishes the current page (forward boxes, critic and critique steps backward, memory write), then ends.
+- Running with pause requested: the owner asked for a pause. The process finishes the current page (forward boxes, critic and critique steps backward, memory write), then ends. Label renamed in round 81 answer 23 (`qa-memory-2026-11-02.md:28`). Old label: Running, pause requested.
 - Stopped by a Pause (the old label Paused, merged into Stopped by round 76 answer 4, `qa-memory-2026-11-01.md:7`): the process ended on purpose after the page that it finished at the pause. Resume writes a mark (round 71 answer 10). Between the mark and the first sign of the process, the row shows the state Mark waiting: "Mark waiting: Resume requested HH:MM" (round 72 answer 17, `.opencode/reminders/qa/qa-memory-2026-10-30.md:45`). The row moves into the group Waiting for a run (round 73b answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:85`, "New group"). Example: the owner presses Resume on `mental_full` at 10:42. The row leaves Needs attention and shows "Mark waiting: Resume requested 10:42" in the group Waiting for a run. The row leaves the group at the first sign of the process, and the book goes to Running. A Run mark shows "Mark waiting: Run requested HH:MM" in the same group (unit default of DU73, accepted in round 73b answer 2, `qa-memory-2026-10-30.md:83`). A Restart mark shows "Mark waiting: Restart requested HH:MM" in the same group `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]` (DZ73 default 5, "Short mark row text"). Old text, replaced in round 74 answers 5 to 11: the row text named a box ("Mark waiting: Restart ED_2 requested HH:MM", round 73d answer 4) and the button sat on the flag of the box. Other text: "Mark waiting: Restart (prompts: start) requested HH:MM". Benefit of the other text: the row shows the prompt choice. Cost: a longer row. Example: the owner presses Restart on the book row of `left_foot_full` at 10:42. The row shows "Mark waiting: Restart requested 10:42" in the group Waiting for a run. A mark waits while the book folder holds `request.json` `[file: <T2>/data/scripts/translator/store.py:246-250]` `[agent inference]`.
 - Stopped: the process ended on purpose. The cause is a Pause or a Ctrl-C (round 76 answer 4). The row names the cause, the time, the last saved page, and the page where Resume starts. After a Pause: "Stopped by Pause at 16:40. Last saved page p080. Resume starts at p081." After Ctrl-C: "Stopped by Ctrl-C at 16:40. Page p080 was not saved. Resume starts at p080." The end of the target page set gives Completed.
 - Stopped unexpectedly: the file says "running", but the process is gone or silent.
@@ -3935,8 +3935,8 @@ Plain meaning of each label:
 | Label | Group | Rule when `status.json` exists | Rule for a derived row |
 |---|---|---|---|
 | ● Running | Running | `state` is "running". The pid is alive. The heartbeat is not older than 120 s. | The newest list that holds the book is in the state "running". The chain of the book is "running", or a page of the book is "running". `updated_epoch` is not older than 1800 s. |
-| ● Running, pause requested | Running | A file `PAUSE` exists in the book folder. The state is still "running" until the current page ends. | Same as Running. The file `PAUSE` exists in the list folder. |
-| ■ Stopped, cause Pause | Stopped | `state` is "stopped". `stop_reason` is "pause" `[unit default DZ75]`. The process ended after the page, so no process lives. The code of TB71 wrote `state` "paused". TR77c (2f07ce9) writes "stopped" with `stop_reason` "pause" `[file: <T2>/data/scripts/translator/store.py:102-127]`. | The list state is "paused". The gate of an old list waits before each call, so the process lives. The label is Running, pause requested, in the group Running `[unit default DZ75]`. |
+| ● Running with pause requested | Running | A file `PAUSE` exists in the book folder. The state is still "running" until the current page ends. | Same as Running. The file `PAUSE` exists in the list folder. |
+| ■ Stopped, cause Pause | Stopped | `state` is "stopped". `stop_reason` is "pause" `[unit default DZ75]`. The process ended after the page, so no process lives. The code of TB71 wrote `state` "paused". TR77c (2f07ce9) writes "stopped" with `stop_reason` "pause" `[file: <T2>/data/scripts/translator/store.py:102-127]`. | The list state is "paused". The gate of an old list waits before each call, so the process lives. The label is Running with pause requested (round 81 answer 23), in the group Running `[unit default DZ75]`. |
 | ■ Stopped, cause Ctrl-C | Stopped | `state` is "stopped". `stop_reason` is "ctrl-c". The end of the target page set gives `state` "completed" (TB71 `run-book`). | The list is final. The chain is "completed", "interrupted", or "stopped: interrupted". No page of the book has a forward failure. |
 | ▲ Stopped unexpectedly | Needs attention | `state` is "running" in the file. The pid is gone, or the heartbeat is older than 120 s. | The list is "running". `updated_epoch` is older than 1800 s. |
 | ▲ Stopped by failure | Needs attention | `state` is "stopped". `stop_reason` is "forward-failure", "cost-guard", or "rule". The reason "rule" also covers a box with 3 double REJECTs in a row (round 74 answer 5). | The chain state starts with "stopped:" and is not "stopped: interrupted". |
@@ -3948,7 +3948,7 @@ Notes on the rules:
 - The word "alive" means the pid answers a check with signal 0. The check sends no signal. Another process can reuse a pid, so the rule adds the heartbeat check `[agent inference]`.
 - The limit 120 s is four heartbeats of 30 s `[agent inference]`. The heartbeat must come from a thread that does not wait for a model call. A call can last 1500 s `[file: data/scripts/translator/launcher.py:17]`.
 - The limit 1800 s for derived rows is the call timeout 1500 s plus 300 s `[agent inference]`. The old warning at 600 s `[file: data/scripts/translator/progress.py:304-305]` is too short. A retried call took 771.1 s in the run of `kendojidai_2012/p350` `[check: DM70 2026-10-29 22:00 python3 -B read of calls.jsonl]`. Between 600 s and 1800 s, a Running row shows the warning "No update for N min. A long call can take 25 min."
-- A critic failure does not move a book to Needs attention. Example: `box-critic.TS_3` on `ogawa_lecture_part2/p089`. The chain went on. The row shows the error text in red and counts it in the summary line as "1 error". Needs attention means that the book does not go on without the owner.
+- A critic failure does not move a book to Needs attention. Example: `box-critic.TS_3` on `ogawa_lecture_part2/p089`. The chain went on. The row shows the error text in red. The summary line has no error count (round 81 answer 21, `qa-memory-2026-11-02.md:26`). Needs attention means that the book does not go on without the owner.
 - A QA_3 FAIL does not move a book to Needs attention. The chain goes on (round 51 answer 1). The row shows "1 FAIL page" when the data holds it.
 - A derived row is never Completed. The old lists hold test lists of 5 pages, not the target of a phase. Example: `left_foot_full` shows 6 of 120 pages after a completed list of 5 pages. The row says "Stopped at p050: the list finished".
 - Pages done counts pages in the state "done" in `progress.json`. A page is done when its calls and critic calls all ended without a failure. The QA_3 verdict can be PASS or FAIL.
@@ -3961,7 +3961,7 @@ Line 1, from left to right:
 
 1. State label, for example "▲ Stopped by failure".
 2. Title in English and the slug in a mono font, for example "Making the Difference on the Day (`mental_full`)". The title comes from the item metadata `[file: app/lib/books.ts:107-111]`. The slug stays if no title exists.
-3. Phase, for example "Phase 3" with the owner words "warm initialization", or "Phase 4" with "production run". A derived row shows "Phase not stored".
+3. Phase, for example "Phase 3" with the owner words "warm initialization", or "Phase 4" with "production run". A pilot row shows an empty phase cell (round 81 answer 22, `qa-memory-2026-11-02.md:27`). Old text: it showed "Phase not stored".
 4. Progress: a bar and the text "5 of 20 pages". The bar has a text next to it and the role `progressbar` with values. The count is pages done of the pages in the phase target. Phase 3 has 20 pages. Phase 4 has all pages of the book.
 5. Cost: "$8.30". It counts the model cost (`cost_usd_models`) of the book in the current phase. For a derived row it counts all list folders.
 6. Time: "159 min". It is the sum of the page times, with no pauses. It is not the clock time between start and end.
@@ -4004,9 +4004,9 @@ Phase 2 runs on the paired dataset. The paired dataset holds web articles with h
 
 ##### 15.24.4.6 Time, refresh, and the empty, first-load, and error states
 
-- Time. Each time shows in PST (UTC-8) all year, with the word PST, then the relative time (round 80 answer 19, `qa-memory-2026-11-01.md:141`, section 15.33.2). Old text and example: local time with the zone name, "Oct 29 00:50 PDT (21 h ago)". The PDT times in the examples of this section are old examples. The tooltip and the detail view show the UTC stamp of the file, for example "2026-10-29T07:50:31Z" `[file: data/pilot-run/lists/20261029T051152Z/progress.json, key updated_utc]`.
+- Time. Each time shows in PST (UTC-8) all year, with the word PST, then the relative time (round 80 answer 19, `qa-memory-2026-11-01.md:141`, section 15.33.2). Old text and example: local time with the zone name, "Oct 29 00:50 PDT (21 h ago)". The PDT times in the examples of this section are old examples. The tooltip and the detail view show the UTC stamp of the file, for example "2026-10-29T07:50:31Z" `[file: data/pilot-run/lists/20261029T051152Z/progress.json, key updated_utc]`. Round 81 answers 17 and 18 (`qa-memory-2026-11-02.md:22,23`) extend PST to the Lists tab `/runs` and the run view `/runs/<stamp>`. They extend it to the Reader dashboard `/read` and the book screens `/read/<slug>` too (section 15.34.6).
 - Relative time: under 1 min "just now", under 60 min "N min ago", under 48 h "N h ago", else "N days ago". The relative text updates every 30 s in the browser, with no request.
-- Refresh. While one row is Running or Pause requested, the page polls every 3000 ms, as today `[file: app/components/useLive.tsx:4]`. With no live row, the page loads once, and the owner uses the button "Refresh" or comes back to the tab. The poll stops while the tab is hidden `[unit default]`.
+- Refresh. The page polls every 3000 ms while the tab is visible (round 81 answer 24, `qa-memory-2026-11-02.md:29`: "Every 3 s in a visible tab (Recommended)"). Old text: it polled only while one row was Running or Pause requested, as today `[file: app/components/useLive.tsx:4]`. Before round 81, with no live row, the page loaded once, and the owner used the button "Refresh" or came back to the tab. Now the page polls with no live row too `[unit default DZ80]`. The poll stops while the tab is hidden (round 81 answer 24).
 - The header shows "Updated 22:06:12 PDT (3 s ago)". After 3 failed polls, a banner shows: "The Viewer server does not answer. This page shows the data from 22:06:12 PDT." The banner goes away at the next good poll. Today a failed poll is silent. Round 80 answer 19: the header time shows in PST too (section 15.33.2). The PDT times in this example are old text.
 - First paint. The server sends the rows with the page, as today `[file: app/app/page.tsx:11]`. No spinner shows at the first load. A route change shows grey placeholder rows.
 - Empty. If no list folder and no `status.json` exists: "No run found. Press Run on a book. The button writes a mark. Ask an opencode agent to run it."
@@ -6009,7 +6009,7 @@ Example (values are an example): `mental_full` stopped at 21:40 after a Pause. T
 Unit defaults of this part, accepted in round 77 answer 9 (`qa-memory-2026-11-01.md:40`):
 
 - Both causes use the symbol ■. Other option: keep ‖ for the cause Pause. Benefit of the default: one state, one symbol. Cost: the symbol does not tell the cause, but the row text does.
-- A pilot list in the state "paused" (an old list, the process lives and waits at the gate) shows as "Running, pause requested" in the group Running. Other option: show it as Stopped. Benefit of the default: the process lives, so the label is true. Cost: the label differs from the file value.
+- A pilot list in the state "paused" (an old list, the process lives and waits at the gate) shows as "Running with pause requested" in the group Running (round 81 answer 23). Other option: show it as Stopped. Benefit of the default: the process lives, so the label is true. Cost: the label differs from the file value.
 - The pilot Pause and Resume on the run view `/runs/<stamp>` stay as they are `[reading pending owner check]`. They are a pilot behavior. The real-book Pause on the Monitor dashboard (round 70 answer 12) finishes the current page and ends the process.
 
 The contract text of section 15.24.9 (the block with `state: "not-started" | "running" | "paused" | ...`) and the history line of the book store folder still show `paused`. They describe the code of TB71. The code unit changes them with the state list. Changed in round 80: the lines 4270, 4271, and 4280 of the contract now match `store.py` at TR77c (section 15.33.7). The lines 4282, 4283, and 4293 stay as old text.
@@ -6145,7 +6145,7 @@ Details:
 ##### 15.29.7 Unit defaults of DZ75 (1 to 3 accepted, 4 not accepted, round 77 answer 9)
 
 1. `[accepted 2026-11-01 08:12, round 77 answer 9, qa-memory-2026-11-01.md:40]` The symbol ■ for both causes of Stopped (section 15.29.2). Other option: keep ‖ for the cause Pause. Benefit: one state, one symbol. Cost: the symbol does not tell the cause.
-2. `[accepted 2026-11-01 08:12, round 77 answer 9, qa-memory-2026-11-01.md:40]` A pilot list in the state "paused" shows as "Running, pause requested" (section 15.29.2). Other option: show it as Stopped. Benefit: the label is true, because the process lives. Cost: the label differs from the file value.
+2. `[accepted 2026-11-01 08:12, round 77 answer 9, qa-memory-2026-11-01.md:40]` A pilot list in the state "paused" shows as "Running, pause requested" (section 15.29.2). Other option: show it as Stopped. Benefit: the label is true, because the process lives. Cost: the label differs from the file value. History line: round 81 answer 23 (`qa-memory-2026-11-02.md:28`) renamed the label to "Running with pause requested" (section 15.34.7).
 3. `[accepted 2026-11-01 08:12, round 77 answer 9, qa-memory-2026-11-01.md:40]` The Monitor builds the row text of a Stopped book from the status fields (section 15.29.2). Other option: the run program writes the whole text into `stop_text`. Benefit: the text follows the fields. Cost: the Monitor holds the sentence patterns.
 4. Not accepted (round 77 answer 9, `qa-memory-2026-11-01.md:40`). Old default F: the grid "Prompt versions" shows "ED_2 phase 3 v1.1" (section 15.29.4). Replaced by round 77 answer 10: the phase sits in the label, so a cell reads "ED_2 v3.1.1" (section 15.30.2).
 
@@ -6731,7 +6731,7 @@ The full list of the owner words of round 80 is in `translator-design.md`, secti
 
 ##### 15.33.2 Times on the Monitor dashboard in PST all year (answers 16 and 19)
 
-Owner words, answer 19: "All times in PST" (option 2) `[accepted option 2 2026-11-01 23:42]`. Reading (`qa-memory-2026-11-01.md:156`) `[reading pending owner check]`: every time on the Monitor dashboard `/` shows in PST (UTC-8) all year, like the run ID. This replaces the recommendation of DZ78 (section 15.32.10, item d: keep local time).
+Owner words, answer 19: "All times in PST" (option 2) `[accepted option 2 2026-11-01 23:42]`. Reading (`qa-memory-2026-11-01.md:156`) `[reading pending owner check]`: every time on the Monitor dashboard `/` shows in PST (UTC-8) all year, like the run ID. This replaces the recommendation of DZ78 (section 15.32.10, item d: keep local time). Round 81 answers 17 and 18 (`qa-memory-2026-11-02.md:22,23`) extend PST to the Lists tab, the run view, the Reader dashboard, and the book screens (section 15.34.6).
 
 Rules:
 
@@ -6747,13 +6747,13 @@ Example for November (invented). The wall clock and PST agree after 2026-11-01. 
 
 The PDT times in the sketches of section 15.24 are old examples. They show real list data of October 2026 `[real]`. The sketches stay as they are. The row examples in sections 15.30 to 15.32 show "16:40" with no zone. Since answer 19 they read "16:40 PST".
 
-The Reader dashboard `/read` is not decided. Open item 3 in section 15.33.12 asks about it.
+Decided in round 81 answer 18 (`qa-memory-2026-11-02.md:23`): the Reader dashboard `/read` and the book screens `/read/<slug>` show PST too (section 15.34.6). Old text: the Reader dashboard was not decided.
 
-Unit that builds this: VW77a (the read side of the Monitor dashboard) `[aki-main proposal in the brief of DZ79, not verified]`. The helper is `app/lib/format.ts` (line 4331 of this file).
+Unit that builds this: VW77a (the read side of the Monitor dashboard) `[aki-main proposal in the brief of DZ79, not verified]`. The helper is `app/lib/format.ts` (line 4331 of this file). Round 81: unit VW77b1 builds the PST change for the Lists tab, the run view, and the Reader screens. Not verified.
 
 ##### 15.33.3 Buttons and the note on a Running row (answers 13 and 18)
 
-Owner words, answer 13: "Just prevent this from happening by gray out the buttons". The Viewer grays out Run and Resume on a Running row of the Monitor dashboard `/`. So no Run or Resume mark comes from the Monitor dashboard while the book runs. The run program keeps its fallback: such a mark stays in `request.json` and the book goes on (`translator-design.md`, section 9.31.4, rule 7). This reading is pending the owner (`qa-memory-2026-11-01.md:152`).
+Owner words, answer 13: "Just prevent this from happening by gray out the buttons". The Viewer grays out Run and Resume on a Running row of the Monitor dashboard `/`. So no Run or Resume mark comes from the Monitor dashboard while the book runs. The run program keeps its fallback: such a mark stays in `request.json` and the book goes on (`translator-design.md`, section 9.31.4, rule 7). Round 81 answer 19 (`qa-memory-2026-11-02.md:24`) confirms this reading: "Reading is right (Recommended)".
 
 Owner words, answer 18: "Keep the Details link (Recommended)". The Running row keeps the link Details while a Restart waits. Round 79 answer 13 (`qa-memory-2026-11-01.md:105`) stays: "No buttons (Recommended)".
 
@@ -6766,7 +6766,7 @@ Owner words, answer 18: "Keep the Details link (Recommended)". The Running row k
 
 Example with `mental_full` (invented). The book runs phase 4 at p080. The row shows [Pause] [Restart] [Details] and two grayed buttons. The grayed Resume carries the reason "Resume is off because this book runs now" (the form of line 4003). At 16:40 you press Restart and confirm. Until the process ends, the row shows no button and the link Details.
 
-Which unit builds this: VW77b (the buttons) `[aki-main proposal in the brief of DZ79, not verified]`. The order of the code units is in `translator-design.md`, line 8376.
+Which unit builds this: VW77b (the buttons) `[aki-main proposal in the brief of DZ79, not verified]`. The order of the code units is in `translator-design.md`, line 8376. Round 81: unit VW77b1 builds the buttons. Not verified.
 
 ##### 15.33.4 Row text of a refused Restart (answer 10)
 
@@ -6776,11 +6776,11 @@ Owner words (`qa-memory-2026-11-01.md:132`): "Refuse and show the reason (Recomm
 - The row text on the Monitor dashboard `/` reads "Restart refused: ED_2 v4.1.3 has no file".
 - The book state stays.
 
-The Translator does not write the event yet (`translator-design.md`, section 9.31.5, item a). The row text needs a Viewer unit.
+The Translator does not write the event yet (`translator-design.md`, section 9.31.5, item a). The row text needs a Viewer unit. Round 81 answers 15 and 16 (`qa-memory-2026-11-02.md:20,21`) set the row and the event keys. Unit TR77c2 builds the event (Not verified). See section 15.34.5.
 
 Example with `mental_full`. The book is Stopped by a Pause at p080. You open the Restart dialog and pick ED_2 `v4.1.3`. The file is gone. An opencode agent runs the run-book command. The command refuses. The mark stays in `request.json`. After the code change, the history holds `restart-refused`. The row reads "Restart refused: ED_2 v4.1.3 has no file".
 
-Which group shows this row is not designed. See open item 1 in section 15.33.12.
+Decided in round 81 answer 15 (`qa-memory-2026-11-02.md:20`): the row keeps the group of its own state and shows a second line (section 15.34.5). Old text: the group was not designed.
 
 ##### 15.33.5 Press time in the Run mark (answer 14)
 
@@ -6799,7 +6799,7 @@ Example (invented values, the times of section 15.32.6). Run 1 started at 2026-1
 
 ##### 15.33.6 Quick select "Starting versions" in run 2 or later (answer 17)
 
-Owner words (`qa-memory-2026-11-01.md:139`): "Phase start: v4.1.0" (option 2) `[accepted option 2 2026-11-01 23:42]`. The quick select row "Starting versions" always means the start versions of the phase. This replaces the recommendation of DZ78 (section 15.32.10, item b). The note of aki-main marks this reading `[reading pending owner check]` (`qa-memory-2026-11-01.md:155`).
+Owner words (`qa-memory-2026-11-01.md:139`): "Phase start: v4.1.0" (option 2) `[accepted option 2 2026-11-01 23:42]`. The quick select row "Starting versions" always means the start versions of the phase. This replaces the recommendation of DZ78 (section 15.32.10, item b). Round 81 answer 20 (`qa-memory-2026-11-02.md:25`) confirms this reading: "Reading is right (Recommended)". The note of aki-main at `qa-memory-2026-11-01.md:155` carried the pending tag until then.
 
 Example. `mental_full` is in phase 4, run 2. You press Restart. The dialog shows:
 
@@ -6845,7 +6845,7 @@ Facts from the code of TR77c `[check: DZ79 2026-11-02 00:01 read of store.py, re
 | `requested_utc` | UTC time | the write time today. The press time after the code change. |
 | `requested_by` | "Monitor dashboard" or "run program" | all marks |
 
-- History events that TR77c writes: `start` with `run_id` `[file: <T2>/data/scripts/translator_run.py:2674]`, `stopped` with the reason `pause` `[file: <T2>/data/scripts/translator_run.py:2852]`, and `restart` followed by `prompts-copied` `[file: <T2>/data/scripts/translator/restart.py:179-182]`. The event `restart-refused` is not written yet.
+- History events that TR77c writes: `start` with `run_id` `[file: <T2>/data/scripts/translator_run.py:2674]`, `stopped` with the reason `pause` `[file: <T2>/data/scripts/translator_run.py:2852]`, and `restart` followed by `prompts-copied` `[file: <T2>/data/scripts/translator/restart.py:179-182]`. The event `restart-refused` is not written yet. Unit TR77c2 builds it in round 81 with the keys `reason` and `requested_utc` (Not verified, section 15.34.5).
 - The folder `archive/<run ID folder>/` holds `book-memory.jsonl`, `pages/`, `prompts/`, and `status.json`. The file `status.json` there says `stopped` and `restart`. The files `history.jsonl`, `lock`, and `request.done.json` stay in the book folder `[file: <T2>/data/scripts/translator/store.py:270-282]`.
 - The key `path` in `parent` of a version file is relative to the store root `data/book-store/` (`translator-design.md`, section 9.31.3). Example: `mental_full/archive/20261104T001500-0800/prompts/ED_2/v4.1.3.json`.
 
@@ -6853,25 +6853,25 @@ The line 4283 of the contract block still says that the state is "paused" after 
 
 ##### 15.33.8 Phase 2 on the Monitor dashboard (answers 22 to 24)
 
-The Translator side is in `translator-design.md`, section 9.31.6. Phase 2 runs on the web articles in year blocks, 2019 to 2025 `[unit default DZ79]`. A page is one A4 part of an article. The update point check runs after the last part of each article. The articles run in the order of `articles.jsonl`. One pass, then the owner decides.
+The Translator side is in `translator-design.md`, section 9.31.6. Phase 2 is one run on the 40 `train-feedback` articles (round 81 answers 12 to 14, section 15.34.4). The order of `articles.jsonl` forms year blocks from 2019 to 2025 with 1, 9, 7, 7, 5, 6, and 5 articles. Old text: phase 2 ran on the web articles in year blocks `[unit default DZ79]`. A page is one A4 part of an article. The update point check runs after the last part of each article. The articles run in the order of `articles.jsonl`. One pass, then the owner decides.
 
 Today the Monitor dashboard shows one closed line below Not started: "Phase 2 (paired dataset): no run record yet." (line 3989). The Translator has no phase 2 run command, so no record exists.
 
 Open item 2 in section 15.33.12 asks for the row shape. The options:
 
-- Option A: one row for the phase 2 run. The row shows the year block and the article, for example "Phase 2 (paired dataset): Running. Block 2020, article 3 of 9. Page 2 of 25 pages." Benefit: it fits one run in one store folder. Cost: a year change is a text change in the row.
-- Option B: one row for each year block, 7 rows. Benefit: each year has its own state. Cost: the screen gets 7 phase 2 rows.
+- Option A: one row for the phase 2 run. The row shows the year block and the article, for example "Phase 2 (paired dataset): Running. Article 4 of 40 (year block 2020). Page 17 of 144 pages." Benefit: it fits one run in one store folder. Cost: a year change is a text change in the row. The values of the example are invented. Option A fits the one run of round 81 answers 12 to 14 `[agent inference]`.
+- Option B: one row for each year block, 7 rows. Benefit: each year has its own state. Cost: the screen gets 7 phase 2 rows. History: it does not fit one run (round 81 answers 12 to 14). No year runs exist in phase 2.
 
-No recommendation stands on its own `[agent inference]`. The choice follows open item 4 in `translator-design.md`, section 9.31.9 (one run or one run for each year). If the owner picks one run, option A fits. If the owner picks one run for each year, option B fits.
+Old text, replaced in round 81: no recommendation stood on its own `[agent inference]`. The choice follows open item 4 in `translator-design.md`, section 9.31.9 (one run or one run for each year). Round 81 answers 12 to 14 pick one run, so option A fits `[reading pending owner check]` (section 15.34.4).
 
 ##### 15.33.9 `tanden_full` on the Reader dashboard (answers 3 to 7)
 
-The join is data work. This file holds no design for it. Unit TJ80 plans it. The effect on the Reader dashboard `/read` and the book screen `/read/tanden_full` follows `[agent inference]`. It holds until the join unit runs.
+The join is data work. This file holds no design for it. Unit TJ80 plans it. The effect on the Reader dashboard `/read` and the book screen `/read/tanden_full` follows `[agent inference]`. It holds until the join unit runs. Round 81 answers 3 to 11 (`qa-memory-2026-11-02.md:8-16`) approve the plan of TJ80 and order unit TJ81 to run the join (section 15.34.3).
 
-- The book `tanden_full` grows from 276 to 295 pages (`translator-design.md`, section 9.31.2).
+- The book `tanden_full` grows from 276 to 295 pages (`translator-design.md`, section 9.31.2). Round 81 answer 4 (`qa-memory-2026-11-02.md:9`) orders the join. The count 295 holds after TJ81 and the PocketBase sync. Not verified.
 - The book screen `/read/tanden_full` lists 295 pages. The 19 new pages are p111 to p129. The old p111 to p276 become p130 to p295.
 - The Reader dashboard total grows by 19 pages, from 14,116 to 14,135 pages. The works count stays 342. The line now reads "English: 1,124 of 14,116 pages translated (8.0 percent)" `[file: .opencode/reminders/plan/evolving-plan-2026-11-01.md:6]`. After the join it reads "1,124 of 14,135 pages translated (8.0 percent)", because 1,124 of 14,135 is 7.95 percent.
-- The 19 new pages are not translated. They add to the total and not to the translated count.
+- The 19 new pages are not translated. They add to the total and not to the translated count. Round 81 answer 5 (`qa-memory-2026-11-02.md:10`): each new page has a text file with only the header line. They hold no English text.
 
 The word is "translated" on the Reader dashboard (round 70 answer 3). The Monitor dashboard says "pages done".
 
@@ -6927,24 +6927,319 @@ Answer 21 (`qa-memory-2026-11-01.md:143`) accepts all 9 DZ78 docs defaults. They
 
 The unit defaults of DZ79 follow. No owner answer settles them.
 
-1. `[unit default DZ79]` A Running row shows Run and Resume as grayed buttons with a reason in words. Example: the row of `mental_full` shows "Resume is off because this book runs now". Other option: the row hides both buttons. Section 15.29.2 lists only Pause, Restart, and Details for a Running row. Benefit of the default: it matches the words "gray out the buttons" of answer 13. Cost: two more controls on each Running row. While a Restart waits, the row shows no buttons at all (round 79 answer 13).
-2. `[unit default DZ79]` The tooltip and the detail view keep the UTC stamp of the file. The visible time shows PST. Example: the row reads "Restart requested 15:40 PST" and the tooltip reads "2026-07-10T23:40:00Z". Other option: the tooltip shows PST too. Benefit of the default: the tooltip shows the raw value of the file. Cost: two zones in one place.
-3. `[unit default DZ79]` Until the owner answers open item a of `translator-design.md`, section 9.31.6, the docs describe the year blocks of phase 2 as 2019 to 2025. Example: the first block holds 14 articles. Other option: leave all examples of phase 2 open. Benefit of the default: the examples use real counts. Cost: the examples change if the owner picks another reading of "kendojidai-2018".
-4. `[unit default DZ79]` The Run mark of the future code keeps the key order of today without the key `restart_requested_utc`: schema, book, action, phase, after, requested_utc, requested_by. Other option: write `after` last. Benefit of the default: the order is the same as today. Cost: none beyond the code change.
+1. `[unit default DZ79]` A Running row shows Run and Resume as grayed buttons with a reason in words. Example: the row of `mental_full` shows "Resume is off because this book runs now". Other option: the row hides both buttons. Section 15.29.2 lists only Pause, Restart, and Details for a Running row. Benefit of the default: it matches the words "gray out the buttons" of answer 13. Cost: two more controls on each Running row. While a Restart waits, the row shows no buttons at all (round 79 answer 13). Accepted in round 81 answer 26 (`qa-memory-2026-11-02.md:31`).
+2. `[unit default DZ79]` The tooltip and the detail view keep the UTC stamp of the file. The visible time shows PST. Example: the row reads "Restart requested 15:40 PST" and the tooltip reads "2026-07-10T23:40:00Z". Other option: the tooltip shows PST too. Benefit of the default: the tooltip shows the raw value of the file. Cost: two zones in one place. Accepted in round 81 answer 26 (`qa-memory-2026-11-02.md:31`).
+3. `[unit default DZ79]` Until the owner answers open item a of `translator-design.md`, section 9.31.6, the docs describe the year blocks of phase 2 as 2019 to 2025. Example: the first block holds 14 articles. Other option: leave all examples of phase 2 open. Benefit of the default: the examples use real counts. Cost: the examples change if the owner picks another reading of "kendojidai-2018". Accepted in round 81 answer 26 (`qa-memory-2026-11-02.md:31`). Round 81 answers 12 to 14 narrow it: the years stay only as the order of the one phase 2 run (section 15.34.4).
+4. `[unit default DZ79]` The Run mark of the future code keeps the key order of today without the key `restart_requested_utc`: schema, book, action, phase, after, requested_utc, requested_by. Other option: write `after` last. Benefit of the default: the order is the same as today. Cost: none beyond the code change. Accepted in round 81 answer 26 (`qa-memory-2026-11-02.md:31`).
 
 ##### 15.33.12 Open items for the owner
 
-1. The group of a refused Restart on the Monitor dashboard `/` (section 15.33.4). Recommended: the row keeps its group and shows the refusal as a second line. Reason: answer 10 says "book state stays". Example: `mental_full` stays in the group Stopped and shows "Restart refused: ED_2 v4.1.3 has no file". Benefit: the group matches the book state. Cost: the mark stays in `request.json`, so the rule "a mark waits while `request.json` exists" must skip a refused mark. The Viewer can find it from the newest event `restart-refused` `[agent inference]`. Other option: the group Needs attention. Benefit: you see the refusal at once. Cost: the group does not match the book state.
-2. The row of phase 2 on the Monitor dashboard `/` (section 15.33.8). Recommended: follow open item 4 of `translator-design.md`, section 9.31.9. One run gives option A, one row. One run for each year gives option B, 7 rows. Reason: the row shape follows the run shape. Example: with one run, the row reads "Phase 2 (paired dataset): Running. Block 2020, article 3 of 9."
-3. The time zone on the Reader dashboard `/read`. Answer 19 names the Monitor dashboard only. Recommended: keep the Reader dashboard as it is. Reason: the owner asked for PST on the Monitor dashboard, and readers use their own clock `[agent inference]`. Benefit: no change to reader screens. Cost: the two dashboards show two zones. Other option: PST on both dashboards. Benefit: one zone. Cost: a reader far from the Pacific coast reads a foreign zone.
-4. The items 2 to 8 of `translator-design.md`, section 9.31.9, ask about phase 2, the table of contents of `tanden_full`, and the events of a refused Restart. They have no Viewer part.
+1. The group of a refused Restart on the Monitor dashboard `/` (section 15.33.4). Recommended: the row keeps its group and shows the refusal as a second line. Reason: answer 10 says "book state stays". Example: `mental_full` stays in the group Stopped and shows "Restart refused: ED_2 v4.1.3 has no file". Benefit: the group matches the book state. Cost: the mark stays in `request.json`, so the rule "a mark waits while `request.json` exists" must skip a refused mark. The Viewer can find it from the newest event `restart-refused` `[agent inference]`. Other option: the group Needs attention. Benefit: you see the refusal at once. Cost: the group does not match the book state. Answered in round 81 answer 15 (`qa-memory-2026-11-02.md:20`): "Same group, second line (Recommended)" (section 15.34.5).
+2. The row of phase 2 on the Monitor dashboard `/` (section 15.33.8). Recommended: follow open item 4 of `translator-design.md`, section 9.31.9. One run gives option A, one row. One run for each year gives option B, 7 rows. Reason: the row shape follows the run shape. Example: with one run, the row reads "Phase 2 (paired dataset): Running. Block 2020, article 3 of 9." Answered in part by round 81 answers 12 to 14: one run, so option A fits `[reading pending owner check]` (section 15.34.4).
+3. The time zone on the Reader dashboard `/read`. Answer 19 names the Monitor dashboard only. Recommended: keep the Reader dashboard as it is. Reason: the owner asked for PST on the Monitor dashboard, and readers use their own clock `[agent inference]`. Benefit: no change to reader screens. Cost: the two dashboards show two zones. Other option: PST on both dashboards. Benefit: one zone. Cost: a reader far from the Pacific coast reads a foreign zone. Answered in round 81 answers 17 and 18 (`qa-memory-2026-11-02.md:22,23`): PST on the Reader dashboard too. This replaces the recommendation above (section 15.34.6).
+4. The items 2 to 8 of `translator-design.md`, section 9.31.9, ask about phase 2, the table of contents of `tanden_full`, and the events of a refused Restart. They have no Viewer part. Answered in round 81 answers 3 to 16 and 29. See `translator-design.md`, section 9.32.12 for the new open items.
 
 ##### 15.33.13 Not verified
 
-- No code ran in this unit. The Monitor dashboard code for the PST times, the grayed buttons, the refused row, and the phase 2 row is not built.
-- The reading of answer 13 and the reading of answer 19 wait for the owner (`qa-memory-2026-11-01.md:152,156`). The reading of answer 17 waits too (`qa-memory-2026-11-01.md:155`).
+- No code ran in this unit. The Monitor dashboard code for the PST times, the grayed buttons, the refused row, and the phase 2 row is not built. Round 81: units VW77b1 and TR77c2 build parts of this. Their results are Not verified at the write time of DZ80.
+- The reading of answer 13 and the reading of answer 19 wait for the owner (`qa-memory-2026-11-01.md:152,156`). The reading of answer 17 waits too (`qa-memory-2026-11-01.md:155`). Round 81 answers 19 and 20 (`qa-memory-2026-11-02.md:24,25`) confirm the readings of answers 13 and 17. Round 81 answers 17 and 18 extend the PST reading of answer 19.
 - The effect of the join on the Reader dashboard (section 15.33.9) is an inference. No unit ran the join.
 - The names of the units VW77a and VW77b and their roles come from the brief of DZ79. Unit DZ79 did not check them against another source.
 - The dev server on port 3000 and the PocketBase on port 8090 were not read or changed.
 
 Status: round 80 answers applied by unit DZ79. Items in section 15.33.12 wait for the owner.
+
+#### 15.34 Round 81 answers: Monitor dashboard details, refused Restart row, PST on every screen, phase 2 and the year books, tanden pages (unit DZ80, round 81)
+
+Unit DZ80 wrote this section on 2026-11-02 (round 81). It records the owner answers of round 81. The Q-A file is `.opencode/reminders/qa/qa-memory-2026-11-02.md`. The design side is in `<T2>/docs/drafts/translator-design.md`, section 9.32. This section has the Viewer weight. This unit changed docs only. It ran no code.
+
+Pilot runs under `<T2>/data/pilot-run/` are not real runs (round 73e answer 10, `qa-memory-2026-10-31.md:13`): "All these are pilots, which DO NOT COUNT toward real runs". All values in the examples are invented, except where a line gives a source.
+
+Screen names in this section: the Monitor dashboard `/`, the Lists tab `/runs`, the run view `/runs/<stamp>`, the Reader dashboard `/read`, and the book screen `/read/<slug>`. The Reader dashboard says "translated". The Monitor dashboard says "pages done".
+
+Source tags: an owner sentence carries the Q-A file and the line. A design sentence without owner words carries `[unit default DZ80]`, `[aki-main proposal]`, or `[agent inference]`.
+
+##### 15.34.1 Sources and scope
+
+- The Q-A file has 46 lines. Answer N sits at line 5+N, so the answers fill the lines 6 to 39. The notes of aki-main at the lines 40 to 46 are not owner words `[check: DZ80 2026-11-02 07:15 Read of qa-memory-2026-11-02.md]`.
+- Answers 1 and 2 (`qa-memory-2026-11-02.md:6,7`): "Accept and commit (Recommended)" for the DZ79 docs and the VW77a Monitor read side. The commits are a4d1314, f27a50c, 0440eb1, and 569ca7f `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:11]`. `git log --oneline -1` shows 0440eb1 in <V2> `[check: DZ80 2026-11-02 07:15 git log --oneline -1 in <V2>]`.
+- Five other units of round 81 run in parallel with this unit: TJ81 (tanden join), TR77c2 (small Translator code change), VW77b1 (Viewer buttons and screens), CE81 (cost file), and TV81 (table of contents check) `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:14]`. Their results are Not verified at the write time of this unit.
+- Section 15.34.2 holds the owner words. Section 15.34.3 holds answers 3 to 11. Section 15.34.4 holds answers 12 to 14. Section 15.34.5 holds answers 15 and 16. Section 15.34.6 holds answers 17 and 18. Section 15.34.7 holds answers 19 to 24. Section 15.34.8 holds answers 25 and 26. Section 15.34.9 holds answers 27 to 34.
+
+##### 15.34.2 Owner words of round 81
+
+The list below holds all 34 answers. A script copied each text after the number from the Q-A file and added the line number. The text of answer 33 says that the owner gave no answer.
+
+- Answer 1 (line 6): Accept DZ79 docs (design 9.31, VISION 15.33): "Accept and commit (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 2 (line 7): Accept VW77a Monitor dashboard code (read side, 9 changed and 9 new app files): "Accept and commit (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 3 (line 8): TJ80 tanden join plan (dry run 1,148 steps, 0 problems): "Plan is right (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 4 (line 9): DANGER run the tanden join unit TJ81 now (options: Not now / Run TJ81 now, all steps / Run TJ81, PocketBase later): "Run TJ81 now, all steps" [user chose destructive option 2 2026-11-02 06:53]
+- Answer 5 (line 10): Text files for the 19 new tanden pages: "Empty file with header" [accepted option 2 2026-11-02 06:53]
+- Answer 6 (line 11): Page size of the 19 new page PDFs: "Fit to A4 (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 7 (line 12): Three old BP PDFs and the whole-book PDF: "Leave them (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 8 (line 13): Old history files with p273 to p276: "Leave them (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 9 (line 14): Pilot cache files of tanden_full: "Leave them (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 10 (line 15): Upload of tanden page images to the server: "After the join (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 11 (line 16): Stray "Page 101" block in page_111.md: "Remove it, copy kept (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 12 (line 17): Meaning of "kendojidai-2018" in round 80 answer 22: "All kendojidai books (2010 to 2025). Also I am talking about phase 3 and 4\nFor phase 2, we are running using the train-feedback dataset as planned (40 article)" [user 2026-11-02 06:53]
+- Answer 13 (line 18): Which web articles phase 2 translates: "Only 40 train-feedback (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 14 (line 19): One phase 2 run per year or one run with year blocks: "You are confused. check previous answer" [user 2026-11-02 06:53]
+- Answer 15 (line 20): Refused Restart row on the Monitor dashboard: "Same group, second line (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 16 (line 21): Fields of history event `restart-refused`: "Reason and press time (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 17 (line 22): Time zone on Lists tab /runs and run view: "PST there too (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 18 (line 23): Time zone on Reader dashboard /read and book screens /read/<slug>: "PST there too" [accepted option 2 2026-11-02 06:53]
+- Answer 19 (line 24): Reading of round 80 answer 13 (grayed Run and Resume with reason on a Running row, code fallback stays): "Reading is right (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 20 (line 25): Reading of round 80 answer 17 ("Starting versions" = phase start versions, ED_2 v4.1.0): "Reading is right (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 21 (line 26): "1 error" at the end of the Monitor summary line: "Drop it (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 22 (line 27): "Phase not stored" on pilot rows: "Empty cell (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 23 (line 28): Pause-request label: "Running with pause requested (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 24 (line 29): Monitor refresh rule: "Every 3 s in a visible tab (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 25 (line 30): Other VW77a defaults (multi-select, all 12 ticked): "No Run settings tab yet (Recommended), No Details link yet (Recommended), "pilot list" tag (Recommended), Times end with PST (Recommended), Mark symbols ◇ and ? (Recommended), Note for a mark on Running (Recommended), Pilot failure is Stopped by failure (Recommended), Long-call warning on pilot rows (Recommended), Screen reader count line (Recommended), "No run found" text (Recommended), Fallback row texts (Recommended), Data error answers 200 (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 26 (line 31): DZ79 docs defaults (multi-select, all 4 ticked): "Grayed buttons with reason (Recommended), UTC in the tooltip (Recommended), Phase 2 examples 2019 to 2025 (Recommended), Run mark key order kept (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 27 (line 32): Dev server restart: "aki-main restarts it once" [accepted option 3 2026-11-02 06:53]
+- Answer 28 (line 33): ToC review of 100_practice_full, eiga_full, men_full: "Read-only unit, aki-main spot-checks (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 29 (line 34): Next units (multi-select): "DZ80 docs (Recommended), TR77c2 small code (Recommended), VW77b1 buttons (Recommended), TV81 ToC check (Recommended), Cost file update to N = 5" [user 2026-11-02 06:53] (TR77d1 not ticked)
+- Answer 30 (line 35): Commit plan: "Separate code and docs commits (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 31 (line 36): Unit rule breaks: "Add an after-return check (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 32 (line 37): Housekeeping (multi-select): "Use the 2026-11-02 files (Recommended), Fix the old tanden guess (Recommended)" [accepted recommendation 2026-11-02 06:53]
+- Answer 33 (line 38): Other wishes: unanswered [user 2026-11-02 06:53]
+- Answer 34 (line 39): Session control: "Run the plan (Recommended)" [accepted recommendation 2026-11-02 06:53]
+
+##### 15.34.3 `tanden_full` on the Reader dashboard (answers 3 to 11)
+
+The data work is in `translator-design.md`, section 9.32.3. This part gives the Viewer effect.
+
+- Answer 4 (`qa-memory-2026-11-02.md:9`): "Run TJ81 now, all steps". Unit TJ81 joins the 19 new pages after p110. The new pages are p111 to p129. The old p111 to p276 become p130 to p295. The book has 295 pages.
+- Answer 5 (`qa-memory-2026-11-02.md:10`): "Empty file with header". Each new page has a text file with only the header line, from `Page 111` to `Page 129`. The 38 md files sit in `<BP>/Tanden Full/pages/` and `<V2>/data/v1-md/tanden_full/`. No `triplet.json` key exists for them `[file: .opencode/reminders/qa/qa-memory-2026-11-02.md:43]` `[reading pending owner check]`.
+- Answer 6 (`qa-memory-2026-11-02.md:11`): "Fit to A4 (Recommended)". The 19 page PDFs have 595 x 842 pt.
+- Answer 10 (`qa-memory-2026-11-02.md:15`): "After the join (Recommended)". The upload of the page images to the server comes after the join (owner hand step 8.10a `[aki-main proposal in the brief of DZ80, not checked by DZ80]`).
+- aki-main runs the PocketBase sync of `catalog_items` (276 to 295 pages) after TJ81 `[file: .opencode/reminders/qa/qa-memory-2026-11-02.md:44]`.
+
+Chapter starts after the join: ch12 at p111, ch13 at p118, ch14 at p121, ch15 at p130, and ch28 at p286 `[file: /var/folders/sz/2hvwvpb16c77mfzqnvkb5gbc0000gn/T/opencode/r80/TJ80/toc-rows.tsv:14-17,31]`.
+
+Effect on the screens `[agent inference]`:
+
+- The book screen `/read/tanden_full` lists 295 pages. Example: p111 shows the header `Page 111` and no English text.
+- The Reader dashboard `/read` total grows from 14,116 to 14,135 pages. The works count stays 342.
+- The 19 new pages count as not translated. Old Gemini v1 text counts as nothing translated, and the new pages hold no text of that kind.
+- The line "English: 1,124 of 14,116 pages translated (8.0 percent)" reads "English: 1,124 of 14,135 pages translated (8.0 percent)" after the join and the sync. The result 7.95 percent rounds to 8.0.
+
+The result of TJ81 is Not verified. The Reader dashboard shows the new total only after the PocketBase sync.
+
+##### 15.34.4 Phase 2 and the year books (answers 12 to 14)
+
+Owner words:
+
+- Answer 12 (`qa-memory-2026-11-02.md:17`): "All kendojidai books (2010 to 2025). Also I am talking about phase 3 and 4\nFor phase 2, we are running using the train-feedback dataset as planned (40 article)" `[user 2026-11-02 06:53]`.
+- Answer 13 (`qa-memory-2026-11-02.md:18`): "Only 40 train-feedback (Recommended)".
+- Answer 14 (`qa-memory-2026-11-02.md:19`): "You are confused. check previous answer" `[user 2026-11-02 06:53]`.
+- Round 80 answer 22 (`qa-memory-2026-11-01.md:144`): "option 1. Note that we are translating the web articles in book-wise yearly order, not article-wise.\nMeaning 1 full run of kendojidai-2018, 1 full run of kendojidai-2019 etc".
+- Older words: "Each year is one book, with each month is on chapter consists of all articles in that month" (`qa-memory-2026-10-26.md:168`) and "option 1. The 311 web articles ARE kendojidai 2019 to 2025 right?" (`qa-memory-2026-10-29.md:120`).
+
+Reading of aki-main `[reading pending owner check]` (`qa-memory-2026-11-02.md:41,42`):
+
+1. Phase 2 is one run on the 40 `train-feedback` articles, in the store folder `data/book-store/paired-dataset/`.
+2. The articles run in the order of `articles.jsonl`. That order forms year blocks from 2019 to 2025 with 1, 9, 7, 7, 5, 6, and 5 articles. The blocks are an order fact and not separate runs.
+3. Each A4 part is one page. The update point check comes after the last part of each article. N = 5 refers to one box with 5 critiques. One pass, then aki-main decides.
+4. The year runs of round 80 answer 22 belong to phases 3 and 4. Each Kendo Jidai year from 2010 to 2025 is one book. The name "kendojidai-2018" means the scanned volume `kendojidai_2018`.
+
+Facts `[check: DZ80 2026-11-02 07:19 python3 -B count of articles.jsonl in <T2>]`: the file has 311 rows, 244 `train-retrieval`, 40 `train-feedback`, and 27 `test` articles. The 2019 year has 14 articles, and 1 is `train-feedback`.
+
+Effect on the Monitor dashboard `/`. The line below Not started reads "Phase 2 (paired dataset): no run record yet." (line 3989). No phase 2 run command exists, because the run-book parser accepts only `agent-phase-3` and `agent-phase-4` `[file: <T2>/data/scripts/translator_run.py:8259]`. A row for phase 2 shows one run. Option A of section 15.33.8 fits `[agent inference]`. Example (invented values): "Phase 2 (paired dataset): Running. Article 4 of 40 (year block 2020). Page 17 of 144 pages." Option B, 7 rows, does not fit one run.
+
+The year books of phases 3 and 4 show as books on the Monitor dashboard `/`, like `mental_full`. The book ID of a web year book is an open item (item 3 in section 15.34.12).
+
+##### 15.34.5 Row of a refused Restart (answers 15 and 16)
+
+Owner words:
+
+- Answer 15 (`qa-memory-2026-11-02.md:20`): "Same group, second line (Recommended)".
+- Answer 16 (`qa-memory-2026-11-02.md:21`): "Reason and press time (Recommended)".
+
+Rules:
+
+1. The row on the Monitor dashboard `/` keeps the group of its own state. Example: `mental_full` stays in the group Stopped.
+2. The row shows a second line: "Restart refused: ED_2 v4.1.3 has no file".
+3. The Translator writes the history event `restart-refused` with the keys `reason` and `requested_utc`. The key `requested_utc` is the press time of the refused Restart mark.
+4. The Viewer pairs the event with `request.json` by `requested_utc`.
+5. A running book with a failed check also writes the event and stops with the reason `rule` `[aki-main proposal, unit TR77c2]`.
+
+Example with `mental_full` (invented values). You press Restart at 09:30 UTC. The Restart mark in `request.json`:
+
+```
+{"schema": "book-request-v1", "book": "mental_full", "action": "restart", "phase": "agent-phase-4", "prompts": {"ED_2": "v4.1.3"}, "requested_utc": "2026-11-05T09:30:00Z", "requested_by": "Monitor dashboard"}
+```
+
+The map `prompts` shows 1 box of 16. The event in `history.jsonl` (the text of `reason` is an example):
+
+```
+{"utc": "2026-11-05T09:31:02Z", "event": "restart-refused", "reason": "restart mark: box ED_2 has the label v4.1.3, but no file ...", "requested_utc": "2026-11-05T09:30:00Z"}
+```
+
+Both lines have `requested_utc` equal to "2026-11-05T09:30:00Z". So the row shows the second line. The rule "a mark waits while `request.json` exists" must skip a refused mark `[agent inference]`. If `request.json` is gone, or holds another `requested_utc`, the second line goes away `[unit default DZ80]`.
+
+Unit TR77c2 builds the event in round 81. Unit VW77b1 builds the second line. Both results are Not verified at the write time of this unit. Open item 1 of section 15.33.12 is answered.
+
+The lines 6771 to 6783 (section 15.33.4) now carry a pointer to this section.
+
+##### 15.34.6 PST on every screen (answers 17 and 18)
+
+Owner words:
+
+- Answer 17 (`qa-memory-2026-11-02.md:22`): "PST there too (Recommended)". The question was about the Lists tab `/runs` and the run view `/runs/<stamp>`.
+- Answer 18 (`qa-memory-2026-11-02.md:23`): "PST there too". The owner chose option 2 `[accepted option 2 2026-11-02 06:53]`. The question was about the Reader dashboard `/read` and the book screens `/read/<slug>`.
+
+Rule. Every time on these five screens shows PST (UTC-8 all year):
+
+| Screen | Path |
+|---|---|
+| Monitor dashboard | `/` |
+| Lists tab | `/runs` |
+| Run view | `/runs/<stamp>` |
+| Reader dashboard | `/read` |
+| Book screen | `/read/<slug>` |
+
+Example. The list stamp `2026-10-29T07:50:00Z` shows "2026-10-28 23:50 PST". The date changes to the day before, because 07:50 minus 8 hours is 23:50 of the day before.
+
+Which times the Reader screens show is Not verified (`qa-memory-2026-11-02.md:45`). The helper `dateTime` in `app/lib/format.ts` shows the time of the browser without a zone name `[file: app/lib/format.ts:8-13]` (line 3832 of this file). The helper must change. Unit VW77b1 builds this change `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:14]`. The result is Not verified.
+
+The sketches of section 15.24 show PDT times of real list data in code blocks. They stay as old examples (section 15.34.10).
+
+Open item 3 in section 15.33.12 is answered. Line 4007 of this file carries the extension.
+
+##### 15.34.7 Monitor dashboard details (answers 19 to 24)
+
+- Answer 19 (`qa-memory-2026-11-02.md:24`): "Reading is right (Recommended)". Run and Resume are grayed on a Running row, with a reason in words. The Translator keeps its fallback. Example: the row of `mental_full` at p080 shows [Pause] [Restart] [Details], and the grayed [Run] and [Resume] with the reason "Resume is off because this book runs now". The tag `[reading pending owner check]` is removed from section 15.33.3.
+- Answer 20 (`qa-memory-2026-11-02.md:25`): "Reading is right (Recommended)". The quick select row "Starting versions" means the start versions of the phase, also in run 2 or later. Example: ED_2 `v4.1.0`. The tag is removed from section 15.33.6.
+- Answer 21 (`qa-memory-2026-11-02.md:26`): "Drop it (Recommended)". The summary line has no "1 error" at the end. Example: the real summary text ended with "25 not started · 1 error" `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:6]`. It now ends with "25 not started". Line 3951 changed. The sketch line 4147 sits in a code block and stays (section 15.34.10).
+- Answer 22 (`qa-memory-2026-11-02.md:27`): "Empty cell (Recommended)". A pilot row shows an empty phase cell. Example: the pilot row of `kendojidai_2014` has no text between the title and "6 of 1051 pages". Line 3964 changed. The sketch lines 4134, 4141, 4143, 4146, and 4176 sit in code blocks and stay.
+- Answer 23 (`qa-memory-2026-11-02.md:28`): "Running with pause requested (Recommended)". The old label was "Running, pause requested". Lines 3927, 3938, 3939, and 6012 changed. Line 6148 is a history line of round 77 and stays with a note.
+- Answer 24 (`qa-memory-2026-11-02.md:29`): "Every 3 s in a visible tab (Recommended)". Line 4009 (section 15.24.4.6) changed. The page polls every 3000 ms while the tab is visible and stops while the tab is hidden.
+
+##### 15.34.8 Defaults kept (answers 25 and 26)
+
+Answer 25 (`qa-memory-2026-11-02.md:30`): "Other VW77a defaults (multi-select, all 12 ticked): "No Run settings tab yet (Recommended), No Details link yet (Recommended), "pilot list" tag (Recommended), Times end with PST (Recommended), Mark symbols ◇ and ? (Recommended), Note for a mark on Running (Recommended), Pilot failure is Stopped by failure (Recommended), Long-call warning on pilot rows (Recommended), Screen reader count line (Recommended), "No run found" text (Recommended), Fallback row texts (Recommended), Data error answers 200 (Recommended)" [accepted recommendation 2026-11-02 06:53]".
+
+Answer 26 (`qa-memory-2026-11-02.md:31`): "DZ79 docs defaults (multi-select, all 4 ticked): "Grayed buttons with reason (Recommended), UTC in the tooltip (Recommended), Phase 2 examples 2019 to 2025 (Recommended), Run mark key order kept (Recommended)" [accepted recommendation 2026-11-02 06:53]".
+
+The 12 VW77a defaults by name:
+
+1. No Run settings tab yet.
+2. No Details link yet.
+3. "pilot list" tag.
+4. Times end with PST.
+5. Mark symbols ◇ and ?.
+6. Note for a mark on Running.
+7. Pilot failure is Stopped by failure.
+8. Long-call warning on pilot rows.
+9. Screen reader count line.
+10. "No run found" text.
+11. Fallback row texts.
+12. Data error answers 200.
+
+The four DZ79 defaults by name (section 15.33.11, items 1 to 4):
+
+1. Grayed buttons with reason.
+2. UTC in the tooltip. Example: the row reads "Restart requested 15:40 PST" and the tooltip reads "2026-07-10T23:40:00Z".
+3. Phase 2 examples 2019 to 2025. Round 81 answers 12 to 14 narrow this default. The years stay only as the order of the one phase 2 run (section 15.34.4).
+4. Run mark key order kept.
+
+The full text of the 12 VW77a defaults is in the VW77a report. Unit DZ80 did not open that report.
+
+##### 15.34.9 Process answers (answers 27 to 34)
+
+- Answer 27 (`qa-memory-2026-11-02.md:32`): "aki-main restarts it once". aki-main restarts `next dev` on port 3000 once, at the end of the round.
+- Answer 28 (`qa-memory-2026-11-02.md:33`): "Read-only unit, aki-main spot-checks (Recommended)". Unit TV81 reads the tables of contents of `100_practice_full`, `eiga_full`, and `men_full`.
+- Answer 29 (`qa-memory-2026-11-02.md:34`): DZ80 docs, TR77c2 small code, VW77b1 buttons, TV81 ToC check, and the cost file update to N = 5. TR77d1 is not ticked.
+- Answer 30 (`qa-memory-2026-11-02.md:35`): "Separate code and docs commits (Recommended)".
+- Answer 31 (`qa-memory-2026-11-02.md:36`): "Add an after-return check (Recommended)".
+- Answer 32 (`qa-memory-2026-11-02.md:37`): "Use the 2026-11-02 files (Recommended), Fix the old tanden guess (Recommended)".
+- Answer 33 (`qa-memory-2026-11-02.md:38`): unanswered.
+- Answer 34 (`qa-memory-2026-11-02.md:39`): "Run the plan (Recommended)".
+
+##### 15.34.10 Lines of this file that round 81 replaced
+
+Each row is one line of this file that the unit changed in place. The line numbers are the same before and after the edit. The unit changed no line count above the end of the file.
+
+| Line | Old text in short | New text in short | Source |
+|---|---|---|---|
+| 3832 | browser time without a zone name | pointer to PST on all screens | round 81 answers 17 and 18, qa-memory-2026-11-02.md:22,23 |
+| 3927 | label Running, pause requested | Running with pause requested | round 81 answer 23, qa-memory-2026-11-02.md:28 |
+| 3927 | no note | rename note appended | round 81 answer 23, qa-memory-2026-11-02.md:28 |
+| 3938 | label Running, pause requested | Running with pause requested | round 81 answer 23, qa-memory-2026-11-02.md:28 |
+| 3939 | label Running, pause requested | Running with pause requested | round 81 answer 23, qa-memory-2026-11-02.md:28 |
+| 3951 | counts it in the summary line as 1 error | summary line has no error count | round 81 answer 21, qa-memory-2026-11-02.md:26 |
+| 3964 | Phase not stored | empty phase cell | round 81 answer 22, qa-memory-2026-11-02.md:27 |
+| 4007 | PST on the Monitor dashboard | PST on all five screens | round 81 answers 17 and 18, qa-memory-2026-11-02.md:22,23 |
+| 4009 | polls only while a row is live | polls every 3 s in a visible tab | round 81 answer 24, qa-memory-2026-11-02.md:29 |
+| 4009 | no polling with no live row | polls with no live row too | round 81 answer 24, qa-memory-2026-11-02.md:29 |
+| 4009 | unit default | round 81 answer 24 | round 81 answer 24, qa-memory-2026-11-02.md:29 |
+| 6012 | label Running, pause requested | Running with pause requested | round 81 answer 23, qa-memory-2026-11-02.md:28 |
+| 6148 | history line, old label | marked as history | round 81 answer 23, qa-memory-2026-11-02.md:28 |
+| 6734 | PST on the Monitor dashboard | PST on all five screens | round 81 answers 17 and 18, qa-memory-2026-11-02.md:22,23 |
+| 6750 | Reader dashboard not decided | PST on the Reader dashboard | round 81 answer 18, qa-memory-2026-11-02.md:23 |
+| 6752 | unit VW77a builds this | unit VW77b1 builds the extension | round 81 plan, evolving-plan-2026-11-02.md:14 |
+| 6756 | reading pending the owner | reading confirmed | round 81 answer 19, qa-memory-2026-11-02.md:24 |
+| 6769 | unit VW77b builds the buttons | unit VW77b1 builds them | round 81 plan, evolving-plan-2026-11-02.md:14 |
+| 6779 | Translator does not write the event | TR77c2 builds the event | round 81 answers 15 and 16, qa-memory-2026-11-02.md:20,21 |
+| 6783 | group not designed | same group, second line | round 81 answer 15, qa-memory-2026-11-02.md:20 |
+| 6802 | reading pending owner check | reading confirmed | round 81 answer 20, qa-memory-2026-11-02.md:25 |
+| 6848 | event not written yet | TR77c2 builds the event | round 81 answer 16, qa-memory-2026-11-02.md:21 |
+| 6856 | phase 2 in year blocks 2019 to 2025 | one run on 40 articles, year blocks are an order fact | round 81 answers 12 to 14, qa-memory-2026-11-02.md:17,18,19 |
+| 6862 | Block 2020, article 3 of 9 | Article 4 of 40 (year block 2020) | round 81 answers 12 to 14, qa-memory-2026-11-02.md:17,18,19 |
+| 6862 | option A | option A fits one run | round 81 answers 12 to 14, qa-memory-2026-11-02.md:17,18,19 |
+| 6863 | option B | marked as history | round 81 answers 12 to 14, qa-memory-2026-11-02.md:17,18,19 |
+| 6865 | no recommendation on its own | marked as old text | round 81 answers 12 to 14, qa-memory-2026-11-02.md:17,18,19 |
+| 6865 | if one run option A, if one run per year option B | one run, so option A | round 81 answers 12 to 14, qa-memory-2026-11-02.md:17,18,19 |
+| 6869 | unit TJ80 plans it | TJ81 runs the join | round 81 answers 3 to 11, qa-memory-2026-11-02.md:8,9,10,11,12,13,14,15,16 |
+| 6871 | inference until the join runs | ordered in round 81 | round 81 answer 4, qa-memory-2026-11-02.md:9 |
+| 6874 | 19 pages are not translated | header-only files, no English text | round 81 answer 5, qa-memory-2026-11-02.md:10 |
+| 6930 | default 1 | accepted | round 81 answer 26, qa-memory-2026-11-02.md:31 |
+| 6931 | default 2 | accepted | round 81 answer 26, qa-memory-2026-11-02.md:31 |
+| 6932 | default 3, year blocks of phase 2 | accepted, narrowed to an order fact | round 81 answers 12 to 14 and 26, qa-memory-2026-11-02.md:17,18,19,31 |
+| 6933 | default 4 | accepted | round 81 answer 26, qa-memory-2026-11-02.md:31 |
+| 6937 | open item 1 | answered by answer 15 | round 81 answer 15, qa-memory-2026-11-02.md:20 |
+| 6938 | open item 2 | answered in part | round 81 answers 12 to 14, qa-memory-2026-11-02.md:17,18,19 |
+| 6939 | open item 3 | answered, PST chosen | round 81 answers 17 and 18, qa-memory-2026-11-02.md:22,23 |
+| 6940 | open item 4 | answered, new items in 9.32.12 | round 81 answers 3 to 16 and 29, qa-memory-2026-11-02.md:8,17,18,19,20,21,34 |
+| 6944 | code not built | VW77b1 and TR77c2 build parts | round 81 plan, evolving-plan-2026-11-02.md:14 |
+| 6945 | readings wait | readings of 13 and 17 confirmed | round 81 answers 19 and 20, qa-memory-2026-11-02.md:24,25 |
+
+Lines that stay as history or inside a code block, checked by the unit:
+
+- Line 4147: the sketch line "Stopped at p089: the list ended with 1 error." in a code block. The real list data of October 2026 `[real]` stays. The summary line rule changed in line 3951 (answer 21).
+- Lines 4134, 4141, 4143, and 4146: sketch rows with "Phase not stored" in a code block. They show the screen of October 2026. Since answer 22 the phase cell of a pilot row is empty.
+- Line 4176: the sketch line with "Phase not stored" and the PDT time in a code block. It stays as an old example (answers 17 and 22).
+- Line 6148: a history line of round 77 answer 9. It keeps the old label "Running, pause requested".
+- The sketches of section 15.24 with PDT times stay as real list data.
+
+##### 15.34.11 Unit defaults of DZ80
+
+No owner answer settles these items.
+
+1. `[unit default DZ80]` Rule: an old option text stays in the file as history. A note "Answered in round 81 answer N" ends its line. Example: the open items 1 to 4 of section 15.33.12 carry the note. Other option: delete the old text. Benefit: the owner can read why the options existed. Cost: the lines get longer.
+2. `[unit default DZ80]` Rule: the Monitor dashboard polls every 3 seconds in a visible tab, also when no row is live. Example: with all books Not started, the tab still polls. Other option: poll only while a row is Running. Benefit: the Monitor dashboard shows a new mark at once. Cost: the Monitor dashboard calls the API in an idle state. Answer 24 does not say which reading is right.
+3. `[unit default DZ80]` Rule: the second line of a refused Restart goes away when `request.json` is gone or holds another `requested_utc`. Example: you press Restart again at 09:40 UTC. Other option: keep the line until the next start. Benefit: the line matches the mark in the file. Cost: a refused line can vanish before you read it.
+4. `[unit default DZ80]` Rule: PST on the Reader dashboard and the book screens covers every time that those screens show. Example: any saved-progress time on a book screen. Other option: PST on named fields only. Benefit: one rule for all screens. Cost: unit VW77b1 must find each time.
+5. `[unit default DZ80]` Rule: the phase 2 row example uses option A of section 15.33.8 (one row). Example: "Article 4 of 40 (year block 2020)". Other option: leave the row shape open. Benefit: the example matches one run. Cost: the example changes if the owner picks 7 rows.
+
+##### 15.34.12 Open items for the owner
+
+The first option of each item is the recommended option. The items about the year books also appear in `translator-design.md`, section 9.32.12.
+
+1. Confirm the reading of answers 12 to 14 (section 15.34.4). Recommended: yes `[aki-main proposal]`. Example: the Monitor dashboard shows one phase 2 row for the 40 articles, and the 16 year books show as books. Benefit: one reading for all docs. Cost: none. Other option: tell aki-main which part is wrong.
+2. Which articles the web year books hold. Recommended `[aki-main proposal]`: all articles of the year. Example: the 2019 book holds 14 articles, 1 `train-feedback` and 3 `test`. Benefit: the book is complete. Cost: the `test` articles run in the book `[agent inference]`. Other option: all articles except the 27 `test` articles. Example: the 2019 book holds 11 articles.
+3. The book ID of a web year book. Recommended `[aki-main proposal]`: `kendojidai_2019`, the form of the scanned volumes. Benefit: one ID form for 16 books. Cost: none known. Other option: `kendojidai-2019`, the spelling in the owner words.
+4. The run order of the 16 year books and the other books. Recommended `[aki-main proposal]`: year order 2010 to 2025, and then the other books. Benefit: one simple rule. Cost: books like `mental_full` wait. Other option: the other books first.
+5. Which times the Reader dashboard and the book screens show (`qa-memory-2026-11-02.md:45`). Recommended: unit VW77b1 lists them in its report. Benefit: the PST rule has a full list. Cost: none.
+
+##### 15.34.13 Not verified
+
+- The results of TJ81, TR77c2, VW77b1, CE81, and TV81 are Not verified. Unit DZ80 did not read them.
+- The join of `tanden_full` is Not verified. The counts 295, 38, and 14,135 are plan values and an inference.
+- The Monitor code, the Reader code, and the helper `dateTime` were not read in this unit. No code ran.
+- The readings of aki-main at `qa-memory-2026-11-02.md:41,42,43,45` wait for the owner.
+- Whether the Monitor dashboard polls with no live row is not stated in answer 24.
+- The dev server on port 3000 and PocketBase on port 8090 were not read or changed.
+
+Status: round 81 answers applied by unit DZ80. Items in section 15.34.12 wait for the owner.
