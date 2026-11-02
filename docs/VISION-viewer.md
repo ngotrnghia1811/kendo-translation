@@ -4000,7 +4000,7 @@ Phase 2 runs on the paired dataset. The paired dataset holds web articles with h
 - Start of a book that never ran. The button "Run" writes a mark `request.json` with the action "run" and the phase "agent-phase-3". Draft DM70: the button "Start…" opened a dialog with the command. Round 74 answer 12: the button "Run" opens a confirm dialog first (section 15.27.2).
 - Next phase. A Completed book of phase 3 shows the button "Run phase 4" `[unit default]`. The button writes a mark with the phase "agent-phase-4". Phase 4 starts at the beginning of the book (owner quote). Draft DM70: the button "Start phase 4…" opened a dialog. Round 74 answer 12: the button "Run phase 4" opens a confirm dialog first (section 15.27.2).
 - Details. The title and the button "Details" open the book detail view (section 15.24.5).
-- A button is disabled with a reason in words. Example (the pid is made up): "Resume is off because this book runs now (pid 4821)". The button Restart sits on the book row and in the Details view only (round 74 answer 11, `.opencode/reminders/qa/qa-memory-2026-10-31.md:37`). No Restart button sits on a stopped-box flag. Resume and Restart differ (round 73d answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:132`, owner question "What is the different between Restart and Resume again?"). Owner words, round 73e answer 9 (`.opencode/reminders/qa/qa-memory-2026-10-31.md:12`): "Resume mean continue the whole book\nRestart mean archive the current run, and run the whole book from the first page." Resume continues the whole book. Its button sits on the book row, and the run starts at the next page after the last accepted page (section 15.24.7). After Resume, the double REJECT count of a stopped box goes back to 0 (round 74 answer 6). Restart moves the run files into `<T2>/data/book-store/<book>/archive/<UTC time>/` and runs the whole book from page 1 in the same phase (round 74 answers 7 and 9). A box with 3 double REJECTs in a row stops the whole book after the page is saved (round 74 answer 5). Replaced in round 74 answers 5 to 11: the old text of this line let one stopped box restart alone, with a button on the flag of the box. Section 15.27 holds the rules and the confirm dialog.
+- A button is disabled with a reason in words. Example (the pid is made up): "Resume is off because this book runs now (pid 4821)". The button Restart sits on the book row and in the Details view only (round 74 answer 11, `.opencode/reminders/qa/qa-memory-2026-10-31.md:37`). No Restart button sits on a stopped-box flag. Resume and Restart differ (round 73d answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:132`, owner question "What is the different between Restart and Resume again?"). Owner words, round 73e answer 9 (`.opencode/reminders/qa/qa-memory-2026-10-31.md:12`): "Resume mean continue the whole book\nRestart mean archive the current run, and run the whole book from the first page." Resume continues the whole book. Its button sits on the book row, and the run starts at the next page after the last accepted page (section 15.24.7). After Resume, the double REJECT count of a stopped box goes back to 0 (round 74 answer 6). Restart moves the run files into `<T2>/data/book-store/<book>/archive/<run ID>/` and runs the whole book from page 1 in the same phase (round 74 answers 7 and 9). A box with 3 double REJECTs in a row stops the whole book after the page is saved (round 74 answer 5). Replaced in round 74 answers 5 to 11: the old text of this line let one stopped box restart alone, with a button on the flag of the box. Section 15.27 holds the rules and the confirm dialog.
 
 ##### 15.24.4.6 Time, refresh, and the empty, first-load, and error states
 
@@ -4290,7 +4290,7 @@ Differences from the draft of aki-main:
 - `pages_total` counts the pages of the phase target. The draft left this open. Phase 3 needs 20, not the pages of the book.
 - The cost and the time count one phase. A phase change writes the old totals to `history.jsonl`.
 - The heartbeat comes from a thread that does not wait for a model call. A call can last 1500 s.
-- A file `PAUSE` for one book. The draft had the list file only. The Monitor dashboard also writes the mark `request.json` in the book folder (round 70 answer 11, round 71 answer 9). The mark holds the keys schema ("book-request-v1"), book, action ("run" or "resume"), phase, requested_utc, and requested_by `[file: <T2>/data/scripts/translator/store.py, function write_mark]`. The restart mark uses the same file with the action "restart" and no key `box` (round 74 answers 5 to 9). Old text, replaced: the key `box` named one stopped box (unit default of DD73). One more key sets the prompt choice (round 74 answer 8): `"prompts": "start"` (the default, the prompts that the archived run started with) or `"prompts": "last"` (the last live prompts of the archived run) `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]` (DZ73 default 3, "One restart action"). Other option: two actions, "restart" and "restart-last". Benefit of the key: one action. Cost: the key is valid for the action "restart" only. A Restart mark on a running book makes the run program stop after the page is saved, archive the run, and end. An opencode agent starts the book again from page 1 `[accepted option 2 2026-11-01 08:12, round 77 answer 12, qa-memory-2026-11-01.md:43]` (section 15.30.3). Old text: "start again from page 1" in the same process `[accepted 2026-11-01 01:03, round 76 answer 5, qa-memory-2026-11-01.md:8]`. Other option in section 15.27.4, not chosen. Not verified: `MARK_ACTIONS` in `store.py` holds only "run" and "resume" (l30), so a Translator unit must add "restart". `run-book` keeps the handled mark as `request.done.json`. The run program reads the restart mark at each page start. So a mark reaches a book that runs at the next page (round 73c answer 10, `.opencode/reminders/qa/qa-memory-2026-10-30.md:116`, "Run program reads the mark per page (Recommended)" `[accepted recommendation 2026-10-30 20:17]`). Replaced in round 78 answers 4 and 5 (`qa-memory-2026-11-01.md:66-67`) `[reading pending owner check]`: the choice is a version for each box, and the key `prompts` can hold a map from box to label. The shape is not designed (section 15.31.2).
+- A file `PAUSE` for one book. The draft had the list file only. The Monitor dashboard also writes the mark `request.json` in the book folder (round 70 answer 11, round 71 answer 9). The mark holds the keys schema ("book-request-v1"), book, action ("run" or "resume"), phase, requested_utc, and requested_by `[file: <T2>/data/scripts/translator/store.py, function write_mark]`. The restart mark uses the same file with the action "restart" and no key `box` (round 74 answers 5 to 9). Old text, replaced: the key `box` named one stopped box (unit default of DD73). One more key sets the prompt choice. Round 79 answer 12 (`qa-memory-2026-11-01.md:104`) decides that the key `prompts` holds a map of 16 labels, one for each box (section 15.32.4). Old text, replaced (round 74 answer 8): `"prompts": "start"` (the default, the prompts that the archived run started with) or `"prompts": "last"` (the last live prompts of the archived run) `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]` (DZ73 default 3, "One restart action"). Other option: two actions, "restart" and "restart-last". Benefit of the key: one action. Cost: the key is valid for the action "restart" only. A Restart mark on a running book makes the run program stop after the page is saved, archive the run, and end. An opencode agent starts the book again from page 1 `[accepted option 2 2026-11-01 08:12, round 77 answer 12, qa-memory-2026-11-01.md:43]` (section 15.30.3). Old text: "start again from page 1" in the same process `[accepted 2026-11-01 01:03, round 76 answer 5, qa-memory-2026-11-01.md:8]`. Other option in section 15.27.4, not chosen. Not verified: `MARK_ACTIONS` in `store.py` holds only "run" and "resume" (l30), so a Translator unit must add "restart". `run-book` keeps the handled mark as `request.done.json`. The run program reads the restart mark at each page start. So a mark reaches a book that runs at the next page (round 73c answer 10, `.opencode/reminders/qa/qa-memory-2026-10-30.md:116`, "Run program reads the mark per page (Recommended)" `[accepted recommendation 2026-10-30 20:17]`). Replaced in round 78 answers 4 and 5 (`qa-memory-2026-11-01.md:66-67`) `[reading pending owner check]`: the choice is a version for each box, and the key `prompts` can hold a map from box to label. The shape is decided in round 79 answer 12 (section 15.32.4).
 - A defaults file, so that the Viewer shows the default of each key without a copy of the table.
 - A history file of the settings file. The draft had no place for who changed what.
 
@@ -5648,7 +5648,7 @@ Resume (round 74 answers 5 and 6):
 
 Restart (round 73e answer 9, round 74 answers 7, 8, 9):
 
-- Restart moves the run files of the book into `<T2>/data/book-store/<book>/archive/<UTC time>/`. Nothing is deleted. The folder `prompts/` moves too (round 75 answer 9, section 15.28.4).
+- Restart moves the run files of the book into `<T2>/data/book-store/<book>/archive/<run ID>/`. Nothing is deleted. The folder `prompts/` moves too (round 75 answer 9, section 15.28.4). Replaced in round 79 answer 10 (`qa-memory-2026-11-01.md:102`): the folder name is the run ID of the ended run (section 15.32.5).
 - The file `history.jsonl` stays in place and gets one event "restart".
 - The new run uses the same phase and starts at page 1. Reader text after a Restart: readers keep the text of the opened run until the admin opens a run of the new start (round 75 answer 4, section 15.28.3).
 - The prompt choice is the key `prompts` of the mark. Replaced in round 78 answers 4 and 5: the choice is a version for each box (section 15.31.2).
@@ -5656,10 +5656,10 @@ Restart (round 73e answer 9, round 74 answers 7, 8, 9):
 Mark `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]` (DZ73 default 3, "One restart action"). Example values:
 
 ```
-{"schema": "book-request-v1", "book": "mental_full", "action": "restart", "phase": "agent-phase-4", "prompts": "start", "requested_utc": "2026-11-05T09:30:00Z", "requested_by": "Monitor dashboard"}
+{"schema": "book-request-v1", "book": "mental_full", "action": "restart", "phase": "agent-phase-4", "prompts": {"TS_0": "v4.1.0", "TS_1": "v4.1.0", "TS_2": "v4.1.0", "TS_3": "v4.1.0", "TL_0": "v4.1.0", "TL_1": "v4.1.0", "TL_2": "v4.1.0", "TL_3": "v4.1.0", "ED_0": "v4.1.0", "ED_1": "v4.1.0", "ED_2": "v4.1.0", "ED_3": "v4.1.0", "QA_0": "v4.1.0", "QA_1": "v4.1.0", "QA_2": "v4.1.0", "QA_3": "v4.1.0"}, "requested_utc": "2026-11-05T09:30:00Z", "requested_by": "Monitor dashboard"}
 ```
 
-- The key `prompts` is "start" (default) or "last". The keys schema, book, action, phase, requested_utc, and requested_by are the keys of `write_mark` `[file: <T2>/data/scripts/translator/store.py:253-262]`.
+- The key `prompts` is a map of 16 labels, one for each box (round 79 answer 12, section 15.32.4). Old text, replaced: "start" (default) or "last". The keys schema, book, action, phase, requested_utc, and requested_by are the keys of `write_mark` `[file: <T2>/data/scripts/translator/store.py:253-262]`.
 - Other option: two actions, "restart" and "restart-last", and no key `prompts`. Benefit: each action has a fixed key list. Cost: a second action in `MARK_ACTIONS`.
 
 Restart mark on a running book `[accepted 2026-11-01 01:03, round 76 answer 5, qa-memory-2026-11-01.md:8]` ("Every state with a run (Recommended)", section 15.29.3): the run program stops after the current page is saved, archives the run, and ends. An opencode agent starts the book again from page 1 (round 77 answer 12, `qa-memory-2026-11-01.md:43`, section 15.30.3). Old text: "starts again from page 1" in the same process.
@@ -5686,7 +5686,7 @@ TL_1   5 of 5 (100.0 percent)              0 of 5 (0.0 percent)
 - The values are an example and not run data.
 - The archive folder name gives the UTC time. The archived `status.json` gives the phase, the pages done, and the prompt versions at the end `[agent inference]`. The version labels followed round 75 answer 9: `v<run>.<updates>`, for example `v1.6` (section 15.28.4). Replaced in round 77 answer 10 (`qa-memory-2026-11-01.md:41`): `v<phase>.<run>.<updates>`, for example `v4.1.6` (section 15.30.2). The archive folder also holds the folder `prompts/` of the run `[reading pending owner check]`.
 - The prompt versions at the start come from the `prompts` block of `run.json` of the first archived page (`translator-design.md` section 9.23.5, item 10) `[agent inference]`.
-- The line of each box follows the owner words of round 74 answer 2. The count comes from the events `update point ended` in `history.jsonl` (`translator-design.md` section 9.25.2).
+- The line of each box follows the owner words of round 74 answer 2. The count comes from the events `update-point-ended` in `history.jsonl` (`translator-design.md` section 9.25.2).
 - Other option: one share for the whole book, with no line for each box. Benefit: a shorter view. Cost: the owner cannot see which box loses its critiques.
 
 ##### 15.27.6 Reader access to agent text (decided in round 75 answer 3)
@@ -5817,9 +5817,9 @@ Owner words (answer 4): "Keep the opened text (Recommended)".
 
 Reading `[reading pending owner check]` (`qa-memory-2026-10-31.md:72`): after a Restart, readers keep the text of the opened run. They see it until the admin opens a run of the new start. Replaced in round 77 answer 13 (`qa-memory-2026-11-01.md:44`): "If admin choose to show it then reader can read it, if not then they cant" `[user 2026-11-01 08:12]`. The admin gate also covers an archived run `[reading pending owner check]` (`qa-memory-2026-11-01.md:58`).
 
-- A Restart moves the run files into `<T2>/data/book-store/<book>/archive/<UTC time>/` (round 74 answer 7). S2 then reads the opened run from that archive folder, only if the admin opened that run (round 77 answer 13).
+- A Restart moves the run files into `<T2>/data/book-store/<book>/archive/<run ID>/` (round 74 answer 7). S2 then reads the opened run from that archive folder, only if the admin opened that run (round 77 answer 13).
 - S2 does not read `<T2>/data/book-store` today `[check: DZ73 2026-10-31 15:35 grep -c -i "book-store" app/scripts/sync-runs.mjs, 0]`. A code unit must add it.
-- Example (invented times): the admin opened run 1 of `mental_full`. The owner presses Restart at 09:30. The files of run 1 move to `archive/20261105T093000Z/`. Readers still see run 1, because the admin opened run 1 before the Restart. If the admin did not open run 1, readers see no agent text. If the admin closes run 1 later, readers lose its text at the next S2 run. The admin later opens run 2. The S2 rule shows the newest open PASS run, which is run 2 `[accepted 2026-11-01 01:03, round 76 answer 12, qa-memory-2026-11-01.md:15]`.
+- Example (invented times): the admin opened run 1 of `mental_full`. The owner presses Restart at 09:30. The files of run 1 move to `archive/20261104T001500-0800/`. Readers still see run 1, because the admin opened run 1 before the Restart. If the admin did not open run 1, readers see no agent text. If the admin closes run 1 later, readers lose its text at the next S2 run. The admin later opens run 2. The S2 rule shows the newest open PASS run, which is run 2 `[accepted 2026-11-01 01:03, round 76 answer 12, qa-memory-2026-11-01.md:15]`.
 - Other option for the last step: when the admin opens run 2, run 1 closes at once. Benefit: one open run for each book. Cost: a second click or a hidden side effect.
 
 ##### 15.28.4 Version labels on the Monitor dashboard
@@ -5939,7 +5939,7 @@ Doc fixes that RT73b listed, applied in place:
 2. Audit checks C3 and C4 (`translator-design.md` section 9.26.5). Decided in round 76 answer 3 (`qa-memory-2026-11-01.md:6`): C3 and C4 learn soft.
 3. Open points i to iv of the version labels (`translator-design.md` section 9.26.4). Decided in round 76 answers 6 to 8 (`qa-memory-2026-11-01.md:9-11`): each phase has its own series and starts at `v1.0` (section 15.29.4). Point iv (rollback) is removed in round 77 answer 3 (`qa-memory-2026-11-01.md:34`). The label form is replaced in round 77 answer 10 (section 15.30.2).
 4. The admin gate (15.28.2): accepted in round 76 answers 10 and 11 (section 15.29.5). The meaning of "run": the record holds the run folder name of one page.
-5. How S2 finds an opened run inside `archive/<UTC time>/` (15.28.3). Not designed.
+5. How S2 finds an opened run inside `archive/<run ID>/` (15.28.3). Not designed.
 
 ##### 15.28.11 Not verified
 
@@ -6026,7 +6026,7 @@ Decided in round 76 answer 5. The button Restart shows on the book row and in th
 
 A Running book saves its current page and its update point, archives the run, and ends the process. An opencode agent starts the book again from page 1 (round 77 answer 12, `qa-memory-2026-11-01.md:43`: "Process ends, agent restarts", section 15.30.3). This accepts DZ73 default 2, a Restart mark on a running book. The other option was a refusal until the book is stopped. It is not chosen. Old text: "then restarts".
 
-Example (values are an example): `mental_full` runs phase 4 at p080. The owner presses Restart in the dialog (Cancel is first). The run finishes p080 and saves it. The run files move to `<T2>/data/book-store/mental_full/archive/<UTC time>/`. The process ends. The row shows "Waiting for a run" until an opencode agent starts the book again from p001 in phase 4 (section 15.30.3). Before the process reads the Restart mark, the row text is "Mark waiting: Restart requested HH:MM" (section 15.24.4.2).
+Example (values are an example): `mental_full` runs phase 4 at p080. The owner presses Restart in the dialog (Cancel is first). The run finishes p080 and saves it. The run files move to `<T2>/data/book-store/mental_full/archive/<run ID>/`. The process ends. The row shows "Waiting for a run" until an opencode agent starts the book again from p001 in phase 4 (section 15.30.3). Before the process reads the Restart mark, the row text is "Mark waiting: Restart requested HH:MM" (section 15.24.4.2).
 
 The states Not started and Waiting for a run show no Restart button. This is `[agent inference]`, because the owner list has five states.
 
@@ -6206,8 +6206,8 @@ Decided in round 77 answer 12: the process ends and an opencode agent starts the
 | Moment | Group on the Monitor dashboard `/` | Row text | Buttons |
 |---|---|---|---|
 | Before the press | Running | the running row | Pause, Restart, Details (section 15.29.2) |
-| After the press, until the process reads the mark at the next page start | Running (round 78 answer 10, `qa-memory-2026-11-01.md:72`, old text: not designed) | "Restart requested 16:40" (old text: not designed) | not designed |
-| The process saved p080, archived, and ended | Waiting for a run | "Mark waiting: Restart requested 16:40" (round 78 answers 10 and 11, `qa-memory-2026-11-01.md:72-73`, section 15.31.5) `[reading pending owner check]`. Old text: "Mark waiting: Run requested 16:41" | Details (no Restart button in this group, section 15.29.3) |
+| After the press, until the process reads the mark at the next page start | Running (round 78 answer 10, `qa-memory-2026-11-01.md:72`, old text: not designed) | "Restart requested 16:40" (old text: not designed) | none (round 79 answer 13, `qa-memory-2026-11-01.md:105`, section 15.32.6) |
+| The process saved p080, archived, and ended | Waiting for a run | "Mark waiting: Restart requested 16:40" (round 78 answers 10 and 11, `qa-memory-2026-11-01.md:72-73`, section 15.31.5) `[reading pending owner check]`. Time decided in round 79 answer 11 (`qa-memory-2026-11-01.md:103`): the press time. Old text: "Mark waiting: Run requested 16:41" | Details (no Restart button in this group, section 15.29.3) |
 | An opencode agent started the book | Running | the running row at p001 in phase 4 | Pause, Restart, Details |
 
 - The second line is not designed. The rule "A mark waits while the book folder holds `request.json`" (line 3928 of this file) can put the row in the group "Waiting for a run" while the process still runs `[agent inference]`. The owner can decide this (section 15.30.7, item e). Decided in round 78 answer 10 (`qa-memory-2026-11-01.md:72`): "Stays Running, with a note (Recommended)". The row stays in the group Running, also while `request.json` exists `[agent inference]`.
@@ -6220,18 +6220,18 @@ Decided in round 77 answer 12: the process ends and an opencode agent starts the
 
 Owner words (round 77 answer 13): "If admin choose to show it then reader can read it, if not then they cant". Reading `[reading pending owner check]` (`qa-memory-2026-11-01.md:58`): the admin gate covers archived runs.
 
-- If the admin opened run 1 before the Restart, readers keep its text from `archive/<UTC time>/`. They see it on the book screen `/read/<slug>` and on `/translate/<slug>?at=pNNN`.
+- If the admin opened run 1 before the Restart, readers keep its text from `archive/<run ID>/`. They see it on the book screen `/read/<slug>` and on `/translate/<slug>?at=pNNN`.
 - If the admin did not open run 1, readers see no agent text from it.
 - If the admin closes run 1 later, the page loses its agent text at the next S2 run (round 76 answer 11, `qa-memory-2026-11-01.md:14`: "Closed run: page loses agent text (Recommended)").
 - The status line of the page reads "Readers see: run X (opened)" or "Readers see no agent text for this page. No run of this page is open." (section 15.29.5, fix 3).
 
-Facts about S2 and the store are in `translator-design.md`, section 9.28.6. S2 reads only the source "pilot-run" today. The naming of a real book run in `reader_opens` and the folders that S2 searches are an open design item there. Decided in round 78 answers 7 and 8 (`qa-memory-2026-11-01.md:69-70`): the run ID is the Pacific start time, and the record is one for each book run (sections 15.31.3 and 15.31.4).
+Facts about S2 and the store are in `translator-design.md`, section 9.28.6. S2 reads only the source "pilot-run" today. The naming of a real book run in `reader_opens` and the folders that S2 searches are an open design item there. Decided in round 78 answers 7 and 8 (`qa-memory-2026-11-01.md:69-70`): the run ID is the start time in PST (UTC-8 all year, round 79 answer 9, section 15.32.5), and the record is one for each book run (section 15.31.4).
 
 Not designed: what the admin sees to open an archived run. Today the button "Open to readers" sits on the run view `/runs/<stamp>` on the Monitor dashboard, one row for each book of the run (section 15.28.2, item 5). Decided in round 78 answer 9 (`qa-memory-2026-11-01.md:71`): "Button on Details rows (Recommended)" (section 15.31.4).
 
 - Option 1 (recommended `[agent inference]`): a run view for a book run, with the same "Readers" part. Benefit: the admin sign-in, the Open dialog, and the status line exist already. Cost: a new route and a run ID for the address. Not chosen (round 78 answer 9).
 - Option 2: a button on each archived run row of the Details view (section 15.27.5). Benefit: the list of archived runs is already there. Cost: the Details view needs the admin sign-in and the Open dialog. Chosen in round 78 answer 9.
-- Example for both: the archived run `20261105T093000Z` of `mental_full` has a row. The admin presses "Open to readers", reads the dialog, and presses the action button. Readers see the change after the next S2 run.
+- Example for both: the archived run `20261104T001500-0800` of `mental_full` has a row. The admin presses "Open to readers", reads the dialog, and presses the action button. Readers see the change after the next S2 run.
 
 ##### 15.30.5 Lines of this file that round 77 replaced
 
@@ -6288,9 +6288,9 @@ Lines that stay as history and still show an old label: line 5922 (table 15.28.6
 
 ##### 15.30.7 Open items for the owner
 
-a. How the admin opens an archived run (section 15.30.4). Recommended: option 1, a run view for a book run. Example: the archived run `20261105T093000Z` of `mental_full`. Decided in round 78 answer 9: option 2, a button on each run row of the Details view (section 15.31.4).
+a. How the admin opens an archived run (section 15.30.4). Recommended: option 1, a run view for a book run. Example: the archived run `20261104T001500-0800` of `mental_full`. Decided in round 78 answer 9: option 2, a button on each run row of the Details view (section 15.31.4).
 b. The Restart prompt choice: two choices or any saved version (`translator-design.md`, section 9.28.10, item a). Example: ED_2 at `v4.1.6` and the wish for `v4.1.3`. Decided in round 78 answers 4 and 5 (`qa-memory-2026-11-01.md:66-67`) `[reading pending owner check]`: a pick list for each box with quick select rows (section 15.31.2).
-c. The run ID of a book run and one record for each run or each page (`translator-design.md`, section 9.28.10, items b and c). Decided in round 78 answers 7 and 8: the run ID is the Pacific start time, and the record is one for each book run. The format is open (section 15.31.8).
+c. The run ID of a book run and one record for each run or each page (`translator-design.md`, section 9.28.10, items b and c). Decided in round 78 answers 7 and 8: the run ID is the start time in PST (UTC-8 all year, round 79 answer 9), and the record is one for each book run. The value form is a reading pending the owner (section 15.32.5).
 d. The readings at `qa-memory-2026-11-01.md:53-58` (`translator-design.md`, section 9.28.10, item e). Decided in round 78 answers 2, 3, and 6 (`qa-memory-2026-11-01.md:64,65,68`): the readings are right.
 e. The row of a running book from the press of Restart until the process reads the mark (section 15.30.3). Recommended: the row stays in the group Running with the extra text "Restart requested HH:MM" `[agent inference]`. Benefit: the group matches the live process. Cost: a new row text. Other option: the row moves to "Waiting for a run" at once, as line 3928 reads. Benefit: no new rule. Cost: the group says "waiting" while pages still run. Decided in round 78 answer 10 (`qa-memory-2026-11-01.md:72`): "Stays Running, with a note (Recommended)".
 
@@ -6320,20 +6320,20 @@ Pilot runs under `<T2>/data/pilot-run/` are not real runs (round 73e answer 10, 
 - Round 78 answer 9 (`qa-memory-2026-11-01.md:71`): "Button on Details rows (Recommended)" `[accepted recommendation 2026-11-01 13:56]`.
 - Round 78 answer 10 (`qa-memory-2026-11-01.md:72`): "Stays Running, with a note (Recommended)" `[accepted recommendation 2026-11-01 13:56]`.
 - Round 78 answer 11 (`qa-memory-2026-11-01.md:73`): "Program writes a Run mark (Recommended), Program copies prompts first (Recommended)" `[accepted recommendation 2026-11-01 13:56]`. The third item, "Row text says Run", was not checked.
-- The notes of aki-main at `qa-memory-2026-11-01.md:86-87` mark the readings of answers 4, 5, and 7 as `[reading pending owner check]`.
+- The notes of aki-main at `qa-memory-2026-11-01.md:86-87` mark the readings of answers 4, 5, and 7 as `[reading pending owner check]`. Round 79 answer 3 confirms the readings of answers 4 and 5 (`qa-memory-2026-11-01.md:95`). Round 79 answer 9 replaces the reading of answer 7 (`qa-memory-2026-11-01.md:101`).
 
 ##### 15.31.2 Restart dialog
 
-The screen. You press Restart on the book row of the Monitor dashboard `/` on this Mac, or in the Details view. A dialog opens (sections 15.27.2 and 15.30.3). The old dialog showed two choices (lines 5609 and 5610). The new dialog follows the readings of answers 4 and 5 `[reading pending owner check]`:
+The screen. You press Restart on the book row of the Monitor dashboard `/` on this Mac, or in the Details view. A dialog opens (sections 15.27.2 and 15.30.3). The old dialog showed two choices (lines 5609 and 5610). The new dialog follows the readings of answers 4 and 5 `[reading pending owner check]`, confirmed in round 79 answer 3 (`qa-memory-2026-11-01.md:95`):
 
 1. The title names the book. The facts lines say where the current run goes and where the new run starts.
-2. The part "Quick select" is a list of single choices. "Starting versions" is the default. The list also holds "Last live versions" and one row for each update point of the run, for example "After the update point at p050".
+2. The part "Quick select" is a list of single choices. "Starting versions" is the default. The list also holds "Last live versions" and one row for each update point of all runs of the phase, where at least one rewrite went live. A row names its run, for example "Run 1, after the update point at p050" (round 79 answers 6 and 7, section 15.32.3).
 3. A quick select sets the versions of all 16 boxes at once. A row for a page does not exist (answer 5: "not every page, only at each updated point").
 4. Below the quick select, each of the 16 boxes has a row. The row shows the box, the chosen version, the note of the version, and facts: the pages on which the version was live, the PASS and FAIL counts, and the critiques that the update point used.
 5. You can change a single box after a quick select.
 6. The buttons are [Cancel] and [Restart]. Cancel has the focus when the dialog opens (round 75 answer 12, section 15.27.2).
 
-The notes are the proposal of aki-main `[proposal aki-main 2026-11-01, pending owner check]`. They are "starting version", "restart start version", "previous restart version", "current live version", and "update after pNNN". The table of the notes is in `translator-design.md`, section 9.29.2.
+The notes are the proposal of aki-main `[proposal aki-main 2026-11-01, pending owner check]`. They are "starting version", "restart start version", "previous restart version", "current live version", and "update after pNNN". The table of the notes is in `translator-design.md`, section 9.29.2. Accepted in round 79 answers 4 and 5 (`qa-memory-2026-11-01.md:96-97`). Answer 5 adds the note "last version of run N" (section 15.32.2).
 
 Sketch (all values invented). The book `mental_full` runs phase 4 and stands at p080. You chose the quick select "After the update point at p075". Then you changed ED_2 to `v4.1.3`. The sketch shows 4 of the 16 box rows.
 
@@ -6363,17 +6363,17 @@ Sketch (all values invented). The book `mental_full` runs phase 4 and stands at 
 +--------------------------------------------------------------------------------------------------------------------------+
 ```
 
-How the mark carries 16 choices is not designed. Today the key `prompts` holds "start" or "last" (lines 5654 to 5659). A map from box to label can replace it `[agent inference]`.
+How the mark carries 16 choices is not designed. Today the key `prompts` holds "start" or "last" (lines 5654 to 5659). A map from box to label can replace it `[agent inference]`. Decided in round 79 answer 12 (`qa-memory-2026-11-01.md:104`): a map of 16 labels replaces "start" and "last" (section 15.32.4).
 
 ##### 15.31.3 Run ID on screens
 
-Owner words (answer 7): "option 1, but PST time". Reading `[reading pending owner check]` (`qa-memory-2026-11-01.md:87`): the run ID is the start time of the run in Pacific local time. The run program writes it once into `status.json` when page 1 starts. It never changes.
+Owner words (answer 7): "option 1, but PST time". Reading `[reading pending owner check]` (`qa-memory-2026-11-01.md:87`): the run ID is the start time of the run in Pacific local time. Replaced in round 79 answer 9 (`qa-memory-2026-11-01.md:101`): the run ID uses PST all year (UTC-8), section 15.32.5. The run program writes it once into `status.json` when page 1 starts. It never changes.
 
-Proposal `[proposal aki-main 2026-11-01, pending owner check]`: the value is `2026-11-04T00:15:00-08:00`, which is 00:15 PST and 08:15 UTC. The folder-safe form is `20261104T001500-0800`. The offset keeps the ID unique when the clocks go back, because 01:30 PDT (`-0700`) and 01:30 PST (`-0800`) are two different times. The design side holds the reason (`translator-design.md`, section 9.29.3).
+Proposal `[proposal aki-main 2026-11-01, pending owner check]`: the value is `2026-11-04T00:15:00-08:00`, which is 00:15 PST and 08:15 UTC. The folder-safe form is `20261104T001500-0800`. The offset keeps the ID unique when the clocks go back, because 01:30 PDT (`-0700`) and 01:30 PST (`-0800`) are two different times. The design side holds the reason (`translator-design.md`, section 9.29.3). This reason is void since round 79 answer 9 (`qa-memory-2026-11-01.md:101`): a fixed UTC-8 offset has no repeated hour (section 15.32.5).
 
-Screens show the run as "phase 4 run 1, started 2026-11-04 00:15 PST". In summer they show PDT.
+Screens show the run as "phase 4 run 1, started 2026-11-04 00:15 PST". In summer they show PST too, one hour behind the wall clock (round 79 answer 9, section 15.32.5).
 
-Open: archive folder names. They use UTC in the design today. The open item is in section 15.31.8, item c.
+Open: archive folder names. They use UTC in the design today. The open item is in section 15.31.8, item c. Decided in round 79 answer 10 (`qa-memory-2026-11-01.md:102`): the archive folder name is the run ID of the ended run (section 15.32.5).
 
 ##### 15.31.4 Details view: run rows and the gate
 
@@ -6386,7 +6386,7 @@ Rules:
 - The Details view checks the admin sign-in. The API `/api/admin/opens` does this already `[file: <V2>/app/app/api/admin/opens]`. A person who is not the admin sees a sign-in line and no button `[agent inference]` (round 76 answer 11, `qa-memory-2026-11-01.md:14`: "Sign-in line for non-admins (Recommended)").
 - The button opens a confirm dialog. Cancel is the first button and has the focus (section 15.28.2, item 6, line 5792). The same rule holds for the process buttons (round 74 answer 12, line 5590).
 - The dialog counts the PASS pages of the run (round 76 answer 11: "Open dialog counts PASS pages (Recommended)").
-- S2 looks for the run in three places: the book folder (the current run), `archive/<time>/` (after a Restart), and `agent-phase-3/` (after the phase move). It shows the PASS pages of an open run only.
+- S2 looks for the run in three places: the book folder (the current run), `archive/<run ID>/` (after a Restart), and `agent-phase-3/` (after the phase move). It shows the PASS pages of an open run only.
 - Pilot runs keep one record for each page (round 76 answer 10, `qa-memory-2026-11-01.md:13`) and keep the button on the run view `/runs/<stamp>`.
 
 Example (invented values). The Details view of `mental_full` after one Restart:
@@ -6417,11 +6417,11 @@ Owner words: answer 10 "Stays Running, with a note (Recommended)" and answer 11 
 | 16:52 | The run program writes a Run mark with one key that keeps the word Restart (DZ76 default 1, accepted). The process ends. | Waiting for a run | "Mark waiting: Restart requested 16:40" |
 | later | An opencode agent starts the book at p001 in phase 4. | Running | the running row |
 
-The key name is `after` (section 15.30.6, default 1, line 6286). The value of the key is not designed.
+The key name is `after` (section 15.30.6, default 1, line 6286). The value of the key is not designed. Round 79 answer 12 decides the key `prompts` only (section 15.32.4). The key `after` and the press time are a unit default of TR77c.
 
-Open: the time in the row of the fourth line. The row can show the press time (16:40) or the time of the mark (16:52). The recommendation is the press time `[agent inference]` (section 15.31.8, item d).
+Open: the time in the row of the fourth line. The row can show the press time (16:40) or the time of the mark (16:52). The recommendation is the press time `[agent inference]` (section 15.31.8, item d). Decided in round 79 answer 11 (`qa-memory-2026-11-01.md:103`): the press time (section 15.32.6).
 
-Not designed: the buttons on the row between the press and the end of the page.
+Not designed: the buttons on the row between the press and the end of the page. Decided in round 79 answer 13 (`qa-memory-2026-11-01.md:105`): no buttons (section 15.32.6).
 
 ##### 15.31.6 Lines of this file that round 78 replaced
 
@@ -6444,23 +6444,262 @@ Lines that stay as they are: line 3928 and line 4359 state the Run text for a Ru
 - DZ76 default 1 of section 15.30.6, the Run row text: not accepted in round 78 answer 11. The other option applies.
 - DZ76 default 2 of section 15.30.6, sketches use phase 4 labels: accepted in round 78 answer 12 (`qa-memory-2026-11-01.md:74`).
 - The DZ76 defaults 1 and 2 of `translator-design.md`, section 9.28.9 (Run mark, copy of the prompts): accepted in round 78 answer 11.
-- The unit defaults of DZ77 are in `translator-design.md`, section 9.29.10.
+- The unit defaults of DZ77 are in `translator-design.md`, section 9.29.10. Default 1 (rows only for update points with a live rewrite) is accepted in round 79 answer 6 (`qa-memory-2026-11-01.md:98`). Default 2 (rows cover only the run that the Restart ends) is not accepted in round 79 answer 7 (`qa-memory-2026-11-01.md:99`): the other option applies, rows cover all runs, each row names its run.
 
 ##### 15.31.8 Open items for the owner
 
-a. The list of notes (`translator-design.md`, section 9.29.11, item a). Recommended: accept the five notes of the proposal. Example: ED_2 `v4.1.3` reads "update after p060".
-b. Versions of an earlier phase in the pick list. Recommended: no, a Restart stays in the same phase. Example: a phase 4 Restart lists `v4.1.0` to `v4.1.6` and not `v3.2.2`.
-c. Run ID format and archive folder names. Recommended: the Pacific form `20261104T001500-0800` for both. Example: the folder `archive/20261105T013000-0800/`.
-d. The time in the Restart row. Recommended: the press time. Example: "Mark waiting: Restart requested 16:40", and not 16:52.
-e. The design of phase 2 and its prompt files (`translator-design.md`, section 9.29.11, item e). Recommended: design it before any phase 3 test.
+a. The list of notes (`translator-design.md`, section 9.29.11, item a). Recommended: accept the five notes of the proposal. Example: ED_2 `v4.1.3` reads "update after p060". Decided in round 79 answers 4 and 5 (`qa-memory-2026-11-01.md:96-97`): five notes plus facts, and the note "last version of run N" (section 15.32.2).
+b. Versions of an earlier phase in the pick list. Recommended: no, a Restart stays in the same phase. Example: a phase 4 Restart lists `v4.1.0` to `v4.1.6` and not `v3.2.2`. Decided in round 79 answer 8 (`qa-memory-2026-11-01.md:100`): "No, same phase only (Recommended)" (section 15.32.7).
+c. Run ID format and archive folder names. Recommended: the Pacific form `20261104T001500-0800` for both. Example: the folder `archive/20261105T013000-0800/`. Decided in round 79 answers 9 and 10 (`qa-memory-2026-11-01.md:101-102`): PST all year (UTC-8), and the archive folder name is the run ID of the ended run, for example `archive/20261104T001500-0800/` (section 15.32.5).
+d. The time in the Restart row. Recommended: the press time. Example: "Mark waiting: Restart requested 16:40", and not 16:52. Decided in round 79 answer 11 (`qa-memory-2026-11-01.md:103`): "Press time 16:40 (Recommended)".
+e. The design of phase 2 and its prompt files (`translator-design.md`, section 9.29.11, item e). Recommended: design it before any phase 3 test. Decided in round 79 answer 15 (`qa-memory-2026-11-01.md:107`): "Survey first (Recommended)". The design waits for unit SV79.
 
 ##### 15.31.9 Not verified
 
 - No code ran in this unit. The Monitor dashboard code for the dialog, the run rows, and the buttons is not built.
-- The readings of answers 4, 5, and 7 wait for the owner.
-- The note list, the run ID format, and the archive folder names are proposals.
-- The shape of the mark with 16 choices is not designed.
-- The buttons of a Running row with the text "Restart requested HH:MM" are not designed.
+- The readings of answers 4, 5, and 7 wait for the owner. Round 79 answer 3 confirms the readings of answers 4 and 5. Round 79 answer 9 replaces the reading of answer 7.
+- The note list, the run ID format, and the archive folder names are proposals. Round 79 answers 4, 5, 9, and 10 decide the note list, the run ID, and the archive folder names. The value form of the run ID is a reading pending the owner.
+- The shape of the mark with 16 choices is not designed. Decided in round 79 answer 12 (`qa-memory-2026-11-01.md:104`): a map of 16 labels.
+- The buttons of a Running row with the text "Restart requested HH:MM" are not designed. Decided in round 79 answer 13 (`qa-memory-2026-11-01.md:105`): no buttons.
 - The times, labels, and run IDs in the examples are invented.
 
 Status: round 78 answers applied by unit DZ77. Items in section 15.31.8 wait for the owner.
+
+#### 15.32 Round 79 answers: Restart dialog notes, quick select rows, run ID in PST, archive folder names, Restart mark with 16 labels (unit DZ78, round 79)
+
+Unit DZ78 wrote this section on 2026-11-01 (round 79). The Q-A file is `.opencode/reminders/qa/qa-memory-2026-11-01.md`, lines 92 to 120. The design side is in `<T2>/docs/drafts/translator-design.md`, section 9.30. This section covers the Viewer side only. Each line of this file that this section replaces carries a pointer to it. Section 15.32.8 lists those lines.
+
+Pilot runs under `<T2>/data/pilot-run/` are not real runs (round 73e answer 10, `qa-memory-2026-10-31.md:13`). No real run exists yet `[check: DZ78 2026-11-01 22:43 ls data/book-store in <T2>, "No such file or directory"]`. All values in the examples are invented, except where a line gives a source. No code ran in this unit.
+
+##### 15.32.1 Owner words
+
+- Round 79 answers 1 and 2 (`qa-memory-2026-11-01.md:93-94`): "Accept and commit (Recommended)" for the DZ77 docs and for the TR77ab code. `git log` in <T2> shows the commits 03e03ea (this file) and 76392e0 `[check: DZ78 2026-11-01 22:45 git log --oneline -6 in <T2>]`.
+- Answer 3 (`qa-memory-2026-11-01.md:95`): "Yes, the reading is right (Recommended)". It confirms the readings of round 78 answers 4 and 5.
+- Answer 4 (`qa-memory-2026-11-01.md:96`): "Five notes plus facts (Recommended)".
+- Answer 5 (`qa-memory-2026-11-01.md:97`): "Meaning A plus a run-end note (Recommended)".
+- Answer 6 (`qa-memory-2026-11-01.md:98`): "Only points with a live rewrite (Recommended)".
+- Answer 7 (`qa-memory-2026-11-01.md:99`): "All runs, with run number" (option 2).
+- Answer 8 (`qa-memory-2026-11-01.md:100`): "No, same phase only (Recommended)".
+- Answer 9 (`qa-memory-2026-11-01.md:101`): "PST all year (UTC-8)" (option 2).
+- Answer 10 (`qa-memory-2026-11-01.md:102`): "Run ID of the ended run (Recommended)".
+- Answer 11 (`qa-memory-2026-11-01.md:103`): "Press time 16:40 (Recommended)".
+- Answer 12 (`qa-memory-2026-11-01.md:104`): "Map of 16 labels (Recommended)".
+- Answer 13 (`qa-memory-2026-11-01.md:105`): "No buttons (Recommended)".
+- Answer 14 (`qa-memory-2026-11-01.md:106`): the 12 defaults of TR77ab stay. They are Translator code and sit in `translator-design.md`, section 9.30.8.
+- Answers 15, 17, and 18 (`qa-memory-2026-11-01.md:107,109,110`): "Survey first (Recommended)" for phase 2 and for the tanden pages. Unit SV79 reads files only. This file holds no design for either topic. The design waits for SV79.
+- Answer 16 (`qa-memory-2026-11-01.md:108`): the units DZ78, TR77c, and SV79 run. VW77a is not checked.
+
+##### 15.32.2 Restart dialog: notes and facts
+
+The screen. You press Restart on the book row of the Monitor dashboard `/` on this Mac, or in the Details view. The dialog of section 15.31.2 opens. Round 79 answer 3 confirms its 16 pick lists. Each box has one list. A list holds all saved versions of the current phase, also versions of archived runs. Each version row shows the version, its notes, and the facts.
+
+The notes are six (`translator-design.md`, section 9.30.2):
+
+- "starting version": `v<phase>.1.0`, the copy of the last live version of the previous phase. Example: ED_2 `v4.1.0`, copy of `v3.2.2`.
+- "restart start version": `v<phase>.<run>.0` for run 2 or later. Example: ED_2 `v4.2.0`, copy of `v4.1.3`.
+- "previous restart version": the version that an earlier Restart picked. Example: ED_2 `v4.1.3`.
+- "last version of run N": the version that was live when a Restart ended run N. Example: ED_2 `v4.1.6` gets "last version of run 1".
+- "current live version": the version that the pointer `current` names.
+- "update after pNNN": the version that the update point after page pNNN made. Example: "update after p060".
+
+The facts on each row: the pages on which the version was live, the PASS and FAIL counts of those pages, and the critiques that the update point used. The page IDs start again at p001 in each run, so the pages name the run, for example "run 1, p061 to p065".
+
+Sketch (all values invented, the second Restart of `mental_full` during run 2). You opened the pick list of ED_2. The quick select "Run 1, after the update point at p075" gave `v4.1.6`. You picked `v4.1.3` by hand.
+
+```
++--------------------------------------------------------------------------------------------------------------------------------+
+| Version for ED_2 (you can change one box after a quick select)                                                                 |
+|                                                                                                                                |
+|      Version  Notes                                         Pages live                  PASS / FAIL    Critiques used          |
+|  ( ) v4.1.0   starting version                              run 1, p001-p020 (20)       17 / 3         none                    |
+|  ( ) v4.1.1   update after p020                             run 1, p021-p040 (20)       16 / 4         5                       |
+|  ( ) v4.1.2   update after p040                             run 1, p041-p060 (20)       17 / 3         5                       |
+|  (x) v4.1.3   update after p060, previous restart version   run 1, p061-p065 (5)         4 / 1         5                       |
+|  ( ) v4.1.4   update after p065                             run 1, p066-p070 (5)         4 / 1         5                       |
+|  ( ) v4.1.5   update after p070                             run 1, p071-p075 (5)         5 / 0         5                       |
+|  ( ) v4.1.6   update after p075, last version of run 1      run 1, p076-p080 (5)         4 / 1         6                       |
+|  ( ) v4.2.0   restart start version (copy of v4.1.3)        run 2, p001-p025 (25)       21 / 4         none                    |
+|  ( ) v4.2.1   update after p025                             run 2, p026-p040 (15)       13 / 2         5                       |
+|  ( ) v4.2.2   update after p040, current live version       run 2, p041-p050 (10)        8 / 2         5                       |
++--------------------------------------------------------------------------------------------------------------------------------+
+```
+
+The facts of `v4.1.3` come from the sketch of section 15.31.2. The pages live of run 1 come from `translator-design.md`, section 9.29.2. All other facts are invented.
+
+A row with two notes shows them in one cell (unit default DZ78 1, section 15.32.9). A start version shows "none" in "Critiques used" (unit default DZ78 2).
+
+##### 15.32.3 Quick select rows
+
+Owner words: answer 6 "Only points with a live rewrite (Recommended)" and answer 7 "All runs, with run number" (option 2). The part "Quick select" of the dialog holds these rows:
+
+1. "Starting versions" (default).
+2. "Last live versions".
+3. One row for each update point of each run of the phase, where at least one rewrite went live. The row names its run.
+
+An update point where every rewrite was "rejected twice" has no row. A row for a page does not exist (round 78 answer 5: "not every page, only at each updated point").
+
+Example for the second Restart of `mental_full` (values invented):
+
+```
+Quick select
+  (o) Starting versions (default)
+  ( ) Last live versions
+  ( ) Run 1, after the update point at p020
+  ( ) Run 1, after the update point at p040
+  ( ) Run 1, after the update point at p050
+  ( ) Run 1, after the update point at p060
+  ( ) Run 1, after the update point at p065
+  ( ) Run 1, after the update point at p070
+  (x) Run 1, after the update point at p075
+  ( ) Run 2, after the update point at p025
+  ( ) Run 2, after the update point at p040
+```
+
+The row "Last live versions" and the row "Run 2, after the update point at p040" hold the same 16 versions in this example. Unit default DZ78 3 keeps both rows.
+
+What "Starting versions" means in run 2 or later is open (section 15.32.10, item b).
+
+##### 15.32.4 Restart mark with 16 labels
+
+Owner words (answer 12): "Map of 16 labels (Recommended)". The Monitor writes the key `prompts` as a map from box to label with all 16 boxes. It replaces the old values "start" and "last". The mark when you keep the quick select "Starting versions" of phase 4 run 1 for `mental_full` (one JSON line):
+
+```
+{"schema": "book-request-v1", "book": "mental_full", "action": "restart", "phase": "agent-phase-4", "prompts": {"TS_0": "v4.1.0", "TS_1": "v4.1.0", "TS_2": "v4.1.0", "TS_3": "v4.1.0", "TL_0": "v4.1.0", "TL_1": "v4.1.0", "TL_2": "v4.1.0", "TL_3": "v4.1.0", "ED_0": "v4.1.0", "ED_1": "v4.1.0", "ED_2": "v4.1.0", "ED_3": "v4.1.0", "QA_0": "v4.1.0", "QA_1": "v4.1.0", "QA_2": "v4.1.0", "QA_3": "v4.1.0"}, "requested_utc": "2026-11-05T09:30:00Z", "requested_by": "Monitor dashboard"}
+```
+
+Second example in prose. You pick the quick select "Run 1, after the update point at p075" and change ED_2 to `v4.1.3`. The map holds the label that was live after p075 for 15 boxes. For ED_2 it holds `"ED_2": "v4.1.3"`.
+
+Rules:
+
+- The key `requested_utc` stays in UTC. Only the run ID uses PST.
+- The names of the keys in the Run mark that the run program writes after a Restart (the key `after` and the press time) are a unit default of TR77c. A later docs unit records them.
+- The line 5659 of this file holds the earlier example of the mark. Unit DZ78 replaced its key `prompts`.
+
+##### 15.32.5 Run ID on screens, in the Details view, and in archive folder names
+
+Owner words: answer 9 "PST all year (UTC-8)" (option 2) and answer 10 "Run ID of the ended run (Recommended)". The rejected option of answer 9 was Pacific clock time with the offset of the day.
+
+Rules:
+
+- The run ID is the start time of the run in UTC-8, all year, also in summer.
+- Screens show it as "phase 4 run 1, started 2026-11-04 00:15 PST".
+- The archive folder is named with the run ID of the ended run in folder form.
+
+The value form below is a reading `[reading pending owner check]` (note of aki-main at `qa-memory-2026-11-01.md:117`):
+
+| Case | Start of the run | Run ID | Folder form | Screen text |
+|---|---|---|---|---|
+| Winter | 2026-11-04 08:15 UTC | `2026-11-04T00:15:00-08:00` | `20261104T001500-0800` | "phase 4 run 1, started 2026-11-04 00:15 PST" |
+| Summer | 2026-07-10 16:00 UTC, which is 09:00 PDT on the wall clock | `2026-07-10T08:00:00-08:00` | `20260710T080000-0800` | "phase 4 run 1, started 2026-07-10 08:00 PST" |
+
+In summer, the screen time is one hour behind the wall clock. A run that starts at 09:00 PDT shows "08:00 PST". This follows the owner choice of answer 9. The conversions come from `[check: DZ78 2026-11-01 22:43 python3 -B tz_check.py]`.
+
+Details view. Each run row in the Details view of `mental_full` (section 15.31.4) names the run by its start time in PST. The folder of run 1 is `<T2>/data/book-store/mental_full/archive/20261104T001500-0800/`. The `run_id` of the record in `reader_opens` is the run ID of the same run. The old example folder `archive/20261105T093000Z/` is replaced.
+
+The design side holds the side effect that the repeated hour of 2026-11-01 does not repeat in run IDs (`translator-design.md`, section 9.30.5). Unit TR77c builds the code (round 79 answer 16).
+
+##### 15.32.6 Restart rows: press time and no buttons
+
+Owner words: answer 11 "Press time 16:40 (Recommended)" and answer 13 "No buttons (Recommended)". The Restart row shows the time of your press. It does not show the time of the Run mark (16:52). While a Restart waits, the Running row shows no buttons. That is the time between the press and the end of the process.
+
+Example (invented times, run 1 started 2026-11-04 00:15 PST). `mental_full` runs phase 4 and p080 runs at 16:40.
+
+| Time | Event | Group on the Monitor dashboard `/` | Row text | Buttons |
+|---|---|---|---|---|
+| 16:40 | You press Restart and then the action button of the dialog. p080 runs. | Running | "Restart requested 16:40" | none |
+| 16:40 to 16:52 | The process finishes p080 and its update point. | Running | "Restart requested 16:40" | none |
+| 16:52 | The run program saves p080, moves the run files into `archive/20261104T001500-0800/`, and copies the chosen versions as `v4.2.0`. | Running | "Restart requested 16:40" | none |
+| 16:52 | The run program writes the Run mark. The process ends. | Waiting for a run | "Mark waiting: Restart requested 16:40" | not changed by round 79 |
+| later | An opencode agent starts the book at p001 in phase 4. | Running | the running row | the buttons of a running row |
+
+The row has the buttons Pause, Restart, and Details before the press (section 15.30.3). Answer 13 says "No buttons". Whether the link Details goes away is open (section 15.32.10, item c).
+
+##### 15.32.7 Same phase only
+
+Owner words (answer 8): "No, same phase only (Recommended)". Pick lists hold no version of an earlier phase. Example: a phase 4 Restart of `mental_full` lists `v4.1.0` to `v4.1.6` and `v4.2.0` to `v4.2.2`. It does not list `v3.2.2`. The text of `v3.2.2` stays reachable, because `v4.1.0` is a full copy of it and carries the note "starting version" `[agent inference]`.
+
+##### 15.32.8 Lines of this file that round 79 replaced
+
+Each row is one line of this file that the unit changed in place. The unit changed no line count.
+
+| Line | Old text in short | New text in short | Owner source |
+|---|---|---|---|
+| 4003 | archive/<UTC time>/ | archive/<run ID>/ | round 79 answer 10, qa-memory-2026-11-01.md:102 |
+| 4293 | `"prompts": "start"` as the current value | map of 16 labels, the old value stays as quoted old text | round 79 answer 12, qa-memory-2026-11-01.md:104 |
+| 5651 | archive/<UTC time>/ | archive/<run ID>/ | round 79 answer 10, qa-memory-2026-11-01.md:102 |
+| 5659 | "prompts": "start" | the map of 16 labels (JSON line) | round 79 answer 12, qa-memory-2026-11-01.md:104 |
+| 5662 | key `prompts` is "start" or "last" | key `prompts` is a map of 16 labels | round 79 answer 12, qa-memory-2026-11-01.md:104 |
+| 5689 | events `update point ended` | `update-point-ended` | round 79 answer 14, qa-memory-2026-11-01.md:106 |
+| 5820 | archive/<UTC time>/ | archive/<run ID>/ | round 79 answer 10, qa-memory-2026-11-01.md:102 |
+| 5822 | archive/20261105T093000Z/ | archive/20261104T001500-0800/ | round 79 answer 10, qa-memory-2026-11-01.md:102 |
+| 5942 | archive/<UTC time>/ | archive/<run ID>/ | round 79 answer 10, qa-memory-2026-11-01.md:102 |
+| 6029 | archive/<UTC time>/ | archive/<run ID>/ | round 79 answer 10, qa-memory-2026-11-01.md:102 |
+| 6209 | buttons cell: not designed | buttons cell: none | round 79 answer 13, qa-memory-2026-11-01.md:105 |
+| 6210 | time open | time decided: press time | round 79 answer 11, qa-memory-2026-11-01.md:103 |
+| 6223 | archive/<UTC time>/ | archive/<run ID>/ | round 79 answer 10, qa-memory-2026-11-01.md:102 |
+| 6228 | Pacific start time | start time in PST (UTC-8 all year) | round 79 answer 9, qa-memory-2026-11-01.md:101 |
+| 6234 | run `20261105T093000Z` | run `20261104T001500-0800` | round 79 answer 10, qa-memory-2026-11-01.md:102 |
+| 6291 | run `20261105T093000Z` | run `20261104T001500-0800` | round 79 answer 10, qa-memory-2026-11-01.md:102 |
+| 6293 | Pacific start time, format open | start time in PST, value form is a reading pending the owner | round 79 answer 9, qa-memory-2026-11-01.md:101 |
+| 6323 | readings pending (no change to text) | confirmation and replacement appended | round 79 answer 3, qa-memory-2026-11-01.md:95 and answer 9 |
+| 6327 | readings of answers 4 and 5 [reading pending owner check] | same, confirmed in round 79 answer 3 | round 79 answer 3, qa-memory-2026-11-01.md:95 |
+| 6330 | rows for update points of the run, "After the update point at p050" | rows of all runs with a live rewrite, "Run 1, after the update point at p050" | round 79 answer 6, qa-memory-2026-11-01.md:98 and 7 |
+| 6336 | proposal pending owner check | acceptance appended | round 79 answer 4, qa-memory-2026-11-01.md:96 and 5 |
+| 6366 | shape not designed (no change to text) | decision appended | round 79 answer 12, qa-memory-2026-11-01.md:104 |
+| 6370 | Pacific local time | replacement note inserted | round 79 answer 9, qa-memory-2026-11-01.md:101 |
+| 6372 | offset reason (no change to text) | void note appended | round 79 answer 9, qa-memory-2026-11-01.md:101 |
+| 6374 | "In summer they show PDT" | "In summer they show PST too" | round 79 answer 9, qa-memory-2026-11-01.md:101 |
+| 6376 | open text (no change to text) | decision appended | round 79 answer 10, qa-memory-2026-11-01.md:102 |
+| 6389 | archive/<time>/ | archive/<run ID>/ | round 79 answer 10, qa-memory-2026-11-01.md:102 |
+| 6420 | key after open (no change to text) | pointer appended | round 79 answer 12, qa-memory-2026-11-01.md:104 |
+| 6422 | time open (no change to text) | decision appended | round 79 answer 11, qa-memory-2026-11-01.md:103 |
+| 6424 | buttons not designed (no change to text) | decision appended | round 79 answer 13, qa-memory-2026-11-01.md:105 |
+| 6447 | unit defaults of DZ77 (pointer only) | status of defaults 1 and 2 appended | round 79 answer 6, qa-memory-2026-11-01.md:98 and 7 |
+| 6451 | open item a (no change to text) | decision appended | round 79 answer 4, qa-memory-2026-11-01.md:96 and 5 |
+| 6452 | open item b (no change to text) | decision appended | round 79 answer 8, qa-memory-2026-11-01.md:100 |
+| 6453 | open item c (no change to text) | decision appended | round 79 answer 9, qa-memory-2026-11-01.md:101 and 10 |
+| 6454 | open item d (no change to text) | decision appended | round 79 answer 11, qa-memory-2026-11-01.md:103 |
+| 6455 | open item e (no change to text) | decision appended | round 79 answer 15, qa-memory-2026-11-01.md:107 |
+| 6460 | readings wait (no change to text) | status appended | round 79 answer 3, qa-memory-2026-11-01.md:95 |
+| 6461 | proposals (no change to text) | status appended | round 79 answer 4, qa-memory-2026-11-01.md:96 and answers 5, 9, and 10 |
+| 6462 | mark shape not designed (no change to text) | decision appended | round 79 answer 12, qa-memory-2026-11-01.md:104 |
+| 6463 | buttons not designed (no change to text) | decision appended | round 79 answer 13, qa-memory-2026-11-01.md:105 |
+
+Lines that stay as history or inside a code block, checked by the unit:
+
+- Line 4282: code block (folder tree): the event names `page done`, `page failed`, `phase changed` stay.
+- Line 5606: code block (dialog sketch of 15.27): `archive/<UTC time>/` stays.
+- Line 5678: code block (archived runs sketch): `20261105T093000Z` and the header `UTC time` stay.
+- Line 6344: code block (dialog sketch of 15.31.2): `archive/<time>/` stays.
+- Line 6316: owner quote of round 78 answer 4 (note `previous restart version`).
+- Line 6430: history row of table 15.31.6 (key `prompts` with "start" or "last").
+- Line 5740: other text of a DZ73 option: `Restart (prompts: start)`.
+- Line 3857: local PDT times of the Monitor dashboard, not run IDs (item d of section 15.32.10 asks about them).
+
+##### 15.32.9 Unit defaults of DZ78
+
+1. `[unit default DZ78]` A row of a pick list shows two notes in one cell, in a fixed order (starting or restart start, last version of run N, previous restart, current live, update after pNNN). Other option: one row for each note. Benefit of the default: one row for each version. Cost: a long cell for a version with 3 notes.
+2. `[unit default DZ78]` The fact "Critiques used" reads "none" for a start version such as ED_2 `v4.1.0`. Other option: show "0". Benefit of the default: a start version has no update point. The value "0" reads as an update point with no critique. Cost: one more word to read.
+3. `[unit default DZ78]` The quick select keeps "Last live versions" when it holds the same 16 versions as the newest update point row. Other option: drop the update point row. Benefit of the default: every update point with a live rewrite has its row. Cost: two rows with the same 16 versions.
+4. `[unit default DZ78]` A quick select row names its run also when the phase has one run only. Other option: leave out "Run 1" before the first Restart. Benefit of the default: one row pattern. Cost: a longer text before the first Restart.
+5. `[unit default DZ78]` The quick select rows run in this order: "Starting versions", "Last live versions", run 1 by page, then run 2 by page. Other option: newest first. Benefit of the default: the order matches the pick list. Cost: the newest row sits at the end of a long list.
+6. `[unit default DZ78]` In line 4293 of this file, the inline text `"prompts": "start"` stays as quoted old text, because the sentence names both old values. The sentence now says that the key holds a map of 16 labels. Other option: put the full map into the sentence. Benefit of the default: the sentence stays readable. Cost: a search for `"prompts": "start"` still finds that line.
+7. `[unit default DZ78]` The line 4282 stays unchanged, because it sits in a code block of the folder tree. Other option: change the event names in the code block. Benefit of the default: the rule "do not alter code blocks" holds. Cost: the tree shows `phase changed` while the code writes `phase-changed`.
+
+##### 15.32.10 Open items for the owner
+
+a. The value form and the screen text of the run ID (section 15.32.5). Recommended: accept `2026-11-04T00:15:00-08:00`, the folder form `20261104T001500-0800`, and "started 2026-11-04 00:15 PST". Example: a run that starts at 09:00 PDT on 2026-07-10 shows "started 2026-07-10 08:00 PST". Benefit: one rule all year. Cost: in summer the screen is one hour behind the wall clock. Other option: add the wall clock in brackets, "started 2026-07-10 08:00 PST (09:00 PDT)". Benefit: you can match the screen with your clock. Cost: a longer text.
+b. What "Starting versions" means in run 2 or later (section 15.32.3). Recommended: the start versions of the run that the Restart ends. Example: a second Restart of `mental_full` during run 2 sets ED_2 to `v4.2.0`, the copy of `v4.1.3`. Benefit: it matches round 74 answer 8, option 1. Cost: the row does not reach `v4.1.0`, but the pick list holds it. Other option: the first versions of the phase, `v4.1.0` for all boxes. Benefit: the row always means the phase start. Cost: the start set of run 2 is on no quick select row.
+c. The Running row after the press (section 15.32.6). Question: does "No buttons" include the link Details? Recommended: the link Details stays, because it is not a process action `[agent inference]`. Example: `mental_full` at 16:45 shows "Restart requested 16:40" and the link Details. Benefit: you can read the state of the book. Cost: the row is not empty. Other option: remove the link until the process ends. Benefit: the row matches the words "No buttons". Cost: you cannot open Details for about 12 minutes in the example.
+d. The time zone of other times on the Monitor dashboard `/` (line 4007: local time with the zone name). Recommended: keep it. Example: in summer the Restart row shows "Restart requested 16:40" in local time, and the run ID shows PST. Benefit: only the run ID changes. Cost: two zones on one screen in summer. Other option: show all times in PST. Benefit: one zone. Cost: the row time differs from your clock in summer.
+e. The length of the quick select list (section 15.32.3). Recommended: show all rows. Example: after 3 Restarts of `mental_full`, the list holds about 30 rows. Benefit: you reach every update point. Cost: a long list. Other option: show the last two runs and one row "More runs". Benefit: a short list. Cost: one more step to reach an old run.
+
+##### 15.32.11 Not verified
+
+- No code ran in this unit. The Monitor dashboard code for the dialog, the notes, the quick select, the run rows, and the run ID text is not built.
+- Unit TR77c is not built. The run ID code, the mark with 16 labels, and the archive folder names have no code. The Viewer cannot show "Critiques used" until the run loop writes the event `update-point-ended` (unit TR77d).
+- The value form of the run ID, the folder form, and the screen text are readings of aki-main (`qa-memory-2026-11-01.md:117`).
+- The pages live, the PASS and FAIL counts, and the critique counts in the sketch are invented, except those of `v4.1.3`.
+- Phase 2 and the tanden pages have no design in this file. Unit SV79 must report first.
+
+Status: round 79 answers applied by unit DZ78. Items in section 15.32.10 wait for the owner.
