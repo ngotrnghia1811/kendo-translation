@@ -22,7 +22,11 @@
 //                                                      Pure code on the real metadata files. It starts no server and needs no PocketBase.
 //   node scripts/smoke.mjs tolerance                   Reader dashboard on a PocketBase that has the migrations up to 1793300010 only, the state before unit RT73a (unit RC4, round 70). Needs the old S2 upload,
 //                                                      the env variables HTV_ADMIN_*, HTV_TR1_*, HTV_READER_* (approved) and HTV_READER2_* (not approved). It writes the sign-in and one settings record.
-// The script starts `next start` on a free port and stops it at the end (the mode folds starts no server).
+//   node scripts/smoke.mjs monitor-rules --t2 DIR       Monitor dashboard rules (unit VW77a, round 80): lib/book-status-rules.ts and the PST helpers of lib/format.ts. Pure code, no server.
+//                                                      --t2 is the data folder of the Translator (read only: the three pilot lists). It runs python3 -B once to compare the labels with `label_of` of store.py.
+//   node scripts/smoke.mjs monitor --config FILE --fixture DIR   Monitor dashboard on a fixture (unit VW77a). The fixture is made by fake_translator.py (real store.py code).
+//                                                      GET / and /api/monitor/books and /runs, the monitor off, a broken file, and the end of the process. Reads only. It kills the pid in DIR/PID at the end.
+// The script starts `next start` on a free port and stops it at the end (the modes folds, layout, and monitor-rules start no server).
 // Run `npm run build` first. Run the script in a copy of the app, not in the folder of the dev server.
 // Mode `pause` sends POST requests. Never run it with the real data folder.
 // Mode `htv` writes records into PocketBase (versions, comments, run marks). Point pocketbaseUrl of the config at a throwaway server only.
@@ -117,8 +121,9 @@ async function startServer() {
 
 async function smoke() {
   const stamp = "20261026T182511Z";
-  let r = await get("/");
-  check("Runs page 200 and shows the real list", r.status === 200 && r.body.includes(stamp) && r.body.includes("completed with failures"), `${Math.round(r.ms)} ms`);
+  // Unit VW77a (round 80): the old runs table moved from "/" to "/runs" (tab Lists).
+  let r = await get("/runs");
+  check("Lists page /runs 200 and shows the real list", r.status === 200 && r.body.includes(stamp) && r.body.includes("completed with failures"), `${Math.round(r.ms)} ms`);
 
   r = await get(`/runs/${stamp}`);
   check("Run view 200 and shows 22 pages", r.status === 200 && r.body.includes("men0/p005") && r.body.includes("kendojidai_2014/p0839"), `${Math.round(r.ms)} ms`);
@@ -225,8 +230,8 @@ async function smoke() {
     const why = `list ${chainStamp} not readable (status ${chainApi.status})`;
     for (const name of ["Chain list: Runs page shows the list", "Chain list: run view shows kind, books, and critic mode", "Chain list: run API gives 200", "Chain list: memory API gives 200 for the first book"]) skip(name, why);
   } else {
-    const home = visibleText((await get("/")).body);
-    check("Chain list: Runs page shows the list as chain with critic session", home.includes(chainStamp) && /chain critic session/.test(home));
+    const home = visibleText((await get("/runs")).body);
+    check("Chain list: Lists page shows the list as chain with critic session", home.includes(chainStamp) && /chain critic session/.test(home));
     const view = await get(`/runs/${chainStamp}`);
     const text = visibleText(view.body);
     check("Chain list: run view shows kind chain, three books, and critic mode session", view.status === 200 && /List kind chain/.test(text) && /Critic mode session/.test(text) && chainBooks.every((b) => text.includes(b)), `status ${view.status}`);
@@ -648,8 +653,11 @@ async function uxc2Checks({ c2, cr, anon, accounts, pbUrl, dataDir }) {
   // --- the six fixes of the Next guide review
   const titleOf = (h) => (/<title>([^<]*)<\/title>/.exec(h) ?? [])[1];
   const titles = [titleOf((await c2.req("/translate")).body), titleOf((await c2.req(`/translate/${LF}`)).body), titleOf((await anon.req("/translate/sign-in")).body), titleOf((await c2.req(`/translate/${LF}?view=page&at=p048`)).body)];
-  const monTitle = titleOf((await anon.req("/")).body);
+  // Unit VW77a (round 80): the first screen "/" has its own title "(N) Monitor dashboard". The other monitor pages (here /books) keep 'agent-translation-monitor'.
+  const monTitle = titleOf((await anon.req("/books")).body);
+  const homeTitle = titleOf((await anon.req("/")).body);
   check("Fix 6: the browser title of /translate, a book, the sign-in page, and the page view is 'human-translation-view', and the monitor keeps 'agent-translation-monitor'", titles.every((t) => t === "human-translation-view") && monTitle === "agent-translation-monitor", titles.join(" | ") + " | " + monTitle);
+  check("The first screen / has the title 'Monitor dashboard' with the count of Needs attention in front when it is above 0 (unit VW77a)", /^(\(\d+\) )?Monitor dashboard$/.test(homeTitle ?? ""), String(homeTitle));
 
   const P14 = "mental_full/p014";
   const K1 = `${P14}/ts3/L01-L08`;
@@ -919,7 +927,8 @@ async function htvTest() {
   check("Book list: left_foot_full has 120 pages and 6 with an agent translation, kendojidai_2014 has 1051 and 6, kendojidai_2012 has 949 and 2", bookOf("left_foot_full")?.pages === 120 && bookOf("left_foot_full")?.tagged === 6 && bookOf("kendojidai_2014")?.pages === 1051 && bookOf("kendojidai_2014")?.tagged === 6 && bookOf("kendojidai_2012")?.pages === 949 && bookOf("kendojidai_2012")?.tagged === 2, JSON.stringify(bookRows.filter((x) => /left_foot|kendojidai_201[24]/.test(x.slug))));
   check("Book list: the web article 18d4ac29 has one page, and mental_full has 169 pages and 2 with an agent translation", bookOf("18d4ac29")?.pages === 1 && bookOf("18d4ac29")?.tagged === 1 && bookOf("mental_full")?.pages === 169 && bookOf("mental_full")?.tagged === 2);
   check("Book list links to the book screens, and shows no page table", r.body.includes('href="/translate/left_foot_full"') && !/data-page="/.test(r.body));
-  check("Page tab labels: monitor tabs stay, third tab Human translation", /Human translation/.test(listText) && /Runs/.test(listText) && /Books/.test(listText));
+  // Unit VW77a (round 80): the tabs are Monitor dashboard, Lists, Books, and Human translation.
+  check("Page tab labels: monitor tabs stay (Monitor dashboard, Lists, Books), fourth tab Human translation", /Human translation/.test(listText) && /Monitor dashboard/.test(listText) && /Lists/.test(listText) && /Books/.test(listText));
 
   // --- page p014
   r = await c1.req(P14URL);
@@ -1437,7 +1446,7 @@ async function toleranceTest() {
   r = await tr.req("/translate");
   check("Tolerance: /translate answers 200 for a translator with 37 rows", r.status === 200 && countOf(r.body, /data-book="/g) === 37, `status ${r.status}, rows ${countOf(r.body, /data-book="/g)}`);
   r = await new Client("anon").req("/");
-  check("Tolerance: / answers 200 with the runs table (the monitor is on in this config)", r.status === 200 && /Runs/.test(htvText(r.body)), `status ${r.status}`);
+  check("Tolerance: / answers 200 with the Monitor dashboard (the monitor is on in this config; unit VW77a moved the runs table to /runs)", r.status === 200 && /Monitor dashboard/.test(htvText(r.body)), `status ${r.status}`);
   r = await cr.req("/api/read/page?ids=left_foot_full/p048");
   check("Tolerance: the page API answers 200", r.status === 200, `status ${r.status}`);
 }
@@ -1950,11 +1959,11 @@ async function readTest() {
   const tSearch = await timesOf("/read?q=seme", 5);
   console.log(`INFO  Reader dashboard: ${dashMb.toFixed(3)} MB (${r.body.length} characters), /read server time over 5 requests ${tDash.join(", ")} ms, month API ${tMonth.join(", ")} ms, search seme ${tSearch.join(", ")} ms`);
 
-  // --- front door with the monitor on (the Mac): / keeps the runs table for every role (round 69 answer 11)
+  // --- front door with the monitor on (the Mac): / keeps the Monitor dashboard for every role (round 69 answer 11; unit VW77a: the first screen is the Monitor dashboard, the runs table moved to /runs)
   const fdAnon = await new Client("front anon").req("/");
   const fdReader = await cr.req("/");
   const fdAdmin = await ad.req("/");
-  check("Front door, monitor on: / shows the runs table (no redirect) for a visitor, a reader, and an admin", [fdAnon, fdReader, fdAdmin].every((x) => x.status === 200 && !x.go && /Runs/.test(htvText(x.body))), [fdAnon, fdReader, fdAdmin].map((x) => `${x.status}${x.go ? " -> " + x.go : ""}`).join(", "));
+  check("Front door, monitor on: / shows the Monitor dashboard (no redirect) for a visitor, a reader, and an admin", [fdAnon, fdReader, fdAdmin].every((x) => x.status === 200 && !x.go && /Monitor dashboard/.test(htvText(x.body))), [fdAnon, fdReader, fdAdmin].map((x) => `${x.status}${x.go ? " -> " + x.go : ""}`).join(", "));
 
   // --- first-visit panel (round 68 answer 5, round 69 answer 13): the HTML of a text screen for an account without the mark
   r = await cr.req(`/read/${LF}?view=page&at=p048`);
@@ -2811,8 +2820,307 @@ async function layoutTest() {
   check("Words of the screen: the reasons and names follow VISION-viewer 15.26.6.2", T.NO_PAGE_TEXT === "No text for this page yet." && Y.COMPONENT_NAMES.v1en === "v1 EN placeholder" && T.KEEP_ONE === "Keep at least one panel" && T.PAGE_VIEW_ONLY === "Page view only");
 }
 
+
+// ---------------------------------------------------------------- Monitor dashboard (unit VW77a, round 80)
+
+const T2DATA = opt("--t2");
+
+// Rules of the Monitor dashboard without a server: lib/book-status-rules.ts and the PST helpers. VISION-viewer 15.24.4.1 to 15.24.4.7.
+async function monitorRulesTest() {
+  const { installTsResolveHook } = await import("./ts-resolve-hook.mjs");
+  installTsResolveHook();
+  const R = await import("../lib/book-status-rules.ts");
+  const F = await import("../lib/format.ts");
+  const { spawnSync } = await import("node:child_process");
+  const NOW = Date.UTC(2026, 10, 2, 8, 0, 0) / 1000; // 2026-11-02 00:00 PST
+  const iso = (off) => new Date((NOW + off) * 1000).toISOString().replace(/\.\d+Z$/, "Z");
+  const facts = (over = {}) => ({ slug: "mental_full", title: "Making the Difference on the Day", bookPages: 169, status: null, statusUnreadable: false, statusFile: "book-store/mental_full/status.json", pauseExists: false, mark: null, markUnreadable: false, pidAlive: true, runNumber: null, derived: null, ...over });
+  const st = (over = {}) => ({ book: "mental_full", phase: "agent-phase-4", state: "running", stop_reason: null, stop_text: null, pid: 4821, heartbeat_utc: iso(-30), running_page: "mental_full/p051", running_boxes: ["TL_2"], last_accepted_page: "mental_full/p050", next_page: "mental_full/p052", pages_done: 50, pages_total: 169, cost_usd_models_phase: 8.3, seconds_phase: 9540, started_utc: iso(-54 * 60), run_id: "2026-11-04T00:15:00-08:00", updated_utc: iso(-30), last_error: null, ...over });
+  const row = (over, now = NOW) => R.buildRow(facts(over), now);
+  const text = (r, now = NOW) => R.lineText(r.line2, now);
+  const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+  // --- PST helpers (round 80 answer 19): UTC minus 8 hours all year
+  check("PST: 2026-07-10T16:00:00Z shows 08:00 PST (July, the wall clock in Pacific summer time reads 09:00)", F.pstClock(F.parseUtcIso("2026-07-10T16:00:00Z")) === "08:00 PST", F.pstClock(F.parseUtcIso("2026-07-10T16:00:00Z")));
+  check("PST: 2026-01-15T16:00:00Z shows 08:00 PST (January, the same offset)", F.pstClock(F.parseUtcIso("2026-01-15T16:00:00Z")) === "08:00 PST");
+  check("PST: stamp 'Oct 29 21:12 PST', date text '2026-11-04 00:15 PST', seconds '22:06:12 PST'", F.pstStamp(F.parseUtcIso("2026-10-30T05:12:00Z")) === "Oct 29 21:12 PST" && F.pstDateTime(F.parseUtcIso("2026-11-04T08:15:00Z")) === "2026-11-04 00:15 PST" && F.pstClockSeconds(F.parseUtcIso("2026-10-30T06:06:12Z")) === "22:06:12 PST");
+  check("PST: the day changes at 08:00 UTC (2026-11-02T07:59:00Z is Nov 1 23:59 PST, 08:00Z is Nov 2 00:00 PST)", F.pstStamp(F.parseUtcIso("2026-11-02T07:59:00Z")) === "Nov 1 23:59 PST" && F.pstStamp(F.parseUtcIso("2026-11-02T08:00:00Z")) === "Nov 2 00:00 PST");
+  check("PST: the run ID 2026-11-04T00:15:00-08:00 reads '2026-11-04 00:15 PST'; another offset gives null", F.runIdText("2026-11-04T00:15:00-08:00") === "2026-11-04 00:15 PST" && F.runIdText("2026-07-10T09:00:00-07:00") === null && F.runIdText(null) === null);
+  check("PST: parseUtcIso refuses a bad stamp (month 13, 30 February, a stamp with an offset, a number)", ["2026-13-01T00:00:00Z", "2026-02-30T00:00:00Z", "2026-07-10T16:00:00+00:00", 5, null].every((x) => F.parseUtcIso(x) === null) && F.parseUtcIso("2026-07-10T16:00:00Z") === 1783699200);
+  check("Relative time: 59 s just now, 60 s 1 min ago, 59 min 59 min ago, 60 min 1 h ago, 47 h 59 min 47 h ago, 48 h 2 days ago", [59, 60, 3599, 3600, 48 * 3600 - 1, 48 * 3600].map((x) => F.relativeTime(NOW - x, NOW)).join("|") === "just now|1 min ago|59 min ago|1 h ago|47 h ago|2 days ago", [59, 60, 3599, 3600, 48 * 3600 - 1, 48 * 3600].map((x) => F.relativeTime(NOW - x, NOW)).join("|"));
+  check("Old local-time helpers stay for the other screens (dateTime and clock still exist)", typeof F.dateTime === "function" && typeof F.clock === "function" && F.dateTime(1793156218).length === 16);
+
+  // --- same label as label_of of store.py for the same input
+  const T2 = path.resolve(T2DATA ?? "");
+  const cases = [
+    ["no status", null, false, true, 0], ["state not-started", st({ state: "not-started" }), false, true, 0],
+    ["running, heartbeat 30 s", st(), false, true, 30], ["running, heartbeat 119 s", st(), false, true, 119], ["running, heartbeat 120 s", st(), false, true, 120], ["running, heartbeat 121 s", st(), false, true, 121],
+    ["running, pid gone", st(), false, false, 30], ["running, PAUSE", st(), true, true, 30], ["running, PAUSE, stale", st(), true, true, 500], ["running, PAUSE, pid gone", st(), true, false, 30],
+    ["running, no heartbeat", st({ heartbeat_utc: null }), false, true, 0], ["running, bad heartbeat text", st({ heartbeat_utc: "yesterday" }), false, true, 0], ["running, pid null", st({ pid: null }), false, false, 30],
+    ["stopped ctrl-c", st({ state: "stopped", stop_reason: "ctrl-c" }), false, false, 0], ["stopped pause", st({ state: "stopped", stop_reason: "pause" }), false, false, 0], ["stopped restart", st({ state: "stopped", stop_reason: "restart" }), false, false, 0],
+    ["stopped target-reached", st({ state: "stopped", stop_reason: "target-reached" }), false, false, 0], ["stopped no reason", st({ state: "stopped", stop_reason: null }), false, false, 0],
+    ["stopped forward-failure", st({ state: "stopped", stop_reason: "forward-failure" }), false, false, 0], ["stopped cost-guard", st({ state: "stopped", stop_reason: "cost-guard" }), false, false, 0], ["stopped rule", st({ state: "stopped", stop_reason: "rule" }), false, false, 0],
+    ["stopped rule, PAUSE", st({ state: "stopped", stop_reason: "rule" }), true, false, 0], ["completed", st({ state: "completed" }), false, false, 0], ["old state paused", st({ state: "paused" }), false, true, 30], ["unknown state", st({ state: "weird" }), false, true, 30],
+  ];
+  const py = `import json,sys,time
+sys.dont_write_bytecode=True
+from translator import store as BS
+out=[]
+for c in json.load(sys.stdin):
+    lab,grp=BS.label_of(c["status"],c["pause"],now=c["now"],alive=lambda pid,a=c["alive"]:a)
+    out.append([lab,grp])
+print(json.dumps(out))`;
+  const input = cases.map(([, status, pause, alive, hb]) => ({ status: status ? { ...status, heartbeat_utc: status.heartbeat_utc && hb !== undefined ? iso(-hb) : status.heartbeat_utc } : null, pause, alive, now: NOW }));
+  const res = spawnSync("python3", ["-B", "-c", py], { input: JSON.stringify(input), encoding: "utf-8", env: { ...process.env, PYTHONPATH: path.join(T2, "scripts"), PYTHONDONTWRITEBYTECODE: "1" } });
+  let pyOut = null;
+  try {
+    pyOut = JSON.parse(res.stdout);
+  } catch {
+    pyOut = null;
+  }
+  check("label_of of store.py ran on the examples (python3 -B, read only)", Array.isArray(pyOut) && pyOut.length === cases.length, (res.stderr || "").slice(0, 200));
+  const bad = [];
+  cases.forEach(([name], i) => {
+    const key = R.baseLabelOf(input[i].status, input[i].pause, input[i].alive, NOW);
+    const mine = [R.LABELS[key].text, R.LABELS[key].group];
+    if (!pyOut || !eq(mine, pyOut[i])) bad.push(`${name}: ${mine} vs ${pyOut?.[i]}`);
+  });
+  check(`Same label and group as label_of for ${cases.length} examples (heartbeat edges 119, 120, 121 s, pid gone, PAUSE, every stop reason, completed, old state paused)`, bad.length === 0, bad.join(" | "));
+
+  // --- rows of the table 15.24.4.2 with a status.json
+  let r = row({ status: st() });
+  check("Running: heartbeat 30 s, pid alive gives label Running, group Running, symbol ●, line 2 with the page, the box, the start, and the last sign of life", r.label === "Running" && r.group === "Running" && r.symbol === "●" && text(r) === "Now: p051, box TL_2. Running since Nov 1 23:06 PST (54 min). Last sign of life 30 s ago. Next page: p052.", text(r));
+  check("Running row: phase 'Phase 4 · production run', '50 of 169 pages', $8.30, 159 min, no run number without a prompt file ('phase 4, started 2026-11-04 00:15 PST')", r.phase === "Phase 4 · production run" && R.progressText(r) === "50 of 169 pages" && R.money(r.cost) === "$8.30" && r.minutes === 159 && r.run === "phase 4, started 2026-11-04 00:15 PST", `${r.run}`);
+  r = row({ status: st(), runNumber: 1 });
+  check("Run text (round 80 answers 11 and 16): 'phase 4 run 1, started 2026-11-04 00:15 PST'", r.run === "phase 4 run 1, started 2026-11-04 00:15 PST", r.run);
+  check("Run number from the labels: v4.2.3 gives run 2, a label of another phase gives null, a bad label gives null, the first fitting label wins", R.runNumberOf(["v4.2.3"], "agent-phase-4") === 2 && R.runNumberOf(["v3.1.0"], "agent-phase-4") === null && R.runNumberOf(["x"], "agent-phase-4") === null && R.runNumberOf(["v3.1.0", "v4.5.0"], "agent-phase-4") === 5 && R.runNumberOf([], "agent-phase-4") === null && R.parseLabel("v4.2.3")?.updates === 3);
+  r = row({ status: st({ heartbeat_utc: iso(-120) }) });
+  check("Edge 120 s: a heartbeat 120 s old is still Running", r.key === "running");
+  r = row({ status: st({ heartbeat_utc: iso(-121) }) });
+  check("Edge 121 s: a heartbeat 121 s old gives Stopped unexpectedly, group Needs attention, 'No update for 2 min: the process is gone' is not used because the pid lives: 'the process is silent'", r.key === "unexpected" && r.group === "Needs attention" && text(r) === "No update for 2 min: the process is silent. Last page done: p050.", text(r));
+  r = row({ status: st({ pid: 99999999, heartbeat_utc: iso(-12 * 60), last_accepted_page: "mental_full/p711" }), pidAlive: false });
+  check("Stopped unexpectedly (dead pid): 'No update for 12 min: the process is gone. Last page done: p711.'", r.key === "unexpected" && r.symbol === "▲" && text(r) === "No update for 12 min: the process is gone. Last page done: p711.", text(r));
+  r = row({ status: st(), pauseExists: true });
+  check("Running with pause requested (file PAUSE): label 'Running with pause requested' (store.py wording), group Running", r.label === "Running with pause requested" && r.group === "Running" && /^Pause requested\. The process finishes the current page, then ends\. Now: p051/.test(text(r)), r.label);
+  const pst = (extra = {}) => st({ state: "stopped", pid: null, heartbeat_utc: iso(-3600), updated_utc: "2026-07-10T16:40:00Z", last_accepted_page: "mental_full/p080", next_page: "mental_full/p081", ...extra });
+  r = row({ status: pst({ stop_reason: "pause" }), pidAlive: false });
+  check("Stopped by Pause (round 76 answer 4): 'Stopped by Pause at 08:40 PST. Last saved page p080. Resume starts at p081.' (the time is the PST form of updated_utc)", r.label === "Stopped" && r.group === "Stopped" && r.symbol === "■" && text(r) === "Stopped by Pause at 08:40 PST. Last saved page p080. Resume starts at p081.", text(r));
+  r = row({ status: pst({ stop_reason: "ctrl-c", next_page: "mental_full/p080", last_accepted_page: "mental_full/p079" }), pidAlive: false });
+  check("Stopped by Ctrl-C: 'Stopped by Ctrl-C at 08:40 PST. Page p080 was not saved. Resume starts at p080.'", r.label === "Stopped" && text(r) === "Stopped by Ctrl-C at 08:40 PST. Page p080 was not saved. Resume starts at p080.", text(r));
+  r = row({ status: pst({ stop_reason: "forward-failure", stop_text: "stopped: QA_3 FAIL on mental_full/p014", last_error: { page: "mental_full/p014", box: "TL_3", text: "TL_3: invalid JSON: Expecting ',' delimiter", file: "data/pilot-run/x/failed/TL_3.json", utc: iso(-100) } }), pidAlive: false });
+  check("Stopped by failure (forward-failure): group Needs attention, the stop text, the red error line 'Error on p014, box TL_3: invalid JSON: Expecting ',' delimiter', error count 1, the file path without 'data/'", r.label === "Stopped by failure" && r.group === "Needs attention" && /QA_3 FAIL on mental_full\/p014\./.test(text(r)) && r.error === "Error on p014, box TL_3: invalid JSON: Expecting ',' delimiter" && r.errorCount === 1 && r.errorFile === "pilot-run/x/failed/TL_3.json", `${text(r)} | ${r.error}`);
+  check("Stopped by failure for cost-guard and rule (the three failure reasons), Stopped for restart and for a stop with no reason", ["cost-guard", "rule"].every((x) => row({ status: pst({ stop_reason: x }), pidAlive: false }).key === "failure") && row({ status: pst({ stop_reason: "restart" }), pidAlive: false }).key === "stopped" && row({ status: pst({ stop_reason: null }), pidAlive: false }).key === "stopped");
+  r = row({ status: st({ state: "completed", stop_reason: "target-reached", pid: null, pages_done: 20, pages_total: 20, updated_utc: iso(-3 * 3600) }), pidAlive: false });
+  check("Completed: group Completed, symbol ✓, 'Completed at Nov 1 21:00 PST, 3 h ago. 20 of 20 pages done.'", r.label === "Completed" && r.group === "Completed" && r.symbol === "✓" && text(r) === "Completed at Nov 1 21:00 PST, 3 h ago. 20 of 20 pages done.", text(r));
+  check("Not started: no status gives group Not started, symbol ○, no column; state not-started in the file gives the same", row({}).key === "not-started" && row({}).group === "Not started" && row({}).symbol === "○" && row({ status: st({ state: "not-started" }) }).group === "Not started");
+  r = row({ status: null, statusUnreadable: true });
+  check("Broken status.json: label 'Status file unreadable' with the file path (no Mac path), group Needs attention, the other rows stay", r.label === "Status file unreadable" && r.group === "Needs attention" && r.statusFile === "book-store/mental_full/status.json" && !/\/Users\//.test(text(r)) && text(r).includes("book-store/mental_full/status.json"), text(r));
+  check("Status wins over a list: a status.json of state not-started with a derived row gives Not started (pilot lists do not count)", row({ status: st({ state: "not-started" }), derived: { listCount: 1, pagesDone: 3, costUsd: 1, seconds: 1, lastEventEpoch: NOW, newest: { stamp: "x", state: "completed", final: true, updatedEpoch: NOW, startedEpoch: NOW, pauseFile: false, chainState: null, runningPage: null, runningBoxes: [], anyRunning: false, anyWaiting: false, stopPage: null, nextPage: null, errors: [], forwardFailure: null } } }).key === "not-started");
+
+  // --- marks
+  const mark = (over) => ({ schema: "book-request-v1", book: "mental_full", action: "resume", phase: "agent-phase-4", requested_by: "Monitor dashboard", requested_utc: "2026-07-10T16:40:00Z", ...over });
+  r = row({ status: st(), mark: mark({ action: "restart", prompts: {} }) });
+  check("Running row with a Restart mark stays Running with the note 'Restart requested 08:40 PST' (round 78 answer 10, round 80 answer 19)", r.key === "running" && r.group === "Running" && r.note === "Restart requested 08:40 PST", `${r.group} ${r.note}`);
+  r = row({ status: pst({ stop_reason: "forward-failure" }), pidAlive: false, mark: mark({ action: "resume" }) });
+  check("Resume mark on a book that does not run: group Waiting for a run, label 'Mark waiting', line 'Mark waiting: Resume requested 08:40 PST', the label of label_of stays in baseLabel ('Stopped by failure')", r.group === "Waiting for a run" && r.label === "Mark waiting" && text(r) === "Mark waiting: Resume requested 08:40 PST" && r.baseLabel === "Stopped by failure");
+  r = row({ mark: mark({ action: "run", phase: "agent-phase-3" }) });
+  check("Run mark on a book with no run: 'Mark waiting: Run requested 08:40 PST', phase from the mark ('Phase 3 · warm initialization')", r.group === "Waiting for a run" && text(r) === "Mark waiting: Run requested 08:40 PST" && r.phase === "Phase 3 · warm initialization", text(r));
+  r = row({ status: pst({ stop_reason: "pause" }), pidAlive: false, mark: mark({ action: "restart", prompts: {} }) });
+  check("Restart mark on a stopped book: 'Mark waiting: Restart requested 08:40 PST'", r.group === "Waiting for a run" && text(r) === "Mark waiting: Restart requested 08:40 PST");
+  r = row({ mark: mark({ action: "run", after: "restart", restart_requested_utc: "2026-07-10T16:40:00Z", requested_utc: "2026-07-10T16:52:00Z" }) });
+  check("Run mark with after 'restart' (code of TR77c today): the press time restart_requested_utc shows (16:40Z = 08:40 PST), not the mark time 16:52Z", r.group === "Waiting for a run" && text(r) === "Mark waiting: Restart requested 08:40 PST", text(r));
+  r = row({ mark: mark({ action: "run", after: "restart", requested_utc: "2026-07-10T16:40:00Z" }) });
+  check("Run mark with after 'restart' after the code change of round 80 answer 14 (no restart_requested_utc, the press time sits in requested_utc): the same text", text(r) === "Mark waiting: Restart requested 08:40 PST", text(r));
+  r = row({ status: st(), mark: mark({ action: "run", after: "restart", restart_requested_utc: iso(-600), requested_utc: iso(-60) }) });
+  check("Run mark on a Running row: the row stays Running with a note (unit default VW77a)", r.group === "Running" && /^Restart requested/.test(r.note ?? ""));
+  r = row({ mark: mark({ action: "frobnicate" }) });
+  check("A mark with an unknown action changes no group and shows a warning", r.group === "Not started" && /does not know/.test(r.warning ?? ""));
+  r = row({ markUnreadable: true });
+  check("A broken request.json shows a warning and changes no group", r.group === "Not started" && /cannot be read/.test(r.warning ?? ""));
+
+  // --- derived rows from the three real pilot lists (read only)
+  const lists = [];
+  for (const stamp of (await fs.readdir(path.join(T2, "pilot-run/lists"))).sort()) {
+    const j = async (n) => JSON.parse(await fs.readFile(path.join(T2, "pilot-run/lists", stamp, n), "utf-8"));
+    lists.push({ stamp, progress: await j("progress.json"), list: await j("list.json"), summary: await j("list-summary.json"), pauseExists: false });
+  }
+  const slugs = JSON.parse(await fs.readFile(path.join(T2, "pilot-sample/book-slugs.json"), "utf-8")).books;
+  const pagesOf = (slug) => slugs.find((b) => b.slug === slug)?.pages ?? null;
+  const dnow = Date.UTC(2026, 9, 30, 5, 0, 0) / 1000; // 2026-10-29 21:00 PST, 21 h after the end of the newest list (23:50 PST on Oct 28)
+  const drow = (slug, ls = lists, now = dnow) => R.buildRow(facts({ slug, title: slug, bookPages: pagesOf(slug), derived: R.deriveFacts(slug, ls) }), now);
+  const lf = drow("left_foot_full");
+  check("Derived row left_foot_full (pilot list): Stopped, '6 of 120 pages', $22.16, 414 min, Phase not stored, flag pilot", lf.key === "stopped" && R.progressText(lf) === "6 of 120 pages" && R.money(lf.cost) === "$22.16" && lf.minutes === 414 && lf.phase === "Phase not stored" && lf.pilot === true, `${R.progressText(lf)} ${lf.cost} ${lf.minutes}`);
+  check("Derived row left_foot_full line 2: 'Stopped at p050: the list finished. Oct 28 23:50 PST, 21 h ago. 3 list folders. Next page: not stored.'", text(lf, dnow) === "Stopped at p050: the list finished. Oct 28 23:50 PST, 21 h ago. 3 list folders. Next page: not stored.", text(lf, dnow));
+  const mf = drow("mental_full");
+  check("Derived row mental_full: Stopped by failure in Needs attention, '2 of 169 pages', $5.48, 102 min, 'Stopped at p014: QA_3 FAIL (old rule). Oct 27 18:56 PST, 2 days ago. 2 list folders. Next page: p015.'", mf.key === "failure" && mf.group === "Needs attention" && R.progressText(mf) === "2 of 169 pages" && R.money(mf.cost) === "$5.48" && mf.minutes === 102 && text(mf, dnow) === "Stopped at p014: QA_3 FAIL (old rule). Oct 27 18:56 PST, 2 days ago. 2 list folders. Next page: p015.", text(mf, dnow));
+  const og = drow("ogawa_lecture_part2");
+  check("Derived row ogawa_lecture_part2: Stopped (a critic error is no failure), '1 of 150 pages', $3.73, 76 min, 'Stopped at p089: the list ended with 1 error. Oct 26 11:25 PST, 3 days ago.' and the red error line with the file", og.key === "stopped" && og.group === "Stopped" && R.progressText(og) === "1 of 150 pages" && R.money(og.cost) === "$3.73" && og.minutes === 76 && text(og, dnow) === "Stopped at p089: the list ended with 1 error. Oct 26 11:25 PST, 3 days ago." && og.error === "Error on p089, box box-critic.TS_3: invalid JSON: Expecting ',' delimiter: line 1 column 913 (char 912)" && og.errorFile === "pilot-run/ogawa_lecture_part2_p089/20261026T185029Z-r41/failed/box-critic.TS_3.json" && og.errorCount === 1, `${text(og, dnow)} | ${og.error}`);
+  const kj = drow("kendojidai_2014");
+  check("Derived row kendojidai_2014: '6 of 1051 pages', $15.77, 269 min, 'Stopped at p0798: the list finished. Oct 27 20:46 PST, 2 days ago. 2 list folders. Next page: not stored.'", R.progressText(kj) === "6 of 1051 pages" && R.money(kj.cost) === "$15.77" && kj.minutes === 269 && text(kj, dnow) === "Stopped at p0798: the list finished. Oct 27 20:46 PST, 2 days ago. 2 list folders. Next page: not stored.", text(kj, dnow));
+  check("A book that no list holds has no derived facts (Not started)", R.deriveFacts("zzz_none", lists) === null && R.buildRow(facts({ slug: "zzz_none", derived: null }), dnow).group === "Not started");
+  const totalCost = slugs.map((b) => b.slug).concat(["18d4ac29"]).reduce((sum, sl) => sum + (drow(sl).cost ?? 0), 0);
+  check("Cost of all derived rows is $73.95 (the sum over the three list folders, VISION sketch 1)", R.money(totalCost) === "$73.95", R.money(totalCost));
+
+  // --- derived rows of a list that runs: synthetic list folders
+  const mk = (over = {}, pageOver = {}, chain = "running", pause = false) => [{ stamp: "20261102T000000Z", pauseExists: pause, list: { chains: [{ book: "bk", state: chain }] }, summary: null, progress: { state: "running", started_epoch: NOW - 3600, updated_epoch: NOW - 30, pages: [{ page_id: "bk/p001", state: "done", models_usd: 1, started_epoch: NOW - 3000, ended_epoch: NOW - 2000, folder: "data/pilot-run/bk_p001/x" }, { page_id: "bk/p002", state: "running", running: ["TL_2"], models_usd: 0, started_epoch: NOW - 1000, ended_epoch: null, ...pageOver }, { page_id: "bk/p003", state: "waiting", models_usd: 0 }], ...over } }];
+  const dr = (ls, now = NOW) => R.buildRow(facts({ slug: "bk", title: "bk", bookPages: 10, derived: R.deriveFacts("bk", ls) }), now);
+  let d = dr(mk());
+  check("Derived Running: list running, chain running, updated 30 s ago: label Running, 'Now: p002, box TL_2. Running since Nov 1 23:00 PST (60 min). Last sign of life 30 s ago. Next page: p003.'", d.key === "running" && text(d) === "Now: p002, box TL_2. Running since Nov 1 23:00 PST (60 min). Last sign of life 30 s ago. Next page: p003." && d.warning === null, text(d));
+  d = dr(mk({}, {}, "running", true));
+  check("Derived Running with pause requested: the file PAUSE in the list folder", d.key === "running-pause" && d.group === "Running");
+  d = dr(mk({ state: "paused" }));
+  check("Derived list in the state paused shows as 'Running with pause requested' in the group Running (round 77 answer 9, default E)", d.key === "running-pause" && d.group === "Running");
+  const ageRow = (age) => dr(mk({ updated_epoch: NOW - age }));
+  check("Heartbeat warning of a derived Running row: 599 s none, 600 s 'No update for 10 min. A long call can take 25 min.', 1799 s '29 min', 1800 s still Running with the warning", ageRow(599).warning === null && ageRow(600).warning === "No update for 10 min. A long call can take 25 min." && ageRow(1799).warning === "No update for 29 min. A long call can take 25 min." && ageRow(1800).key === "running" && ageRow(1800).warning === "No update for 30 min. A long call can take 25 min.", `${ageRow(600).warning}`);
+  d = ageRow(1801);
+  check("Edge 1801 s: a derived list that 'runs' with no update for 1801 s gives Stopped unexpectedly, 'No update for 30 min: the process is gone. Last page done: p001.', no warning", d.key === "unexpected" && d.group === "Needs attention" && text(d) === "No update for 30 min: the process is gone. Last page done: p001." && d.warning === null, text(d));
+  check("A status row never shows the 600 s warning (its limit is 120 s)", row({ status: st({ heartbeat_utc: iso(-700) }) }).warning === null);
+  d = dr(mk({ state: "completed with failures" }, {}, "stopped: QA_3 FAIL on bk/p002"));
+  check("Derived chain 'stopped: QA_3 FAIL on bk/p002' gives Stopped by failure and the page of the text", d.key === "failure" && /^Stopped at p002: QA_3 FAIL \(old rule\)\./.test(text(d)), text(d));
+  d = dr(mk({ state: "interrupted" }, { state: "waiting", started_epoch: null }, "stopped: interrupted"));
+  check("Derived chain 'stopped: interrupted' (Ctrl-C) gives Stopped, not a failure, 'the list was interrupted'", d.key === "stopped" && /the list was interrupted/.test(text(d)), text(d));
+  d = dr(mk({ state: "completed with failures" }, { state: "failed", ended_epoch: NOW - 500 }, "completed"));
+  const withFwd = mk({ state: "completed with failures" }, { state: "failed", ended_epoch: NOW - 500 }, "completed");
+  withFwd[0].summary = { pages: [{ page_id: "bk/p002", folder: "data/pilot-run/bk_p002/x", failures: ["TL_3: HTTP 500"], forward_failures: ["TL_3: HTTP 500"], critic_failures: [] }] };
+  d = dr(withFwd);
+  check("Derived page with a forward failure and no chain state: Stopped by failure [unit default VW77a], error line 'Error on p002, box TL_3: HTTP 500'", d.key === "failure" && d.error === "Error on p002, box TL_3: HTTP 500", `${d.key} ${d.error}`);
+
+  // --- groups, summary line, tab title
+  const mkRow = (key, over = {}) => ({ ...R.buildRow(facts({ slug: over.slug ?? key }), NOW), key, group: R.LABELS[key].group, label: R.LABELS[key].text, ...over });
+  const rows = [mkRow("failure", { slug: "a", cost: 5.48, errorCount: 0 }), ...Array.from({ length: 11 }, (_, i) => mkRow("stopped", { slug: "s" + i, cost: 1 })), ...Array.from({ length: 25 }, (_, i) => mkRow("not-started", { slug: "n" + String(i).padStart(2, "0") }))];
+  const sum = R.summarize(rows);
+  check("Summary line: '1 needs attention · 0 waiting for a run · 0 running · 11 stopped · 0 completed · 25 not started' (VISION sketch 1) and the cost line", sum.text === "1 needs attention · 0 waiting for a run · 0 running · 11 stopped · 0 completed · 25 not started" && sum.costText === "Model cost of all books: $16.48", sum.text);
+  check("Summary line adds '· 1 error' when an error text exists (VISION 15.24.4.2, notes)", R.summarize([mkRow("stopped", { errorCount: 1 })]).text.endsWith(" · 1 error") && R.summarize([mkRow("stopped", { errorCount: 2 })]).text.endsWith(" · 2 errors"));
+  check("Group order: Needs attention, Waiting for a run, Running, Stopped, Completed, Not started", eq(R.GROUPS, ["Needs attention", "Waiting for a run", "Running", "Stopped", "Completed", "Not started"]) && eq(R.groupRows(rows).map((g) => g.group), [...R.GROUPS]));
+  check("Group shows: Needs attention, Running, and Not started always; Waiting for a run, Stopped, and Completed only when not empty", R.GROUPS.every((g) => R.groupShows(g, 0) === ["Needs attention", "Running", "Not started"].includes(g)) && R.GROUPS.every((g) => R.groupShows(g, 2)));
+  check("Group start state: Needs attention, Waiting for a run, Running, and Stopped open; Completed and Not started closed", eq(R.GROUPS.map((g) => R.groupStartsOpen(g)), [true, true, true, true, false, false]));
+  check("Order in a group: the newest event first; Not started by slug", eq(R.sortRows([mkRow("stopped", { slug: "x", eventEpoch: 100 }), mkRow("stopped", { slug: "y", eventEpoch: 300 }), mkRow("stopped", { slug: "z", eventEpoch: 200 })]).map((x) => x.slug), ["y", "z", "x"]) && eq(R.sortRows([mkRow("not-started", { slug: "b" }), mkRow("not-started", { slug: "a" })]).map((x) => x.slug), ["a", "b"]));
+  check("Tab title: '(1) Monitor dashboard' with 1 in Needs attention, 'Monitor dashboard' with 0", R.tabTitle(1) === "(1) Monitor dashboard" && R.tabTitle(0) === "Monitor dashboard");
+  check("Empty group lines: 'Nothing needs attention.' and 'Nothing runs now. The last list ended Oct 28 23:50 PST (21 h ago).'", R.emptyLine("Needs attention", null, dnow) === "Nothing needs attention." && R.emptyLine("Running", 1793260231.2455308, dnow) === "Nothing runs now. The last list ended Oct 28 23:50 PST (21 h ago)." && R.emptyLine("Running", null, dnow) === "Nothing runs now." && R.emptyLine("Stopped", null, dnow) === null);
+  check("Row labels follow store.py LABELS word for word (seven labels, their groups)", eq(["running", "running-pause", "stopped", "unexpected", "failure", "completed", "not-started"].map((k) => [R.LABELS[k].text, R.LABELS[k].group]), [["Running", "Running"], ["Running with pause requested", "Running"], ["Stopped", "Stopped"], ["Stopped unexpectedly", "Needs attention"], ["Stopped by failure", "Needs attention"], ["Completed", "Completed"], ["Not started", "Not started"]]));
+  const noGloss = JSON.stringify([R.NO_RUN_TEXT, R.DATA_ERROR_TEXT, R.PHASE2_LINE, ...Object.values(R.LABELS).map((l) => l.text)]);
+  check("Screen text holds no word 'gloss', 'rendering', or 'finished'", !/gloss|rendering|finished/i.test(noGloss));
+}
+
+// Monitor dashboard on a fixture (unit VW77a). The fixture and the fake Translator process come from fake_translator.py (real store.py code).
+async function monitorTest() {
+  if (!fixture) throw new Error("Need --fixture DIR");
+  const data = path.join(path.resolve(fixture), "data");
+  const before = await listing(data);
+  const api = async () => JSON.parse((await get("/api/monitor/books")).body);
+  const rowOf = (d, slug) => d.rows.find((x) => x.slug === slug);
+  let r = await get("/api/monitor/books");
+  const d = parseJson(r.body);
+  check("GET /api/monitor/books gives 200 and JSON with ok, rows, summary, generatedAt", r.status === 200 && r.type.includes("json") && d?.ok === true && Array.isArray(d.rows) && typeof d.summary?.text === "string" && typeof d.generatedAt === "number", `status ${r.status}, ${d?.rows?.length} rows`);
+  const label = (slug) => rowOf(d, slug)?.label;
+  check("API rows of the fake Translator: Running, Running with pause requested, Stopped unexpectedly (dead pid and silent heartbeat), Stopped (Pause, Ctrl-C), Stopped by failure (3 reasons), Completed, Not started, Status file unreadable", label("fx_running") === "Running" && label("fx_pause_req") === "Running with pause requested" && label("fx_dead") === "Stopped unexpectedly" && label("fx_silent") === "Stopped unexpectedly" && label("fx_pause") === "Stopped" && label("fx_ctrlc") === "Stopped" && ["fx_fail", "fx_costguard", "fx_rule"].every((s) => label(s) === "Stopped by failure") && label("fx_done") === "Completed" && label("fx_ns") === "Not started" && label("fx_broken") === "Status file unreadable", JSON.stringify(d?.rows?.filter((x) => x.slug.startsWith("fx_")).map((x) => [x.slug, x.label])));
+  check("Marks: Mark waiting rows sit in Waiting for a run (Resume, Run, Restart, and the Run mark of a Restart); the Restart mark on a Running book gives the note and the row stays in Running", ["fx_wait_resume", "fx_wait_run", "fx_wait_restart", "fx_wait_after"].every((s) => rowOf(d, s)?.group === "Waiting for a run" && rowOf(d, s)?.label === "Mark waiting") && rowOf(d, "fx_restart_note")?.group === "Running" && /^Restart requested \d\d:\d\d PST$/.test(rowOf(d, "fx_restart_note")?.note ?? "") && rowOf(d, "fx_run_mark_running")?.group === "Running");
+  check("Run number from the prompt pointer: fx_running (v4.2.3) reads 'phase 4 run 2, started 2026-11-04 00:15 PST', fx_restart_note (v4.1.6) reads run 1, fx_pause (no prompt file) shows no run number", rowOf(d, "fx_running")?.run === "phase 4 run 2, started 2026-11-04 00:15 PST" && rowOf(d, "fx_restart_note")?.run === "phase 4 run 1, started 2026-11-04 00:15 PST" && rowOf(d, "fx_pause")?.run === "phase 4, started 2026-11-04 00:15 PST", `${rowOf(d, "fx_running")?.run}`);
+  check("Derived rows of the real pilot lists: mental_full Stopped by failure in Needs attention, left_foot_full '6 of 120 pages', ogawa_lecture_part2 with the error file that exists, kendojidai_2014 6 of 1051", rowOf(d, "mental_full")?.group === "Needs attention" && rowOf(d, "left_foot_full")?.pagesDone === 6 && rowOf(d, "left_foot_full")?.pagesTotal === 120 && rowOf(d, "left_foot_full")?.pilot === true && rowOf(d, "ogawa_lecture_part2")?.errorFile?.endsWith("failed/box-critic.TS_3.json") && rowOf(d, "kendojidai_2014")?.pagesTotal === 1051);
+  check("Derived rows of the fake pilot lists: a running list gives Running, a paused list with a PAUSE file gives Running with pause requested", rowOf(d, "fx_pilot_run")?.label === "Running" && rowOf(d, "fx_pilot_pause")?.label === "Running with pause requested");
+  check("A status.json wins over a pilot list: lifelong_full (pilot pages in list 20261026T182511Z) shows Completed from its status.json", rowOf(d, "lifelong_full")?.label === "Completed" && rowOf(d, "lifelong_full")?.pilot === false);
+  check("Summary counts equal the groups of the rows and the cost is the sum of the row costs", (() => { const c = Object.fromEntries(["Needs attention", "Waiting for a run", "Running", "Stopped", "Completed", "Not started"].map((g) => [g, d.rows.filter((x) => x.group === g).length])); return JSON.stringify(c) === JSON.stringify(d.summary.counts) && Math.abs(d.summary.costUsd - d.rows.reduce((a, x) => a + (x.cost ?? 0), 0)) < 1e-6; })(), d.summary.text);
+  check("No row text holds a Mac path (/Users/ or /private/var)", !JSON.stringify(d.rows).match(/\/Users\/|\/private\/var|\/var\/folders/));
+
+  r = await get("/");
+  const text = visibleText(r.body.replace(/<!--[\s\S]*?-->/g, "")); // React 19 writes <!-- --> between two text nodes
+  check("GET / 200 shows the Monitor dashboard: title, summary line, the six groups in order, the Phase 2 line", r.status === 200 && /Monitor dashboard/.test(text) && text.includes(d.summary.text) && /Needs attention \(\d+\).*Waiting for a run \(\d+\).*Running \(\d+\).*Stopped \(\d+\).*Completed \(\d+\).*Not started \(\d+\)/.test(text) && text.includes("Phase 2 (paired dataset): no run record yet."), `${Math.round(r.ms)} ms`);
+  check("GET / shows rows as the design says: 'Stopped by Pause at', 'Mark waiting: Resume requested', 'Making the Difference on the Day: Mental Strengthening for Kendo (mental_full)' with pilot list, '6 of 120 pages', the error line with 'Error on p089'", /Stopped by Pause at \d\d:\d\d PST\. Last saved page p080\. Resume starts at p081\./.test(text) && /Mark waiting: Resume requested \d\d:\d\d PST/.test(text) && text.includes("Making the Difference on the Day: Mental Strengthening for Kendo (mental_full)") && text.includes("pilot list") && text.includes("6 of 120 pages") && text.includes("Error on p089, box box-critic.TS_3: invalid JSON"));
+  check("GET / title tag holds the count of Needs attention in the first paint ('(N) Monitor dashboard' in <title>, N from the summary line)", new RegExp(`<title>\\(${d.summary.counts["Needs attention"]}\\) Monitor dashboard</title>`).test(r.body), (r.body.match(/<title>.*?<\/title>/) ?? [""])[0]);
+  check("GET / groups are details elements with summary; the open state comes from the start rule (Needs attention open, Not started closed)", /<details[^>]*data-group="Needs attention"[^>]*open=""/.test(r.body) && !/<details[^>]*data-group="Not started"[^>]*open=""/.test(r.body) && !/<details[^>]*data-group="Completed"[^>]*open=""/.test(r.body) && (r.body.match(/<summary/g) ?? []).length >= 6);
+  check("GET / has a progressbar for a row with a total, a state label with a symbol and a word, and no button except Refresh and the theme switch", /role="progressbar"/.test(r.body) && /data-state-label="running"[^>]*>.{0,80}●.{0,40}Running/.test(r.body.replace(/<!--.*?-->/g, "")) && !/>(Resume|Run|Pause|Restart|Details)</.test(r.body.replace(/<script[\s\S]*?<\/script>/g, "")));
+  check("GET / sends the nav with the tabs Monitor dashboard, Lists, Books, Human translation (no Run settings tab yet)", (() => { const nav = r.body.match(/<nav[^>]*aria-label="Main tabs"[\s\S]*?<\/nav>/)?.[0] ?? ""; const t = visibleText(nav).trim().replace(/\s+/g, " "); return t === "Monitor dashboard Lists Books Human translation" && /href="\/runs"/.test(nav); })());
+  r = await get("/runs");
+  const rt = visibleText(r.body);
+  check("GET /runs 200 shows the Lists table: heading 'Lists', the three list stamps, the column 'Cost (listed)'", r.status === 200 && /Lists/.test(rt) && ["20261026T182511Z", "20261028T023006Z", "20261029T051152Z"].every((s) => rt.includes(s)) && rt.includes("Cost (listed)"));
+  r = await get("/runs/20261029T051152Z");
+  check("GET /runs/<stamp> 200 and the back link reads '← Lists' and points to /runs", r.status === 200 && /href="\/runs"[^>]*>\s*← Lists/.test(r.body));
+
+  // The end of the process: kill the fake Translator. fx_running turns to Stopped unexpectedly at the next read (the pid check, signal 0).
+  const pid = Number((await fs.readFile(path.join(path.resolve(fixture), "PID"), "utf-8")).trim());
+  process.kill(pid, "SIGTERM");
+  await new Promise((res) => setTimeout(res, 1500));
+  const d2 = await api();
+  check("After the fake Translator ends: fx_running turns to Stopped unexpectedly (pid gone) in Needs attention, and the Running rows of that process leave the group Running", rowOf(d2, "fx_running")?.label === "Stopped unexpectedly" && rowOf(d2, "fx_running")?.group === "Needs attention" && /the process is gone/.test(R_line(rowOf(d2, "fx_running"))), R_line(rowOf(d2, "fx_running")));
+  check("The summary after the end: more in Needs attention than before, tab title count follows", d2.summary.counts["Needs attention"] > d.summary.counts["Needs attention"]);
+
+  // A broken file never stops the page: break fx_ns/status.json in the fixture and read again.
+  await fs.writeFile(path.join(data, "book-store", "fx_ns", "status.json"), "{ not json");
+  const d3 = await api();
+  check("A status.json broken after the first read gives the row 'Status file unreadable' and the other rows stay", rowOf(d3, "fx_ns")?.label === "Status file unreadable" && d3.rows.length === d.rows.length && rowOf(d3, "fx_done")?.label === "Completed");
+  await fs.writeFile(path.join(data, "book-store", "fx_ns", "status.json"), JSON.stringify({ state: "completed", phase: "agent-phase-3", pages_done: 3, pages_total: 3, updated_utc: "2026-11-02T08:00:00Z" }));
+  const d4 = await api();
+  check("A changed status.json is read again (the mtime check): fx_ns turns to Completed", rowOf(d4, "fx_ns")?.label === "Completed");
+
+  // The Monitor dashboard writes no file.
+  const after = await listing(data);
+  const diff = after.filter((x) => !before.includes(x)).concat(before.filter((x) => !after.includes(x))).filter((x) => !/status\.json|progress\.json|PAUSE/.test(x));
+  check("The reads wrote no file in the fixture (only the fake Translator and this test changed files)", diff.length === 0, diff.join(", "));
+  r = await get("/api/monitor/books", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  check("The route is GET only: POST gives 405", r.status === 405, `status ${r.status}`);
+
+  // Monitor off: a second server with VIEWER_MONITOR=off.
+  const off = await startServerWith({ VIEWER_MONITOR: "off" });
+  try {
+    r = await get("/api/monitor/books");
+    check("Monitor off: /api/monitor/books gives 404 with the body of monitorOffResponse", r.status === 404 && parseJson(r.body)?.error === "Not found", `status ${r.status} ${r.body}`);
+    const noFollow = await fetch(base + "/", { redirect: "manual" });
+    check("Monitor off: / follows frontDoor (no session goes to the sign-in page)", noFollow.status >= 300 && noFollow.status < 400 && /\/sign-in/.test(noFollow.headers.get("location") ?? ""), `status ${noFollow.status} ${noFollow.headers.get("location")}`);
+    r = await get("/runs");
+    check("Monitor off: /runs gives 404", r.status === 404, `status ${r.status}`);
+  } finally {
+    off.child.kill("SIGTERM");
+    base = off.old;
+  }
+  // The data folder is not readable: a second server with a config that names a folder that does not exist.
+  const bad = path.join(path.resolve(fixture), "cfg-missing.json");
+  await fs.writeFile(bad, JSON.stringify({ translatorDataDir: path.join(path.resolve(fixture), "no-such-folder"), pocketbaseUrl: "http://127.0.0.1:8092" }));
+  const miss = await startServerWith({ VIEWER_CONFIG: bad });
+  try {
+    r = await get("/api/monitor/books");
+    const m = parseJson(r.body);
+    check("Data folder missing: the route answers 200 with ok false and the message of VISION 15.24.4.6, with no Mac path", r.status === 200 && m?.ok === false && m.error === "The Monitor dashboard cannot read the Translator data folder. Check the key translatorDataDir in viewer.config.json." && !/no-such-folder/.test(r.body), r.body.slice(0, 200));
+    r = await get("/");
+    check("Data folder missing: / shows that message", r.status === 200 && visibleText(r.body.replace(/<!--[\s\S]*?-->/g, "")).includes("The Monitor dashboard cannot read the Translator data folder."));
+  } finally {
+    miss.child.kill("SIGTERM");
+    base = miss.old;
+  }
+}
+
+function R_line(row) {
+  return (row?.line2 ?? []).map((x) => (typeof x === "string" ? x : "")).join("");
+}
+
+// A second `next start` for one mode check. The caller restores `base` from `old` and kills the child.
+async function startServerWith(extraEnv) {
+  const port = await freePort();
+  const env = { ...process.env, PORT: String(port) };
+  if (configFile) env.VIEWER_CONFIG = path.resolve(configFile);
+  Object.assign(env, extraEnv);
+  const child = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(port), "-H", "127.0.0.1"], { env, stdio: "ignore" });
+  const old = base;
+  base = `http://127.0.0.1:${port}`;
+  for (let i = 0; i < 100; i++) {
+    try {
+      const r = await fetch(base + "/api/monitor/books");
+      if (r.status < 500) break;
+    } catch {
+      /* not ready */
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return { child, old };
+}
+
 if (mode === "layout") {
   await layoutTest();
+  console.log(`\nFailures: ${failures}, skipped: ${skips}`);
+  process.exit(failures ? 1 : 0);
+}
+
+if (mode === "monitor-rules") {
+  await monitorRulesTest();
   console.log(`\nFailures: ${failures}, skipped: ${skips}`);
   process.exit(failures ? 1 : 0);
 }
@@ -2827,6 +3135,7 @@ const server = await startServer();
 try {
   if (mode === "tolerance") await toleranceTest();
   else if (mode === "pause") await pauseTest();
+  else if (mode === "monitor") await monitorTest();
   else if (mode === "htv") await htvTest();
   else if (mode === "deploy") await deployTest();
   else if (mode === "read") await readTest();

@@ -5,7 +5,7 @@ import { clock, dateTime, isLive, usd } from "@/lib/format";
 import { StatePill } from "./Pills";
 import { LiveBadge, useLive } from "./useLive";
 
-// Round 44 answer 13 (Q-A l142), tab Runs: "runs with state and cost". Newest first.
+// Unit VW77a (round 80): the tab is called Lists and sits at /runs. Round 44 answer 13 (Q-A l142), tab Runs: "runs with state and cost". Newest first.
 // Viewer goals: fast lookup (one table, state and cost in one row) and few steps (one click opens a run).
 // Round 48 answer 9 (Q-A 2026-10-27 l55): the table also shows the list kind, the critic mode and the book jobs.
 export default function RunsTable({ initial }: { initial: RunSummary[] }) {
@@ -13,7 +13,7 @@ export default function RunsTable({ initial }: { initial: RunSummary[] }) {
   return (
     <section>
       <div className="mb-3 flex items-baseline gap-4">
-        <h1 className="text-xl font-semibold">Runs</h1>
+        <h1 className="text-xl font-semibold">Lists</h1>
         <span className="text-sm text-muted">{data.length} lists, newest first</span>
         <LiveBadge live={live} />
       </div>

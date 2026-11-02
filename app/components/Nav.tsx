@@ -5,8 +5,11 @@ import ThemeSwitch from "./ThemeSwitch";
 import type { ThemeName } from "@/lib/htv-settings";
 
 // Round 43 answer 6 (Q-A l110): first view "Two tabs". Runs first, Books second, full width, one click switches.
+// Unit VW77a (round 80), VISION-viewer 15.24.4.1: the first tab is the Monitor dashboard "/" (active for "/" and the paths that start with /monitor).
+// The old runs table is the tab Lists "/runs". The tab Run settings waits for unit VW77d [unit default VW77a].
 const TABS = [
-  { href: "/", label: "Runs", monitor: true, match: (p: string) => p === "/" || p.startsWith("/runs") },
+  { href: "/", label: "Monitor dashboard", monitor: true, match: (p: string) => p === "/" || p.startsWith("/monitor") },
+  { href: "/runs", label: "Lists", monitor: true, match: (p: string) => p.startsWith("/runs") },
   { href: "/books", label: "Books", monitor: true, match: (p: string) => p.startsWith("/books") || p.startsWith("/page") },
   // Round 54 (unit H1): third tab for the human-translation-view. Sign-in is needed on this tab only (round 54 answer 9, Q-A l128).
   { href: "/translate", label: "Human translation", monitor: false, match: (p: string) => p.startsWith("/translate") },

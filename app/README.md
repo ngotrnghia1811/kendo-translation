@@ -43,7 +43,7 @@ Mode `smoke` sends GET requests only. It is safe for the real `data` folder. Eac
 
 The checks of mode `smoke`:
 
-- Runs page and run view of the pilot list `20261026T182511Z` (22 pages, state "completed with failures").
+- Lists page (`/runs`) and run view of the pilot list `20261026T182511Z` (22 pages, state "completed with failures").
 - Run API and all 22 page views, with the QA_3 verdict of each page.
 - Page view: ED_3 text, JA text, the 8 cell names, and no Reasoning text before the owner asks.
 - The 6 extra items, the page image, and the path tests (`../`, absolute paths, bad list names).
@@ -78,9 +78,9 @@ The file `viewer.config.json` in the app folder holds the settings. It has four 
 
 ## Screens
 
-The title bar shows agent-translation-monitor and two tabs, Runs and Books, and a third tab, Human translation (see the section Human-translation-view at the end).
+The title bar shows agent-translation-monitor and the tabs Monitor dashboard, Lists, Books, and Human translation (see the sections Monitor dashboard and Human-translation-view at the end). The tab Run settings does not exist yet.
 
-- Runs tab (`/`): one row for each list folder, newest first. Columns: list, kind, state, pages, calls, failed, flagged, cost (models), cost (listed), started, updated. The table refreshes every 3 seconds while a list has the state `running` or `paused`.
+- Lists tab (`/runs`, unit VW77a: the old Runs tab, which sat at `/` before): one row for each list folder, newest first. Columns: list, kind, state, pages, calls, failed, flagged, cost (models), cost (listed), started, updated. The table refreshes every 3 seconds while a list has the state `running` or `paused`.
   - The kind column shows `chain` for a list from `run-chain` and `list` for every other list. Below it, the table shows the critic mode and the number of book jobs. A list from before the critic mode shows "critic mode not stored".
 - Run page (`/runs/<list>`): click a list name to open it. It shows the totals of the list and one row for each page. Columns: page, kind, state, calls, USD, minutes, QA_3 verdict.
   - The totals also show the list kind, the critic mode (or "not stored"), and the book jobs.
@@ -316,10 +316,11 @@ The setting `monitor` hides the agent-translation-monitor. The deployed app has 
 When the monitor is off, the app does this:
 
 - The page `/` sends the visitor by the sign-in state: no session to `/sign-in`, a reader to `/read`, a translator or an admin to `/translate` (unit RC4, round 70).
-- The pages `/books`, `/page/<book>/<page>`, and `/runs/<list>` show the page "not found".
+- The pages `/books`, `/page/<book>/<page>`, `/runs`, and `/runs/<list>` show the page "not found".
 - These routes answer with status 404 and the body `{"error":"Not found"}`. The app reads no run data before it answers.
   - `/api/books/<id>`
   - `/api/file`
+  - `/api/monitor/books`
   - `/api/page-extra`
   - `/api/pause`
   - `/api/runs`
@@ -679,3 +680,41 @@ Design: section 15.26 of `docs/VISION-viewer.md`. This unit is part a of two. It
 
 - `node scripts/smoke.mjs web` runs the checks of this unit. The runner `run_all.py` of the unit prepares the test folder with `VIEWER_V1_DIR` and `RT73A_WEB_PAGES`.
 - `node scripts/smoke.mjs folds` needs the page file (env variable `RT73A_WEB_PAGES`, else `<data>/item-metadata/web-pages.jsonl`).
+
+## Monitor dashboard (unit VW77a, round 80)
+
+The first screen `/` is the Monitor dashboard. It shows one row for each book, in six groups. The design is section 15.24.4 of `docs/VISION-viewer.md`. This unit builds the read side only.
+
+### What it reads
+
+- `<translatorDataDir>/book-store/<book>/status.json`, `PAUSE`, and `request.json`. The Translator writes them. A `status.json` is the truth for its book.
+- `<translatorDataDir>/book-store/<book>/prompts/<BOX>/current`. The label `v<phase>.<run>.<updates>` gives the run number. A book with no prompt file shows no run number.
+- The list folders `pilot-run/lists/<stamp>/` (`progress.json`, `list.json`, `list-summary.json`, `PAUSE`). A book with no `status.json` gets a derived row from them. The row carries the tag "pilot list". Pilot lists do not count as real runs.
+- The book set is the slugs of `pilot-sample/book-slugs.json`, plus each book ID in a `book-store` folder or a list folder.
+- The code reads a file again only when its modification time changed. A broken `status.json` gives the row "Status file unreadable". The other rows stay.
+- The pid check sends signal 0. It sends no signal to the process.
+
+### Files
+
+- `lib/book-status-rules.ts`: pure rules. It takes the file contents and the clock, and gives the label, the group, the row text, and the summary line. It gives the same label as `label_of` in `store.py`.
+- `lib/book-status.ts`: server code. It reads the files and calls the rules.
+- `app/api/monitor/books/route.ts`: `GET` only. It returns the rows as JSON. With the monitor off, it answers 404 like the other monitor routes.
+- `components/MonitorDashboard.tsx`, `BookRow.tsx`, `StateLabel.tsx`, `monitor-open-store.ts`: the screen. The groups are `details` elements. The browser keeps the open state of each group, like the checklist of the extra items.
+- `components/useLive.tsx`: the poll runs every 3 seconds. No poll runs in a hidden tab. A banner shows after 3 failed polls.
+
+### Times
+
+Every time on the Monitor dashboard shows in PST (UTC minus 8 hours, all year, text "PST"). The helpers are `pstClock`, `pstStamp`, `pstDateTime`, and `pstClockSeconds`. The code sits in `lib/pst.ts`, and `lib/format.ts` re-exports it. The rules import `lib/pst.ts` directly, because the dev server keeps an old instance of `lib/format.ts` for the route handlers that it loaded before. The Lists tab and the run view keep local time. Example: 2026-07-10T16:00:00Z shows as 08:00 PST.
+
+### Not built yet
+
+- No button (Run, Pause, Resume, Restart). Unit VW77b adds them.
+- No Details view and no Details link. Unit VW77c adds them.
+- No tab and page Run settings. Unit VW77d adds them.
+- No row for a refused Restart (event `restart-refused`). The Translator does not write it yet.
+- No phase 2 row. The screen shows the line "Phase 2 (paired dataset): no run record yet."
+
+### Tests
+
+- `node scripts/smoke.mjs monitor-rules --t2 <T2>/data`: pure tests of the rules and the PST helpers. It starts no server. It runs `python3 -B` once to compare the labels with `label_of`.
+- `node scripts/smoke.mjs monitor --config FILE --fixture DIR`: the screen and the route on a fixture. The fixture comes from `fake_translator.py` of the unit folder, which uses the real code of `store.py`. The test reads only. It ends the fake Translator at the end.

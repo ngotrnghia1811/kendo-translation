@@ -39,3 +39,8 @@ export function pageHref(pageId: string, runFolder?: string): string {
   const q = runFolder ? `?run=${encodeURIComponent(runFolder)}` : "";
   return `/page/${encodeURIComponent(slug)}/${encodeURIComponent(page)}${q}`;
 }
+
+// ---------------------------------------------------------------- PST helpers (unit VW77a)
+// Round 80 answer 19 (Q-A 2026-11-01 l141, reading l156): every time on the Monitor dashboard `/` shows in PST (UTC minus 8 hours) all year.
+// The code sits in lib/pst.ts and shows here too. The helpers above keep the local time for the Lists tab and the run view.
+export { PST_OFFSET_S, pstClock, pstStamp, pstDateTime, pstClockSeconds, parseUtcIso, relativeTime, runIdText } from "./pst";

@@ -17,8 +17,8 @@ export default function RunView({ initial }: { initial: RunDetail }) {
   const isChain = run.listKind === "chain";
   return (
     <section>
-      <Link href="/" className="text-sm text-muted hover:text-foreground">
-        ← All runs
+      <Link href="/runs" className="text-sm text-muted hover:text-foreground">
+        ← Lists
       </Link>
       <div className="mt-2 mb-4 flex flex-wrap items-center gap-x-5 gap-y-2">
         <h1 className="text-xl font-semibold font-mono">{run.stamp}</h1>

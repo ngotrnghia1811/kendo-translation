@@ -26,7 +26,7 @@ export async function requireMonitor(): Promise<void> {
  *   no session            /sign-in (the page holds the link "Create an account")
  *   reader                /read (the Reader dashboard, also a reader who waits for approval)
  *   translator or admin   /translate
- * With the monitor on (the Mac), "/" keeps the runs table of the Monitor dashboard and this function returns at once.
+ * With the monitor on (the Mac), "/" shows the Monitor dashboard (unit VW77a) and this function returns at once.
  * If PocketBase is not reachable, the function returns the message and the page shows it.
  */
 export async function frontDoor(): Promise<{ down: string } | void> {
