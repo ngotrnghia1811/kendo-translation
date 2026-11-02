@@ -3,11 +3,13 @@ import { useEffect, useState } from "react";
 import type { ChainRow } from "@/lib/types";
 import type { CompareView, CompareVariantTotals, MemoryPage } from "@/lib/chain";
 import { usd } from "@/lib/format";
+import { pstFromUtcText } from "@/lib/pst-more";
 import { StatePill } from "./Pills";
 
 // Round 48 answer 9 (Q-A 2026-10-27 l55): "the Viewer shows the chain state per book, skipped pages, the book translation memory pairs,
 // the critic mode and the session turn, the compare table". These panels sit on the run view of a chain list. They only read files.
 // [agent inference] The panels sit under the run header and above the page table. The owner has not placed them yet.
+// Unit VW77b1 (round 81 answer 17, Q-A 2026-11-02 l22): the time of a compare file ("made 2026-10-27 23:50 PST") shows in PST.
 
 const th = "px-3 py-2 text-left text-xs uppercase tracking-wide text-muted";
 const td = "px-3 py-2 align-top";
@@ -193,7 +195,7 @@ export function ComparePanel({ stamp, isChain }: { stamp: string; isChain: boole
       {list.map((c) => (
         <div key={c.folder} className="rounded border border-line bg-white p-3">
           <p className="mb-2 text-xs text-muted">
-            <span className="font-mono">critic-compare/{c.folder}</span>, made {c.generatedUtc || "at an unknown time"}, {c.pageCount} pages, {c.commonPageCount} pages in every variant.
+            <span className="font-mono">critic-compare/{c.folder}</span>, made {c.generatedUtc ? pstFromUtcText(c.generatedUtc) : "at an unknown time"}, {c.pageCount} pages, {c.commonPageCount} pages in every variant.
           </p>
           <TotalsTable title="All pages" rows={c.all} />
           {c.common.length > 0 && c.all.length > 1 ? <TotalsTable title="Pages that every variant covers" rows={c.common} /> : null}

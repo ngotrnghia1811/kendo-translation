@@ -1,10 +1,12 @@
 import { lineText, progressText, money, type MonitorRow } from "@/lib/book-status-rules";
 import StateLabel from "./StateLabel";
+import RowButtons from "./RowButtons";
 
 // Unit VW77a (round 80), VISION-viewer 15.24.4.3: a row has two lines. Line 1 holds the facts in fixed columns, line 2 holds one sentence in words.
 // A third line shows only when an error text exists. It is red, it names the page and the box, and it is never cut.
-// No button and no Details link yet: the buttons come in unit VW77b and the Details view in unit VW77c.
-export default function BookRow({ row, now }: { row: MonitorRow; now: number }) {
+// Unit VW77b1 (round 81): the buttons Run, Run phase 4, Pause, and Resume sit at the end of line 1 (components/RowButtons.tsx).
+// No Restart button yet (unit VW77b2) and no Details link yet (unit VW77c, round 81 answer 25). A refused Restart adds its own line (round 81 answers 15 and 16).
+export default function BookRow({ row, now, onChanged }: { row: MonitorRow; now: number; onChanged: () => Promise<void> }) {
   const hasRun = row.key !== "not-started" && row.key !== "unreadable";
   const pct = row.pagesTotal && row.pagesDone !== null ? Math.min(100, Math.round((row.pagesDone / row.pagesTotal) * 100)) : 0;
   const line2 = lineText(row.line2, now);
@@ -24,6 +26,7 @@ export default function BookRow({ row, now }: { row: MonitorRow; now: number }) 
         </div>
         {hasRun ? (
           <>
+            {/* Round 81 answer 22 (Q-A 2026-11-02 l27): a pilot row has an empty phase cell. */}
             <div className="w-52 text-sm" data-col="phase">
               {row.phase}
               {row.run ? <div className="text-xs text-muted">{row.run}</div> : null}
@@ -44,6 +47,7 @@ export default function BookRow({ row, now }: { row: MonitorRow; now: number }) 
             </div>
           </>
         ) : null}
+        <RowButtons row={row} onChanged={onChanged} />
       </div>
       {line2 || row.note ? (
         <p data-row-line2 className="mt-1 text-sm text-muted">
@@ -53,6 +57,11 @@ export default function BookRow({ row, now }: { row: MonitorRow; now: number }) 
               {row.note}
             </span>
           ) : null}
+        </p>
+      ) : null}
+      {row.refused ? (
+        <p data-row-refused className="mt-1 text-sm font-medium text-foreground">
+          {row.refused}
         </p>
       ) : null}
       {row.warning ? (

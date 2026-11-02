@@ -25,10 +25,12 @@ import {
  *   - A status.json is the truth when it exists. The pid check uses signal 0. A book without status.json gets a derived row from the list folders.
  *   - The Viewer reads a file again only when its modification time changed. The poll runs every 3 s.
  *   - A broken status.json gives the row "Status file unreadable". It never stops the page.
- * This code only reads. It writes no file (the buttons come in unit VW77b).
+ * This code only reads. It writes no file. The buttons write through lib/book-actions.ts (unit VW77b1, round 81).
+ * Unit VW77b1: a `fresh` read skips the cache, the write routes use it for the state check. The facts also hold phase2Ready and the refusal of a Restart.
  */
 
 const STORE = "book-store";
+const PHASE2_BOOK = "paired-dataset"; // prompts.py:26
 const LISTS = path.join("pilot-run", "lists");
 // The 16 boxes in the order of prompts.py:20-21 (stage TS, TL, ED, QA, each with level 0 to 3).
 const BOXES = ["TS", "TL", "ED", "QA"].flatMap((s) => [0, 1, 2, 3].map((l) => `${s}_${l}`));
@@ -46,7 +48,7 @@ interface Entry {
 const cache = new Map<string, Entry>();
 
 /** Read a file again only when its modification time, size, or inode changed. Returns null when the file does not exist. */
-async function readCached(file: string): Promise<Entry | null> {
+async function readCached(file: string, fresh = false): Promise<Entry | null> {
   let st;
   try {
     st = await fs.stat(file);
@@ -55,7 +57,7 @@ async function readCached(file: string): Promise<Entry | null> {
     return null;
   }
   if (!st.isFile()) return null;
-  const hit = cache.get(file);
+  const hit = fresh ? undefined : cache.get(file);
   if (hit && hit.mtimeMs === st.mtimeMs && hit.size === st.size && hit.ino === st.ino) return hit;
   let text: string;
   try {
@@ -76,8 +78,8 @@ async function readCached(file: string): Promise<Entry | null> {
 }
 
 /** JSON of a file: "missing", "bad" (exists, cannot be parsed), or the value. */
-async function readJsonFile(file: string): Promise<"missing" | "bad" | { value: unknown }> {
-  const e = await readCached(file);
+async function readJsonFile(file: string, fresh = false): Promise<"missing" | "bad" | { value: unknown }> {
+  const e = await readCached(file, fresh);
   if (!e) return "missing";
   return e.json.ok ? { value: e.json.value } : "bad";
 }
@@ -158,18 +160,34 @@ async function runNumberOfBook(bookDir: string, phase: string | null | undefined
   return null;
 }
 
-export async function loadMonitor(nowMs: number = Date.now()): Promise<MonitorData> {
-  const now = nowMs / 1000;
-  const empty = (error: string): MonitorData => ({ ok: false, error, generatedAt: now, rows: [], summary: summarize([]), lastListEnd: null, noRun: false });
-  let root: string;
-  try {
-    root = await dataRoot();
-    if (!(await fs.stat(root)).isDirectory()) return empty(DATA_ERROR_TEXT);
-  } catch {
-    return empty(DATA_ERROR_TEXT);
-  }
+/**
+ * Round 78 answer 16 (Q-A 2026-11-01 l78): "Wait for phase 2 files". A real book cannot start phase 3 until the 16 pointer files
+ * book-store/paired-dataset/prompts/<BOX>/current exist (PHASE2_BOOK in prompts.py:26, CURRENT in prompts.py:25). The Run button waits for them [aki-main proposal in the brief of VW77b1].
+ */
+async function phase2Ready(root: string): Promise<boolean> {
+  for (const box of BOXES) if (!(await exists(path.join(root, STORE, PHASE2_BOOK, "prompts", box, "current")))) return false;
+  return true;
+}
 
-  // List folders of the pilot lists (derived rows).
+/** The newest event `restart-refused` of the file history.jsonl (round 81 answer 16: fields `reason` and `requested_utc`). Null when there is none. */
+async function readRefusal(dir: string, fresh: boolean): Promise<BookFacts["refusal"]> {
+  const e = await readCached(path.join(dir, "history.jsonl"), fresh);
+  if (!e) return null;
+  let out: BookFacts["refusal"] = null;
+  for (const line of e.text.split("\n")) {
+    if (!line.includes("restart-refused")) continue;
+    try {
+      const v = obj(JSON.parse(line));
+      if (v && v.event === "restart-refused") out = { reason: typeof v.reason === "string" ? v.reason : null, requested_utc: typeof v.requested_utc === "string" ? v.requested_utc : null };
+    } catch {
+      /* skip a broken line */
+    }
+  }
+  return out;
+}
+
+/** List folders of the pilot lists (derived rows). */
+async function loadLists(root: string): Promise<{ lists: ListInput[]; lastListEnd: number | null }> {
   const lists: ListInput[] = [];
   let lastListEnd: number | null = null;
   for (const stamp of (await dirNames(path.join(root, LISTS))).filter(isSafeSegment)) {
@@ -190,8 +208,14 @@ export async function loadMonitor(nowMs: number = Date.now()): Promise<MonitorDa
     const upd = typeof prog?.updated_epoch === "number" ? prog.updated_epoch : null;
     if (upd !== null && isFinalListState(state) && (lastListEnd === null || upd > lastListEnd)) lastListEnd = upd;
   }
+  return { lists, lastListEnd };
+}
 
-  // The book set.
+/**
+ * The book set: the slugs of pilot-sample/book-slugs.json, plus any book folder of the store, plus any book ID in a list folder.
+ * The store folder of phase 2 (paired-dataset) is no book: a phase 2 run has no book row (VISION 15.24.4.4) [unit default VW77b1].
+ */
+async function loadBookSet(root: string, lists: ListInput[]): Promise<Map<string, number | null>> {
   const bookPages = new Map<string, number | null>();
   const slugsFile = await readJsonFile(path.join(root, "pilot-sample", "book-slugs.json"));
   if (typeof slugsFile !== "string") {
@@ -214,38 +238,81 @@ export async function loadMonitor(nowMs: number = Date.now()): Promise<MonitorDa
       if (b && isSafeSegment(b) && !bookPages.has(b)) bookPages.set(b, null);
     }
   }
+  bookPages.delete(PHASE2_BOOK);
+  return bookPages;
+}
 
+/** The facts of one book. `fresh` reads status.json, request.json, and history.jsonl again, with no cache. Returns the facts and whether status.json exists. */
+async function readFacts(root: string, slug: string, pages: number | null, titles: Map<string, string>, lists: ListInput[], ph2: boolean, fresh: boolean): Promise<{ facts: BookFacts; hasStatusFile: boolean }> {
+  const dir = path.join(root, STORE, slug);
+  const rel = `${STORE}/${slug}/status.json`;
+  const sf = await readJsonFile(path.join(dir, "status.json"), fresh);
+  const statusUnreadable = sf === "bad" || (typeof sf !== "string" && obj(sf.value) === null);
+  const status = typeof sf === "string" || statusUnreadable ? null : (obj(sf.value) as StatusFile);
+  const mf = await readJsonFile(path.join(dir, "request.json"), fresh);
+  const markUnreadable = mf === "bad" || (typeof mf !== "string" && obj(mf.value) === null);
+  const mark = typeof mf === "string" || markUnreadable ? null : (obj(mf.value) as MarkFile);
+  const facts: BookFacts = {
+    slug,
+    title: titles.get(slug) ?? "",
+    bookPages: pages ?? (typeof status?.book_pages === "number" && status.book_pages > 0 ? status.book_pages : null),
+    status,
+    statusUnreadable,
+    statusFile: rel,
+    pauseExists: await exists(path.join(dir, "PAUSE")),
+    mark,
+    markUnreadable,
+    pidAlive: status ? pidAlive(status.pid) : false,
+    runNumber: status ? await runNumberOfBook(dir, status.phase) : null,
+    derived: status || statusUnreadable ? null : deriveFacts(slug, lists),
+    phase2Ready: ph2,
+    refusal: mark?.action === "restart" ? await readRefusal(dir, fresh) : null,
+  };
+  return { facts, hasStatusFile: sf !== "missing" };
+}
+
+/** A link to a failed file must point at a file that exists (VISION 15.24.4.3: "A link opens the file"). */
+async function checkErrorFile(root: string, row: MonitorRow): Promise<void> {
+  if (row.errorFile && (row.errorFile.split("/").includes("..") || path.isAbsolute(row.errorFile) || !(await exists(path.join(root, row.errorFile))))) row.errorFile = null;
+}
+
+export async function loadMonitor(nowMs: number = Date.now()): Promise<MonitorData> {
+  const now = nowMs / 1000;
+  const empty = (error: string): MonitorData => ({ ok: false, error, generatedAt: now, rows: [], summary: summarize([]), lastListEnd: null, noRun: false });
+  let root: string;
+  try {
+    root = await dataRoot();
+    if (!(await fs.stat(root)).isDirectory()) return empty(DATA_ERROR_TEXT);
+  } catch {
+    return empty(DATA_ERROR_TEXT);
+  }
+  const { lists, lastListEnd } = await loadLists(root);
+  const bookPages = await loadBookSet(root, lists);
   const titles = await loadTitles(root);
+  const ph2 = await phase2Ready(root);
   const rows: MonitorRow[] = [];
   let statusFiles = 0;
   for (const [slug, pages] of bookPages) {
-    const dir = path.join(root, STORE, slug);
-    const rel = `${STORE}/${slug}/status.json`;
-    const sf = await readJsonFile(path.join(dir, "status.json"));
-    const statusUnreadable = sf === "bad" || (typeof sf !== "string" && obj(sf.value) === null);
-    const status = typeof sf === "string" || statusUnreadable ? null : (obj(sf.value) as StatusFile);
-    if (sf !== "missing") statusFiles++;
-    const mf = await readJsonFile(path.join(dir, "request.json"));
-    const markUnreadable = mf === "bad" || (typeof mf !== "string" && obj(mf.value) === null);
-    const mark = typeof mf === "string" || markUnreadable ? null : (obj(mf.value) as MarkFile);
-    const facts: BookFacts = {
-      slug,
-      title: titles.get(slug) ?? "",
-      bookPages: pages ?? (typeof status?.book_pages === "number" && status.book_pages > 0 ? status.book_pages : null),
-      status,
-      statusUnreadable,
-      statusFile: rel,
-      pauseExists: await exists(path.join(dir, "PAUSE")),
-      mark,
-      markUnreadable,
-      pidAlive: status ? pidAlive(status.pid) : false,
-      runNumber: status ? await runNumberOfBook(dir, status.phase) : null,
-      derived: status || statusUnreadable ? null : deriveFacts(slug, lists),
-    };
+    const { facts, hasStatusFile } = await readFacts(root, slug, pages, titles, lists, ph2, false);
+    if (hasStatusFile) statusFiles++;
     const row = buildRow(facts, now);
-    // A link to a failed file must point at a file that exists (VISION 15.24.4.3: "A link opens the file").
-    if (row.errorFile && (row.errorFile.split("/").includes("..") || path.isAbsolute(row.errorFile) || !(await exists(path.join(root, row.errorFile))))) row.errorFile = null;
+    await checkErrorFile(root, row);
     rows.push(row);
   }
   return { ok: true, error: null, generatedAt: now, rows, summary: summarize(rows), lastListEnd, noRun: lists.length === 0 && statusFiles === 0 };
+}
+
+/**
+ * One book row for the write routes (unit VW77b1). The state check of a press needs a fresh read, so status.json, request.json, history.jsonl
+ * are read again with no cache. Returns null when the slug is not in the book set (the route answers 404).
+ * `root` is the data folder and 
+ */
+export async function loadBookFresh(slug: string, nowMs: number = Date.now()): Promise<{ row: MonitorRow; root: string } | null> {
+  const root = await dataRoot();
+  const { lists } = await loadLists(root);
+  const bookPages = await loadBookSet(root, lists);
+  if (!bookPages.has(slug)) return null;
+  const titles = await loadTitles(root);
+  const { facts } = await readFacts(root, slug, bookPages.get(slug) ?? null, titles, lists, await phase2Ready(root), true);
+  return { row: buildRow(facts, nowMs / 1000), root };
 }

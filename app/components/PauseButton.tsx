@@ -1,11 +1,12 @@
 "use client";
 import { useState } from "react";
-import { clock } from "@/lib/format";
+import { pstClockOrDash } from "@/lib/pst-more";
 import ConfirmDialog from "./ConfirmDialog";
 
 // Round 43 answer 8 (Q-A l112): "Pause before next call (Recommended)". Round 44 answer 13 (Q-A l142): a pause button writes PAUSE.
 // The run program checks the file before each new model call. Calls that run now finish.
 // Round 74 answer 12 (qa-memory-2026-10-31.md:38) and round 75 answer 11 (:61): the button asks first, in a confirm dialog (VISION-viewer 15.27.2).
+// Unit VW77b1 (round 81 answer 17, Q-A 2026-11-02 l22): the time "Paused since 23:50 PST" shows in PST.
 // The texts say what the route /api/pause does (lib/runs.ts setPause): Pause creates the file PAUSE, Resume deletes it.
 export default function PauseButton({
   stamp,
@@ -57,7 +58,7 @@ export default function PauseButton({
         {fileExists ? "Resume" : "Pause"}
       </button>
       {state === "paused" ? (
-        <span className="text-sm text-amber-800">Paused since {clock(pausedSinceEpoch)}</span>
+        <span className="text-sm text-amber-800">Paused since {pstClockOrDash(pausedSinceEpoch)}</span>
       ) : fileExists ? (
         <span className="text-sm text-amber-800">Pause requested. Calls that run now will finish first.</span>
       ) : (

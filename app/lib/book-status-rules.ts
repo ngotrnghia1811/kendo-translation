@@ -1,4 +1,4 @@
-// Rules of the Monitor dashboard (unit VW77a, round 80). Pure functions: no file access, no clock of their own, no server-only import.
+// Rules of the Monitor dashboard (unit VW77a, round 80, buttons added by unit VW77b1, round 81). Pure functions: no file access, no clock of their own, no server-only import.
 // The server code (book-status.ts) reads the files, checks the pid, and passes the facts and the clock in. A test runs this file with plain node
 // and the resolve hook (scripts/ts-resolve-hook.mjs). Use only erasable TypeScript syntax here (no enum, no parameter property).
 //
@@ -7,6 +7,8 @@
 //   <T2>/data/scripts/translator/store.py: STATES, STOP_REASONS, LABELS, label_of, HEARTBEAT_S 30, STALE_S 120, write_mark.
 //   Q-A 2026-11-01: round 76 answer 4 (l7), round 77 answer 9 (l40), round 78 answer 10 (l72), round 79 answers 11 and 13 (l103, l105),
 //   round 80 answers 11, 14, 16, 19 (l133, l136, l138, l141).
+//   Q-A 2026-11-02 (round 81): answers 15 and 16 (l20, l21: refused Restart), 19 (l24: grayed Run and Resume), 21 (l26: no "1 error"), 22 (l27: empty phase cell).
+//   VISION 15.27.3 (buttons table), 15.29.2 (buttons for each state), 15.33.3 (Running row), 15.33.4 (refused Restart).
 // If VISION and store.py disagree, store.py and the newer answer win (see the notes at "running-pause" and "restart_requested_utc").
 import { parseUtcIso, pstClock, pstDateTime, pstStamp, relativeTime, runIdText } from "./pst";
 
@@ -136,12 +138,33 @@ export interface BookFacts {
   pidAlive: boolean; // process.kill(pid, 0) answered (the server computes it from status.pid)
   runNumber: number | null; // from the current pointer of the prompt files
   derived: DerivedFacts | null;
+  /** True when the 16 files book-store/paired-dataset/prompts/<BOX>/current exist (round 78 answer 16, Q-A 2026-11-01 l78: "Wait for phase 2 files"). */
+  phase2Ready: boolean;
+  /** The newest event `restart-refused` of history.jsonl (round 81 answer 16, Q-A 2026-11-02 l21). Null when the book has none. */
+  refusal: { reason: string | null; requested_utc: string | null } | null;
 }
 
 // ---------------------------------------------------------------- output types
 
 /** A piece of line 2: text, or a time that the browser can recompute every 30 s with no request (VISION 15.24.4.6). */
 export type Seg = string | { ago: number; secs?: boolean };
+
+export type ActionId = "pause" | "run" | "run4" | "resume";
+export const ACTION_LABELS: Record<ActionId, string> = { pause: "Pause", run: "Run", run4: "Run phase 4", resume: "Resume" };
+
+/**
+ * One button of a book row (VISION 15.27.3 and 15.29.2).
+ * show: the row draws the button. enabled: the button can be pressed. reason: the words of a grayed button (null when enabled).
+ * stateReason: why the action does not fit the book, with request.json out of the picture (null when it fits). The write routes answer 409 with it.
+ */
+export interface ActionButton {
+  id: ActionId;
+  label: string;
+  show: boolean;
+  enabled: boolean;
+  reason: string | null;
+  stateReason: string | null;
+}
 
 export interface MonitorRow {
   slug: string;
@@ -153,6 +176,8 @@ export interface MonitorRow {
   group: GroupName;
   pilot: boolean; // a derived row from a pilot list
   phase: string | null;
+  /** The phase key of status.json ("agent-phase-3"), for the body of a Resume press. Null when the book has no status.json. */
+  phaseId: string | null;
   run: string | null;
   pagesDone: number | null;
   pagesTotal: number | null;
@@ -166,6 +191,10 @@ export interface MonitorRow {
   errorCount: number;
   eventEpoch: number | null;
   statusFile: string | null;
+  /** The buttons in the order of the row: Pause, Run, Run phase 4, Resume. Four entries, `show` tells which ones the row draws. */
+  buttons: ActionButton[];
+  /** Second line of a refused Restart: "Restart refused: ED_2 v4.1.3 has no file". Null otherwise. */
+  refused: string | null;
 }
 
 export interface MonitorSummary {
@@ -480,6 +509,7 @@ function blankRow(f: BookFacts, key: LabelKey): MonitorRow {
     group: l.group,
     pilot: false,
     phase: null,
+    phaseId: null,
     run: null,
     pagesDone: null,
     pagesTotal: null,
@@ -493,6 +523,8 @@ function blankRow(f: BookFacts, key: LabelKey): MonitorRow {
     errorCount: 0,
     eventEpoch: null,
     statusFile: null,
+    buttons: [],
+    refused: null,
   };
 }
 
@@ -602,7 +634,8 @@ function derivedRow(f: BookFacts, d: DerivedFacts, now: number): MonitorRow {
   else key = "stopped";
   const r = blankRow(f, key);
   r.pilot = true;
-  r.phase = "Phase not stored";
+  // Round 81 answer 22 (Q-A 2026-11-02 l27): "Empty cell". A pilot row shows an empty phase cell, not "Phase not stored". The status row (statusRow) keeps its text.
+  r.phase = null;
   r.pagesDone = d.pagesDone;
   r.pagesTotal = f.bookPages;
   r.cost = d.costUsd;
@@ -659,9 +692,109 @@ function unreadableRow(f: BookFacts): MonitorRow {
   return r;
 }
 
+// ---------------------------------------------------------------- buttons
+
+export const PHASE2_GATE_REASON = "Run is off until phase 2 prompt files exist"; // [aki-main proposal in the brief of VW77b1]
+
+function pidText(f: BookFacts): string {
+  const pid = f.status?.pid;
+  return typeof pid === "number" && Number.isInteger(pid) && pid > 0 ? ` (pid ${pid})` : "";
+}
+
+/**
+ * The four buttons of one row (VISION 15.27.3, 15.29.2, 15.33.3). Round 81 answers 19 and 25 (Q-A 2026-11-02 l24, l30), brief of unit VW77b1.
+ *   Not started (no status.json, or state not-started) and pilot rows: Run (phase agent-phase-3). A pilot list is no real run [unit default VW77b1].
+ *   Running: Pause, with Run and Resume grayed ("Resume is off because this book runs now (pid 4821)", VISION 4003).
+ *   Running with pause requested: Pause grayed ("Pause is already requested") [unit default VW77b1].
+ *   Running while a Restart mark waits: no buttons (round 79 answer 13, Q-A 2026-11-01 l105). A refused Restart mark does not count.
+ *   A mark waits (request.json exists, no process): Run and Resume grayed ("A mark waits: Run requested 08:40 PST") [unit default VW77b1].
+ *   Stopped (Pause or Ctrl-C), Stopped by failure, Stopped unexpectedly: Resume (VISION 15.29.2 lists Resume for all three).
+ *   Completed in phase 3: Run phase 4. Run (phase 3) is grayed until the 16 phase 2 prompt files exist [aki-main proposal in the brief of VW77b1].
+ * No Restart button (unit VW77b2) and no Details link (unit VW77c).
+ */
+export function actionButtons(f: BookFacts, r: Pick<MonitorRow, "pilot" | "baseLabel">, base: LabelKey, mark: ReturnType<typeof markInfo>, refusedNow: boolean): ActionButton[] {
+  const unreadable = base === "unreadable";
+  const runs = base === "running" || base === "running-pause";
+  const markPresent = f.mark !== null || f.markUnreadable;
+  const when = mark && mark.epoch !== null ? ` ${pstClock(mark.epoch)}` : "";
+  const waitReason = !markPresent ? null : mark ? `A mark waits: ${mark.word} requested${when}${refusedNow ? " (refused)" : ""}` : "A mark waits: the file request.json is there";
+  const restartWaits = runs && mark?.word === "Restart" && !refusedNow;
+  const noRealRun = !unreadable && (!f.status || base === "not-started");
+  const stopReason = f.status?.stop_reason ?? null;
+  const here = `This book is: ${r.baseLabel}.`;
+
+  // Why the action does not fit the book state. Null means it fits.
+  const why: Record<ActionId, string | null> = {
+    pause: unreadable
+      ? "The file status.json cannot be read."
+      : r.pilot && runs
+        ? "Pause of a pilot list is on the Lists tab."
+        : !runs
+          ? `Pause is for a Running book. ${here}`
+          : restartWaits
+            ? "Pause is off because a Restart mark waits."
+            : base === "running-pause"
+              ? "Pause is already requested"
+              : null,
+    run: unreadable
+      ? "The file status.json cannot be read."
+      : r.pilot && runs
+        ? "Run is off because a pilot list runs this book now. Use Pause on the Lists tab."
+        : runs
+          ? `Run is off because this book runs now${pidText(f)}`
+          : !noRealRun
+            ? `Run is for a book with no run yet. ${here}`
+            : !f.phase2Ready
+              ? PHASE2_GATE_REASON
+              : null,
+    run4: unreadable
+      ? "The file status.json cannot be read."
+      : base === "completed" && f.status?.phase === "agent-phase-3"
+        ? null
+        : `Run phase 4 is for a Completed book of phase 3. ${here}`,
+    resume: unreadable
+      ? "The file status.json cannot be read."
+      : runs
+        ? `Resume is off because this book runs now${pidText(f)}`
+        : noRealRun
+          ? "Resume is for a stopped book. This book has no run yet."
+          : r.pilot
+            ? "Resume is for a stopped book. A pilot list is no real run."
+            : base === "failure" || base === "unexpected"
+              ? null
+              : base === "stopped" && (stopReason === "pause" || stopReason === "ctrl-c")
+                ? null
+                : base === "stopped"
+                  ? `Resume does not fit this stop (${stopReason ?? "no reason is stored"}).`
+                  : `Resume is for a stopped book. ${here}`,
+  };
+
+  let show: ActionId[] = [];
+  if (unreadable || restartWaits) show = [];
+  else if (runs && r.pilot) show = ["run"];
+  else if (runs) show = ["pause", "run", "resume"];
+  else if (markPresent) show = ["run", "resume"];
+  else if (noRealRun) show = ["run"];
+  else if (why.run4 === null) show = ["run4"];
+  else if (why.resume === null) show = ["resume"];
+
+  return (["pause", "run", "run4", "resume"] as ActionId[]).map((id) => {
+    const shown = show.includes(id);
+    // Pause is no mark: a mark on a running book does not block it. Every other action waits while request.json exists.
+    const blockedByMark = id !== "pause" && markPresent;
+    const enabled = shown && why[id] === null && !blockedByMark;
+    const reason = !shown || enabled ? null : runs ? (why[id] ?? waitReason) : (waitReason ?? why[id]);
+    return { id, label: ACTION_LABELS[id], show: shown, enabled, reason, stateReason: why[id] };
+  });
+}
+
 /** Build the row of one book. `now` is the clock in epoch seconds. */
 export function buildRow(f: BookFacts, now: number): MonitorRow {
-  if (f.statusUnreadable) return unreadableRow(f);
+  if (f.statusUnreadable) {
+    const u = unreadableRow(f);
+    u.buttons = actionButtons(f, u, "unreadable", null, false);
+    return u;
+  }
   let r: MonitorRow;
   if (f.status) r = statusRow(f, f.status, now);
   else if (f.derived) r = derivedRow(f, f.derived, now);
@@ -669,8 +802,14 @@ export function buildRow(f: BookFacts, now: number): MonitorRow {
     r = blankRow(f, "not-started");
     r.line2 = [];
   }
+  const baseKey = r.key;
   const m = markInfo(f.mark);
-  if (m) {
+  // Round 81 answers 15 and 16 (Q-A 2026-11-02 l20, l21): a Restart mark that the Translator refused keeps the group of the book state.
+  // The Viewer finds it from the newest event `restart-refused`, which holds the `requested_utc` of the same mark.
+  const refusedNow = !!(f.mark && f.mark.action === "restart" && f.refusal && f.refusal.requested_utc !== null && f.refusal.requested_utc === f.mark.requested_utc);
+  if (refusedNow && f.refusal) {
+    r.refused = `Restart refused: ${f.refusal.reason && f.refusal.reason.trim() !== "" ? f.refusal.reason.trim() : "no reason is stored."}`;
+  } else if (m) {
     const runs = r.key === "running" || r.key === "running-pause";
     const when = m.epoch === null ? "" : ` ${pstClock(m.epoch)}`;
     const text = `${m.word} requested${when}`;
@@ -693,6 +832,8 @@ export function buildRow(f: BookFacts, now: number): MonitorRow {
   } else if (f.mark) {
     r.warning = "The file request.json holds an action that this page does not know.";
   }
+  r.phaseId = typeof f.status?.phase === "string" ? f.status.phase : null;
+  r.buttons = actionButtons(f, r, baseKey, m, refusedNow);
   return r;
 }
 
@@ -729,7 +870,8 @@ export function groupStartsOpen(g: GroupName): boolean {
 
 /**
  * Summary line (VISION 15.24.4.1): "1 needs attention · 0 waiting for a run · 0 running · 11 stopped · 0 completed · 25 not started".
- * An error count follows when it is above 0 (VISION 15.24.4.2, notes: "1 error"). The cost is the model cost of all rows.
+ * Round 81 answer 21 (Q-A 2026-11-02 l26): "Drop it (Recommended)". The line has no error count. The row keeps its red error line, and `errors` stays in the data.
+ * The cost is the model cost of all rows.
  */
 export function summarize(rows: MonitorRow[]): MonitorSummary {
   const counts = Object.fromEntries(GROUPS.map((g) => [g, 0])) as Record<GroupName, number>;
@@ -740,10 +882,9 @@ export function summarize(rows: MonitorRow[]): MonitorSummary {
     errors += r.errorCount;
     cost += r.cost ?? 0;
   }
-  let text =
+  const text =
     `${counts["Needs attention"]} needs attention · ${counts["Waiting for a run"]} waiting for a run · ${counts["Running"]} running · ` +
     `${counts["Stopped"]} stopped · ${counts["Completed"]} completed · ${counts["Not started"]} not started`;
-  if (errors > 0) text += ` · ${errors} error${errors === 1 ? "" : "s"}`;
   return { counts, errors, costUsd: cost, text, costText: `Model cost of all books: ${money(cost)}` };
 }
 

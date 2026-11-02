@@ -6,6 +6,7 @@ import { hasAgentRecord } from "./reader-web";
 import type { OpenSource, ReaderOpen } from "./reader-opens-rule";
 import type { PaneSettings, ThemeName } from "./htv-settings";
 import { isTheme } from "./htv-settings";
+import { pstDateOfPb } from "./pst-more";
 
 /*
  * ALL PocketBase calls of the app sit in this one module (round 54 answer 10, Q-A 2026-10-28 l129:
@@ -604,10 +605,14 @@ export async function readerVersionRecords(token: string, pageIds: string[]): Pr
   return out;
 }
 
-/** Page checks of a book: page number to the date (YYYY-MM-DD) of the check. */
+/**
+ * Page checks of a book: page ID to the date (YYYY-MM-DD) of the check.
+ * Unit VW77b1 (round 81 answer 18, Q-A 2026-11-02 l23): the date is the PST date (UTC minus 8 hours), because the book screen shows it in the label
+ * "AI translation, checked by a person (2026-10-27)". PocketBase stores `created` in UTC. A check made at 2026-10-28 03:00 UTC shows 2026-10-27.
+ */
 export async function pageCheckDates(token: string, slug: string): Promise<Map<string, string>> {
   const recs = await listAll(token, "page_checks", { filter: `page_id~${q(slug + "/")}`, fields: "page_id,created" });
-  return new Map(recs.filter((r) => String(r.page_id).startsWith(slug + "/")).map((r) => [String(r.page_id), String(r.created ?? "").slice(0, 10)]));
+  return new Map(recs.filter((r) => String(r.page_id).startsWith(slug + "/")).map((r) => [String(r.page_id), pstDateOfPb(r.created)]));
 }
 
 /** Title, author, year, pages, and the synopsis of the books. The research fields of the metadata row stay out (sources, confidence, notes). */

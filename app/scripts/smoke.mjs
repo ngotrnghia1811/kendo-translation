@@ -26,6 +26,9 @@
 //                                                      --t2 is the data folder of the Translator (read only: the three pilot lists). It runs python3 -B once to compare the labels with `label_of` of store.py.
 //   node scripts/smoke.mjs monitor --config FILE --fixture DIR   Monitor dashboard on a fixture (unit VW77a). The fixture is made by fake_translator.py (real store.py code).
 //                                                      GET / and /api/monitor/books and /runs, the monitor off, a broken file, and the end of the process. Reads only. It kills the pid in DIR/PID at the end.
+//   node scripts/smoke.mjs monitor-actions --config FILE --fixture DIR   Buttons of the Monitor dashboard (unit VW77b1, round 81): the write routes /api/monitor/books/<slug>/mark and /pause,
+//                                                      every 404, 403, 415, 400, and 409 case, the exact bytes of request.json, the file PAUSE, the refused Restart row, the summary line,
+//                                                      the empty phase cell of a pilot row, and PST on /runs. It WRITES into the fixture DIR (never the real data folder). fake_translator.py builds it.
 // The script starts `next start` on a free port and stops it at the end (the modes folds, layout, and monitor-rules start no server).
 // Run `npm run build` first. Run the script in a copy of the app, not in the folder of the dev server.
 // Mode `pause` sends POST requests. Never run it with the real data folder.
@@ -2831,10 +2834,11 @@ async function monitorRulesTest() {
   installTsResolveHook();
   const R = await import("../lib/book-status-rules.ts");
   const F = await import("../lib/format.ts");
+  const M = await import("../lib/pst-more.ts");
   const { spawnSync } = await import("node:child_process");
   const NOW = Date.UTC(2026, 10, 2, 8, 0, 0) / 1000; // 2026-11-02 00:00 PST
   const iso = (off) => new Date((NOW + off) * 1000).toISOString().replace(/\.\d+Z$/, "Z");
-  const facts = (over = {}) => ({ slug: "mental_full", title: "Making the Difference on the Day", bookPages: 169, status: null, statusUnreadable: false, statusFile: "book-store/mental_full/status.json", pauseExists: false, mark: null, markUnreadable: false, pidAlive: true, runNumber: null, derived: null, ...over });
+  const facts = (over = {}) => ({ slug: "mental_full", title: "Making the Difference on the Day", bookPages: 169, status: null, statusUnreadable: false, statusFile: "book-store/mental_full/status.json", pauseExists: false, mark: null, markUnreadable: false, pidAlive: true, runNumber: null, derived: null, phase2Ready: true, refusal: null, ...over });
   const st = (over = {}) => ({ book: "mental_full", phase: "agent-phase-4", state: "running", stop_reason: null, stop_text: null, pid: 4821, heartbeat_utc: iso(-30), running_page: "mental_full/p051", running_boxes: ["TL_2"], last_accepted_page: "mental_full/p050", next_page: "mental_full/p052", pages_done: 50, pages_total: 169, cost_usd_models_phase: 8.3, seconds_phase: 9540, started_utc: iso(-54 * 60), run_id: "2026-11-04T00:15:00-08:00", updated_utc: iso(-30), last_error: null, ...over });
   const row = (over, now = NOW) => R.buildRow(facts(over), now);
   const text = (r, now = NOW) => R.lineText(r.line2, now);
@@ -2848,6 +2852,10 @@ async function monitorRulesTest() {
   check("PST: the run ID 2026-11-04T00:15:00-08:00 reads '2026-11-04 00:15 PST'; another offset gives null", F.runIdText("2026-11-04T00:15:00-08:00") === "2026-11-04 00:15 PST" && F.runIdText("2026-07-10T09:00:00-07:00") === null && F.runIdText(null) === null);
   check("PST: parseUtcIso refuses a bad stamp (month 13, 30 February, a stamp with an offset, a number)", ["2026-13-01T00:00:00Z", "2026-02-30T00:00:00Z", "2026-07-10T16:00:00+00:00", 5, null].every((x) => F.parseUtcIso(x) === null) && F.parseUtcIso("2026-07-10T16:00:00Z") === 1783699200);
   check("Relative time: 59 s just now, 60 s 1 min ago, 59 min 59 min ago, 60 min 1 h ago, 47 h 59 min 47 h ago, 48 h 2 days ago", [59, 60, 3599, 3600, 48 * 3600 - 1, 48 * 3600].map((x) => F.relativeTime(NOW - x, NOW)).join("|") === "just now|1 min ago|59 min ago|1 h ago|47 h ago|2 days ago", [59, 60, 3599, 3600, 48 * 3600 - 1, 48 * 3600].map((x) => F.relativeTime(NOW - x, NOW)).join("|"));
+  check("PST on the Lists tab and the run view (round 81 answer 17): the stamp 2026-10-29T07:50:00Z shows '2026-10-28 23:50 PST', and 0 or null gives '–' like the old helper", M.pstFromUtcText("2026-10-29T07:50:00Z") === "2026-10-28 23:50 PST" && M.pstDateTimeOrDash(1793260200) === "2026-10-28 23:50 PST" && M.pstDateTimeOrDash(0) === "–" && M.pstDateTimeOrDash(null) === "–" && M.pstClockOrDash(1793260200) === "23:50 PST" && M.pstClockOrDash(null) === "–", M.pstDateTimeOrDash(1793260200));
+  check("PST text of a compare file: a text that is not a UTC stamp stays as it is, an empty text stays empty", M.pstFromUtcText("yesterday") === "yesterday" && M.pstFromUtcText("") === "");
+  check("PST date of a PocketBase time (round 81 answer 18, page check on the Reader book screen): '2026-10-28 03:00:00.123Z' is '2026-10-27', '2026-10-28 08:00:00.000Z' is '2026-10-28', a bad text gives ''", M.pstDateOfPb("2026-10-28 03:00:00.123Z") === "2026-10-27" && M.pstDateOfPb("2026-10-28 08:00:00.000Z") === "2026-10-28" && M.pstDateOfPb("2026-10-28 07:59:59.999Z") === "2026-10-27" && M.pstDateOfPb("2026-01-01T00:00:00Z") === "2025-12-31" && M.pstDateOfPb("nope") === "" && M.pstDateOfPb(undefined) === "");
+  check("utcIso gives the form of store.py utc_iso: no milliseconds, 'Z' at the end", M.utcIso(Date.UTC(2026, 10, 5, 9, 30, 0, 999)) === "2026-11-05T09:30:00Z");
   check("Old local-time helpers stay for the other screens (dateTime and clock still exist)", typeof F.dateTime === "function" && typeof F.clock === "function" && F.dateTime(1793156218).length === 16);
 
   // --- same label as label_of of store.py for the same input
@@ -2949,7 +2957,7 @@ print(json.dumps(out))`;
   const dnow = Date.UTC(2026, 9, 30, 5, 0, 0) / 1000; // 2026-10-29 21:00 PST, 21 h after the end of the newest list (23:50 PST on Oct 28)
   const drow = (slug, ls = lists, now = dnow) => R.buildRow(facts({ slug, title: slug, bookPages: pagesOf(slug), derived: R.deriveFacts(slug, ls) }), now);
   const lf = drow("left_foot_full");
-  check("Derived row left_foot_full (pilot list): Stopped, '6 of 120 pages', $22.16, 414 min, Phase not stored, flag pilot", lf.key === "stopped" && R.progressText(lf) === "6 of 120 pages" && R.money(lf.cost) === "$22.16" && lf.minutes === 414 && lf.phase === "Phase not stored" && lf.pilot === true, `${R.progressText(lf)} ${lf.cost} ${lf.minutes}`);
+  check("Derived row left_foot_full (pilot list): Stopped, '6 of 120 pages', $22.16, 414 min, an empty phase cell (round 81 answer 22), flag pilot", lf.key === "stopped" && R.progressText(lf) === "6 of 120 pages" && R.money(lf.cost) === "$22.16" && lf.minutes === 414 && lf.phase === null && lf.pilot === true, `${R.progressText(lf)} ${lf.cost} ${lf.minutes}`);
   check("Derived row left_foot_full line 2: 'Stopped at p050: the list finished. Oct 28 23:50 PST, 21 h ago. 3 list folders. Next page: not stored.'", text(lf, dnow) === "Stopped at p050: the list finished. Oct 28 23:50 PST, 21 h ago. 3 list folders. Next page: not stored.", text(lf, dnow));
   const mf = drow("mental_full");
   check("Derived row mental_full: Stopped by failure in Needs attention, '2 of 169 pages', $5.48, 102 min, 'Stopped at p014: QA_3 FAIL (old rule). Oct 27 18:56 PST, 2 days ago. 2 list folders. Next page: p015.'", mf.key === "failure" && mf.group === "Needs attention" && R.progressText(mf) === "2 of 169 pages" && R.money(mf.cost) === "$5.48" && mf.minutes === 102 && text(mf, dnow) === "Stopped at p014: QA_3 FAIL (old rule). Oct 27 18:56 PST, 2 days ago. 2 list folders. Next page: p015.", text(mf, dnow));
@@ -2990,7 +2998,7 @@ print(json.dumps(out))`;
   const rows = [mkRow("failure", { slug: "a", cost: 5.48, errorCount: 0 }), ...Array.from({ length: 11 }, (_, i) => mkRow("stopped", { slug: "s" + i, cost: 1 })), ...Array.from({ length: 25 }, (_, i) => mkRow("not-started", { slug: "n" + String(i).padStart(2, "0") }))];
   const sum = R.summarize(rows);
   check("Summary line: '1 needs attention · 0 waiting for a run · 0 running · 11 stopped · 0 completed · 25 not started' (VISION sketch 1) and the cost line", sum.text === "1 needs attention · 0 waiting for a run · 0 running · 11 stopped · 0 completed · 25 not started" && sum.costText === "Model cost of all books: $16.48", sum.text);
-  check("Summary line adds '· 1 error' when an error text exists (VISION 15.24.4.2, notes)", R.summarize([mkRow("stopped", { errorCount: 1 })]).text.endsWith(" · 1 error") && R.summarize([mkRow("stopped", { errorCount: 2 })]).text.endsWith(" · 2 errors"));
+  check("Summary line has no error count (round 81 answer 21): a row with 1 error and a row with 2 errors add nothing, the data keeps errors", !/error/.test(R.summarize([mkRow("stopped", { errorCount: 1 })]).text) && !/error/.test(R.summarize([mkRow("stopped", { errorCount: 2 })]).text) && R.summarize([mkRow("stopped", { errorCount: 2 })]).errors === 2);
   check("Group order: Needs attention, Waiting for a run, Running, Stopped, Completed, Not started", eq(R.GROUPS, ["Needs attention", "Waiting for a run", "Running", "Stopped", "Completed", "Not started"]) && eq(R.groupRows(rows).map((g) => g.group), [...R.GROUPS]));
   check("Group shows: Needs attention, Running, and Not started always; Waiting for a run, Stopped, and Completed only when not empty", R.GROUPS.every((g) => R.groupShows(g, 0) === ["Needs attention", "Running", "Not started"].includes(g)) && R.GROUPS.every((g) => R.groupShows(g, 2)));
   check("Group start state: Needs attention, Waiting for a run, Running, and Stopped open; Completed and Not started closed", eq(R.GROUPS.map((g) => R.groupStartsOpen(g)), [true, true, true, true, false, false]));
@@ -3000,6 +3008,71 @@ print(json.dumps(out))`;
   check("Row labels follow store.py LABELS word for word (seven labels, their groups)", eq(["running", "running-pause", "stopped", "unexpected", "failure", "completed", "not-started"].map((k) => [R.LABELS[k].text, R.LABELS[k].group]), [["Running", "Running"], ["Running with pause requested", "Running"], ["Stopped", "Stopped"], ["Stopped unexpectedly", "Needs attention"], ["Stopped by failure", "Needs attention"], ["Completed", "Completed"], ["Not started", "Not started"]]));
   const noGloss = JSON.stringify([R.NO_RUN_TEXT, R.DATA_ERROR_TEXT, R.PHASE2_LINE, ...Object.values(R.LABELS).map((l) => l.text)]);
   check("Screen text holds no word 'gloss', 'rendering', or 'finished'", !/gloss|rendering|finished/i.test(noGloss));
+  // --- buttons (unit VW77b1, round 81): VISION 15.27.3 table, 15.29.2 buttons for each state, 15.33.3 Running row
+  const btn = (x) => x.buttons.filter((b) => b.show).map((b) => b.id + (b.enabled ? "" : "~")).join(",");
+  const why = (x, id) => x.buttons.find((b) => b.id === id)?.reason;
+  check("Buttons: a Not started book shows Run, enabled once the phase 2 prompt files exist (round 78 answer 16)", btn(row({})) === "run" && why(row({}), "run") === null);
+  r = row({ phase2Ready: false });
+  check("Buttons: without the 16 phase 2 prompt files Run is grayed with 'Run is off until phase 2 prompt files exist'", btn(r) === "run~" && why(r, "run") === R.PHASE2_GATE_REASON && R.PHASE2_GATE_REASON === "Run is off until phase 2 prompt files exist");
+  r = row({ status: st({ state: "not-started" }) });
+  check("Buttons: a status.json with the state not-started shows Run too", btn(r) === "run");
+  r = row({ status: st() });
+  check("Buttons: Running shows Pause, with Run and Resume grayed: 'Resume is off because this book runs now (pid 4821)' (VISION 4003, 15.33.3)", btn(r) === "pause,run~,resume~" && why(r, "resume") === "Resume is off because this book runs now (pid 4821)" && why(r, "run") === "Run is off because this book runs now (pid 4821)", `${btn(r)} ${why(r, "resume")}`);
+  r = row({ status: st(), pauseExists: true });
+  check("Buttons: Running with pause requested shows Pause grayed with 'Pause is already requested'", btn(r) === "pause~,run~,resume~" && why(r, "pause") === "Pause is already requested");
+  r = row({ status: st(), mark: mark({ action: "restart", prompts: {} }) });
+  check("Buttons: Running while a Restart mark waits shows no button (round 79 answer 13)", btn(r) === "" && r.buttons.every((b) => !b.show) && r.buttons.find((b) => b.id === "pause").stateReason === "Pause is off because a Restart mark waits.");
+  r = row({ status: st(), mark: mark({ action: "run", phase: "agent-phase-3" }) });
+  check("Buttons: Running with a Run mark keeps Pause, Run and Resume grayed", btn(r) === "pause,run~,resume~");
+  r = row({ status: st({ state: "running", pid: null }), pidAlive: true });
+  check("Buttons: the reason of a Running row without a pid has no '(pid ...)' text", why(r, "resume") === "Resume is off because this book runs now");
+  r = row({ status: pst({ stop_reason: "pause" }), pidAlive: false });
+  check("Buttons: Stopped by Pause shows Resume", btn(r) === "resume" && why(r, "resume") === null);
+  r = row({ status: pst({ stop_reason: "ctrl-c" }), pidAlive: false });
+  check("Buttons: Stopped by Ctrl-C shows Resume", btn(r) === "resume");
+  r = row({ status: pst({ stop_reason: "forward-failure" }), pidAlive: false });
+  check("Buttons: Stopped by failure shows Resume (VISION 15.29.2 table; 15.27.3 names Pause and Ctrl-C only)", btn(r) === "resume");
+  r = row({ status: st({ pid: 99999999, heartbeat_utc: iso(-12 * 60) }), pidAlive: false });
+  check("Buttons: Stopped unexpectedly shows Resume (VISION 15.29.2)", r.key === "unexpected" && btn(r) === "resume");
+  r = row({ status: pst({ stop_reason: "target-reached" }), pidAlive: false });
+  check("Buttons: a Stopped book with the reason target-reached shows no button, and the 409 reason names the reason", btn(r) === "" && r.buttons.find((b) => b.id === "resume").stateReason === "Resume does not fit this stop (target-reached).");
+  check("Buttons: a Stopped book with the reason restart shows no button", btn(row({ status: pst({ stop_reason: "restart" }), pidAlive: false })) === "");
+  r = row({ status: st({ state: "completed", phase: "agent-phase-3", pid: null }), pidAlive: false });
+  check("Buttons: Completed in phase 3 shows 'Run phase 4' (VISION 15.24.4.5)", btn(r) === "run4" && why(r, "run4") === null && r.buttons.find((b) => b.id === "run4").label === "Run phase 4");
+  r = row({ status: st({ state: "completed", phase: "agent-phase-3", pid: null }), pidAlive: false, phase2Ready: false });
+  check("Buttons: Run phase 4 has no phase 2 gate", btn(r) === "run4");
+  check("Buttons: Completed in phase 4 shows no button (Restart comes in unit VW77b2)", btn(row({ status: st({ state: "completed", phase: "agent-phase-4", pid: null }), pidAlive: false })) === "");
+  r = row({ mark: mark({ action: "run", phase: "agent-phase-3" }) });
+  check("Buttons: a Run mark that waits (no process) grays Run and Resume: 'A mark waits: Run requested 08:40 PST'", btn(r) === "run~,resume~" && why(r, "run") === "A mark waits: Run requested 08:40 PST" && why(r, "resume") === "A mark waits: Run requested 08:40 PST", `${btn(r)} ${why(r, "run")}`);
+  r = row({ status: pst({ stop_reason: "pause" }), pidAlive: false, mark: mark({ action: "resume" }) });
+  check("Buttons: a Resume mark that waits grays Run and Resume: 'A mark waits: Resume requested 08:40 PST'", btn(r) === "run~,resume~" && why(r, "resume") === "A mark waits: Resume requested 08:40 PST");
+  r = row({ markUnreadable: true });
+  check("Buttons: a request.json that cannot be read grays Run and Resume with a reason", btn(r) === "run~,resume~" && /^A mark waits: the file request.json is there$/.test(why(r, "run") ?? ""));
+  r = row({ status: null, statusUnreadable: true });
+  check("Buttons: a Status file unreadable row shows no button", btn(r) === "" && r.buttons.every((b) => b.stateReason !== null));
+  // pilot rows
+  const pl = drow("left_foot_full");
+  check("Buttons: a pilot row (Stopped, no status.json) shows Run, because a pilot list is no real run [unit default VW77b1]; Resume is not offered", btn(pl) === "run" && pl.buttons.find((b) => b.id === "resume").stateReason === "Resume is for a stopped book. This book has no run yet.", btn(pl));
+  const plRun = dr(mk());
+  check("Buttons: a pilot row that runs in a pilot list shows Run grayed, and the reason names the Lists tab [unit default VW77b1]", btn(plRun) === "run~" && /Lists tab/.test(why(plRun, "run") ?? ""), `${btn(plRun)} ${why(plRun, "run")}`);
+  // refused Restart (round 81 answers 15 and 16)
+  const doneRow = (over) => row({ status: st({ state: "completed", phase: "agent-phase-4", pid: null }), pidAlive: false, ...over });
+  const rm = mark({ action: "restart", prompts: {} });
+  r = doneRow({ mark: rm, refusal: { reason: "ED_2 v4.1.3 has no file", requested_utc: rm.requested_utc } });
+  check("Refused Restart: the row keeps its group Completed and shows the second line 'Restart refused: ED_2 v4.1.3 has no file'", r.group === "Completed" && r.label === "Completed" && r.refused === "Restart refused: ED_2 v4.1.3 has no file" && !/Mark waiting/.test(text(r)), `${r.group} ${r.refused}`);
+  check("Refused Restart: Run and Resume are grayed with 'A mark waits: Restart requested 08:40 PST (refused)'", btn(r) === "run~,resume~" && why(r, "run") === "A mark waits: Restart requested 08:40 PST (refused)");
+  r = doneRow({ mark: rm, refusal: { reason: "x", requested_utc: "2026-01-01T00:00:00Z" } });
+  check("Restart refused earlier (another requested_utc): the mark waits, the row is Mark waiting", r.group === "Waiting for a run" && r.refused === null && text(r) === "Mark waiting: Restart requested 08:40 PST");
+  r = doneRow({ mark: rm, refusal: null });
+  check("Restart mark with no refusal event: Mark waiting", r.group === "Waiting for a run" && r.refused === null);
+  r = doneRow({ mark: rm, refusal: { reason: null, requested_utc: rm.requested_utc } });
+  check("Refused Restart with no reason in the event: 'Restart refused: no reason is stored.'", r.refused === "Restart refused: no reason is stored.");
+  r = doneRow({ mark: mark({ action: "resume" }), refusal: { reason: "x", requested_utc: "2026-07-10T16:40:00Z" } });
+  check("A refusal event does not change a Resume mark (only the action restart counts)", r.refused === null && r.group === "Waiting for a run");
+  r = row({ status: st(), mark: rm, refusal: { reason: "ED_2 v4.1.3 has no file", requested_utc: rm.requested_utc } });
+  check("Refused Restart on a Running row: no 'Restart requested' note, the refusal line shows, Pause stays", r.note === null && r.refused !== null && btn(r) === "pause,run~,resume~");
+  const word = JSON.stringify(r.buttons.map((b) => b.label).concat(r.buttons.map((b) => b.reason ?? ""), r.buttons.map((b) => b.stateReason ?? "")));
+  check("Button texts hold no word 'gloss', 'rendering', or 'finished'", !/gloss|rendering|finished/i.test(word));
 }
 
 // Monitor dashboard on a fixture (unit VW77a). The fixture and the fake Translator process come from fake_translator.py (real store.py code).
@@ -3028,7 +3101,7 @@ async function monitorTest() {
   check("GET / shows rows as the design says: 'Stopped by Pause at', 'Mark waiting: Resume requested', 'Making the Difference on the Day: Mental Strengthening for Kendo (mental_full)' with pilot list, '6 of 120 pages', the error line with 'Error on p089'", /Stopped by Pause at \d\d:\d\d PST\. Last saved page p080\. Resume starts at p081\./.test(text) && /Mark waiting: Resume requested \d\d:\d\d PST/.test(text) && text.includes("Making the Difference on the Day: Mental Strengthening for Kendo (mental_full)") && text.includes("pilot list") && text.includes("6 of 120 pages") && text.includes("Error on p089, box box-critic.TS_3: invalid JSON"));
   check("GET / title tag holds the count of Needs attention in the first paint ('(N) Monitor dashboard' in <title>, N from the summary line)", new RegExp(`<title>\\(${d.summary.counts["Needs attention"]}\\) Monitor dashboard</title>`).test(r.body), (r.body.match(/<title>.*?<\/title>/) ?? [""])[0]);
   check("GET / groups are details elements with summary; the open state comes from the start rule (Needs attention open, Not started closed)", /<details[^>]*data-group="Needs attention"[^>]*open=""/.test(r.body) && !/<details[^>]*data-group="Not started"[^>]*open=""/.test(r.body) && !/<details[^>]*data-group="Completed"[^>]*open=""/.test(r.body) && (r.body.match(/<summary/g) ?? []).length >= 6);
-  check("GET / has a progressbar for a row with a total, a state label with a symbol and a word, and no button except Refresh and the theme switch", /role="progressbar"/.test(r.body) && /data-state-label="running"[^>]*>.{0,80}●.{0,40}Running/.test(r.body.replace(/<!--.*?-->/g, "")) && !/>(Resume|Run|Pause|Restart|Details)</.test(r.body.replace(/<script[\s\S]*?<\/script>/g, "")));
+  check("GET / has a progressbar for a row with a total, a state label with a symbol and a word, the buttons of unit VW77b1 (data-action), and no Restart button and no Details link yet", /role="progressbar"/.test(r.body) && /data-state-label="running"[^>]*>.{0,80}●.{0,40}Running/.test(r.body.replace(/<!--.*?-->/g, "")) && /data-action="(run|resume|pause)"/.test(r.body) && !/>(Restart|Details)</.test(r.body.replace(/<script[\s\S]*?<\/script>/g, "")));
   check("GET / sends the nav with the tabs Monitor dashboard, Lists, Books, Human translation (no Run settings tab yet)", (() => { const nav = r.body.match(/<nav[^>]*aria-label="Main tabs"[\s\S]*?<\/nav>/)?.[0] ?? ""; const t = visibleText(nav).trim().replace(/\s+/g, " "); return t === "Monitor dashboard Lists Books Human translation" && /href="\/runs"/.test(nav); })());
   r = await get("/runs");
   const rt = visibleText(r.body);
@@ -3088,6 +3161,197 @@ async function monitorTest() {
   }
 }
 
+// Buttons of the Monitor dashboard (unit VW77b1, round 81). Needs the fixture of fake_translator.py (real store.py code) and WRITES into it.
+// Never point it at the real data folder: the first check refuses a data folder that is not below a folder named r81.
+async function monitorActionsTest() {
+  if (!fixture) throw new Error("Need --fixture DIR");
+  const fx = path.resolve(fixture);
+  const data = path.join(fx, "data");
+  const store = path.join(data, "book-store");
+  if (!/\/r81\/VW77b1\/fx$/.test(await fs.realpath(fx))) throw new Error("monitor-actions writes files. The fixture folder must be .../r81/VW77b1/fx. Got " + fx);
+  const JSONH = { "Content-Type": "application/json" };
+  const post = (slug, kind, body, headers = JSONH) => get(`/api/monitor/books/${slug}/${kind}`, { method: "POST", headers, body: typeof body === "string" ? body : JSON.stringify(body) });
+  const api = async () => JSON.parse((await get("/api/monitor/books")).body);
+  const rowOf = (d, slug) => d.rows.find((x) => x.slug === slug);
+  const err = (r) => parseJson(r.body)?.error;
+  const exists = async (p) => fs.stat(p).then(() => true, () => false);
+  const RUN3 = { action: "run", phase: "agent-phase-3" };
+  const RUN4 = { action: "run", phase: "agent-phase-4" };
+  const BOXES = ["TS", "TL", "ED", "QA"].flatMap((s) => [0, 1, 2, 3].map((l) => `${s}_${l}`));
+  const ph2 = (box) => path.join(store, "paired-dataset", "prompts", box, "current");
+  const before = await listing(data);
+
+  // ---- the answers before any state check
+  let r;
+  check("GET on the mark route gives 405, the list route still refuses POST", (await get("/api/monitor/books/fx_ns/mark")).status === 405 && (await get("/api/monitor/books", { method: "POST", headers: JSONH, body: "{}" })).status === 405);
+  r = await post("fx_ns", "mark", RUN3, { ...JSONH, Origin: "http://evil.example" });
+  check("Foreign Origin on the mark route gives 403", r.status === 403 && err(r) === "Foreign origin.", `status ${r.status} ${r.body}`);
+  r = await post("fx_running", "pause", {}, { ...JSONH, Origin: "http://evil.example" });
+  check("Foreign Origin on the pause route gives 403 and writes no PAUSE", r.status === 403 && !(await exists(path.join(store, "fx_running", "PAUSE"))));
+  r = await post("fx_ns", "mark", RUN3, { ...JSONH, Origin: base });
+  check("The Origin of the page itself passes the check (the answer is 409 for the missing phase 2 files, not 403)", r.status === 409, `status ${r.status} ${r.body}`);
+  r = await post("fx_ns", "mark", JSON.stringify(RUN3), { "Content-Type": "text/plain" });
+  check("A content type that is not JSON gives 415 on the mark route", r.status === 415 && err(r) === "Send JSON.");
+  r = await post("fx_running", "pause", "{}", { "Content-Type": "text/plain" });
+  check("A content type that is not JSON gives 415 on the pause route", r.status === 415);
+  for (const bad of ["no_such_book", "paired-dataset", "a%20b", "..", "x%2F..%2Fy", "%2e%2e"]) {
+    r = await post(bad, "mark", RUN3);
+    check(`Slug '${bad}' is not in the book set or not safe: 404`, r.status === 404, `status ${r.status} ${r.body.slice(0, 80)}`);
+  }
+  check("Slug check comes before the body check: a bad slug with a bad body gives 404", (await post("no_such_book", "mark", "not json")).status === 404);
+  r = await post("fx_ns", "mark", "not json");
+  check("A body that is not JSON gives 400", r.status === 400, `status ${r.status} ${r.body}`);
+  r = await post("fx_ns", "mark", { action: "restart", phase: "agent-phase-3" });
+  check("The action restart is no part of this unit: 400", r.status === 400);
+  r = await post("fx_ns", "mark", { action: "run", phase: "agent-phase-2" });
+  check("A phase other than agent-phase-3 and agent-phase-4 gives 400", r.status === 400);
+  check("A body that is an array gives 400", (await post("fx_ns", "mark", "[]")).status === 400);
+  check("No request.json and no PAUSE appeared yet in the fixture", !(await exists(path.join(store, "fx_ns", "request.json"))) && !(await exists(path.join(store, "fx_running", "PAUSE"))));
+
+  // ---- 409 when the action does not fit the book (a fresh read of status.json)
+  const d0 = await api();
+  const cases = [
+    ["fx_running", "mark", RUN3, /^Run is off because this book runs now \(pid \d+\)$/, "Run on a Running book"],
+    ["fx_running", "mark", { action: "resume", phase: "agent-phase-4" }, /^Resume is off because this book runs now \(pid \d+\)$/, "Resume on a Running book"],
+    ["fx_pause", "mark", RUN3, /^Run is for a book with no run yet\. This book is: Stopped\.$/, "Run on a Stopped book"],
+    ["fx_pause", "mark", RUN4, /^Run phase 4 is for a Completed book of phase 3\. This book is: Stopped\.$/, "Run phase 4 on a Stopped book"],
+    ["fx_done4", "mark", RUN4, /^Run phase 4 is for a Completed book of phase 3\./, "Run phase 4 on a Completed book of phase 4"],
+    ["fx_done", "mark", { action: "resume", phase: "agent-phase-3" }, /^Resume is for a stopped book\. This book is: Completed\.$/, "Resume on a Completed book"],
+    ["fx_target", "mark", { action: "resume", phase: "agent-phase-3" }, /^Resume does not fit this stop \(target-reached\)\.$/, "Resume after a stop by target-reached"],
+    ["fx_ns", "mark", { action: "resume", phase: "agent-phase-3" }, /^Resume is for a stopped book\. This book has no run yet\.$/, "Resume on a book with no run"],
+    ["fx_pause", "mark", { action: "resume", phase: "agent-phase-3" }, /^Resume must use the phase of the run \(agent-phase-4\)\.$/, "Resume with the wrong phase"],
+    ["fx_pause", "pause", {}, /^Pause is for a Running book\. This book is: Stopped\.$/, "Pause on a Stopped book"],
+    ["fx_ns", "pause", {}, /^Pause is for a Running book\./, "Pause on a Not started book"],
+    ["fx_pause_req", "pause", {}, /^Pause is already requested$/, "Pause with the file PAUSE in place"],
+    ["fx_restart_note", "pause", {}, /^Pause is off because a Restart mark waits\.$/, "Pause while a Restart mark waits"],
+    ["fx_pilot_run", "mark", RUN3, /^Run is off because a pilot list runs this book now\. Use Pause on the Lists tab\.$/, "Run on a book that a pilot list runs"],
+    ["fx_pilot_run", "pause", {}, /^Pause of a pilot list is on the Lists tab\.$/, "Pause on a pilot row"],
+    ["fx_broken", "mark", RUN3, /^The file status\.json cannot be read\.$/, "Run on a book with a broken status.json"],
+    ["fx_ns", "mark", RUN3, /^Run is off until phase 2 prompt files exist$/, "Run on a Not started book while the phase 2 files are missing"],
+    ["mental_full", "mark", RUN3, /^Run is off until phase 2 prompt files exist$/, "Run on a pilot row while the phase 2 files are missing"],
+  ];
+  for (const [slug, kind, body, re, name] of cases) {
+    r = await post(slug, kind, body);
+    check(`409: ${name} (${slug}): '${err(r)}'`, r.status === 409 && re.test(err(r) ?? ""), `status ${r.status} ${r.body.slice(0, 160)}`);
+  }
+  check("The row buttons of the API agree: fx_ns shows Run grayed with the phase 2 reason, fx_running shows Pause and two grayed buttons", (() => { const a = rowOf(d0, "fx_ns").buttons.find((b) => b.id === "run"); const b = rowOf(d0, "fx_running").buttons.filter((x) => x.show).map((x) => x.id + (x.enabled ? "" : "~")).join(","); return a.show && !a.enabled && a.reason === "Run is off until phase 2 prompt files exist" && b === "pause,run~,resume~"; })());
+  const mid = await listing(data);
+  const moved = mid.filter((x) => !before.includes(x)).concat(before.filter((x) => !mid.includes(x))).filter((x) => !/status\.json|progress\.json|\bPAUSE\b/.test(x));
+  check("All the refused presses wrote no file", moved.length === 0, moved.join(", "));
+
+  // ---- the phase 2 files appear in the fixture: Run turns on
+  for (const b of BOXES) {
+    await fs.mkdir(path.dirname(ph2(b)), { recursive: true });
+    await fs.writeFile(ph2(b), "v2.1.0\n");
+  }
+  const d1 = await api();
+  check("With the 16 phase 2 prompt files, Run shows enabled on a Not started row, and the folder paired-dataset is no book row", rowOf(d1, "fx_ns").buttons.find((b) => b.id === "run").enabled === true && !rowOf(d1, "paired-dataset") && d1.rows.length === d0.rows.length);
+  await fs.rm(ph2("QA_3"));
+  check("With 15 of the 16 files, Run is grayed again", rowOf(await api(), "fx_ns").buttons.find((b) => b.id === "run").enabled === false);
+  await fs.writeFile(ph2("QA_3"), "v2.1.0\n");
+
+  // ---- 409 because a mark waits already (state fits, request.json exists)
+  r = await post("fx_wait_run", "mark", RUN3);
+  check("409: Run on a book whose Run mark waits: 'A mark waits already'", r.status === 409 && err(r) === "A mark waits already", `status ${r.status} ${r.body}`);
+  r = await post("fx_wait_resume", "mark", { action: "resume", phase: "agent-phase-4" });
+  check("409: Resume on a book whose Resume mark waits: 'A mark waits already'", r.status === 409 && err(r) === "A mark waits already", `status ${r.status} ${r.body}`);
+
+  // ---- 200: the exact bytes of store.write_mark
+  const now0 = Date.now();
+  r = await post("fx_ns", "mark", RUN3);
+  const j = parseJson(r.body);
+  const fileNs = path.join(store, "fx_ns", "request.json");
+  const bytes = await fs.readFile(fileNs, "utf-8");
+  const want = (slug, action, phase, utc) => JSON.stringify({ schema: "book-request-v1", book: slug, action, phase, requested_utc: utc, requested_by: "Monitor dashboard" }, null, 1) + "\n";
+  check("200: Run on a Not started book writes request.json", r.status === 200 && j?.ok === true && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(j.requested_utc ?? ""), `status ${r.status} ${r.body}`);
+  check("request.json holds the exact bytes of store.write_mark (indent 1, key order schema, book, action, phase, requested_utc, requested_by, one newline at the end)", bytes === want("fx_ns", "run", "agent-phase-3", j.requested_utc) && bytes.endsWith("}\n") && !bytes.endsWith("\n\n"), JSON.stringify(bytes));
+  check("The press time is the clock of the server (within 5 s), in UTC with no milliseconds", Math.abs(Date.parse(j.requested_utc) - now0) < 5000 + 1000);
+  check("No request.json.part stays, and the folder holds only status.json and request.json", (await fs.readdir(path.join(store, "fx_ns"))).sort().join(",") === "request.json,status.json");
+  r = await post("fx_ns", "mark", RUN3);
+  check("A second press on the same book: 409 'A mark waits already', the file stays as it was", r.status === 409 && err(r) === "A mark waits already" && (await fs.readFile(fileNs, "utf-8")) === bytes);
+  const d2 = await api();
+  const ns = rowOf(d2, "fx_ns");
+  check("The row turns to Mark waiting in the group Waiting for a run with 'Mark waiting: Run requested HH:MM PST', Run and Resume grayed with 'A mark waits: Run requested HH:MM PST'", ns.group === "Waiting for a run" && /^Mark waiting: Run requested \d\d:\d\d PST$/.test(ns.line2.join("")) && ns.buttons.filter((b) => b.show).map((b) => b.id + (b.enabled ? "" : "~")).join(",") === "run~,resume~" && /^A mark waits: Run requested \d\d:\d\d PST$/.test(ns.buttons.find((b) => b.id === "run").reason), `${ns.group} ${ns.line2.join("")}`);
+
+  // a book with no folder: the route makes it (store.write_mark does the same)
+  const fresh = d2.rows.find((x) => x.key === "not-started" && !x.pilot && !x.slug.startsWith("fx_") && !x.slug.startsWith("lifelong"));
+  const freshDir = path.join(store, fresh?.slug ?? "none");
+  const hadFolder = await exists(freshDir);
+  r = await post(fresh?.slug ?? "none", "mark", RUN3);
+  check(`200: Run on '${fresh?.slug}', a book with no folder in the store: the route makes book-store/<slug>/request.json`, !hadFolder && r.status === 200 && (await exists(path.join(freshDir, "request.json"))), `hadFolder ${hadFolder} status ${r.status} ${r.body}`);
+  const pilot = await post("mental_full", "mark", RUN3);
+  check("200: Run on a pilot row (mental_full has pilot pages and no status.json) [unit default VW77b1]", pilot.status === 200 && (await exists(path.join(store, "mental_full", "request.json"))), `status ${pilot.status} ${pilot.body}`);
+
+  r = await post("fx_done", "mark", RUN4);
+  const j4 = parseJson(r.body);
+  check("200: Run phase 4 on a Completed book of phase 3 writes action run with phase agent-phase-4", r.status === 200 && (await fs.readFile(path.join(store, "fx_done", "request.json"), "utf-8")) === want("fx_done", "run", "agent-phase-4", j4.requested_utc), `status ${r.status} ${r.body}`);
+  r = await post("fx_pause", "mark", { action: "resume", phase: "agent-phase-4" });
+  const jr = parseJson(r.body);
+  check("200: Resume on a book stopped by a Pause writes action resume with the phase of the run", r.status === 200 && (await fs.readFile(path.join(store, "fx_pause", "request.json"), "utf-8")) === want("fx_pause", "resume", "agent-phase-4", jr.requested_utc), `status ${r.status} ${r.body}`);
+  for (const [slug, ph] of [["fx_ctrlc", "agent-phase-4"], ["fx_fail", "agent-phase-4"], ["fx_dead", "agent-phase-3"]]) {
+    r = await post(slug, "mark", { action: "resume", phase: ph });
+    check(`200: Resume on ${slug} (${(await api()).rows.find((x) => x.slug === slug).baseLabel})`, r.status === 200, `status ${r.status} ${r.body}`);
+  }
+
+  // ---- Pause writes the file PAUSE
+  r = await post("fx_running", "pause", {});
+  const pauseFile = path.join(store, "fx_running", "PAUSE");
+  const pauseText = await fs.readFile(pauseFile, "utf-8").catch(() => "");
+  check("200: Pause on a Running book writes the file PAUSE (one JSON line with who and when_utc) and no other file", r.status === 200 && parseJson(pauseText)?.who === "viewer" && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(parseJson(pauseText)?.when_utc ?? "") && pauseText.endsWith("\n") && !(await exists(path.join(store, "fx_running", "request.json"))), `status ${r.status} ${r.body} ${pauseText}`);
+  const run = rowOf(await api(), "fx_running");
+  check("The row turns to 'Running with pause requested' and the Pause button is grayed with 'Pause is already requested'", run.label === "Running with pause requested" && run.buttons.find((b) => b.id === "pause").reason === "Pause is already requested" && run.buttons.find((b) => b.id === "pause").enabled === false);
+  r = await post("fx_running", "pause", {});
+  check("A second Pause press gives 409 'Pause is already requested'", r.status === 409 && err(r) === "Pause is already requested");
+
+  // ---- refused Restart rows, summary line, pilot rows
+  const d3 = await api();
+  const rf = rowOf(d3, "fx_refused");
+  check("Refused Restart (fx_refused): the row keeps the group Completed and the second line reads 'Restart refused: ED_2 v4.1.3 has no file'", rf.group === "Completed" && rf.label === "Completed" && rf.refused === "Restart refused: ED_2 v4.1.3 has no file", `${rf.group} ${rf.refused}`);
+  check("Old refusal (another requested_utc, fx_refused_old): the row is Mark waiting in Waiting for a run", rowOf(d3, "fx_refused_old").group === "Waiting for a run" && rowOf(d3, "fx_refused_old").refused === null);
+  check("The summary line has no error count, though ogawa_lecture_part2 and fx_fail hold error texts", !/error/.test(d3.summary.text) && d3.rows.some((x) => x.errorCount > 0), d3.summary.text);
+  const lf = rowOf(d3, "left_foot_full");
+  check("A pilot row has an empty phase cell: phase null in the data, and the text 'Phase not stored' appears nowhere on /", lf.pilot === true && lf.phase === null && !/Phase not stored/.test((await get("/")).body));
+  check("A status row keeps its phase text (fx_pause: 'Phase 4 · production run')", rowOf(d3, "fx_pause").phase === "Phase 4 · production run");
+
+  // ---- first paint: the buttons in the HTML, the grayed reason as tooltip and screen reader text
+  const home = await get("/");
+  const html = home.body.replace(/<!--.*?-->/g, "");
+  const rowHtml = (slug) => (html.match(new RegExp(`<li[^>]*data-book-row="${slug}"[\\s\\S]*?</li>`)) ?? [""])[0];
+  check("GET / draws the buttons: Resume on fx_rule (Stopped by failure), Run phase 4 on lifelong_full (Completed, phase 3), Run on a Not started row, no button on fx_done4 (Completed, phase 4)", /data-action="resume"/.test(rowHtml("fx_rule")) && !/data-grayed/.test(rowHtml("fx_rule")) && />Run phase 4</.test(rowHtml("lifelong_full")) && /data-action="run"/.test(rowHtml(fresh.slug)) && !/data-action/.test(rowHtml("fx_done4")));
+  check("After a press the row of fx_pause shows Run and Resume grayed (a Resume mark waits), and fx_done shows them grayed too", /data-grayed/.test(rowHtml("fx_pause")) && (rowHtml("fx_pause").match(/data-grayed/g) ?? []).length === 2 && (rowHtml("fx_done").match(/data-grayed/g) ?? []).length === 2);
+  check("GET / draws a grayed button with aria-disabled, a tooltip (title), and the reason for a screen reader: Resume on fx_pause_req", /<button[^>]*data-grayed[^>]*aria-disabled="true"[^>]*title="Resume is off because this book runs now \(pid \d+\)"/.test(rowHtml("fx_pause_req")) || /<button[^>]*aria-disabled="true"[^>]*data-action="resume"[^>]*title="Resume is off because this book runs now/.test(rowHtml("fx_pause_req")), rowHtml("fx_pause_req").slice(0, 400));
+  check("The grayed button stays in the Tab order (no disabled attribute, no tabindex -1)", !/<button[^>]*data-grayed[^>]*\sdisabled/.test(rowHtml("fx_pause_req")) && !/tabindex="-1"/.test(rowHtml("fx_pause_req")));
+  check("Running while a Restart mark waits (fx_restart_note): no button, the note stays", !/data-action/.test(rowHtml("fx_restart_note")) && /Restart requested \d\d:\d\d PST/.test(rowHtml("fx_restart_note")));
+  check("The refused row shows its own line with data-row-refused", /data-row-refused[^>]*>Restart refused: ED_2 v4.1.3 has no file</.test(rowHtml("fx_refused")));
+  check("GET / has no Restart button and no Details link yet (units VW77b2 and VW77c)", !/>Restart</.test(visibleText(html)) && !/>Details</.test(html));
+
+  // ---- PST on the Lists tab and the run view (round 81 answer 17)
+  r = await get("/runs");
+  const rt = visibleText(r.body.replace(/<!--[\s\S]*?-->/g, ""));
+  check("Lists tab /runs shows the times in PST: '2026-10-28 23:50 PST' (the end of list 20261029T051152Z, 07:50 UTC)", r.status === 200 && rt.includes("2026-10-28 23:50 PST"), (rt.match(/\d{4}-\d\d-\d\d \d\d:\d\d( PST)?/g) ?? []).slice(0, 6).join(" | "));
+  check("Lists tab: every time has the word PST (no 'YYYY-MM-DD HH:MM' without a zone)", !/\d{4}-\d\d-\d\d \d\d:\d\d(?! PST)/.test(rt));
+  r = await get("/runs/20261029T051152Z");
+  const rv = visibleText(r.body.replace(/<!--[\s\S]*?-->/g, ""));
+  check("Run view /runs/<stamp> shows Started and Updated in PST", r.status === 200 && /Started \d{4}-\d\d-\d\d \d\d:\d\d PST/.test(rv) && /Updated 2026-10-28 23:50 PST/.test(rv) && !/\d{4}-\d\d-\d\d \d\d:\d\d(?! PST)/.test(rv), (rv.match(/(Started|Updated) [\d: -]+(PST)?/g) ?? []).join(" | "));
+
+  // ---- the writes touched only the expected names
+  const after = await listing(data);
+  const changed = after.filter((x) => !before.includes(x)).filter((x) => !/paired-dataset/.test(x));
+  check("The new files in the fixture are request.json and PAUSE files in book-store/<slug>/ only", changed.length > 0 && changed.every((x) => /book-store\/[A-Za-z0-9_.-]+\/(request\.json|PAUSE):\d+$/.test(x)), changed.filter((x) => !/book-store\/[A-Za-z0-9_.-]+\/(request\.json|PAUSE):\d+$/.test(x)).join(", "));
+
+  // ---- the monitor off: 404 on both routes
+  const off = await startServerWith({ VIEWER_MONITOR: "off" });
+  try {
+    r = await post("fx_ns", "mark", RUN3);
+    const r2 = await post("fx_running", "pause", {});
+    const r3 = await post("fx_ns", "mark", RUN3, { ...JSONH, Origin: "http://evil.example" });
+    check("Monitor off: the mark route and the pause route give 404 'Not found', also for a foreign Origin (the 404 comes first)", r.status === 404 && r2.status === 404 && r3.status === 404 && err(r) === "Not found", `status ${r.status} ${r2.status} ${r3.status}`);
+  } finally {
+    off.child.kill("SIGTERM");
+    base = off.old;
+  }
+}
+
 function R_line(row) {
   return (row?.line2 ?? []).map((x) => (typeof x === "string" ? x : "")).join("");
 }
@@ -3136,6 +3400,7 @@ try {
   if (mode === "tolerance") await toleranceTest();
   else if (mode === "pause") await pauseTest();
   else if (mode === "monitor") await monitorTest();
+  else if (mode === "monitor-actions") await monitorActionsTest();
   else if (mode === "htv") await htvTest();
   else if (mode === "deploy") await deployTest();
   else if (mode === "read") await readTest();

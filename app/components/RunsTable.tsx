@@ -1,13 +1,15 @@
 "use client";
 import Link from "next/link";
 import type { RunSummary } from "@/lib/types";
-import { clock, dateTime, isLive, usd } from "@/lib/format";
+import { isLive, usd } from "@/lib/format";
+import { pstClockOrDash, pstDateTimeOrDash } from "@/lib/pst-more";
 import { StatePill } from "./Pills";
 import { LiveBadge, useLive } from "./useLive";
 
 // Unit VW77a (round 80): the tab is called Lists and sits at /runs. Round 44 answer 13 (Q-A l142), tab Runs: "runs with state and cost". Newest first.
 // Viewer goals: fast lookup (one table, state and cost in one row) and few steps (one click opens a run).
 // Round 48 answer 9 (Q-A 2026-10-27 l55): the table also shows the list kind, the critic mode and the book jobs.
+// Unit VW77b1 (round 81 answer 17, Q-A 2026-11-02 l22): "PST there too". Times show as "2026-10-28 23:50 PST", like the Monitor dashboard.
 export default function RunsTable({ initial }: { initial: RunSummary[] }) {
   const { data, live } = useLive<RunSummary[]>("/api/runs", initial, (d) => d.some((r) => isLive(r.state)));
   return (
@@ -54,7 +56,7 @@ export default function RunsTable({ initial }: { initial: RunSummary[] }) {
                   </td>
                   <td className="px-3 py-2">
                     <StatePill state={r.state} />
-                    {r.state === "paused" && r.pausedSinceEpoch ? <span className="ml-2 text-xs text-muted">since {clock(r.pausedSinceEpoch)}</span> : null}
+                    {r.state === "paused" && r.pausedSinceEpoch ? <span className="ml-2 text-xs text-muted">since {pstClockOrDash(r.pausedSinceEpoch)}</span> : null}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {r.pagesDone} / {r.pagesTotal}
@@ -66,8 +68,8 @@ export default function RunsTable({ initial }: { initial: RunSummary[] }) {
                   <td className={"px-3 py-2 text-right tabular-nums " + (r.callsFlagged ? "font-semibold text-amber-700" : "")}>{r.callsFlagged}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{usd(r.costModelsUsd)}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-muted">{usd(r.costListedUsd)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{dateTime(r.startedEpoch)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{dateTime(r.updatedEpoch)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{pstDateTimeOrDash(r.startedEpoch)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{pstDateTimeOrDash(r.updatedEpoch)}</td>
                 </tr>
               ))}
             </tbody>

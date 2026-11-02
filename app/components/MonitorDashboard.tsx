@@ -8,7 +8,8 @@ import { useGroupOpen } from "./monitor-open-store";
 import BookRow from "./BookRow";
 
 // Unit VW77a (round 80), VISION-viewer 15.24.4: the Monitor dashboard "/" on this Mac. It shows one row per book, in six groups.
-// This unit builds the read side: no button, no Details view, no Run settings page.
+// Unit VW77b1 (round 81) adds the buttons (components/RowButtons.tsx). A press reads the rows again at once (refresh), so a new mark shows within one poll.
+// Still no Restart button (unit VW77b2), no Details view (unit VW77c), no Run settings page.
 const GROUP_SYMBOL: Record<GroupName, string> = {
   "Needs attention": "▲",
   "Waiting for a run": "◇",
@@ -22,7 +23,7 @@ const GROUP_SYMBOL: Record<GroupName, string> = {
 // VISION 15.24.4.6 polls only while a row runs. Other option: poll only then and use the button Refresh.
 const POLL_BANNER_AFTER = 3;
 
-function Group({ group, rows, data, now }: { group: GroupName; rows: ReturnType<typeof groupRows>[number]["rows"]; data: MonitorData; now: number }) {
+function Group({ group, rows, data, now, onChanged }: { group: GroupName; rows: ReturnType<typeof groupRows>[number]["rows"]; data: MonitorData; now: number; onChanged: () => Promise<void> }) {
   const [open, setOpen] = useGroupOpen(group);
   const empty = rows.length === 0 ? emptyLine(group, data.lastListEnd, now) : null;
   return (
@@ -41,7 +42,7 @@ function Group({ group, rows, data, now }: { group: GroupName; rows: ReturnType<
       {rows.length > 0 ? (
         <ul className="border-t border-line">
           {rows.map((r) => (
-            <BookRow key={r.slug} row={r} now={now} />
+            <BookRow key={r.slug} row={r} now={now} onChanged={onChanged} />
           ))}
         </ul>
       ) : null}
@@ -105,7 +106,7 @@ export default function MonitorDashboard({ initial }: { initial: MonitorData }) 
           {groups
             .filter((g) => groupShows(g.group, g.rows.length))
             .map((g) => (
-              <Group key={g.group} group={g.group} rows={g.rows} data={data} now={now} />
+              <Group key={g.group} group={g.group} rows={g.rows} data={data} now={now} onChanged={refresh} />
             ))}
           <p data-phase2-line className="text-sm text-muted">
             {PHASE2_LINE}

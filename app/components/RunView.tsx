@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import type { RunDetail } from "@/lib/types";
-import { dateTime, isLive, minutes, usd } from "@/lib/format";
+import { isLive, minutes, usd } from "@/lib/format";
+import { pstDateTimeOrDash } from "@/lib/pst-more";
 import { StatePill, VerdictPill } from "./Pills";
 import { LiveBadge, useLive } from "./useLive";
 import PauseButton from "./PauseButton";
@@ -12,6 +13,7 @@ import { ChainTable, ComparePanel, FailureLists, MemoryPanel } from "./ChainPane
 // QA_3 verdict and score, link to the page view. Viewer goal: few steps from a run to a page text.
 // Round 48 answer 9 (Q-A 2026-10-27 l55): a chain list also shows the list kind, the critic mode, the book jobs, a table per book,
 // skipped pages with their reason, the failure lists, the book translation memory pairs, and the compare table of the critic modes.
+// Unit VW77b1 (round 81 answer 17, Q-A 2026-11-02 l22): "PST there too". Started and Updated show as "2026-10-28 23:50 PST".
 export default function RunView({ initial }: { initial: RunDetail }) {
   const { data: run, refresh, live } = useLive<RunDetail>(`/api/runs/${initial.stamp}`, initial, (d) => isLive(d.state));
   const isChain = run.listKind === "chain";
@@ -32,8 +34,8 @@ export default function RunView({ initial }: { initial: RunDetail }) {
         <Stat label="Flagged" value={String(run.callsFlagged)} warn={run.callsFlagged > 0} />
         <Stat label="Cost (models)" value={usd(run.costModelsUsd)} />
         <Stat label="Cost (listed)" value={usd(run.costListedUsd)} />
-        <Stat label="Started" value={dateTime(run.startedEpoch)} />
-        <Stat label="Updated" value={dateTime(run.updatedEpoch)} />
+        <Stat label="Started" value={pstDateTimeOrDash(run.startedEpoch)} />
+        <Stat label="Updated" value={pstDateTimeOrDash(run.updatedEpoch)} />
         <Stat label="List kind" value={isChain ? "chain" : "list"} />
         <Stat label="Critic mode" value={run.criticMode ?? "not stored"} />
         {run.bookJobs !== null ? <Stat label="Book jobs" value={String(run.bookJobs)} /> : null}

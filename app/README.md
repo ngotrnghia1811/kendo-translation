@@ -321,6 +321,7 @@ When the monitor is off, the app does this:
   - `/api/books/<id>`
   - `/api/file`
   - `/api/monitor/books`
+  - `/api/monitor/books/<slug>/mark` and `/api/monitor/books/<slug>/pause` (POST, unit VW77b1)
   - `/api/page-extra`
   - `/api/pause`
   - `/api/runs`
@@ -704,14 +705,38 @@ The first screen `/` is the Monitor dashboard. It shows one row for each book, i
 
 ### Times
 
-Every time on the Monitor dashboard shows in PST (UTC minus 8 hours, all year, text "PST"). The helpers are `pstClock`, `pstStamp`, `pstDateTime`, and `pstClockSeconds`. The code sits in `lib/pst.ts`, and `lib/format.ts` re-exports it. The rules import `lib/pst.ts` directly, because the dev server keeps an old instance of `lib/format.ts` for the route handlers that it loaded before. The Lists tab and the run view keep local time. Example: 2026-07-10T16:00:00Z shows as 08:00 PST.
+Every time on the Monitor dashboard shows in PST (UTC minus 8 hours, all year, text "PST"). The helpers are `pstClock`, `pstStamp`, `pstDateTime`, and `pstClockSeconds`. The code sits in `lib/pst.ts`, and `lib/format.ts` re-exports it. The rules import `lib/pst.ts` directly, because the dev server keeps an old instance of `lib/format.ts` for the route handlers that it loaded before. The Lists tab, the run view, and the page check dates of the Reader book screen show PST too since unit VW77b1 (helpers in `lib/pst-more.ts`). The old helpers `dateTime` and `clock` of `lib/format.ts` stay in the code. Times on `/translate` (`utcTime` in `lib/htv-format.ts`, UTC) and on `/admin` stay as they are, because the owner did not name those screens. Example: 2026-07-10T16:00:00Z shows as 08:00 PST.
+
+### Buttons (unit VW77b1, round 81)
+
+The row buttons follow section 15.27.3 and 15.29.2 of `docs/VISION-viewer.md`. Every press opens a confirm dialog first (Cancel has the focus, Esc writes nothing). The rules are in `lib/book-status-rules.ts` (`actionButtons`).
+
+| Row | Buttons |
+|---|---|
+| Not started, and a pilot row (a pilot list is no real run) | Run (phase `agent-phase-3`). Grayed until the 16 files `book-store/paired-dataset/prompts/<BOX>/current` exist |
+| Running | Pause. Run and Resume are grayed with a reason: "Resume is off because this book runs now (pid 4821)" |
+| Running with pause requested | Pause is grayed: "Pause is already requested" |
+| Running while a Restart mark waits | no button |
+| Stopped, Stopped by failure, Stopped unexpectedly | Resume |
+| Completed in phase 3 | Run phase 4 |
+| A mark waits (`request.json` exists, no process) | Run and Resume are grayed: "A mark waits: Run requested 08:40 PST" |
+
+A grayed button has `aria-disabled="true"`, stays in the Tab order, and shows its reason as a tooltip, as text for a screen reader, and as visible text after a press.
+
+- `app/api/monitor/books/<slug>/mark/route.ts`: `POST` with the body `{"action": "run" | "resume", "phase": "agent-phase-3" | "agent-phase-4"}`. It writes `request.json` in the form of `store.write_mark` (`lib/book-actions.ts`).
+- `app/api/monitor/books/<slug>/pause/route.ts`: `POST` with the body `{}`. It writes the file `PAUSE` (one JSON line) in `book-store/<slug>/`.
+- Checks in this order: monitor off 404, foreign Origin 403, content type not JSON 415, slug not safe or not in the book set 404, wrong body 400, action does not fit the book (fresh read of `status.json`) 409 with the reason, `request.json` exists 409 "A mark waits already".
+- `components/RowButtons.tsx`, `row-message-store.ts`: the buttons, the dialogs, and the message of a failed press.
+- A refused Restart keeps the group of the book. Its extra line reads "Restart refused: <reason>".
+- The Lists tab, the run view, and the page checks of the Reader book screen show their times in PST (`lib/pst-more.ts`).
+- The mode `node scripts/smoke.mjs monitor-actions --config FILE --fixture DIR` tests the routes on a fixture. It writes into the fixture folder. The folder must be `.../r81/VW77b1/fx`. Change that guard in the script for another fixture folder.
 
 ### Not built yet
 
-- No button (Run, Pause, Resume, Restart). Unit VW77b adds them.
+- No Restart button (with its 16 pick lists). Unit VW77b2 adds it. The buttons Run, Run phase 4, Pause, and Resume are built (see the section Buttons below).
 - No Details view and no Details link. Unit VW77c adds them.
 - No tab and page Run settings. Unit VW77d adds them.
-- No row for a refused Restart (event `restart-refused`). The Translator does not write it yet.
+- The row of a refused Restart is built (unit VW77b1). It reads the event `restart-refused` of `history.jsonl`. Check the Translator code of unit TR77c2 for the event.
 - No phase 2 row. The screen shows the line "Phase 2 (paired dataset): no run record yet."
 
 ### Tests
