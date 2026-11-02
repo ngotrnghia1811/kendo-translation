@@ -288,7 +288,7 @@ export async function loadReaderPages(token: string, slug: string, nums: number[
       hasAgent: hasAgentRecord({ runId: rec.runId }),
       humanBy: human ? (human.byDefault ? "default" : "admin") : null,
       v1: v1[i],
-      label: { agent: checkedOn ? `${LABEL_AGENT_CHECKED} (${checkedOn})` : LABEL_AGENT_UNCHECKED, human: human?.byDefault ? LABEL_HUMAN_DEFAULT : LABEL_HUMAN, v1: LABEL_V1 },
+      label: { agent: checkedOn ? `${LABEL_AGENT_CHECKED} (${checkedOn} PST)` : LABEL_AGENT_UNCHECKED, human: human?.byDefault ? LABEL_HUMAN_DEFAULT : LABEL_HUMAN, v1: LABEL_V1 },
       checked: Boolean(checkedOn),
     };
   });

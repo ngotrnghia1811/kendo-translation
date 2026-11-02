@@ -8,6 +8,7 @@ import { resolveInside, isSafeSegment } from "./safe-path";
 import { utcIso } from "./pst-more";
 import { pstClock } from "./pst";
 import type { ActionId } from "./book-status-rules";
+import { writeRestartMark } from "./book-restart-actions";
 
 /**
  * Write side of the Monitor dashboard buttons (unit VW77b1, round 81). Two routes use it:
@@ -21,6 +22,8 @@ import type { ActionId } from "./book-status-rules";
  *   6. request.json exists already (mark route only): 409 "A mark waits already".
  *   7. Write the file.
  * The Viewer writes only the two names request.json and PAUSE, inside book-store/<slug>/ below the data folder (VISION 15.24.9, last bullet).
+ * Unit VW77b2 (round 82): a body with action "restart" goes to writeRestartMark (lib/book-restart-actions.ts) after the object check. The Clear mark
+ * route (POST /api/monitor/books/<slug>/clear-mark) also lives there and writes request.done.json and removes request.json.
  */
 
 type Phase = "agent-phase-3" | "agent-phase-4";
@@ -81,6 +84,7 @@ export async function handleBookAction(req: Request, params: Promise<{ slug: str
       return fail(400, "The body is not JSON.");
     }
     if (!isObject(body)) return fail(400, "The body must be a JSON object.");
+    if (kind === "mark" && body.action === "restart") return writeRestartMark(found, slug, body);
 
     let id: ActionId;
     let action: "run" | "resume" | null = null;
@@ -89,7 +93,7 @@ export async function handleBookAction(req: Request, params: Promise<{ slug: str
       id = "pause";
     } else {
       if ((body.action !== "run" && body.action !== "resume") || (body.phase !== "agent-phase-3" && body.phase !== "agent-phase-4")) {
-        return fail(400, 'The body needs action ("run" or "resume") and phase ("agent-phase-3" or "agent-phase-4").');
+        return fail(400, 'The body needs action ("run", "resume", or "restart") and phase ("agent-phase-3" or "agent-phase-4").');
       }
       action = body.action;
       phase = body.phase;

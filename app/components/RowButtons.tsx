@@ -2,10 +2,12 @@
 import { useId, useRef, useState } from "react";
 import type { ActionButton, ActionId, MonitorRow } from "@/lib/book-status-rules";
 import ConfirmDialog from "./ConfirmDialog";
+import RestartDialog from "./RestartDialog";
 import { useRowMessage } from "./row-message-store";
 
 // Buttons of one book row on the Monitor dashboard `/` (unit VW77b1, round 81). VISION-viewer 15.27.2 (dialog texts), 15.27.3 (buttons table),
 // 15.29.2 (buttons for each state), 15.33.3 (Running row). Round 74 answer 12 (Q-A 2026-10-31 l38): every process button opens a confirm dialog, Cancel first.
+// Unit VW77b2 (round 82): the buttons Restart (dialog with 16 pick lists, components/RestartDialog.tsx) and Clear mark (confirm dialog, round 82 answer 10).
 //
 // A button that cannot work now is grayed, not hidden. Choice of unit VW77b1 [unit default VW77b1]:
 //   - the button carries aria-disabled="true" and stays in the Tab order, so a keyboard user reaches it and hears the reason;
@@ -29,11 +31,23 @@ export function dialogText(id: ActionId, row: MonitorRow): { title: string; body
       return { title: `Pause ${name}?`, body: "The process finishes the current page and its update point, then it stops.", actionLabel: "Pause" };
     case "resume":
       return { title: `Resume ${name}?`, body: "The book continues with the next page after the last accepted page.", actionLabel: "Resume" };
+    case "restart":
+      // The real dialog of Restart is RestartDialog. This text is the frame only (VISION 15.27.2).
+      return { title: `Restart ${name}?`, body: "The current run moves to the archive folder. The book runs again from p001.", actionLabel: "Restart" };
+    case "clear":
+      // Round 82 answer 10 and the brief of VW77b2: the dialog names the mark, the state of the book, and says that no run starts [unit default VW77b2: the last sentence].
+      return {
+        title: `Clear the mark ${row.markText ?? "request.json"} of ${name}?`,
+        body: `The book stays ${row.baseLabel}. No run starts. The file request.json moves to request.done.json.`,
+        actionLabel: "Clear mark",
+      };
   }
 }
 
 function bodyOf(id: ActionId, row: MonitorRow): Record<string, string> {
   if (id === "pause") return {};
+  if (id === "clear") return row.markUtc ? { requested_utc: row.markUtc } : {};
+  if (id === "restart") return { action: "restart", phase: row.phaseId ?? "agent-phase-4" };
   if (id === "resume") return { action: "resume", phase: row.phaseId ?? "agent-phase-3" };
   return { action: "run", phase: id === "run" ? "agent-phase-3" : "agent-phase-4" };
 }
@@ -60,16 +74,16 @@ export default function RowButtons({ row, onChanged }: { row: MonitorRow; onChan
     window.setTimeout(() => opener.current?.focus(), 0);
   }
 
-  async function press() {
+  async function press(extra?: Record<string, unknown>) {
     if (!asking) return;
     const id = asking;
     setBusy(true);
     setAsking(null);
     try {
-      const r = await fetch(`/api/monitor/books/${encodeURIComponent(row.slug)}/${id === "pause" ? "pause" : "mark"}`, {
+      const r = await fetch(`/api/monitor/books/${encodeURIComponent(row.slug)}/${id === "pause" ? "pause" : id === "clear" ? "clear-mark" : "mark"}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(bodyOf(id, row)),
+        body: JSON.stringify({ ...bodyOf(id, row), ...(extra ?? {}) }),
       });
       const j = (await r.json().catch(() => ({}))) as { error?: string; message?: string };
       // V8: a 409 or any other error shows its words next to the buttons. The row reads again at once, because the state can have changed.
@@ -95,7 +109,11 @@ export default function RowButtons({ row, onChanged }: { row: MonitorRow; onChan
             className={
               b.id === "pause"
                 ? "rounded border border-amber-600 bg-white px-3 py-1 text-sm font-medium text-amber-800 hover:bg-amber-50 disabled:opacity-50"
-                : "rounded bg-accent px-3 py-1 text-sm font-medium text-white disabled:opacity-50"
+                : b.id === "restart"
+                  ? "rounded border border-red-700 bg-white px-3 py-1 text-sm font-medium text-red-800 hover:bg-red-50 disabled:opacity-50"
+                  : b.id === "clear"
+                    ? "rounded border border-line bg-white px-3 py-1 text-sm font-medium text-foreground disabled:opacity-50"
+                    : "rounded bg-accent px-3 py-1 text-sm font-medium text-white disabled:opacity-50"
             }
           >
             {b.label}
@@ -125,7 +143,11 @@ export default function RowButtons({ row, onChanged }: { row: MonitorRow; onChan
           {msg.text}
         </span>
       ) : null}
-      {asking ? <ConfirmDialog {...dialogText(asking, row)} busy={busy} onCancel={close} onConfirm={press} /> : null}
+      {asking === "restart" ? (
+        <RestartDialog slug={row.slug} name={bookName(row)} busy={busy} onCancel={close} onRestart={(prompts) => void press({ prompts })} />
+      ) : asking ? (
+        <ConfirmDialog {...dialogText(asking, row)} busy={busy} onCancel={close} onConfirm={() => void press()} />
+      ) : null}
     </div>
   );
 }

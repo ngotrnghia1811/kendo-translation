@@ -29,7 +29,10 @@
 //   node scripts/smoke.mjs monitor-actions --config FILE --fixture DIR   Buttons of the Monitor dashboard (unit VW77b1, round 81): the write routes /api/monitor/books/<slug>/mark and /pause,
 //                                                      every 404, 403, 415, 400, and 409 case, the exact bytes of request.json, the file PAUSE, the refused Restart row, the summary line,
 //                                                      the empty phase cell of a pilot row, and PST on /runs. It WRITES into the fixture DIR (never the real data folder). fake_translator.py builds it.
-// The script starts `next start` on a free port and stops it at the end (the modes folds, layout, and monitor-rules start no server).
+//   node scripts/smoke.mjs monitor-restart             Restart and Clear mark buttons and the data of the Restart dialog (unit VW77b2, round 82): lib/book-status-rules.ts and lib/restart-rules.ts. Pure code, no server.
+//   node scripts/smoke.mjs monitor-restart-api --config FILE --fixture DIR   The routes GET /api/monitor/books/<slug>/restart-options, POST .../mark with action restart, POST .../clear-mark
+//                                                      on the fixture of restart_fixture.py (real Translator code). It WRITES into the fixture DIR (.../r82/VW77b2/rs only).
+// The script starts `next start` on a free port and stops it at the end (the modes folds, layout, monitor-rules, and monitor-restart start no server).
 // Run `npm run build` first. Run the script in a copy of the app, not in the folder of the dev server.
 // Mode `pause` sends POST requests. Never run it with the real data folder.
 // Mode `htv` writes records into PocketBase (versions, comments, run marks). Point pocketbaseUrl of the config at a throwaway server only.
@@ -2196,7 +2199,7 @@ async function readTest() {
   check("A page check on a page without reader text gives 404", r.status === 404, `status ${r.status}`);
   r = await cr.req(`/read/${LF}?view=page&at=p048`);
   text = htvText(r.body);
-  check("With a page check the label reads 'AI translation, checked by a person' (and the date)", /AI translation, checked by a person \(\d{4}-\d\d-\d\d\)/.test(text) && !/not yet checked by a person/.test(text));
+  check("With a page check the label reads 'AI translation, checked by a person' and the PST date, for example '(2026-10-27 PST)' (round 82 answer 15)", /AI translation, checked by a person \(\d{4}-\d\d-\d\d PST\)/.test(text) && !/not yet checked by a person/.test(text));
   r = await cr.req(`/read/${LF}`);
   check("Book screen after the check: 'Human check: 1 of 6 pages.'", /Human check: 1 of 6 pages\./.test(htvText(r.body)));
   const wr = await pbCall(pbUrl, "POST", "/api/collections/page_checks/records", cr.token(), { page_id: "x/p001", checked_by: "x" });
@@ -3009,7 +3012,8 @@ print(json.dumps(out))`;
   const noGloss = JSON.stringify([R.NO_RUN_TEXT, R.DATA_ERROR_TEXT, R.PHASE2_LINE, ...Object.values(R.LABELS).map((l) => l.text)]);
   check("Screen text holds no word 'gloss', 'rendering', or 'finished'", !/gloss|rendering|finished/i.test(noGloss));
   // --- buttons (unit VW77b1, round 81): VISION 15.27.3 table, 15.29.2 buttons for each state, 15.33.3 Running row
-  const btn = (x) => x.buttons.filter((b) => b.show).map((b) => b.id + (b.enabled ? "" : "~")).join(",");
+  // The helper lists the buttons of unit VW77b1. The buttons Restart and Clear mark (unit VW77b2) have their own checks in the mode monitor-restart.
+  const btn = (x) => x.buttons.filter((b) => b.show && b.id !== "restart" && b.id !== "clear").map((b) => b.id + (b.enabled ? "" : "~")).join(",");
   const why = (x, id) => x.buttons.find((b) => b.id === id)?.reason;
   check("Buttons: a Not started book shows Run, enabled once the phase 2 prompt files exist (round 78 answer 16)", btn(row({})) === "run" && why(row({}), "run") === null);
   r = row({ phase2Ready: false });
@@ -3041,7 +3045,7 @@ print(json.dumps(out))`;
   check("Buttons: Completed in phase 3 shows 'Run phase 4' (VISION 15.24.4.5)", btn(r) === "run4" && why(r, "run4") === null && r.buttons.find((b) => b.id === "run4").label === "Run phase 4");
   r = row({ status: st({ state: "completed", phase: "agent-phase-3", pid: null }), pidAlive: false, phase2Ready: false });
   check("Buttons: Run phase 4 has no phase 2 gate", btn(r) === "run4");
-  check("Buttons: Completed in phase 4 shows no button (Restart comes in unit VW77b2)", btn(row({ status: st({ state: "completed", phase: "agent-phase-4", pid: null }), pidAlive: false })) === "");
+  check("Buttons: Completed in phase 4 shows no button of unit VW77b1 (the Restart button is checked in monitor-restart)", btn(row({ status: st({ state: "completed", phase: "agent-phase-4", pid: null }), pidAlive: false })) === "");
   r = row({ mark: mark({ action: "run", phase: "agent-phase-3" }) });
   check("Buttons: a Run mark that waits (no process) grays Run and Resume: 'A mark waits: Run requested 08:40 PST'", btn(r) === "run~,resume~" && why(r, "run") === "A mark waits: Run requested 08:40 PST" && why(r, "resume") === "A mark waits: Run requested 08:40 PST", `${btn(r)} ${why(r, "run")}`);
   r = row({ status: pst({ stop_reason: "pause" }), pidAlive: false, mark: mark({ action: "resume" }) });
@@ -3101,7 +3105,7 @@ async function monitorTest() {
   check("GET / shows rows as the design says: 'Stopped by Pause at', 'Mark waiting: Resume requested', 'Making the Difference on the Day: Mental Strengthening for Kendo (mental_full)' with pilot list, '6 of 120 pages', the error line with 'Error on p089'", /Stopped by Pause at \d\d:\d\d PST\. Last saved page p080\. Resume starts at p081\./.test(text) && /Mark waiting: Resume requested \d\d:\d\d PST/.test(text) && text.includes("Making the Difference on the Day: Mental Strengthening for Kendo (mental_full)") && text.includes("pilot list") && text.includes("6 of 120 pages") && text.includes("Error on p089, box box-critic.TS_3: invalid JSON"));
   check("GET / title tag holds the count of Needs attention in the first paint ('(N) Monitor dashboard' in <title>, N from the summary line)", new RegExp(`<title>\\(${d.summary.counts["Needs attention"]}\\) Monitor dashboard</title>`).test(r.body), (r.body.match(/<title>.*?<\/title>/) ?? [""])[0]);
   check("GET / groups are details elements with summary; the open state comes from the start rule (Needs attention open, Not started closed)", /<details[^>]*data-group="Needs attention"[^>]*open=""/.test(r.body) && !/<details[^>]*data-group="Not started"[^>]*open=""/.test(r.body) && !/<details[^>]*data-group="Completed"[^>]*open=""/.test(r.body) && (r.body.match(/<summary/g) ?? []).length >= 6);
-  check("GET / has a progressbar for a row with a total, a state label with a symbol and a word, the buttons of unit VW77b1 (data-action), and no Restart button and no Details link yet", /role="progressbar"/.test(r.body) && /data-state-label="running"[^>]*>.{0,80}●.{0,40}Running/.test(r.body.replace(/<!--.*?-->/g, "")) && /data-action="(run|resume|pause)"/.test(r.body) && !/>(Restart|Details)</.test(r.body.replace(/<script[\s\S]*?<\/script>/g, "")));
+  check("GET / has a progressbar for a row with a total, a state label with a symbol and a word, the buttons of unit VW77b1 (data-action), the Restart button of unit VW77b2 on a row with a run, and no Details link yet", /role="progressbar"/.test(r.body) && /data-state-label="running"[^>]*>.{0,80}●.{0,40}Running/.test(r.body.replace(/<!--.*?-->/g, "")) && /data-action="(run|resume|pause)"/.test(r.body) && /data-action="restart"/.test(r.body) && !/>Details</.test(r.body.replace(/<script[\s\S]*?<\/script>/g, "")));
   check("GET / sends the nav with the tabs Monitor dashboard, Lists, Books, Human translation (no Run settings tab yet)", (() => { const nav = r.body.match(/<nav[^>]*aria-label="Main tabs"[\s\S]*?<\/nav>/)?.[0] ?? ""; const t = visibleText(nav).trim().replace(/\s+/g, " "); return t === "Monitor dashboard Lists Books Human translation" && /href="\/runs"/.test(nav); })());
   r = await get("/runs");
   const rt = visibleText(r.body);
@@ -3162,13 +3166,13 @@ async function monitorTest() {
 }
 
 // Buttons of the Monitor dashboard (unit VW77b1, round 81). Needs the fixture of fake_translator.py (real store.py code) and WRITES into it.
-// Never point it at the real data folder: the first check refuses a data folder that is not below a folder named r81.
+// Never point it at the real data folder: the first check refuses a data folder that is not below a folder named r82/VW77b2.
 async function monitorActionsTest() {
   if (!fixture) throw new Error("Need --fixture DIR");
   const fx = path.resolve(fixture);
   const data = path.join(fx, "data");
   const store = path.join(data, "book-store");
-  if (!/\/r81\/VW77b1\/fx$/.test(await fs.realpath(fx))) throw new Error("monitor-actions writes files. The fixture folder must be .../r81/VW77b1/fx. Got " + fx);
+  if (!/\/r82\/VW77b2\/fx$/.test(await fs.realpath(fx))) throw new Error("monitor-actions writes files. The fixture folder must be .../r82/VW77b2/fx. Got " + fx);
   const JSONH = { "Content-Type": "application/json" };
   const post = (slug, kind, body, headers = JSONH) => get(`/api/monitor/books/${slug}/${kind}`, { method: "POST", headers, body: typeof body === "string" ? body : JSON.stringify(body) });
   const api = async () => JSON.parse((await get("/api/monitor/books")).body);
@@ -3179,6 +3183,9 @@ async function monitorActionsTest() {
   const RUN4 = { action: "run", phase: "agent-phase-4" };
   const BOXES = ["TS", "TL", "ED", "QA"].flatMap((s) => [0, 1, 2, 3].map((l) => `${s}_${l}`));
   const ph2 = (box) => path.join(store, "paired-dataset", "prompts", box, "current");
+  // unit VW77b2 (round 82): the Restart press and the Clear mark press
+  const lab = (l) => Object.fromEntries(BOXES.map((b) => [b, l]));
+  const RST = (phase = "agent-phase-4", label = "v4.1.0") => ({ action: "restart", phase, prompts: lab(label) });
   const before = await listing(data);
 
   // ---- the answers before any state check
@@ -3202,10 +3209,18 @@ async function monitorActionsTest() {
   r = await post("fx_ns", "mark", "not json");
   check("A body that is not JSON gives 400", r.status === 400, `status ${r.status} ${r.body}`);
   r = await post("fx_ns", "mark", { action: "restart", phase: "agent-phase-3" });
-  check("The action restart is no part of this unit: 400", r.status === 400);
+  check("The action restart with no prompts map gives 400 (the Restart route is checked in monitor-restart-api and below)", r.status === 400 && /^The body needs prompts/.test(err(r) ?? ""), `status ${r.status} ${r.body}`);
   r = await post("fx_ns", "mark", { action: "run", phase: "agent-phase-2" });
   check("A phase other than agent-phase-3 and agent-phase-4 gives 400", r.status === 400);
   check("A body that is an array gives 400", (await post("fx_ns", "mark", "[]")).status === 400);
+  r = await post("fx_ns", "mark", RST(), { ...JSONH, Origin: "http://evil.example" });
+  check("Foreign Origin on a Restart press gives 403 (the Origin check comes before the body and state checks)", r.status === 403 && err(r) === "Foreign origin.");
+  r = await post("fx_pause", "clear-mark", {}, { ...JSONH, Origin: "http://evil.example" });
+  check("Foreign Origin on the clear-mark route gives 403", r.status === 403 && err(r) === "Foreign origin.");
+  check("A content type that is not JSON gives 415 on the clear-mark route", (await post("fx_pause", "clear-mark", "{}", { "Content-Type": "text/plain" })).status === 415);
+  check("Slug check on the clear-mark route: a book outside the set gives 404, before the body check", (await post("no_such_book", "clear-mark", "not json")).status === 404);
+  check("GET on the clear-mark route gives 405", (await get("/api/monitor/books/fx_pause/clear-mark")).status === 405);
+  check("A restart body with a missing prompts map or the old value 'start' gives 400 (VISION 15.32.4: the old values are gone)", (await post("fx_pause", "mark", { action: "restart", phase: "agent-phase-4", prompts: "start" })).status === 400 && (await post("fx_pause", "mark", { action: "restart", phase: "agent-phase-4" })).status === 400);
   check("No request.json and no PAUSE appeared yet in the fixture", !(await exists(path.join(store, "fx_ns", "request.json"))) && !(await exists(path.join(store, "fx_running", "PAUSE"))));
 
   // ---- 409 when the action does not fit the book (a fresh read of status.json)
@@ -3229,12 +3244,29 @@ async function monitorActionsTest() {
     ["fx_broken", "mark", RUN3, /^The file status\.json cannot be read\.$/, "Run on a book with a broken status.json"],
     ["fx_ns", "mark", RUN3, /^Run is off until phase 2 prompt files exist$/, "Run on a Not started book while the phase 2 files are missing"],
     ["mental_full", "mark", RUN3, /^Run is off until phase 2 prompt files exist$/, "Run on a pilot row while the phase 2 files are missing"],
+    // unit VW77b2: the Restart press and the Clear mark press
+    ["fx_ns", "mark", RST("agent-phase-3", "v3.1.0"), /^Restart is for a book with a run\. This book has no run yet\.$/, "Restart on a Not started book"],
+    ["fx_restart_note", "mark", RST(), /^A Restart is requested already\.$/, "Restart on a Running book while a Restart mark waits"],
+    ["fx_broken", "mark", RST(), /^The file status\.json cannot be read\.$/, "Restart on a book with a broken status.json"],
+    ["fx_pilot_run", "mark", RST(), /^Restart is for a real run\. A pilot list is no real run\.$/, "Restart on a book that a pilot list runs"],
+    ["mental_full", "mark", RST(), /^Restart is for a real run\. A pilot list is no real run\.$/, "Restart on a pilot row"],
+    ["fx_pause", "mark", RST("agent-phase-3", "v3.1.0"), /^Restart must use the phase of the run \(agent-phase-4\)\.$/, "Restart with the wrong phase"],
+    ["fx_wait_resume", "mark", RST(), /^A mark waits already$/, "Restart while a Resume mark waits"],
+    ["fx_refused", "mark", RST(), /^A mark waits already$/, "Restart while a refused Restart mark still waits"],
+    ["fx_run_mark_running", "mark", RST("agent-phase-3", "v3.1.0"), /^A mark waits already$/, "Restart on a Running book with a Run mark"],
+    ["fx_pause", "mark", RST(), /^Box TS_0 has the label v4\.1\.0, but no file has it\. Pick another version\.$/, "Restart with a label that has no file (fx_pause has no prompt files)"],
+    ["fx_running", "mark", RST(), /^Box TS_0 has the label v4\.1\.0, but no file has it\. Pick another version\.$/, "Restart on a Running book with a label that has no file"],
+    ["fx_pause", "clear-mark", {}, /^There is no mark to clear\.$/, "Clear mark on a book with no mark"],
+    ["fx_pilot_run", "clear-mark", {}, /^There is no mark to clear\.$/, "Clear mark on a pilot row"],
+    ["fx_broken", "clear-mark", {}, /^The file status\.json cannot be read\.$/, "Clear mark on a book with a broken status.json"],
+    ["fx_run_mark_running", "clear-mark", {}, /^Clear mark is for a book with no live process\. This book runs now \(pid \d+\)$/, "Clear mark on a Running book with a Run mark"],
+    ["fx_restart_note", "clear-mark", {}, /^Clear mark is for a book with no live process\./, "Clear mark on a Running book with a Restart mark"],
   ];
   for (const [slug, kind, body, re, name] of cases) {
     r = await post(slug, kind, body);
     check(`409: ${name} (${slug}): '${err(r)}'`, r.status === 409 && re.test(err(r) ?? ""), `status ${r.status} ${r.body.slice(0, 160)}`);
   }
-  check("The row buttons of the API agree: fx_ns shows Run grayed with the phase 2 reason, fx_running shows Pause and two grayed buttons", (() => { const a = rowOf(d0, "fx_ns").buttons.find((b) => b.id === "run"); const b = rowOf(d0, "fx_running").buttons.filter((x) => x.show).map((x) => x.id + (x.enabled ? "" : "~")).join(","); return a.show && !a.enabled && a.reason === "Run is off until phase 2 prompt files exist" && b === "pause,run~,resume~"; })());
+  check("The row buttons of the API agree: fx_ns shows Run grayed with the phase 2 reason, fx_running shows Pause and two grayed buttons", (() => { const a = rowOf(d0, "fx_ns").buttons.find((b) => b.id === "run"); const b = rowOf(d0, "fx_running").buttons.filter((x) => x.show).map((x) => x.id + (x.enabled ? "" : "~")).join(","); return a.show && !a.enabled && a.reason === "Run is off until phase 2 prompt files exist" && b === "pause,restart,run~,resume~"; })());
   const mid = await listing(data);
   const moved = mid.filter((x) => !before.includes(x)).concat(before.filter((x) => !mid.includes(x))).filter((x) => !/status\.json|progress\.json|\bPAUSE\b/.test(x));
   check("All the refused presses wrote no file", moved.length === 0, moved.join(", "));
@@ -3271,7 +3303,7 @@ async function monitorActionsTest() {
   check("A second press on the same book: 409 'A mark waits already', the file stays as it was", r.status === 409 && err(r) === "A mark waits already" && (await fs.readFile(fileNs, "utf-8")) === bytes);
   const d2 = await api();
   const ns = rowOf(d2, "fx_ns");
-  check("The row turns to Mark waiting in the group Waiting for a run with 'Mark waiting: Run requested HH:MM PST', Run and Resume grayed with 'A mark waits: Run requested HH:MM PST'", ns.group === "Waiting for a run" && /^Mark waiting: Run requested \d\d:\d\d PST$/.test(ns.line2.join("")) && ns.buttons.filter((b) => b.show).map((b) => b.id + (b.enabled ? "" : "~")).join(",") === "run~,resume~" && /^A mark waits: Run requested \d\d:\d\d PST$/.test(ns.buttons.find((b) => b.id === "run").reason), `${ns.group} ${ns.line2.join("")}`);
+  check("The row turns to Mark waiting in the group Waiting for a run with 'Mark waiting: Run requested HH:MM PST', Run and Resume grayed with 'A mark waits: Run requested HH:MM PST'", ns.group === "Waiting for a run" && /^Mark waiting: Run requested \d\d:\d\d PST$/.test(ns.line2.join("")) && ns.buttons.filter((b) => b.show).map((b) => b.id + (b.enabled ? "" : "~")).join(",") === "run~,resume~,clear" && /^A mark waits: Run requested \d\d:\d\d PST$/.test(ns.buttons.find((b) => b.id === "run").reason), `${ns.group} ${ns.line2.join("")}`);
 
   // a book with no folder: the route makes it (store.write_mark does the same)
   const fresh = d2.rows.find((x) => x.key === "not-started" && !x.pilot && !x.slug.startsWith("fx_") && !x.slug.startsWith("lifelong"));
@@ -3317,13 +3349,13 @@ async function monitorActionsTest() {
   const home = await get("/");
   const html = home.body.replace(/<!--.*?-->/g, "");
   const rowHtml = (slug) => (html.match(new RegExp(`<li[^>]*data-book-row="${slug}"[\\s\\S]*?</li>`)) ?? [""])[0];
-  check("GET / draws the buttons: Resume on fx_rule (Stopped by failure), Run phase 4 on lifelong_full (Completed, phase 3), Run on a Not started row, no button on fx_done4 (Completed, phase 4)", /data-action="resume"/.test(rowHtml("fx_rule")) && !/data-grayed/.test(rowHtml("fx_rule")) && />Run phase 4</.test(rowHtml("lifelong_full")) && /data-action="run"/.test(rowHtml(fresh.slug)) && !/data-action/.test(rowHtml("fx_done4")));
+  check("GET / draws the buttons: Resume on fx_rule (Stopped by failure), Run phase 4 on lifelong_full (Completed, phase 3), Run on a Not started row, no button on fx_done4 (Completed, phase 4)", /data-action="resume"/.test(rowHtml("fx_rule")) && !/data-grayed/.test(rowHtml("fx_rule")) && />Run phase 4</.test(rowHtml("lifelong_full")) && /data-action="run"/.test(rowHtml(fresh.slug)) && !/data-action="(run|run4|resume|pause)"/.test(rowHtml("fx_done4")) && /data-action="restart"/.test(rowHtml("fx_done4")));
   check("After a press the row of fx_pause shows Run and Resume grayed (a Resume mark waits), and fx_done shows them grayed too", /data-grayed/.test(rowHtml("fx_pause")) && (rowHtml("fx_pause").match(/data-grayed/g) ?? []).length === 2 && (rowHtml("fx_done").match(/data-grayed/g) ?? []).length === 2);
   check("GET / draws a grayed button with aria-disabled, a tooltip (title), and the reason for a screen reader: Resume on fx_pause_req", /<button[^>]*data-grayed[^>]*aria-disabled="true"[^>]*title="Resume is off because this book runs now \(pid \d+\)"/.test(rowHtml("fx_pause_req")) || /<button[^>]*aria-disabled="true"[^>]*data-action="resume"[^>]*title="Resume is off because this book runs now/.test(rowHtml("fx_pause_req")), rowHtml("fx_pause_req").slice(0, 400));
   check("The grayed button stays in the Tab order (no disabled attribute, no tabindex -1)", !/<button[^>]*data-grayed[^>]*\sdisabled/.test(rowHtml("fx_pause_req")) && !/tabindex="-1"/.test(rowHtml("fx_pause_req")));
   check("Running while a Restart mark waits (fx_restart_note): no button, the note stays", !/data-action/.test(rowHtml("fx_restart_note")) && /Restart requested \d\d:\d\d PST/.test(rowHtml("fx_restart_note")));
   check("The refused row shows its own line with data-row-refused", /data-row-refused[^>]*>Restart refused: ED_2 v4.1.3 has no file</.test(rowHtml("fx_refused")));
-  check("GET / has no Restart button and no Details link yet (units VW77b2 and VW77c)", !/>Restart</.test(visibleText(html)) && !/>Details</.test(html));
+  check("GET / draws the Restart button (unit VW77b2) on a Running, a Stopped, and a Completed row, and has no Details link yet (unit VW77c)", /data-action="restart"/.test(rowHtml("fx_running")) && /data-action="restart"/.test(rowHtml("fx_rule")) && /data-action="restart"/.test(rowHtml("fx_done4")) && !/data-action="restart"/.test(rowHtml("fx_ns")) && !/data-action="restart"/.test(rowHtml("fx_wait_restart")) && !/>Details</.test(html));
 
   // ---- PST on the Lists tab and the run view (round 81 answer 17)
   r = await get("/runs");
@@ -3334,10 +3366,26 @@ async function monitorActionsTest() {
   const rv = visibleText(r.body.replace(/<!--[\s\S]*?-->/g, ""));
   check("Run view /runs/<stamp> shows Started and Updated in PST", r.status === 200 && /Started \d{4}-\d\d-\d\d \d\d:\d\d PST/.test(rv) && /Updated 2026-10-28 23:50 PST/.test(rv) && !/\d{4}-\d\d-\d\d \d\d:\d\d(?! PST)/.test(rv), (rv.match(/(Started|Updated) [\d: -]+(PST)?/g) ?? []).join(" | "));
 
+  // ---- Clear mark (unit VW77b2, round 82 answer 10): the Run mark of a book that had no folder, the refused Restart of fx_refused, the Restart mark of fx_wait_restart
+  const dc = await api();
+  const nsMark = JSON.parse(await fs.readFile(path.join(store, fresh.slug, "request.json"), "utf-8"));
+  r = await post(fresh.slug, "clear-mark", { requested_utc: rowOf(dc, fresh.slug).markUtc });
+  const nsDone = JSON.parse(await fs.readFile(path.join(store, fresh.slug, "request.done.json"), "utf-8").catch(() => "null"));
+  const nsRow = rowOf(await api(), fresh.slug);
+  check("Clear mark: the Run mark of the fresh book is cleared: 200, request.json gone, request.done.json holds the mark plus cleared_utc and cleared_by, the row is Not started with Run enabled again", r.status === 200 && !(await exists(path.join(store, fresh.slug, "request.json"))) && JSON.stringify(Object.keys(nsDone)) === JSON.stringify([...Object.keys(nsMark), "cleared_utc", "cleared_by"]) && nsDone.cleared_by === "Monitor dashboard" && nsDone.requested_utc === nsMark.requested_utc && nsRow.label === "Not started" && nsRow.buttons.filter((b) => b.show).map((b) => b.id + (b.enabled ? "" : "~")).join(",") === "run", `status ${r.status} ${r.body} ${nsRow.label}`);
+  check("Clear mark: the answer says 'Mark cleared: Run requested HH:MM PST. The book stays Not started. No run starts.'", /^Mark cleared: Run requested \d\d:\d\d PST\. The book stays Not started\. No run starts\.$/.test(parseJson(r.body)?.message ?? ""), r.body);
+  r = await post("fx_refused", "clear-mark", {});
+  const rfRow = rowOf(await api(), "fx_refused");
+  check("Clear mark: the refused Restart of fx_refused is cleared, the book stays Completed with no refusal line, and Restart is enabled again", r.status === 200 && rfRow.group === "Completed" && rfRow.refused === null && rfRow.buttons.filter((b) => b.show).map((b) => b.id + (b.enabled ? "" : "~")).join(",") === "restart", `status ${r.status} ${rfRow.group} ${rfRow.refused}`);
+  r = await post("fx_wait_restart", "clear-mark", {});
+  check("Clear mark: the Restart mark of fx_wait_restart (Stopped by a Pause) is cleared, the row leaves Waiting for a run and is Stopped again", r.status === 200 && rowOf(await api(), "fx_wait_restart").group === "Stopped");
+  check("Clear mark: a second press on the fresh book gives 409 'There is no mark to clear.'", (await post(fresh.slug, "clear-mark", {})).status === 409);
+
   // ---- the writes touched only the expected names
   const after = await listing(data);
-  const changed = after.filter((x) => !before.includes(x)).filter((x) => !/paired-dataset/.test(x));
-  check("The new files in the fixture are request.json and PAUSE files in book-store/<slug>/ only", changed.length > 0 && changed.every((x) => /book-store\/[A-Za-z0-9_.-]+\/(request\.json|PAUSE):\d+$/.test(x)), changed.filter((x) => !/book-store\/[A-Za-z0-9_.-]+\/(request\.json|PAUSE):\d+$/.test(x)).join(", "));
+  // The fake Translator rewrites progress.json and status.json every 3 s and appends history.jsonl (event pause-requested, after a PAUSE file appears). Their sizes change between two reads (flaky before unit VW77b2), so they stay out.
+  const changed = after.filter((x) => !before.includes(x)).filter((x) => !/paired-dataset|\/(progress|status)\.json:|\/history\.jsonl:/.test(x));
+  check("The new files in the fixture are request.json, request.done.json, and PAUSE files in book-store/<slug>/ only", changed.length > 0 && changed.every((x) => /book-store\/[A-Za-z0-9_.-]+\/(request\.json|request\.done\.json|PAUSE):\d+$/.test(x)), changed.filter((x) => !/book-store\/[A-Za-z0-9_.-]+\/(request\.json|request\.done\.json|PAUSE):\d+$/.test(x)).join(", "));
 
   // ---- the monitor off: 404 on both routes
   const off = await startServerWith({ VIEWER_MONITOR: "off" });
@@ -3346,6 +3394,404 @@ async function monitorActionsTest() {
     const r2 = await post("fx_running", "pause", {});
     const r3 = await post("fx_ns", "mark", RUN3, { ...JSONH, Origin: "http://evil.example" });
     check("Monitor off: the mark route and the pause route give 404 'Not found', also for a foreign Origin (the 404 comes first)", r.status === 404 && r2.status === 404 && r3.status === 404 && err(r) === "Not found", `status ${r.status} ${r2.status} ${r3.status}`);
+    const r4 = await post("fx_pause", "mark", RST());
+    const r5 = await post("fx_pause", "clear-mark", {});
+    const r6 = await get("/api/monitor/books/fx_pause/restart-options");
+    check("Monitor off: a Restart press, the clear-mark route, and restart-options give 404 'Not found'", r4.status === 404 && r5.status === 404 && r6.status === 404 && err(r4) === "Not found" && err(r5) === "Not found", `status ${r4.status} ${r5.status} ${r6.status}`);
+  } finally {
+    off.child.kill("SIGTERM");
+    base = off.old;
+  }
+}
+
+// Rules of the Restart and Clear mark buttons and of the Restart dialog data, without a server (unit VW77b2, round 82).
+// lib/book-status-rules.ts (buttons) and lib/restart-rules.ts (quick select rows, notes, facts, the mark bytes). Pure code.
+async function monitorRestartTest() {
+  const { installTsResolveHook } = await import("./ts-resolve-hook.mjs");
+  installTsResolveHook();
+  const R = await import("../lib/book-status-rules.ts");
+  const X = await import("../lib/restart-rules.ts");
+  const NOW = Date.UTC(2026, 10, 2, 8, 0, 0) / 1000;
+  const iso = (off) => new Date((NOW + off) * 1000).toISOString().replace(/\.\d+Z$/, "Z");
+  const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const facts = (over = {}) => ({ slug: "mental_full", title: "Making the Difference on the Day", bookPages: 169, status: null, statusUnreadable: false, statusFile: "book-store/mental_full/status.json", pauseExists: false, mark: null, markUnreadable: false, pidAlive: true, runNumber: null, derived: null, phase2Ready: true, refusal: null, ...over });
+  const st = (over = {}) => ({ book: "mental_full", phase: "agent-phase-4", state: "running", stop_reason: null, stop_text: null, pid: 4821, heartbeat_utc: iso(-30), running_page: "mental_full/p051", running_boxes: ["TL_2"], last_accepted_page: "mental_full/p050", next_page: "mental_full/p052", pages_done: 50, pages_total: 169, cost_usd_models_phase: 8.3, seconds_phase: 9540, started_utc: iso(-54 * 60), run_id: "2026-11-04T00:15:00-08:00", updated_utc: iso(-30), last_error: null, ...over });
+  const pst = (extra = {}) => st({ state: "stopped", pid: null, heartbeat_utc: iso(-3600), updated_utc: "2026-07-10T16:40:00Z", last_accepted_page: "mental_full/p080", next_page: "mental_full/p081", ...extra });
+  const mark = (over) => ({ schema: "book-request-v1", book: "mental_full", action: "resume", phase: "agent-phase-4", requested_by: "Monitor dashboard", requested_utc: "2026-07-10T16:40:00Z", ...over });
+  const row = (over) => R.buildRow(facts(over), NOW);
+  const shown = (x) => x.buttons.filter((b) => b.show).map((b) => b.id + (b.enabled ? "" : "~")).join(",");
+  const btn = (x, id) => x.buttons.find((b) => b.id === id);
+  let r;
+
+  // ---- the Restart button (VISION 15.29.2, 15.29.3; round 76 answer 5)
+  check("Restart: the six buttons come in the order Pause, Restart, Run, Run phase 4, Resume, Clear mark, with their labels", eq(row({ status: st() }).buttons.map((b) => b.id), ["pause", "restart", "run", "run4", "resume", "clear"]) && eq(row({ status: st() }).buttons.map((b) => b.label), ["Pause", "Restart", "Run", "Run phase 4", "Resume", "Clear mark"]));
+  r = row({ status: st() });
+  check("Restart: a Running row shows Pause and Restart enabled, with Run and Resume grayed (VISION 15.33.3)", shown(r) === "pause,restart,run~,resume~" && btn(r, "restart").reason === null && btn(r, "restart").stateReason === null);
+  r = row({ status: st(), pauseExists: true });
+  check("Restart: Running with pause requested keeps Restart enabled, Pause is grayed (round 80 answer 12: Restart wins over Pause)", shown(r) === "pause~,restart,run~,resume~");
+  for (const [name, over] of [["Stopped by Pause", { status: pst({ stop_reason: "pause" }), pidAlive: false }], ["Stopped by Ctrl-C", { status: pst({ stop_reason: "ctrl-c" }), pidAlive: false }], ["Stopped by failure", { status: pst({ stop_reason: "forward-failure" }), pidAlive: false }], ["Stopped unexpectedly", { status: st({ pid: 99999999, heartbeat_utc: iso(-12 * 60) }), pidAlive: false }], ["Completed in phase 4", { status: st({ state: "completed", phase: "agent-phase-4", pid: null }), pidAlive: false }], ["Stopped with the reason target-reached", { status: pst({ stop_reason: "target-reached" }), pidAlive: false }]]) {
+    r = row(over);
+    check(`Restart: ${name} shows Restart enabled (round 76 answer 5: every state with a run)`, shown(r).split(",").includes("restart") && btn(r, "restart").enabled === true, shown(r));
+  }
+  r = row({ status: st({ state: "completed", phase: "agent-phase-3", pid: null }), pidAlive: false });
+  check("Restart: Completed in phase 3 shows Restart and Run phase 4", shown(r) === "restart,run4");
+  r = row({});
+  check("Restart: a Not started book (no status.json) shows no Restart button", shown(r) === "run" && btn(r, "restart").stateReason === "Restart is for a book with a run. This book has no run yet.");
+  r = row({ status: st({ state: "not-started", pid: null }) });
+  check("Restart: a status.json with the state not-started shows no Restart button", shown(r) === "run");
+  r = row({ status: pst({ stop_reason: "pause" }), pidAlive: false, mark: mark({ action: "resume" }) });
+  check("Restart: a Waiting for a run row (a Resume mark waits) shows no Restart button (VISION 15.29.3), and Clear mark is there", r.group === "Waiting for a run" && shown(r) === "run~,resume~,clear");
+  r = row({ status: null, mark: mark({ action: "run", after: "restart", requested_by: "run program" }) });
+  check("Restart: the Run mark that a Restart leaves (no status.json) shows no Restart button, Clear mark shows", shown(r) === "run~,resume~,clear" && r.markText === "Restart requested 08:40 PST");
+  r = row({ status: st(), mark: mark({ action: "restart", prompts: {} }) });
+  check("Restart: a Running row while a Restart mark waits shows no button at all (round 79 answer 13), and the 409 reason says so", shown(r) === "" && btn(r, "restart").stateReason === "A Restart is requested already." && btn(r, "clear").show === false);
+  r = row({ status: st(), mark: mark({ action: "run", phase: "agent-phase-3" }) });
+  check("Restart: a Running row with a Run mark shows Restart grayed: 'A mark waits: Run requested 08:40 PST'", shown(r) === "pause,restart~,run~,resume~" && btn(r, "restart").reason === "A mark waits: Run requested 08:40 PST" && btn(r, "restart").stateReason === null);
+  const doneRow = (over) => row({ status: st({ state: "completed", phase: "agent-phase-4", pid: null }), pidAlive: false, ...over });
+  const rm = mark({ action: "restart", prompts: {} });
+  r = doneRow({ mark: rm, refusal: { reason: "ED_2 v4.1.3 has no file", requested_utc: rm.requested_utc } });
+  check("Restart: a refused Restart row shows Restart grayed ('A mark waits: Restart requested 08:40 PST (refused)') and Clear mark enabled", shown(r) === "restart~,run~,resume~,clear" && btn(r, "restart").reason === "A mark waits: Restart requested 08:40 PST (refused)" && btn(r, "clear").enabled === true);
+  r = row({ status: null, statusUnreadable: true });
+  check("Restart: a Status file unreadable row shows neither Restart nor Clear mark, both carry the reason", shown(r) === "" && btn(r, "restart").stateReason === "The file status.json cannot be read." && btn(r, "clear").stateReason === "The file status.json cannot be read.");
+  r = row({ status: null, statusUnreadable: true, mark: mark({ action: "run" }) });
+  check("Restart: an unreadable status.json with a mark waiting still shows no Clear mark button", shown(r) === "");
+  const pl = R.buildRow(facts({ slug: "left_foot_full", title: "left_foot_full", derived: { listCount: 1, pagesDone: 3, costUsd: 4.5, seconds: 300, lastEventEpoch: NOW - 5000, newest: { stamp: "20261101T000000Z", state: "completed", final: true, updatedEpoch: NOW - 4000, startedEpoch: NOW - 9000, pauseFile: false, chainState: "stopped: interrupted", runningPage: null, runningBoxes: [], anyRunning: false, anyWaiting: false, stopPage: "left_foot_full/p003", nextPage: null, errors: [], forwardFailure: null } } }), NOW);
+  check("Restart: a pilot row shows no Restart button (pilot runs do not count toward real runs), reason 'Restart is for a real run. A pilot list is no real run.'", pl.pilot === true && shown(pl) === "run" && btn(pl, "restart").stateReason === "Restart is for a real run. A pilot list is no real run.", shown(pl));
+
+  // ---- the Clear mark button (round 82 answer 10)
+  r = row({ status: st(), mark: mark({ action: "run", phase: "agent-phase-3" }) });
+  check("Clear mark: a Running row never shows it, and the 409 reason says a process runs", btn(r, "clear").show === false && /^Clear mark is for a book with no live process\. This book runs now \(pid 4821\)$/.test(btn(r, "clear").stateReason ?? ""));
+  r = row({ status: pst({ stop_reason: "pause" }), pidAlive: false });
+  check("Clear mark: a row with no mark does not show it, stateReason 'There is no mark to clear.'", btn(r, "clear").show === false && btn(r, "clear").stateReason === "There is no mark to clear.");
+  r = row({ markUnreadable: true });
+  check("Clear mark: an unreadable request.json shows Clear mark, and the dialog words name the file", btn(r, "clear").enabled === true && r.markText === "request.json (cannot be read)" && r.markUtc === null);
+  r = row({ mark: mark({ action: "bogus" }) });
+  check("Clear mark: a mark with an unknown action shows Clear mark with the words 'request.json (unknown action)'", btn(r, "clear").enabled === true && r.markText === "request.json (unknown action)");
+  r = row({ status: pst({ stop_reason: "pause" }), pidAlive: false, mark: mark({ action: "restart", prompts: {} }) });
+  check("Clear mark: the row carries the mark in words 'Restart requested 08:40 PST' and its requested_utc for the press", r.markText === "Restart requested 08:40 PST" && r.markUtc === "2026-07-10T16:40:00Z");
+  check("Clear mark: a row with no mark has markText and markUtc null", row({}).markText === null && row({}).markUtc === null);
+
+  // ---- the data of the dialog: the owner example (mental_full, ED_2 v4.1.0 to v4.1.6, run 2 with v4.2.0 copied from v4.1.3)
+  const T0 = Date.UTC(2026, 10, 4, 8, 15, 0);
+  const at = (run1, n) => new Date(T0 + (run1 ? 0 : 86400000 * 3) + n * 600000).toISOString().replace(/\.\d+Z$/, "Z");
+  const BOXES = X.BOXES;
+  const V = (box, label, over = {}) => ({ box, label, parent: null, updatePoint: null, createdUtc: null, critiqueCount: null, ...over });
+  const edUpdates = [[1, 20], [2, 40], [3, 60], [4, 65], [5, 70], [6, 75]];
+  const versions = [];
+  for (const b of BOXES) versions.push(V(b, "v4.1.0"), V(b, "v4.2.0", { parent: b === "ED_2" ? "v4.1.3" : "v4.1.0" }));
+  for (const [u, p] of edUpdates) versions.push(V("ED_2", `v4.1.${u}`, { updatePoint: u, createdUtc: at(true, p + 0) .replace(/:00Z$/, ":30Z"), critiqueCount: u === 6 ? 6 : 5 }));
+  versions.push(V("TL_1", "v4.1.1", { updatePoint: "p020", createdUtc: at(true, 20), critiqueCount: 5 }), V("TL_1", "v4.1.2", { updatePoint: "mental_full/p040", createdUtc: at(true, 40), critiqueCount: 5 }));
+  versions.push(V("ED_2", "v4.2.1", { updatePoint: 1, createdUtc: at(false, 25).replace(/:00Z$/, ":30Z"), critiqueCount: 5 }), V("ED_2", "v4.2.2", { updatePoint: 2, createdUtc: at(false, 40).replace(/:00Z$/, ":30Z"), critiqueCount: 5 }));
+  versions.push(V("ED_2", "v3.2.2"), V("TS_0", "v3.1.0"), V("ED_2", "v5.1.0"), V("ED_2", "v4.1.07"));
+  const live = (plan, n) => (b) => { let k = 0; for (const [u, p] of plan[b] ?? []) if (p < n && u > k) k = u; return k; };
+  const page = (n, run1, used, over = {}) => ({ id: `mental_full/p${String(n).padStart(3, "0")}`, n, accepted: true, verdict: n % 6 === 0 ? "FAIL" : "PASS", acceptedUtc: at(run1, n), used, ...over });
+  const plan1 = { ED_2: edUpdates, TL_1: [[1, 20], [2, 40]] };
+  const plan2 = { ED_2: [[1, 25], [2, 40]] };
+  const pages1 = [];
+  for (let n = 1; n <= 80; n++) pages1.push(page(n, true, Object.fromEntries(BOXES.map((b) => [b, `v4.1.${live(plan1, n)(b)}`]))));
+  const pages2 = [];
+  for (let n = 1; n <= 50; n++) pages2.push(page(n, false, Object.fromEntries(BOXES.map((b) => [b, `v4.2.${live(plan2, n)(b)}`]))));
+  const ptr1 = Object.fromEntries(BOXES.map((b) => [b, b === "ED_2" ? "v4.1.6" : b === "TL_1" ? "v4.1.2" : "v4.1.0"]));
+  const ptr2 = Object.fromEntries(BOXES.map((b) => [b, b === "ED_2" ? "v4.2.2" : "v4.2.0"]));
+  const input = { phase: "agent-phase-4", versions, runs: [{ run: 2, archive: null, pointers: ptr2, pages: pages2 }, { run: 1, archive: "20261104T001500-0800", pointers: ptr1, pages: pages1 }], previousChosen: { ED_2: ["v4.1.3"], TL_1: ["v4.1.2"] } };
+  const o = X.buildRestartOptions(input);
+  const ed = o.boxes.find((b) => b.box === "ED_2");
+  const edv = (l) => ed.versions.find((v) => v.label === l);
+  check("Dialog data: the quick select rows come in the order Starting versions, Last live versions, then run 1 by page, then run 2 by page (DZ78 default 5)", eq(o.quick.map((q) => q.text), ["Starting versions", "Last live versions", "Run 1, after the update point at p020", "Run 1, after the update point at p040", "Run 1, after the update point at p060", "Run 1, after the update point at p065", "Run 1, after the update point at p070", "Run 1, after the update point at p075", "Run 2, after the update point at p025", "Run 2, after the update point at p040"]), o.quick.map((q) => q.text).join(" | "));
+  check("Dialog data: 'Starting versions' means the phase start versions v4.1.0 for all 16 boxes, also while run 2 runs (round 80 answer 17)", o.quick[0].id === "start" && BOXES.every((b) => o.quick[0].prompts[b] === "v4.1.0"));
+  check("Dialog data: 'Last live versions' are the 16 pointers of the current run (ED_2 v4.2.2, the others v4.2.0)", o.quick[1].prompts.ED_2 === "v4.2.2" && o.quick[1].prompts.TS_0 === "v4.2.0" && Object.keys(o.quick[1].prompts).length === 16);
+  const q75 = o.quick.find((q) => q.text === "Run 1, after the update point at p075");
+  check("Dialog data: 'Run 1, after the update point at p075' holds ED_2 v4.1.6, TL_1 v4.1.2, and v4.1.0 for the boxes with no update", q75.prompts.ED_2 === "v4.1.6" && q75.prompts.TL_1 === "v4.1.2" && q75.prompts.QA_3 === "v4.1.0" && q75.prompts.TS_0 === "v4.1.0");
+  const q50 = o.quick.find((q) => q.text === "Run 1, after the update point at p040");
+  check("Dialog data: 'Run 1, after the update point at p040' holds the version that was live then (ED_2 v4.1.2, TL_1 v4.1.2), and 'p020' holds v4.1.1 for both", q50.prompts.ED_2 === "v4.1.2" && q50.prompts.TL_1 === "v4.1.2" && o.quick.find((q) => q.id === "run1-p020").prompts.ED_2 === "v4.1.1" && o.quick.find((q) => q.id === "run1-p020").prompts.TL_1 === "v4.1.1");
+  const r2 = o.quick.find((q) => q.id === "run2-p040");
+  check("Dialog data: 'Run 2, after the update point at p040' equals 'Last live versions' and both rows stay (DZ78 default 3)", eq(r2.prompts, o.quick[1].prompts));
+  check("Dialog data: every quick select row holds the 16 boxes and only labels of the phase", o.quick.every((q) => eq(Object.keys(q.prompts), BOXES) && Object.values(q.prompts).every((l) => /^v4\./.test(l))));
+  check("Dialog data: the pick list of ED_2 holds v4.1.0 to v4.1.6 and v4.2.0 to v4.2.2 in order, and no v3.2.2, v5.1.0, or v4.1.07 (same phase only, round 79 answer 8)", eq(ed.versions.map((v) => v.label), ["v4.1.0", "v4.1.1", "v4.1.2", "v4.1.3", "v4.1.4", "v4.1.5", "v4.1.6", "v4.2.0", "v4.2.1", "v4.2.2"]));
+  check("Dialog data: TS_0 has v4.1.0 and v4.2.0 only (the v3.1.0 file of another phase stays out)", eq(o.boxes.find((b) => b.box === "TS_0").versions.map((v) => v.label), ["v4.1.0", "v4.2.0"]));
+  check("Notes: v4.1.0 'starting version'", edv("v4.1.0").noteText === "starting version");
+  check("Notes: v4.1.3 'previous restart version, update after p060' (the order of DZ78 default 1: previous restart before the update note)", edv("v4.1.3").noteText === "previous restart version, update after p060", edv("v4.1.3").noteText);
+  check("Notes: v4.1.6 'last version of run 1, update after p075'", edv("v4.1.6").noteText === "last version of run 1, update after p075");
+  check("Notes: v4.2.0 'restart start version (copy of v4.1.3)'", edv("v4.2.0").noteText === "restart start version (copy of v4.1.3)");
+  check("Notes: v4.2.2 'current live version, update after p040'", edv("v4.2.2").noteText === "current live version, update after p040");
+  check("Notes: two notes share one cell in the fixed order (TS_0 v4.1.0 'starting version, last version of run 1'), and the option text is the label, a dot, and the notes", o.boxes.find((b) => b.box === "TS_0").versions[0].noteText === "starting version, last version of run 1" && edv("v4.1.4").optionText === "v4.1.4 · update after p065");
+  const tl = o.boxes.find((b) => b.box === "TL_1");
+  check("Notes: TL_1 v4.1.2 (update_point as page ID text 'mental_full/p040') reads 'last version of run 1, previous restart version, update after p040'", tl.versions.find((v) => v.label === "v4.1.2").noteText === "last version of run 1, previous restart version, update after p040", tl.versions.find((v) => v.label === "v4.1.2").noteText);
+  check("Notes: ED_2 update_point numbers (1 to 6) are no page IDs, so the page comes from created_utc and accepted_utc", edv("v4.1.1").notes.includes("update after p020") && edv("v4.1.5").notes.includes("update after p070"));
+  check("Facts: v4.1.3 was live on p061 to p065, 5 pages", edv("v4.1.3").pagesLive === "run 1, p061-p065 (5)", edv("v4.1.3").pagesLive);
+  check("Facts: PASS and FAIL counts of those pages (p066 would be FAIL but is not in the span): v4.1.3 5 / 0, v4.1.6 p076-p080 4 / 1", edv("v4.1.3").passFail === "5 / 0" && edv("v4.1.6").passFail === "4 / 1", `${edv("v4.1.3").passFail} ${edv("v4.1.6").passFail}`);
+  check("Facts: critiques used 'none' for a start version, a count for an update (v4.1.1 5, v4.1.6 6), and 'none' also for v4.2.0", edv("v4.1.0").critiquesUsed === "none" && edv("v4.1.1").critiquesUsed === "5" && edv("v4.1.6").critiquesUsed === "6" && edv("v4.2.0").critiquesUsed === "none");
+  check("Facts: the pages of run 2 name the run: v4.2.2 'run 2, p041-p050 (10)'", edv("v4.2.2").pagesLive === "run 2, p041-p050 (10)", edv("v4.2.2").pagesLive);
+  check("Facts: a version that no page used shows 'none' when all page files are readable (here v4.1.07 does not count, TS_0 v4.2.0 was live on p001 to p050 of run 2)", o.boxes.find((b) => b.box === "TS_0").versions[1].pagesLive === "run 2, p001-p050 (50)");
+  check("Dialog data: no problem line for a complete store", o.problems.length === 0, o.problems.join(" | "));
+
+  // Not stored: no page records, unreadable run.json, an update point that no page names, a missing start version
+  const noPages = X.buildRestartOptions({ ...input, runs: [{ run: 2, archive: null, pointers: ptr2, pages: [] }, { run: 1, archive: "20261104T001500-0800", pointers: ptr1, pages: pages1 }] });
+  const e2 = noPages.boxes.find((b) => b.box === "ED_2").versions.find((v) => v.label === "v4.2.2");
+  check("Not stored: a run with no page record gives 'Not stored' for pages and PASS / FAIL (v4.2.2), and the other run keeps its facts", e2.pagesLive === "Not stored" && e2.passFail === "Not stored" && noPages.boxes.find((b) => b.box === "ED_2").versions.find((v) => v.label === "v4.1.3").pagesLive === "run 1, p061-p065 (5)");
+  const holes = pages1.map((p) => (p.n === 62 ? { ...p, used: null } : p));
+  const withHole = X.buildRestartOptions({ ...input, runs: [{ run: 2, archive: null, pointers: ptr2, pages: pages2 }, { run: 1, archive: "20261104T001500-0800", pointers: ptr1, pages: holes }] });
+  check("Not stored: a page with no readable run.json is named in the pages of the versions (v4.1.3 'run 1, p061-p065 (4), p062 Not stored')", withHole.boxes.find((b) => b.box === "ED_2").versions.find((v) => v.label === "v4.1.3").pagesLive === "run 1, p061-p065 (4), p062 Not stored", withHole.boxes.find((b) => b.box === "ED_2").versions.find((v) => v.label === "v4.1.3").pagesLive);
+  const noCrit = X.buildRestartOptions({ ...input, versions: versions.map((v) => (v.label === "v4.1.4" && v.box === "ED_2" ? { ...v, critiqueCount: null } : v)) });
+  check("Not stored: an update version with no critique_ids list shows 'Not stored' in Critiques used", noCrit.boxes.find((b) => b.box === "ED_2").versions.find((v) => v.label === "v4.1.4").critiquesUsed === "Not stored");
+  const lost = X.buildRestartOptions({ ...input, versions: versions.map((v) => (v.label === "v4.1.4" && v.box === "ED_2" ? { ...v, createdUtc: null, updatePoint: 4 } : v)) });
+  check("Not stored: an update version whose page cannot be found reads 'update, page not stored', gets no quick select row, and the dialog says so", lost.boxes.find((b) => b.box === "ED_2").versions.find((v) => v.label === "v4.1.4").noteText === "update, page not stored" && !lost.quick.some((q) => q.id === "run1-p065") && lost.problems.some((p) => /^ED_2 v4\.1\.4: the page of its update point is not stored/.test(p)), lost.problems.join(" | "));
+  const noStart = X.buildRestartOptions({ ...input, versions: versions.filter((v) => !(v.box === "QA_1" && v.label === "v4.1.0")) });
+  check("Dialog data: a box with no v4.1.0 file drops the quick select 'Starting versions' and names the box in a problem line", !noStart.quick.some((q) => q.id === "start") && noStart.problems.some((p) => /Starting versions.*QA_1 has no file for v4\.1\.0/.test(p)), noStart.problems.join(" | "));
+  const noBox = X.buildRestartOptions({ ...input, versions: versions.filter((v) => v.box !== "TS_3") });
+  check("Dialog data: a box with no version at all gets an empty list and a problem line", noBox.boxes.find((b) => b.box === "TS_3").versions.length === 0 && noBox.problems.some((p) => p === "Box TS_3 has no saved version of agent-phase-4."));
+  // one update point where every rewrite was rejected twice has no version, so no row: p030 has no ED_2 version
+  check("Quick select rows only for update points with a live rewrite: no row for p030 or p080 (no version names them)", !o.quick.some((q) => /p030|p080/.test(q.text)));
+  const oneRun = X.buildRestartOptions({ phase: "agent-phase-4", versions: versions.filter((v) => /^v4\.1\./.test(v.label)), runs: [{ run: 1, archive: null, pointers: ptr1, pages: pages1 }], previousChosen: {} });
+  check("A quick select row names its run also when the phase has one run only (DZ78 default 4)", oneRun.quick.filter((q) => q.id.startsWith("run")).length === 6 && oneRun.quick.every((q) => q.id.startsWith("run") ? /^Run 1, after the update point at p\d{3}$/.test(q.text) : true) && oneRun.quick[1].prompts.ED_2 === "v4.1.6");
+  check("mapProblem: a map that names a label with no file gives words, a good map gives null", X.mapProblem(o, { ...q75.prompts, ED_2: "v4.1.9" }) === "ED_2 v4.1.9 has no file." && X.mapProblem(o, { ...q75.prompts, ED_2: "v4.1.3" }) === null);
+
+  // ---- the mark bytes and the body check
+  const pick = { ...q75.prompts, ED_2: "v4.1.3" };
+  const bytes = X.restartMarkText("mental_full", "agent-phase-4", pick, "2026-11-05T09:30:00Z");
+  const parsed = JSON.parse(bytes);
+  check("Restart mark: keys in the order schema, book, action, phase, prompts, requested_utc, requested_by, with ED_2 'v4.1.3' and 15 other labels", eq(Object.keys(parsed), ["schema", "book", "action", "phase", "prompts", "requested_utc", "requested_by"]) && eq(Object.keys(parsed.prompts), BOXES) && parsed.prompts.ED_2 === "v4.1.3" && parsed.prompts.TL_1 === "v4.1.2" && parsed.requested_by === "Monitor dashboard");
+  check("Restart mark: json indent 1, one newline at the end, the prompts block indented by 2 spaces (the form of json.dumps(indent=1))", bytes.startsWith('{\n "schema": "book-request-v1",\n "book": "mental_full",\n "action": "restart",\n "phase": "agent-phase-4",\n "prompts": {\n  "TS_0": "v4.1.0",') && bytes.endsWith('"requested_utc": "2026-11-05T09:30:00Z",\n "requested_by": "Monitor dashboard"\n}\n'));
+  const body = (over) => ({ phase: "agent-phase-4", prompts: pick, ...over });
+  check("Body check: a good body gives null", X.restartBodyProblem(body()) === null);
+  check("Body check: a phase outside agent-phase-3 and agent-phase-4 gives words", /^The body needs phase/.test(X.restartBodyProblem(body({ phase: "agent-phase-2" })) ?? "") && /^The body needs phase/.test(X.restartBodyProblem(body({ phase: undefined })) ?? ""));
+  check("Body check: prompts that is not a map, or a list, gives words", /^The body needs prompts/.test(X.restartBodyProblem(body({ prompts: "start" })) ?? "") && /^The body needs prompts/.test(X.restartBodyProblem(body({ prompts: [] })) ?? ""));
+  const miss = { ...pick };
+  delete miss.QA_3;
+  check("Body check: 15 boxes give words that name the missing box (QA_3)", X.restartBodyProblem(body({ prompts: miss })) === "prompts must name exactly the 16 boxes. These differ: QA_3.");
+  check("Body check: 17 boxes give words that name the extra key", /These differ: ZZ_9\.$/.test(X.restartBodyProblem(body({ prompts: { ...pick, ZZ_9: "v4.1.0" } })) ?? ""));
+  check("Body check: a label that is no label (v4.1, 'start', 5, v4.01.0) gives words that name the box", ["v4.1", "start", 5, "v4.01.0", "v1.1.0"].every((l) => /^prompts: box TS_0 has /.test(X.restartBodyProblem(body({ prompts: { ...pick, TS_0: l } })) ?? "")));
+  check("Body check: a label of another phase (v3.1.0 in a phase 4 mark) gives words 'must start with v4'", /^prompts: box TS_0 has label v3\.1\.0\. The mark names agent-phase-4, so the label must start with v4\.$/.test(X.restartBodyProblem(body({ prompts: { ...pick, TS_0: "v3.1.0" } })) ?? ""));
+  check("Body check: the label of phase 3 is right in a phase 3 mark", X.restartBodyProblem({ phase: "agent-phase-3", prompts: Object.fromEntries(BOXES.map((b) => [b, "v3.2.1"])) }) === null);
+  check("Run ID folder (store.py run_id_folder): 2026-11-04T00:15:00-08:00 gives 20261104T001500-0800, another offset or text gives null", X.runIdFolder("2026-11-04T00:15:00-08:00") === "20261104T001500-0800" && X.runIdFolder("2026-07-10T09:00:00-07:00") === null && X.runIdFolder(null) === null);
+  check("Page names: p061 from 61, 61 from 'mental_full/p061', null from 'x'", X.pageName(61) === "p061" && X.pageNumberOf("mental_full/p061") === 61 && X.pageNumberOf("p7") === 7 && X.pageNumberOf("x") === null && X.pageNumberOf(60) === null);
+  const words = JSON.stringify([o.quick.map((q) => q.text), o.boxes.flatMap((b) => b.versions.map((v) => [v.noteText, v.pagesLive, v.passFail, v.critiquesUsed])), o.problems, row({ status: st(), mark: mark({ action: "run" }) }).buttons.map((b) => [b.reason, b.stateReason])]);
+  check("Dialog texts hold no word 'gloss', 'rendering', 'finished', or 'rollback'", !/gloss|rendering|finished|rollback/i.test(words));
+}
+
+// Restart and Clear mark on the fixture of restart_fixture.py (unit VW77b2, round 82). Real Translator code made the fixture. The test WRITES into it.
+// The first check refuses a data folder that is not .../r82/VW77b2/rs.
+async function monitorRestartApiTest() {
+  if (!fixture) throw new Error("Need --fixture DIR");
+  const fx = path.resolve(fixture);
+  const data = path.join(fx, "data");
+  const store = path.join(data, "book-store");
+  if (!/\/r82\/VW77b2\/rs$/.test(await fs.realpath(fx))) throw new Error("monitor-restart-api writes files. The fixture folder must be .../r82/VW77b2/rs. Got " + fx);
+  const JSONH = { "Content-Type": "application/json" };
+  const post = (slug, kind, body, headers = JSONH) => get(`/api/monitor/books/${slug}/${kind}`, { method: "POST", headers, body: typeof body === "string" ? body : JSON.stringify(body) });
+  const opts = async (slug) => {
+    const r = await get(`/api/monitor/books/${slug}/restart-options`);
+    return { status: r.status, j: parseJson(r.body), body: r.body };
+  };
+  const api = async () => JSON.parse((await get("/api/monitor/books")).body);
+  const rowOf = (d, slug) => d.rows.find((x) => x.slug === slug);
+  const err = (r) => parseJson(r.body)?.error;
+  const exists = async (p) => fs.stat(p).then(() => true, () => false);
+  const shown = (x) => x.buttons.filter((b) => b.show).map((b) => b.id + (b.enabled ? "" : "~")).join(",");
+  const BOXES = ["TS", "TL", "ED", "QA"].flatMap((s) => [0, 1, 2, 3].map((l) => `${s}_${l}`));
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const before = await listing(data);
+  let r;
+
+  // ---- GET restart-options: mental_full, run 2 running, run 1 archived (made by restart_run of the Translator)
+  let o = await opts("mental_full");
+  const j = o.j;
+  check("restart-options: mental_full answers 200 with ok, the title, the phase, running true, and the archive folder of the run ID (2026-11-05T09:50:00-08:00)", o.status === 200 && j.ok === true && j.title === "Making the Difference on the Day" && j.phase === "agent-phase-4" && j.running === true && j.stateLabel === "Running" && j.archiveFolder === "20261105T095000-0800", o.body.slice(0, 300));
+  check("restart-options: the quick select rows are Starting versions, Last live versions, run 1 at p020 p040 p050 p060 p065 p070 p075, run 2 at p025 p040", same(j.quick.map((q) => q.text), ["Starting versions", "Last live versions", "Run 1, after the update point at p020", "Run 1, after the update point at p040", "Run 1, after the update point at p050", "Run 1, after the update point at p060", "Run 1, after the update point at p065", "Run 1, after the update point at p070", "Run 1, after the update point at p075", "Run 2, after the update point at p025", "Run 2, after the update point at p040"]), j.quick.map((q) => q.text).join(" | "));
+  const q = (id) => j.quick.find((x) => x.id === id);
+  check("restart-options: the owner example: 'Run 1, after the update point at p075' holds ED_2 v4.1.6, TL_1 v4.1.2, QA_3 v4.1.1 (live then), TS_0 v4.1.0", q("run1-p075").prompts.ED_2 === "v4.1.6" && q("run1-p075").prompts.TL_1 === "v4.1.2" && q("run1-p075").prompts.QA_3 === "v4.1.1" && q("run1-p075").prompts.TS_0 === "v4.1.0" && Object.keys(q("run1-p075").prompts).length === 16);
+  check("restart-options: 'Starting versions' is v4.1.0 for all 16 boxes in run 2 (round 80 answer 17), 'Last live versions' is the pointers (ED_2 v4.2.2, TL_1 v4.2.1, QA_3 v4.2.0)", BOXES.every((b) => q("start").prompts[b] === "v4.1.0") && q("last").prompts.ED_2 === "v4.2.2" && q("last").prompts.TL_1 === "v4.2.1" && q("last").prompts.QA_3 === "v4.2.0");
+  const box = (b) => j.boxes.find((x) => x.box === b);
+  const ver = (b, l) => box(b).versions.find((v) => v.label === l);
+  check("restart-options: 16 boxes in the order TS_0 to QA_3, each with a current pointer", same(j.boxes.map((x) => x.box), BOXES) && j.boxes.every((x) => /^v4\.2\./.test(x.current ?? "")));
+  check("restart-options: ED_2 holds v4.1.0 to v4.1.6 (archive) and v4.2.0 to v4.2.2 (current run) in order", same(box("ED_2").versions.map((v) => v.label), ["v4.1.0", "v4.1.1", "v4.1.2", "v4.1.3", "v4.1.4", "v4.1.5", "v4.1.6", "v4.2.0", "v4.2.1", "v4.2.2"]));
+  check("restart-options: notes from the files of the Translator: v4.1.0 'starting version', v4.1.3 'previous restart version, update after p060' (the history event restart names it), v4.1.6 'last version of run 1, update after p075', v4.2.0 'restart start version (copy of v4.1.3)', v4.2.2 'current live version, update after p040'", ver("ED_2", "v4.1.0").noteText === "starting version" && ver("ED_2", "v4.1.3").noteText === "previous restart version, update after p060" && ver("ED_2", "v4.1.6").noteText === "last version of run 1, update after p075" && ver("ED_2", "v4.2.0").noteText === "restart start version (copy of v4.1.3)" && ver("ED_2", "v4.2.2").noteText === "current live version, update after p040", box("ED_2").versions.map((v) => v.noteText).join(" | "));
+  check("restart-options: facts of v4.1.3: pages 'run 1, p061-p065 (5)', PASS / FAIL '5 / 0', critiques '5'", ver("ED_2", "v4.1.3").pagesLive === "run 1, p061-p065 (5)" && ver("ED_2", "v4.1.3").passFail === "5 / 0" && ver("ED_2", "v4.1.3").critiquesUsed === "5");
+  check("restart-options: facts of v4.1.0 'run 1, p001-p020 (20)' '17 / 3' 'none', v4.2.2 'run 2, p041-p050 (10)' '8 / 2' '5'", ver("ED_2", "v4.1.0").pagesLive === "run 1, p001-p020 (20)" && ver("ED_2", "v4.1.0").passFail === "17 / 3" && ver("ED_2", "v4.1.0").critiquesUsed === "none" && ver("ED_2", "v4.2.2").pagesLive === "run 2, p041-p050 (10)" && ver("ED_2", "v4.2.2").passFail === "8 / 2" && ver("ED_2", "v4.2.2").critiquesUsed === "5");
+  check("restart-options: TL_1 v4.1.1 (update_point 'p020' as text) reads 'update after p020', QA_3 v4.1.1 (the version live at the end of run 1 and picked by the Restart) reads 'last version of run 1, previous restart version, update after p050'", ver("TL_1", "v4.1.1").noteText === "update after p020" && ver("QA_3", "v4.1.1").noteText === "last version of run 1, previous restart version, update after p050", ver("QA_3", "v4.1.1").noteText);
+  check("restart-options: no problem line, and the answer holds no Mac path", Array.isArray(j.problems) && j.problems.length === 0 && !/\/Users\/|\/private\/|\/var\/folders/.test(o.body));
+  const kx = (await opts("kendo_mix")).j;
+  check("restart-options: kendo_mix has a phase 3 run in archive/ (v3.1.x) and phase 4 files: the lists hold labels of phase 4 only (round 79 answer 8)", kx.ok === true && kx.boxes.every((b) => b.versions.every((v) => /^v4\./.test(v.label))) && kx.quick.every((x) => Object.values(x.prompts).every((l) => /^v4\./.test(l))) && same(kx.boxes.find((b) => b.box === "ED_2").versions.map((v) => v.label), ["v4.1.0", "v4.1.1"]) && kx.phase === "agent-phase-4");
+  check("restart-options: kendo_mix 'Last live versions' is v4.1.1 for ED_2, and ED_2 v4.1.0 has no 'last version of run' note (the phase 3 archive is not a run of phase 4)", kx.quick.find((x) => x.id === "last").prompts.ED_2 === "v4.1.1" && !/last version of run/.test(kx.boxes.find((b) => b.box === "ED_2").versions.map((v) => v.noteText).join("|")));
+  const nf = (await opts("rs_nofacts")).j;
+  check("restart-options: rs_nofacts has two page folders with no readable run.json: the pages name them 'Not stored' (p002 and p004)", /Not stored/.test(nf.boxes.find((b) => b.box === "ED_2").versions[0].pagesLive) && /p002/.test(nf.boxes.find((b) => b.box === "ED_2").versions[0].pagesLive), nf.boxes.find((b) => b.box === "ED_2").versions.map((v) => v.pagesLive).join(" | "));
+  const dn = (await opts("rs_done")).j;
+  check("restart-options: a Completed book (rs_done) answers 200, running false, stateLabel Completed", dn.ok === true && dn.running === false && dn.stateLabel === "Completed" && dn.archiveFolder === "20261104T001500-0800");
+
+  // ---- GET: the 404 and 409 answers
+  for (const bad of ["no_such_book", "paired-dataset", "a%20b", "..", "%2e%2e"]) {
+    o = await opts(bad);
+    // '..' and '%2e%2e' never reach the route: Next answers its own 404 page. The other slugs reach the route and get the JSON body.
+    check(`restart-options: slug '${bad}' gives 404${/^\.|%2e/.test(bad) ? "" : " 'Not found'"}`, o.status === 404 && (/^\.|%2e/.test(bad) || o.j?.error === "Not found"), `status ${o.status} ${o.body.slice(0, 80)}`);
+  }
+  for (const [slug, re, name] of [["rs_ns", /^Restart is for a book with a run\. This book has no run yet\.$/, "a Not started book"], ["rs_pilot", /^Restart is for a real run\. A pilot list is no real run\.$/, "a pilot row"], ["rs_broken", /^The file status\.json cannot be read\.$/, "a broken status.json"], ["rs_running_restart", /^A Restart is requested already\.$/, "a Running book while a Restart waits"]]) {
+    o = await opts(slug);
+    check(`restart-options: ${name} (${slug}) gives 409 '${o.j?.error}'`, o.status === 409 && re.test(o.j?.error ?? ""), `status ${o.status} ${o.body.slice(0, 120)}`);
+  }
+  r = await get("/api/monitor/books/mental_full/restart-options", { method: "POST", headers: JSONH, body: "{}" });
+  check("restart-options: the route is GET only (POST gives 405)", r.status === 405);
+  const afterGets = await listing(data);
+  const gDiff = afterGets.filter((x) => !before.includes(x)).concat(before.filter((x) => !afterGets.includes(x))).filter((x) => !/status\.json|progress\.json/.test(x));
+  check("restart-options: all the reads wrote no file in the fixture", gDiff.length === 0, gDiff.join(", "));
+  // fresh read: a new version file appears and the next answer holds it (no cache)
+  const edDir = path.join(store, "rs_done", "prompts", "ED_2");
+  const v0 = JSON.parse(await fs.readFile(path.join(edDir, "v4.1.1.json"), "utf-8"));
+  await fs.writeFile(path.join(edDir, "v4.1.2.json"), JSON.stringify({ ...v0, version: "v4.1.2", update_point: "p015", critique_ids: ["a", "b", "c", "d", "e", "f", "g"] }, null, 1) + "\n");
+  o = await opts("rs_done");
+  check("restart-options: a version file that appeared after the first read shows in the next read (no cache), 'update after p015', 7 critiques used", o.j.boxes.find((b) => b.box === "ED_2").versions.some((v) => v.label === "v4.1.2" && v.noteText === "update after p015" && v.critiquesUsed === "7"), o.body.slice(0, 200));
+  await fs.rm(path.join(edDir, "v4.1.2.json"));
+
+  // ---- POST restart: every answer before the write
+  const p16 = (label) => Object.fromEntries(BOXES.map((b) => [b, label]));
+  const RS = (over = {}) => ({ action: "restart", phase: "agent-phase-4", prompts: p16("v4.1.0"), ...over });
+  r = await post("rs_done", "mark", RS(), { ...JSONH, Origin: "http://evil.example" });
+  check("Restart route: a foreign Origin gives 403 and writes no file", r.status === 403 && err(r) === "Foreign origin." && !(await exists(path.join(store, "rs_done", "request.json"))));
+  r = await post("rs_done", "mark", JSON.stringify(RS()), { "Content-Type": "text/plain" });
+  check("Restart route: a content type that is not JSON gives 415", r.status === 415 && err(r) === "Send JSON.");
+  r = await post("no_such_book", "mark", RS());
+  check("Restart route: a slug outside the book set gives 404, before the body check", r.status === 404 && (await post("no_such_book", "mark", "not json")).status === 404);
+  r = await post("rs_done", "mark", "not json");
+  check("Restart route: a body that is not JSON gives 400", r.status === 400);
+  const miss = p16("v4.1.0");
+  delete miss.QA_3;
+  const bad400 = [
+    [RS({ phase: "agent-phase-2" }), /^The body needs phase/, "phase agent-phase-2"],
+    [RS({ phase: undefined }), /^The body needs phase/, "no phase"],
+    [RS({ prompts: undefined }), /^The body needs prompts/, "no prompts"],
+    [RS({ prompts: "start" }), /^The body needs prompts/, "prompts 'start' (the old form)"],
+    [RS({ prompts: miss }), /^prompts must name exactly the 16 boxes\. These differ: QA_3\.$/, "15 boxes"],
+    [RS({ prompts: { ...p16("v4.1.0"), ZZ_9: "v4.1.0" } }), /These differ: ZZ_9\.$/, "17 boxes"],
+    [RS({ prompts: { ...p16("v4.1.0"), ED_2: "latest" } }), /^prompts: box ED_2 has "latest"/, "a label that is no label"],
+    [RS({ prompts: { ...p16("v4.1.0"), ED_2: 3 } }), /^prompts: box ED_2 has 3/, "a number as label"],
+    [RS({ prompts: { ...p16("v4.1.0"), ED_2: "v3.2.2" } }), /^prompts: box ED_2 has label v3\.2\.2\. The mark names agent-phase-4, so the label must start with v4\.$/, "a label of phase 3 in a phase 4 mark"],
+    [RS({ prompts: [] }), /^The body needs prompts/, "prompts as a list"],
+  ];
+  for (const [body, re, name] of bad400) {
+    r = await post("rs_done", "mark", body);
+    check(`Restart route: 400 for ${name}: '${err(r)}'`, r.status === 400 && re.test(err(r) ?? ""), `status ${r.status} ${r.body.slice(0, 160)}`);
+  }
+  check("Restart route: a body array gives 400", (await post("rs_done", "mark", "[]")).status === 400);
+  check("Restart route: the 400 checks come before the state checks (a bad body on a Not started book gives 400 too)", (await post("rs_ns", "mark", RS({ prompts: "start" }))).status === 400);
+  for (const [slug, re, name] of [["rs_ns", /^Restart is for a book with a run\. This book has no run yet\.$/, "a Not started book"], ["rs_pilot", /^Restart is for a real run\. A pilot list is no real run\.$/, "a pilot row"], ["rs_broken", /^The file status\.json cannot be read\.$/, "a broken status.json"], ["rs_running_restart", /^A Restart is requested already\.$/, "a Running book while a Restart waits"], ["rs_done3", /^Restart must use the phase of the run \(agent-phase-3\)\.$/, "a phase 3 book with a phase 4 mark"]]) {
+    r = await post(slug, "mark", RS());
+    check(`Restart route: 409 for ${name} (${slug}): '${err(r)}'`, r.status === 409 && re.test(err(r) ?? ""), `status ${r.status} ${r.body.slice(0, 160)}`);
+  }
+  for (const slug of ["rs_wait_resume", "rs_wait_restart", "rs_refused", "rs_running_runmark"]) {
+    r = await post(slug, "mark", RS());
+    check(`Restart route: 409 'A mark waits already' on ${slug}`, r.status === 409 && err(r) === "A mark waits already", `status ${r.status} ${r.body.slice(0, 160)}`);
+  }
+  r = await post("rs_done", "mark", RS({ prompts: { ...p16("v4.1.0"), ED_2: "v4.1.9" } }));
+  check("Restart route: a label with no file gives 409 that names the box and the label: 'Box ED_2 has the label v4.1.9, but no file has it. Pick another version.'", r.status === 409 && err(r) === "Box ED_2 has the label v4.1.9, but no file has it. Pick another version.", `status ${r.status} ${r.body}`);
+  r = await post("rs_done", "mark", RS({ prompts: p16("v4.2.0") }));
+  check("Restart route: v4.2.0 exists in mental_full but not in rs_done: the files of another book do not count (409)", r.status === 409 && /^Box TS_0 has the label v4\.2\.0/.test(err(r) ?? ""));
+  check("Restart route: all refused presses wrote no request.json and no .part file", !(await exists(path.join(store, "rs_done", "request.json"))) && !(await exists(path.join(store, "rs_done", "request.json.part"))));
+
+  // ---- POST restart on the Running book: the owner example (quick select p075, ED_2 changed to v4.1.3), a label from the archive folder
+  const pick = { ...q("run1-p075").prompts, ED_2: "v4.1.3" };
+  const t0 = Date.now();
+  r = await post("mental_full", "mark", RS({ prompts: pick }));
+  const wj = parseJson(r.body);
+  const bytes = await fs.readFile(path.join(store, "mental_full", "request.json"), "utf-8").catch(() => "");
+  const want = JSON.stringify({ schema: "book-request-v1", book: "mental_full", action: "restart", phase: "agent-phase-4", prompts: pick, requested_utc: wj?.requested_utc, requested_by: "Monitor dashboard" }, null, 1) + "\n";
+  check("Restart route: 200 on the Running book with the picks of the owner example, the answer holds ok, action restart, the press time, and a message", r.status === 200 && wj.ok === true && wj.action === "restart" && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(wj.requested_utc) && /^Mark written: Restart requested \d\d:\d\d PST\. The process finishes the current page and its update point, then it archives the run and ends\.$/.test(wj.message), `status ${r.status} ${r.body}`);
+  check("Restart route: request.json holds the exact bytes of store.write_mark (keys schema, book, action, phase, prompts in box order, requested_utc, requested_by; indent 1; one newline)", bytes === want && bytes.endsWith("}\n") && !bytes.endsWith("\n\n"), JSON.stringify(bytes.slice(0, 200)));
+  check("Restart route: the press time is the clock of the server (within 6 s), and ED_2 holds 'v4.1.3' from the archive folder", Math.abs(Date.parse(wj.requested_utc) - t0) < 6000 && JSON.parse(bytes).prompts.ED_2 === "v4.1.3" && JSON.parse(bytes).prompts.TL_1 === "v4.1.2");
+  await fs.copyFile(path.join(store, "mental_full", "request.json"), path.join(fx, "pressed-mental_full-request.json"));
+  check("Restart route: no .part file stays in the book folder", !(await exists(path.join(store, "mental_full", "request.json.part"))));
+  const d1 = await api();
+  const mf = rowOf(d1, "mental_full");
+  check("After the press the row stays Running with the note 'Restart requested HH:MM PST' and no button (round 78 answer 10, round 79 answer 13)", mf.group === "Running" && mf.label === "Running" && /^Restart requested \d\d:\d\d PST$/.test(mf.note ?? "") && shown(mf) === "", `${mf.group} ${mf.note} ${shown(mf)}`);
+  check("After the press the row of mental_full has markText and markUtc for the Clear mark dialog, but no Clear mark button (a process runs)", /^Restart requested \d\d:\d\d PST$/.test(mf.markText ?? "") && mf.markUtc === wj.requested_utc && mf.buttons.find((b) => b.id === "clear").show === false);
+  r = await post("mental_full", "mark", RS({ prompts: pick }));
+  check("A second Restart press while the Restart waits: 409 'A Restart is requested already.', the file stays as it was", r.status === 409 && err(r) === "A Restart is requested already." && (await fs.readFile(path.join(store, "mental_full", "request.json"), "utf-8")) === bytes);
+  r = await post("mental_full", "clear-mark", {});
+  check("Clear mark on the Running book: 409 'Clear mark is for a book with no live process. This book runs now (pid ...)', the mark stays", r.status === 409 && /^Clear mark is for a book with no live process\. This book runs now \(pid \d+\)$/.test(err(r) ?? "") && (await exists(path.join(store, "mental_full", "request.json"))));
+  o = await opts("mental_full");
+  check("restart-options while the Restart waits: 409 'A Restart is requested already.'", o.status === 409 && o.j.error === "A Restart is requested already.");
+
+  // ---- POST restart on a Completed book: the row moves to Waiting for a run
+  r = await post("rs_done", "mark", RS({ prompts: dn.quick.find((x) => x.id === "start").prompts }));
+  const dj = parseJson(r.body);
+  check("Restart route: 200 on a Completed book (rs_done) with 'Starting versions', the message says an opencode agent runs the restart", r.status === 200 && /^Mark written: Restart requested \d\d:\d\d PST\. An opencode agent runs the restart\.$/.test(dj?.message ?? ""), `status ${r.status} ${r.body}`);
+  const dd = rowOf(await api(), "rs_done");
+  check("After the press the Completed row moves to Waiting for a run with 'Mark waiting: Restart requested HH:MM PST', no Restart button, Clear mark shown", dd.group === "Waiting for a run" && /^Mark waiting: Restart requested \d\d:\d\d PST$/.test(dd.line2.join("")) && shown(dd) === "run~,resume~,clear", `${dd.group} ${dd.line2.join("")} ${shown(dd)}`);
+  r = await post("rs_fail", "mark", RS({ prompts: { ...p16("v4.1.0"), ED_2: "v4.1.1" } }));
+  check("Restart route: 200 on a Stopped by failure book (rs_fail) with ED_2 v4.1.1", r.status === 200 && JSON.parse(await fs.readFile(path.join(store, "rs_fail", "request.json"), "utf-8")).prompts.ED_2 === "v4.1.1");
+  r = await post("rs_dead", "mark", RS());
+  check("Restart route: 200 on a Stopped unexpectedly book (rs_dead)", r.status === 200);
+  r = await post("rs_running_pause", "mark", RS());
+  const rp = rowOf(await api(), "rs_running_pause");
+  check("Restart route: 200 on a Running with pause requested book, the row stays Running with the note", r.status === 200 && rp.group === "Running" && /^Restart requested/.test(rp.note ?? ""));
+  r = await post("rs_done3", "mark", RS({ phase: "agent-phase-3", prompts: p16("v3.1.0") }));
+  check("Restart route: 200 on a Completed book of phase 3 with labels of phase 3", r.status === 200 && JSON.parse(await fs.readFile(path.join(store, "rs_done3", "request.json"), "utf-8")).phase === "agent-phase-3");
+
+  // ---- Clear mark
+  const clearBefore = await listing(data);
+  r = await post("rs_wait_restart", "clear-mark", {}, { ...JSONH, Origin: "http://evil.example" });
+  check("Clear mark: a foreign Origin gives 403 and the mark stays", r.status === 403 && err(r) === "Foreign origin." && (await exists(path.join(store, "rs_wait_restart", "request.json"))));
+  r = await post("rs_wait_restart", "clear-mark", "{}", { "Content-Type": "text/plain" });
+  check("Clear mark: a content type that is not JSON gives 415", r.status === 415);
+  for (const bad of ["no_such_book", "paired-dataset", "a%20b", ".."]) check(`Clear mark: slug '${bad}' gives 404`, (await post(bad, "clear-mark", {})).status === 404);
+  check("Clear mark: the slug check comes before the body check (404 for a bad slug with a bad body)", (await post("no_such_book", "clear-mark", "not json")).status === 404);
+  check("Clear mark: a body that is not JSON gives 400, a list gives 400, a number as requested_utc gives 400", (await post("rs_wait_restart", "clear-mark", "not json")).status === 400 && (await post("rs_wait_restart", "clear-mark", "[]")).status === 400 && (await post("rs_wait_restart", "clear-mark", { requested_utc: 5 })).status === 400);
+  r = await post("rs_nofacts", "clear-mark", {});
+  check("Clear mark: 409 'There is no mark to clear.' on a book with no mark", r.status === 409 && err(r) === "There is no mark to clear.");
+  r = await post("rs_running_runmark", "clear-mark", {});
+  check("Clear mark: 409 on a Running book with a Run mark (a live process runs it)", r.status === 409 && /^Clear mark is for a book with no live process\./.test(err(r) ?? "") && (await exists(path.join(store, "rs_running_runmark", "request.json"))));
+  r = await post("rs_broken", "clear-mark", {});
+  check("Clear mark: 409 on a book with a broken status.json", r.status === 409 && err(r) === "The file status.json cannot be read.");
+  r = await post("rs_wait_restart", "clear-mark", { requested_utc: "2000-01-01T00:00:00Z" });
+  check("Clear mark: a press time that differs from the file gives 409 'The mark changed since the dialog opened. Read the row again.' and the mark stays", r.status === 409 && err(r) === "The mark changed since the dialog opened. Read the row again." && (await exists(path.join(store, "rs_wait_restart", "request.json"))));
+  check("Clear mark: the refused presses wrote no request.done.json", !(await exists(path.join(store, "rs_wait_restart", "request.done.json"))) && !(await exists(path.join(store, "rs_nofacts", "request.done.json"))));
+  // the refused Restart (rs_refused): the dialog names the mark, the route clears it, the book stays Stopped
+  const dr0 = rowOf(await api(), "rs_refused");
+  check("Refused Restart row (rs_refused): the group stays Stopped, the second line 'Restart refused: ...', Restart grayed, Clear mark shown; markText 'Restart requested HH:MM PST'", dr0.group === "Stopped" && /^Restart refused: restart mark: box ED_2 has the label v4\.1\.9/.test(dr0.refused ?? "") && shown(dr0) === "restart~,run~,resume~,clear" && /^Restart requested \d\d:\d\d PST$/.test(dr0.markText ?? ""), shown(dr0));
+  const markRef = JSON.parse(await fs.readFile(path.join(store, "rs_refused", "request.json"), "utf-8"));
+  r = await post("rs_refused", "clear-mark", { requested_utc: dr0.markUtc });
+  const cj = parseJson(r.body);
+  check("Clear mark on the refused Restart: 200, the message 'Mark cleared: Restart requested HH:MM PST. The book stays Stopped. No run starts.'", r.status === 200 && cj.ok === true && /^Mark cleared: Restart requested \d\d:\d\d PST\. The book stays Stopped\. No run starts\.$/.test(cj.message ?? ""), `status ${r.status} ${r.body}`);
+  const doneRef = JSON.parse(await fs.readFile(path.join(store, "rs_refused", "request.done.json"), "utf-8").catch(() => "null"));
+  check("Clear mark: request.json is gone, request.done.json holds the mark with two added keys cleared_utc and cleared_by 'Monitor dashboard' (aki-main proposal)", !(await exists(path.join(store, "rs_refused", "request.json"))) && same(Object.keys(doneRef), [...Object.keys(markRef), "cleared_utc", "cleared_by"]) && doneRef.cleared_by === "Monitor dashboard" && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(doneRef.cleared_utc) && same(doneRef.prompts, markRef.prompts) && doneRef.requested_utc === markRef.requested_utc);
+  check("Clear mark: the history.jsonl of the book is not changed (the Viewer writes no history)", (await fs.readFile(path.join(store, "rs_refused", "history.jsonl"), "utf-8")).trim().split("\n").length === 1);
+  check("Clear mark: no .part file stays", (await fs.readdir(path.join(store, "rs_refused"))).every((n) => !n.endsWith(".part")));
+  const dr1 = rowOf(await api(), "rs_refused");
+  check("After Clear mark the row is Stopped with no refusal line, and Restart, Resume are enabled again, no Clear mark button", dr1.group === "Stopped" && dr1.refused === null && shown(dr1) === "restart,resume", `${dr1.group} ${dr1.refused} ${shown(dr1)}`);
+  r = await post("rs_refused", "clear-mark", {});
+  check("A second Clear mark press: 409 'There is no mark to clear.'", r.status === 409 && err(r) === "There is no mark to clear.");
+  // a refused Restart no longer blocks: a new Restart with a good label is written
+  r = await post("rs_refused", "mark", RS());
+  check("After Clear mark a new Restart press on rs_refused is written (200)", r.status === 200);
+  // Waiting rows
+  const w = rowOf(await api(), "rs_wait_restart");
+  check("Waiting row (rs_wait_restart): group Waiting for a run, buttons Run and Resume grayed and Clear mark", w.group === "Waiting for a run" && shown(w) === "run~,resume~,clear" && w.baseLabel === "Stopped", shown(w));
+  r = await post("rs_wait_restart", "clear-mark", {});
+  check("Clear mark with no press time in the body works too (200), and the row leaves Waiting for a run to Stopped", r.status === 200 && rowOf(await api(), "rs_wait_restart").group === "Stopped");
+  r = await post("rs_wait_after", "clear-mark", {});
+  const af = JSON.parse(await fs.readFile(path.join(store, "rs_wait_after", "request.done.json"), "utf-8").catch(() => "null"));
+  check("Clear mark on the Run mark that a Restart leaves (rs_wait_after, no status.json): 200, request.done.json keeps after 'restart' and requested_by 'run program', the row is Not started", r.status === 200 && af?.after === "restart" && af?.requested_by === "run program" && af?.cleared_by === "Monitor dashboard" && rowOf(await api(), "rs_wait_after").label === "Not started" && /The book stays Not started\. No run starts\.$/.test(parseJson(r.body).message));
+  r = await post("rs_wait_resume", "clear-mark", {});
+  check("Clear mark on a Resume mark (rs_wait_resume): 200, the book stays Stopped by Ctrl-C and shows Resume enabled again", r.status === 200 && rowOf(await api(), "rs_wait_resume").group === "Stopped" && shown(rowOf(await api(), "rs_wait_resume")) === "restart,resume");
+  const rawBad = await fs.readFile(path.join(store, "rs_mark_broken", "request.json"), "utf-8");
+  r = await post("rs_mark_broken", "clear-mark", {});
+  const bd = JSON.parse(await fs.readFile(path.join(store, "rs_mark_broken", "request.done.json"), "utf-8").catch(() => "null"));
+  check("Clear mark on a request.json that cannot be read: 200, the text moves into request.done.json under unreadable_text", r.status === 200 && bd?.unreadable_text === rawBad && bd?.cleared_by === "Monitor dashboard" && !(await exists(path.join(store, "rs_mark_broken", "request.json"))));
+  check("The writes of the Clear mark routes stay in book-store/<slug>/: request.done.json appears, request.json goes away, nothing else changes", (await listing(data)).filter((x) => !clearBefore.includes(x)).every((x) => /book-store\/[A-Za-z0-9_.-]+\/(request\.json|request\.done\.json):\d+$/.test(x)));
+
+  // ---- first paint: the buttons in the HTML
+  const home = await get("/");
+  const html = home.body.replace(/<!--.*?-->/g, "");
+  const rowHtml = (slug) => (html.match(new RegExp(`<li[^>]*data-book-row="${slug}"[\\s\\S]*?</li>`)) ?? [""])[0];
+  check("GET / draws Restart on Stopped (kendo_mix), Stopped by failure (rs_fail is Waiting now: rs_nofacts is Stopped), Completed phase 3 (rs_done3 waits), no Restart on rs_ns and rs_pilot", /data-action="restart"/.test(rowHtml("kendo_mix")) && /data-action="restart"/.test(rowHtml("rs_nofacts")) && !/data-action="restart"/.test(rowHtml("rs_ns")) && !/data-action="restart"/.test(rowHtml("rs_pilot")) && !/data-action="restart"/.test(rowHtml("rs_fail")));
+  check("GET / draws Clear mark on a Waiting row (rs_done) and no button on the Running row with a Restart mark (mental_full)", /data-action="clear"/.test(rowHtml("rs_done")) && !/data-action/.test(rowHtml("mental_full")) && /Restart requested \d\d:\d\d PST/.test(rowHtml("mental_full")));
+  check("GET / draws Restart grayed with the reason in words on the Running row with a Run mark (rs_running_runmark)", /<button[^>]*data-action="restart"[^>]*aria-disabled="true"[^>]*title="A mark waits: Run requested \d\d:\d\d PST"/.test(rowHtml("rs_running_runmark")) || /<button[^>]*aria-disabled="true"[^>]*data-action="restart"[^>]*title="A mark waits: Run requested/.test(rowHtml("rs_running_runmark")), rowHtml("rs_running_runmark").slice(0, 500));
+
+  // ---- the monitor off: 404 on the three routes
+  const off = await startServerWith({ VIEWER_MONITOR: "off" });
+  try {
+    const a = await get("/api/monitor/books/rs_done3/restart-options");
+    const b = await post("rs_nofacts", "mark", RS());
+    const c = await post("rs_wait_resume", "clear-mark", {}, { ...JSONH, Origin: "http://evil.example" });
+    check("Monitor off: restart-options, the Restart press, and Clear mark give 404 'Not found' (also with a foreign Origin: the 404 comes first)", a.status === 404 && b.status === 404 && c.status === 404 && err(c) === "Not found", `${a.status} ${b.status} ${c.status}`);
   } finally {
     off.child.kill("SIGTERM");
     base = off.old;
@@ -3389,6 +3835,12 @@ if (mode === "monitor-rules") {
   process.exit(failures ? 1 : 0);
 }
 
+if (mode === "monitor-restart") {
+  await monitorRestartTest();
+  console.log(`\nFailures: ${failures}, skipped: ${skips}`);
+  process.exit(failures ? 1 : 0);
+}
+
 if (mode === "folds") {
   await foldsTest();
   console.log(`\nFailures: ${failures}, skipped: ${skips}`);
@@ -3401,6 +3853,7 @@ try {
   else if (mode === "pause") await pauseTest();
   else if (mode === "monitor") await monitorTest();
   else if (mode === "monitor-actions") await monitorActionsTest();
+  else if (mode === "monitor-restart-api") await monitorRestartApiTest();
   else if (mode === "htv") await htvTest();
   else if (mode === "deploy") await deployTest();
   else if (mode === "read") await readTest();

@@ -5,7 +5,8 @@ import RowButtons from "./RowButtons";
 // Unit VW77a (round 80), VISION-viewer 15.24.4.3: a row has two lines. Line 1 holds the facts in fixed columns, line 2 holds one sentence in words.
 // A third line shows only when an error text exists. It is red, it names the page and the box, and it is never cut.
 // Unit VW77b1 (round 81): the buttons Run, Run phase 4, Pause, and Resume sit at the end of line 1 (components/RowButtons.tsx).
-// No Restart button yet (unit VW77b2) and no Details link yet (unit VW77c, round 81 answer 25). A refused Restart adds its own line (round 81 answers 15 and 16).
+// Unit VW77b2 (round 82): the buttons Restart and Clear mark sit in the same place. No Details link yet (unit VW77c, round 81 answer 25).
+// A refused Restart adds its own line (round 81 answers 15 and 16).
 export default function BookRow({ row, now, onChanged }: { row: MonitorRow; now: number; onChanged: () => Promise<void> }) {
   const hasRun = row.key !== "not-started" && row.key !== "unreadable";
   const pct = row.pagesTotal && row.pagesDone !== null ? Math.min(100, Math.round((row.pagesDone / row.pagesTotal) * 100)) : 0;

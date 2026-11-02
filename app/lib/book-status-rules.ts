@@ -1,4 +1,4 @@
-// Rules of the Monitor dashboard (unit VW77a, round 80, buttons added by unit VW77b1, round 81). Pure functions: no file access, no clock of their own, no server-only import.
+// Rules of the Monitor dashboard (unit VW77a, round 80, buttons added by unit VW77b1, round 81, Restart and Clear mark added by unit VW77b2, round 82). Pure functions: no file access, no clock of their own, no server-only import.
 // The server code (book-status.ts) reads the files, checks the pid, and passes the facts and the clock in. A test runs this file with plain node
 // and the resolve hook (scripts/ts-resolve-hook.mjs). Use only erasable TypeScript syntax here (no enum, no parameter property).
 //
@@ -149,8 +149,8 @@ export interface BookFacts {
 /** A piece of line 2: text, or a time that the browser can recompute every 30 s with no request (VISION 15.24.4.6). */
 export type Seg = string | { ago: number; secs?: boolean };
 
-export type ActionId = "pause" | "run" | "run4" | "resume";
-export const ACTION_LABELS: Record<ActionId, string> = { pause: "Pause", run: "Run", run4: "Run phase 4", resume: "Resume" };
+export type ActionId = "pause" | "restart" | "run" | "run4" | "resume" | "clear";
+export const ACTION_LABELS: Record<ActionId, string> = { pause: "Pause", restart: "Restart", run: "Run", run4: "Run phase 4", resume: "Resume", clear: "Clear mark" };
 
 /**
  * One button of a book row (VISION 15.27.3 and 15.29.2).
@@ -191,8 +191,12 @@ export interface MonitorRow {
   errorCount: number;
   eventEpoch: number | null;
   statusFile: string | null;
-  /** The buttons in the order of the row: Pause, Run, Run phase 4, Resume. Four entries, `show` tells which ones the row draws. */
+  /** The buttons in the order of the row: Pause, Restart, Run, Run phase 4, Resume, Clear mark (VISION 15.29.2 lists Pause, Restart first). Six entries, `show` tells which ones the row draws. */
   buttons: ActionButton[];
+  /** The mark in words for the Clear mark dialog: "Restart requested 08:40 PST". Null when request.json does not exist [unit default VW77b2]. */
+  markText: string | null;
+  /** The key requested_utc of the mark, for the Clear mark press (the route compares it with the file). Null when the mark has none. */
+  markUtc: string | null;
   /** Second line of a refused Restart: "Restart refused: ED_2 v4.1.3 has no file". Null otherwise. */
   refused: string | null;
 }
@@ -525,6 +529,8 @@ function blankRow(f: BookFacts, key: LabelKey): MonitorRow {
     statusFile: null,
     buttons: [],
     refused: null,
+    markText: null,
+    markUtc: null,
   };
 }
 
@@ -710,7 +716,13 @@ function pidText(f: BookFacts): string {
  *   A mark waits (request.json exists, no process): Run and Resume grayed ("A mark waits: Run requested 08:40 PST") [unit default VW77b1].
  *   Stopped (Pause or Ctrl-C), Stopped by failure, Stopped unexpectedly: Resume (VISION 15.29.2 lists Resume for all three).
  *   Completed in phase 3: Run phase 4. Run (phase 3) is grayed until the 16 phase 2 prompt files exist [aki-main proposal in the brief of VW77b1].
- * No Restart button (unit VW77b2) and no Details link (unit VW77c).
+ * Unit VW77b2 (round 82) adds two buttons:
+ *   Restart (VISION 15.29.2, 15.29.3; round 76 answer 5): in every state with a run (Running, Stopped, Stopped by failure, Stopped unexpectedly, Completed).
+ *     Not on a Not started row, a Waiting for a run row (VISION 15.29.3, last lines), a pilot row, an unreadable row, or a Running row while a Restart mark waits.
+ *     While another mark waits (request.json exists) it shows grayed with the reason in words: a Running row with a Run mark, a row with a refused Restart mark.
+ *   Clear mark (round 82 answer 10): on a row where request.json exists and no live process runs the book (a Waiting for a run row, a row with a refused Restart).
+ *     Never on a Running row. Never on an unreadable-status row.
+ * No Details link (unit VW77c).
  */
 export function actionButtons(f: BookFacts, r: Pick<MonitorRow, "pilot" | "baseLabel">, base: LabelKey, mark: ReturnType<typeof markInfo>, refusedNow: boolean): ActionButton[] {
   const unreadable = base === "unreadable";
@@ -722,9 +734,26 @@ export function actionButtons(f: BookFacts, r: Pick<MonitorRow, "pilot" | "baseL
   const noRealRun = !unreadable && (!f.status || base === "not-started");
   const stopReason = f.status?.stop_reason ?? null;
   const here = `This book is: ${r.baseLabel}.`;
+  const canRestart = !unreadable && !r.pilot && !noRealRun;
 
   // Why the action does not fit the book state. Null means it fits.
   const why: Record<ActionId, string | null> = {
+    restart: unreadable
+      ? "The file status.json cannot be read."
+      : r.pilot
+        ? "Restart is for a real run. A pilot list is no real run."
+        : noRealRun
+          ? "Restart is for a book with a run. This book has no run yet."
+          : restartWaits
+            ? "A Restart is requested already."
+            : null,
+    clear: unreadable
+      ? "The file status.json cannot be read."
+      : !markPresent
+      ? "There is no mark to clear."
+      : runs
+        ? `Clear mark is for a book with no live process. This book runs now${pidText(f)}`
+        : null,
     pause: unreadable
       ? "The file status.json cannot be read."
       : r.pilot && runs
@@ -772,16 +801,16 @@ export function actionButtons(f: BookFacts, r: Pick<MonitorRow, "pilot" | "baseL
   let show: ActionId[] = [];
   if (unreadable || restartWaits) show = [];
   else if (runs && r.pilot) show = ["run"];
-  else if (runs) show = ["pause", "run", "resume"];
-  else if (markPresent) show = ["run", "resume"];
+  else if (runs) show = ["pause", "restart", "run", "resume"];
+  // A mark waits and no process runs: the row is in Waiting for a run (no Restart button there) or it holds a refused Restart (Restart grayed, VISION 15.34.5).
+  else if (markPresent) show = [...(canRestart && refusedNow ? (["restart"] as ActionId[]) : []), "run", "resume", "clear"];
   else if (noRealRun) show = ["run"];
-  else if (why.run4 === null) show = ["run4"];
-  else if (why.resume === null) show = ["resume"];
+  else show = [...(canRestart ? (["restart"] as ActionId[]) : []), ...(why.run4 === null ? (["run4"] as ActionId[]) : why.resume === null ? (["resume"] as ActionId[]) : [])];
 
-  return (["pause", "run", "run4", "resume"] as ActionId[]).map((id) => {
+  return (["pause", "restart", "run", "run4", "resume", "clear"] as ActionId[]).map((id) => {
     const shown = show.includes(id);
-    // Pause is no mark: a mark on a running book does not block it. Every other action waits while request.json exists.
-    const blockedByMark = id !== "pause" && markPresent;
+    // Pause is no mark: a mark on a running book does not block it. Clear mark removes the mark. Every other action waits while request.json exists.
+    const blockedByMark = id !== "pause" && id !== "clear" && markPresent;
     const enabled = shown && why[id] === null && !blockedByMark;
     const reason = !shown || enabled ? null : runs ? (why[id] ?? waitReason) : (waitReason ?? why[id]);
     return { id, label: ACTION_LABELS[id], show: shown, enabled, reason, stateReason: why[id] };
@@ -804,6 +833,11 @@ export function buildRow(f: BookFacts, now: number): MonitorRow {
   }
   const baseKey = r.key;
   const m = markInfo(f.mark);
+  // Unit VW77b2: the words of the mark for the Clear mark dialog, and its press time for the Clear mark press.
+  if (m) r.markText = `${m.word} requested${m.epoch === null ? "" : " " + pstClock(m.epoch)}`;
+  else if (f.markUnreadable) r.markText = "request.json (cannot be read)";
+  else if (f.mark) r.markText = "request.json (unknown action)";
+  r.markUtc = typeof f.mark?.requested_utc === "string" ? f.mark.requested_utc : null;
   // Round 81 answers 15 and 16 (Q-A 2026-11-02 l20, l21): a Restart mark that the Translator refused keeps the group of the book state.
   // The Viewer finds it from the newest event `restart-refused`, which holds the `requested_utc` of the same mark.
   const refusedNow = !!(f.mark && f.mark.action === "restart" && f.refusal && f.refusal.requested_utc !== null && f.refusal.requested_utc === f.mark.requested_utc);
