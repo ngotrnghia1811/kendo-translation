@@ -3936,7 +3936,7 @@ Plain meaning of each label:
 |---|---|---|---|
 | ● Running | Running | `state` is "running". The pid is alive. The heartbeat is not older than 120 s. | The newest list that holds the book is in the state "running". The chain of the book is "running", or a page of the book is "running". `updated_epoch` is not older than 1800 s. |
 | ● Running, pause requested | Running | A file `PAUSE` exists in the book folder. The state is still "running" until the current page ends. | Same as Running. The file `PAUSE` exists in the list folder. |
-| ■ Stopped, cause Pause | Stopped | `state` is "stopped". `stop_reason` is "pause" `[unit default DZ75]`. The process ended after the page, so no process lives. The code of TB71 still writes `state` "paused" (function `label_of` in `store.py`). | The list state is "paused". The gate of an old list waits before each call, so the process lives. The label is Running, pause requested, in the group Running `[unit default DZ75]`. |
+| ■ Stopped, cause Pause | Stopped | `state` is "stopped". `stop_reason` is "pause" `[unit default DZ75]`. The process ended after the page, so no process lives. The code of TB71 wrote `state` "paused". TR77c (2f07ce9) writes "stopped" with `stop_reason` "pause" `[file: <T2>/data/scripts/translator/store.py:102-127]`. | The list state is "paused". The gate of an old list waits before each call, so the process lives. The label is Running, pause requested, in the group Running `[unit default DZ75]`. |
 | ■ Stopped, cause Ctrl-C | Stopped | `state` is "stopped". `stop_reason` is "ctrl-c". The end of the target page set gives `state` "completed" (TB71 `run-book`). | The list is final. The chain is "completed", "interrupted", or "stopped: interrupted". No page of the book has a forward failure. |
 | ▲ Stopped unexpectedly | Needs attention | `state` is "running" in the file. The pid is gone, or the heartbeat is older than 120 s. | The list is "running". `updated_epoch` is older than 1800 s. |
 | ▲ Stopped by failure | Needs attention | `state` is "stopped". `stop_reason` is "forward-failure", "cost-guard", or "rule". The reason "rule" also covers a box with 3 double REJECTs in a row (round 74 answer 5). | The chain state starts with "stopped:" and is not "stopped: interrupted". |
@@ -3986,7 +3986,7 @@ What each number counts, and where it shows:
 
 Phase 2 runs on the paired dataset. The paired dataset holds web articles with human English. The owner wrote that it holds more than 300 articles (quote in 15.24.1). A phase 2 run has no book, so it has no book row.
 
-- The dashboard shows one closed line below Not started: "Phase 2 (paired dataset): no run record yet." The line stays until the Translator writes a phase 2 record.
+- The dashboard shows one closed line below Not started: "Phase 2 (paired dataset): no run record yet." The line stays until the Translator writes a phase 2 record. Round 80 answers 22 to 24: the row shape for phase 2 is an open item (section 15.33.8).
 - Reason: no phase 2 run exists. The Translator has no phase key and no command for it `[check: DM70 2026-10-29 22:06 sed of build_parser in translator_run.py]`. A made-up row shows invented data.
 - Open item 7 holds the options for the later shape.
 
@@ -4000,14 +4000,14 @@ Phase 2 runs on the paired dataset. The paired dataset holds web articles with h
 - Start of a book that never ran. The button "Run" writes a mark `request.json` with the action "run" and the phase "agent-phase-3". Draft DM70: the button "Start…" opened a dialog with the command. Round 74 answer 12: the button "Run" opens a confirm dialog first (section 15.27.2).
 - Next phase. A Completed book of phase 3 shows the button "Run phase 4" `[unit default]`. The button writes a mark with the phase "agent-phase-4". Phase 4 starts at the beginning of the book (owner quote). Draft DM70: the button "Start phase 4…" opened a dialog. Round 74 answer 12: the button "Run phase 4" opens a confirm dialog first (section 15.27.2).
 - Details. The title and the button "Details" open the book detail view (section 15.24.5).
-- A button is disabled with a reason in words. Example (the pid is made up): "Resume is off because this book runs now (pid 4821)". The button Restart sits on the book row and in the Details view only (round 74 answer 11, `.opencode/reminders/qa/qa-memory-2026-10-31.md:37`). No Restart button sits on a stopped-box flag. Resume and Restart differ (round 73d answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:132`, owner question "What is the different between Restart and Resume again?"). Owner words, round 73e answer 9 (`.opencode/reminders/qa/qa-memory-2026-10-31.md:12`): "Resume mean continue the whole book\nRestart mean archive the current run, and run the whole book from the first page." Resume continues the whole book. Its button sits on the book row, and the run starts at the next page after the last accepted page (section 15.24.7). After Resume, the double REJECT count of a stopped box goes back to 0 (round 74 answer 6). Restart moves the run files into `<T2>/data/book-store/<book>/archive/<run ID>/` and runs the whole book from page 1 in the same phase (round 74 answers 7 and 9). A box with 3 double REJECTs in a row stops the whole book after the page is saved (round 74 answer 5). Replaced in round 74 answers 5 to 11: the old text of this line let one stopped box restart alone, with a button on the flag of the box. Section 15.27 holds the rules and the confirm dialog.
+- A button is disabled with a reason in words. Example (the pid is made up): "Resume is off because this book runs now (pid 4821)". The button Restart sits on the book row and in the Details view only (round 74 answer 11, `.opencode/reminders/qa/qa-memory-2026-10-31.md:37`). No Restart button sits on a stopped-box flag. Resume and Restart differ (round 73d answer 4, `.opencode/reminders/qa/qa-memory-2026-10-30.md:132`, owner question "What is the different between Restart and Resume again?"). Owner words, round 73e answer 9 (`.opencode/reminders/qa/qa-memory-2026-10-31.md:12`): "Resume mean continue the whole book\nRestart mean archive the current run, and run the whole book from the first page." Resume continues the whole book. Its button sits on the book row, and the run starts at the next page after the last accepted page (section 15.24.7). After Resume, the double REJECT count of a stopped box goes back to 0 (round 74 answer 6). Restart moves the run files into `<T2>/data/book-store/<book>/archive/<run ID>/` and runs the whole book from page 1 in the same phase (round 74 answers 7 and 9). A box with 3 double REJECTs in a row stops the whole book after the page is saved (round 74 answer 5). Replaced in round 74 answers 5 to 11: the old text of this line let one stopped box restart alone, with a button on the flag of the box. Section 15.27 holds the rules and the confirm dialog. Round 80 answer 13 (`qa-memory-2026-11-01.md:135`): the Run and Resume buttons are grayed out on a Running row, with a reason in words (section 15.33.3).
 
 ##### 15.24.4.6 Time, refresh, and the empty, first-load, and error states
 
-- Time. Each time shows as local time with the zone name, then the relative time. Example: "Oct 29 00:50 PDT (21 h ago)". The tooltip and the detail view show the UTC stamp of the file, for example "2026-10-29T07:50:31Z" `[file: data/pilot-run/lists/20261029T051152Z/progress.json, key updated_utc]`.
+- Time. Each time shows in PST (UTC-8) all year, with the word PST, then the relative time (round 80 answer 19, `qa-memory-2026-11-01.md:141`, section 15.33.2). Old text and example: local time with the zone name, "Oct 29 00:50 PDT (21 h ago)". The PDT times in the examples of this section are old examples. The tooltip and the detail view show the UTC stamp of the file, for example "2026-10-29T07:50:31Z" `[file: data/pilot-run/lists/20261029T051152Z/progress.json, key updated_utc]`.
 - Relative time: under 1 min "just now", under 60 min "N min ago", under 48 h "N h ago", else "N days ago". The relative text updates every 30 s in the browser, with no request.
 - Refresh. While one row is Running or Pause requested, the page polls every 3000 ms, as today `[file: app/components/useLive.tsx:4]`. With no live row, the page loads once, and the owner uses the button "Refresh" or comes back to the tab. The poll stops while the tab is hidden `[unit default]`.
-- The header shows "Updated 22:06:12 PDT (3 s ago)". After 3 failed polls, a banner shows: "The Viewer server does not answer. This page shows the data from 22:06:12 PDT." The banner goes away at the next good poll. Today a failed poll is silent.
+- The header shows "Updated 22:06:12 PDT (3 s ago)". After 3 failed polls, a banner shows: "The Viewer server does not answer. This page shows the data from 22:06:12 PDT." The banner goes away at the next good poll. Today a failed poll is silent. Round 80 answer 19: the header time shows in PST too (section 15.33.2). The PDT times in this example are old text.
 - First paint. The server sends the rows with the page, as today `[file: app/app/page.tsx:11]`. No spinner shows at the first load. A route change shows grey placeholder rows.
 - Empty. If no list folder and no `status.json` exists: "No run found. Press Run on a book. The button writes a mark. Ask an opencode agent to run it."
 - Error. If the data folder is not readable: "The Monitor dashboard cannot read the Translator data folder. Check the key translatorDataDir in viewer.config.json." The message names the file, not the Mac path.
@@ -4027,7 +4027,7 @@ The detail view answers the question "why is this book in this state, and what h
 
 1. Header: title, slug, phase, state label with sentence, and the actions of the row. Below: pages done, cost, page time, list folders, and the count of errors.
 2. Last error: the newest error text, the page, the box, the time, and the file path of the failed file. Example path: `data/pilot-run/ogawa_lecture_part2_p089/20261026T185029Z-r41/failed/box-critic.TS_3.json`. If none: "No error stored for this book."
-3. Timeline: one fold for each list folder, newest first. The newest fold starts open. The fold heading shows the stamp, start and end in local time, the kind, the critic mode, the book jobs, and the list state. The page table below has these columns: Page, State, Calls, QA_3, Cost, Time, Critiques against N, Memory pairs, and Settings.
+3. Timeline: one fold for each list folder, newest first. The newest fold starts open. The fold heading shows the stamp, start and end in PST (round 80 answer 19), the kind, the critic mode, the book jobs, and the list state. The page table below has these columns: Page, State, Calls, QA_3, Cost, Time, Critiques against N, Memory pairs, and Settings.
 4. Boxes: a page row opens a grid of 4 box types by 4 levels. Each cell shows ok, failed, running, or waiting, with a word. A failed cell links to the file in `failed/` or `raw/`. A page in the state running shows the boxes in `running` of `progress.json` `[file: app/lib/runs.ts:108]`.
 5. Memory pairs: the count for each page and the list of pairs, reused from the panel of today `[file: app/components/ChainPanels.tsx:69-160]`. Example: p046 wrote 5 pairs, p047 6, p048 5, p049 4, p050 6. The total is 26.
 6. Critiques against N: for each page, the count of each box type, with a star when the count reached N. A total row sums the pages. Example: TS 1, TL 13, ED 17, QA 3 against N = 2. The note stays: "The run program has no update step yet." A box that stopped after 3 double REJECTs in a row shows a flag next to its count (round 72 answer 11, `.opencode/reminders/qa/qa-memory-2026-10-30.md:39`). The flag text is "ED_2 stopped after 3 double REJECTs in a row" for the box ED_2 (round 73b answer 2, `qa-memory-2026-10-30.md:83`, and round 74 answer 5). The flag also lists the 3 audit reject reasons. The flag has no button (round 74 answer 11). Replaced in round 74: the flag held a button Restart (round 73b answer 3). Round 74 answer 2: each box also shows the critique share, used and dropped (section 15.27.5). Translator design: section 9.25.4.
@@ -4267,8 +4267,8 @@ Per-book store (round 69 answer 17)
   folder:  <T2>/data/book-store/<book>/  (round 71 answer 7: "Move to data/book-store (Recommended)")
   status.json
     book, phase ("agent-phase-2" | "agent-phase-3" | "agent-phase-4")
-    state: "not-started" | "running" | "paused" | "stopped" | "completed"
-    stop_reason: null | "ctrl-c" | "target-reached" | "forward-failure" | "cost-guard" | "rule"
+    state: "not-started" | "running" | "stopped" | "completed"
+    stop_reason: null | "ctrl-c" | "target-reached" | "forward-failure" | "cost-guard" | "rule" | "pause" | "restart"
     stop_text: the sentence of the stop, for example "stopped: QA_3 FAIL on mental_full/p014"
     list_stamp, pid, heartbeat_utc (written every 30 s by a thread that does not wait for a call)
     running_page, running_boxes (for example ["TL_2"])
@@ -4277,7 +4277,7 @@ Per-book store (round 69 answer 17)
     fail_pages (list of pages with QA_3 FAIL)
     cost_usd_models_phase, seconds_phase (page time of this phase)
     last_error {page, box, text, file, utc}
-    settings_sha1, updated_utc
+    settings_sha1, started_utc, run_id (PST start time, for example "2026-11-04T00:15:00-08:00"), updated_utc
   book-memory.jsonl   book translation memory that survives list folders
   history.jsonl       one event per line: list started, page done, page failed, paused, resumed, stopped, phase changed, settings changed
   PAUSE               pause file of the book. The Translator checks it after the current page ends (16 boxes forward, critic and critique steps backward, memory write). Then the process ends and the state is "paused" (round 71 answer 10)
@@ -4328,7 +4328,7 @@ Files to change:
 - `app/lib/config.ts`: the optional key `translatorConfigDir`.
 - `app/lib/monitor.ts`: a check for the Host header of write routes.
 - `app/lib/runs.ts`: `setPause` also handles the pause file of one book.
-- `app/lib/format.ts`: local time with the zone name, and relative time.
+- `app/lib/format.ts`: time in PST (UTC-8) all year, and relative time (round 80 answer 19).
 - `app/lib/types.ts`: new types.
 - `app/components/Nav.tsx`: the five tabs. The match of the first tab becomes `p === "/"` or `p.startsWith("/monitor")`.
 - `app/components/Pills.tsx`: the new labels.
@@ -5625,9 +5625,9 @@ The pilot component `app/components/PauseButton.tsx` has no dialog today `[check
 
 | Button | Where | What it writes | Dialog |
 |---|---|---|---|
-| Run | Book row of a book that never ran, and "Run phase 4" of a completed phase 3 book | `request.json`, action "run", with the phase | Yes |
+| Run | Book row of a book that never ran, and "Run phase 4" of a completed phase 3 book. Grayed out on a Running row (round 80 answer 13, section 15.33.3) | `request.json`, action "run", with the phase | Yes |
 | Pause | Book row of a book in the state Running | file `PAUSE` | Yes |
-| Resume | Book row of a Stopped book (cause Pause or Ctrl-C) | `request.json`, action "resume" | Yes |
+| Resume | Book row of a Stopped book (cause Pause or Ctrl-C). Grayed out on a Running row (round 80 answer 13, section 15.33.3) | `request.json`, action "resume" | Yes |
 | Restart | Book row and Details view only (round 74 answer 11), in every state with a run (round 76 answer 5) | `request.json`, action "restart", with the key `prompts` | Yes, with the prompt choice |
 
 No Restart button sits on a stopped-box flag. The states that show the button Restart are decided in round 76 answer 5: every state with a run (section 15.29.3).
@@ -5998,7 +5998,7 @@ Buttons for each state:
 | State | Buttons | Source |
 |---|---|---|
 | Not started | Run | section 15.27.3 |
-| Running | Pause, Restart, Details | section 15.27.3, round 76 answer 5 |
+| Running | Pause, Restart, Details. Run and Resume are grayed out (round 80 answer 13, section 15.33.3) | section 15.27.3, round 76 answer 5 |
 | Stopped | Resume, Restart, Details | section 15.27.3, round 76 answer 5 |
 | Stopped by failure | Resume, Restart, Details | sketch of section 15.24.8, round 76 answer 5 |
 | Stopped unexpectedly | Resume, Restart, Details | sketch of section 15.24.8, round 76 answer 5 |
@@ -6012,7 +6012,7 @@ Unit defaults of this part, accepted in round 77 answer 9 (`qa-memory-2026-11-01
 - A pilot list in the state "paused" (an old list, the process lives and waits at the gate) shows as "Running, pause requested" in the group Running. Other option: show it as Stopped. Benefit of the default: the process lives, so the label is true. Cost: the label differs from the file value.
 - The pilot Pause and Resume on the run view `/runs/<stamp>` stay as they are `[reading pending owner check]`. They are a pilot behavior. The real-book Pause on the Monitor dashboard (round 70 answer 12) finishes the current page and ends the process.
 
-The contract text of section 15.24.9 (the block with `state: "not-started" | "running" | "paused" | ...`) and the history line of the book store folder still show `paused`. They describe the code of TB71. The code unit changes them with the state list.
+The contract text of section 15.24.9 (the block with `state: "not-started" | "running" | "paused" | ...`) and the history line of the book store folder still show `paused`. They describe the code of TB71. The code unit changes them with the state list. Changed in round 80: the lines 4270, 4271, and 4280 of the contract now match `store.py` at TR77c (section 15.33.7). The lines 4282, 4283, and 4293 stay as old text.
 
 ##### 15.29.3 Restart states
 
@@ -6205,7 +6205,7 @@ Decided in round 77 answer 12: the process ends and an opencode agent starts the
 
 | Moment | Group on the Monitor dashboard `/` | Row text | Buttons |
 |---|---|---|---|
-| Before the press | Running | the running row | Pause, Restart, Details (section 15.29.2) |
+| Before the press | Running | the running row | Pause, Restart, Details (section 15.29.2). Run and Resume grayed out (round 80 answer 13) |
 | After the press, until the process reads the mark at the next page start | Running (round 78 answer 10, `qa-memory-2026-11-01.md:72`, old text: not designed) | "Restart requested 16:40" (old text: not designed) | none (round 79 answer 13, `qa-memory-2026-11-01.md:105`, section 15.32.6) |
 | The process saved p080, archived, and ended | Waiting for a run | "Mark waiting: Restart requested 16:40" (round 78 answers 10 and 11, `qa-memory-2026-11-01.md:72-73`, section 15.31.5) `[reading pending owner check]`. Time decided in round 79 answer 11 (`qa-memory-2026-11-01.md:103`): the press time. Old text: "Mark waiting: Run requested 16:41" | Details (no Restart button in this group, section 15.29.3) |
 | An opencode agent started the book | Running | the running row at p001 in phase 4 | Pause, Restart, Details |
@@ -6417,7 +6417,7 @@ Owner words: answer 10 "Stays Running, with a note (Recommended)" and answer 11 
 | 16:52 | The run program writes a Run mark with one key that keeps the word Restart (DZ76 default 1, accepted). The process ends. | Waiting for a run | "Mark waiting: Restart requested 16:40" |
 | later | An opencode agent starts the book at p001 in phase 4. | Running | the running row |
 
-The key name is `after` (section 15.30.6, default 1, line 6286). The value of the key is not designed. Round 79 answer 12 decides the key `prompts` only (section 15.32.4). The key `after` and the press time are a unit default of TR77c.
+The key name is `after` (section 15.30.6, default 1, line 6286). The value of the key is not designed. Round 79 answer 12 decides the key `prompts` only (section 15.32.4). Decided in round 80 answer 14 (`qa-memory-2026-11-01.md:136`): the press time sits in the key `requested_utc`, the key `restart_requested_utc` goes away, and `after` = "restart" stays (section 15.33.5). Old text: the key `after` and the press time were a unit default of TR77c.
 
 Open: the time in the row of the fourth line. The row can show the press time (16:40) or the time of the mark (16:52). The recommendation is the press time `[agent inference]` (section 15.31.8, item d). Decided in round 79 answer 11 (`qa-memory-2026-11-01.md:103`): the press time (section 15.32.6).
 
@@ -6486,7 +6486,7 @@ Pilot runs under `<T2>/data/pilot-run/` are not real runs (round 73e answer 10, 
 - Answer 12 (`qa-memory-2026-11-01.md:104`): "Map of 16 labels (Recommended)".
 - Answer 13 (`qa-memory-2026-11-01.md:105`): "No buttons (Recommended)".
 - Answer 14 (`qa-memory-2026-11-01.md:106`): the 12 defaults of TR77ab stay. They are Translator code and sit in `translator-design.md`, section 9.30.8.
-- Answers 15, 17, and 18 (`qa-memory-2026-11-01.md:107,109,110`): "Survey first (Recommended)" for phase 2 and for the tanden pages. Unit SV79 reads files only. This file holds no design for either topic. The design waits for SV79.
+- Answers 15, 17, and 18 (`qa-memory-2026-11-01.md:107,109,110`): "Survey first (Recommended)" for phase 2 and for the tanden pages. Unit SV79 reads files only. This file holds no design for either topic. The design waits for SV79. Round 80 answers 3 to 7 and 22 to 24 answer them (sections 15.33.8 and 15.33.9).
 - Answer 16 (`qa-memory-2026-11-01.md:108`): the units DZ78, TR77c, and SV79 run. VW77a is not checked.
 
 ##### 15.32.2 Restart dialog: notes and facts
@@ -6557,7 +6557,7 @@ Quick select
 
 The row "Last live versions" and the row "Run 2, after the update point at p040" hold the same 16 versions in this example. Unit default DZ78 3 keeps both rows.
 
-What "Starting versions" means in run 2 or later is open (section 15.32.10, item b).
+What "Starting versions" means in run 2 or later is decided in round 80 answer 17 (`qa-memory-2026-11-01.md:139`): the start versions of the phase, for example ED_2 `v4.1.0` in run 2 (section 15.33.6). Old text: it was open (section 15.32.10, item b).
 
 ##### 15.32.4 Restart mark with 16 labels
 
@@ -6572,7 +6572,7 @@ Second example in prose. You pick the quick select "Run 1, after the update poin
 Rules:
 
 - The key `requested_utc` stays in UTC. Only the run ID uses PST.
-- The names of the keys in the Run mark that the run program writes after a Restart (the key `after` and the press time) are a unit default of TR77c. A later docs unit records them.
+- The names of the keys in the Run mark that the run program writes after a Restart (the key `after` and the press time) were a unit default of TR77c. Round 80 answer 14 decides them (section 15.33.5).
 - The line 5659 of this file holds the earlier example of the mark. Unit DZ78 replaced its key `prompts`.
 
 ##### 15.32.5 Run ID on screens, in the Details view, and in archive folder names
@@ -6596,7 +6596,7 @@ In summer, the screen time is one hour behind the wall clock. A run that starts 
 
 Details view. Each run row in the Details view of `mental_full` (section 15.31.4) names the run by its start time in PST. The folder of run 1 is `<T2>/data/book-store/mental_full/archive/20261104T001500-0800/`. The `run_id` of the record in `reader_opens` is the run ID of the same run. The old example folder `archive/20261105T093000Z/` is replaced.
 
-The design side holds the side effect that the repeated hour of 2026-11-01 does not repeat in run IDs (`translator-design.md`, section 9.30.5). Unit TR77c builds the code (round 79 answer 16).
+The design side holds the side effect that the repeated hour of 2026-11-01 does not repeat in run IDs (`translator-design.md`, section 9.30.5). Unit TR77c builds the code (round 79 answer 16). Built in TR77c (commit 2f07ce9, accepted in round 80 answer 2): `pst_iso` and `run_id_folder` `[file: <T2>/data/scripts/translator/store.py:59-74]`.
 
 ##### 15.32.6 Restart rows: press time and no buttons
 
@@ -6612,7 +6612,7 @@ Example (invented times, run 1 started 2026-11-04 00:15 PST). `mental_full` runs
 | 16:52 | The run program writes the Run mark. The process ends. | Waiting for a run | "Mark waiting: Restart requested 16:40" | not changed by round 79 |
 | later | An opencode agent starts the book at p001 in phase 4. | Running | the running row | the buttons of a running row |
 
-The row has the buttons Pause, Restart, and Details before the press (section 15.30.3). Answer 13 says "No buttons". Whether the link Details goes away is open (section 15.32.10, item c).
+The row has the buttons Pause, Restart, and Details before the press (section 15.30.3). Answer 13 says "No buttons". Whether the link Details goes away is open (section 15.32.10, item c). Answered in round 80 answer 18 (`qa-memory-2026-11-01.md:140`): the link Details stays (section 15.33.3).
 
 ##### 15.32.7 Same phase only
 
@@ -6688,18 +6688,263 @@ Lines that stay as history or inside a code block, checked by the unit:
 
 ##### 15.32.10 Open items for the owner
 
-a. The value form and the screen text of the run ID (section 15.32.5). Recommended: accept `2026-11-04T00:15:00-08:00`, the folder form `20261104T001500-0800`, and "started 2026-11-04 00:15 PST". Example: a run that starts at 09:00 PDT on 2026-07-10 shows "started 2026-07-10 08:00 PST". Benefit: one rule all year. Cost: in summer the screen is one hour behind the wall clock. Other option: add the wall clock in brackets, "started 2026-07-10 08:00 PST (09:00 PDT)". Benefit: you can match the screen with your clock. Cost: a longer text.
-b. What "Starting versions" means in run 2 or later (section 15.32.3). Recommended: the start versions of the run that the Restart ends. Example: a second Restart of `mental_full` during run 2 sets ED_2 to `v4.2.0`, the copy of `v4.1.3`. Benefit: it matches round 74 answer 8, option 1. Cost: the row does not reach `v4.1.0`, but the pick list holds it. Other option: the first versions of the phase, `v4.1.0` for all boxes. Benefit: the row always means the phase start. Cost: the start set of run 2 is on no quick select row.
-c. The Running row after the press (section 15.32.6). Question: does "No buttons" include the link Details? Recommended: the link Details stays, because it is not a process action `[agent inference]`. Example: `mental_full` at 16:45 shows "Restart requested 16:40" and the link Details. Benefit: you can read the state of the book. Cost: the row is not empty. Other option: remove the link until the process ends. Benefit: the row matches the words "No buttons". Cost: you cannot open Details for about 12 minutes in the example.
-d. The time zone of other times on the Monitor dashboard `/` (line 4007: local time with the zone name). Recommended: keep it. Example: in summer the Restart row shows "Restart requested 16:40" in local time, and the run ID shows PST. Benefit: only the run ID changes. Cost: two zones on one screen in summer. Other option: show all times in PST. Benefit: one zone. Cost: the row time differs from your clock in summer.
-e. The length of the quick select list (section 15.32.3). Recommended: show all rows. Example: after 3 Restarts of `mental_full`, the list holds about 30 rows. Benefit: you reach every update point. Cost: a long list. Other option: show the last two runs and one row "More runs". Benefit: a short list. Cost: one more step to reach an old run.
+a. The value form and the screen text of the run ID (section 15.32.5). Recommended: accept `2026-11-04T00:15:00-08:00`, the folder form `20261104T001500-0800`, and "started 2026-11-04 00:15 PST". Example: a run that starts at 09:00 PDT on 2026-07-10 shows "started 2026-07-10 08:00 PST". Benefit: one rule all year. Cost: in summer the screen is one hour behind the wall clock. Other option: add the wall clock in brackets, "started 2026-07-10 08:00 PST (09:00 PDT)". Benefit: you can match the screen with your clock. Cost: a longer text. Answered in round 80 answer 16 (`qa-memory-2026-11-01.md:138`): "PST only (Recommended)".
+b. What "Starting versions" means in run 2 or later (section 15.32.3). Recommended: the start versions of the run that the Restart ends. Example: a second Restart of `mental_full` during run 2 sets ED_2 to `v4.2.0`, the copy of `v4.1.3`. Benefit: it matches round 74 answer 8, option 1. Cost: the row does not reach `v4.1.0`, but the pick list holds it. Other option: the first versions of the phase, `v4.1.0` for all boxes. Benefit: the row always means the phase start. Cost: the start set of run 2 is on no quick select row. Answered in round 80 answer 17 (`qa-memory-2026-11-01.md:139`): "Phase start: v4.1.0" (option 2). This replaces the recommendation above (section 15.33.6).
+c. The Running row after the press (section 15.32.6). Question: does "No buttons" include the link Details? Recommended: the link Details stays, because it is not a process action `[agent inference]`. Example: `mental_full` at 16:45 shows "Restart requested 16:40" and the link Details. Benefit: you can read the state of the book. Cost: the row is not empty. Other option: remove the link until the process ends. Benefit: the row matches the words "No buttons". Cost: you cannot open Details for about 12 minutes in the example. Answered in round 80 answer 18 (`qa-memory-2026-11-01.md:140`): "Keep the Details link (Recommended)".
+d. The time zone of other times on the Monitor dashboard `/` (line 4007: local time with the zone name). Recommended: keep it. Example: in summer the Restart row shows "Restart requested 16:40" in local time, and the run ID shows PST. Benefit: only the run ID changes. Cost: two zones on one screen in summer. Other option: show all times in PST. Benefit: one zone. Cost: the row time differs from your clock in summer. Answered in round 80 answer 19 (`qa-memory-2026-11-01.md:141`): "All times in PST" (option 2). This replaces the recommendation above (section 15.33.2).
+e. The length of the quick select list (section 15.32.3). Recommended: show all rows. Example: after 3 Restarts of `mental_full`, the list holds about 30 rows. Benefit: you reach every update point. Cost: a long list. Other option: show the last two runs and one row "More runs". Benefit: a short list. Cost: one more step to reach an old run. Answered in round 80 answer 20 (`qa-memory-2026-11-01.md:142`): "Show all rows (Recommended)".
 
 ##### 15.32.11 Not verified
 
 - No code ran in this unit. The Monitor dashboard code for the dialog, the notes, the quick select, the run rows, and the run ID text is not built.
-- Unit TR77c is not built. The run ID code, the mark with 16 labels, and the archive folder names have no code. The Viewer cannot show "Critiques used" until the run loop writes the event `update-point-ended` (unit TR77d).
+- Unit TR77c is built (commit 2f07ce9, accepted in round 80 answer 2). Old text: it was not built, and the run ID code, the mark with 16 labels, and the archive folder names had no code. The Viewer cannot show "Critiques used" until the run loop writes the event `update-point-ended` (unit TR77d).
 - The value form of the run ID, the folder form, and the screen text are readings of aki-main (`qa-memory-2026-11-01.md:117`).
 - The pages live, the PASS and FAIL counts, and the critique counts in the sketch are invented, except those of `v4.1.3`.
-- Phase 2 and the tanden pages have no design in this file. Unit SV79 must report first.
+- Phase 2 and the tanden pages have no design in this file. Unit SV79 must report first. Round 80 answers 22 to 24 set the first phase 2 rules (`translator-design.md`, section 9.31.6). The tanden join is planned in unit TJ80 (section 15.33.9).
 
 Status: round 79 answers applied by unit DZ78. Items in section 15.32.10 wait for the owner.
+
+#### 15.33 Round 80 answers: PST times, buttons on a Running row, refused Restart, "Starting versions", data contract, phase 2 row, tanden pages (unit DZ79, round 80)
+
+Unit DZ79 wrote this section on 2026-11-02 (round 80). The Q-A file is `.opencode/reminders/qa/qa-memory-2026-11-01.md`, lines 122 to 158. Answer N sits at line 122+N. The design side is in `<T2>/docs/drafts/translator-design.md`, section 9.31. This section covers the Viewer side only. Each line of this file that this section replaces carries a pointer to it. Section 15.33.10 lists those lines.
+
+Pilot runs under `<T2>/data/pilot-run/` are not real runs (round 73e answer 10, `qa-memory-2026-10-31.md:13`). No real run exists yet `[check: DZ79 2026-11-02 00:03 ls data/book-store in <T2>, "No such file or directory"]`. All values in the examples are invented, except where a line gives a source. No code ran in this unit.
+
+Screen names in this section: the Monitor dashboard `/` on this Mac, the Reader dashboard `/read`, the book screen `/read/<slug>`, and the run view `/runs/<stamp>`.
+
+##### 15.33.1 Owner words
+
+The full list of the owner words of round 80 is in `translator-design.md`, section 9.31.1. The answers that touch the Viewer are:
+
+- Answers 1 and 2 (`qa-memory-2026-11-01.md:123-124`): "Accept and commit now (Recommended)" for the DZ78 docs, and "Accept and commit (Recommended)" for the TR77c code. `git log` shows the commits 196f574 in <V2> and 2f07ce9 in <T2> `[check: DZ79 2026-11-02 00:03 git log --oneline in <T2> and <V2>]`.
+- Answer 10 (line 132): "Refuse and show the reason (Recommended)".
+- Answer 13 (line 135): "Just prevent this from happening by gray out the buttons".
+- Answer 14 (line 136): "Press time in requested_utc".
+- Answer 16 (line 138): "PST only (Recommended)".
+- Answer 17 (line 139): "Phase start: v4.1.0".
+- Answer 18 (line 140): "Keep the Details link (Recommended)".
+- Answer 19 (line 141): "All times in PST".
+- Answer 20 (line 142): "Show all rows (Recommended)".
+- Answer 21 (line 143): all 9 DZ78 docs defaults are accepted. Section 15.33.11 lists them.
+- Answers 22 to 24 (lines 144 to 146): the order of phase 2 (section 15.33.8).
+- Answers 25, 26, and 28 (lines 147, 148, 150): units DZ79, VW77a, and TJ80 run. "Tighten the briefs (Recommended)". "Run the plan (Recommended)".
+
+##### 15.33.2 Times on the Monitor dashboard in PST all year (answers 16 and 19)
+
+Owner words, answer 19: "All times in PST" (option 2) `[accepted option 2 2026-11-01 23:42]`. Reading (`qa-memory-2026-11-01.md:156`) `[reading pending owner check]`: every time on the Monitor dashboard `/` shows in PST (UTC-8) all year, like the run ID. This replaces the recommendation of DZ78 (section 15.32.10, item d: keep local time).
+
+Rules:
+
+- Each time on the Monitor dashboard shows in PST with the word PST, then the relative time. Example: "Nov 4 00:15 PST (3 h ago)".
+- This holds for the header time, the row text, the times in the Details view, and the run ID text.
+- The run ID text reads "phase 4 run 1, started 2026-11-04 00:15 PST". In summer it reads PST too (answer 16: "PST only (Recommended)").
+- The relative time does not change.
+- The files keep UTC. The tooltip and the detail view show the UTC stamp of the file (line 4007) `[unit default DZ79]`.
+
+Example for July (invented). You press Restart when the wall clock shows 16:40 PDT. The row reads "Restart requested 15:40 PST". The file holds the UTC time 23:40. The tooltip reads "2026-07-10T23:40:00Z".
+
+Example for November (invented). The wall clock and PST agree after 2026-11-01. You press Restart at 16:40. The row reads "Restart requested 16:40 PST".
+
+The PDT times in the sketches of section 15.24 are old examples. They show real list data of October 2026 `[real]`. The sketches stay as they are. The row examples in sections 15.30 to 15.32 show "16:40" with no zone. Since answer 19 they read "16:40 PST".
+
+The Reader dashboard `/read` is not decided. Open item 3 in section 15.33.12 asks about it.
+
+Unit that builds this: VW77a (the read side of the Monitor dashboard) `[aki-main proposal in the brief of DZ79, not verified]`. The helper is `app/lib/format.ts` (line 4331 of this file).
+
+##### 15.33.3 Buttons and the note on a Running row (answers 13 and 18)
+
+Owner words, answer 13: "Just prevent this from happening by gray out the buttons". The Viewer grays out Run and Resume on a Running row of the Monitor dashboard `/`. So no Run or Resume mark comes from the Monitor dashboard while the book runs. The run program keeps its fallback: such a mark stays in `request.json` and the book goes on (`translator-design.md`, section 9.31.4, rule 7). This reading is pending the owner (`qa-memory-2026-11-01.md:152`).
+
+Owner words, answer 18: "Keep the Details link (Recommended)". The Running row keeps the link Details while a Restart waits. Round 79 answer 13 (`qa-memory-2026-11-01.md:105`) stays: "No buttons (Recommended)".
+
+| Moment | Group on the Monitor dashboard `/` | Row text | Buttons and links |
+|---|---|---|---|
+| Running, no Restart waits | Running | the running row | Pause, Restart, Details. Run and Resume are grayed out with a reason `[unit default DZ79]`. |
+| Running, you pressed Restart at 16:40 | Running | "Restart requested 16:40 PST" | No buttons. The link Details stays. |
+| The process saved p080 and ended | Waiting for a run | "Mark waiting: Restart requested 16:40 PST" | Details (section 15.30.3) |
+| An opencode agent started the book | Running | the running row at p001 in phase 4 | Pause, Restart, Details. Run and Resume are grayed out. |
+
+Example with `mental_full` (invented). The book runs phase 4 at p080. The row shows [Pause] [Restart] [Details] and two grayed buttons. The grayed Resume carries the reason "Resume is off because this book runs now" (the form of line 4003). At 16:40 you press Restart and confirm. Until the process ends, the row shows no button and the link Details.
+
+Which unit builds this: VW77b (the buttons) `[aki-main proposal in the brief of DZ79, not verified]`. The order of the code units is in `translator-design.md`, line 8376.
+
+##### 15.33.4 Row text of a refused Restart (answer 10)
+
+Owner words (`qa-memory-2026-11-01.md:132`): "Refuse and show the reason (Recommended)". The question held a proposal of aki-main `[aki-main proposal]`:
+
+- The Translator writes a history event `restart-refused` with the reason.
+- The row text on the Monitor dashboard `/` reads "Restart refused: ED_2 v4.1.3 has no file".
+- The book state stays.
+
+The Translator does not write the event yet (`translator-design.md`, section 9.31.5, item a). The row text needs a Viewer unit.
+
+Example with `mental_full`. The book is Stopped by a Pause at p080. You open the Restart dialog and pick ED_2 `v4.1.3`. The file is gone. An opencode agent runs the run-book command. The command refuses. The mark stays in `request.json`. After the code change, the history holds `restart-refused`. The row reads "Restart refused: ED_2 v4.1.3 has no file".
+
+Which group shows this row is not designed. See open item 1 in section 15.33.12.
+
+##### 15.33.5 Press time in the Run mark (answer 14)
+
+Owner words (`qa-memory-2026-11-01.md:136`): "Press time in requested_utc". After the code change, the Run mark that a Restart leaves holds the press time in `requested_utc`. The key `restart_requested_utc` goes away. The key `after` = "restart" stays. The Translator side is in `translator-design.md`, section 9.31.5, item c.
+
+The code of TR77c writes `restart_requested_utc` today `[file: <T2>/data/scripts/translator/store.py:355]`. The Monitor dashboard must work before and after the code change. The rule `[aki-main proposal]`:
+
+- For a Run mark with `after` = "restart", the row text reads the press time from `restart_requested_utc` when the key is present.
+- If the key is absent, the row text reads `requested_utc`.
+- For every other mark, the row text reads `requested_utc`.
+
+Example (invented values, the times of section 15.32.6). Run 1 started at 2026-11-04 00:15 PST. You pressed Restart at 16:40 PST, which is 2026-11-05T00:40:00Z. The run program wrote the mark at 16:52 PST.
+
+- Mark of today: `restart_requested_utc` is "2026-11-05T00:40:00Z" and `requested_utc` is "2026-11-05T00:52:00Z". The row reads "Mark waiting: Restart requested 16:40 PST".
+- Mark after the code change: `requested_utc` is "2026-11-05T00:40:00Z". The row reads "Mark waiting: Restart requested 16:40 PST".
+
+##### 15.33.6 Quick select "Starting versions" in run 2 or later (answer 17)
+
+Owner words (`qa-memory-2026-11-01.md:139`): "Phase start: v4.1.0" (option 2) `[accepted option 2 2026-11-01 23:42]`. The quick select row "Starting versions" always means the start versions of the phase. This replaces the recommendation of DZ78 (section 15.32.10, item b). The note of aki-main marks this reading `[reading pending owner check]` (`qa-memory-2026-11-01.md:155`).
+
+Example. `mental_full` is in phase 4, run 2. You press Restart. The dialog shows:
+
+```
+Quick select
+  (x) Starting versions (default)       every box at its phase start, ED_2 v4.1.0
+  ( ) Last live versions                every box at its live version, ED_2 v4.2.2
+  ( ) Run 1, after the update point at p060
+  ...
+
+Version for ED_2
+  ( ) v4.1.0   starting version
+  ...
+  ( ) v4.2.0   restart start version (copy of v4.1.3)
+  ( ) v4.2.2   update after p040, current live version
+```
+
+The pick list of ED_2 still holds `v4.2.0` with the note "restart start version". So the choice of round 74 answer 8, option 1, stays reachable by hand: "User can choose option 1 or 2. Option 1 is default." (`qa-memory-2026-10-31.md:34`). Option 1 was "the prompts that the archived run started with". For run 2 that is `v4.2.0`. You pick it in each of the 16 lists.
+
+Answer 20 (`qa-memory-2026-11-01.md:142`): "Show all rows (Recommended)". The quick select shows all rows, with no limit.
+
+##### 15.33.7 Data contract: states, stop reasons, `run_id`, and mark keys
+
+TR77c changed the files that the Viewer reads. The lines 4270, 4271, and 4280 of section 15.24.9 now match `store.py`. The rest of the contract block stays as old text.
+
+Facts from the code of TR77c `[check: DZ79 2026-11-02 00:01 read of store.py, restart.py, and translator_run.py in <T2>]`:
+
+- States: `"not-started"`, `"running"`, `"stopped"`, and `"completed"` `[file: <T2>/data/scripts/translator/store.py:33]`. The state `"paused"` is gone.
+- Stop reasons: `"ctrl-c"`, `"target-reached"`, `"forward-failure"`, `"cost-guard"`, `"rule"`, `"pause"`, and `"restart"` `[file: <T2>/data/scripts/translator/store.py:35]`.
+- New keys in `status.json`: `run_id` (a PST start time, for example "2026-11-04T00:15:00-08:00"), `started_utc`, and `pause_requested` `[file: <T2>/data/scripts/translator/store.py:136-142]`. The key `run_id` keeps the first start. The key `started_utc` changes at every start `[file: <T2>/data/scripts/translator_run.py:2669-2671]`.
+- The block of 15.24.9 does not list these keys of `new_status`: `accepted`, `critic_mode`, `settings_revision`, `settings_values`, `settings_warnings`, and `pause_requested`. A later docs unit can add them.
+- Keys of a mark `request.json` `[file: <T2>/data/scripts/translator/store.py:324-358]`:
+
+| Key | Values | Remark |
+|---|---|---|
+| `schema` | "book-request-v1" | all marks |
+| `book` | the slug | all marks |
+| `action` | "run", "resume", or "restart" | all marks |
+| `phase` | "agent-phase-3" or "agent-phase-4" | all marks |
+| `prompts` | a map of the 16 boxes to labels | only the action "restart" |
+| `after` | "restart" | only a Run mark that a Restart leaves |
+| `restart_requested_utc` | the press time in UTC | only with `after`. It goes away after the code change (section 15.33.5). |
+| `requested_utc` | UTC time | the write time today. The press time after the code change. |
+| `requested_by` | "Monitor dashboard" or "run program" | all marks |
+
+- History events that TR77c writes: `start` with `run_id` `[file: <T2>/data/scripts/translator_run.py:2674]`, `stopped` with the reason `pause` `[file: <T2>/data/scripts/translator_run.py:2852]`, and `restart` followed by `prompts-copied` `[file: <T2>/data/scripts/translator/restart.py:179-182]`. The event `restart-refused` is not written yet.
+- The folder `archive/<run ID folder>/` holds `book-memory.jsonl`, `pages/`, `prompts/`, and `status.json`. The file `status.json` there says `stopped` and `restart`. The files `history.jsonl`, `lock`, and `request.done.json` stay in the book folder `[file: <T2>/data/scripts/translator/store.py:270-282]`.
+- The key `path` in `parent` of a version file is relative to the store root `data/book-store/` (`translator-design.md`, section 9.31.3). Example: `mental_full/archive/20261104T001500-0800/prompts/ED_2/v4.1.3.json`.
+
+The line 4283 of the contract block still says that the state is "paused" after a Pause. The line 4282 still lists the old event names. Both lines sit in a code block, and the brief of DZ79 did not name them. They stay as old text.
+
+##### 15.33.8 Phase 2 on the Monitor dashboard (answers 22 to 24)
+
+The Translator side is in `translator-design.md`, section 9.31.6. Phase 2 runs on the web articles in year blocks, 2019 to 2025 `[unit default DZ79]`. A page is one A4 part of an article. The update point check runs after the last part of each article. The articles run in the order of `articles.jsonl`. One pass, then the owner decides.
+
+Today the Monitor dashboard shows one closed line below Not started: "Phase 2 (paired dataset): no run record yet." (line 3989). The Translator has no phase 2 run command, so no record exists.
+
+Open item 2 in section 15.33.12 asks for the row shape. The options:
+
+- Option A: one row for the phase 2 run. The row shows the year block and the article, for example "Phase 2 (paired dataset): Running. Block 2020, article 3 of 9. Page 2 of 25 pages." Benefit: it fits one run in one store folder. Cost: a year change is a text change in the row.
+- Option B: one row for each year block, 7 rows. Benefit: each year has its own state. Cost: the screen gets 7 phase 2 rows.
+
+No recommendation stands on its own `[agent inference]`. The choice follows open item 4 in `translator-design.md`, section 9.31.9 (one run or one run for each year). If the owner picks one run, option A fits. If the owner picks one run for each year, option B fits.
+
+##### 15.33.9 `tanden_full` on the Reader dashboard (answers 3 to 7)
+
+The join is data work. This file holds no design for it. Unit TJ80 plans it. The effect on the Reader dashboard `/read` and the book screen `/read/tanden_full` follows `[agent inference]`. It holds until the join unit runs.
+
+- The book `tanden_full` grows from 276 to 295 pages (`translator-design.md`, section 9.31.2).
+- The book screen `/read/tanden_full` lists 295 pages. The 19 new pages are p111 to p129. The old p111 to p276 become p130 to p295.
+- The Reader dashboard total grows by 19 pages, from 14,116 to 14,135 pages. The works count stays 342. The line now reads "English: 1,124 of 14,116 pages translated (8.0 percent)" `[file: .opencode/reminders/plan/evolving-plan-2026-11-01.md:6]`. After the join it reads "1,124 of 14,135 pages translated (8.0 percent)", because 1,124 of 14,135 is 7.95 percent.
+- The 19 new pages are not translated. They add to the total and not to the translated count.
+
+The word is "translated" on the Reader dashboard (round 70 answer 3). The Monitor dashboard says "pages done".
+
+##### 15.33.10 Lines of this file that round 80 replaced
+
+Each row is one line of this file that the unit changed in place. The line numbers are the same before and after the edit, because the unit changed no line count above the end of the file.
+
+| Line | Old text in short | New text in short | Source |
+|---|---|---|---|
+| 3939 | TB71 still writes `paused` | TR77c writes `stopped`, reason `pause` | TR77c commit 2f07ce9, round 80 answer 2, qa-memory-2026-11-01.md:124 |
+| 3989 | no run record yet | pointer to 15.33.8 | round 80 answers 22 to 24, qa-memory-2026-11-01.md:144,145,146 |
+| 4003 | a button is disabled with a reason | answer 13 appended | round 80 answer 13, qa-memory-2026-11-01.md:135 |
+| 4007 | local time with the zone name | PST all year | round 80 answer 19, qa-memory-2026-11-01.md:141 |
+| 4010 | header time in PDT | PST note appended | round 80 answer 19, qa-memory-2026-11-01.md:141 |
+| 4030 | start and end in local time | start and end in PST | round 80 answer 19, qa-memory-2026-11-01.md:141 |
+| 4270 | state list holds `paused` | state list as in store.py:33 | TR77c commit 2f07ce9, round 80 answer 2, qa-memory-2026-11-01.md:124 |
+| 4271 | stop reasons without pause and restart | stop reasons as in store.py:35 | TR77c commit 2f07ce9, round 80 answer 2, qa-memory-2026-11-01.md:124 |
+| 4280 | key list lacks run_id | key list holds started_utc and run_id | TR77c commit 2f07ce9, round 80 answer 2, qa-memory-2026-11-01.md:124 |
+| 4331 | local time with the zone name | PST all year | round 80 answer 19, qa-memory-2026-11-01.md:141 |
+| 5628 | Run button, no note for a Running row | grayed out on a Running row | round 80 answer 13, qa-memory-2026-11-01.md:135 |
+| 5630 | Resume button, no note for a Running row | grayed out on a Running row | round 80 answer 13, qa-memory-2026-11-01.md:135 |
+| 6001 | Running row buttons: Pause, Restart, Details | Run and Resume grayed out | round 80 answer 13, qa-memory-2026-11-01.md:135 |
+| 6015 | contract still shows `paused` | lines 4270, 4271, 4280 changed | TR77c commit 2f07ce9, round 80 answer 2, qa-memory-2026-11-01.md:124 |
+| 6208 | buttons before the press | Run and Resume grayed out | round 80 answer 13, qa-memory-2026-11-01.md:135 |
+| 6420 | key `after` and press time: unit default of TR77c | answer 14 rule | round 80 answer 14, qa-memory-2026-11-01.md:136 |
+| 6489 | no design for phase 2 and tanden | pointer to 15.33.8 and 15.33.9 | round 80 answers 3 to 7 and 22 to 24, qa-memory-2026-11-01.md:125,126,127,128,129,144,145,146 |
+| 6560 | meaning in run 2 or later is open | decided: the phase start | round 80 answer 17, qa-memory-2026-11-01.md:139 |
+| 6575 | key names: unit default of TR77c | answer 14 decides them | round 80 answer 14, qa-memory-2026-11-01.md:136 |
+| 6599 | TR77c builds the code | built, anchors appended | TR77c commit 2f07ce9, round 80 answer 2, qa-memory-2026-11-01.md:124 |
+| 6615 | does No buttons include the link Details | answer appended | round 80 answer 18, qa-memory-2026-11-01.md:140 |
+| 6691 | open item a | answer appended | round 80 answer 16, qa-memory-2026-11-01.md:138 |
+| 6692 | open item b, recommended option 1 | answer appended, option 2 chosen | round 80 answer 17, qa-memory-2026-11-01.md:139 |
+| 6693 | open item c | answer appended | round 80 answer 18, qa-memory-2026-11-01.md:140 |
+| 6694 | open item d, recommended keep local time | answer appended, option 2 chosen | round 80 answer 19, qa-memory-2026-11-01.md:141 |
+| 6695 | open item e | answer appended | round 80 answer 20, qa-memory-2026-11-01.md:142 |
+| 6700 | TR77c is not built | TR77c is built | TR77c commit 2f07ce9, round 80 answer 2, qa-memory-2026-11-01.md:124 |
+| 6703 | phase 2 and tanden have no design | pointer to 9.31.6 and 15.33.9 | round 80 answers 22 to 24, qa-memory-2026-11-01.md:144,145,146 |
+
+Lines that stay as history or inside a code block, checked by the unit:
+
+- Line 3857: local PDT times of real list data, not a rule.
+- Line 4282: code block (folder tree) with the old event names. Round 80 answer 21 keeps it.
+- Line 4283: code block line that says the state is "paused" after a Pause. The brief did not name it.
+- Line 4293: the old text of the mark keys. Round 80 answer 21 keeps it.
+- Lines 4130 to 4196: sketches with PDT times of real list data in a code block.
+- Line 4153: the sketch line "Phase 2 (paired dataset): no run record yet." in a code block.
+- Lines 6370 and 6372: text with Pacific time. Section 15.32 already marks them.
+- Lines 6567 and 6574: the mark of the Monitor with `requested_utc` in UTC. They stay true.
+
+##### 15.33.11 Unit defaults of DZ79 and accepted defaults of DZ78
+
+Answer 21 (`qa-memory-2026-11-01.md:143`) accepts all 9 DZ78 docs defaults. They are in section 15.32.9 and in `translator-design.md`, section 9.30.11.
+
+The unit defaults of DZ79 follow. No owner answer settles them.
+
+1. `[unit default DZ79]` A Running row shows Run and Resume as grayed buttons with a reason in words. Example: the row of `mental_full` shows "Resume is off because this book runs now". Other option: the row hides both buttons. Section 15.29.2 lists only Pause, Restart, and Details for a Running row. Benefit of the default: it matches the words "gray out the buttons" of answer 13. Cost: two more controls on each Running row. While a Restart waits, the row shows no buttons at all (round 79 answer 13).
+2. `[unit default DZ79]` The tooltip and the detail view keep the UTC stamp of the file. The visible time shows PST. Example: the row reads "Restart requested 15:40 PST" and the tooltip reads "2026-07-10T23:40:00Z". Other option: the tooltip shows PST too. Benefit of the default: the tooltip shows the raw value of the file. Cost: two zones in one place.
+3. `[unit default DZ79]` Until the owner answers open item a of `translator-design.md`, section 9.31.6, the docs describe the year blocks of phase 2 as 2019 to 2025. Example: the first block holds 14 articles. Other option: leave all examples of phase 2 open. Benefit of the default: the examples use real counts. Cost: the examples change if the owner picks another reading of "kendojidai-2018".
+4. `[unit default DZ79]` The Run mark of the future code keeps the key order of today without the key `restart_requested_utc`: schema, book, action, phase, after, requested_utc, requested_by. Other option: write `after` last. Benefit of the default: the order is the same as today. Cost: none beyond the code change.
+
+##### 15.33.12 Open items for the owner
+
+1. The group of a refused Restart on the Monitor dashboard `/` (section 15.33.4). Recommended: the row keeps its group and shows the refusal as a second line. Reason: answer 10 says "book state stays". Example: `mental_full` stays in the group Stopped and shows "Restart refused: ED_2 v4.1.3 has no file". Benefit: the group matches the book state. Cost: the mark stays in `request.json`, so the rule "a mark waits while `request.json` exists" must skip a refused mark. The Viewer can find it from the newest event `restart-refused` `[agent inference]`. Other option: the group Needs attention. Benefit: you see the refusal at once. Cost: the group does not match the book state.
+2. The row of phase 2 on the Monitor dashboard `/` (section 15.33.8). Recommended: follow open item 4 of `translator-design.md`, section 9.31.9. One run gives option A, one row. One run for each year gives option B, 7 rows. Reason: the row shape follows the run shape. Example: with one run, the row reads "Phase 2 (paired dataset): Running. Block 2020, article 3 of 9."
+3. The time zone on the Reader dashboard `/read`. Answer 19 names the Monitor dashboard only. Recommended: keep the Reader dashboard as it is. Reason: the owner asked for PST on the Monitor dashboard, and readers use their own clock `[agent inference]`. Benefit: no change to reader screens. Cost: the two dashboards show two zones. Other option: PST on both dashboards. Benefit: one zone. Cost: a reader far from the Pacific coast reads a foreign zone.
+4. The items 2 to 8 of `translator-design.md`, section 9.31.9, ask about phase 2, the table of contents of `tanden_full`, and the events of a refused Restart. They have no Viewer part.
+
+##### 15.33.13 Not verified
+
+- No code ran in this unit. The Monitor dashboard code for the PST times, the grayed buttons, the refused row, and the phase 2 row is not built.
+- The reading of answer 13 and the reading of answer 19 wait for the owner (`qa-memory-2026-11-01.md:152,156`). The reading of answer 17 waits too (`qa-memory-2026-11-01.md:155`).
+- The effect of the join on the Reader dashboard (section 15.33.9) is an inference. No unit ran the join.
+- The names of the units VW77a and VW77b and their roles come from the brief of DZ79. Unit DZ79 did not check them against another source.
+- The dev server on port 3000 and the PocketBase on port 8090 were not read or changed.
+
+Status: round 80 answers applied by unit DZ79. Items in section 15.33.12 wait for the owner.
