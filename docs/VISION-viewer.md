@@ -2519,7 +2519,7 @@ Routes (proposal):
 | `/read/<book>` | signed in | Book screen: metadata block, month headings, all pages. Page text for approved users only. |
 | `/read/<book>?view=page&at=p048` | approved | One page at a time. The same URL form as the human-translation-view `[file: app/components/HtvBook.tsx:21]`. |
 | `/read/<book>?view=scroll&at=p048` | approved | All pages in one scroll, jump to p048. |
-| `/admin/readers` | admin | List of unapproved readers with Approve. Role change and disable for all users. |
+| `/admin/readers` | admin | List of unapproved readers with Approve. Each row shows the PST day of the sign-up, for example "signed up 2026-10-29 PST" (round 85 answer 17). Role change and disable for all users. |
 | `/admin/versions` | admin | Choose one human version for a page. Record the human check of a page. |
 
 States of a person:
@@ -3400,7 +3400,7 @@ The first level goes by kind (line 211). The second level goes by series or sour
 
 - Books: Books is one fold of 22 works. `men_full` and `mental_full` are plain rows. The three `ogawa_lecture` parts stay as three rows in one fold `[check: RC4 smoke-folds.log:3,7,8]`. Round 69 answer 12 hides `men0`, `men1`, and `mental2_clean`.
 - Kendo Jidai: one fold with 16 year folds, 2010 to 2025. A year fold holds the year volume row and the month folds. A month fold holds the article rows (round 69 answer 14, "Add article rows") `[check: RC4 smoke-folds.log:4,9,13]`.
-- Web articles: they sit in the month folds of Kendo Jidai (round 69 answer 7). Every web article sits in the fold of its web year and month (round 83 answer 4, "Show web year", and round 84 answer 1, "Reading is right (Recommended)"). Old rule, replaced: a stamped article sat in its print month (round 70 answer 6, "Print month (Recommended)", section 15.36.4). The 2 web captures are hidden (round 69 answer 15).
+- Web articles: they sit in the month folds of Kendo Jidai (round 69 answer 7). Every web article sits in the fold of its web year and month (round 83 answer 4, "Show web year", and round 84 answer 1, "Reading is right (Recommended)"). Old rule, replaced: a stamped article sat in its print month (round 70 answer 6, "Print month (Recommended)", section 15.36.4). The 2 web captures are hidden (round 69 answer 15). Round 85 answer 16 (`qa-memory-2026-11-02.md:161`): "Accept the fold (Recommended)". Example: the month fold "February 2024" (`kj-2024-02`) holds the 2 web articles `acd6f6e1` and `f30670b6`. The live fold reads "English: 7 of 7 pages translated (100.0 percent)" `[file: <TMP>/r84/aki/folds-2148.txt:168]`.
 
 The first level starts open. All deeper folds start closed. The folds use the HTML elements `details` and `summary`, so a keyboard works. A month loads its rows when it opens, and the link "Show this month" works without script `[check: RC4 smoke-read.log:56,62]`.
 
@@ -4448,9 +4448,9 @@ Status: design accepted (round 70 answer 10), Run, Resume, Pause, and store fold
 - Total line: 342 works, 14,116 pages. English: 1,151 of 14,116 pages translated (8.2 percent) `[check: DZ73 2026-10-31 15:25 grep -n "14,116" /var/folders/sz/2hvwvpb16c77mfzqnvkb5gbc0000gn/T/opencode/r73/RT73a/smoke-web.log, line 3]`. Old text, replaced by unit RT73a: 342 visible works, 13,303 pages, and 28 translated pages (0.2 percent), with a web article as 1 page `[check: RC4 smoke-folds.log:5]`. History, replaced in round 73b answer 6: this count of 1 page contradicts section 12. A web article has as many pages as its A4 cut, so 311 web articles have 1,126 pages `[file: .opencode/reminders/qa/qa-memory-2026-10-30.md:87]` `[check: aki-main 2026-10-30 15:39 a4count.py]`. If the 8,482 pages of Kendo Jidai count each web article as 1 page, the Kendo Jidai total becomes 9,297 pages (8,482 minus 311 plus 1,126) and the total line becomes 14,118 pages `[agent inference]`. Unit RT73a fixed the code. It measured 9,295 pages for Kendo Jidai and 14,116 in all `[check: DZ73 2026-10-31 15:25 smoke-web.log, lines 3 and 4]`. The inference above was 2 pages too high.
 - Kendo Jidai holds 16 year folds, 2010 to 2025, and 172 month folds. It shows 1,155 magazine article rows and 311 web article rows `[check: RC4 smoke-read.log:57]`.
 - Hidden works: `men0`, `men1`, `mental2_clean`, `matsubara`, and `morishima` (round 69 answers 12 and 15). The page `/translate` keeps all folders.
-- Every web article sits in the fold of its web year and month (round 83 answer 4, round 84 answer 1). Example: `63654ba0` (Teramoto, part 2, stamp 2011.8 KENDOJIDAI) has 4 pages. It moves from Kendo Jidai > 2011 > August 2011 to Kendo Jidai > 2025 > April 2025 `[brief fact, aki-main check 2026-11-02]` `[file: <TMP>/r82/SV82/db_web.json:105]`. Old rule, replaced: a stamped web article sat in its print month (round 70 answer 6). Unit TF83 changes the code in round 84, so the code result is Not verified.
+- Every web article sits in the fold of its web year and month (round 83 answer 4, round 84 answer 1). Example: `63654ba0` (Teramoto, part 2, stamp 2011.8 KENDOJIDAI) has 4 pages. It moves from Kendo Jidai > 2011 > August 2011 to Kendo Jidai > 2025 > April 2025 `[brief fact, aki-main check 2026-11-02]` `[file: <TMP>/r82/SV82/db_web.json:105]`. Old rule, replaced: a stamped web article sat in its print month (round 70 answer 6). Unit TF83 changed the code (commit 02f2c97). The live result is in section 15.37.3. New month folds: `kj-2025-04` holds 4 web articles, `kj-2019-10` 2, `kj-2019-11` 6, `kj-2019-12` 6, and `kj-2024-02` 2 `[file: <TMP>/r84/aki/folds-2148.txt:111-113,168,183]`.
 - An unstamped web article sits in its web month. Example: `18d4ac29` sits in Kendo Jidai > 2020 > August 2020. Its title is "Kendo droplet guard". Its ID is the first 8 characters of its `item_id` `[check: RC4 smoke-read.log:54]`.
-- The volume `kendojidai_2018` covers January to April only. Old rule, replaced: a stamped 2018 article made a month fold with web articles only (June 1, July 1, September 5, October 2 articles `[file: <TMP>/r82/SV82/compare.txt]`). Those four folds go away under the web year rule (round 83 answer 4).
+- The volume `kendojidai_2018` covers January to April only. Old rule, replaced: a stamped 2018 article made a month fold with web articles only (June 1, July 1, September 5, October 2 articles `[file: <TMP>/r82/SV82/compare.txt]`). Those four folds go away under the web year rule (round 83 answer 4). The live fold `kj-2018` holds only the months January to April `[file: <TMP>/r84/aki/folds-2148.txt:105-109]`.
 - The HTML of `/read` has 0.286 MB, because the rows of a month load when the month opens. With all rows it has 2.08 MB `[check: RC4 smoke-read.log:67]` `[brief of unit DV71]`.
 
 ##### 15.25.4 Rows
@@ -6341,7 +6341,7 @@ Sketch (all values invented). The book `mental_full` runs phase 4 and stands at 
 +--------------------------------------------------------------------------------------------------------------------------+
 | Restart Making the Difference on the Day (mental_full)?                                                                  |
 |                                                                                                                          |
-|   The current run moves to archive/<time>/.                                                                              |
+|   The current run moves to archive/<run ID>/.                                                                            |
 |   The book runs again from p001 in phase agent-phase-4.                                                                  |
 |                                                                                                                          |
 |   Quick select                                                                                                           |
@@ -6514,13 +6514,13 @@ Sketch (all values invented, the second Restart of `mental_full` during run 2). 
 |  ( ) v4.1.0   starting version                              run 1, p001-p020 (20)       17 / 3         none                    |
 |  ( ) v4.1.1   update after p020                             run 1, p021-p040 (20)       16 / 4         5                       |
 |  ( ) v4.1.2   update after p040                             run 1, p041-p060 (20)       17 / 3         5                       |
-|  (x) v4.1.3   update after p060, previous restart version   run 1, p061-p065 (5)         4 / 1         5                       |
+|  (x) v4.1.3   previous restart version, update after p060   run 1, p061-p065 (5)         4 / 1         5                       |
 |  ( ) v4.1.4   update after p065                             run 1, p066-p070 (5)         4 / 1         5                       |
 |  ( ) v4.1.5   update after p070                             run 1, p071-p075 (5)         5 / 0         5                       |
-|  ( ) v4.1.6   update after p075, last version of run 1      run 1, p076-p080 (5)         4 / 1         6                       |
+|  ( ) v4.1.6   last version of run 1, update after p075      run 1, p076-p080 (5)         4 / 1         6                       |
 |  ( ) v4.2.0   restart start version (copy of v4.1.3)        run 2, p001-p025 (25)       21 / 4         none                    |
 |  ( ) v4.2.1   update after p025                             run 2, p026-p040 (15)       13 / 2         5                       |
-|  ( ) v4.2.2   update after p040, current live version       run 2, p041-p050 (10)        8 / 2         5                       |
+|  ( ) v4.2.2   current live version, update after p040       run 2, p041-p050 (10)        8 / 2         5                       |
 +--------------------------------------------------------------------------------------------------------------------------------+
 ```
 
@@ -7380,7 +7380,7 @@ Owner decisions:
 - Answer 8 (`qa-memory-2026-11-02.md:57`): "Accept and commit (Recommended)". The commit is 2163041.
 - Unit VW77b1 as built `[aki-main report in the brief of DZ81]`: the buttons Run, Run phase 4, Pause, and Resume with confirm dialogs (Cancel first) on real-book rows. The routes are `POST /api/monitor/books/<slug>/mark` and `POST /api/monitor/books/<slug>/pause`. Run is grayed on all 37 rows of this Mac with "Run is off until phase 2 prompt files exist". The summary line has no error count. Pilot rows have an empty phase cell. PST shows on the Lists tab `/runs`, the run view, and the page check date, still without the word PST.
 - Answer 9 (`qa-memory-2026-11-02.md:58`): "Unit TF82 fixes them (Recommended)". TF82 fixes the 9 old Viewer test lines that expect the tanden totals from before the join. They fail only on the +19 page totals `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:15]`.
-- Answer 10 (`qa-memory-2026-11-02.md:59`): "Clear mark button in VW77b2 (Recommended)". The button clears a refused mark. Round 83 answers 12 and 13 (`qa-memory-2026-11-02.md:107,108`) set what it does: it moves `request.json` to `request.done.json` and overwrites an older `request.done.json`. Round 83 answer 11 and round 84 answer 2 add a gray rule (section 15.36.4, item 4): Clear mark is grayed on a Run mark with `after` "restart".
+- Answer 10 (`qa-memory-2026-11-02.md:59`): "Clear mark button in VW77b2 (Recommended)". The button clears a refused mark. Round 83 answers 12 and 13 (`qa-memory-2026-11-02.md:107,108`) set what it does: it moves `request.json` to `request.done.json` and overwrites an older `request.done.json`. Round 83 answer 11 and round 84 answer 2 add a gray rule (section 15.36.4, item 4): Clear mark is grayed on a Run mark with `after` "restart". Round 85 answer 18 (`qa-memory-2026-11-02.md:163`): "Keep as is (Recommended)". A Run mark that a Restart leaves stays until the Translator handles it.
 - Answer 11 (`qa-memory-2026-11-02.md:60`): "Keep it grayed (Recommended)". Run stays grayed until the phase 2 prompt files exist. Example: all 37 rows of this Mac show Run grayed.
 - Answer 12 (`qa-memory-2026-11-02.md:61`): "Keep Run on pilot rows (Recommended)". Run stays on pilot rows. Example: a pilot row whose list runs now shows Run grayed with the pilot list reason of rule 1 below. Pilot runs do not count toward real runs.
 - Answer 13 (`qa-memory-2026-11-02.md:62`): "Show Resume (Recommended)". Resume shows also on Stopped by failure and Stopped unexpectedly. Rule 2 below keeps Resume away from the other stops.
@@ -7839,16 +7839,16 @@ No owner answer settles these items.
 
 The first option of each item is the recommended option.
 
-1. Notes order in older sketches and tables `[aki-main proposal]`. Recommended: a later docs unit changes the older rows to the DZ78 order. Example: the pick list of ED_2 in section 15.32.2 (lines 6517, 6520, 6523) reads `v4.1.6`: "update after p075, last version of run 1". The DZ78 order and the code give "last version of run 1, update after p075". Benefit: all docs show the order that the screen shows. Cost: one more docs unit, and the row `v4.2.2` changes too. Other option: keep the older rows as history.
-2. Folder name in the Restart dialog sketch `[aki-main proposal]`. Recommended: a later docs unit changes `archive/<time>/` to `archive/<run ID>/` in the code block of section 15.31.2 (line 6344 of `<V2>/docs/VISION-viewer.md`). Round 79 answer 10 chose "Run ID of the ended run (Recommended)". Example: `archive/20261104T001500-0800/` (invented run ID of DZ78). Benefit: the sketch matches the rule. Cost: one more docs edit. Other option: keep `archive/<time>/`.
-3. Own human EN in year book runs `[aki-main proposal]`. Recommended: keep round 82 answer 21 "No rule". Example: the book `kendojidai_2019` holds 10 `train-retrieval` articles. The retriever can return the human EN of `d7835263` while that article runs. Benefit: no new rule and no code. Cost: a score on a `train-retrieval` article of a year book run is not clean `[agent inference]`. The 27 `test` articles stay clean. Other option: skip the units of the same article in the retriever. Benefit: every score is clean. Cost: new code in the retriever.
+1. Decided in round 85 answer 3 (`qa-memory-2026-11-02.md:148`): "Fix notes order rows (Recommended), Fix archive folder name (Recommended)". Unit DZ83 changed the rows `v4.1.3`, `v4.1.6`, and `v4.2.2` in section 15.32.2 (lines 6517, 6520, 6523) and in section 9.30.2 of `<T2>/docs/drafts/translator-design.md` (lines 8879, 8882, 8885). Old question: "update after p075, last version of run 1" or "last version of run 1, update after p075" for `v4.1.6`.
+2. Decided in round 85 answer 3 (`qa-memory-2026-11-02.md:148`): "Fix notes order rows (Recommended), Fix archive folder name (Recommended)". Unit DZ83 changed `archive/<time>/` to `archive/<run ID>/` in the code block of section 15.31.2 (line 6344). Round 79 answer 10 chose "Run ID of the ended run (Recommended)". Old question: keep `archive/<time>/`.
+3. Not asked yet, carried to section 15.37.7. Own human EN in year book runs `[aki-main proposal]`. Recommended: keep round 82 answer 21 "No rule". Example: the book `kendojidai_2019` holds 10 `train-retrieval` articles. The retriever can return the human EN of `d7835263` while that article runs. Benefit: no new rule and no code. Cost: a score on a `train-retrieval` article of a year book run is not clean `[agent inference]`. The 27 `test` articles stay clean. Other option: skip the units of the same article in the retriever. Benefit: every score is clean. Cost: new code in the retriever.
 
 ##### 15.36.8 Not verified
 
-- The results of TR77d1, TF83, CE82, and TV83 of round 84 are Not verified. They run while this unit writes.
-- The code of `STAMPED_PLACE` reads "print" at the write time. The web year fold on the live Reader dashboard `/read` is Not verified.
-- The fold numbers of the table in item 1 come from the files of SV82 and from the brief. DZ82 added no live GET of `/read`.
-- The gray Clear mark on a Run mark with `after` "restart" is not built at the write time. Its result is Not verified.
+- The results of TR77d1, TF83, CE82, and TV83 of round 84 are in section 15.37.3. The owner accepted all four in round 85 (answers 4, 15, 21, and 25).
+- The code of `STAMPED_PLACE` reads "web" after unit TF83 (commit 02f2c97). The live Reader dashboard `/read` shows the web year fold (section 15.37.3).
+- The fold numbers of the table in item 1 come from the files of SV82 and from the brief. DZ82 added no live GET of `/read`. In round 85, aki-main checked the live folds (section 15.37.3).
+- Unit TF83 built the gray Clear mark on a Run mark with `after` "restart" (section 15.37.3).
 - The reason why the owner wants Clear mark grayed on this mark is Not verified. No Q-A line states it.
 - DZ82 read the code of VW77b2 in four files (`book-restart-actions.ts`, `restart-rules.ts`, `book-status-rules.ts`, `book-actions.ts`). It ran no test.
 - The state of the owner hand step 8.10a is Not verified. It runs with the v2 deploy.
@@ -7856,4 +7856,290 @@ The first option of each item is the recommended option.
 - The server path `/opt/pocketbase-v2/page-images` comes from the brief. DZ82 did not check the server.
 - The dev server on port 3000 and PocketBase on port 8090 were not read or changed.
 
-Status: round 83 and 84 answers applied by unit DZ82. Items in section 15.36.7 wait for the owner.
+Status: round 83 and 84 answers applied by unit DZ82. Round 85 (section 15.37) closed items 1 and 2 of section 15.36.7. Item 3 moved to section 15.37.7.
+
+#### 15.37 Round 85 answers: web fold February 2024, PST day on admin readers, notes order, archive folder name, update step rules, cost variant B (unit DZ83, round 85)
+
+Unit DZ83 wrote this section in round 85, from 2026-11-02 23:54 PST. It records the owner answers of round 85. The Q-A file is `.opencode/reminders/qa/qa-memory-2026-11-02.md`. The design side is in `<T2>/docs/drafts/translator-design.md`, section 9.35. This section has the Viewer weight. This unit changed docs only. It started no server, no build, no model call, and no Voyage call.
+
+Pilot runs under `<T2>/data/pilot-run/` are not real runs (round 73e answer 10, `qa-memory-2026-10-31.md:13`): "All these are pilots, which DO NOT COUNT toward real runs". A v1 placeholder translation counts as nothing. Examples use real book IDs and real values, and each value carries a source tag. An example that shows a state with no real run says "example state (not run data)".
+
+Screen names in this section: the Reader dashboard `/read` and the book screen `/read/<slug>`. The Monitor dashboard `/` runs on this Mac. The Lists tab is `/runs`, and the run view is `/runs/<stamp>`. The Reader dashboard says "translated". The Monitor dashboard says "pages done".
+
+Source tags: owner words carry the Q-A file and the line, or `[owner, round N answer M]`. A unit default carries `[unit default DZ83]`. A fact that only the brief of DZ83 gives carries `[brief fact, aki-main check 2026-11-02]`. A fact that aki-main checked carries `[check: aki-main 2026-11-02 HH:MM PST]`. An inference of the unit carries `[agent inference]`. A proposal of aki-main carries `[aki-main proposal]`. A tag `[file: ...]` or `[check: DZ83 ...]` gives the evidence.
+
+In this section `<TMP>` is `/var/folders/sz/2hvwvpb16c77mfzqnvkb5gbc0000gn/T/opencode`. Code lines of the Translator carry the commit 7c9492a (TR77d1), because unit TR77d2 changes the files in round 85.
+
+##### 15.37.1 Sources and scope
+
+- The Q-A file has 182 lines. The round 85 header sits at line 145. Answer N of round 85 sits at line 145+N, so the answers fill the lines 146 to 178. Line 179 is the title line of the notes of aki-main. The notes sit at the lines 180 to 182 `[check: DZ83 2026-11-02 23:55 PST Read of qa-memory-2026-11-02.md lines 140 to 182]`.
+- The plan file is `.opencode/reminders/plan/evolving-plan-2026-11-02.md` (52 lines). Its lines 48 to 52 hold the round 85 decision, the commits, and the dispatch of wave 1 `[check: DZ83 2026-11-02 23:55 PST Read of the plan file lines 38 to 52]`.
+- `git rev-parse --short HEAD` shows f40d9d4 in <T2> and d422254 in <V2>. At the start of the unit, `git status --short` printed nothing in both repos `[check: DZ83 2026-11-02 23:54 PST git status --short and git rev-parse --short HEAD in <T2> and <V2>]`.
+- Two other units of round 85 run in parallel with this unit. TR77d2 writes Translator code and new agent files. TF84 writes Viewer test fixes `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:52]`. TR77d2 and TF84 run in round 85. Their results are Not verified.
+- This unit writes three docs: this file, `<T2>/docs/drafts/translator-design.md`, and `<T2>/docs/drafts/translator-cost-estimate.md`.
+- Section 15.37.2 holds the owner words. Section 15.37.3 holds the unit results. Section 15.37.4 holds what the answers change. Section 15.37.5 lists the lines that this unit changed in place. Section 15.37.6 holds the unit defaults. Section 15.37.7 holds the open items. Section 15.37.8 holds the Not verified list.
+
+Open items that round 85 closed:
+
+- Section 15.36.7, item 1 (notes order in older sketches and tables): closed by round 85 answer 3.
+- Section 15.36.7, item 2 (folder name in the Restart dialog sketch): closed by round 85 answer 3.
+- Design section 9.23.11, item 12, second case (ungrouped critiques): closed by round 85 answer 5. It was an `[agent inference]`.
+- Design section 9.23.5, item 6 (a soft mark without a quote was "not valid"): closed by round 85 answer 6. It was an `[agent inference]`.
+- Design section 9.25.4 (when the double REJECT row goes back to 0): closed by round 85 answer 10. It was an `[agent inference]`.
+- The unit that builds the phase 4 freeze had no name: round 85 answer 13 names unit TR77f.
+- Defaults 3 and 4 of unit TR77d1 are reversed by round 85 answers 8 and 9. Default 3 skipped the audit after a failed program check. Default 4 passed with a note when no message was stored.
+- Cost file, section 12.6 item 5 (write-up variant): closed by round 85 answer 22. Section 12.7 item 2 (page method of the web year books): closed by answer 23.
+- Section 15.36.7, item 3 (own human EN in year book runs): not asked in round 85. Section 15.37.7 carries it.
+
+##### 15.37.2 Owner words of round 85
+
+The lists below hold all 33 answers of round 85. A script copied each text after the number from the Q-A file and added the line number. The brackets at the end of each text are the source tags of the Q-A file. Answer 32 has no answer.
+
+- Round 85 answer 1 (line 146): Accept DZ82 docs (design 9.34, VISION 15.36): "Accept and commit (Recommended)" [accepted recommendation]
+- Round 85 answer 2 (line 147): DZ82 writing rules: "Wrong sentence as quote (Recommended), Pointers to results (Recommended), Sketch names the run (Recommended), current live version notes (Recommended), Tag each renamed line (Recommended), Rename 3 more lines (Recommended), Quotes stay exact (Recommended), Label example states (Recommended)" [accepted recommendation, all 8]
+- Round 85 answer 3 (line 148): Docs fixes for DZ83: "Fix notes order rows (Recommended), Fix archive folder name (Recommended)" [accepted recommendation, both]
+- Round 85 answer 4 (line 149): Accept TR77d1 code (update step with stub agents): "Accept and commit (Recommended)" [accepted recommendation]
+- Round 85 answer 5 (line 150): Critiques left ungrouped: "Own group each (Recommended)" [accepted recommendation]
+- Round 85 answer 6 (line 151): Soft mark with no covering_quote: "Count it as hard (Recommended)" [accepted recommendation]
+- Round 85 answer 7 (line 152): covering_quote not in prompt text: "Leave it to audit C3 (Recommended)" [accepted recommendation]
+- Round 85 answer 8 (line 153): Audit after a failed format or message rebuild check: "Always run the audit" [accepted option 2]
+- Round 85 answer 9 (line 154): No stored messages/<BOX>.txt in the current run: "Count it as a REJECT" [accepted option 2]
+- Round 85 answer 10 (line 155): Double REJECT count on Resume: "Reset after a box stop (Recommended)" [accepted recommendation]
+- Round 85 answer 11 (line 156): Stop by rule inside an update point: "Skip the rest (Recommended)" [accepted recommendation]
+- Round 85 answer 12 (line 157): Other TR77d1 rules: "One event per try (Recommended), Ignore end spaces (Recommended), Write order (Recommended), One handling per group (Recommended), Trim note field (Recommended), Prompt folder parameter (Recommended), Page ID forms (Recommended), Stop on bad reply (Recommended)" [accepted recommendation, all 8]
+- Round 85 answer 13 (line 158): Phase 4 freeze unit: "Own unit TR77f (Recommended)" [accepted recommendation]
+- Round 85 answer 14 (line 159): TR77d2 page call rules: "Both as written (Recommended)" [accepted recommendation]
+- Round 85 answer 15 (line 160): Accept TF83 Viewer code: "Accept and commit (Recommended)" [accepted recommendation]
+- Round 85 answer 16 (line 161): New fold February 2024 (kj-2024-02): "Accept the fold (Recommended)" [accepted recommendation]
+- Round 85 answer 17 (line 162): Signed up date form: "Day with PST (Recommended)" [accepted recommendation]
+- Round 85 answer 18 (line 163): Run mark left by Restart: "Keep as is (Recommended)" [accepted recommendation]
+- Round 85 answer 19 (line 164): Other TF83 rules: "Guard scope (Recommended), Heartbeat filter (Recommended), Own reason first (Recommended), Rule in new file (Recommended), Keep print switch (Recommended), Keep non-time text (Recommended), README lines (Recommended), Replace old tests (Recommended)" [accepted recommendation, all 8]
+- Round 85 answer 20 (line 165): Viewer follow-ups TF84: "Add PST test (Recommended), Fix pause test (Recommended), Remove utcTime helper" [accepted recommendation plus option 3]
+- Round 85 answer 21 (line 166): Accept CE82 cost file: "Accept and commit (Recommended)" [accepted recommendation]
+- Round 85 answer 22 (line 167): Write-up variant: "Variant B, 70.15 USD (Recommended)" [accepted recommendation]
+- Round 85 answer 23 (line 168): Web year book price: "Book page method (Recommended)" [accepted recommendation]
+- Round 85 answer 24 (line 169): Other CE82 rules: "Change every base line (Recommended), Year book rows (Recommended), Web year book rows (Recommended), Scale both rates (Recommended), New table columns (Recommended)" [accepted recommendation, all 5]
+- Round 85 answer 25 (line 170): Apply TV83 ToC rows: "Apply now (Recommended)" [accepted recommendation]
+- Round 85 answer 26 (line 171): 修業論 entry of tani_ss_full: "No row (Recommended)" [accepted recommendation]
+- Round 85 answer 27 (line 172): Other TV83 rules: "Chapter 1 on p010 (Recommended), Join heading and subtitle (Recommended), Full width brackets (Recommended)" [accepted recommendation, all 3]
+- Round 85 answer 28 (line 173): Rule notes on units: "Accept, tighten briefs (Recommended)" [accepted recommendation]
+- Round 85 answer 29 (line 174): Commit plan: "Commit in this order (Recommended)" [accepted recommendation]
+- Round 85 answer 30 (line 175): Next units: "TR77d2 (Recommended), VW77c Details view (Recommended), DZ83 docs (Recommended), TF84 Viewer fixes (Recommended), TR77f freeze, Phase 2 run command, VW77d Run settings, VW77e archive and ToC" [accepted recommendation plus options 5, 6, 7, 8]
+- Round 85 answer 31 (line 176): DESTRUCTIVE temp delete: "Delete r81/VW77b1 (1,457 MB), Delete r82/TF82 (1,460 MB)" [user chose destructive options 3, 4]
+- Round 85 answer 32 (line 177): Other wishes: (no answer)
+- Round 85 answer 33 (line 178): Session control: "Run the plan (Recommended)" [accepted recommendation]
+
+Notes by aki-main (not owner words). They sit at the lines 180 to 182 of the Q-A file. Line 179 is their title line. The script copied each note in full.
+
+- Line 180 (not owner words): Answers 8 and 9 reverse TR77d1 unit defaults 3 and 4. TR77d1 is committed as built (answer 4). The next Translator unit changes the step: the audit runs on every try, and a box with no stored message file in the current run fails the message rebuild check [aki-main reading].
+- Line 181 (not owner words): Answer 31: <TMP>/r81/TJ81 (tanden join backup, 545 MB) was not chosen, so it stays.
+- Line 182 (not owner words): Answer 30: TR77d2, TR77f and the phase 2 run command all change translator_run.py, so they run one after the other. VW77c, VW77d, VW77e and TF84 all change <V2>/app, so they also need separate write sets or a sequence [aki-main reading].
+
+The note at line 180 says that answers 8 and 9 reverse two defaults of TR77d1 (items 7 and 8 of the section 4 list). The note at line 181 says that the folder TJ81 stays. The note at line 182 says that Translator units run one after the other (item 21).
+
+##### 15.37.3 Results of the round 84 units
+
+These results come from the unit folders and from the checks of aki-main. DZ83 read the files and ran no test. Round 85 answers 1, 4, 15, 21, and 25 accepted the five units.
+
+- All five units of round 84 are accepted and committed. The answers are DZ82 (1), TR77d1 (4), TF83 (15), CE82 (21), and TV83 (25).
+- Commits in <T2>, branch v2/translator: 7c9492a (TR77d1 code), a39bdd4 (DZ82 design), and 623a574 (CE82 cost file). Commits in <V2>, branch v2/viewer: 02f2c97 (TF83 code) and d422254 (DZ82 VISION). Branch v2/base is d422254 in both repos. The merge is f40d9d4 "Merge branch 'v2/viewer' into v2/translator". Branch main stays 2da3ab2 `[check: DZ83 2026-11-02 23:57 PST git log --oneline -6 and git rev-parse --short main v2/base in <T2> and <V2>]`.
+- The selftest after the merge gives TOTAL 758/758 `[file: <TMP>/r84/aki/selftest-merge-2341.log:759]`. aki-main reports that nothing was pushed `[brief fact, aki-main check 2026-11-02]`.
+- TR77d1 built `<T2>/data/scripts/translator/update_step.py` with 501 lines. It changed `critique_queue.py` from 95 to 230 lines and `translator_run.py` from 8411 to 8819 lines `[check: DZ83 2026-11-02 23:57 PST git show 7c9492a^:<file> and 7c9492a:<file> | wc -l]`. The selftest of TR77d1 ends with TOTAL 758/758 `[file: <TMP>/r84/TR77d1/final-t2.log]`. Before TR77d1 it was 708/708 (section 15.36.3).
+- TR77d1 uses stub agents only. It makes no model call. The run loop does not call the step yet (section 15.36.4, item 7). The unit had 14 unit defaults `[brief fact, aki-main check 2026-11-02]`. Answers 5, 6, 7, 10, 11, and 12 accept 12 of them. Answers 8 and 9 reverse the defaults 3 and 4.
+- TF83 moved the web articles into their web year fold. The code reads `STAMPED_PLACE = "web"` `[file: <V2>/app/lib/reader-folds.ts:29]`.
+- aki-main checked the live Reader dashboard `/read` at 21:47 PST. The total line reads "342 works, 14,135 pages. English: 1,124 of 14,135 pages translated (8.0 percent)" `[file: <TMP>/r84/aki/live-read-2147.txt:2]`.
+- Live fold `kj-2019`: 14 web articles, 39 of 39 pages translated. Live fold `kj-2025`: 44 web articles, 158 of 158 pages `[file: <TMP>/r84/aki/live-read-2147.txt:3-4]`. The folds `kj-2020`, `kj-2021`, and `kj-2024` hold 54, 55, and 45 web articles with 182, 224, and 148 pages `[file: <TMP>/r84/aki/folds-2148.txt:114,127,166]`.
+- Live fold `kj-2011` reads "1,032 pages English: 0 of 1,032". Live fold `kj-2011-08` reads "14 articles · pages 591-674 English: 0 of 84". Live fold `kj-2018` holds only the months January to April `[file: <TMP>/r84/TF83/live_folds_after.txt]` `[file: <TMP>/r84/aki/folds-2148.txt:105-109]`.
+- Five month folds are new `[brief fact, aki-main check 2026-11-02]`. The numbers come from the live check `[file: <TMP>/r84/aki/folds-2148.txt:111-113,168,183]`.
+   - `kj-2025-04`: 4 web articles, 11 of 11 pages translated. It holds `63654ba0`.
+   - `kj-2019-10`: 2 articles, 6 of 6 pages. `kj-2019-11`: 6 articles, 15 of 15 pages. `kj-2019-12`: 6 articles, 18 of 18 pages.
+   - `kj-2024-02`: 2 articles, 7 of 7 pages.
+- The fold `kj-2024-02` reads "February 2024 2 web articles English: 7 of 7 pages translated (100.0 percent)" `[file: <TMP>/r84/aki/folds-2148.txt:168]`. It holds `acd6f6e1` and `f30670b6` (stamp 2014.11 `[brief fact, aki-main check 2026-11-02]`, web dates 2024-02-19 and 2024-02-26 `[file: <TMP>/r84/TF83/harness/fx/data/item-metadata/items.filled.jsonl:264-265]`).
+- Clear mark is gray on a Run mark with `after: "restart"`. The reason reads "Clear mark is off because this mark starts the new run after a Restart." `[file: <V2>/app/lib/clear-mark-rule.ts:11]`. The button rule calls `clearOffReason` `[file: <V2>/app/lib/book-status-rules.ts:759]`.
+- PST text now sits on `/translate/<slug>?at=pNNN`, `/admin/versions`, and `/admin/readers`. The new file `<V2>/app/lib/htv-pst.ts` holds `pstTime`, `pstTimeOrText`, and `pstDay`. Example: the run option `2026-10-28T02:30:07Z` reads `2026-10-27 18:30 PST`. The admin readers list shows "signed up 2026-10-29 PST" `[file: <TMP>/r84/TF83/live_before_after.txt:1-6]`.
+- The test guards read the config `[file: <V2>/app/scripts/smoke-guards.mjs:1-8]`. The old totals in `app/README.md` and `app/lib/reader-translated.ts` read "English: 1,151 of 14,135 pages translated (8.1 percent)" `[file: <TMP>/r84/TF83/tf83.patch]`.
+- Harness runs of TF83: the monitor-actions mode gave 104 PASS and 0 FAIL in 3 runs `[file: <TMP>/r84/TF83/ma-3runs.txt]`. The deploy mode gave 38 PASS and 1 FAIL in the first run. It gave 39 PASS and 0 FAIL in the second run `[file: <TMP>/r84/TF83/logs-run1/run-deploy.out:61]` `[file: <TMP>/r84/TF83/logs-run2/run-deploy.out:60]`. The reason for the single FAIL is Not verified.
+- The `pause` mode of `scripts/smoke.mjs` also fails with the original file. TF84 fixes it (answer 20) `[brief fact, aki-main check 2026-11-02]`.
+- CE82 priced the base case as variant B with all critique groups (H = T). Phase 2, one pass: 268.41 USD with 432 update points. Variant A: 341.27 USD. Write-up run: 70.15 USD with variant B, 85.36 USD with variant A `[file: <TMP>/r84/CE82/out.txt]`.
+- CE82 priced the 16 year books (9,295 pages) at 5,391.14 USD (low) to 18,699.87 USD (high). The old 36 folders cost 8,139.35 to 26,286.33 USD for 13,278 pages `[file: <TMP>/r84/CE82/out.txt:84]` `[file: <T2>/docs/drafts/translator-cost-estimate.md:425]`.
+- The 9 scanned volumes (8,171 pages) cost 4,542.19 to 16,241.56 USD. The 7 web year books (1,124 pages) cost 848.95 to 2,458.31 USD `[file: <TMP>/r84/CE82/out.txt:85-86]`.
+- The critique rate at x0.5 gives 5,257.64 to 14,688.55 USD for the 16 year books. At x2 it gives 5,658.14 to 26,722.51 USD `[file: <TMP>/r84/CE82/out.txt]`. aki-main reran `calc.py` at 21:47 PST and got the same output `[check: aki-main 2026-11-02 21:47 PST]`.
+- TV83 wrote ToC rows for two books. `sumiss_train_full` has 13 rows (ToC images p002 to p004, all level 1, offset -2). `tani_ss_full` has 20 rows (ToC images p002 to p006, 5 level 1 rows, 15 level 2 rows, 3 chapter rows with `page_ref` null) `[check: DZ83 2026-11-03 00:04 PST python3 on <TMP>/r84/TV83/rows/*.jsonl]`.
+- The machine note "pages 2 to 6 hold headings and sentences with no printed page numbers" was wrong. The ToC images show printed numbers with dotted leaders `[brief fact, aki-main check 2026-11-02]`.
+- aki-main spot-checked 10 random rows per book, and all were found on the named page `[check: aki-main 2026-11-02 21:48 PST]`. aki-main applied the rows at 23:43 PST. The file `toc-review.jsonl` went from 1148 to 1181 rows. The rebuild of `book_toc.py` gave 1181 rows. Only the two books changed. The ToC review now covers 23 of 23 books. The backup is `<TMP>/r84/aki/archive-toc/` `[check: aki-main 2026-11-02 23:43 PST]`.
+- The entry 修業論 絶対的評価と相対的評価のはざまで (printed page 96) of `tani_ss_full` has no row. The scan has no printed pages 96 to 102 `[file: <TMP>/r84/TV83/spot-tani_ss_full.md:21]` (answer 26).
+- aki-main deleted `<TMP>/r81/VW77b1` and `<TMP>/r82/TF82` (2,917 MB). The folder `<TMP>/r81/TJ81` stays `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:50]`.
+- The owner hand steps file `.opencode/aki-main/owner-hand-steps.md` got section 10h. Step 8.10a runs with the v2 deploy (round 84 answer 8) `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:50]`.
+
+##### 15.37.4 What each answer changes
+
+1. Answers 1 and 2 accept the DZ82 docs and the 8 rules of DZ82. The 8 rules are the unit defaults 1 to 8 of section 15.36.6, in the order of the labels. Examples: "Quotes stay exact (Recommended)" is rule 7, and "Label example states (Recommended)" is rule 8 `[agent inference]`.
+   - The 8 rules now carry `[owner, round 85 answer 2]`. DZ83 follows them. A changed line keeps quoted old text exact.
+   - Example: this section labels each example that has no real run as "example state (not run data)".
+2. The notes of a version row follow the DZ78 order in the older sketch rows (round 85 answer 3, `qa-memory-2026-11-02.md:148`: "Fix notes order rows (Recommended)"). Section 15.36.4, item 9, holds the order.
+   - Order of the notes in one row: "starting version" or "restart start version", "last version of run N", "previous restart version", "current live version", and "update after pNNN".
+   - The code pushes the notes in this order `[file: <V2>/app/lib/restart-rules.ts:211-218]` `[file: <V2>/app/lib/restart-rules.ts:174-177]`.
+   - Example: ED_2 `v4.1.6` (line 6520 of this file) read "update after p075, last version of run 1". It now reads "last version of run 1, update after p075".
+   - Example: ED_2 `v4.1.3` now reads "previous restart version, update after p060". ED_2 `v4.2.2` now reads "current live version, update after p040".
+   - DZ83 changed three rows in section 15.32.2 (lines 6517, 6520, 6523). It changed the same three rows in section 9.30.2 of `<T2>/docs/drafts/translator-design.md` (lines 8879, 8882, 8885). The box width of the sketch stays.
+   - The sketch at line 6817 of this file (a code block) still shows the old order. Open item 2 of section 15.37.7 holds it.
+3. The Restart dialog sketch names the archive folder `archive/<run ID>/` (round 85 answer 3, `qa-memory-2026-11-02.md:148`: "Fix archive folder name (Recommended)"). Round 79 answer 10 (`qa-memory-2026-11-01.md:102`) set the rule: "Run ID of the ended run (Recommended)".
+   - Example: run 1 of `mental_full` in phase 4 moves to `archive/20261104T001500-0800/` (invented run ID of DZ78).
+   - Line 6344 of this file read `The current run moves to archive/<time>/.`. It now reads `The current run moves to archive/<run ID>/.`. The box keeps its width of 124 characters.
+   - The code names the folder by run ID `[file: <V2>/app/lib/restart-rules.ts:172]`.
+4. Ungrouped critiques become groups of one (round 85 answer 5, `qa-memory-2026-11-02.md:150`: "Own group each (Recommended)"). This replaces the `[agent inference]` in section 9.23.11, item 12, second case, of the design.
+   - The critique-grouper can leave critiques ungrouped (section 9.23.5, item 4). The program gives each one its own group with the ID `CG-U1`, `CG-U2`, and so on.
+   - Example state (not run data): the grouper sorts 7 of the 8 critiques of TL_0 into `CG-1`, `CG-2`, and `CG-3`. It leaves `BC-0044` ungrouped `[file: <T2>/docs/drafts/translator-worked-examples.md:5136-5138]`. The program makes the group `CG-U1` with the `queue_ids` list [`BC-0044`]. The judge marks `CG-U1` like every other group.
+   - The code does this in `normalize_groups` `[file: <T2>/data/scripts/translator/update_step.py:105-116 at commit 7c9492a]`. If the grouper itself uses the ID `CG-U1`, the step stops with an error `[file: <T2>/data/scripts/translator/update_step.py:112-113 at commit 7c9492a]`.
+5. A soft mark with no `covering_quote` counts as hard (round 85 answer 6, `qa-memory-2026-11-02.md:151`: "Count it as hard (Recommended)"). This replaces the line "A soft mark without a quote is not valid" in section 9.23.5, item 6.
+   - Example state (not run data): after p048, ED_1 has 5 critiques in 2 groups. The judge marks `CG-2` soft and returns an empty quote. The group counts as hard.
+   - The program notes "the judge gave soft with no covering_quote, so the group counts as hard" `[file: <T2>/data/scripts/translator/update_step.py:132-134 at commit 7c9492a]`. The optimizer then adds a new point for `CG-2` (section 9.25.3).
+6. A `covering_quote` that is not in the prompt text goes to the audit check C3 (round 85 answer 7, `qa-memory-2026-11-02.md:152`: "Leave it to audit C3 (Recommended)"). The program makes no text search.
+   - Example state (not run data): the judge marks `CG-1` of ED_1 soft with the quote "Never drop a bracketed part". The ED_1 text holds no such line. The program accepts the mark, because it tests only that the quote is not empty `[file: <T2>/data/scripts/translator/update_step.py:128-134 at commit 7c9492a]`.
+   - Check C3 tests each soft group by a change to the point that its `covering_quote` names (section 9.27.2). A quote that names no point gives a FAIL in C3 `[agent inference]`.
+7. The audit runs on every try (round 85 answer 8, `qa-memory-2026-11-02.md:153`: "Always run the audit"). The owner chose option 2. This reverses TR77d1 unit default 3.
+   - Old rule: a failed format check or message rebuild check ended the try before the audit `[file: <T2>/data/scripts/translator/update_step.py:296-306 at commit 7c9492a]`. The optimizer got the reasons of that one check.
+   - New rule: the audit also runs after a failed format check or a failed message rebuild check. The optimizer gets the reasons of every check that failed in the try (section 9.23.5, item 8).
+   - Example state (not run data): ED_2 of `mental_full` writes a text with a line that starts with "[SECTION 4". Old: the format check gives a REJECT and the audit makes no call. New: the audit runs on the same text, and try 2 starts with the format reason and the audit reasons.
+   - Cost: the paid audit call (`anthropic/claude-sonnet-5-5`, variant "high") runs on a text that a program check already refused. The size of this cost is Not verified.
+   - Unit TR77d2 changes the step (note at line 180 of the Q-A file). Open item 3 of section 15.37.7 asks what the audit gets when the reply holds no text.
+8. A box with no stored `messages/<BOX>.txt` in the current run fails the message rebuild check (round 85 answer 9, `qa-memory-2026-11-02.md:154`: "Count it as a REJECT"). The owner chose option 2. This reverses TR77d1 unit default 4.
+   - Old rule: no stored message gave a pass with an empty page list and a note `[file: <T2>/data/scripts/translator/update_step.py:247,265 at commit 7c9492a]`.
+   - Example state (not run data): ED_2 fires after p005 of run 2 of `mental_full`. No page folder of the run holds `messages/ED_2.txt`. The check now fails and counts as a REJECT. Before, it passed with the note "no stored message of ED_2 in the current run, so the check had nothing to rebuild".
+   - A stored message file cannot appear between two tries. So the retry fails the same check, and the update point ends with "rejected twice" `[agent inference]`. Three such points in a row stop the whole book (section 9.25.4).
+   - How often a box lacks a stored message is Not verified.
+9. The double REJECT row of a box resets at a Resume only after a `box-stopped` event (round 85 answer 10, `qa-memory-2026-11-02.md:155`: "Reset after a box stop (Recommended)").
+   - Example state (not run data): ED_2 of `mental_full` has 2 double REJECTs in a row. You press Pause and later Resume. The row stays 2, because no `box-stopped` event came.
+   - Later ED_2 gets the 3rd double REJECT. The step writes `box-stopped` and the book stops. After the next Resume, the row is 0 `[file: <T2>/data/scripts/translator/critique_queue.py:182-199 at commit 7c9492a]`.
+   - The line 7538 of the design (`<T2>/docs/drafts/translator-design.md`) carries the tag `[owner, round 85 answer 10]`. TR77d1 built this rule as a unit default, and the owner now confirms it.
+10. If a box stops the book inside an update point, the step skips the other fired boxes (round 85 answer 11, `qa-memory-2026-11-02.md:156`: "Skip the rest (Recommended)").
+   - Example state (not run data): at N = 2 after p080, the boxes TL_1, ED_2, and QA_3 fire. They run in this order (section 9.23.5, item 3). TL_1 gets its 3rd double REJECT in a row.
+   - The step writes `box-stopped` for TL_1 and starts no more rewrites. ED_2 and QA_3 keep their critiques in the queue `[file: <T2>/data/scripts/translator/update_step.py:405-415 at commit 7c9492a]`.
+   - Design section 9.23.5, item 8, does not state this skip rule. Open item 2 of section 15.37.7 lists the line.
+11. Eight other TR77d1 rules are accepted (round 85 answer 12, `qa-memory-2026-11-02.md:157`): "One event per try (Recommended), Ignore end spaces (Recommended), Write order (Recommended), One handling per group (Recommended), Trim note field (Recommended), Prompt folder parameter (Recommended), Page ID forms (Recommended), Stop on bad reply (Recommended)".
+   - Example of "Ignore end spaces": a new text "abc" followed by a newline equals the old text "abc". The format check refuses it as the same text `[file: <T2>/data/scripts/translator/update_step.py:153,164 at commit 7c9492a]` `[agent inference]`.
+   - Example of "Page ID forms": the page ID `mental_full/p060` becomes `p060` in the key `update_point` `[file: <T2>/data/scripts/translator/update_step.py:62-64 at commit 7c9492a]` `[agent inference]`.
+   - DZ83 did not read the TR77d1 report, so the link of the other 6 labels to code lines is Not verified.
+12. Unit TR77f builds the phase 4 freeze (round 85 answer 13, `qa-memory-2026-11-02.md:158`: "Own unit TR77f (Recommended)").
+   - Example: ED_2 gets 3 update points in a row with no hard critique group (K = 3). Phase 4 then freezes the box.
+   - Today the function `fired_boxes` takes the `frozen` set from its caller, and the default is empty `[file: <T2>/data/scripts/translator/update_step.py:51-59 at commit 7c9492a]`. TR77f builds the freeze.
+   - The line 6169 of the design (`<T2>/docs/drafts/translator-design.md`) names TR77f now. Translator units that change `translator_run.py` run one after the other (note at line 182 of the Q-A file).
+13. Unit TR77d2 follows two rules for the call from the page loop (round 85 answer 14, `qa-memory-2026-11-02.md:159`: "Both as written (Recommended)").
+   - Rule 1: N comes from `run.json` of the page that ended. Example state (not run data): `mental_full` stands at p051. You save N = 3 in the config panel while p051 runs. The `run.json` of p051 holds N = 5. The update point after p051 uses N = 5.
+   - Rule 2: the runner reads the PAUSE file after the step returns. Example state (not run data): you press Pause while the update point after p060 runs. The point ends first. Then the book stops.
+   - The Pause dialog already says it: "Pause fx_running? The process finishes the current page and its update point, then it stops." `[file: <TMP>/r84/TF83/run-browser-b1.out:24]`.
+   - The text of the two rules comes from the brief of DZ83. The Q-A file holds the label only.
+14. TF83 is accepted (round 85 answer 15, `qa-memory-2026-11-02.md:160`: "Accept and commit (Recommended)"). Section 15.37.3 holds its results.
+   - Eight other TF83 rules are accepted (round 85 answer 19, `qa-memory-2026-11-02.md:164`): "Guard scope (Recommended), Heartbeat filter (Recommended), Own reason first (Recommended), Rule in new file (Recommended), Keep print switch (Recommended), Keep non-time text (Recommended), README lines (Recommended), Replace old tests (Recommended)".
+   - Example of "Rule in new file": the Clear mark rule sits in the new file `<V2>/app/lib/clear-mark-rule.ts` `[file: <V2>/app/lib/clear-mark-rule.ts:6]` `[agent inference]`.
+   - Example of "Keep print switch": `STAMPED_PLACE` still accepts "print" for a test `[file: <V2>/app/lib/reader-folds.ts:29]` `[agent inference]`.
+   - Example of "Keep non-time text": `pstTimeOrText("yesterday")` returns "yesterday" `[file: <V2>/app/scripts/smoke.mjs:2908]` `[agent inference]`.
+   - The link of the other 5 labels to code lines is Not verified.
+15. The month fold February 2024 (`kj-2024-02`) is accepted (round 85 answer 16, `qa-memory-2026-11-02.md:161`: "Accept the fold (Recommended)").
+   - Example: `acd6f6e1` "The effectiveness of a strong Hassei (Yano Hiroshi)" (web date 2024-02-19, 4 pages) and `f30670b6` "The effectiveness of a strong Hassei (Higashinaga Yukihiro)" (2024-02-26, 3 pages) carry the stamp 2014.11 `[file: <TMP>/r84/TF83/harness/web-pages.jsonl:837-843]` `[brief fact, aki-main check 2026-11-02]`.
+   - Before TF83 they sat in Kendo Jidai > 2014 > November 2014. That month held 3 web articles with 10 pages, and now it holds none `[file: <TMP>/r84/TF83/folds_numbers.txt:59,248]`.
+   - Now they sit in Kendo Jidai > 2024 > February 2024. The fold shows "English: 7 of 7 pages translated (100.0 percent)" `[file: <TMP>/r84/aki/folds-2148.txt:168]`.
+16. The admin readers list shows the sign-up day with PST (round 85 answer 17, `qa-memory-2026-11-02.md:162`: "Day with PST (Recommended)").
+   - Old text: `u.created.slice(0, 10)` showed the UTC day. New text: `pstDay(u.created)` `[file: <V2>/app/components/AdminReaders.tsx:43]`.
+   - Example: the time `2026-10-28 03:00:00.000Z` gives "signed up 2026-10-27 PST" (the example of `pstDay`) `[file: <V2>/app/lib/htv-pst.ts:40]`. The old text showed 2026-10-28.
+   - The live page `/admin/readers` shows "signed up 2026-10-29 PST" `[file: <TMP>/r84/TF83/live_before_after.txt:6]`.
+   - DZ83 changed the route table row for `/admin/readers` (line 2522). The VISION had no earlier text with the words "signed up".
+17. A Run mark that a Restart leaves stays as it is (round 85 answer 18, `qa-memory-2026-11-02.md:163`: "Keep as is (Recommended)"). Clear mark stays gray on it.
+   - Example state (not run data): you press Restart on the row of `mental_full`. The Translator writes a Run mark with `after` "restart". The row shows Clear mark grayed until the Translator handles the mark `[file: <V2>/app/lib/clear-mark-rule.ts:4-5]`.
+   - The line 7383 of this file carries this rule.
+18. Unit TF84 plans three Viewer fixes (round 85 answer 20, `qa-memory-2026-11-02.md:165`: "Add PST test (Recommended), Fix pause test (Recommended), Remove utcTime helper"). This is planned work only. The result is Not verified.
+   - "Add PST test": a test of the PST text on `/translate/<slug>?at=pNNN`, `/admin/versions`, and `/admin/readers` `[agent inference]`.
+   - "Fix pause test": the `pause` mode of `scripts/smoke.mjs` fails with the original file too (section 15.37.3).
+   - "Remove utcTime helper": the owner chose option 3, which is not the recommended option. The helper `utcTime` sits in `<V2>/app/lib/htv-format.ts:2`. A check in `scripts/smoke.mjs:2910` tests that it stays, so TF84 must change that check `[agent inference]`.
+   - TF84 writes `<V2>/app/scripts/smoke.mjs`, `htv-format.ts`, `htv-pst.ts`, and `README.md` `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:52]`.
+19. CE82 is accepted (round 85 answer 21, `qa-memory-2026-11-02.md:166`: "Accept and commit (Recommended)"). Four more answers settle its rules.
+   - Answer 22 "Variant B, 70.15 USD (Recommended)": the write-up is a frozen grid run of variant B with 12 box calls per page. Example: 90 pages × 12 box calls cost 70.15 USD. Variant A costs 85.36 USD `[file: <T2>/docs/drafts/translator-cost-estimate.md:1002-1003]`.
+   - Answer 23 "Book page method (Recommended)": the 7 web year books use the book page method (581 JA characters, 16 boxes). Example: `kendojidai_2019` costs 58.91 to 114.75 USD `[file: <T2>/docs/drafts/translator-cost-estimate.md:987-988]`.
+   - Answer 24 settles five rules: "Change every base line (Recommended), Year book rows (Recommended), Web year book rows (Recommended), Scale both rates (Recommended), New table columns (Recommended)". They match the unit defaults 1, 3, 4, 6, and 7 of cost file section 12.6, in the order of the labels `[agent inference]`.
+   - Example of "Year book rows": the row "smallest" shows `kendojidai_2019` with 39 pages `[file: <T2>/docs/drafts/translator-cost-estimate.md:993]`.
+   - The critique rate (cost file section 12.7, item 1) stays open. Round 85 did not answer it.
+20. The ToC rows of two books are applied (round 85 answer 25, `qa-memory-2026-11-02.md:170`: "Apply now (Recommended)"). Answer 26 "No row (Recommended)" leaves the entry 修業論 of `tani_ss_full` without a row.
+   - Answer 27 keeps three rules: "Chapter 1 on p010 (Recommended), Join heading and subtitle (Recommended), Full width brackets (Recommended)".
+   - Example of "Chapter 1 on p010": order 2 "第一章 昇段審査対策" of `tani_ss_full` has `page_ref` null and `page_id` `tani_ss_full/p010`. The scan has no opener page `[file: <TMP>/r84/TV83/rows/tani_ss_full.jsonl:2]`.
+   - Example of "Join heading and subtitle": order 3 holds one title "上達の着眼点 正しく美しい剣道を求めれば自ずと強さとなって現れる" with `page_ref` 12 and `pdf_page` 10 `[file: <TMP>/r84/TV83/rows/tani_ss_full.jsonl:3]`.
+   - Example of "Full width brackets": order 19 reads "渡辺正行（タレント） 剣道と正面から向き合い楽しむ" `[file: <TMP>/r84/TV83/rows/tani_ss_full.jsonl:19]`.
+   - The offset of `tani_ss_full` changes from -3 to -10 at order 17, because the scan skips pages `[file: <TMP>/r84/TV83/spot-tani_ss_full.md:23]`.
+21. Process answers. Answer 28 "Accept, tighten briefs (Recommended)" accepts the rule notes on units. Answer 29 sets the commit order, and aki-main committed in that order `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:50]`.
+   - Answer 30 lists the next units. They are TR77d2, VW77c (Details view), DZ83 (docs), and TF84 (Viewer fixes).
+   - It also lists TR77f (freeze), the phase 2 run command, VW77d (Run settings), and VW77e (archive and ToC). VW77e is new.
+   - Wave 1 is TR77d2, TF84, and DZ83 `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:51]`. TR77f, VW77c, the phase 2 run command, VW77d, and VW77e wait for the owner to accept wave 1 `[aki-main proposal]`.
+   - Answer 31 deleted two temp folders (section 15.37.3). Answer 32 has no answer. Answer 33 "Run the plan (Recommended)" starts wave 1.
+
+##### 15.37.5 Lines of this file that DZ83 changed in place
+
+Each row is one line of this file. The unit changed the line in place. The line count above this section is the same before and after the edit. Quoted old answers stay as they were.
+
+| Line | Old text in short | New text in short | Source |
+|---|---|---|---|
+| 2522 | route row of /admin/readers | adds the PST day of sign-up | round 85 answer 17, qa-memory-2026-11-02.md:162 |
+| 3403 | web articles in year and month fold | adds fold kj-2024-02 with acd6f6e1 and f30670b6 | round 85 answer 16, qa-memory-2026-11-02.md:161 |
+| 4451 | TF83 changes the code, result Not verified | TF83 changed the code, new month folds with numbers | round 85 answers 15 and 16, qa-memory-2026-11-02.md:160,161 |
+| 4453 | four 2018 folds go away | adds: live kj-2018 holds January to April | check of aki-main, folds-2148.txt:105-109 |
+| 6344 | archive/<time>/ in Restart dialog sketch | archive/<run ID>/, width kept | round 85 answer 3, qa-memory-2026-11-02.md:148 |
+| 6517 | update after p060, previous restart version | previous restart version, update after p060 | round 85 answer 3, qa-memory-2026-11-02.md:148 |
+| 6520 | update after p075, last version of run 1 | last version of run 1, update after p075 | round 85 answer 3, qa-memory-2026-11-02.md:148 |
+| 6523 | update after p040, current live version | current live version, update after p040 | round 85 answer 3, qa-memory-2026-11-02.md:148 |
+| 7383 | gray Clear mark on Run mark after restart | adds: the mark stays until the Translator handles it | round 85 answer 18, qa-memory-2026-11-02.md:163 |
+| 7842 | open item 1: notes order | decided in round 85 answer 3 | round 85 answer 3, qa-memory-2026-11-02.md:148 |
+| 7843 | open item 2: archive folder name | decided in round 85 answer 3 | round 85 answer 3, qa-memory-2026-11-02.md:148 |
+| 7844 | open item 3 | adds: not asked yet, carried to 15.37.7 | carried item |
+| 7848 | Not verified: four results | pointer to section 15.37.3 | round 85 answers 4, 15, 21, 25 |
+| 7849 | Not verified: STAMPED_PLACE print | reads web after TF83 | file check, reader-folds.ts:29 |
+| 7850 | no live GET of /read | adds: aki-main checked the live folds | round 85, section 15.37.3 |
+| 7851 | gray Clear mark not built | built by TF83 | round 85 answer 15, qa-memory-2026-11-02.md:160 |
+| 7859 | status: items wait | status: items 1 and 2 closed, item 3 moved to 15.37.7 | round 85 answer 3 |
+
+The lines that DZ83 changed in `<T2>/docs/drafts/translator-design.md` and in `<T2>/docs/drafts/translator-cost-estimate.md` are in section 9.35.5.
+
+Lines that stay as history, checked by the unit:
+
+- Lines 7699, 7724, and 7759 (section 15.36.4, items 1, 4, and 11) describe the state when DZ82 wrote. Line 7699 says that `STAMPED_PLACE` reads "print". Lines 7724 and 7759 say that the TF83 result and the TV83 result are Not verified. Section 15.37.3 holds the results.
+- Line 6673 says that `archive/<time>/` stays in the code block at line 6344. DZ83 changed line 6344 (section 15.37.4, item 3). The note at line 6673 is a history note of unit DZ78 (section 15.32.8).
+- Line 5606 is a code block of the older dialog sketch of section 15.27 with `archive/<UTC time>/`. Line 6671 says that it stays. DZ83 left it, because the brief did not name it.
+- The table of section 15.36.5 lists lines of round 84. It stays.
+
+##### 15.37.6 Unit defaults of DZ83
+
+No owner answer settles these items.
+
+1. `[unit default DZ83]` Rule: a notes cell swaps its parts and keeps the same words, so the cell keeps its width. Example: line 6520 of this file, `v4.1.6`. Other option: re-align all columns of the sketch. Benefit: only three lines change. Cost: none known.
+2. `[unit default DZ83]` Rule: `archive/<run ID>/` is 2 characters longer than `archive/<time>/`. The unit removes 2 spaces after the dot. Example: line 6344 of this file keeps 124 characters. Other option: widen the box in all lines. Benefit: only one line changes. Cost: the line ends with 2 spaces less.
+3. `[unit default DZ83]` Rule: open items 1 and 2 of section 15.36.7 become a "Decided in round 85 answer 3" line with the old question as a short quote. Example: VISION line 7842. Other option: delete the two items. Benefit: a reader sees what was decided and what was asked. Cost: the lines stay long.
+4. `[unit default DZ83]` Rule: DZ83 changed four design lines that the brief did not name. Each one states the old rule next to a named line. The lines are 6798, 6812, 6814, and 10373. Example: line 6814 of the design (`<T2>/docs/drafts/translator-design.md`) now says that the optimizer gets all reasons of the try. Other option: leave these lines and report them. Benefit: the item 8 text agrees with itself. Cost: four more changed lines.
+5. `[unit default DZ83]` Rule: the VISION text for `/admin/readers` sits in the route table row (line 2522), because the VISION had no text with "signed up". Example: the row now shows "signed up 2026-10-29 PST". Other option: add a new bullet. Benefit: the change stays 1:1. Cost: the table cell is longer.
+6. `[unit default DZ83]` Rule: the Clear mark text says that the Run mark stays "until the Translator handles it". The brief also named "a person". DZ83 found no source for it, and the button is gray. Example: line 7383 of this file. Other option: add "a person". Benefit: the text states only what the sources state. Cost: a reader can ask how a person removes the mark.
+7. `[unit default DZ83]` Rule: answers 22 to 24 match the cost file items by the order of the labels. Example: the label "Year book rows" is the second label of answer 24, and it marks unit default 3 of section 12.6. Other option: tag only the first line of section 12.6. Benefit: each decided rule carries its tag. Cost: the match is an `[agent inference]`.
+8. `[unit default DZ83]` Rule: the labels of answers 12 and 19 link to code lines only where the code states the same words. Example: "Rule in new file" links to `clear-mark-rule.ts`. Other option: link all 16 labels. Benefit: no wrong link. Cost: 11 labels have no link.
+9. `[unit default DZ83]` Rule: the code lines of the Translator carry "at commit 7c9492a", because TR77d2 changes the files in round 85. Example: `update_step.py:296-306 at commit 7c9492a`. Other option: cite the file on disk. Benefit: the line numbers stay true. Cost: the reader must run `git show`.
+
+##### 15.37.7 Open items for the owner
+
+The first option of each item is the recommended option.
+
+1. Own human EN in year book runs `[aki-main proposal]`. Recommended: keep round 82 answer 21 "No rule". Example: the book `kendojidai_2019` holds 10 `train-retrieval` articles. The retriever can return the human EN of `d7835263` while that article runs. Benefit: no new rule and no code. Cost: a score on a `train-retrieval` article of a year book run is not clean `[agent inference]`. The 27 `test` articles stay clean. Other option: skip the units of the same article in the retriever. Benefit: every score is clean. Cost: new code in the retriever.
+2. Lines with the old rule `[agent inference]`. Recommended: a later docs unit changes them in place. Example: Line 6817 of this file is a code block. It shows `v4.2.2   update after p040, current live version`. The DZ78 order gives "current live version, update after p040". Line 5606 of this file shows `archive/<UTC time>/`. The rule is `archive/<run ID>/`. Line 6673 of this file says that line 6344 keeps `archive/<time>/`. The line 6816 of the design (`<T2>/docs/drafts/translator-design.md`) lacks the skip rule of answer 11. Benefit: all docs state one rule. Cost: one more docs unit. Other option: keep these lines as history.
+3. What the audit gets when the reply has no text `[agent inference]`. Recommended: the step skips the audit and the message rebuild check when `new_instruction_text` is absent or empty. Then only the format reasons go to the optimizer. Example: the stub case "missing" returns a reply with no `group_handling`, and a reply with `"new_instruction_text": ""` has no text to audit `[file: <T2>/data/scripts/translator/update_step.py:156-162,486-489 at commit 7c9492a]`. Benefit: the audit never judges an empty text. Cost: one exception to "Always run the audit". Other option: the audit runs also on an empty text. Benefit: no exception. Cost: a paid call that cannot give a useful verdict.
+
+##### 15.37.8 Not verified
+
+- The results of TR77d2 and TF84 are Not verified. They run in round 85 while this unit writes.
+- The text of the two rules of round 85 answer 14 comes from the brief of DZ83. The Q-A file holds the label only.
+- The link of the labels of answers 12 and 19 to code lines is Not verified, except the examples named in section 15.37.4.
+- The reason for the single FAIL in the first deploy run of TF83 is Not verified.
+- The `pause` mode failure with the original file comes from the brief. DZ83 did not run it.
+- The live Reader dashboard `/read` after the commits is Not verified. DZ83 made no GET. The live numbers come from the files of aki-main at 21:47 PST.
+- That nothing was pushed comes from the brief. DZ83 ran no `git remote` command.
+- The stamp 2014.11 of `acd6f6e1` and `f30670b6` comes from the brief. The metadata file that DZ83 read shows the web dates only.
+- The size of the extra audit cost after answer 8 is Not verified. No run exists.
+- How often a box has no stored `messages/<BOX>.txt` is Not verified.
+- The TV83 row counts come from a Python count of the row files. The page images were not opened by DZ83.
+- DZ83 read `update_step.py` and `critique_queue.py` at commit 7c9492a. It did not read the new `translator_run.py` lines or the TR77d1 report.
+- The state of the owner hand step 8.10a and the deploy day are Not verified.
+- The dev server on port 3000 and PocketBase on port 8090 were not read or changed.
+
+Status: round 85 answers applied by unit DZ83. Items in section 15.37.7 wait for the owner.
