@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CommentView, HtvBookPage, HtvPageData, HtvRow, Role, SavedRow, VersionInfo } from "@/lib/htv-types";
-import { utcTime } from "@/lib/htv-format";
+import { pstTime, pstTimeOrText } from "@/lib/htv-pst"; // unit TF83: PST on /translate (round 82 answer 14)
 import { readersSeeLine } from "@/lib/reader-opens-rule";
 import { VerdictPill } from "./Pills";
 import { MarkedText, TermPopup, type PickedTerm } from "./HtvMarkedText";
@@ -144,7 +144,7 @@ export default function HtvPageSection({ page, data, user, pinned, canPin, onPin
     setRowRun(Object.fromEntries(keys.map((k) => [k, data.runId])));
     setLoadedVersion(v);
     setVersions((l) => [{ version: v, created: r.data.created, runId: data.runId, rows: r.data.count, agreed: keys.filter((k) => agrees[k]).length }, ...l]);
-    setMessage({ kind: "ok", text: `Saved as version ${v} at ${utcTime(r.data.created) || "this moment"}. ${r.data.count} rows.` });
+    setMessage({ kind: "ok", text: `Saved as version ${v} at ${pstTime(r.data.created) || "this moment"}. ${r.data.count} rows.` });
   }
 
   async function loadVersion(v: number) {
@@ -252,7 +252,7 @@ export default function HtvPageSection({ page, data, user, pinned, canPin, onPin
           <select aria-label="Run to mark" value={markRun} onChange={(e) => setMarkRun(e.target.value)} className="rounded border border-line bg-white px-1.5 py-0.5">
             {data.runs.map((r) => (
               <option key={r.runId} value={r.runId}>
-                {r.runId} · {r.verdict} · {r.startedUtc || "no start time"}
+                {r.runId} · {r.verdict} · {pstTimeOrText(r.startedUtc) || "no start time"}
               </option>
             ))}
           </select>
@@ -289,7 +289,7 @@ export default function HtvPageSection({ page, data, user, pinned, canPin, onPin
               {versions.map((v) => (
                 <tr key={v.version} className="border-t border-line/60" data-version={v.version}>
                   <td className="py-1 pr-3 font-semibold">{v.version}</td>
-                  <td className="pr-3">{utcTime(v.created)}</td>
+                  <td className="pr-3">{pstTime(v.created)}</td>
                   <td className="pr-3 font-mono text-xs">
                     {v.runId}
                     {v.runId !== data.runId ? <span className="ml-1 text-amber-800">(not the shown run)</span> : null}
@@ -376,7 +376,7 @@ export default function HtvPageSection({ page, data, user, pinned, canPin, onPin
                       .map((c) => (
                         <div key={c.id} className="mt-1 border-t border-line/60 pt-1">
                           <div className="text-xs text-muted">
-                            Comment by {c.mine ? "you" : c.userName}, {utcTime(c.created)}, run {c.runId || "unknown"}
+                            Comment by {c.mine ? "you" : c.userName}, {pstTime(c.created)}, run {c.runId || "unknown"}
                             {c.shared ? ", shared" : ""}
                           </div>
                           <div className="whitespace-pre-wrap">{c.text}</div>

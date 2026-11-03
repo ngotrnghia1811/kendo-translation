@@ -232,7 +232,7 @@ The human-translation-view lets a translator write own translations next to the 
 
 ### Smoke test, mode `htv`
 
-Mode `htv` writes versions, comments, and run marks into PocketBase. Use a throwaway PocketBase on port 8092 and never the real server.
+Mode `htv` writes versions, comments, and run marks into PocketBase. Use a throwaway PocketBase on a local port (the harness uses 8092 or 8093) and never the real server on port 8090. The guard in `scripts/smoke-guards.mjs` refuses port 8090 and a host that is not on this Mac.
 
 1. Start a throwaway PocketBase on `127.0.0.1:8092` with a temporary data folder and the migrations of `data/scripts/pocketbase/pb_migrations/`. Make a temporary superuser.
 2. Add four users with random passwords: an admin, two translators, and a reader.
@@ -357,7 +357,7 @@ The mode `deploy` tests the deploy shape: no config file, settings from env vari
 5. Set the env variables `HTV_TR1_EMAIL`, `HTV_TR1_PASSWORD`, `HTV_READER_EMAIL`, and `HTV_READER_PASSWORD`.
 6. Run: `node scripts/smoke.mjs deploy`
 
-The script never prints a password or a token. It fails if the config file exists or if the address of PocketBase is not `http://127.0.0.1:8092`.
+The script never prints a password or a token. It fails if the config file exists or if the address of PocketBase is not a local throwaway address (port 8090 is refused, see `scripts/smoke-guards.mjs`).
 
 ## Book screen, agree tick, panel cards, dark theme, and settings cog (unit UXC, round 59)
 
@@ -552,7 +552,8 @@ The Reader dashboard is the page `/read`. It replaces the card grid of unit RC1.
 - The first level has Books (22 works) and Kendo Jidai (320 works). The first level starts open. Deeper folds start closed.
 - Books: works with one English title form a fold. Example: the three `ogawa_lecture_part` folders. Other works are rows.
 - Kendo Jidai has one fold for each year, 2010 to 2025. A year from 2010 to 2018 holds the row of the year volume and month folds with the magazine articles (1,155 rows in all). A year from 2019 to 2025 holds month folds with web articles.
-- A web article goes to the month of its print stamp when it has one (36 articles). Else it goes to its web month. Example: record `63654ba0` (stamp "2011.8 KENDOJIDAI", web date 2025-04-28) sits in Kendo Jidai > 2011 > August 2011.
+- A web article goes to the month of its web date, also when it has a print stamp (36 articles). Round 83 answer 4 chose "Show web year" (unit TF83). Example: record `63654ba0` (stamp "2011.8 KENDOJIDAI", web date 2025-04-28) sits in Kendo Jidai > 2025 > April 2025. Before unit TF83 it sat in Kendo Jidai > 2011 > August 2011.
+- Effect: the fold "Kendo Jidai 2019" holds 14 web articles (39 pages). It held 9 articles (24 pages). The web-only months of 2018 (June, July, September, October) and the web articles in the magazine months of 2011 to 2018 go away.
 - The slug of a web article is the first 8 characters of its `item_id`. Example: `18d4ac29` shows the title "Kendo droplet guard".
 - Hidden works: `men0` and `men1` (their metadata names `men_full` in `part_of`), `mental2_clean` (same title and pages as `mental_full`), and the web captures `matsubara` and `morishima`. `/translate` keeps all of them.
 - A web article counts as 1 page.
@@ -561,7 +562,7 @@ The Reader dashboard is the page `/read`. It replaces the card grid of unit RC1.
 
 ### Choices in one place
 
-- `lib/reader-folds.ts` holds `WEB_PLACE` (`kendo-jidai` is reading A, `separate` is reading B with a first-level fold "Web articles"), `STAMPED_PLACE` (`print` or `web`), `HIDE_WEB_CAPTURES`, and `HIDDEN_COPIES`. Round 69 answer 7 is a reading that waits for the owner check.
+- `lib/reader-folds.ts` holds `WEB_PLACE` (`kendo-jidai` is reading A, `separate` is reading B with a first-level fold "Web articles"), `STAMPED_PLACE` (`web` since unit TF83, or `print`), `HIDE_WEB_CAPTURES`, and `HIDDEN_COPIES`. Round 70 answer 5 confirmed reading A. Round 83 answer 4 chose `web` for `STAMPED_PLACE`.
 - `lib/reader-translated.ts` holds the rule `isTranslatedPage`, the word `TRANSLATED_WORD`, and the progress lines. A page counts as translated when a `reader_pages` record exists. To change the word, change one line.
 - `lib/reader-search.ts` holds the fold rule of the search.
 
@@ -661,7 +662,7 @@ Design: section 15.26 of `docs/VISION-viewer.md`. This unit is part a of two. It
 - S2 reads that page file (option `--web-pages FILE`, default `<data>/item-metadata/web-pages.jsonl`). For each page it writes a `reader_pages` record with `run_id` "web-ja" (Original text rows), the kendojidai.com text as the chosen Human version in `reader_versions` (`chosen_by` empty), and a copy in `own_translations` under the disabled account `kendojidai-com@system.invalid` (name "kendojidai.com", version 1).
 - S2 writes the default choice once. A choice that an admin removed or changed stays. A page with an agent record (18d4ac29 p001) keeps that record. It gets the web Original text rows (keys `<page_id>/web/<unit>`) and the Human text in its search column.
 - A page counts as translated when it has an Agent text or a Human version (`lib/reader-translated.ts`). A page with only the "web-ja" record does not count. The v1 placeholder counts in no number.
-- The total line reads "English: 1,151 of 14,116 pages translated (8.2 percent)" with the data of the throwaway test. The year folds 2019 to 2025 read "Kendo Jidai 2019" to "Kendo Jidai 2025".
+- The total line reads "English: 1,151 of 14,135 pages translated (8.1 percent)" with the data of the throwaway test. The year folds 2019 to 2025 read "Kendo Jidai 2019" to "Kendo Jidai 2025".
 - S2 `--apply` stops with the line "Restart PocketBase so that migration 1793300011 runs." if `own_translations.facts` is missing.
 
 ### Book screen `/read/<slug>`
@@ -705,7 +706,7 @@ The first screen `/` is the Monitor dashboard. It shows one row for each book, i
 
 ### Times
 
-Every time on the Monitor dashboard shows in PST (UTC minus 8 hours, all year, text "PST"). The helpers are `pstClock`, `pstStamp`, `pstDateTime`, and `pstClockSeconds`. The code sits in `lib/pst.ts`, and `lib/format.ts` re-exports it. The rules import `lib/pst.ts` directly, because the dev server keeps an old instance of `lib/format.ts` for the route handlers that it loaded before. The Lists tab, the run view, and the page check dates of the Reader book screen show PST too since unit VW77b1 (helpers in `lib/pst-more.ts`). The old helpers `dateTime` and `clock` of `lib/format.ts` stay in the code. Times on `/translate` (`utcTime` in `lib/htv-format.ts`, UTC) and on `/admin` stay as they are, because the owner did not name those screens. Example: 2026-07-10T16:00:00Z shows as 08:00 PST.
+Every time on the Monitor dashboard shows in PST (UTC minus 8 hours, all year, text "PST"). The helpers are `pstClock`, `pstStamp`, `pstDateTime`, and `pstClockSeconds`. The code sits in `lib/pst.ts`, and `lib/format.ts` re-exports it. The rules import `lib/pst.ts` directly, because the dev server keeps an old instance of `lib/format.ts` for the route handlers that it loaded before. The Lists tab, the run view, and the page check dates of the Reader book screen show PST too since unit VW77b1 (helpers in `lib/pst-more.ts`). The old helpers `dateTime` and `clock` of `lib/format.ts` stay in the code. Times on `/translate` and `/admin` show PST since unit TF83 (round 82 answer 14, helpers in `lib/htv-pst.ts`: `pstTime`, `pstTimeOrText`, `pstDay`). Example: a comment written at 2026-10-27 18:04 UTC reads "2026-10-27 10:04 PST". The old helper `utcTime` of `lib/htv-format.ts` stays in the code. Example: 2026-07-10T16:00:00Z shows as 08:00 PST.
 
 ### Buttons (unit VW77b1, round 81)
 
@@ -728,8 +729,9 @@ A grayed button has `aria-disabled="true"`, stays in the Tab order, and shows it
 - Checks in this order: monitor off 404, foreign Origin 403, content type not JSON 415, slug not safe or not in the book set 404, wrong body 400, action does not fit the book (fresh read of `status.json`) 409 with the reason, `request.json` exists 409 "A mark waits already".
 - `components/RowButtons.tsx`, `row-message-store.ts`: the buttons, the dialogs, and the message of a failed press.
 - A refused Restart keeps the group of the book. Its extra line reads "Restart refused: <reason>".
+- Clear mark shows grayed on a Run mark with `after: "restart"` (the Run mark that the Translator leaves to start the new run after a Restart). Unit TF83 built this (round 83 answer 11, round 84 answer 2). The reason reads "Clear mark is off because this mark starts the new run after a Restart." The route `clear-mark` answers 409 with the same words, because it reads the `stateReason` of the button. The rule sits in `lib/clear-mark-rule.ts`. Example: the book `rs_wait_after` of the test fixture keeps its `request.json`. Other marks keep an active Clear mark.
 - The Lists tab, the run view, and the page checks of the Reader book screen show their times in PST (`lib/pst-more.ts`).
-- The mode `node scripts/smoke.mjs monitor-actions --config FILE --fixture DIR` tests the routes on a fixture. It writes into the fixture folder. The folder must be `.../r81/VW77b1/fx`. Change that guard in the script for another fixture folder.
+- The mode `node scripts/smoke.mjs monitor-actions --config FILE --fixture DIR` tests the routes on a fixture. It writes into the fixture folder. The guard reads the config (unit TF83, `scripts/smoke-guards.mjs`): the fixture folder must not sit inside `<T2>/data`, `<V2>/data`, or a folder in the env variable `SMOKE_PROTECTED_DIRS` (colon list), and `translatorDataDir` of the config must name `<fixture>/data`. Any folder name and any port pass. The mode `node scripts/smoke.mjs guards` shows one pass and one refuse example. The comparison of folder states ignores the three heartbeat files of the fake Translator (`history.jsonl`, `status.json`, `progress.json`), because they change every 3 s.
 
 ### Not built yet
 

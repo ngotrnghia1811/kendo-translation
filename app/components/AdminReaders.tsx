@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { AdminUser } from "@/lib/pb";
+import { pstDay } from "@/lib/htv-pst"; // unit TF83: PST on /admin (round 82 answer 14)
 
 // Admin page of the accounts (unit RC1, round 63 answer 4, Q-A 2026-10-28 l308). A reader that waits for approval is listed first, with Approve.
 // An admin can also remove the approval, disable an account, and enable it again. The route checks the admin role. PocketBase checks it again.
@@ -39,7 +40,7 @@ export default function AdminReaders({ users, me }: { users: AdminUser[]; me: st
             <li key={u.id} data-waiting-user={u.email} className="flex flex-wrap items-center gap-3 rounded border border-line bg-white p-3 text-sm">
               <span className="font-medium">{u.name || "(no name)"}</span>
               <span className="text-muted">{u.email}</span>
-              <span className="text-muted">signed up {u.created.slice(0, 10)}</span>
+              <span className="text-muted">signed up {pstDay(u.created) || u.created.slice(0, 10)}</span>
               <span className="ml-auto flex gap-2">
                 <button type="button" disabled={busy === u.id} onClick={() => void act(u.id, { approved: true })} data-approve className={btn + " bg-accent font-semibold text-white"}>
                   Approve

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { utcTime } from "@/lib/htv-format";
+import { pstTime } from "@/lib/htv-pst"; // unit TF83: PST on /admin (round 82 answer 14)
 import type { AdminVersion } from "@/lib/pb";
 import { factLine } from "@/lib/reader-layout";
 import type { ReaderFact } from "@/lib/reader-types";
@@ -100,7 +100,7 @@ export default function AdminVersionPanel({ pageId }: { pageId: string }) {
                 <li key={`${v.userId}-${v.version}`} data-version={`${v.userName}#${v.version}`} className="flex flex-wrap items-center gap-3 rounded border border-line bg-white p-3 text-sm">
                   <span className="font-medium">{v.userName}</span>
                   <span>version {v.version}</span>
-                  <span className="text-muted">{utcTime(v.created)}</span>
+                  <span className="text-muted">{pstTime(v.created)}</span>
                   <span className="text-muted">{v.rows} rows, {v.written} written, {v.agreed} agreed</span>
                   {isChosen ? <span className="rounded bg-stone-200 px-1.5 py-0.5 text-xs font-medium text-stone-700" data-chosen-tag>Shown to readers</span> : null}
                   <span className="ml-auto flex gap-2">

@@ -11,6 +11,7 @@
 //   VISION 15.27.3 (buttons table), 15.29.2 (buttons for each state), 15.33.3 (Running row), 15.33.4 (refused Restart).
 // If VISION and store.py disagree, store.py and the newer answer win (see the notes at "running-pause" and "restart_requested_utc").
 import { parseUtcIso, pstClock, pstDateTime, pstStamp, relativeTime, runIdText } from "./pst";
+import { clearOffReason } from "./clear-mark-rule";
 
 export const HEARTBEAT_S = 30; // store.py:31
 export const STALE_S = 120; // store.py:32. A heartbeat older than this means the process is gone.
@@ -722,6 +723,8 @@ function pidText(f: BookFacts): string {
  *     While another mark waits (request.json exists) it shows grayed with the reason in words: a Running row with a Run mark, a row with a refused Restart mark.
  *   Clear mark (round 82 answer 10): on a row where request.json exists and no live process runs the book (a Waiting for a run row, a row with a refused Restart).
  *     Never on a Running row. Never on an unreadable-status row.
+ * Unit TF83 (round 83 answer 11, round 84 answer 2): on a Run mark with `after: "restart"` the Clear mark button shows grayed with the reason
+ *   "Clear mark is off because this mark starts the new run after a Restart." The route answers 409 with the same words. Other marks keep their rules.
  * No Details link (unit VW77c).
  */
 export function actionButtons(f: BookFacts, r: Pick<MonitorRow, "pilot" | "baseLabel">, base: LabelKey, mark: ReturnType<typeof markInfo>, refusedNow: boolean): ActionButton[] {
@@ -753,7 +756,7 @@ export function actionButtons(f: BookFacts, r: Pick<MonitorRow, "pilot" | "baseL
       ? "There is no mark to clear."
       : runs
         ? `Clear mark is for a book with no live process. This book runs now${pidText(f)}`
-        : null,
+        : clearOffReason(f.mark), // unit TF83 (round 83 answer 11, round 84 answer 2): grayed on the Run mark that a Restart leaves
     pause: unreadable
       ? "The file status.json cannot be read."
       : r.pilot && runs
@@ -812,7 +815,8 @@ export function actionButtons(f: BookFacts, r: Pick<MonitorRow, "pilot" | "baseL
     // Pause is no mark: a mark on a running book does not block it. Clear mark removes the mark. Every other action waits while request.json exists.
     const blockedByMark = id !== "pause" && id !== "clear" && markPresent;
     const enabled = shown && why[id] === null && !blockedByMark;
-    const reason = !shown || enabled ? null : runs ? (why[id] ?? waitReason) : (waitReason ?? why[id]);
+    // Clear mark is the one button that the mark itself does not block, so its own reason comes first (unit TF83).
+    const reason = !shown || enabled ? null : runs || id === "clear" ? (why[id] ?? waitReason) : (waitReason ?? why[id]);
     return { id, label: ACTION_LABELS[id], show: shown, enabled, reason, stateReason: why[id] };
   });
 }

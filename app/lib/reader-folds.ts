@@ -7,20 +7,26 @@ import { foldText } from "./reader-search";
 
 /**
  * Round 69 answer 7: "They should be arrange into kendojidai year/month like the other articles" [user].
- * aki-main reading [reading pending owner check]:
- *   "kendo-jidai"  reading A (default): the 311 web articles sit inside the first-level fold "Kendo Jidai", in year and month folds.
+ * Round 70 answer 5 (Q-A 2026-10-29 l120, direct answer l141): "option 1. The 311 web articles ARE kendojidai 2019 to 2025 right?" [accepted option 1].
+ * That confirms reading A (TF83, round 84, unit default: tag "reading pending owner check" removed):
+ *   "kendo-jidai"  (default) the 311 web articles sit inside the first-level fold "Kendo Jidai", in year and month folds.
  *   "separate"     reading B: the web articles form a first-level fold "Web articles" with the same year and month folds.
  */
 export type WebPlace = "kendo-jidai" | "separate";
 export const WEB_PLACE: WebPlace = "kendo-jidai";
 
 /**
- * Second fork of round 69 answer 7 [reading pending owner check]: where a web article with a print stamp goes.
- *   "print"  (default) the month of the print issue. Example: record 63654ba0 (stamp 2011.8 KENDOJIDAI) sits in August 2011.
- *   "web"    the month of the web post. The same record sits in April 2025.
+ * Where a web article with a print stamp goes (36 of the 311 web articles reprint a magazine article of 2011 to 2018).
+ * History of the owner choice:
+ *   Round 70 answer 6 (Q-A 2026-10-29 l121): "Print month (Recommended)". The stamp decided the month. Record 63654ba0 (stamp 2011.8 KENDOJIDAI) sat in August 2011.
+ *   Round 83 answer 4 (Q-A 2026-11-02 l99): "Fold Kendo Jidai 2019 shows 9 of 14 web articles: Show web year" [accepted option 2]. This replaces round 70 answer 6.
+ *   Round 84 answer 1 (Q-A 2026-11-02 l127): "Reading is right (Recommended)". Every web article sits in the fold of its web year and month.
+ *   "web"    (default) the month of the web post. Example: record 63654ba0 (stamp 2011.8 KENDOJIDAI) sits in April 2025.
+ *   "print"  the month of the print issue. The same record sits in August 2011. Kept as a switch for a test (unit TF83).
+ * Effect on /read (unit TF83): the fold Kendo Jidai 2019 holds 14 web articles (it held 9), and the month folds that held only stamped web articles go away (for example September 2018).
  */
 export type StampedPlace = "print" | "web";
-export const STAMPED_PLACE: StampedPlace = "print";
+export const STAMPED_PLACE: StampedPlace = "web";
 
 /** Round 69 answer 15: "Ignore these for now". The web captures matsubara and morishima do not show on /read. They stay on /translate. */
 export const HIDE_WEB_CAPTURES = true;

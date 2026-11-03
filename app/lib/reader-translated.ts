@@ -39,7 +39,7 @@ export function progressLine(translated: number, pages: number): string {
 
 /**
  * The progress text of a fold and of the total line, the same full form: "English: 20 of 4,821 pages translated (0.4 percent)".
- * Both numbers have the thousands separator (unit RT73a: "English: 1,151 of 14,116 pages translated (8.2 percent)", VISION-viewer 15.26.10).
+ * Both numbers have the thousands separator (unit RT73a: "English: 1,151 of 14,135 pages translated (8.1 percent)", VISION-viewer 15.26.10).
  */
 export function foldProgress(translated: number, pages: number): string {
   return fullForm(translated, pages, translated.toLocaleString("en-US"), pages.toLocaleString("en-US"));

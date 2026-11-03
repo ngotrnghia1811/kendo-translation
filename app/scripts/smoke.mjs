@@ -7,7 +7,7 @@
 //                                                      HTV_TR1_PASSWORD, HTV_TR2_EMAIL, HTV_TR2_PASSWORD, HTV_READER_EMAIL, HTV_READER_PASSWORD.
 //                                                      The script never prints a password or a token.
 //   node scripts/smoke.mjs deploy                      deploy shape (unit DPC, round 58). No viewer.config.json in the app folder. Set the env variables
-//                                                      VIEWER_RUN_SOURCE=pocketbase, VIEWER_POCKETBASE_URL (throwaway server on port 8092 only), VIEWER_MONITOR=off,
+//                                                      VIEWER_RUN_SOURCE=pocketbase, VIEWER_POCKETBASE_URL (a throwaway server on a local port, never 8090), VIEWER_MONITOR=off,
 //                                                      HTV_TR1_EMAIL, HTV_TR1_PASSWORD, HTV_READER_EMAIL, HTV_READER_PASSWORD. Needs the S2 upload in that server.
 //                                                      GET requests, one sign-in per account, and one refused POST. The script never prints a password or a token.
 //   node scripts/smoke.mjs read                        reader pages (unit RC1, round 63). Needs a throwaway PocketBase after the S2 upload (reader_pages), a saved version of
@@ -29,9 +29,10 @@
 //   node scripts/smoke.mjs monitor-actions --config FILE --fixture DIR   Buttons of the Monitor dashboard (unit VW77b1, round 81): the write routes /api/monitor/books/<slug>/mark and /pause,
 //                                                      every 404, 403, 415, 400, and 409 case, the exact bytes of request.json, the file PAUSE, the refused Restart row, the summary line,
 //                                                      the empty phase cell of a pilot row, and PST on /runs. It WRITES into the fixture DIR (never the real data folder). fake_translator.py builds it.
+//   node scripts/smoke.mjs guards                      The safety guards of this script (unit TF83): the PocketBase address and the fixture folder, one pass and one refuse example each. Pure code, no server.
 //   node scripts/smoke.mjs monitor-restart             Restart and Clear mark buttons and the data of the Restart dialog (unit VW77b2, round 82): lib/book-status-rules.ts and lib/restart-rules.ts. Pure code, no server.
 //   node scripts/smoke.mjs monitor-restart-api --config FILE --fixture DIR   The routes GET /api/monitor/books/<slug>/restart-options, POST .../mark with action restart, POST .../clear-mark
-//                                                      on the fixture of restart_fixture.py (real Translator code). It WRITES into the fixture DIR (.../r82/VW77b2/rs only).
+//                                                      on the fixture of restart_fixture.py (real Translator code). It WRITES into the fixture DIR (a folder outside the protected data folders, see scripts/smoke-guards.mjs).
 // The script starts `next start` on a free port and stops it at the end (the modes folds, layout, monitor-rules, and monitor-restart start no server).
 // Run `npm run build` first. Run the script in a copy of the app, not in the folder of the dev server.
 // Mode `pause` sends POST requests. Never run it with the real data folder.
@@ -41,6 +42,8 @@ import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import os from "node:os";
+import { pbGuard, fixtureGuard, protectedDirs } from "./smoke-guards.mjs"; // unit TF83: the guards read the config (round 83 answer 20)
 
 const args = process.argv.slice(2);
 const mode = args[0] ?? "smoke";
@@ -80,6 +83,21 @@ let skips = 0;
 function check(name, ok, detail = "") {
   if (!ok) failures++;
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? "  " + detail : ""}`);
+}
+
+// Unit TF83 (round 83 answer 20, round 84 answer 6: "Test guards from config"). The config of the run (--config FILE, else viewer.config.json) names the PocketBase address
+// and the data folder. The guards live in scripts/smoke-guards.mjs. A refused guard prints a FAIL line and stops the run before any write.
+async function activeConfig() {
+  return JSON.parse(await fs.readFile(configFile ? path.resolve(configFile) : path.resolve("viewer.config.json"), "utf-8"));
+}
+function mustBeThrowawayPb(label, url) {
+  const g = pbGuard(url);
+  check(`${label} uses a throwaway PocketBase (a local address, not the port 8090 of the owner)`, g.ok, g.why);
+  if (!g.ok) throw new Error(g.why);
+}
+async function mustBeFixture(mode, fx) {
+  const g = await fixtureGuard(fx, await activeConfig());
+  if (!g.ok) throw new Error(`${mode} writes files. ${g.why}`);
 }
 
 function skip(name, reason) {
@@ -267,6 +285,14 @@ async function listing(dir) {
   await walk(dir);
   return out.sort();
 }
+
+// Unit TF83 (round 83 answer 20: "Stable monitor-actions test"). The fake Translator (fake_translator.py) writes these three files while a test compares folder states:
+// a Heartbeat thread rewrites status.json every 3 s, a loop rewrites progress.json of each fake list every 3 s, and the thread appends to history.jsonl
+// (event pause-requested) when a PAUSE file appears. The size of each file changes between two listings. TF82 saw a failure in 5 of 5 runs with a start delay of 5 s
+// (the check "The new files in the fixture ..." named history.jsonl:87, status.json:811, progress.json:915). A listing entry has the form "path:size".
+// The Viewer never writes these files. The files that the Viewer writes are PAUSE, request.json, request.done.json, translator-settings.json, and translator-settings.history.jsonl.
+const HEARTBEAT_FILES = ["history.jsonl", "status.json", "progress.json"];
+const isHeartbeat = (entry) => HEARTBEAT_FILES.includes(path.basename(entry.slice(0, entry.lastIndexOf(":"))));
 
 async function pauseTest() {
   if (!fixture) throw new Error("Need --fixture DIR");
@@ -830,7 +856,7 @@ async function htvTest() {
   const cfg = JSON.parse(await fs.readFile(configFile ? path.resolve(configFile) : path.resolve("viewer.config.json"), "utf-8"));
   const pbUrl = (cfg.pocketbaseUrl ?? "http://127.0.0.1:8090").replace(/\/+$/, "");
   const dataDir = path.resolve(cfg.translatorDataDir);
-  check("Config points at a throwaway PocketBase (port 8092)", pbUrl === "http://127.0.0.1:8092", pbUrl);
+  mustBeThrowawayPb("Config", pbUrl);
   const P14 = "mental_full/p014";
   const K1 = `${P14}/ts3/L01-L08`;
   const K2 = `${P14}/ts3/L09-L13`;
@@ -1279,7 +1305,7 @@ async function deployTest() {
   const hasCfg = await fs.stat(cfgFile).then(() => true, () => false);
   check("Deploy shape: no config file in the app folder", !hasCfg, cfgFile);
   check("Deploy shape: env VIEWER_RUN_SOURCE is pocketbase and VIEWER_MONITOR is off", process.env.VIEWER_RUN_SOURCE === "pocketbase" && process.env.VIEWER_MONITOR === "off");
-  check("Deploy shape: env VIEWER_POCKETBASE_URL points at the throwaway PocketBase (port 8092)", pbUrl === "http://127.0.0.1:8092", pbUrl);
+  mustBeThrowawayPb("Deploy shape: env VIEWER_POCKETBASE_URL", pbUrl);
 
   const anon = new Client("anon");
   // --- monitor pages
@@ -1392,7 +1418,7 @@ async function toleranceTest() {
   // (28 on the dashboard, because men0 is hidden), no web page, no Human version, no field own_translations.facts. The new app must open every page there.
   const accounts = { admin: envPair("ADMIN"), tr1: envPair("TR1"), reader: envPair("READER"), reader2: envPair("READER2") };
   const pbUrl = (process.env.VIEWER_POCKETBASE_URL ?? (JSON.parse(await fs.readFile(configFile ? path.resolve(configFile) : path.resolve("viewer.config.json"), "utf-8")).pocketbaseUrl ?? "")).replace(/\/+$/, "");
-  check("Tolerance: the app uses the throwaway PocketBase (port 8092)", pbUrl === "http://127.0.0.1:8092", pbUrl);
+  mustBeThrowawayPb("Tolerance: the app", pbUrl);
   const login = async (who) => {
     const c = new Client(who);
     const r = await c.req("/api/htv/login", { method: "POST", json: accounts[who] });
@@ -1463,7 +1489,7 @@ async function toleranceTest() {
 async function webTest() {
   const accounts = { admin: envPair("ADMIN"), reader: envPair("READER"), reader2: envPair("READER2") };
   const pbUrl = (process.env.VIEWER_POCKETBASE_URL ?? (JSON.parse(await fs.readFile(configFile ? path.resolve(configFile) : path.resolve("viewer.config.json"), "utf-8")).pocketbaseUrl ?? "")).replace(/\/+$/, "");
-  check("Web: the app uses the throwaway PocketBase (port 8092)", pbUrl === "http://127.0.0.1:8092", pbUrl);
+  mustBeThrowawayPb("Web: the app", pbUrl);
   const cfg = JSON.parse(await fs.readFile(configFile ? path.resolve(configFile) : path.resolve("viewer.config.json"), "utf-8"));
   const file = process.env.RT73A_WEB_PAGES ? path.resolve(process.env.RT73A_WEB_PAGES) : path.join(path.resolve(cfg.translatorDataDir), "item-metadata/web-pages.jsonl");
   const PG = new Map();
@@ -1492,9 +1518,10 @@ async function webTest() {
   const yearTitles = [2019, 2020, 2021, 2022, 2023, 2024, 2025].map((y) => htvText((r.body.match(new RegExp(`<details[^>]*data-fold="kj-${y}"[\\s\\S]*?</summary>`)) ?? [""])[0]).trim());
   check("Reader dashboard /read: the year folds are named 'Kendo Jidai 2019' to 'Kendo Jidai 2025'", yearTitles.every((t, i) => t.startsWith(`Kendo Jidai ${2019 + i}`)), yearTitles.map((t) => t.slice(0, 30)).join(" | "));
   check("Reader dashboard /read: no fold of 2019 to 2025 is named only with the year", !yearTitles.some((t) => /^20\d\d\b/.test(t)));
-  const feb = await cr.req("/read?open=kj-2012-02");
+  // Unit TF83 (round 83 answer 4 "Show web year"): d7835263 (stamp 2012.2, web date 2019-10-21) sits in October 2019. Old test: /read?open=kj-2012-02 (the print month).
+  const feb = await cr.req("/read?open=kj-2019-10");
   const row = (feb.body.match(/<li data-book="d7835263"[\s\S]*?<\/li>/) ?? [""])[0];
-  check("Reader dashboard /read: the row of d7835263 reads 'English: 3 of 3 pages translated (100.0 percent)' and has the link 'Start at Page 1'", /English: 3 of 3 pages translated \(100\.0 percent\)/.test(htvText(row)) && hasLink(row, "/read/d7835263?view=page&amp;at=p001", "data-start", "Start at Page 1"), htvText(row).slice(0, 160));
+  check("Reader dashboard /read: the row of d7835263 (opened with /read?open=kj-2019-10, old: kj-2012-02) reads 'English: 3 of 3 pages translated (100.0 percent)' and has the link 'Start at Page 1'", /English: 3 of 3 pages translated \(100\.0 percent\)/.test(htvText(row)) && hasLink(row, "/read/d7835263?view=page&amp;at=p001", "data-start", "Start at Page 1"), htvText(row).slice(0, 160));
   check("Reader dashboard /read: no number or word of the dashboard names the v1 placeholder", !/\bv1\b|placeholder|Gemini/i.test(htvText(r.body)), "");
 
   // --- book screen
@@ -1753,7 +1780,7 @@ r = await cr.req("/read/d7835263?view=page&at=p001");
 async function readTest() {
   const accounts = { admin: envPair("ADMIN"), tr1: envPair("TR1"), reader: envPair("READER"), reader2: envPair("READER2") };
   const pbUrl = (process.env.VIEWER_POCKETBASE_URL ?? (JSON.parse(await fs.readFile(configFile ? path.resolve(configFile) : path.resolve("viewer.config.json"), "utf-8")).pocketbaseUrl ?? "")).replace(/\/+$/, "");
-  check("Read: the app uses the throwaway PocketBase (port 8092)", pbUrl === "http://127.0.0.1:8092", pbUrl);
+  mustBeThrowawayPb("Read: the app", pbUrl);
   const LF = "left_foot_full";
   const P48 = `${LF}/p048`;
   const JA_START = "わたしは剣先を相手の中墨から外さず攻めつづけ、";
@@ -1833,7 +1860,7 @@ async function readTest() {
   const nrMonth = await nr.req("/read?open=kj-2011-08");
   check("Waiting reader: no row and no month article links to a page (no Start at, no Continue at, no link with ?view=page), also in an opened month", !/data-start|data-resume|data-article-link/.test(r.body + nrMonth.body) && !/view=page&amp;at=p|view=page&at=p/.test(r.body + nrMonth.body) && !/Start at Page|Continue at Page/.test(text) && countOf(nrMonth.body, /<li data-article=/g) === 14, `articles ${countOf(nrMonth.body, /<li data-article=/g)}`);
   const nrApi = await nr.req("/api/read/month?id=kj-2011-08");
-  check("Waiting reader: GET /api/read/month gives the rows of a month (titles and page numbers, no text, status 200)", nrApi.status === 200 && nrApi.json?.children?.length === 16 && !/Kensen|わたしは/.test(nrApi.body), `status ${nrApi.status}, rows ${nrApi.json?.children?.length}`);
+  check("Waiting reader: GET /api/read/month gives the rows of a month (titles and page numbers, no text, status 200)", nrApi.status === 200 && nrApi.json?.children?.length === 14 && !/Kensen|わたしは/.test(nrApi.body), `status ${nrApi.status}, rows ${nrApi.json?.children?.length}`);
   check("Waiting reader: the first-level folds are open and the deeper folds are closed", countOf(r.body, /<details open=""[^>]*data-fold-level="1"/g) === 2 && countOf(r.body, /<details[^>]*data-fold-level="2"/g) > 0 && countOf(r.body, /<details open=""[^>]*data-fold-level="[23]"/g) === 0);
   const nrSearch = await nr.req("/read?q=seme");
   check("Waiting reader: /read?q=seme gives the note 'Page text search opens after approval.' and no page hit", nrSearch.status === 200 && htvText(nrSearch.body).includes("Page text search opens after approval.") && !/data-hit-page/.test(nrSearch.body), `status ${nrSearch.status}`);
@@ -1909,7 +1936,11 @@ async function readTest() {
   check("Reader dashboard: the web article 18d4ac29 sits in Kendo Jidai > 2020 > August 2020 (web date 2020-08-17), shows the title 'Kendo droplet guard' (round 69 answer 7), 'English: 1 of 1 page translated (100.0 percent)', and 'Start at Page 1'", /Kendo droplet guard/.test(htvText(row18)) && /English: 1 of 1 page translated \(100\.0 percent\)/.test(htvText(row18)) && hasLink(row18, "/read/18d4ac29?view=page&amp;at=p001", "data-start", "Start at Page 1") && /data-fold="kj-2020"/.test(open2020.body), htvText(row18).slice(0, 120));
   const openR = await cr.req("/read?open=kj-2011-08");
   const augFold = (openR.body.match(/<details[^>]*data-fold="kj-2011-08"[\s\S]*?<\/details>/) ?? [""])[0];
-  check("Reader dashboard: the Teramoto article 63654ba0 sits in Kendo Jidai > 2011 > August 2011 (default: the print month of the stamp 2011.8), drawn on the server by /read?open=kj-2011-08", /Interview with Kendo Legends Teramoto and Takanabe \(part 2\)/.test(htvText(augFold)) && /data-book="63654ba0"/.test(augFold) && /data-fold="kj-2011"/.test(openR.body) && /14 articles · pages 591-674 · 2 web articles/.test(htvText(augFold)) && countOf(augFold, /<li data-article=/g) === 14, htvText(augFold).slice(0, 140));
+  // Unit TF83 (round 83 answer 4 "Show web year", round 84 answer 1): the Teramoto article sits in its web month. Old check: Kendo Jidai > 2011 > August 2011, "14 articles · pages 591-674 · 2 web articles".
+  const openA25 = await cr.req("/read?open=kj-2025-04");
+  const apr25Fold = (openA25.body.match(/<details[^>]*data-fold="kj-2025-04"[\s\S]*?<\/details>/) ?? [""])[0];
+  check("Reader dashboard: the Teramoto article 63654ba0 (stamp 2011.8) sits in Kendo Jidai > 2025 > April 2025 (web date 2025-04-28), drawn on the server by /read?open=kj-2025-04", /Interview with Kendo Legends Teramoto and Takanabe \(part 2\)/.test(htvText(apr25Fold)) && /data-book="63654ba0"/.test(apr25Fold) && /data-fold="kj-2025"/.test(openA25.body) && /4 web articles/.test(htvText(apr25Fold)) && countOf(apr25Fold, /<li data-book=/g) === 4, htvText(apr25Fold).slice(0, 140));
+  check("Reader dashboard: August 2011 (opened with /read?open=kj-2011-08) holds its 14 magazine articles and no web article, the note reads '14 articles · pages 591-674' (old: '... · 2 web articles')", /14 articles · pages 591-674/.test(htvText(augFold)) && !/web article/.test(htvText(augFold)) && countOf(augFold, /<li data-article=/g) === 14 && !/data-book="63654ba0"/.test(augFold), htvText(augFold).slice(0, 140));
   check("Reader dashboard: a closed month sends no rows (the HTML has no article row), and its summary has the progress line; the link 'Show this month' is there for a browser without script", countOf(r.body, /<li data-article=/g) === 0 && countOf(r.body, /data-lazy-fold/g) > 150 && /data-show-month/.test(r.body) && /href="\/read\?open=kj-2014-10#kj-2014-10"/.test(r.body), `lazy months ${countOf(r.body, /data-lazy-fold/g)}`);
   const months = [...r.body.matchAll(/data-fold="((?:kj|web)-\d{4}-\d{2})"/g)].map((m) => m[1]);
   const monthJson = await Promise.all(months.map((id) => cr.req(`/api/read/month?id=${id}`)));
@@ -1917,7 +1948,9 @@ async function readTest() {
   const webRows = monthJson.reduce((t, x) => t + (x.json?.children ?? []).filter((n) => n.type === "work").length, 0);
   check(`Reader dashboard: GET /api/read/month for each of the ${months.length} months gives status 200, 1,155 article rows (answer 14) and 311 web article rows in all`, months.length > 150 && monthJson.every((x) => x.status === 200) && artRows === 1155 && webRows === 311, `months ${months.length}, articles ${artRows}, web ${webRows}`);
   const apiAug = (await cr.req("/api/read/month?id=kj-2011-08")).json;
-  check("Month API: kj-2011-08 gives 14 article rows and 2 web article rows (63654ba0, 6f19be05), the first article row opens p0591, and the draft titles show without the asterisks of the italic words", apiAug?.children.filter((n) => n.type === "article").length === 14 && apiAug.children.filter((n) => n.type === "work").map((n) => n.work.slug).sort().join() === "63654ba0,6f19be05" && apiAug.children.find((n) => n.type === "article")?.pageStart === 591 && apiAug.children.every((n) => n.type !== "work" || n.work.synopsis === "") && !JSON.stringify(apiAug.children.filter((n) => n.type === "article").map((n) => n.titleEn)).includes("*"));
+  check("Month API: kj-2011-08 gives 14 article rows and no web article row (old: 2 web article rows 63654ba0 and 6f19be05), the first article row opens p0591, and the draft titles show without the asterisks of the italic words", apiAug?.children.filter((n) => n.type === "article").length === 14 && apiAug.children.filter((n) => n.type === "work").length === 0 && apiAug.children.find((n) => n.type === "article")?.pageStart === 591 && !JSON.stringify(apiAug.children.filter((n) => n.type === "article").map((n) => n.titleEn)).includes("*"));
+  const apiApr25 = (await cr.req("/api/read/month?id=kj-2025-04")).json;
+  check("Month API: kj-2025-04 gives 4 web article rows, among them 63654ba0 and 6f19be05 (stamp 2011.8, web dates 2025-04-28 and 2025-04-07), and no article row", apiApr25?.children.filter((n) => n.type === "work").length === 4 && ["63654ba0", "6f19be05"].every((x) => apiApr25.children.some((n) => n.type === "work" && n.work.slug === x)) && apiApr25.children.filter((n) => n.type === "article").length === 0 && apiApr25.children.every((n) => n.type !== "work" || n.work.synopsis === ""));
   const apiBad = await cr.req("/api/read/month?id=" + encodeURIComponent("../x"));
   const apiNone = await cr.req("/api/read/month?id=kj-1999-01");
   const apiAnon = await new Client("anon month").req("/api/read/month?id=kj-2011-08");
@@ -1947,7 +1980,7 @@ async function readTest() {
   const foldTexts = [...r.body.matchAll(/<span[^>]*data-fold-progress[^>]*>([^<]*)<\/span>/g)].map((m) => m[1]);
   check(`Reader dashboard (RC4b): each of the ${foldTexts.length} fold lines (first level, year, month) has the full form 'English: N of M pages translated (P percent)'`, foldTexts.length > 180 && foldTexts.every((x) => /^English: [\d,]+ of [\d,]+ pages? translated \([\d.]+ percent\)$/.test(x)), foldTexts.filter((x) => !/of [\d,]+ pages? translated/.test(x)).slice(0, 2).join(" | "));
   const yearFold = (id) => htvText((r.body.match(new RegExp(`<details[^>]*data-fold="${id}"[\\s\\S]*?</summary>`)) ?? [""])[0]);
-  check("Reader dashboard (RC4b): the year rows of Kendo Jidai 2012 and 2014 read 'English: 11 of 958 pages translated' and 'English: 15 of 1,061 pages translated' (RT73a: the magazine pages plus the A4 pages of the web articles of the year)", /English: 11 of 958 pages translated \(1\.1 percent\)/.test(yearFold("kj-2012")) && /English: 15 of 1,061 pages translated \(1\.4 percent\)/.test(yearFold("kj-2014")) && /Kendo Jidai 2012 949 pages · 3 web articles/.test(yearFold("kj-2012")), `${yearFold("kj-2012").slice(0, 120)} || ${yearFold("kj-2014").slice(0, 120)}`);
+  check("Reader dashboard (RC4b, unit TF83): the year rows of Kendo Jidai 2012 and 2014 read 'English: 2 of 949 pages translated' and 'English: 5 of 1,051 pages translated' (magazine pages only: the 3 and 3 web articles with a print stamp moved to their web years; old: 11 of 958 and 15 of 1,061)", /English: 2 of 949 pages translated \(0\.2 percent\)/.test(yearFold("kj-2012")) && /English: 5 of 1,051 pages translated \(0\.5 percent\)/.test(yearFold("kj-2014")) && /Kendo Jidai 2012 949 pages(?! ·)/.test(yearFold("kj-2012")) && !/web article/.test(yearFold("kj-2012")), `${yearFold("kj-2012").slice(0, 120)} || ${yearFold("kj-2014").slice(0, 120)}`);
   check("Reader dashboard (RC4b): the first-level folds read the full form with the thousands separator of their page count (Books 22 works, Kendo Jidai 320 works)", /22 works · [\d,]+ pages English: [\d,]+ of [\d,]+ pages translated \([\d.]+ percent\)/.test(text) && /320 works · [\d,]+ pages English: [\d,]+ of [\d,]+ pages translated \([\d.]+ percent\)/.test(text), text.slice(text.indexOf("22 works") - 10, text.indexOf("22 works") + 110));
   check("Reader dashboard: the folds are details and summary (keyboard works without script): " + countOf(r.body, /<summary/g) + " summaries, the first level open and the deeper levels closed", countOf(r.body, /<summary/g) > 40 && countOf(r.body, /<details open=""[^>]*data-fold-level="1"/g) === 2 && countOf(r.body, /<details open=""[^>]*data-fold-level="[23]"/g) === 0);
   check("Reader dashboard: a field that is empty does not show the word unknown", !/unknown/i.test(text.replace(/Date unknown/g, "")));
@@ -2651,7 +2684,7 @@ async function foldsTest() {
 
   // --- default reading A
   const A = F.buildFolds(works, chapters);
-  check("Folds: the data holds 347 works", works.length === 347 && F.DEFAULT_OPTIONS.webPlace === "kendo-jidai" && F.DEFAULT_OPTIONS.stampedPlace === "print");
+  check("Folds: the data holds 347 works", works.length === 347 && F.DEFAULT_OPTIONS.webPlace === "kendo-jidai" && F.DEFAULT_OPTIONS.stampedPlace === "web"); // unit TF83: round 83 answer 4 "Show web year", old value "print"
   check("Folds A: two first-level folds, Books and Kendo Jidai", A.folds.map((f) => f.id).join(",") === "books,kj" && A.folds.every((f) => f.level === 1), A.folds.map((f) => f.id).join(","));
   check("Folds A: Books holds 22 works (25 books, men0, men1, and mental2_clean hidden)", A.folds[0].counts.works === 22, `works ${A.folds[0].counts.works}`);
   check("Folds A: Kendo Jidai holds 320 works (9 year volumes and 311 web articles)", A.folds[1].counts.works === 320, `works ${A.folds[1].counts.works}`);
@@ -2668,23 +2701,30 @@ async function foldsTest() {
   const web = works.filter((w) => w.kind === "web-article");
   const all = rowSlugs(A.folds);
   check("Folds A: each of the 311 web articles shows exactly once", web.every((w) => all.filter((x) => x === w.slug).length === 1), `rows ${all.length}`);
-  const y2011 = find(A.folds, "kj-2011");
   const aug = find(A.folds, "kj-2011-08");
-  check("Folds A: the Teramoto article 63654ba0 (stamp 2011.8) sits in Kendo Jidai > 2011 > August 2011", Boolean(y2011 && aug && rowSlugs([aug]).includes("63654ba0")) && aug.title === "August 2011", aug?.note);
-  check("Folds A: August 2011 holds its 14 magazine articles and 2 web articles (63654ba0 and 6f19be05)", aug && aug.children.filter((c) => c.type === "article").length === 14 && aug.children.filter((c) => c.type === "work").length === 2 && /14 articles/.test(aug.note) && /2 web articles/.test(aug.note), aug?.note);
+  // Unit TF83 (round 83 answer 4 "Show web year", round 84 answer 1): a stamped web article sits in the fold of its web year and month. Old expectations: see the git history of this file.
+  const apr25d = find(A.folds, "kj-2025-04");
+  check("Folds A: the Teramoto article 63654ba0 (stamp 2011.8, web date 2025-04-28) sits in Kendo Jidai > 2025 > April 2025 (old: 2011 > August 2011)", Boolean(apr25d && rowSlugs([apr25d]).includes("63654ba0")) && apr25d.title === "April 2025" && !rowSlugs([aug]).includes("63654ba0"), apr25d?.note);
+  check("Folds A: August 2011 holds its 14 magazine articles and no web article (old: 2 web articles, 63654ba0 and 6f19be05, now in April 2025)", aug && aug.children.filter((c) => c.type === "article").length === 14 && aug.children.filter((c) => c.type === "work").length === 0 && /14 articles/.test(aug.note) && !/web article/.test(aug.note) && rowSlugs([apr25d]).includes("6f19be05"), aug?.note);
+  check("Folds A: April 2025 holds 4 web articles with 11 pages (old: 2 web articles with 3 pages)", apr25d?.counts.works === 4 && apr25d.counts.pages === 11, JSON.stringify(apr25d?.counts));
+  const stampedWebs = web.filter((w) => w.placement.printYear);
+  check("Folds A: the 36 web articles with a print stamp each sit in the month fold of their web date, and the years 2011 to 2018 hold no web article", stampedWebs.length === 36 && stampedWebs.every((w) => rowSlugs([find(A.folds, `kj-${w.placement.webYear}-${String(w.placement.webMonth).padStart(2, "0")}`) ?? { children: [], type: "fold" }]).includes(w.slug)) && web.every((w) => w.placement.webYear >= 2019) && [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018].every((y) => !web.some((w) => rowSlugs([find(A.folds, `kj-${y}`)]).includes(w.slug))), `stamped ${stampedWebs.length}`);
+  const yearNums = (y) => { const f = find(A.folds, `kj-${y}`); return `${f.counts.works} ${f.counts.pages}`; };
+  check("Folds A: the year folds 2019 to 2025 hold 14, 54, 55, 51, 48, 45, 44 web articles with 39, 182, 224, 201, 172, 148, 158 pages (old: 9, 39, 48, 51, 48, 40, 40 articles with 24, 131, 189, 201, 172, 130, 142 pages)", [2019, 2020, 2021, 2022, 2023, 2024, 2025].map(yearNums).join(" | ") === "14 39 | 54 182 | 55 224 | 51 201 | 48 172 | 45 148 | 44 158", [2019, 2020, 2021, 2022, 2023, 2024, 2025].map(yearNums).join(" | "));
+  check("Folds A: the 36 stamped web articles leave the years 2011 to 2018: 2 (8 pages), 3 (9), 7 (21), 3 (10), 1 (5), 4 (15), 7 (25), 9 (42) web articles with their pages, and the year folds lose the note 'N web articles'", (() => { const gone = { 2011: [2, 8], 2012: [3, 9], 2013: [7, 21], 2014: [3, 10], 2015: [1, 5], 2016: [4, 15], 2017: [7, 25], 2018: [9, 42] }; return Object.entries(gone).every(([y, [n, pg]]) => stampedWebs.filter((w) => w.placement.printYear === +y).length === n && stampedWebs.filter((w) => w.placement.printYear === +y).reduce((t, w) => t + w.pages, 0) === pg && !/web article/.test(find(A.folds, `kj-${y}`).note)); })());
   check("Folds A: the 1,155 magazine articles all show as article rows", articleCount(A.folds) === 1155, `articles ${articleCount(A.folds)}`);
   const oct14 = find(A.folds, "kj-2014-10");
   check("Folds A: kendojidai_2014 October 2014 counts 5 translated pages of 91 (pages 778-868)", oct14?.counts.translated === 5 && oct14.counts.pages === 91, JSON.stringify(oct14?.counts));
   check("Folds A: the year fold kendojidai_2014 shows the work row with 5 translated pages of 1051", find(A.folds, "kj-2014")?.head?.translated === 5 && find(A.folds, "kj-2014").head.pages === 1051);
   check("Folds A: a 2020 web article sits in a month fold of its web date (Kendo droplet guard: 18d4ac29)", (() => { const w = works.find((x) => x.slug === "18d4ac29"); const m = find(A.folds, `kj-2020-${String(w.placement.webMonth).padStart(2, "0")}`); return Boolean(m) && rowSlugs([m]).includes("18d4ac29") && w.titleEn === "Kendo droplet guard"; })());
-  check("Folds A: the year 2018 has the month fold September 2018 with only web articles (5 stamped, the magazine volume ends in April)", (() => { const m = find(A.folds, "kj-2018-09"); return Boolean(m) && m.children.length === 5 && m.children.every((c) => c.type === "work"); })());
+  check("Folds A: the web-only month folds of 2018 (June, July, September, October; the magazine volume ends in April) are gone, and 2024 gets the month fold February 2024 (2 stamped web articles, old: no such fold)", ["06", "07", "09", "10"].every((m) => find(A.folds, `kj-2018-${m}`) === null) && find(A.folds, "kj-2024-02")?.counts.works === 2);
   check("Folds: the first level starts open, the deeper levels start closed (level numbers 1, 2, 3)", A.folds.every((f) => f.level === 1) && kj.children.every((f) => f.level === 2) && aug.level === 3);
 
-  // --- fork: web month
-  const W = F.buildFolds(works, chapters, { webPlace: "kendo-jidai", stampedPlace: "web" });
-  const apr25 = find(W.folds, "kj-2025-04");
-  check("Folds, stamped placed by the web month: the Teramoto article 63654ba0 sits in April 2025 and not in August 2011", Boolean(apr25) && rowSlugs([apr25]).includes("63654ba0") && !rowSlugs([find(W.folds, "kj-2011-08") ?? { children: [], type: "fold" }]).includes("63654ba0"));
-  check("Folds, stamped placed by the web month: Kendo Jidai has 16 years again and 320 works", W.folds[1].counts.works === 320 && W.folds[1].children.length === 16);
+  // --- fork: print month (the old default before unit TF83, kept as a switch)
+  const W = F.buildFolds(works, chapters, { webPlace: "kendo-jidai", stampedPlace: "print" });
+  const aug0 = find(W.folds, "kj-2011-08");
+  check("Folds, stamped placed by the print month (the old default): the Teramoto article 63654ba0 sits in August 2011 and not in April 2025", Boolean(aug0) && rowSlugs([aug0]).includes("63654ba0") && !rowSlugs([find(W.folds, "kj-2025-04") ?? { children: [], type: "fold" }]).includes("63654ba0"));
+  check("Folds, stamped placed by the print month: Kendo Jidai has 16 years and 320 works, 2019 holds 9 web articles with 24 pages, September 2018 holds 5 web articles", W.folds[1].counts.works === 320 && W.folds[1].children.length === 16 && find(W.folds, "kj-2019").counts.works === 9 && find(W.folds, "kj-2019").counts.pages === 24 && find(W.folds, "kj-2018-09")?.children.length === 5);
 
   // --- reading B
   const B = F.buildFolds(works, chapters, { webPlace: "separate", stampedPlace: "print" });
@@ -2859,6 +2899,15 @@ async function monitorRulesTest() {
   check("PST text of a compare file: a text that is not a UTC stamp stays as it is, an empty text stays empty", M.pstFromUtcText("yesterday") === "yesterday" && M.pstFromUtcText("") === "");
   check("PST date of a PocketBase time (round 81 answer 18, page check on the Reader book screen): '2026-10-28 03:00:00.123Z' is '2026-10-27', '2026-10-28 08:00:00.000Z' is '2026-10-28', a bad text gives ''", M.pstDateOfPb("2026-10-28 03:00:00.123Z") === "2026-10-27" && M.pstDateOfPb("2026-10-28 08:00:00.000Z") === "2026-10-28" && M.pstDateOfPb("2026-10-28 07:59:59.999Z") === "2026-10-27" && M.pstDateOfPb("2026-01-01T00:00:00Z") === "2025-12-31" && M.pstDateOfPb("nope") === "" && M.pstDateOfPb(undefined) === "");
   check("utcIso gives the form of store.py utc_iso: no milliseconds, 'Z' at the end", M.utcIso(Date.UTC(2026, 10, 5, 9, 30, 0, 999)) === "2026-11-05T09:30:00Z");
+  // ---- PST on /translate and /admin (unit TF83, round 82 answer 14 "PST in a later unit", round 84 answer 6): lib/htv-pst.ts
+  const H = await import("../lib/htv-pst.ts");
+  check("PST /translate and /admin: a PocketBase time '2026-10-27 18:04:12.345Z' gives '2026-10-27 10:04 PST' (old utcTime: '2026-10-27 18:04 UTC')", H.pstTime("2026-10-27 18:04:12.345Z") === "2026-10-27 10:04 PST", H.pstTime("2026-10-27 18:04:12.345Z"));
+  check("PST /translate and /admin: the day changes with the zone: '2026-10-28 03:00:00.000Z' gives '2026-10-27 19:00 PST', and '2026-10-28 08:00:00Z' gives '2026-10-28 00:00 PST'", H.pstTime("2026-10-28 03:00:00.000Z") === "2026-10-27 19:00 PST" && H.pstTime("2026-10-28 08:00:00Z") === "2026-10-28 00:00 PST");
+  check("PST /translate and /admin: PST all year (UTC-8), also in summer: '2026-07-10 16:00:00.000Z' gives '2026-07-10 08:00 PST'", H.pstTime("2026-07-10 16:00:00.000Z") === "2026-07-10 08:00 PST");
+  check("PST /translate and /admin: the UTC stamp of a run '2026-10-27T18:04:12Z' gives '2026-10-27 10:04 PST', a stamp with an offset '2026-10-27T10:04:12-08:00' gives the same time", H.pstTime("2026-10-27T18:04:12Z") === "2026-10-27 10:04 PST" && H.pstTime("2026-10-27T10:04:12-08:00") === "2026-10-27 10:04 PST");
+  check("PST /translate and /admin: a text that is no time gives '' (like utcTime), so 'at this moment' still shows; pstTimeOrText keeps the text", H.pstTime("") === "" && H.pstTime("yesterday") === "" && H.pstTime(undefined) === "" && H.pstTimeOrText("yesterday") === "yesterday" && H.pstTimeOrText("") === "" && H.pstTimeOrText("2026-10-27T18:04:12Z") === "2026-10-27 10:04 PST");
+  check("PST /admin/readers: the day of 'signed up' keeps the date form and gets the zone word: '2026-10-27 18:04:12.000Z' gives '2026-10-27 PST', '2026-10-28 03:00:00.000Z' gives '2026-10-27 PST' (old: slice(0, 10) gave 2026-10-28)", H.pstDay("2026-10-27 18:04:12.000Z") === "2026-10-27 PST" && H.pstDay("2026-10-28 03:00:00.000Z") === "2026-10-27 PST" && H.pstDay("") === "" && H.pstDay("x") === "");
+  check("PST /translate and /admin: the old helper utcTime stays in lib/htv-format.ts and still reads UTC (no change of its export shape)", (await import("../lib/htv-format.ts")).utcTime("2026-10-27 18:04:12.345Z") === "2026-10-27 18:04 UTC");
   check("Old local-time helpers stay for the other screens (dateTime and clock still exist)", typeof F.dateTime === "function" && typeof F.clock === "function" && F.dateTime(1793156218).length === 16);
 
   // --- same label as label_of of store.py for the same input
@@ -3151,7 +3200,7 @@ async function monitorTest() {
   }
   // The data folder is not readable: a second server with a config that names a folder that does not exist.
   const bad = path.join(path.resolve(fixture), "cfg-missing.json");
-  await fs.writeFile(bad, JSON.stringify({ translatorDataDir: path.join(path.resolve(fixture), "no-such-folder"), pocketbaseUrl: "http://127.0.0.1:8092" }));
+  await fs.writeFile(bad, JSON.stringify({ translatorDataDir: path.join(path.resolve(fixture), "no-such-folder"), pocketbaseUrl: (await activeConfig()).pocketbaseUrl })); // unit TF83: the address of the run config, not a fixed port
   const miss = await startServerWith({ VIEWER_CONFIG: bad });
   try {
     r = await get("/api/monitor/books");
@@ -3166,13 +3215,13 @@ async function monitorTest() {
 }
 
 // Buttons of the Monitor dashboard (unit VW77b1, round 81). Needs the fixture of fake_translator.py (real store.py code) and WRITES into it.
-// Never point it at the real data folder: the first check refuses a data folder that is not below a folder named r82/VW77b2.
+// Never point it at the real data folder: the first step refuses a fixture folder inside a protected data folder, and a config that names another data folder (unit TF83, scripts/smoke-guards.mjs).
 async function monitorActionsTest() {
   if (!fixture) throw new Error("Need --fixture DIR");
   const fx = path.resolve(fixture);
   const data = path.join(fx, "data");
   const store = path.join(data, "book-store");
-  if (!/\/r82\/VW77b2\/fx$/.test(await fs.realpath(fx))) throw new Error("monitor-actions writes files. The fixture folder must be .../r82/VW77b2/fx. Got " + fx);
+  await mustBeFixture("monitor-actions", fx); // unit TF83: from the config, no fixed folder name
   const JSONH = { "Content-Type": "application/json" };
   const post = (slug, kind, body, headers = JSONH) => get(`/api/monitor/books/${slug}/${kind}`, { method: "POST", headers, body: typeof body === "string" ? body : JSON.stringify(body) });
   const api = async () => JSON.parse((await get("/api/monitor/books")).body);
@@ -3268,7 +3317,7 @@ async function monitorActionsTest() {
   }
   check("The row buttons of the API agree: fx_ns shows Run grayed with the phase 2 reason, fx_running shows Pause and two grayed buttons", (() => { const a = rowOf(d0, "fx_ns").buttons.find((b) => b.id === "run"); const b = rowOf(d0, "fx_running").buttons.filter((x) => x.show).map((x) => x.id + (x.enabled ? "" : "~")).join(","); return a.show && !a.enabled && a.reason === "Run is off until phase 2 prompt files exist" && b === "pause,restart,run~,resume~"; })());
   const mid = await listing(data);
-  const moved = mid.filter((x) => !before.includes(x)).concat(before.filter((x) => !mid.includes(x))).filter((x) => !/status\.json|progress\.json|\bPAUSE\b/.test(x));
+  const moved = mid.filter((x) => !before.includes(x)).concat(before.filter((x) => !mid.includes(x))).filter((x) => !isHeartbeat(x) && !/\bPAUSE\b/.test(x));
   check("All the refused presses wrote no file", moved.length === 0, moved.join(", "));
 
   // ---- the phase 2 files appear in the fixture: Run turns on
@@ -3380,11 +3429,16 @@ async function monitorActionsTest() {
   r = await post("fx_wait_restart", "clear-mark", {});
   check("Clear mark: the Restart mark of fx_wait_restart (Stopped by a Pause) is cleared, the row leaves Waiting for a run and is Stopped again", r.status === 200 && rowOf(await api(), "fx_wait_restart").group === "Stopped");
   check("Clear mark: a second press on the fresh book gives 409 'There is no mark to clear.'", (await post(fresh.slug, "clear-mark", {})).status === 409);
+  // unit TF83 (round 83 answer 11, round 84 answer 2): fx_wait_after holds a Run mark with after "restart" (written by the Translator after a Restart). Clear mark is grayed, the route gives 409 with the same words.
+  const waf = rowOf(await api(), "fx_wait_after");
+  const OFF_AFTER = "Clear mark is off because this mark starts the new run after a Restart.";
+  r = await post("fx_wait_after", "clear-mark", {});
+  check("Clear mark: the Run mark that a Restart leaves (fx_wait_after) is not cleared: 409 'Clear mark is off because this mark starts the new run after a Restart.', request.json stays, the button shows grayed with the same reason", r.status === 409 && err(r) === OFF_AFTER && (await exists(path.join(store, "fx_wait_after", "request.json"))) && !(await exists(path.join(store, "fx_wait_after", "request.done.json"))) && waf.buttons.find((x) => x.id === "clear")?.show === true && waf.buttons.find((x) => x.id === "clear")?.enabled === false && waf.buttons.find((x) => x.id === "clear")?.reason === OFF_AFTER, `status ${r.status} ${r.body}`);
 
   // ---- the writes touched only the expected names
   const after = await listing(data);
-  // The fake Translator rewrites progress.json and status.json every 3 s and appends history.jsonl (event pause-requested, after a PAUSE file appears). Their sizes change between two reads (flaky before unit VW77b2), so they stay out.
-  const changed = after.filter((x) => !before.includes(x)).filter((x) => !/paired-dataset|\/(progress|status)\.json:|\/history\.jsonl:/.test(x));
+  // The fake Translator rewrites progress.json and status.json every 3 s and appends history.jsonl (event pause-requested, after a PAUSE file appears). Their sizes change between two reads (flaky before unit VW77b2), so they stay out (HEARTBEAT_FILES, unit TF83).
+  const changed = after.filter((x) => !before.includes(x)).filter((x) => !/paired-dataset/.test(x) && !isHeartbeat(x));
   check("The new files in the fixture are request.json, request.done.json, and PAUSE files in book-store/<slug>/ only", changed.length > 0 && changed.every((x) => /book-store\/[A-Za-z0-9_.-]+\/(request\.json|request\.done\.json|PAUSE):\d+$/.test(x)), changed.filter((x) => !/book-store\/[A-Za-z0-9_.-]+\/(request\.json|request\.done\.json|PAUSE):\d+$/.test(x)).join(", "));
 
   // ---- the monitor off: 404 on both routes
@@ -3442,7 +3496,7 @@ async function monitorRestartTest() {
   r = row({ status: pst({ stop_reason: "pause" }), pidAlive: false, mark: mark({ action: "resume" }) });
   check("Restart: a Waiting for a run row (a Resume mark waits) shows no Restart button (VISION 15.29.3), and Clear mark is there", r.group === "Waiting for a run" && shown(r) === "run~,resume~,clear");
   r = row({ status: null, mark: mark({ action: "run", after: "restart", requested_by: "run program" }) });
-  check("Restart: the Run mark that a Restart leaves (no status.json) shows no Restart button, Clear mark shows", shown(r) === "run~,resume~,clear" && r.markText === "Restart requested 08:40 PST");
+  check("Restart: the Run mark that a Restart leaves (no status.json) shows no Restart button, Clear mark shows grayed (unit TF83; old: Clear mark enabled)", shown(r) === "run~,resume~,clear~" && r.markText === "Restart requested 08:40 PST");
   r = row({ status: st(), mark: mark({ action: "restart", prompts: {} }) });
   check("Restart: a Running row while a Restart mark waits shows no button at all (round 79 answer 13), and the 409 reason says so", shown(r) === "" && btn(r, "restart").stateReason === "A Restart is requested already." && btn(r, "clear").show === false);
   r = row({ status: st(), mark: mark({ action: "run", phase: "agent-phase-3" }) });
@@ -3470,6 +3524,23 @@ async function monitorRestartTest() {
   r = row({ status: pst({ stop_reason: "pause" }), pidAlive: false, mark: mark({ action: "restart", prompts: {} }) });
   check("Clear mark: the row carries the mark in words 'Restart requested 08:40 PST' and its requested_utc for the press", r.markText === "Restart requested 08:40 PST" && r.markUtc === "2026-07-10T16:40:00Z");
   check("Clear mark: a row with no mark has markText and markUtc null", row({}).markText === null && row({}).markUtc === null);
+
+  // ---- unit TF83 (round 83 answer 11 "Gray it out", round 84 answer 2): Clear mark is grayed on the Run mark that a Restart leaves
+  const OFF = "Clear mark is off because this mark starts the new run after a Restart.";
+  r = row({ status: null, mark: mark({ action: "run", after: "restart", requested_by: "run program" }) });
+  check("Clear mark grayed: a Run mark with after 'restart' (book with no status.json) shows Clear mark grayed, the button reason and the 409 reason are the owner text", btn(r, "clear").show === true && btn(r, "clear").enabled === false && btn(r, "clear").reason === OFF && btn(r, "clear").stateReason === OFF, JSON.stringify(btn(r, "clear")));
+  r = row({ status: pst({ stop_reason: "restart" }), pidAlive: false, mark: mark({ action: "run", after: "restart", requested_by: "run program", phase: "agent-phase-4" }) });
+  check("Clear mark grayed: the same on a Stopped book that holds a Run mark with after 'restart' (Run and Resume wait, Clear mark is off)", btn(r, "clear").show === true && btn(r, "clear").enabled === false && btn(r, "clear").reason === OFF && btn(r, "run").enabled === false && btn(r, "run").reason === "A mark waits: Restart requested 08:40 PST", `${shown(r)} ${btn(r, "clear").reason}`);
+  r = row({ status: null, mark: mark({ action: "run", phase: "agent-phase-3" }) });
+  check("Clear mark stays active: a plain Run mark (no key after) shows Clear mark enabled with no reason", btn(r, "clear").show === true && btn(r, "clear").enabled === true && btn(r, "clear").reason === null && btn(r, "clear").stateReason === null, JSON.stringify(btn(r, "clear")));
+  r = row({ status: null, mark: mark({ action: "run", after: null, phase: "agent-phase-3" }) });
+  check("Clear mark stays active: a Run mark with after null shows Clear mark enabled", btn(r, "clear").enabled === true);
+  r = row({ status: null, mark: mark({ action: "resume" }) });
+  check("Clear mark stays active: a Resume mark and a refused Restart mark keep Clear mark enabled (see the checks above)", btn(r, "clear").enabled === true);
+  r = row({ status: st(), mark: mark({ action: "run", after: "restart", requested_by: "run program" }) });
+  check("Clear mark grayed: a Running book keeps the older reason (a process runs), the Clear mark button stays hidden", btn(r, "clear").show === false && /^Clear mark is for a book with no live process\./.test(btn(r, "clear").stateReason ?? ""));
+  const C = await import("../lib/clear-mark-rule.ts");
+  check("Clear mark rule (lib/clear-mark-rule.ts): the text is the owner text, Run with after 'restart' gives it, every other mark and null give null", C.CLEAR_OFF_AFTER_RESTART === OFF && C.clearOffReason({ action: "run", after: "restart" }) === OFF && C.clearOffReason({ action: "run", after: null }) === null && C.clearOffReason({ action: "resume", after: "restart" }) === null && C.clearOffReason({ action: "restart" }) === null && C.clearOffReason(null) === null);
 
   // ---- the data of the dialog: the owner example (mental_full, ED_2 v4.1.0 to v4.1.6, run 2 with v4.2.0 copied from v4.1.3)
   const T0 = Date.UTC(2026, 10, 4, 8, 15, 0);
@@ -3570,13 +3641,13 @@ async function monitorRestartTest() {
 }
 
 // Restart and Clear mark on the fixture of restart_fixture.py (unit VW77b2, round 82). Real Translator code made the fixture. The test WRITES into it.
-// The first check refuses a data folder that is not .../r82/VW77b2/rs.
+// The first step refuses a fixture folder inside a protected data folder, and a config that names another data folder (unit TF83, scripts/smoke-guards.mjs).
 async function monitorRestartApiTest() {
   if (!fixture) throw new Error("Need --fixture DIR");
   const fx = path.resolve(fixture);
   const data = path.join(fx, "data");
   const store = path.join(data, "book-store");
-  if (!/\/r82\/VW77b2\/rs$/.test(await fs.realpath(fx))) throw new Error("monitor-restart-api writes files. The fixture folder must be .../r82/VW77b2/rs. Got " + fx);
+  await mustBeFixture("monitor-restart-api", fx); // unit TF83: from the config, no fixed folder name
   const JSONH = { "Content-Type": "application/json" };
   const post = (slug, kind, body, headers = JSONH) => get(`/api/monitor/books/${slug}/${kind}`, { method: "POST", headers, body: typeof body === "string" ? body : JSON.stringify(body) });
   const opts = async (slug) => {
@@ -3766,9 +3837,16 @@ async function monitorRestartApiTest() {
   check("Waiting row (rs_wait_restart): group Waiting for a run, buttons Run and Resume grayed and Clear mark", w.group === "Waiting for a run" && shown(w) === "run~,resume~,clear" && w.baseLabel === "Stopped", shown(w));
   r = await post("rs_wait_restart", "clear-mark", {});
   check("Clear mark with no press time in the body works too (200), and the row leaves Waiting for a run to Stopped", r.status === 200 && rowOf(await api(), "rs_wait_restart").group === "Stopped");
+  // Unit TF83 (round 83 answer 11 "Gray it out", round 84 answer 2). Old check: 200 and the mark moved to request.done.json. The button is grayed now and the route refuses with the same words.
+  const OFF = "Clear mark is off because this mark starts the new run after a Restart.";
+  const wa0 = rowOf(await api(), "rs_wait_after");
+  check("Clear mark button on the Run mark that a Restart leaves (rs_wait_after, no status.json): shown grayed with the reason 'Clear mark is off because this mark starts the new run after a Restart.' in the API row", wa0.buttons.find((b) => b.id === "clear")?.show === true && wa0.buttons.find((b) => b.id === "clear")?.enabled === false && wa0.buttons.find((b) => b.id === "clear")?.reason === OFF && shown(wa0) === "run~,resume~,clear~", shown(wa0));
   r = await post("rs_wait_after", "clear-mark", {});
-  const af = JSON.parse(await fs.readFile(path.join(store, "rs_wait_after", "request.done.json"), "utf-8").catch(() => "null"));
-  check("Clear mark on the Run mark that a Restart leaves (rs_wait_after, no status.json): 200, request.done.json keeps after 'restart' and requested_by 'run program', the row is Not started", r.status === 200 && af?.after === "restart" && af?.requested_by === "run program" && af?.cleared_by === "Monitor dashboard" && rowOf(await api(), "rs_wait_after").label === "Not started" && /The book stays Not started\. No run starts\.$/.test(parseJson(r.body).message));
+  check("Clear mark route on the Run mark that a Restart leaves (rs_wait_after): 409 with the same words as the button, request.json stays, no request.done.json is written", r.status === 409 && err(r) === OFF && (await exists(path.join(store, "rs_wait_after", "request.json"))) && !(await exists(path.join(store, "rs_wait_after", "request.done.json"))), `status ${r.status} ${r.body}`);
+  r = await post("rs_wait_after", "clear-mark", { requested_utc: wa0.markUtc });
+  check("Clear mark route on the same mark with its press time in the body: 409 too, the mark stays", r.status === 409 && err(r) === OFF && (await exists(path.join(store, "rs_wait_after", "request.json"))), `status ${r.status} ${r.body}`);
+  const wa1 = rowOf(await api(), "rs_wait_after");
+  check("After the refused presses the row rs_wait_after is unchanged: Waiting for a run, 'Mark waiting', Clear mark still grayed", wa1.group === "Waiting for a run" && wa1.label === "Mark waiting" && shown(wa1) === "run~,resume~,clear~", `${wa1.group} ${wa1.label} ${shown(wa1)}`);
   r = await post("rs_wait_resume", "clear-mark", {});
   check("Clear mark on a Resume mark (rs_wait_resume): 200, the book stays Stopped by Ctrl-C and shows Resume enabled again", r.status === 200 && rowOf(await api(), "rs_wait_resume").group === "Stopped" && shown(rowOf(await api(), "rs_wait_resume")) === "restart,resume");
   const rawBad = await fs.readFile(path.join(store, "rs_mark_broken", "request.json"), "utf-8");
@@ -3803,6 +3881,44 @@ function R_line(row) {
 }
 
 // A second `next start` for one mode check. The caller restores `base` from `old` and kills the child.
+// The guards of scripts/smoke-guards.mjs (unit TF83). Pure code. It makes two small folders in the temp folder of this run (TMPDIR) and removes them.
+async function guardsTest() {
+  const T2DATA = "/Users/nghiango-mbp/git_repo/git_upload/reimplementation-folder/kendo-translation-translator/data";
+  const V2DATA = "/Users/nghiango-mbp/git_repo/git_upload/reimplementation-folder/kendo-translation-viewer/data";
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "smoke-guards-"));
+  try {
+    // ---- the PocketBase address
+    check("PocketBase guard, pass: http://127.0.0.1:8092 (the port of the harness)", pbGuard("http://127.0.0.1:8092").ok);
+    check("PocketBase guard, pass: http://127.0.0.1:8093/ and http://localhost:8099 (another port, a trailing slash)", pbGuard("http://127.0.0.1:8093/").ok && pbGuard("http://localhost:8099").ok);
+    const r90 = pbGuard("http://127.0.0.1:8090");
+    check("PocketBase guard, refuse: http://127.0.0.1:8090 (the PocketBase of the owner) with a clear message", !r90.ok && /port 8090 is the PocketBase of the owner/.test(r90.why), r90.why);
+    check("PocketBase guard, refuse: port 8090 with a trailing slash or on localhost", !pbGuard("http://127.0.0.1:8090/").ok && !pbGuard("http://localhost:8090").ok);
+    const rHost = pbGuard("http://pb.example.com:8092");
+    check("PocketBase guard, refuse: a host that is not on this Mac", !rHost.ok && /not on this Mac/.test(rHost.why), rHost.why);
+    check("PocketBase guard, refuse: no address and a text that is no address", !pbGuard(undefined).ok && !pbGuard("not an address").ok);
+    // ---- the fixture folder
+    const fx = path.join(tmp, "harness", "fx");
+    await fs.mkdir(path.join(fx, "data", "book-store"), { recursive: true });
+    const cfg = { translatorDataDir: path.join(fx, "data"), pocketbaseUrl: "http://127.0.0.1:8093" };
+    const ok = await fixtureGuard(fx, cfg);
+    check("Fixture guard, pass: <harness>/fx with a config that names <harness>/fx/data (any folder name, any port)", ok.ok, ok.why);
+    const inT2 = await fixtureGuard(path.join(T2DATA, "book-store"), { translatorDataDir: T2DATA });
+    check("Fixture guard, refuse: <T2>/data/book-store with a clear message", !inT2.ok && /inside the protected data folder/.test(inT2.why), inT2.why);
+    const inV2 = await fixtureGuard(V2DATA, null);
+    check("Fixture guard, refuse: <V2>/data", !inV2.ok && /inside the protected data folder/.test(inV2.why), inV2.why);
+    const other = await fixtureGuard(fx, { translatorDataDir: path.join(tmp, "elsewhere", "data") });
+    check("Fixture guard, refuse: a config that names another data folder than the fixture", !other.ok && /must use the same folder/.test(other.why), other.why);
+    const noData = await fixtureGuard(path.join(tmp, "harness"), null);
+    check("Fixture guard, refuse: a folder with no data folder below it", !noData.ok && /does not exist/.test(noData.why), noData.why);
+    const custom = await fixtureGuard(fx, cfg, protectedDirs({ SMOKE_PROTECTED_DIRS: path.join(tmp, "harness") }));
+    check("Fixture guard, refuse: a folder that the owner names in SMOKE_PROTECTED_DIRS", !custom.ok && /protected data folder/.test(custom.why), custom.why);
+    check("Fixture guard, refuse: no fixture given", !(await fixtureGuard(undefined, null)).ok);
+    check("Protected folders: the list holds <V2>/data and <T2>/data", protectedDirs({}).includes(V2DATA) && protectedDirs({}).includes(T2DATA));
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+}
+
 async function startServerWith(extraEnv) {
   const port = await freePort();
   const env = { ...process.env, PORT: String(port) };
@@ -3837,6 +3953,12 @@ if (mode === "monitor-rules") {
 
 if (mode === "monitor-restart") {
   await monitorRestartTest();
+  console.log(`\nFailures: ${failures}, skipped: ${skips}`);
+  process.exit(failures ? 1 : 0);
+}
+
+if (mode === "guards") {
+  await guardsTest();
   console.log(`\nFailures: ${failures}, skipped: ${skips}`);
   process.exit(failures ? 1 : 0);
 }

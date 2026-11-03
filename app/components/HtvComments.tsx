@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import type { CommentView, Role } from "@/lib/htv-types";
-import { utcTime } from "@/lib/htv-format";
+import { pstTime } from "@/lib/htv-pst"; // unit TF83: PST on /translate (round 82 answer 14)
 import { Pane } from "./PaneSettings";
 
 // Round 50 answer 10 (Q-A 2026-10-28 l31): a comment attaches to one sentence row, and the writer chooses whether it is shared.
@@ -85,7 +85,7 @@ export default function RowComments({
           <li key={c.id} data-comment={c.id} className="rounded border border-line/70 bg-white/70 p-2">
             <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted">
               <span className="font-medium text-foreground">{c.mine ? "You" : c.userName}</span>
-              <span>{utcTime(c.created)}</span>
+              <span>{pstTime(c.created)}</span>
               {c.shared ? <span className="rounded bg-sky-100 px-1.5 text-sky-800">shared</span> : null}
               {!c.shared && (c.mine || role === "admin") ? <span className="rounded bg-stone-200 px-1.5 text-stone-700">private</span> : null}
               {c.runId && c.runId !== runId ? <span>written for run {c.runId}</span> : null}
