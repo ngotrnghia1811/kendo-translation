@@ -61,6 +61,8 @@ Mode `pause` sends POST requests to `/api/pause` and creates and deletes a `PAUS
 3. Write a config file with `translatorDataDir` set to the `data` folder of the fixture.
 4. Run: `node scripts/smoke.mjs pause --config FILE --fixture DIR`
 
+Unit TF84 (round 85 answer 20): the check "Run view shows Paused since HH:MM" reads PST (UTC minus 8 hours), because the run view shows PST all year. It passes in any time zone of the Mac. The fixture of `fake_translator.py` holds no list folder `20261027T000000Z`, so step 2 is needed there too (the test harness adds it with `prep_pause.py`).
+
 ## Configuration
 
 The file `viewer.config.json` in the app folder holds the settings. It has four keys, `translatorDataDir`, `pocketbaseUrl`, `runSource`, and `monitor`. The last three are optional (see the sections Human-translation-view and Deploy settings (round 58) at the end).
@@ -245,6 +247,7 @@ The script never prints a password or a token. It checks these parts:
 
 - Sign-in, the list, and the rows of `mental_full/p014`.
 - Save and the version numbers.
+- The version history time of a saved version on `/translate/mental_full?at=p014` reads "YYYY-MM-DD HH:MM PST" and the page shows no "UTC" (unit TF84, round 85 answer 20).
 - Comments of two translators, and the limits of the reader.
 - The run mark and the notice.
 - The panel line count of `kendojidai_2014/p0839`.
@@ -706,7 +709,7 @@ The first screen `/` is the Monitor dashboard. It shows one row for each book, i
 
 ### Times
 
-Every time on the Monitor dashboard shows in PST (UTC minus 8 hours, all year, text "PST"). The helpers are `pstClock`, `pstStamp`, `pstDateTime`, and `pstClockSeconds`. The code sits in `lib/pst.ts`, and `lib/format.ts` re-exports it. The rules import `lib/pst.ts` directly, because the dev server keeps an old instance of `lib/format.ts` for the route handlers that it loaded before. The Lists tab, the run view, and the page check dates of the Reader book screen show PST too since unit VW77b1 (helpers in `lib/pst-more.ts`). The old helpers `dateTime` and `clock` of `lib/format.ts` stay in the code. Times on `/translate` and `/admin` show PST since unit TF83 (round 82 answer 14, helpers in `lib/htv-pst.ts`: `pstTime`, `pstTimeOrText`, `pstDay`). Example: a comment written at 2026-10-27 18:04 UTC reads "2026-10-27 10:04 PST". The old helper `utcTime` of `lib/htv-format.ts` stays in the code. Example: 2026-07-10T16:00:00Z shows as 08:00 PST.
+Every time on the Monitor dashboard shows in PST (UTC minus 8 hours, all year, text "PST"). The helpers are `pstClock`, `pstStamp`, `pstDateTime`, and `pstClockSeconds`. The code sits in `lib/pst.ts`, and `lib/format.ts` re-exports it. The rules import `lib/pst.ts` directly, because the dev server keeps an old instance of `lib/format.ts` for the route handlers that it loaded before. The Lists tab, the run view, and the page check dates of the Reader book screen show PST too since unit VW77b1 (helpers in `lib/pst-more.ts`). The old helpers `dateTime` and `clock` of `lib/format.ts` stay in the code. Times on `/translate` and `/admin` show PST since unit TF83 (round 82 answer 14, helpers in `lib/htv-pst.ts`: `pstTime`, `pstTimeOrText`, `pstDay`). Example: a comment written at 2026-10-27 18:04 UTC reads "2026-10-27 10:04 PST". Unit TF84 removed the old helper `utcTime` of `lib/htv-format.ts` (round 85 answer 20). The same file still holds `parsePageNumber`. Example: 2026-07-10T16:00:00Z shows as 08:00 PST.
 
 ### Buttons (unit VW77b1, round 81)
 

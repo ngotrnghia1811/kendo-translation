@@ -334,8 +334,9 @@ async function pauseTest() {
   prog.paused_since_epoch = sinceEpoch;
   prog.paused_since_utc = new Date(sinceEpoch * 1000).toISOString().replace(/\.\d+Z$/, "Z");
   await fs.writeFile(progFile, JSON.stringify(prog));
-  const d = new Date(sinceEpoch * 1000);
-  const hhmm = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  // Unit TF84 (round 85 answer 20 "Fix pause test"): the run view shows PST all year (UTC minus 8 hours, round 79 answer 9), so the test reads the UTC fields and subtracts 8 hours. Old: getHours() and getMinutes() read the time zone of the Mac and failed in any other zone.
+  const d = new Date((sinceEpoch - 8 * 3600) * 1000);
+  const hhmm = String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0");
   r = await get(`/runs/${runningStamp}`);
   check(`Run view shows "Paused since ${hhmm}"`, r.body.includes("Paused since") && r.body.includes(hhmm), "");
 
@@ -1029,6 +1030,9 @@ async function htvTest() {
   check("Page shows a tick box for each row, rows 1 and 2 ticked (version 5 in the boxes)", (html.match(/data-agree="/g) ?? []).length === 3 && /checked/.test(agreeBox(K1)) && /checked/.test(agreeBox(K2)) && !/checked/.test(agreeBox(K3)) && /Version 5 is in the boxes/.test(text));
   check("Page shows the tick label 'Agree with the agent text' three times", (text.match(/Agree with the agent text/g) ?? []).length === 3);
   check("Version history shows the column Agreed with the count 2 for version 5 and 1 for version 3", /Agreed/.test(text) && />2<\/td>/.test(html.match(/<tr[^>]*data-version="5"[\s\S]*?<\/tr>/)?.[0] ?? "") && />1<\/td>/.test(html.match(/<tr[^>]*data-version="3"[\s\S]*?<\/tr>/)?.[0] ?? ""));
+  // PST on /translate (unit TF84, round 85 answer 20 "Add PST test"; unit TF83 built the PST text, round 82 answer 14). The old version history time read 'YYYY-MM-DD HH:MM UTC'.
+  const savedCell = (n) => { const tds = [...(html.match(new RegExp(`<tr[^>]*data-version="${n}"[\\s\\S]*?<\\/tr>`))?.[0] ?? "").matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((x) => x[1].replace(/<[^>]*>/g, "").trim()); return tds[1] ?? ""; };
+  check("PST /translate: the version history time of version 5 reads 'YYYY-MM-DD HH:MM PST' (old: '... UTC'), and the page shows no 'UTC'", /^\d{4}-\d\d-\d\d \d\d:\d\d PST$/.test(savedCell(5)) && /^\d{4}-\d\d-\d\d \d\d:\d\d PST$/.test(savedCell(3)) && !/UTC/.test(text), `v5 '${savedCell(5)}', v3 '${savedCell(3)}', UTC on page ${/UTC/.test(text)}`);
 
   // --- comments
   const post = (c, body) => c.req("/api/htv/comments", { method: "POST", json: { pageId: P14, groupKey: K1, runId: RUN_NEW, ...body } });
@@ -2905,9 +2909,10 @@ async function monitorRulesTest() {
   check("PST /translate and /admin: the day changes with the zone: '2026-10-28 03:00:00.000Z' gives '2026-10-27 19:00 PST', and '2026-10-28 08:00:00Z' gives '2026-10-28 00:00 PST'", H.pstTime("2026-10-28 03:00:00.000Z") === "2026-10-27 19:00 PST" && H.pstTime("2026-10-28 08:00:00Z") === "2026-10-28 00:00 PST");
   check("PST /translate and /admin: PST all year (UTC-8), also in summer: '2026-07-10 16:00:00.000Z' gives '2026-07-10 08:00 PST'", H.pstTime("2026-07-10 16:00:00.000Z") === "2026-07-10 08:00 PST");
   check("PST /translate and /admin: the UTC stamp of a run '2026-10-27T18:04:12Z' gives '2026-10-27 10:04 PST', a stamp with an offset '2026-10-27T10:04:12-08:00' gives the same time", H.pstTime("2026-10-27T18:04:12Z") === "2026-10-27 10:04 PST" && H.pstTime("2026-10-27T10:04:12-08:00") === "2026-10-27 10:04 PST");
-  check("PST /translate and /admin: a text that is no time gives '' (like utcTime), so 'at this moment' still shows; pstTimeOrText keeps the text", H.pstTime("") === "" && H.pstTime("yesterday") === "" && H.pstTime(undefined) === "" && H.pstTimeOrText("yesterday") === "yesterday" && H.pstTimeOrText("") === "" && H.pstTimeOrText("2026-10-27T18:04:12Z") === "2026-10-27 10:04 PST");
+  check("PST /translate and /admin: a text that is no time gives '' (like the removed utcTime), so 'at this moment' still shows; pstTimeOrText keeps the text", H.pstTime("") === "" && H.pstTime("yesterday") === "" && H.pstTime(undefined) === "" && H.pstTimeOrText("yesterday") === "yesterday" && H.pstTimeOrText("") === "" && H.pstTimeOrText("2026-10-27T18:04:12Z") === "2026-10-27 10:04 PST");
   check("PST /admin/readers: the day of 'signed up' keeps the date form and gets the zone word: '2026-10-27 18:04:12.000Z' gives '2026-10-27 PST', '2026-10-28 03:00:00.000Z' gives '2026-10-27 PST' (old: slice(0, 10) gave 2026-10-28)", H.pstDay("2026-10-27 18:04:12.000Z") === "2026-10-27 PST" && H.pstDay("2026-10-28 03:00:00.000Z") === "2026-10-27 PST" && H.pstDay("") === "" && H.pstDay("x") === "");
-  check("PST /translate and /admin: the old helper utcTime stays in lib/htv-format.ts and still reads UTC (no change of its export shape)", (await import("../lib/htv-format.ts")).utcTime("2026-10-27 18:04:12.345Z") === "2026-10-27 18:04 UTC");
+  const HF = await import("../lib/htv-format.ts");
+  check("PST /translate and /admin: lib/htv-format.ts has no export utcTime (unit TF84, round 85 answer 20; old: utcTime stayed and read '2026-10-27 18:04 UTC') and still exports parsePageNumber ('p048' of 169 gives 48)", !("utcTime" in HF) && typeof HF.parsePageNumber === "function" && HF.parsePageNumber("p048", 169) === 48, Object.keys(HF).join(","));
   check("Old local-time helpers stay for the other screens (dateTime and clock still exist)", typeof F.dateTime === "function" && typeof F.clock === "function" && F.dateTime(1793156218).length === 16);
 
   // --- same label as label_of of store.py for the same input
