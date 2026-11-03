@@ -3400,7 +3400,7 @@ The first level goes by kind (line 211). The second level goes by series or sour
 
 - Books: Books is one fold of 22 works. `men_full` and `mental_full` are plain rows. The three `ogawa_lecture` parts stay as three rows in one fold `[check: RC4 smoke-folds.log:3,7,8]`. Round 69 answer 12 hides `men0`, `men1`, and `mental2_clean`.
 - Kendo Jidai: one fold with 16 year folds, 2010 to 2025. A year fold holds the year volume row and the month folds. A month fold holds the article rows (round 69 answer 14, "Add article rows") `[check: RC4 smoke-folds.log:4,9,13]`.
-- Web articles: they sit in the month folds of Kendo Jidai (round 69 answer 7). A stamped article sits in its print month. An unstamped article sits in the month of its web date (round 70 answer 6, "Print month (Recommended)"). The 2 web captures are hidden (round 69 answer 15).
+- Web articles: they sit in the month folds of Kendo Jidai (round 69 answer 7). Every web article sits in the fold of its web year and month (round 83 answer 4, "Show web year", and round 84 answer 1, "Reading is right (Recommended)"). Old rule, replaced: a stamped article sat in its print month (round 70 answer 6, "Print month (Recommended)", section 15.36.4). The 2 web captures are hidden (round 69 answer 15).
 
 The first level starts open. All deeper folds start closed. The folds use the HTML elements `details` and `summary`, so a keyboard works. A month loads its rows when it opens, and the link "Show this month" works without script `[check: RC4 smoke-read.log:56,62]`.
 
@@ -4302,7 +4302,7 @@ How the Viewer reads it:
 - Pages done is the count of distinct page IDs in the state "done". Cost and page time are sums over all list folders. The last event is the latest `ended_epoch` of the book. The phase is "not stored". The next page is the first page in the state waiting of the newest list, else "not stored".
 - The Viewer reads a file again only when its modification time changed `[agent inference]`. The poll runs every 3 s. 37 books and many lists must not slow it.
 - A broken or half file gives the row "Status file unreadable". It never stops the page.
-- The Viewer writes four kinds of files: `PAUSE` (list or book), `request.json` (book, a Run, Resume, or Restart mark), `translator-settings.json`, and `translator-settings.history.jsonl`. The last two sit in `<T2>/config`. A new function in `app/lib/safe-path.ts` accepts only these two names in that folder. The key `translatorConfigDir` in `viewer.config.json` sets the folder. The default is the folder `config` next to `translatorDataDir`. Another check accepts only the names `PAUSE` and `request.json` in a folder `book-store/<book>/` `[unit default]`.
+- The Viewer writes five kinds of files: `PAUSE` (list or book), `request.json` (book, a Run, Resume, or Restart mark), `request.done.json` (book, Clear mark moves `request.json` there and overwrites an older `request.done.json`, round 83 answers 12 and 13), `translator-settings.json`, and `translator-settings.history.jsonl`. The last two sit in `<T2>/config`. A new function in `app/lib/safe-path.ts` accepts only these two names in that folder. The key `translatorConfigDir` in `viewer.config.json` sets the folder. The default is the folder `config` next to `translatorDataDir`. Another check accepts only the names `PAUSE`, `request.json`, and `request.done.json` in a folder `book-store/<book>/` `[unit default]`. The code writes these three fixed names in that folder `[file: <V2>/app/lib/book-actions.ts:116,124]` `[file: <V2>/app/lib/book-restart-actions.ts:159]`. The file `app/lib/safe-path.ts` holds no list of names `[check: DZ82 2026-11-02 20:52 PST grep -n 'request\|PAUSE\|done' lib/safe-path.ts]`.
 
 #### 15.24.10 Plan for the code unit
 
@@ -4448,9 +4448,9 @@ Status: design accepted (round 70 answer 10), Run, Resume, Pause, and store fold
 - Total line: 342 works, 14,116 pages. English: 1,151 of 14,116 pages translated (8.2 percent) `[check: DZ73 2026-10-31 15:25 grep -n "14,116" /var/folders/sz/2hvwvpb16c77mfzqnvkb5gbc0000gn/T/opencode/r73/RT73a/smoke-web.log, line 3]`. Old text, replaced by unit RT73a: 342 visible works, 13,303 pages, and 28 translated pages (0.2 percent), with a web article as 1 page `[check: RC4 smoke-folds.log:5]`. History, replaced in round 73b answer 6: this count of 1 page contradicts section 12. A web article has as many pages as its A4 cut, so 311 web articles have 1,126 pages `[file: .opencode/reminders/qa/qa-memory-2026-10-30.md:87]` `[check: aki-main 2026-10-30 15:39 a4count.py]`. If the 8,482 pages of Kendo Jidai count each web article as 1 page, the Kendo Jidai total becomes 9,297 pages (8,482 minus 311 plus 1,126) and the total line becomes 14,118 pages `[agent inference]`. Unit RT73a fixed the code. It measured 9,295 pages for Kendo Jidai and 14,116 in all `[check: DZ73 2026-10-31 15:25 smoke-web.log, lines 3 and 4]`. The inference above was 2 pages too high.
 - Kendo Jidai holds 16 year folds, 2010 to 2025, and 172 month folds. It shows 1,155 magazine article rows and 311 web article rows `[check: RC4 smoke-read.log:57]`.
 - Hidden works: `men0`, `men1`, `mental2_clean`, `matsubara`, and `morishima` (round 69 answers 12 and 15). The page `/translate` keeps all folders.
-- A stamped web article sits in its print month (round 70 answer 6). Example: `63654ba0` (Teramoto, part 2) sits in Kendo Jidai > 2011 > August 2011. That month holds 14 articles and 2 web articles `[check: RC4 smoke-folds.log:11-12]`.
+- Every web article sits in the fold of its web year and month (round 83 answer 4, round 84 answer 1). Example: `63654ba0` (Teramoto, part 2, stamp 2011.8 KENDOJIDAI) has 4 pages. It moves from Kendo Jidai > 2011 > August 2011 to Kendo Jidai > 2025 > April 2025 `[brief fact, aki-main check 2026-11-02]` `[file: <TMP>/r82/SV82/db_web.json:105]`. Old rule, replaced: a stamped web article sat in its print month (round 70 answer 6). Unit TF83 changes the code in round 84, so the code result is Not verified.
 - An unstamped web article sits in its web month. Example: `18d4ac29` sits in Kendo Jidai > 2020 > August 2020. Its title is "Kendo droplet guard". Its ID is the first 8 characters of its `item_id` `[check: RC4 smoke-read.log:54]`.
-- The volume `kendojidai_2018` covers January to April only. A stamped 2018 article makes a month fold with web articles only. Example: September 2018 with 5 articles `[brief of unit DV71, from RC4]`. Not verified in the logs.
+- The volume `kendojidai_2018` covers January to April only. Old rule, replaced: a stamped 2018 article made a month fold with web articles only (June 1, July 1, September 5, October 2 articles `[file: <TMP>/r82/SV82/compare.txt]`). Those four folds go away under the web year rule (round 83 answer 4).
 - The HTML of `/read` has 0.286 MB, because the rows of a month load when the month opens. With all rows it has 2.08 MB `[check: RC4 smoke-read.log:67]` `[brief of unit DV71]`.
 
 ##### 15.25.4 Rows
@@ -6333,9 +6333,9 @@ The screen. You press Restart on the book row of the Monitor dashboard `/` on th
 5. You can change a single box after a quick select.
 6. The buttons are [Cancel] and [Restart]. Cancel has the focus when the dialog opens (round 75 answer 12, section 15.27.2).
 
-The notes are the proposal of aki-main `[proposal aki-main 2026-11-01, pending owner check]`. They are "starting version", "restart start version", "previous restart version", "current live version", and "update after pNNN". The table of the notes is in `translator-design.md`, section 9.29.2. Accepted in round 79 answers 4 and 5 (`qa-memory-2026-11-01.md:96-97`). Answer 5 adds the note "last version of run N" (section 15.32.2).
+The notes are the proposal of aki-main `[aki-main proposal 2026-11-01]`. The owner accepted them in round 79 answer 4, "Five notes plus facts (Recommended)", and answer 5, "Meaning A plus a run-end note (Recommended)". They are "starting version", "restart start version", "previous restart version", "current live version", and "update after pNNN". The table of the notes is in `translator-design.md`, section 9.29.2. Accepted in round 79 answers 4 and 5 (`qa-memory-2026-11-01.md:96-97`). Answer 5 adds the note "last version of run N" (section 15.32.2).
 
-Sketch (all values invented). The book `mental_full` runs phase 4 and stands at p080. You chose the quick select "After the update point at p075". Then you changed ED_2 to `v4.1.3`. The sketch shows 4 of the 16 box rows.
+Sketch (all values invented). The book `mental_full` runs phase 4 and stands at p080. You chose the quick select "After the update point at p075". Then you changed ED_2 to `v4.1.3`. The sketch shows 4 of the 16 box rows. The notes of a row follow the DZ78 order (round 83 answer 16, "Keep DZ78 order (Recommended)", section 15.32.9, item 1). The facts name the run, as in section 15.32.2.
 
 ```
 +--------------------------------------------------------------------------------------------------------------------------+
@@ -6352,10 +6352,10 @@ Sketch (all values invented). The book `mental_full` runs phase 4 and stands at 
 |     ...                                                                                                                  |
 |                                                                                                                          |
 |   Version for each box (you can change one box after a quick select)                                                     |
-|     TS_0  [v4.1.0 · starting version, current live version · live p001-p080, 80 pages, 66 PASS 14 FAIL]                  |
-|     TL_1  [v4.1.2 · update after p040 · live p041-p080, 40 pages, 33 PASS 7 FAIL, 5 critiques used]                      |
-|     ED_2  [v4.1.3 · update after p060 · live p061-p065, 5 pages, 4 PASS 1 FAIL, 5 critiques used]   <- changed by hand   |
-|     QA_3  [v4.1.1 · update after p050 · live p051-p080, 30 pages, 25 PASS 5 FAIL, 5 critiques used]                      |
+|     TS_0  [v4.1.0 · starting version, current live version · run 1, p001-p080 (80), 66 PASS 14 FAIL, no critiques used]  |
+|     TL_1  [v4.1.2 · current live version, update after p040 · run 1, p041-p080 (40), 33 PASS 7 FAIL, 5 critiques used]   |
+|     ED_2  [v4.1.3 · update after p060 · run 1, p061-p065 (5), 4 PASS 1 FAIL, 5 critiques used]   <- changed by hand      |
+|     QA_3  [v4.1.1 · current live version, update after p050 · run 1, p051-p080 (30), 25 PASS 5 FAIL, 5 critiques used]   |
 |     ... (12 more boxes)                                                                                                  |
 |                                                                                                                          |
 |   Focus is on [Cancel] when the dialog opens.                                                                            |
@@ -6766,7 +6766,7 @@ Owner words, answer 18: "Keep the Details link (Recommended)". The Running row k
 
 Example with `mental_full` (invented). The book runs phase 4 at p080. The row shows [Pause] [Restart] [Details] and two grayed buttons. The grayed Resume carries the reason "Resume is off because this book runs now" (the form of line 4003). At 16:40 you press Restart and confirm. Until the process ends, the row shows no button and the link Details.
 
-Which unit builds this: VW77b (the buttons) `[aki-main proposal in the brief of DZ79, not verified]`. The order of the code units is in `translator-design.md`, line 8376. Round 81: unit VW77b1 built the buttons Run, Run phase 4, Pause, and Resume with confirm dialogs. The owner accepted it in round 82 answer 8. The Restart dialog and Clear mark come in unit VW77b2 (it runs in round 82, result Not verified).
+Which unit builds this: VW77b (the buttons) `[aki-main proposal in the brief of DZ79, not verified]`. The order of the code units is in `translator-design.md`, line 8376. Round 81: unit VW77b1 built the buttons Run, Run phase 4, Pause, and Resume with confirm dialogs. The owner accepted it in round 82 answer 8. Unit VW77b2 built the Restart dialog and Clear mark (commit e7b4b5d, accepted in round 83 answer 2, section 15.36.3).
 
 ##### 15.33.4 Row text of a refused Restart (answer 10)
 
@@ -7228,7 +7228,7 @@ No owner answer settles these items.
 The first option of each item is the recommended option. The items about the year books also appear in `translator-design.md`, section 9.32.12.
 
 1. Confirm the reading of answers 12 to 14 (section 15.34.4). Recommended: yes `[aki-main proposal]`. Example: the Monitor dashboard shows one phase 2 row for the 40 articles, and the 16 year books show as books. Benefit: one reading for all docs. Cost: none. Other option: tell aki-main which part is wrong. Answered in round 82 answer 19 (`qa-memory-2026-11-02.md:68`): the reading is right.
-2. Which articles the web year books hold. Recommended `[aki-main proposal]`: all articles of the year. Example: the 2019 book holds 14 articles, 1 `train-feedback` and 3 `test`. Benefit: the book is complete. Cost: the `test` articles run in the book `[agent inference]`. Other option: all articles except the 27 `test` articles. Example: the 2019 book holds 11 articles. Answered in round 82 answer 20 (`qa-memory-2026-11-02.md:69`): "Treating them like every other book" `[user]`. Option 1 is the reading of aki-main `[aki-main reading, pending owner check]`.
+2. Which articles the web year books hold. Recommended `[aki-main proposal]`: all articles of the year. Example: the 2019 book holds 14 articles, 1 `train-feedback` and 3 `test`. Benefit: the book is complete. Cost: the `test` articles run in the book `[agent inference]`. Other option: all articles except the 27 `test` articles. Example: the 2019 book holds 11 articles. Answered in round 82 answer 20 (`qa-memory-2026-11-02.md:69`): "Treating them like every other book" `[user]`. Option 1 is the reading of aki-main. Round 83 answer 5 (`qa-memory-2026-11-02.md:100`) confirms it: "Reading is right (Recommended)".
 3. The book ID of a web year book. Recommended `[aki-main proposal]`: `kendojidai_2019`, the form of the scanned volumes. Benefit: one ID form for 16 books. Cost: none known. Other option: `kendojidai-2019`, the spelling in the owner words. Answered in round 82 answer 22 (`qa-memory-2026-11-02.md:71`): `kendojidai_2019`. The other option stays as history.
 4. The run order of the 16 year books and the other books. Recommended `[aki-main proposal]`: year order 2010 to 2025, and then the other books. Benefit: one simple rule. Cost: books like `mental_full` wait. Other option: the other books first. Answered in round 82 answer 23 (`qa-memory-2026-11-02.md:72`): no fixed order. The owner presses Run per book on the Monitor dashboard `/`.
 5. Which times the Reader dashboard and the book screens show (`qa-memory-2026-11-02.md:45`). Recommended: unit VW77b1 lists them in its report. Benefit: the PST rule has a full list. Cost: none. Answered in part in round 82: answer 15 sets the page check date, and answer 18 keeps PST on every Reader time (`qa-memory-2026-11-02.md:64,67`).
@@ -7261,7 +7261,7 @@ In this section `<BP>` is `/Volumes/NghiaHDD2T/universal-agent_v2/book-postproce
 - The Q-A file has 93 lines. The round 82 header sits at line 48. Answer N sits at line 49+N, so the answers fill the lines 50 to 86. The notes of aki-main at the lines 87 to 93 are not owner words `[check: DZ81 2026-11-02 12:13 Read of qa-memory-2026-11-02.md]`.
 - The plan file is `.opencode/reminders/plan/evolving-plan-2026-11-02.md` (28 lines). Its line 22 sums up the answers. Its line 28 lists the five units of round 82.
 - `git log --oneline -1` shows a370c11 in <T2> and 611b3f8 in <V2>. `git status --short` prints nothing in both repos `[check: DZ81 2026-11-02 12:13 git log --oneline -1 and git status --short in <T2> and <V2>]`.
-- Four other units of round 82 run in parallel with this unit: TF82 (test numbers), VW77b2 (Restart dialog, Clear mark, page check date with PST), SV82 (read-only survey), and TV82 (ToC rows) `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:28]`. They run in round 82. Their results are Not verified.
+- Four other units of round 82 run in parallel with this unit: TF82 (test numbers), VW77b2 (Restart dialog, Clear mark, page check date with PST), SV82 (read-only survey), and TV82 (ToC rows) `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:28]`. Their results are in section 15.36.3.
 - This unit writes two docs: this file and `<T2>/docs/drafts/translator-design.md`.
 - Section 15.35.2 holds the owner words. Section 15.35.3 holds the results of the round 81 units. Section 15.35.4 holds answers 1 to 3. Section 15.35.5 holds answers 4 to 7. Section 15.35.6 holds answers 8 to 16 and 18. Section 15.35.7 holds answers 25 to 27. Section 15.35.8 holds answers 28 to 32. Section 15.35.9 holds answers 19 to 24. Section 15.35.10 holds answers 17 and 33 to 37.
 
@@ -7320,7 +7320,7 @@ Notes of aki-main at the lines 88 to 93 of the Q-A file. They are not owner word
 
 aki-main checked these results after the units returned and after the commits. Each fact carries its check tag. DZ81 did not repeat the checks and read no code.
 
-- Open: the fold "Kendo Jidai 2019" on the Reader dashboard `/read` shows "9 web articles" (24 pages). The data has 14 web articles of 2019 `[check: DZ80 2026-11-02 07:19 python3 -B count of articles.jsonl in <T2>]`. The cause is Not verified. Unit SV82 surveys it in round 82 (answer 24) `[check: aki-main 2026-11-02 07:53 live GET /read with admin login]`.
+- Open: the fold "Kendo Jidai 2019" on the Reader dashboard `/read` shows "9 web articles" (24 pages). The data has 14 web articles of 2019 `[check: DZ80 2026-11-02 07:19 python3 -B count of articles.jsonl in <T2>]`. The cause was Not verified when DZ81 wrote this line. Unit SV82 found it in round 82 (answer 24, section 15.36.3) `[check: aki-main 2026-11-02 07:53 live GET /read with admin login]`.
 - Unit TJ81 joined the tanden pages. The folder `data/` is ignored by git, so TJ81 made no commit. The four places `<PG>/Tanden Full`, `<BP>/Tanden Full/pages`, `<V2>/data/page-images/tanden_full`, and `<V2>/data/v1-md/tanden_full` hold 295 files each, without the `._` files `[check: aki-main 2026-11-02 07:51 ls counts]`.
 - Chapters 12, 13, and 14 start at p111, p118, and p121. The old pages p111 to p276 are now p130 to p295. The printed pages 120, 124, and 134 are not in the scan (white page possible). They have no page ID `[aki-main report in the brief of DZ81]`.
 - aki-main made a PocketBase backup in `/var/folders/sz/2hvwvpb16c77mfzqnvkb5gbc0000gn/T/opencode/r81/aki/pb-backup/`. It holds `data.db` (45 MB), `auxiliary.db` (18 MB), and `SHA256SUMS`. The `integrity_check` result is ok `[check: aki-main 2026-11-02 07:52 sqlite3 .backup]`.
@@ -7348,7 +7348,7 @@ Example. The book screen `/read/tanden_full` has 295 pages. Page p111 shows 0 te
 
 Effect on the screens. The Reader dashboard `/read` counts 14,135 pages and 342 works. The 19 new pages count as not translated. The book screen `/read/tanden_full` lists 295 pages `[check: aki-main 2026-11-02 07:53 live GET /read with admin login]`.
 
-The owner hand step 8.10a is the upload of the tanden page images to the server (round 81 answer 10). The plan file holds no record that the step ran `[check: DZ81 2026-11-02 12:13 Read of .opencode/reminders/plan/evolving-plan-2026-11-02.md]`. Its state is Not verified.
+The owner hand step 8.10a is the upload of the tanden page images to the server (round 81 answer 10). The plan file holds no record that the step ran `[check: DZ81 2026-11-02 12:13 Read of .opencode/reminders/plan/evolving-plan-2026-11-02.md]`. Its state is Not verified. Round 84 answer 8 (`qa-memory-2026-11-02.md:134`): the step runs with the v2 deploy.
 
 ##### 15.35.5 Row of a refused Restart (answers 4 to 7)
 
@@ -7380,11 +7380,11 @@ Owner decisions:
 - Answer 8 (`qa-memory-2026-11-02.md:57`): "Accept and commit (Recommended)". The commit is 2163041.
 - Unit VW77b1 as built `[aki-main report in the brief of DZ81]`: the buttons Run, Run phase 4, Pause, and Resume with confirm dialogs (Cancel first) on real-book rows. The routes are `POST /api/monitor/books/<slug>/mark` and `POST /api/monitor/books/<slug>/pause`. Run is grayed on all 37 rows of this Mac with "Run is off until phase 2 prompt files exist". The summary line has no error count. Pilot rows have an empty phase cell. PST shows on the Lists tab `/runs`, the run view, and the page check date, still without the word PST.
 - Answer 9 (`qa-memory-2026-11-02.md:58`): "Unit TF82 fixes them (Recommended)". TF82 fixes the 9 old Viewer test lines that expect the tanden totals from before the join. They fail only on the +19 page totals `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:15]`.
-- Answer 10 (`qa-memory-2026-11-02.md:59`): "Clear mark button in VW77b2 (Recommended)". The button clears a refused mark. What it deletes is Not verified, because VW77b2 runs in round 82.
+- Answer 10 (`qa-memory-2026-11-02.md:59`): "Clear mark button in VW77b2 (Recommended)". The button clears a refused mark. Round 83 answers 12 and 13 (`qa-memory-2026-11-02.md:107,108`) set what it does: it moves `request.json` to `request.done.json` and overwrites an older `request.done.json`. Round 83 answer 11 and round 84 answer 2 add a gray rule (section 15.36.4, item 4): Clear mark is grayed on a Run mark with `after` "restart".
 - Answer 11 (`qa-memory-2026-11-02.md:60`): "Keep it grayed (Recommended)". Run stays grayed until the phase 2 prompt files exist. Example: all 37 rows of this Mac show Run grayed.
 - Answer 12 (`qa-memory-2026-11-02.md:61`): "Keep Run on pilot rows (Recommended)". Run stays on pilot rows. Example: a pilot row whose list runs now shows Run grayed with the pilot list reason of rule 1 below. Pilot runs do not count toward real runs.
 - Answer 13 (`qa-memory-2026-11-02.md:62`): "Show Resume (Recommended)". Resume shows also on Stopped by failure and Stopped unexpectedly. Rule 2 below keeps Resume away from the other stops.
-- Answer 14 (`qa-memory-2026-11-02.md:63`): "PST in a later unit (Recommended)". Times on the pages `/translate` and `/admin` get PST in a later unit. No unit is named for it.
+- Answer 14 (`qa-memory-2026-11-02.md:63`): "PST in a later unit (Recommended)". Times on the pages `/translate` and `/admin` get PST in a later unit. Round 83 answer 20 (`qa-memory-2026-11-02.md:115`) names unit TF83 for it, and round 84 answer 6 (`qa-memory-2026-11-02.md:132`) starts that unit.
 - Answer 15 (`qa-memory-2026-11-02.md:64`): "Right, add PST" `[accepted option 2]`. The reading of round 81 answer 18 is right. The page check date on the book screen `/read/<slug>` becomes "(2026-10-27 PST)". aki-main put this into unit VW77b2 `[aki-main report in the brief of DZ81]`. No doc line states the old date text, so DZ81 changed no line for it.
 - Answer 16 (`qa-memory-2026-11-02.md:65`): the owner kept all 15 other VW77b1 rules. The list is below.
 
@@ -7408,7 +7408,7 @@ Owner decisions:
 
 Example for rule 4. The row of `mental_full` has a Run mark that waits, and the mark is refused. The row shows Run and Resume grayed with "A mark waits: Run requested 08:40 PST (refused)" (invented values).
 
-Wording of the refused line. Round 81 answer 15 says "second line" (`qa-memory-2026-11-02.md:20`). Rule 10 says "its own third line". DZ81 did not read the code, so the right wording for the screen is Not verified (open item 2 in section 15.35.13).
+Wording of the refused line. Round 81 answer 15 says "second line" (`qa-memory-2026-11-02.md:20`). Rule 10 says "its own third line". Round 83 answer 17 (`qa-memory-2026-11-02.md:112`) decides: "Own line under line 2 (Recommended)". The refused line is the third line of the row (open item 2 in section 15.35.13).
 
 - Answer 18 (`qa-memory-2026-11-02.md:67`): the owner kept all 5 defaults of DZ80:
 
@@ -7475,11 +7475,11 @@ Examples of answer 30:
 
 The counts come from `translator-design.md`, section 9.32.4, and from the brief `[aki-main report in the brief of DZ81]`.
 
-- Answer 20 (`qa-memory-2026-11-02.md:69`): "Treating them like every other book" `[user]`. Reading of aki-main `[aki-main reading, pending owner check]`: a web year book holds every web article of its year, and the dataset split removes no article. Example: the book `kendojidai_2019` holds 14 articles, 1 `train-feedback`, 3 `test`, and 10 `train-retrieval` `[agent inference]`.
-- Answer 21 (`qa-memory-2026-11-02.md:70`): "No rule" `[accepted option 2]`. No rule keeps the retriever away from units of the same article. The note of aki-main (line 89) says that the retriever can return the human EN of the article in work.
+- Answer 20 (`qa-memory-2026-11-02.md:69`): "Treating them like every other book" `[user]`. Reading of aki-main, confirmed in round 83 answer 5 (`qa-memory-2026-11-02.md:100`): "Reading is right (Recommended)". A web year book holds every web article of its year, and the dataset split removes no article. Example: the book `kendojidai_2019` holds 14 articles, 1 `train-feedback`, 3 `test`, and 10 `train-retrieval` `[agent inference]`.
+- Answer 21 (`qa-memory-2026-11-02.md:70`): "No rule" `[accepted option 2]`. No rule keeps the retriever away from units of the same article. The note of aki-main (line 89) says that the retriever can return the human EN of the article in work. This holds only for a `train-retrieval` article, because the pool holds no other article (section 15.36.4, item 3).
 - Answer 22 (`qa-memory-2026-11-02.md:71`): "kendojidai_2019 (Recommended)". All 16 year books use the form with an underscore. The spelling `kendojidai-2019` in round 80 answer 22 stays as an owner quote.
 - Answer 23 (`qa-memory-2026-11-02.md:72`): "optoin 3. I will click the run button on the Monitor view myself" `[user]`. There is no fixed run order. The owner presses Run per book on the Monitor dashboard `/`. Example: you press Run on the row `mental_full` first and on the row `kendojidai_2010` later. Run stays grayed until the phase 2 prompt files exist (answer 11).
-- Answer 24 (`qa-memory-2026-11-02.md:73`): "Read-only survey SV82 (Recommended)". SV82 looks into the fold "Kendo Jidai 2019" on the Reader dashboard `/read`. The fold shows "9 web articles" (24 pages), and the data has 14. SV82 runs in round 82 and its result is Not verified.
+- Answer 24 (`qa-memory-2026-11-02.md:73`): "Read-only survey SV82 (Recommended)". SV82 looks into the fold "Kendo Jidai 2019" on the Reader dashboard `/read`. The fold shows "9 web articles" (24 pages), and the data has 14. SV82 ran in round 82. Its result is in section 15.36.3.
 
 ##### 15.35.10 Units of this round and process (answers 17 and 33 to 37)
 
@@ -7489,10 +7489,10 @@ The counts come from `translator-design.md`, section 9.32.4, and from the brief 
 | Unit | Job | Write set | Result |
 |---|---|---|---|
 | DZ81 | docs for round 82 answers | the two docs and the unit folder | this section |
-| TF82 | test numbers | own app copy, patch only, PocketBase test port 8093 | runs in round 82, Not verified |
-| VW77b2 | Restart dialog with 16 pick lists and quick select, Clear mark, page check date with PST | app copy, PocketBase test port 8092 | runs in round 82, Not verified |
-| SV82 | read-only survey of the fold "Kendo Jidai 2019", year book pages, and the retriever | unit folder only | runs in round 82, Not verified |
-| TV82 | ToC rows of three books | unit folder only | runs in round 82, Not verified |
+| TF82 | test numbers | own app copy, patch only, PocketBase test port 8093 | result in section 15.36.3 |
+| VW77b2 | Restart dialog with 16 pick lists and quick select, Clear mark, page check date with PST | app copy, PocketBase test port 8092 | result in section 15.36.3 |
+| SV82 | read-only survey of the fold "Kendo Jidai 2019", year book pages, and the retriever | unit folder only | result in section 15.36.3 |
+| TV82 | ToC rows of three books | unit folder only | result in section 15.36.3 |
 
 aki-main commits VW77b2 first and then applies the TF82 patch `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:28]`.
 
@@ -7573,23 +7573,287 @@ No owner answer settles these items.
 
 The first option of each item is the recommended option.
 
-1. Confirm the reading of answer 20 (line 88 of the Q-A file). Recommended: yes `[aki-main proposal]`. Example: the book `kendojidai_2019` holds 14 articles, 1 `train-feedback`, 3 `test`, and 10 `train-retrieval`. Benefit: one rule for all books, and the book has no hole. Cost: the 3 `test` articles of 2019 run in the book. Answer 21 lets the retriever return their human EN, so a test score from that book run is not clean. Other option: keep the 27 `test` articles out of the year books. The 2019 book then holds 11 articles.
-2. Which wording is right for the refused line. Recommended: aki-main checks the row on the Monitor dashboard `/` after VW77b2 returns, and a later docs unit uses the real wording `[aki-main proposal]`. Example: the row of `mental_full` after a refused Restart. Benefit: the docs match the screen. Cost: one more docs edit. Other option: tell aki-main now which wording is right.
-3. The owner hand step 8.10a, the upload of the tanden page images to the server. Recommended: run it now, because the join and the sync are done and checked `[aki-main proposal]`. Example: the server needs the images of p111 to p295 of `tanden_full`. Benefit: the server and this Mac hold the same 295 page images `[agent inference]`. Cost: hand work, and the state of the step is Not verified. Other option: wait until the VW77b2 commit.
+1. Decided in round 83 answer 5 (`qa-memory-2026-11-02.md:100`): "Reading is right (Recommended)". The book `kendojidai_2019` holds 14 articles, 1 `train-feedback`, 3 `test`, and 10 `train-retrieval`. Fix of DZ82: the retrieval pool holds only the 244 `train-retrieval` articles (26,303 units). So a `test` article or a `train-feedback` article cannot get its own human EN from the retriever `[check: SV82 <TMP>/r82/SV82/partC_data.txt:1]`. Answer 21 "No rule" has no effect on them. The 10 `train-retrieval` articles of 2019 can get their own human EN `[agent inference]`. Old sentence, wrong: "Answer 21 lets the retriever return their human EN, so a test score from that book run is not clean." Other option, not chosen: keep the 27 `test` articles out of the year books. The 2019 book then holds 11 articles.
+2. Decided in round 83 answer 17 (`qa-memory-2026-11-02.md:112`): "Own line under line 2 (Recommended)". The refused line is its own line under line 2, so it is the third line of the row. The check of aki-main shows that `BookRow.tsx` does this `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:30]`. Example: the row of `mental_full` after a refused Restart. Old question: "second line" or "its own third line".
+3. Decided in round 84 answer 8 (`qa-memory-2026-11-02.md:134`): "With the v2 deploy (Recommended)". The owner hand step 8.10a runs on deploy day. It uploads the page images, also the 295 `tanden_full` images, to `/opt/pocketbase-v2/page-images` on the server `[brief fact, aki-main check 2026-11-02]`. Example: the server needs the images of p111 to p295 of `tanden_full`. Old question: run it now or wait until the VW77b2 commit.
 
 ##### 15.35.14 Not verified
 
-- The results of TF82, VW77b2, SV82, and TV82 are Not verified. They run in round 82.
+- The results of TF82, VW77b2, SV82, and TV82 are in section 15.36.3. Round 83 answer 2 accepted VW77b2, and the plan file records the commits.
 - The facts about TR77c2, VW77b1, and CE81 as built come from the brief of aki-main. DZ81 read no code and no cost file.
 - The count of 38 header-only md files is 19 pages in 2 folders. DZ81 did not count the files.
-- The cause of "9 web articles" in the fold "Kendo Jidai 2019" is Not verified. SV82 looks into it.
-- The state of the owner hand step 8.10a is Not verified.
+- The cause of "9 web articles" in the fold "Kendo Jidai 2019" is found by SV82 (section 15.36.3). Round 83 answer 4 changes the rule.
+- The state of the owner hand step 8.10a is Not verified. It runs with the v2 deploy (round 84 answer 8).
 - The exact case of the `write_mark` refusal, the archive hint sentence, and the two times of the marks command line are Not verified.
-- Whether the Viewer code still reads `restart_requested_utc` is Not verified.
-- The right wording for the refused line (second or third) is Not verified.
-- The reading of aki-main at line 88 of the Q-A file waits for the owner.
+- The Viewer code still reads `restart_requested_utc` first and `requested_utc` second `[file: <V2>/app/lib/book-status-rules.ts:361]`.
+- The wording for the refused line is decided in round 83 answer 17: its own line under line 2.
+- The reading of aki-main at line 88 of the Q-A file is confirmed in round 83 answer 5.
 - The full list of times on the Reader screens is Not verified.
-- What the Clear mark button deletes is Not verified.
+- Clear mark moves `request.json` to `request.done.json` and overwrites an older `request.done.json` (round 83 answers 12 and 13). The code of VW77b2 does this `[file: <V2>/app/lib/book-restart-actions.ts:159-163]`.
 - The dev server on port 3000 and PocketBase on port 8090 were not read or changed.
 
-Status: round 82 answers applied by unit DZ81. Items in section 15.35.13 wait for the owner.
+Status: round 82 answers applied by unit DZ81. The owner answered the items in section 15.35.13 in rounds 83 and 84 (section 15.36).
+
+#### 15.36 Round 83 and 84 answers: web year fold, grayed Clear mark, notes order, Clear mark file, open items closed (unit DZ82, round 84)
+
+Unit DZ82 wrote this section on 2026-11-02 (round 84). It records the owner answers of round 83 and round 84. The Q-A file is `.opencode/reminders/qa/qa-memory-2026-11-02.md`. The design side is in `<T2>/docs/drafts/translator-design.md`, section 9.34. This section has the Viewer weight. This unit changed docs only. It ran no code, no model call, and no Voyage call.
+
+Pilot runs under `<T2>/data/pilot-run/` are not real runs (round 73e answer 10, `qa-memory-2026-10-31.md:13`): "All these are pilots, which DO NOT COUNT toward real runs". A v1 placeholder translation counts as nothing. Examples use real book IDs and real values, and each value carries a source tag. An example that shows a state with no real run says "example state".
+
+Screen names in this section: the Reader dashboard `/read` and the book screen `/read/<slug>`. The Monitor dashboard `/` runs on this Mac. The Lists tab is `/runs`, and the run view is `/runs/<stamp>`. The Reader dashboard says "translated". The Monitor dashboard says "pages done".
+
+Source tags: owner words carry the Q-A file and the line, or `[owner, round N answer M]`. A unit default carries `[unit default DZ82]`. A fact that only the brief of DZ82 gives carries `[brief fact, aki-main check 2026-11-02]`. An inference of the unit carries `[agent inference]`. A proposal of aki-main carries `[aki-main proposal]`. A tag `[file: ...]` or `[check: ...]` gives the evidence.
+
+In this section `<TMP>` is `/var/folders/sz/2hvwvpb16c77mfzqnvkb5gbc0000gn/T/opencode`.
+
+##### 15.36.1 Sources and scope
+
+- The Q-A file has 143 lines. The round 83 header sits at line 95. Answer N of round 83 sits at line 95+N, so the answers fill the lines 96 to 120. The notes of aki-main sit at the lines 121 to 124 `[check: DZ82 2026-11-02 20:51 PST Read of qa-memory-2026-11-02.md lines 90 to 143]`.
+- The round 84 header sits at line 126. Answer N of round 84 sits at line 126+N, so the answers fill the lines 127 to 139. The notes of aki-main sit at the lines 140 to 143 `[check: DZ82 2026-11-02 20:51 PST Read of qa-memory-2026-11-02.md lines 90 to 143]`.
+- The plan file is `.opencode/reminders/plan/evolving-plan-2026-11-02.md` (45 lines). Its line 29 holds the results of the round 82 units. Its lines 30 to 32 hold the checks of aki-main. Its lines 36 and 37 hold the commits and the TV82 apply. Its line 41 sums up the round 84 answers `[check: DZ82 2026-11-02 20:51 PST grep -n on the plan file]`.
+- `git log --oneline -1` shows aa427cb in <T2> and 477e440 in <V2>. At the start of the unit, `git status --short` printed nothing in both repos `[check: DZ82 2026-11-02 20:51 PST git status --short and git log --oneline -1 in <T2> and <V2>]`.
+- Four other units of round 84 run in parallel with this unit. They are TR77d1 (update step with a stub), TF83 (Viewer fixes), CE82 (cost update), and TV83 (ToC rows of two books) `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:45]`. Their results are Not verified when this unit writes.
+- This unit writes two docs: this file and `<T2>/docs/drafts/translator-design.md`.
+- Section 15.36.2 holds the owner words. Section 15.36.3 holds the unit results. Section 15.36.4 holds what the answers change. Section 15.36.5 lists the lines that this unit changed in place. Section 15.36.6 holds the unit defaults. Section 15.36.7 holds the open items. Section 15.36.8 holds the Not verified list.
+
+##### 15.36.2 Owner words of rounds 83 and 84
+
+The lists below hold all 25 answers of round 83 and all 13 answers of round 84. A script copied each text after the number from the Q-A file and added the line number. The text of round 83 answer 24 holds the owner reminder in full. The brackets at the end of each text are the source tags of the Q-A file.
+
+- Round 83 answer 1 (line 96): Accept DZ81 docs: "Accept, fix claim next (Recommended)" [accepted recommendation]
+- Round 83 answer 2 (line 97): Accept VW77b2 Restart dialog and Clear mark: "Accept and commit (Recommended)" [accepted recommendation]
+- Round 83 answer 3 (line 98): TF82 test patch: "Apply after VW77b2 (Recommended)" [accepted recommendation]
+- Round 83 answer 4 (line 99): Fold Kendo Jidai 2019 shows 9 of 14 web articles: "Show web year" [accepted option 2]
+- Round 83 answer 5 (line 100): Reading of round 82 answer 20 (web year book holds every web article of its year, 2019 book 14 articles): "Reading is right (Recommended)" [accepted recommendation]
+- Round 83 answer 6 (line 101): TV82 rows (etiqu1_full 61, kodass200_full 224, sumiss10_c1_full 11): "Apply now (Recommended)" [accepted recommendation]
+- Round 83 answer 7 (line 102): etiqu1_full deeper ToC lines: "First tier only (Recommended)" [accepted recommendation]
+- Round 83 answer 8 (line 103): DVD list rows of sumiss10_c1_full p003: "No rows (Recommended)" [accepted recommendation]
+- Round 83 answer 9 (line 104): ToC wording against page wording (not a misprint): "Keep ToC wording (Recommended)" [accepted recommendation]
+- Round 83 answer 10 (line 105): Other TV82 rules: "Drop the ◉ bullet (Recommended), Join wrapped titles (Recommended), Chapter number plus title (Recommended), Columns are level 2 rows (Recommended)" [accepted all 4]
+- Round 83 answer 11 (line 106): Clear mark on the Run mark that a Restart leaves: "Gray it out (Recommended)" [accepted recommendation]
+- Round 83 answer 12 (line 107): Clear mark file: "Keep the move (Recommended)" [accepted recommendation]
+- Round 83 answer 13 (line 108): Older saved mark in request.done.json: "Overwrite (Recommended)" [accepted recommendation]
+- Round 83 answer 14 (line 109): Form of update_point: "TR77d writes p060 (Recommended)" [accepted recommendation]
+- Round 83 answer 15 (line 110): Restart dialog facts sources: "Accept these sources (Recommended)" [accepted recommendation]
+- Round 83 answer 16 (line 111): Notes order in the Restart dialog: "Keep DZ78 order (Recommended)" [accepted recommendation]
+- Round 83 answer 17 (line 112): Place of the refused Restart line: "Own line under line 2 (Recommended)" [accepted recommendation]
+- Round 83 answer 18 (line 113): Other VW77b2 rules: "Quick select rule (Recommended), Copy source note (Recommended), Reasons on 409 answers (Recommended), Button order and gray rules (Recommended), Dialog waits for options (Recommended), File check only (Recommended)" [accepted all 6]
+- Round 83 answer 19 (line 114): DZ81 docs rules: "Replace stale lines (Recommended), Quotes keep old text (Recommended), Tag brief facts (Recommended)" [accepted all 3]
+- Round 83 answer 20 (line 115): Viewer small fixes (unit TF83): "Test guards from config (Recommended), Stable monitor-actions (Recommended), Old totals in text (Recommended), Fix stamp comment (Recommended), PST on translate and admin (Recommended)" [accepted all 5]
+- Round 83 answer 21 (line 116): Old md flaws of kodass200_full: "Leave them (Recommended)" [accepted recommendation]
+- Round 83 answer 22 (line 117): Last two ToC books (sumiss_train_full, tani_ss_full): "Do them now, TV83 (Recommended)" [accepted recommendation]
+- Round 83 answer 23 (line 118): Next units: "DZ82 docs (Recommended), TR77d1 update step (Recommended), TF83 Viewer fixes (Recommended), CE82 cost update (Recommended), TV83 ToC rows (Recommended)" [VW77c not ticked]
+- Round 83 answer 24 (line 119): Other wishes: "Reminder: Also when you dispatch a subagent, include full detail within your message on not just the main task but also your writing/coding/thinking principle and so on. The initial dispatch message cost is negligible, so try to be as detailed as possible in your dispatch message\n\nThe question message cost is negligible, so try to be as `humanly reabable` as possible in your question message and your answers\n\n( include the information that you provide before these questions in the questions themself, so the questions are self-contained and I can refer to them without checking other place)\n\nTry being grounded to the project vision and context and references. Don't hallucinate as we continue this long session and multiple compression.\n\nThis will be the last question batch for this session. write a detail resume prompt for the next session and conclude the session. MAKE sure the next session follow that exact workflow with user as this session, taken into account all the critics and reminders of this session" [user]
+- Round 83 answer 25 (line 120): Session control: "Run the plan (Recommended)" [accepted recommendation]
+
+- Round 84 answer 1 (line 127): Reading of round 83 answer 4 (every web article in the fold of its web year, 2019 fold 9 -> 14 articles, month folds June, July, September, October 2018 go away, STAMPED_PLACE "print" -> "web" in TF83): "Reading is right (Recommended)" [accepted recommendation]
+- Round 84 answer 2 (line 128): Reading of round 83 answer 11 (Clear mark grayed on a Run mark with after "restart", text "Clear mark is off because this mark starts the new run after a Restart."): "Reading and text are right (Recommended)" [accepted recommendation]
+- Round 84 answer 3 (line 129): TR77d1 scope: "Step only, page hook in TR77d2 (Recommended)" [accepted recommendation]
+- Round 84 answer 4 (line 130): Names of the new update step events: "Hyphen names (Recommended)" [accepted recommendation]
+- Round 84 answer 5 (line 131): DZ82 docs items: "Record round 83 and 84 answers (Recommended), Record unit results (Recommended), Fix the retriever claim (Recommended), Fix the notes order sketch (Recommended), Add request.done.json (Recommended), Web year fold text (Recommended), Grayed Clear mark text (Recommended), Close answered open items (Recommended)" [accepted all 8]
+- Round 84 answer 6 (line 132): TF83 Viewer items: "Test guards from config (Recommended), Stable monitor-actions test (Recommended), Old totals in text (Recommended), Fix stamp comment (Recommended), PST on translate and admin (Recommended), Web year fold (Recommended), Grayed Clear mark (Recommended)" [accepted all 7]
+- Round 84 answer 7 (line 133): Units to start: "DZ82 docs (Recommended), TR77d1 update step (Recommended), TF83 Viewer fixes (Recommended), CE82 cost update (Recommended), TV83 ToC rows (Recommended)" [accepted all 5]
+- Round 84 answer 8 (line 134): Time of hand step 8.10a (page image upload): "With the v2 deploy (Recommended)" [accepted recommendation]
+- Round 84 answer 9 (line 135): DESTRUCTIVE delete of temp folders: "Delete old folders (2,319 MB), Delete r75/RT74 (1,048 MB), Delete r80/VW77a (1,405 MB), Delete r72/RC5 (2,135 MB)" [user chose destructive options 5, 4, 3, 2]
+- Round 84 answer 10 (line 136): Commit plan: "Accept batch, then commit (Recommended)" [accepted recommendation]
+- Round 84 answer 11 (line 137): Units after round 84 (plan only): "TR77d2 templates and wiring (Recommended), VW77c Details view (Recommended), Phase 2 run command, VW77d Run settings panel" [accepted 2 recommendations plus options 3 and 4]
+- Round 84 answer 12 (line 138): Other wishes: (no answer)
+- Round 84 answer 13 (line 139): Session control: "Run the plan (Recommended)" [accepted recommendation]
+
+Notes by aki-main (not owner words). They sit at the lines 121 to 124 and 140 to 143 of the Q-A file. The script copied each note in full.
+
+- Line 122 (not owner words): Answer 4: every web article sits in the fold of its web year; the fold Kendo Jidai 2019 shows 14 articles and 39 pages; this replaces round 70 answer 6 "Print month" (qa-memory-2026-10-29.md:121); the 36 stamped articles (135 pages) leave the print months of 2011 to 2018; the change is `STAMPED_PLACE` in `<V2>/app/lib/reader-folds.ts:23` plus tests, in unit TF83 [reading pending owner check].
+- Line 123 (not owner words): Answer 11: Clear mark is grayed on a Run mark with `after` "restart", with a reason in words; the change goes into unit TF83 [aki-main proposal].
+- Line 124 (not owner words): Answer 24: this is the last batch of the session. aki-main runs the commits and the TV82 apply, does not dispatch the five units, and writes the resume file. The five units are the first dispatch of the next session.
+- Line 141 (not owner words): Answer 9: the delete covers exactly <TMP>/r35/g2, r49/V3, r54/H1, r62/PC1, r63/RC1, r75/RT74, r80/VW77a, r72/RC5. The sibling folders r75/aki, r75/DZ74, r80/DZ79, r80/TJ80 stay.
+- Line 142 (not owner words): Answer 4: the new event names are update-point-started, prompt-live, prompt-rejected, box-stopped. A box-stopped event comes before the usual stopped event with reason "rule" [aki-main proposal accepted].
+- Line 143 (not owner words): Answer 11: "Phase 2 run command" and "VW77d Run settings panel" are planned after TR77d2. Nothing starts before a later owner answer.
+
+Round 84 answer 1 confirms the reading of the note at line 122 (answer 4 of round 83). Round 84 answer 2 confirms the note at line 123 (answer 11 of round 83) and its text. The note at line 124 closed the session of round 83.
+
+##### 15.36.3 Results of the round 82 units
+
+These results come from the plan file and from the result folders of the units. DZ82 read the files and ran no test. Round 83 answers 1 to 3 and 6 accepted them.
+
+- VW77b2 built the Restart dialog, the Clear mark button, and the page check date with PST. The dialog has 16 pick lists and quick select. aki-main checked that 12 VW77b2 files equal the unit copy. `BookRow.tsx` shows the refused Restart on its own third line `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:30]`. The commit is e7b4b5d on v2/viewer `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:36]`.
+- TF82 changed the test numbers after the tanden join. Example: the total in `app/scripts/smoke.mjs` goes from 14,116 to 14,135 pages, and the Books fold goes from 4,821 to 4,840 pages `[file: <TMP>/r82/TF82/numbers.tsv]`. The translated percent goes from 8.2 to 8.1, because 1,151 of 14,135 pages is 8.1429 percent `[file: <TMP>/r82/TF82/numbers.tsv]`.
+- TF82 tests: the next build, the lint run, and `tsc` end with exit 0 `[file: <TMP>/r82/TF82/test-results.txt:3-5]`. The old modes end with deploy 39/0, tolerance 21/0, read 300/0, web 77/0, folds 0 failures, and run_rt74 0 FAIL `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:36]`. The commit is e060806.
+- SV82 found why the fold "Kendo Jidai 2019" shows 9 of 14 web articles. Five stamped articles of 2019 sit in print months by round 70 answer 6 `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:29]`.
+- SV82 example: `d7835263` (2019-10-21, 3 pages, stamp "2012.2 KENDOJIDAI") sits today in Kendo Jidai > 2012 > February 2012. The same fold holds `8d5ff367` and `396571c1`. `9b4c87fb` sits in March 2017, and `94380515` sits in October 2013 [file: <TMP>/r82/SV82/table2019.txt:2,4,11,13,15].
+- SV82 counts: 36 stamped web articles with 135 pages sit in the print months of 2011 to 2018. By web year, 5 are from 2019, 15 from 2020, 7 from 2021, 5 from 2024, and 4 from 2025 [file: <TMP>/r82/SV82/compare.txt:14-15].
+- SV82 pages per year book: 2019 39, 2020 182, 2021 224, 2022 201, 2023 172, 2024 148, and 2025 158 pages. The 311 web articles hold 1,124 pages in all [file: <TMP>/r82/SV82/partB.txt:2-11].
+- SV82 retriever pool: 26,303 units of 244 `train-retrieval` articles (24,256 eligible units). The pool holds no unit of the 40 `train-feedback` articles and no unit of the 27 `test` articles [file: <TMP>/r82/SV82/partC_data.txt:1].
+- SV82 pool example: the `train-retrieval` article `d7835263` has 79 units in the pool. The `test` article `fc4a7606` has 0, and the `train-feedback` article `94380515` has 0 [file: <TMP>/r82/SV82/partC_examples.txt:1].
+- TV82 wrote ToC rows for three books. `etiqu1_full` has 61 rows (the machine rows were 48). `kodass200_full` has 224 rows (178). `sumiss10_c1_full` has 11 rows (78) [file: <TMP>/r82/TV82/diff-summary.txt:1,6,11].
+- aki-main spot-checked 10 random rows per book outside the TV82 spot tables. 30 of 30 rows have the title on their `pdf_page`. The offsets are right `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:32]`.
+- aki-main applied the TV82 rows (round 83 answer 6). The file `toc-review.jsonl` grew from 852 to 1148 rows. The rebuild of `book-toc.jsonl` gave 1150 rows: 1148 checked by aki-main and 2 needs-image (`sumiss_train_full`, `tani_ss_full`) `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:37]`.
+- aki-main committed the round 82 work: e7b4b5d, e060806, 477e440 (VISION), and 0d0d568 (design). The merge is aa427cb, and the selftest gave TOTAL 708/708. Nothing was pushed `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:36]`.
+- The results of TR77d1, TF83, CE82, and TV83 of round 84 are Not verified when this unit writes.
+
+##### 15.36.4 What each answer changes
+
+1. Every web article sits in the fold of its web year and month on the Reader dashboard `/read`. Owner words: round 83 answer 4 "Show web year" and round 84 answer 1 "Reading is right (Recommended)". This replaces round 70 answer 6, "Print month (Recommended)" (`qa-memory-2026-10-29.md:121`).
+   - Example: `d7835263` (2019-10-21, 3 pages) moves from Kendo Jidai > 2012 > February 2012 to Kendo Jidai > 2019 > October 2019 [file: <TMP>/r82/SV82/table2019.txt:2].
+   - Example: record `63654ba0` (Teramoto, part 2, stamp 2011.8 KENDOJIDAI) has 4 pages. It moves from Kendo Jidai > 2011 > August 2011 to Kendo Jidai > 2025 > April 2025 `[brief fact, aki-main check 2026-11-02]` [file: <TMP>/r82/SV82/db_web.json:105]. Its 4 translated pages move with it `[agent inference]`.
+   - The unstamped example `18d4ac29` (Kendo Jidai > 2020 > August 2020, "Kendo droplet guard") stays where it is.
+   - The change in the code is `STAMPED_PLACE` in `<V2>/app/lib/reader-folds.ts:23`. It reads "print" now and becomes "web" in unit TF83 `[check: DZ82 2026-11-02 20:52 PST grep -n STAMPED_PLACE lib/reader-folds.ts]`.
+   - The 36 stamped articles (135 pages) leave the print months of 2011 to 2018. The folds below grow `[brief fact, aki-main check 2026-11-02]` [file: <TMP>/r82/SV82/compare.txt:14-15] [file: <TMP>/r82/SV82/partB.txt:2-10].
+
+| Fold of Kendo Jidai | Articles now | Articles after | Pages now | Pages after |
+|---|---|---|---|---|
+| 2019 | 9 | 14 | 24 | 39 |
+| 2020 | 39 | 54 | 131 | 182 |
+| 2021 | 48 | 55 | 189 | 224 |
+| 2022 | 51 | 51 | 201 | 201 |
+| 2023 | 48 | 48 | 172 | 172 |
+| 2024 | 40 | 45 | 130 | 148 |
+| 2025 | 40 | 44 | 142 | 158 |
+
+   - The web-only month folds go away: June 2018 (1 article), July 2018 (1), September 2018 (5), and October 2018 (2) [file: <TMP>/r82/SV82/compare.txt:17].
+   - The total on `/read` stays "342 works, 14,135 pages". Only the folds change `[brief fact, aki-main check 2026-11-02]`.
+   - Effect on the screen. A reader who opens Kendo Jidai > 2019 sees 14 web articles and 39 pages. Before, the fold showed 9 articles and 24 pages `[file: .opencode/reminders/plan/evolving-plan-2026-11-02.md:20]`.
+   - Effect on the screen. The print month folds of 2011 to 2018 hold magazine articles only. The fold August 2011 loses `63654ba0` `[agent inference]`.
+2. The year book `kendojidai_2019` holds all 14 articles of 2019 (round 83 answer 5 "Reading is right (Recommended)"). The split is 1 `train-feedback`, 3 `test`, and 10 `train-retrieval`, with 39 pages [file: <TMP>/r82/SV82/partB.txt:4].
+3. The retriever claim of DZ81 was wrong (round 83 answer 1 "Accept, fix claim next (Recommended)"). The pool holds only the 244 `train-retrieval` articles. A `test` article or a `train-feedback` article cannot get its own human EN from the retriever.
+   - Example: the `test` article `fc4a7606` of 2019 has 0 units in the pool [file: <TMP>/r82/SV82/partC_examples.txt:1].
+   - Round 82 answer 21 "No rule" has no effect on the 27 `test` articles and the 40 `train-feedback` articles.
+   - A `train-retrieval` article in a year book run can get its own human EN. Example: `d7835263` has 79 units in the pool `[agent inference]`.
+   - The wrong sentence sat in open item 1 of section 15.35.13. Section 15.36.5 lists the lines that DZ82 fixed.
+4. Clear mark is grayed on a Run mark with `after` "restart" (round 83 answer 11 "Gray it out (Recommended)", round 84 answer 2 "Reading and text are right (Recommended)"). A Restart writes this mark, and it starts the new run from page 1 `[brief fact, aki-main check 2026-11-02]`.
+   - The reason text is "Clear mark is off because this mark starts the new run after a Restart."
+   - Other marks keep the current rules. Unit TF83 builds the gray rule in round 84. Its result is Not verified.
+   - Example state (not run data): you press Restart on the row of `mental_full` in phase agent-phase-4. The row shows the Run mark with `after` "restart". The button Clear mark is grayed with the reason text above.
+5. Clear mark moves `request.json` to `request.done.json` and overwrites an older `request.done.json` (round 83 answer 12 "Keep the move (Recommended)", answer 13 "Overwrite (Recommended)").
+   - The code of VW77b2 writes `request.done.json.part` and renames it over `request.done.json`. Then it removes `request.json` [file: <V2>/app/lib/book-restart-actions.ts:159-163].
+   - The moved mark gets two added keys: `cleared_utc` and `cleared_by` "Monitor dashboard" [file: <V2>/app/lib/book-restart-actions.ts:28].
+   - The Translator also writes `request.done.json` when it handles a mark. It adds the keys `handled_utc` and `handled_by_pid` [file: <T2>/docs/drafts/translator-design.md:6544].
+   - Example state (not run data): `mental_full` holds a `request.done.json` of an earlier Run mark. You press Clear mark on a refused Restart mark. The file now holds the Restart mark with `cleared_utc`, and the earlier mark is gone.
+   - The Viewer now writes five kinds of files. Line 4305 of this file lists them.
+6. The key `update_point` in a prompt version file holds the page ID as text, for example "p060" (round 83 answer 14 "TR77d writes p060 (Recommended)"). Example: ED_2 `v4.1.3` made by the update point after p060 holds `"update_point": "p060"` `[agent inference]`.
+7. Unit TR77d1 builds the update point step only (round 84 answer 3 "Step only, page hook in TR77d2 (Recommended)").
+   - TR77d1 builds the step, its checks, the version files `prompts/<BOX>/v<phase>.<run>.<updates>.json` with the `current` pointer, and the event `update-point-ended`.
+   - TR77d1 builds the loop over the fired boxes in order. It uses a stub in place of model calls.
+   - Unit TR77d2 adds the model templates and the call from the page loop. Nothing starts before a later owner answer.
+8. The new events use hyphen names (round 84 answer 4 "Hyphen names (Recommended)").
+
+| Old name | New name |
+|---|---|
+| `update point started` | `update-point-started` |
+| `prompt live` | `prompt-live` |
+| `prompt rejected` | `prompt-rejected` |
+| `box stopped` | `box-stopped` |
+
+   - A `box-stopped` event names the box. It comes before the usual `stopped` event with the reason "rule" `[owner, round 84 answer 4]`.
+   - Example state (not run data): ED_2 of `mental_full` gets its 3rd double REJECT in a row after p080. The history file gets `prompt-rejected`, then `update-point-ended` with the result "rejected twice", then `box-stopped` for ED_2, then `stopped` with the reason "rule".
+9. The notes of a version row keep the DZ78 order (round 83 answer 16 "Keep DZ78 order (Recommended)"). Section 15.32.9, item 1, holds the order.
+   - Order of the notes in one row: (1) starting version or restart start version.
+   - (2) last version of run N. (3) previous restart version. (4) current live version. (5) update after pNNN.
+   - The code of VW77b2 pushes the notes in this order [file: <V2>/app/lib/restart-rules.ts:174-177].
+   - Example: TL_1 `v4.1.2` is live up to p080 and was made by the update point after p040. Its notes read "current live version, update after p040".
+   - DZ82 changed the four sketch rows in section 15.31.2 (lines 6355 to 6358). The values stay invented.
+10. The owner hand step 8.10a runs on deploy day (round 84 answer 8 "With the v2 deploy (Recommended)"). It uploads the page images, also the 295 `tanden_full` images, to `/opt/pocketbase-v2/page-images` on the server `[brief fact, aki-main check 2026-11-02]`.
+11. The ToC rows of three books are applied (round 83 answers 6 to 10 and 22). The owner kept three rules. "First tier only" covers the deeper lines of `etiqu1_full`. "No rows" covers the DVD list of `sumiss10_c1_full` p003. "Keep ToC wording" covers the ToC against the page.
+   - Example of "Keep ToC wording": `sumiss10_c1_full` order 2 reads "第1章 「小手技」の基本" in the ToC. The page `page_009.md` line 4 reads "第1 「小手技」の基本". The row keeps the ToC wording [file: <TMP>/r82/TV82/spot-sumiss10_c1_full.md:6].
+   - Example of the page offset: `etiqu1_full` order 2 "第一章 日本人と剣道" has `page_ref` 7 and `pdf_page` 9 [file: <TMP>/r82/TV82/spot-etiqu1_full.md:6].
+   - The four other TV82 rules are kept: "Drop the ◉ bullet", "Join wrapped titles", "Chapter number plus title", and "Columns are level 2 rows". The old md flaws of `kodass200_full` stay (answer 21 "Leave them").
+   - Unit TV83 does the last two ToC books, `sumiss_train_full` and `tani_ss_full` (answer 22 "Do them now, TV83 (Recommended)"). Its result is Not verified.
+12. Process answers. Round 83 answers 2 and 3 accept VW77b2 and the TF82 patch. Answer 18 keeps six VW77b2 rules. Answer 20 lists five Viewer fixes for unit TF83. Round 84 answer 6 adds the web year fold and the gray Clear mark to TF83, so TF83 has seven items.
+   - Round 82 answer 14 (PST on `/translate` and `/admin` in a later unit) now sits in TF83 (round 83 answer 20, item "PST on translate and admin (Recommended)").
+   - Round 84 answer 5 lists the eight items of this unit. Round 84 answer 7 starts DZ82, TR77d1, TF83, CE82, and TV83. Round 84 answer 10 accepts the batch before the commits.
+   - Round 84 answer 9: aki-main deleted eight old temp folders. This is housekeeping and changes no rule.
+   - Round 84 answer 11 plans TR77d2, VW77c (Details view), the phase 2 run command, and VW77d (Run settings panel). Nothing starts before a later owner answer.
+
+##### 15.36.5 Lines of this file that DZ82 changed in place
+
+Each row is one line of this file. The unit changed the line in place. The line count above this section is the same before and after the edit. Quoted old answers stay as they were.
+
+| Line | Old text in short | New text in short | Source |
+|---|---|---|---|
+| 3403 | stamped article sits in print month | web year and month | round 83 answer 4 and round 84 answer 1, qa-memory-2026-11-02.md:99,127 |
+| 4305 | Viewer writes four kinds of files | five kinds, request.done.json added | round 83 answers 12 and 13, qa-memory-2026-11-02.md:107,108 |
+| 4305 | check accepts PAUSE and request.json | adds request.done.json and the code check | round 83 answers 12 and 13, qa-memory-2026-11-02.md:107,108 |
+| 4451 | stamped article in print month, 63654ba0 in August 2011 | web year rule, 63654ba0 moves to April 2025 | round 83 answer 4 and round 84 answer 1, qa-memory-2026-11-02.md:99,127 |
+| 4453 | stamped 2018 article makes a web-only month | four web-only month folds go away | round 83 answer 4, qa-memory-2026-11-02.md:99 |
+| 6336 | notes pending owner check | notes accepted in round 79 answers 4 and 5 | round 79 answers 4 and 5, qa-memory-2026-11-01.md:96,97 |
+| 6338 | sketch shows 4 of 16 rows | adds the DZ78 order and run names | round 83 answer 16, qa-memory-2026-11-02.md:111 |
+| 6355 | sketch row in older note order | row in DZ78 order with run name | round 83 answer 16, qa-memory-2026-11-02.md:111 |
+| 6356 | sketch row in older note order | row in DZ78 order with run name | round 83 answer 16, qa-memory-2026-11-02.md:111 |
+| 6357 | sketch row in older note order | row in DZ78 order with run name | round 83 answer 16, qa-memory-2026-11-02.md:111 |
+| 6358 | sketch row in older note order | row in DZ78 order with run name | round 83 answer 16, qa-memory-2026-11-02.md:111 |
+| 6769 | Restart dialog and Clear mark come in VW77b2 | VW77b2 built them, e7b4b5d | round 83 answer 2, qa-memory-2026-11-02.md:97 |
+| 7231 | option 1 reading pending owner check | reading confirmed | round 83 answer 5, qa-memory-2026-11-02.md:100 |
+| 7264 | results of four units Not verified | pointer to section 15.36.3 | plan file lines 29 to 37 |
+| 7323 | cause Not verified, SV82 surveys | SV82 found the cause | round 83 answer 4, qa-memory-2026-11-02.md:99 |
+| 7351 | step 8.10a state Not verified | step runs with the v2 deploy | round 84 answer 8, qa-memory-2026-11-02.md:134 |
+| 7383 | what Clear mark deletes Not verified | moves request.json, gray rule | round 83 answers 11 to 13, qa-memory-2026-11-02.md:106-108 |
+| 7387 | no unit is named for PST on /translate and /admin | unit TF83 named | round 83 answer 20, qa-memory-2026-11-02.md:115 |
+| 7411 | refused line wording Not verified | own line under line 2 | round 83 answer 17, qa-memory-2026-11-02.md:112 |
+| 7478 | reading pending owner check | reading confirmed | round 83 answer 5, qa-memory-2026-11-02.md:100 |
+| 7479 | retriever can return the human EN | adds: only for a train-retrieval article | round 83 answer 1, qa-memory-2026-11-02.md:96 |
+| 7482 | SV82 result Not verified | pointer to section 15.36.3 | plan file line 29 |
+| 7492 | runs in round 82, Not verified (4 rows) | result in section 15.36.3 (4 rows) | plan file lines 29 to 37 |
+| 7493 | runs in round 82, Not verified (4 rows) | result in section 15.36.3 (4 rows) | plan file lines 29 to 37 |
+| 7494 | runs in round 82, Not verified (4 rows) | result in section 15.36.3 (4 rows) | plan file lines 29 to 37 |
+| 7495 | runs in round 82, Not verified (4 rows) | result in section 15.36.3 (4 rows) | plan file lines 29 to 37 |
+| 7576 | open item 1: confirm reading, wrong retriever claim | decided, claim fixed | round 83 answers 1 and 5, qa-memory-2026-11-02.md:96,100 |
+| 7577 | open item 2: refused line wording | decided: own line under line 2 | round 83 answer 17, qa-memory-2026-11-02.md:112 |
+| 7578 | open item 3: hand step 8.10a now or later | decided: with the v2 deploy | round 84 answer 8, qa-memory-2026-11-02.md:134 |
+| 7582 | Not verified: four results | pointer to section 15.36.3 | plan file lines 29 to 37 |
+| 7585 | Not verified: cause of 9 web articles | found by SV82 | plan file line 29 |
+| 7586 | Not verified: step 8.10a | runs with the v2 deploy | round 84 answer 8, qa-memory-2026-11-02.md:134 |
+| 7588 | Not verified: Viewer reads restart_requested_utc | Viewer reads it first, then requested_utc | file check, book-status-rules.ts:361 |
+| 7589 | Not verified: refused line wording | decided: own line under line 2 | round 83 answer 17, qa-memory-2026-11-02.md:112 |
+| 7590 | reading at line 88 waits | reading confirmed | round 83 answer 5, qa-memory-2026-11-02.md:100 |
+| 7592 | Not verified: what Clear mark deletes | moves and overwrites request.done.json | round 83 answers 12 and 13, qa-memory-2026-11-02.md:107,108 |
+| 7595 | status: items wait | status: items answered in rounds 83 and 84 | rounds 83 and 84 |
+
+Open items that rounds 83 and 84 closed:
+
+- Section 15.35.13, item 1 (reading of round 82 answer 20): closed by round 83 answer 5. The retriever claim in the same item is fixed.
+- Section 15.35.13, item 2 (wording of the refused line): closed by round 83 answer 17.
+- Section 15.35.13, item 3 (hand step 8.10a): closed by round 84 answer 8.
+- Section 15.34.12, item 2 (the line stated the reading as pending): closed by round 83 answer 5.
+- Sections 15.33.12 and 15.34.12: DZ82 found no other open item that round 83 or 84 answered.
+
+Lines that stay as history, checked by the unit:
+
+- Line 4535 quotes round 70 answer 6, "Print month (Recommended)". Lines 4566 and 4569 are dated checks of 2026-10-30. They stay.
+- Line 3430 sits in a code block and shows the fold "September 2018". The code block stays as it is. The fold goes away when TF83 ships (section 15.36.4, item 1).
+- Line 7313 quotes the note at line 89 of an earlier Q-A file state. The correction sits in item 3 of section 15.36.4.
+- The tables of rounds 80 to 82 (sections 15.33.10, 15.34.10, 15.35.11) list lines of those rounds. They stay.
+
+##### 15.36.6 Unit defaults of DZ82
+
+No owner answer settles these items.
+
+1. `[unit default DZ82]` Rule: open item 1 keeps the wrong sentence of DZ81 as a quote, marked "Old sentence, wrong". Example: VISION line 7576. Other option: delete the old sentence. Benefit: a reader sees what was wrong. Cost: the line is longer.
+2. `[unit default DZ82]` Rule: a line that says "Not verified" or "runs in round 82" about a round 82 unit gets a pointer to section 15.36.3. Example: VISION lines 7492 to 7495. Other option: leave these lines as history. Benefit: a reader sees the current state. Cost: the line no longer shows what DZ81 knew at write time.
+3. `[unit default DZ82]` Rule: the four sketch rows in this file, section 15.31.2, name the run ("run 1"). They use the short page count ("(80)"). A start version reads "no critiques used". Example: TS_0 `v4.1.0`. Other option: widen the box in all 23 lines. Benefit: only four lines change. Cost: the rows read less like the pick list table.
+4. `[unit default DZ82]` Rule: the rows TL_1 and QA_3 of the sketch get the note "current live version". The book stands at p080 and both versions are live up to p080. Example: TL_1 `v4.1.2` is live on p041 to p080. Other option: keep one note for each row. Benefit: the rows follow the rule and the code. Cost: the row text is longer.
+5. `[unit default DZ82]` Rule: each of the four renamed events carries `[owner, round 84 answer 4]` on its own line. The events `update-point-ended` and `prompts-copied` keep the tag of their list. Example: design line 6849. Other option: tag the list once. Benefit: a reader of one line sees the source. Cost: four tags instead of one.
+6. `[unit default DZ82]` Rule: DZ82 also changed the spaced event names on three more lines that the brief did not name: design lines 6814, 6890, and 7538. Example: line 6890 reads "writes the event `prompt-live`". Other option: leave these lines with the old names. Benefit: one name for each event in the file. Cost: three more changed lines.
+7. `[unit default DZ82]` Rule: the quoted notes of aki-main stay as quotes, also where the note is wrong. The correction sits in section 15.36.4, item 3. Example: VISION line 7313. Other option: edit the quote. Benefit: quotes stay exact. Cost: a wrong note stays visible.
+8. `[unit default DZ82]` Rule: an example that shows a book state with no real run uses a real book ID and the words "example state (not run data)". Example: `mental_full` in item 4 of section 15.36.4. Other option: use invented IDs. Benefit: the owner sees real names. Cost: a reader can take the state for a fact, so the label must stay.
+
+##### 15.36.7 Open items for the owner
+
+The first option of each item is the recommended option.
+
+1. Notes order in older sketches and tables `[aki-main proposal]`. Recommended: a later docs unit changes the older rows to the DZ78 order. Example: the pick list of ED_2 in section 15.32.2 (lines 6517, 6520, 6523) reads `v4.1.6`: "update after p075, last version of run 1". The DZ78 order and the code give "last version of run 1, update after p075". Benefit: all docs show the order that the screen shows. Cost: one more docs unit, and the row `v4.2.2` changes too. Other option: keep the older rows as history.
+2. Folder name in the Restart dialog sketch `[aki-main proposal]`. Recommended: a later docs unit changes `archive/<time>/` to `archive/<run ID>/` in the code block of section 15.31.2 (line 6344 of `<V2>/docs/VISION-viewer.md`). Round 79 answer 10 chose "Run ID of the ended run (Recommended)". Example: `archive/20261104T001500-0800/` (invented run ID of DZ78). Benefit: the sketch matches the rule. Cost: one more docs edit. Other option: keep `archive/<time>/`.
+3. Own human EN in year book runs `[aki-main proposal]`. Recommended: keep round 82 answer 21 "No rule". Example: the book `kendojidai_2019` holds 10 `train-retrieval` articles. The retriever can return the human EN of `d7835263` while that article runs. Benefit: no new rule and no code. Cost: a score on a `train-retrieval` article of a year book run is not clean `[agent inference]`. The 27 `test` articles stay clean. Other option: skip the units of the same article in the retriever. Benefit: every score is clean. Cost: new code in the retriever.
+
+##### 15.36.8 Not verified
+
+- The results of TR77d1, TF83, CE82, and TV83 of round 84 are Not verified. They run while this unit writes.
+- The code of `STAMPED_PLACE` reads "print" at the write time. The web year fold on the live Reader dashboard `/read` is Not verified.
+- The fold numbers of the table in item 1 come from the files of SV82 and from the brief. DZ82 added no live GET of `/read`.
+- The gray Clear mark on a Run mark with `after` "restart" is not built at the write time. Its result is Not verified.
+- The reason why the owner wants Clear mark grayed on this mark is Not verified. No Q-A line states it.
+- DZ82 read the code of VW77b2 in four files (`book-restart-actions.ts`, `restart-rules.ts`, `book-status-rules.ts`, `book-actions.ts`). It ran no test.
+- The state of the owner hand step 8.10a is Not verified. It runs with the v2 deploy.
+- The deploy day is Not verified. No file names a date.
+- The server path `/opt/pocketbase-v2/page-images` comes from the brief. DZ82 did not check the server.
+- The dev server on port 3000 and PocketBase on port 8090 were not read or changed.
+
+Status: round 83 and 84 answers applied by unit DZ82. Items in section 15.36.7 wait for the owner.
