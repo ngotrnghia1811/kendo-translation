@@ -5,7 +5,9 @@ import RowButtons from "./RowButtons";
 // Unit VW77a (round 80), VISION-viewer 15.24.4.3: a row has two lines. Line 1 holds the facts in fixed columns, line 2 holds one sentence in words.
 // A third line shows only when an error text exists. It is red, it names the page and the box, and it is never cut.
 // Unit VW77b1 (round 81): the buttons Run, Run phase 4, Pause, and Resume sit at the end of line 1 (components/RowButtons.tsx).
-// Unit VW77b2 (round 82): the buttons Restart and Clear mark sit in the same place. No Details link yet (unit VW77c, round 81 answer 25).
+// Unit VW77b2 (round 82): the buttons Restart and Clear mark sit in the same place.
+// Unit VW77c (round 86): every row gets a link "Details" to the Details view `/monitor/<slug>` (round 85 answer 30 and round 86 answer 18: "VW77c Details view (Recommended)").
+// The link sits outside RowButtons, so a Running row while a Restart waits keeps it with no button (round 80 answer 18: "Keep the Details link (Recommended)").
 // A refused Restart adds its own line (round 81 answers 15 and 16).
 export default function BookRow({ row, now, onChanged }: { row: MonitorRow; now: number; onChanged: () => Promise<void> }) {
   const hasRun = row.key !== "not-started" && row.key !== "unreadable";
@@ -49,6 +51,11 @@ export default function BookRow({ row, now, onChanged }: { row: MonitorRow; now:
           </>
         ) : null}
         <RowButtons row={row} onChanged={onChanged} />
+        <div data-col="details">
+          <a data-details-link href={`/monitor/${encodeURIComponent(row.slug)}`} aria-label={`Details of ${row.slug}`} className="rounded border border-line bg-white px-3 py-1 text-sm font-medium text-foreground hover:bg-stone-50">
+            Details
+          </a>
+        </div>
       </div>
       {line2 || row.note ? (
         <p data-row-line2 className="mt-1 text-sm text-muted">

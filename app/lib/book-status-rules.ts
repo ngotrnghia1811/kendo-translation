@@ -725,7 +725,7 @@ function pidText(f: BookFacts): string {
  *     Never on a Running row. Never on an unreadable-status row.
  * Unit TF83 (round 83 answer 11, round 84 answer 2): on a Run mark with `after: "restart"` the Clear mark button shows grayed with the reason
  *   "Clear mark is off because this mark starts the new run after a Restart." The route answers 409 with the same words. Other marks keep their rules.
- * No Details link (unit VW77c).
+ * The link Details is no button: components/BookRow.tsx draws it on every row, also on a row with no button (unit VW77c, round 86).
  */
 export function actionButtons(f: BookFacts, r: Pick<MonitorRow, "pilot" | "baseLabel">, base: LabelKey, mark: ReturnType<typeof markInfo>, refusedNow: boolean): ActionButton[] {
   const unreadable = base === "unreadable";

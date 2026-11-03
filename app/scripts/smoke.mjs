@@ -33,12 +33,15 @@
 //   node scripts/smoke.mjs monitor-restart             Restart and Clear mark buttons and the data of the Restart dialog (unit VW77b2, round 82): lib/book-status-rules.ts and lib/restart-rules.ts. Pure code, no server.
 //   node scripts/smoke.mjs monitor-restart-api --config FILE --fixture DIR   The routes GET /api/monitor/books/<slug>/restart-options, POST .../mark with action restart, POST .../clear-mark
 //                                                      on the fixture of restart_fixture.py (real Translator code). It WRITES into the fixture DIR (a folder outside the protected data folders, see scripts/smoke-guards.mjs).
+//   node scripts/smoke.mjs details --config FILE --fixture DIR --t2-scripts DIR   Details view of one book `/monitor/<slug>` (unit VW77c, round 86): the link Details on each row, the route and the page, the 404 cases,
+//                                                      the Run ID text of archived runs, the critique share (equal to critique_share of the Translator, run from --t2-scripts), the stop flag with its 3 reasons,
+//                                                      the Restart button in the Details view, and the Running row with a waiting Restart. Reads only. The fixture is made by restart_fixture.py --details.
 // The script starts `next start` on a free port and stops it at the end (the modes folds, layout, monitor-rules, and monitor-restart start no server).
 // Run `npm run build` first. Run the script in a copy of the app, not in the folder of the dev server.
 // Mode `pause` sends POST requests. Never run it with the real data folder.
 // Mode `htv` writes records into PocketBase (versions, comments, run marks). Point pocketbaseUrl of the config at a throwaway server only.
 // A check prints PASS, FAIL, or SKIP. A SKIP names the reason and does not count as a failure.
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { createServer } from "node:net";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -3159,7 +3162,7 @@ async function monitorTest() {
   check("GET / shows rows as the design says: 'Stopped by Pause at', 'Mark waiting: Resume requested', 'Making the Difference on the Day: Mental Strengthening for Kendo (mental_full)' with pilot list, '6 of 120 pages', the error line with 'Error on p089'", /Stopped by Pause at \d\d:\d\d PST\. Last saved page p080\. Resume starts at p081\./.test(text) && /Mark waiting: Resume requested \d\d:\d\d PST/.test(text) && text.includes("Making the Difference on the Day: Mental Strengthening for Kendo (mental_full)") && text.includes("pilot list") && text.includes("6 of 120 pages") && text.includes("Error on p089, box box-critic.TS_3: invalid JSON"));
   check("GET / title tag holds the count of Needs attention in the first paint ('(N) Monitor dashboard' in <title>, N from the summary line)", new RegExp(`<title>\\(${d.summary.counts["Needs attention"]}\\) Monitor dashboard</title>`).test(r.body), (r.body.match(/<title>.*?<\/title>/) ?? [""])[0]);
   check("GET / groups are details elements with summary; the open state comes from the start rule (Needs attention open, Not started closed)", /<details[^>]*data-group="Needs attention"[^>]*open=""/.test(r.body) && !/<details[^>]*data-group="Not started"[^>]*open=""/.test(r.body) && !/<details[^>]*data-group="Completed"[^>]*open=""/.test(r.body) && (r.body.match(/<summary/g) ?? []).length >= 6);
-  check("GET / has a progressbar for a row with a total, a state label with a symbol and a word, the buttons of unit VW77b1 (data-action), the Restart button of unit VW77b2 on a row with a run, and no Details link yet", /role="progressbar"/.test(r.body) && /data-state-label="running"[^>]*>.{0,80}●.{0,40}Running/.test(r.body.replace(/<!--.*?-->/g, "")) && /data-action="(run|resume|pause)"/.test(r.body) && /data-action="restart"/.test(r.body) && !/>Details</.test(r.body.replace(/<script[\s\S]*?<\/script>/g, "")));
+  check("GET / has a progressbar for a row with a total, a state label with a symbol and a word, the buttons of unit VW77b1 (data-action), the Restart button of unit VW77b2 on a row with a run, and the link Details of unit VW77c on a row", /role="progressbar"/.test(r.body) && /data-state-label="running"[^>]*>.{0,80}●.{0,40}Running/.test(r.body.replace(/<!--.*?-->/g, "")) && /data-action="(run|resume|pause)"/.test(r.body) && /data-action="restart"/.test(r.body) && /<a[^>]*data-details-link[^>]*href="\/monitor\/[A-Za-z0-9_.-]+"[^>]*>Details<\/a>/.test(r.body.replace(/<script[\s\S]*?<\/script>/g, "")));
   check("GET / sends the nav with the tabs Monitor dashboard, Lists, Books, Human translation (no Run settings tab yet)", (() => { const nav = r.body.match(/<nav[^>]*aria-label="Main tabs"[\s\S]*?<\/nav>/)?.[0] ?? ""; const t = visibleText(nav).trim().replace(/\s+/g, " "); return t === "Monitor dashboard Lists Books Human translation" && /href="\/runs"/.test(nav); })());
   r = await get("/runs");
   const rt = visibleText(r.body);
@@ -3409,7 +3412,7 @@ async function monitorActionsTest() {
   check("The grayed button stays in the Tab order (no disabled attribute, no tabindex -1)", !/<button[^>]*data-grayed[^>]*\sdisabled/.test(rowHtml("fx_pause_req")) && !/tabindex="-1"/.test(rowHtml("fx_pause_req")));
   check("Running while a Restart mark waits (fx_restart_note): no button, the note stays", !/data-action/.test(rowHtml("fx_restart_note")) && /Restart requested \d\d:\d\d PST/.test(rowHtml("fx_restart_note")));
   check("The refused row shows its own line with data-row-refused", /data-row-refused[^>]*>Restart refused: ED_2 v4.1.3 has no file</.test(rowHtml("fx_refused")));
-  check("GET / draws the Restart button (unit VW77b2) on a Running, a Stopped, and a Completed row, and has no Details link yet (unit VW77c)", /data-action="restart"/.test(rowHtml("fx_running")) && /data-action="restart"/.test(rowHtml("fx_rule")) && /data-action="restart"/.test(rowHtml("fx_done4")) && !/data-action="restart"/.test(rowHtml("fx_ns")) && !/data-action="restart"/.test(rowHtml("fx_wait_restart")) && !/>Details</.test(html));
+  check("GET / draws the Restart button (unit VW77b2) on a Running, a Stopped, and a Completed row, and a Details link on each of them (unit VW77c)", /data-action="restart"/.test(rowHtml("fx_running")) && /data-action="restart"/.test(rowHtml("fx_rule")) && /data-action="restart"/.test(rowHtml("fx_done4")) && !/data-action="restart"/.test(rowHtml("fx_ns")) && !/data-action="restart"/.test(rowHtml("fx_wait_restart")) && ["fx_running", "fx_rule", "fx_done4", "fx_ns", "fx_wait_restart"].every((sl) => new RegExp(`data-details-link="[^"]*"[^>]*href="/monitor/${sl}"`).test(rowHtml(sl))));
 
   // ---- PST on the Lists tab and the run view (round 81 answer 17)
   r = await get("/runs");
@@ -3881,6 +3884,221 @@ async function monitorRestartApiTest() {
   }
 }
 
+// Details view of one book `/monitor/<slug>` (unit VW77c, round 86). Needs the fixture of restart_fixture.py --details (real Translator code made it). Reads only.
+// The Python side: critique_share and double_reject_row of translator/critique_queue.py, run from --t2-scripts (the snapshot of <T2>/data/scripts). No model call.
+async function detailsTest() {
+  if (!fixture) throw new Error("Need --fixture DIR");
+  const t2s = opt("--t2-scripts");
+  if (!t2s) throw new Error("Need --t2-scripts DIR (the folder data/scripts of the Translator, or a snapshot of it)");
+  const fx = path.resolve(fixture);
+  const data = path.join(fx, "data");
+  await mustBeFixture("details", fx);
+  const before = await listing(data);
+  const { installTsResolveHook } = await import("./ts-resolve-hook.mjs");
+  installTsResolveHook();
+  const CS = await import("../lib/critique-share.ts");
+  const BD = await import("../lib/book-detail-rules.ts");
+  const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const api = async (slug) => {
+    const r = await get(`/api/monitor/books/${slug}`);
+    return { status: r.status, j: parseJson(r.body), body: r.body, type: r.type };
+  };
+  const page = async (slug) => {
+    const r = await get(`/monitor/${slug}`);
+    const html = r.body.replace(/<!--.*?-->/g, "");
+    return { status: r.status, html, text: visibleText(html).trim() };
+  };
+  const py = (code, input) => JSON.parse(execFileSync("python3", ["-B", "-c", code, t2s], { input: JSON.stringify(input), encoding: "utf-8", maxBuffer: 1 << 26, env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" } }));
+  const history = async (slug) => (await fs.readFile(path.join(data, "book-store", slug, "history.jsonl"), "utf-8")).split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+
+  // ---- pure code: Python round(x, 1) against pyRound1
+  const xs = [];
+  for (let k = 0; k <= 1600; k++) xs.push(k / 16);
+  for (let t = 1; t <= 80; t++) for (let u = 0; u <= t; u++) xs.push((100.0 * u) / t);
+  const pyr = py("import sys, json\nxs = json.load(sys.stdin)\nprint(json.dumps([round(x, 1) for x in xs]))", xs);
+  let bad = 0;
+  let firstBad = "";
+  xs.forEach((x, i) => {
+    if (CS.pyRound1(x) !== pyr[i]) {
+      bad++;
+      if (!firstBad) firstBad = `${x}: js ${CS.pyRound1(x)} py ${pyr[i]}`;
+    }
+  });
+  check(`pyRound1 gives the same value as Python round(x, 1) for ${xs.length} values (ties like 6.25 and 93.75 included)`, bad === 0, firstBad);
+  check("pyRound1 ties: 6.25 gives 6.2, 93.75 gives 93.8, 66.66666666666667 gives 66.7, 0.05 gives 0.1 (the same as Python)", CS.pyRound1(6.25) === 6.2 && CS.pyRound1(93.75) === 93.8 && CS.pyRound1(100 * 2 / 3) === 66.7 && CS.pyRound1(0.05) === 0.1);
+
+  // ---- pure code: critique share against critique_queue.critique_share on the fixture histories and on made-up events
+  const SHARE_PY = "import sys, json\nsys.dont_write_bytecode = True\nsys.path.insert(0, sys.argv[1])\nfrom translator import critique_queue as CQ\nsets = json.load(sys.stdin)\nprint(json.dumps([{'share': CQ.critique_share(ev), 'rows': {b: CQ.double_reject_row(ev, b) for b in ('ED_2', 'TL_1', 'QA_3')}} for ev in sets]))";
+  const mk = (event, o = {}) => ({ utc: "2026-11-03T10:00:00Z", event, ...o });
+  const ids = (n) => Array.from({ length: n }, (_, i) => `x:${i}`);
+  const made = [
+    [mk("update-point-ended", { box: "ED_2", result: "rejected twice", queue_ids: ids(4) }), mk("restart"), mk("update-point-ended", { box: "TL_1", result: "rewrite live", queue_ids: ids(5) }), mk("update-point-ended", { box: "ED_2", result: "rejected twice", queue_ids: ids(1) }), mk("update-point-ended", { box: "ED_2", result: "rewrite live", queue_ids: ids(15) })],
+    [mk("update-point-ended", { box: "QA_3", result: "rewrite live", queue_ids: [] }), mk("phase-changed"), mk("update-point-ended", { box: "QA_3", result: "rewrite live", queue_ids: ids(1) }), mk("update-point-ended", { box: "QA_3", result: "rejected twice", queue_ids: ids(15) }), mk("update-point-ended", { box: "TL_1", result: "other", queue_ids: ids(2) })],
+    [],
+    [mk("update-point-ended", { box: "ED_2", result: "rejected twice", queue_ids: ids(5) }), mk("box-stopped", { box: "ED_2", reason: "rule", count: 1 }), mk("resumed"), mk("update-point-ended", { box: "ED_2", result: "rejected twice", queue_ids: ids(5) })],
+  ];
+  const sets = [await history("mental_full"), await history("left_foot_full"), ...made];
+  const pyOut = py(SHARE_PY, sets);
+  sets.forEach((ev, i) => {
+    const ts = CS.critiqueShare(ev);
+    const name = i === 0 ? "mental_full (fixture history)" : i === 1 ? "left_foot_full (fixture history)" : `made-up events ${i - 1}`;
+    check(`Critique share, ${name}: same boxes, same order, same numbers and percentages as critique_share of the Translator`, eq(Object.keys(ts.boxes), Object.keys(pyOut[i].share.boxes)) && eq(ts.boxes, pyOut[i].share.boxes) && eq(ts.total, pyOut[i].share.total), JSON.stringify(ts.total) + " / " + JSON.stringify(pyOut[i].share.total));
+  });
+  const ex = CS.critiqueShare(sets[0]);
+  check("Critique share, mental_full: ED_2 10 of 15 (66.7 percent) used and 5 of 15 (33.3 percent) dropped, TL_1 5 of 5 (100.0 percent) and 0 of 5 (0.0 percent), QA_3 1 of 16 (6.2 percent) and 15 of 16 (93.8 percent). The update point of run 1 is not counted",
+    CS.shareText(ex.boxes.ED_2.used, ex.boxes.ED_2.total, ex.boxes.ED_2.used_percent) === "10 of 15 (66.7 percent)" && CS.shareText(ex.boxes.ED_2.dropped, ex.boxes.ED_2.total, ex.boxes.ED_2.dropped_percent) === "5 of 15 (33.3 percent)" &&
+    CS.shareText(ex.boxes.TL_1.used, ex.boxes.TL_1.total, ex.boxes.TL_1.used_percent) === "5 of 5 (100.0 percent)" && CS.shareText(ex.boxes.TL_1.dropped, ex.boxes.TL_1.total, ex.boxes.TL_1.dropped_percent) === "0 of 5 (0.0 percent)" &&
+    CS.shareText(ex.boxes.QA_3.used, ex.boxes.QA_3.total, ex.boxes.QA_3.used_percent) === "1 of 16 (6.2 percent)" && CS.shareText(ex.boxes.QA_3.dropped, ex.boxes.QA_3.total, ex.boxes.QA_3.dropped_percent) === "15 of 16 (93.8 percent)", JSON.stringify(ex.boxes));
+  check("Critique share text: a box with no critique reads '0 of 0' and has no percentage", CS.shareText(0, 0, null) === "0 of 0");
+
+  // ---- pure code: the stop flag against double_reject_row
+  const lf = CS.stopFlags(sets[1]);
+  check("Stop flag, left_foot_full: one flag, box ED_2, count 3, text 'ED_2 stopped after 3 double REJECTs in a row', and the count equals double_reject_row of the Translator", lf.length === 1 && lf[0].box === "ED_2" && lf[0].count === 3 && lf[0].text === "ED_2 stopped after 3 double REJECTs in a row" && pyOut[1].rows.ED_2 === 3 && lf[0].rejects.length === 3);
+  const lines = lf.length ? CS.rejectLines(lf[0]) : [];
+  check("Stop flag: the 3 reasons are the reasons of the last try of each double REJECT, with the page, the try, and the names of the failed checks", eq(lines, [
+    { head: "After p020, try 2, check audit", reasons: ["AUDIT FAIL: the new text drops the rule for term lists."] },
+    { head: "After p030, try 2, check audit", reasons: ["AUDIT FAIL: the new text keeps a critique that the judge marked as a bad critique."] },
+    { head: "After p040, try 2, checks message-rebuild and audit", reasons: ["MESSAGE REBUILD FAIL: page left_foot_full/p038, box ED_2: section 3 does not hold the new label and the new text.", "AUDIT FAIL: the new text changes the output format."] },
+  ]), JSON.stringify(lines));
+  check("Stop flag: no flag for mental_full (no box-stopped event)", CS.stopFlags(sets[0]).length === 0);
+  const withResume = [...sets[1], mk("resumed")];
+  const pyAfter = py(SHARE_PY, [withResume])[0];
+  check("Stop flag: a 'resumed' event after the box stop removes the flag, and the Translator row of ED_2 goes back to 0", CS.stopFlags(withResume).length === 0 && pyAfter.rows.ED_2 === 0);
+  const pauseResume = [...sets[1].filter((e) => e.event !== "box-stopped" && e.event !== "stopped"), mk("stopped", { reason: "pause" }), mk("resumed")];
+  check("Stop flag: with no box-stopped event there is no flag, and the Translator row keeps its 3 (a Pause and a Resume leave the row alone)", CS.stopFlags(pauseResume).length === 0 && py(SHARE_PY, [pauseResume])[0].rows.ED_2 === 3);
+  const afterRewrite = [...sets[1].slice(0, -2), mk("update-point-ended", { box: "TL_1", result: "rewrite live", queue_ids: ids(5) })];
+  check("Stop flag: a restart event hides an older flag (the flag belongs to the current run)", CS.stopFlags([...sets[1], mk("restart")]).length === 0 && afterRewrite.length > 0);
+  const old = { event: "prompt-rejected", box: "ED_2", try: 2, check: "audit", reasons: ["AUDIT FAIL: x."] };
+  const oldForm = CS.stopFlags([mk("update-point-started", { box: "ED_2", page: "b/p010", queue_ids: ["q"] }), old, mk("update-point-ended", { box: "ED_2", result: "rejected twice", queue_ids: ["q"] }), mk("box-stopped", { box: "ED_2", count: 1 })]);
+  check("Stop flag: an old event with the field check and no field checks still names its check", oldForm.length === 1 && CS.rejectLines(oldForm[0])[0].head === "After p010, try 2, check audit");
+
+  // ---- pure code: archived runs, settings, critiques
+  check("Run ID text: folder 20261104T001500-0800 reads '2026-11-04 00:15 PST', the summer folder 20260710T080000-0800 reads '2026-07-10 08:00 PST'", BD.archiveRunText("20261104T001500-0800").text === "2026-11-04 00:15 PST" && BD.archiveRunText("20260710T080000-0800").text === "2026-07-10 08:00 PST" && BD.archiveRunText("20261104T001500-0800").isRunId);
+  check("Run ID text: the old UTC form 20261105T093000Z and a folder name in no known form stay as plain text", BD.archiveRunText("20261105T093000Z").text === "20261105T093000Z" && !BD.archiveRunText("20261105T093000Z").isRunId && BD.archiveRunText("old-run").text === "old-run" && BD.archiveRunText("20261304T001500-0800").text === "20261304T001500-0800");
+  check("Prompt cells: only the changed boxes show, 'ED_2 v4.1.0, TL_1 v4.1.0' at the start and 'ED_2 v4.1.6, TL_1 v4.1.2' at the end (the example of VISION 15.27.5)", eq(BD.promptsCells({ ED_2: "v4.1.0", TL_1: "v4.1.0", QA_3: "v4.1.0" }, { ED_2: "v4.1.6", TL_1: "v4.1.2", QA_3: "v4.1.0" }), { start: "ED_2 v4.1.0, TL_1 v4.1.0", end: "ED_2 v4.1.6, TL_1 v4.1.2" }));
+  check("Prompt cells: no change reads 'No update, all boxes keep their label v4.1.0' on both cells, a missing map reads 'Not stored'", BD.promptsCells({ ED_2: "v4.1.0" }, { ED_2: "v4.1.0" }).end === "No update, all boxes keep their label v4.1.0" && BD.promptsCells(null, null).start === "Not stored" && BD.promptsCells(null, { ED_2: "v4.1.1" }).start === "Not stored" && BD.promptsCells(null, { ED_2: "v4.1.1" }).end === "ED_2 v4.1.1");
+  check("Pages done text: '80 of 169', '80' with no total, 'Not stored' with no count", BD.pagesDoneText(80, 169) === "80 of 169" && BD.pagesDoneText(80, null) === "80" && BD.pagesDoneText(null, 169) === "Not stored");
+  const f = (page, n, models, sha) => ({ pageId: `b/${page}`, page, byType: { TS: { critiques: 1, reached: false }, TL: { critiques: 3, reached: true } }, n, models, settingsSha1: sha });
+  const rowsS = BD.settingsRows([f("p003", 2, "L0 a", "s1"), f("p001", 2, "L0 a", "s1"), f("p002", 2, "L0 a", "s1"), f("p004", 3, "L0 a", "s1"), f("p005", 3, "L0 b", "s1"), f("p006", 3, "L0 b", "s1")]);
+  check("Settings used: pages sort by page number, the mark 'Settings changed before this page' sits on p004 (N changed) and p005 (models changed), not on p001 or p006", eq(rowsS.map((r) => r.page), ["p001", "p002", "p003", "p004", "p005", "p006"]) && eq(rowsS.map((r) => r.changed), [false, false, false, true, true, false]) && BD.SETTINGS_CHANGED_TEXT === "Settings changed before this page");
+  const cr = BD.critiqueRows([f("p002", 2, null, null), f("p001", 2, null, null)]);
+  const ct = BD.critiqueTotals(cr);
+  check("Critiques against N: rows in page order with a star flag where the count reached N, the total row sums each box type (TS 2, TL 6, ED 0, QA 0) and N = 2", eq(cr.map((r) => r.page), ["p001", "p002"]) && cr[0].reached.TL === true && cr[0].reached.TS === false && eq(ct.counts, { TS: 2, TL: 6, ED: 0, QA: 0 }) && ct.n === 2 && !ct.nMixed && BD.critiqueTotals([...cr, ...BD.critiqueRows([f("p003", 3, null, null)])]).nMixed === true);
+  check("Models text: 'L0 antigravity-gemini-3.8-flash-high high, L1 claude-haiku-5-5 xhigh, critic claude-opus-5-5 medium' from the models block, null for no block", BD.modelsText({ level_0: ["google/antigravity-gemini-3.8-flash-high", "high"], level_1: ["anthropic/claude-haiku-5-5", "xhigh"], "box-critic": ["anthropic/claude-opus-5-5", "medium"] }) === "L0 antigravity-gemini-3.8-flash-high high, L1 claude-haiku-5-5 xhigh, critic claude-opus-5-5 medium" && BD.modelsText(null) === null);
+  check("Fixed texts: 'No error stored for this book.' (VISION 15.24.5)", BD.NO_ERROR_TEXT === "No error stored for this book.");
+
+  // ---- the Monitor dashboard `/`: the link Details on each row
+  const list = parseJson((await get("/api/monitor/books")).body);
+  const home = await get("/");
+  const homeHtml = home.body.replace(/<!--.*?-->/g, "");
+  const rowHtml = (slug) => (homeHtml.match(new RegExp(`<li[^>]*data-book-row="${slug}"[\\s\\S]*?</li>`)) ?? [""])[0];
+  const linkOf = (slug) => /<a[^>]*data-details-link="[^"]*"[^>]*href="([^"]+)"[^>]*>Details<\/a>/.exec(rowHtml(slug))?.[1];
+  const missing = list.rows.filter((r) => linkOf(r.slug) !== `/monitor/${r.slug}`).map((r) => r.slug);
+  check(`GET / draws the link Details on every one of the ${list.rows.length} rows, with href /monitor/<slug>`, home.status === 200 && list.rows.length > 15 && missing.length === 0, missing.join(", "));
+  check("GET / gives the link Details to the kinds of rows: Running, Stopped, Stopped by failure, Completed, Not started, Mark waiting, a pilot row, a broken status.json", ["mental_full", "rs_done3", "rs_fail", "rs_done", "rs_ns", "rs_wait_resume", "rs_pilot", "rs_broken"].every((s) => linkOf(s) === `/monitor/${s}`));
+  check("Running row while a Restart waits (rs_running_restart): no button and the link Details stays (round 80 answer 18)", !/data-action/.test(rowHtml("rs_running_restart")) && linkOf("rs_running_restart") === "/monitor/rs_running_restart" && /Restart requested \d\d:\d\d PST/.test(rowHtml("rs_running_restart")));
+  check("The link Details is a plain link, not a button, and it sits outside the buttons (data-col details)", /<div[^>]*data-col="details"[^>]*><a /.test(rowHtml("mental_full")) && !/<button[^>]*>Details</.test(homeHtml));
+
+  // ---- the route
+  let a = await api("mental_full");
+  check("GET /api/monitor/books/mental_full gives 200 JSON with ok, generatedAt, the row, and the parts", a.status === 200 && a.type.includes("json") && a.j?.ok === true && typeof a.j.generatedAt === "number" && a.j.row?.slug === "mental_full" && ["lists", "critiques", "settings", "archived", "flags"].every((k) => Array.isArray(a.j[k])), `status ${a.status} ${a.body.slice(0, 200)}`);
+  check("The route answers a row equal to the row of /api/monitor/books (same label, group, buttons, sentence)", eq(a.j.row.buttons, list.rows.find((r) => r.slug === "mental_full").buttons) && a.j.row.label === "Running" && a.j.row.group === "Running");
+  check("The answer holds no Mac path", !/\/Users\/|\/private\/var|\/var\/folders/.test(a.body));
+  const share = a.j.share;
+  check("API share of mental_full equals critique_share of the Translator, box by box", eq(share.boxes, pyOut[0].share.boxes) && eq(share.total, pyOut[0].share.total) && eq(Object.keys(share.boxes), ["ED_2", "TL_1", "QA_3"]));
+  check("API archived runs of mental_full: the folder 20261104T001500-0800 (made by restart_run) reads '2026-11-04 00:15 PST', phase agent-phase-4, '80 of 169', the old folder 20261105T093000Z stays plain text with its own phase and '80 of 169'", a.j.archived.length === 2 && a.j.archived[0].folder === "20261104T001500-0800" && a.j.archived[0].runText === "2026-11-04 00:15 PST" && a.j.archived[0].runIdForm === true && a.j.archived[0].phase === "agent-phase-4" && a.j.archived[0].pagesText === "80 of 169" && a.j.archived[1].folder === "20261105T093000Z" && a.j.archived[1].runText === "20261105T093000Z" && a.j.archived[1].runIdForm === false && a.j.archived[1].pagesText === "80 of 169", JSON.stringify(a.j.archived.map((x) => [x.folder, x.runText, x.phase, x.pagesText])));
+  check("API archived run 1: prompts at start 'TL_1 v4.1.0, ED_2 v4.1.0, QA_3 v4.1.0' (run.json of p001), prompts at end 'TL_1 v4.1.2, ED_2 v4.1.6, QA_3 v4.1.1' (pointer files of the archive)", a.j.archived[0].promptsStart === "TL_1 v4.1.0, ED_2 v4.1.0, QA_3 v4.1.0" && a.j.archived[0].promptsEnd === "TL_1 v4.1.2, ED_2 v4.1.6, QA_3 v4.1.1", `${a.j.archived[0].promptsStart} | ${a.j.archived[0].promptsEnd}`);
+  check("API archived run 2 (old folder, no pointer files, no page records): prompts read 'Not stored'", a.j.archived[1].promptsStart === "Not stored" && a.j.archived[1].promptsEnd === "Not stored");
+  check("API list folders of mental_full: one fold 20261105T175000Z, kind list (the run view treats only a chain list as chain), critic mode separate, book jobs 1, state running", a.j.lists.length === 1 && a.j.lists[0].stamp === "20261105T175000Z" && a.j.lists[0].listKind === "list" && a.j.lists[0].criticMode === "separate" && a.j.lists[0].bookJobs === 1 && a.j.lists[0].state === "running", JSON.stringify(a.j.lists.map((l) => [l.stamp, l.listKind, l.criticMode, l.bookJobs, l.state, l.pages.length])));
+  check("API list folder rows: 51 page rows, p051 running with TL_2, QA_3 verdicts from summary.json (p006 FAIL, p001 PASS), pairs from the list summary", a.j.lists[0].pages.length === 51 && a.j.lists[0].pages[50].state === "running" && eq(a.j.lists[0].pages[50].running, ["TL_2"]) && a.j.lists[0].pages[5].qa3Verdict === "FAIL" && a.j.lists[0].pages[0].qa3Verdict === "PASS" && a.j.lists[0].pages[0].pairs === 5 && a.j.lists[0].live === true);
+  // sums from the fixture files, independent of the Viewer code
+  const sums = { TS: 0, TL: 0, ED: 0, QA: 0 };
+  for (let n = 1; n <= 50; n++) {
+    const sm = JSON.parse(await fs.readFile(path.join(data, "pilot-run", `mental_full_p${String(n).padStart(3, "0")}`, "r2", "summary.json"), "utf-8"));
+    for (const t of Object.keys(sums)) sums[t] += sm.critiques_by_box_type[t].critiques;
+  }
+  check("API critiques: 50 rows of the current run (r2 folders, from the page records), the total of each box type equals the sum of the summary.json files of the fixture", a.j.critiques.length === 50 && eq(BD.critiqueTotals(a.j.critiques).counts, sums) && BD.critiqueTotals(a.j.critiques).nMixed === true, JSON.stringify(sums));
+  check("API critiques: the star flag follows reached_N of the file (p005 ED 0 no star, p003 TL 3 with N 2 star, p033 TL 1 with N 3 no star)", a.j.critiques[2].reached.TL === true && a.j.critiques[4].reached.ED === false && a.j.critiques[32].reached.TL === false && a.j.critiques[0].n === 2 && a.j.critiques[40].n === 3);
+  check("API settings: the mark 'Settings changed' sits on p031 only (N 2 to 3 and the models of level 1 changed)", a.j.settings.length === 50 && eq(a.j.settings.filter((s) => s.changed).map((s) => s.page), ["p031"]) && /^L0 antigravity-gemini-3\.8-flash-high high, L1 claude-haiku-5-5 xhigh, critic claude-opus-5-5 medium$/.test(a.j.settings[0].models ?? ""), JSON.stringify(a.j.settings.filter((s) => s.changed)));
+  check("API flags of mental_full is empty, last error is null", a.j.flags.length === 0 && a.j.lastError === null);
+
+  let b = await api("left_foot_full");
+  check("API left_foot_full: Stopped by failure, one flag ED_2 with 3 rejects, share ED_2 5 of 20 used and 15 of 20 dropped, TL_1 5 of 5, and the same numbers as critique_share of the Translator", b.status === 200 && b.j.row.label === "Stopped by failure" && b.j.flags.length === 1 && b.j.flags[0].rejects.length === 3 && eq(b.j.share.boxes, pyOut[1].share.boxes) && b.j.share.boxes.ED_2.used === 5 && b.j.share.boxes.ED_2.dropped === 15 && b.j.share.boxes.TL_1.used === 5, JSON.stringify(b.j.share?.boxes));
+  check("API left_foot_full: the last error carries the red line, the time from status.json (utc), and the file that exists", b.j.lastError?.text.startsWith("Error on p040, box ED_2:") && b.j.lastError.file === "book-store/left_foot_full/failed/ED_2.json" && typeof b.j.lastError.epoch === "number", JSON.stringify(b.j.lastError));
+  check("API left_foot_full: no list folder holds the book and no archive folder exists", b.j.lists.length === 0 && b.j.archived.length === 0);
+
+  let pil = await api("rs_pilot");
+  check("API rs_pilot (a pilot row): pilot true, one list folder 20261101T000000Z with 3 pages, no share, no flag, no archive", pil.status === 200 && pil.j.row.pilot === true && pil.j.lists.length === 1 && pil.j.lists[0].stamp === "20261101T000000Z" && pil.j.lists[0].pages.length === 3 && pil.j.share === null && pil.j.flags.length === 0 && pil.j.archived.length === 0 && pil.j.critiques.length === 0);
+
+  // ---- 404 and 405
+  for (const [name, slug] of [["a slug that is not in the book set", "no_such_book"], ["the store folder of phase 2", "paired-dataset"], ["a slug with a space", "a%20b"]]) {
+    const r = await get(`/api/monitor/books/${slug}`);
+    const p = await get(`/monitor/${slug}`);
+    check(`404: ${name} gives 404 on the route and on the page`, r.status === 404 && p.status === 404, `route ${r.status}, page ${p.status}`);
+  }
+  // '%2e%2e' never reaches the code: Next resolves '/monitor/..' to '/', so the page is the Monitor dashboard and the route gives its own 404.
+  const dd = await get("/api/monitor/books/%2e%2e");
+  const ddp = await get("/monitor/%2e%2e");
+  check("A slug '..' (%2e%2e) gives 404 on the route and never opens a Details view on the page", dd.status === 404 && !/data-book-detail=/.test(ddp.body), `route ${dd.status}, page ${ddp.status}`);
+  check("The error body of an unknown slug is the JSON {\"error\":\"Not found\"}", eq(parseJson((await get("/api/monitor/books/no_such_book")).body), { error: "Not found" }));
+  const post = await get("/api/monitor/books/mental_full", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  check("The route /api/monitor/books/<slug> is GET only: POST gives 405", post.status === 405, `status ${post.status}`);
+
+  // ---- the page
+  let pg = await page("mental_full");
+  const T = pg.text;
+  check("GET /monitor/mental_full gives 200 with the title, the slug, the state label, the phase and the run text, and the header facts", pg.status === 200 && T.includes("Making the Difference on the Day") && T.includes("(mental_full)") && /Running/.test(T) && T.includes("Phase 4 · production run") && T.includes("phase 4 run 2, started 2026-11-05 09:50 PST") && T.includes("50 of 169 pages") && /Cost\s+\$5\.00/.test(T) && /List folders\s+1/.test(T), T.slice(0, 600));
+  const order = ["header", "last-error", "list-folders", "critiques", "settings", "critique-share", "archived-runs"].map((p) => pg.html.indexOf(`data-part="${p}"`));
+  check("The parts come in the order header, Last error, List folders, Critiques against N, Settings used, Critique share, Archived runs", order.every((x, i) => x > 0 && (i === 0 || x > order[i - 1])), order.join(","));
+  check("The Details view draws the buttons of the row, with the Restart button (round 74 answer 11), and the back link to the Monitor dashboard", /data-action="pause"/.test(pg.html) && /data-action="restart"/.test(pg.html) && /<a[^>]*href="\/"[^>]*>\s*← Monitor dashboard/.test(pg.html));
+  check("Part 2: 'Last error' with the fixed text 'No error stored for this book.' when none", /Last error/.test(T) && T.includes("No error stored for this book."));
+  check("Part 3: the newest fold starts open, its heading links to the run view /runs/20261105T175000Z and shows start and end in PST, the kind, and the critic mode", /<details[^>]*data-list-fold="20261105T175000Z"[^>]*open=""/.test(pg.html) && /<a[^>]*data-run-link[^>]*href="\/runs\/20261105T175000Z"/.test(pg.html) && /Started \d{4}-\d\d-\d\d \d\d:\d\d PST\. Ended running\. Kind list\. Critic mode separate\. Book jobs 1\./.test(T), (T.match(/Started [^|]{0,120}/) ?? [""])[0]);
+  check("Part 3: a page row links to the page view and shows the pairs written (p001 '5 pairs')", /<a[^>]*href="\/page\/mental_full\/p001\?run=r2"[^>]*>p001</.test(pg.html) && /data-page-row="p001"[\s\S]*?5 pairs/.test(pg.html));
+  check("Part 6: 'Critiques against N' with a total row, a star mark, and no flag for mental_full", /Critiques against N/.test(T) && /data-critique-total/.test(pg.html) && /★/.test(pg.html) && !/data-stop-flag/.test(pg.html));
+  check("Part 7: 'Settings used' with the text 'Settings changed before this page' once", /Settings used/.test(T) && (T.match(/Settings changed before this page/g) ?? []).length === 1);
+  check("Critique share part: headings 'Critiques used in live rewrites' and 'Critiques dropped after a double REJECT', and the lines for ED_2, TL_1, QA_3 with the numbers of the example", T.includes("Critique share of the current run") && T.includes("Critiques used in live rewrites") && T.includes("Critiques dropped after a double REJECT") && /ED_2\s+10 of 15 \(66\.7 percent\)\s+5 of 15 \(33\.3 percent\)/.test(T) && /TL_1\s+5 of 5 \(100\.0 percent\)\s+0 of 5 \(0\.0 percent\)/.test(T) && /QA_3\s+1 of 16 \(6\.2 percent\)\s+15 of 16 \(93\.8 percent\)/.test(T), (T.match(/Critique share of the current run.{0,400}/) ?? [""])[0]);
+  check("Archived runs part: 'Archived runs (2)', the columns Run ID, Phase, Pages done, Prompts at start, Prompts at end, the Run ID text '2026-11-04 00:15 PST', and the old folder name as plain text '20261105T093000Z'", T.includes("Archived runs (2)") && /Run ID\s+Phase\s+Pages done\s+Prompts at start\s+Prompts at end/.test(T) && />2026-11-04 00:15 PST</.test(pg.html) && />20261105T093000Z</.test(pg.html) && /2026-11-04 00:15 PST\s+agent-phase-4\s+80 of 169\s+TL_1 v4\.1\.0, ED_2 v4\.1\.0, QA_3 v4\.1\.0\s+TL_1 v4\.1\.2, ED_2 v4\.1\.6, QA_3 v4\.1\.1/.test(T), (T.match(/Archived runs \(2\).{0,500}/) ?? [""])[0]);
+  check("The Run ID cell of an archived run holds the time in PST only: no 'UTC', no 'Z' stamp, and no first column named 'UTC time'", !/UTC time/.test(T) && !/>2026-11-04T/.test(pg.html));
+  check("The stale note 'The run program has no update step yet.' is gone, and the page has no text about the box freeze", !/no update step yet/i.test(T) && !/freeze|frozen/i.test(T));
+
+  pg = await page("left_foot_full");
+  const LT = pg.text;
+  const flagHtml = (pg.html.match(/<div[^>]*data-stop-flag="ED_2"[\s\S]*?<\/div>/) ?? [""])[0];
+  check("GET /monitor/left_foot_full gives 200, the label 'Stopped by failure', the slug alone as title, and the Resume and Restart buttons", pg.status === 200 && /Stopped by failure/.test(LT) && /<h1[^>]*>[\s\S]*left_foot_full/.test(pg.html) && /data-action="resume"/.test(pg.html) && /data-action="restart"/.test(pg.html));
+  check("Stop flag: the text 'ED_2 stopped after 3 double REJECTs in a row' sits in a note with no button", /ED_2 stopped after 3 double REJECTs in a row/.test(visibleText(flagHtml)) && !/<button/.test(flagHtml) && /role="note"/.test(flagHtml), visibleText(flagHtml).slice(0, 200));
+  const reasons = [...flagHtml.matchAll(/<li[^>]*data-reject-reason[^>]*>([\s\S]*?)<\/li>/g)].map((m) => visibleText(m[1]).trim());
+  check("Stop flag: the 3 reject reasons show as 3 list items with the page, the try, the checks, and the reason text", reasons.length === 3 && reasons[0] === "After p020, try 2, check audit: AUDIT FAIL: the new text drops the rule for term lists." && reasons[1] === "After p030, try 2, check audit: AUDIT FAIL: the new text keeps a critique that the judge marked as a bad critique." && reasons[2] === "After p040, try 2, checks message-rebuild and audit: MESSAGE REBUILD FAIL: page left_foot_full/p038, box ED_2: section 3 does not hold the new label and the new text. AUDIT FAIL: the new text changes the output format.", JSON.stringify(reasons));
+  check("Stop flag: the total row marks the ED column with '▲ ED_2 stopped'", /data-flag-mark="ED_2"/.test(pg.html) && /▲ ED_2 stopped/.test(LT));
+  check("Part 2 with an error: the red line 'Error on p040, box ED_2:', the time in PST, and the link 'File: book-store/left_foot_full/failed/ED_2.json'", /Error on p040, box ED_2: /.test(LT) && /Time: \d{4}-\d\d-\d\d \d\d:\d\d PST/.test(LT) && /<a[^>]*data-error-file[^>]*href="\/api\/file\?path=book-store%2Fleft_foot_full%2Ffailed%2FED_2\.json"/.test(pg.html) && !/No error stored/.test(LT));
+  check("Part 3 with no list folder: 'No list folder holds this book.', and 'Archived runs (0)' with 'No archived run.'", LT.includes("No list folder holds this book.") && LT.includes("Archived runs (0)") && LT.includes("No archived run."));
+  check("Critique share part, left_foot_full: ED_2 '5 of 20 (25.0 percent)' used and '15 of 20 (75.0 percent)' dropped", /ED_2\s+5 of 20 \(25\.0 percent\)\s+15 of 20 \(75\.0 percent\)/.test(LT), (LT.match(/Critique share of the current run.{0,300}/) ?? [""])[0]);
+
+  pg = await page("rs_running_restart");
+  check("Details view of a Running row while a Restart waits: the note 'Restart requested' stays, the header has no button", pg.status === 200 && /Restart requested \d\d:\d\d PST/.test(pg.text) && !/data-action/.test(pg.html));
+  pg = await page("rs_pilot");
+  check("Details view of a pilot row: the tag 'pilot list', one list folder, 'No archived run.', 'No update point ended in the current run.', and a Run button only", pg.status === 200 && /pilot list/.test(pg.text) && /List folders\s+1/.test(pg.text) && pg.text.includes("No archived run.") && pg.text.includes("No update point ended in the current run.") && !/data-action="restart"/.test(pg.html));
+  pg = await page("rs_broken");
+  check("Details view of a row with a broken status.json: 200, the label 'Status file unreadable', no button", pg.status === 200 && /Status file unreadable/.test(pg.text) && !/data-action/.test(pg.html));
+  for (const slug of ["mental_full", "left_foot_full", "rs_pilot", "rs_wait_restart"]) {
+    const t = (await page(slug)).text;
+    check(`Wording on /monitor/${slug}: no 'finished', 'gloss', 'rendering', 'rollback', and no contraction with an apostrophe-t`, !/finished|gloss|rendering|rollback|n't\b/i.test(t));
+  }
+
+  // ---- monitor off, and no write
+  const off = await startServerWith({ VIEWER_MONITOR: "off" });
+  try {
+    const r1 = await get("/api/monitor/books/mental_full");
+    const r2 = await get("/monitor/mental_full");
+    check("Monitor off: the route gives 404 with {\"error\":\"Not found\"} and the page gives 404", r1.status === 404 && parseJson(r1.body)?.error === "Not found" && r2.status === 404, `route ${r1.status}, page ${r2.status}`);
+  } finally {
+    off.child.kill("SIGTERM");
+    base = off.old;
+  }
+  const after = await listing(data);
+  const diff = after.filter((x) => !before.includes(x)).concat(before.filter((x) => !after.includes(x))).filter((x) => !/status\.json|progress\.json|PAUSE/.test(x));
+  check("The reads wrote no file in the fixture (only the fake process changed its heartbeat files)", diff.length === 0, diff.join(", "));
+}
+
 function R_line(row) {
   return (row?.line2 ?? []).map((x) => (typeof x === "string" ? x : "")).join("");
 }
@@ -3981,6 +4199,7 @@ try {
   else if (mode === "monitor") await monitorTest();
   else if (mode === "monitor-actions") await monitorActionsTest();
   else if (mode === "monitor-restart-api") await monitorRestartApiTest();
+  else if (mode === "details") await detailsTest();
   else if (mode === "htv") await htvTest();
   else if (mode === "deploy") await deployTest();
   else if (mode === "read") await readTest();

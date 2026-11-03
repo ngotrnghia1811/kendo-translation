@@ -9,7 +9,8 @@ import BookRow from "./BookRow";
 
 // Unit VW77a (round 80), VISION-viewer 15.24.4: the Monitor dashboard "/" on this Mac. It shows one row per book, in six groups.
 // Unit VW77b1 (round 81) adds the buttons (components/RowButtons.tsx). A press reads the rows again at once (refresh), so a new mark shows within one poll.
-// Still no Restart button (unit VW77b2), no Details view (unit VW77c), no Run settings page.
+// Unit VW77b2 (round 82) adds Restart and Clear mark. Unit VW77c (round 86) adds the link Details on each row (components/BookRow.tsx).
+// Still no Run settings page (unit VW77d).
 const GROUP_SYMBOL: Record<GroupName, string> = {
   "Needs attention": "▲",
   "Waiting for a run": "◇",

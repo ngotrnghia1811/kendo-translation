@@ -706,6 +706,7 @@ The first screen `/` is the Monitor dashboard. It shows one row for each book, i
 - `app/api/monitor/books/route.ts`: `GET` only. It returns the rows as JSON. With the monitor off, it answers 404 like the other monitor routes.
 - `components/MonitorDashboard.tsx`, `BookRow.tsx`, `StateLabel.tsx`, `monitor-open-store.ts`: the screen. The groups are `details` elements. The browser keeps the open state of each group, like the checklist of the extra items.
 - `components/useLive.tsx`: the poll runs every 3 seconds. No poll runs in a hidden tab. A banner shows after 3 failed polls.
+- `app/monitor/[slug]/page.tsx`, `app/api/monitor/books/[slug]/route.ts` (`GET` only), `lib/book-detail.ts`, `lib/book-detail-rules.ts`, `lib/critique-share.ts`, `components/BookDetailView.tsx`: the Details view (unit VW77c, section Details view below).
 
 ### Times
 
@@ -736,10 +737,32 @@ A grayed button has `aria-disabled="true"`, stays in the Tab order, and shows it
 - The Lists tab, the run view, and the page checks of the Reader book screen show their times in PST (`lib/pst-more.ts`).
 - The mode `node scripts/smoke.mjs monitor-actions --config FILE --fixture DIR` tests the routes on a fixture. It writes into the fixture folder. The guard reads the config (unit TF83, `scripts/smoke-guards.mjs`): the fixture folder must not sit inside `<T2>/data`, `<V2>/data`, or a folder in the env variable `SMOKE_PROTECTED_DIRS` (colon list), and `translatorDataDir` of the config must name `<fixture>/data`. Any folder name and any port pass. The mode `node scripts/smoke.mjs guards` shows one pass and one refuse example. The comparison of folder states ignores the three heartbeat files of the fake Translator (`history.jsonl`, `status.json`, `progress.json`), because they change every 3 s.
 
+### Details view (unit VW77c, round 86)
+
+The page `/monitor/<slug>` shows one book. It follows section 15.24.5 and 15.27.5 of `docs/VISION-viewer.md`. With the monitor off, the page and the route `GET /api/monitor/books/<slug>` give "not found". A slug that is not safe, or not in the book set, gives "not found" too. The route reads files and writes none. The page polls the route every 3 seconds in a visible tab.
+
+Every row of the Monitor dashboard `/` has a link "Details" to this page. The link is no button, so a Running row while a Restart waits keeps it with no button (round 80 answer 18).
+
+| Part | Content | Source |
+|---|---|---|
+| Header | Title, slug, state label, sentence, row buttons (the same rules and dialogs as the row, with Restart), pages done, cost, page time, list folders | the row of `loadBookFresh` |
+| Last error | The red line, the time in PST, the file link. Fixed text "No error stored for this book." when none | the row, `last_error.utc` of `status.json` |
+| List folders | One fold for each list folder that holds a page of the book, newest first. The newest fold starts open. A page row shows state, calls, QA_3, cost, time, memory pairs | `pilot-run/lists/<stamp>/`, `getRun` of `lib/runs.ts` |
+| Critiques against N | Count of each box type for each page, a star where the count reached N, the total row on top, and the stop flag | `summary.json` of each page folder, `history.jsonl` |
+| Settings used | N and the models of each page. The mark "Settings changed before this page" | `summary.json` (`update_N`), `run.json` (`models`, `settings.sha1`) |
+| Critique share of the current run | One line for each box that has an event `update-point-ended`: used and dropped, with percentages | `history.jsonl` |
+| Archived runs | Run ID (PST), phase, pages done, prompts at start, prompts at end | `book-store/<slug>/archive/<run ID folder>/` |
+
+- The stop flag reads "ED_2 stopped after 3 double REJECTs in a row". It has no button. It lists the 3 reject reasons. A reason is the reasons of the last try of one double REJECT, with the page and the names of the failed checks. Example: "After p040, try 2, checks message-rebuild and audit: MESSAGE REBUILD FAIL: ... AUDIT FAIL: ...". A "resumed" event after the box stop removes the flag.
+- The critique share uses the events after the last `restart` or `phase-changed` event. The code in `lib/critique-share.ts` gives the same numbers as `critique_share` of `translator/critique_queue.py`, including the rounding of Python (`round(6.25, 1)` gives 6.2). The test `details` runs the Python function on the fixture history and compares.
+- The Run ID of an archived run is the folder name in PST. Example: the folder `20261104T001500-0800` reads "2026-11-04 00:15 PST". A folder name in another form stays as plain text, for example `20261105T093000Z`.
+- The prompt cells list only the boxes whose label changed in the run. The start labels come from `run.json` of the first archived page. The end labels come from the files `prompts/<BOX>/current` of the archive folder. A missing file gives "Not stored".
+- A page of a real book takes its page folder from `book-store/<slug>/pages/<pid>.json` (the current run). A page of a pilot book takes it from the page rows of its list folders.
+
 ### Not built yet
 
 - No Restart button (with its 16 pick lists). Unit VW77b2 adds it. The buttons Run, Run phase 4, Pause, and Resume are built (see the section Buttons below).
-- No Details view and no Details link. Unit VW77c adds them.
+- The Details view has no box grid (part 4 of section 15.24.5) and no list of memory pairs (part 5). Each page row links to the page view and each list folder links to the run view `/runs/<stamp>`. The Translator builds a freeze of a box in unit TR77f. The Viewer text for it comes later.
 - No tab and page Run settings. Unit VW77d adds them.
 - The row of a refused Restart is built (unit VW77b1). It reads the event `restart-refused` of `history.jsonl`. Check the Translator code of unit TR77c2 for the event.
 - No phase 2 row. The screen shows the line "Phase 2 (paired dataset): no run record yet."
@@ -748,3 +771,4 @@ A grayed button has `aria-disabled="true"`, stays in the Tab order, and shows it
 
 - `node scripts/smoke.mjs monitor-rules --t2 <T2>/data`: pure tests of the rules and the PST helpers. It starts no server. It runs `python3 -B` once to compare the labels with `label_of`.
 - `node scripts/smoke.mjs monitor --config FILE --fixture DIR`: the screen and the route on a fixture. The fixture comes from `fake_translator.py` of the unit folder, which uses the real code of `store.py`. The test reads only. It ends the fake Translator at the end.
+- `node scripts/smoke.mjs details --config FILE --fixture DIR --t2-scripts DIR`: the Details view on the fixture of `restart_fixture.py --details`. It tests the link on each row, the route, the page, every 404, the Run ID text, the critique share against `critique_share` of the Translator (run from `--t2-scripts`), the stop flag with its 3 reasons, and the Restart button. The test reads only.
