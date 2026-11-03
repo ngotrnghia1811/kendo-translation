@@ -23,6 +23,7 @@
 //   node scripts/smoke.mjs tolerance                   Reader dashboard on a PocketBase that has the migrations up to 1793300010 only, the state before unit RT73a (unit RC4, round 70). Needs the old S2 upload,
 //                                                      the env variables HTV_ADMIN_*, HTV_TR1_*, HTV_READER_* (approved) and HTV_READER2_* (not approved). It writes the sign-in and one settings record.
 //   node scripts/smoke.mjs monitor-rules --t2 DIR       Monitor dashboard rules (unit VW77a, round 80): lib/book-status-rules.ts and the PST helpers of lib/format.ts. Pure code, no server.
+//                                                      Unit TF85 (round 87 answer 9): also the row order of lib/row-order.ts (a strict total order: transitivity, the 6 input orders of the fixture dt rows, the VISION rule).
 //                                                      --t2 is the data folder of the Translator (read only: the three pilot lists). It runs python3 -B once to compare the labels with `label_of` of store.py.
 //   node scripts/smoke.mjs monitor --config FILE --fixture DIR   Monitor dashboard on a fixture (unit VW77a). The fixture is made by fake_translator.py (real store.py code).
 //                                                      GET / and /api/monitor/books and /runs, the monitor off, a broken file, and the end of the process. Reads only. It kills the pid in DIR/PID at the end.
@@ -36,6 +37,7 @@
 //   node scripts/smoke.mjs details --config FILE --fixture DIR --t2-scripts DIR   Details view of one book `/monitor/<slug>` (unit VW77c, round 86): the link Details on each row, the route and the page, the 404 cases,
 //                                                      the Run ID text of archived runs, the critique share (equal to critique_share of the Translator, run from --t2-scripts), the stop flag with its 3 reasons,
 //                                                      the Restart button in the Details view, and the Running row with a waiting Restart. Reads only. The fixture is made by restart_fixture.py --details.
+//                                                      Unit TF85 (round 87 answer 9): also the title link (data-title-link) of each row, with the same href as the link Details.
 // The script starts `next start` on a free port and stops it at the end (the modes folds, layout, monitor-rules, and monitor-restart start no server).
 // Run `npm run build` first. Run the script in a copy of the app, not in the folder of the dev server.
 // Mode `pause` sends POST requests. Never run it with the real data folder.
@@ -3134,6 +3136,44 @@ print(json.dumps(out))`;
   check("Refused Restart on a Running row: no 'Restart requested' note, the refusal line shows, Pause stays", r.note === null && r.refused !== null && btn(r) === "pause,run~,resume~");
   const word = JSON.stringify(r.buttons.map((b) => b.label).concat(r.buttons.map((b) => b.reason ?? ""), r.buttons.map((b) => b.stateReason ?? "")));
   check("Button texts hold no word 'gloss', 'rendering', or 'finished'", !/gloss|rendering|finished/i.test(word));
+
+  // --- row order (unit TF85, owner round 87 answer 9 "Fix the row sort (Recommended)"; VISION 15.24.4.1, line 3916): lib/row-order.ts
+  const O = await import("../lib/row-order.ts");
+  const perms = (xs) => (xs.length <= 1 ? [xs] : xs.flatMap((x, i) => perms([...xs.slice(0, i), ...xs.slice(i + 1)]).map((p) => [x, ...p])));
+  // The three rows of the fixture dt of unit VW77c: the old comparator found rs_mark_broken < rs_ns (slug), rs_ns < rs_pilot (newer event), rs_pilot < rs_mark_broken (no time goes last): a cycle.
+  const dt3 = [mkRow("stopped", { slug: "rs_pilot", eventEpoch: 100 }), mkRow("not-started", { slug: "rs_mark_broken", eventEpoch: null }), mkRow("not-started", { slug: "rs_ns", eventEpoch: 500 })];
+  const dtOut = perms(dt3).map((p) => R.sortRows(p).map((x) => x.slug).join(","));
+  check("Row order, fixture dt: rs_pilot, rs_mark_broken, rs_ns in all 6 input orders give one output order: rs_pilot, rs_mark_broken, rs_ns (old: the order depended on the input order, a cycle)", dtOut.length === 6 && new Set(dtOut).size === 1 && dtOut[0] === "rs_pilot,rs_mark_broken,rs_ns", dtOut.join(" | "));
+  // Rows over all groups, with and without event times, with equal times, with unique slugs.
+  const gen = [];
+  for (const [gi, g] of R.GROUPS.entries()) {
+    const key = { "Needs attention": "failure", "Waiting for a run": "mark-waiting", Running: "running", Stopped: "stopped", Completed: "completed", "Not started": "not-started" }[g];
+    [null, 100, 100, 200, 300, null, 200].forEach((t, i) => gen.push(mkRow(key, { slug: `g${gi}_${String.fromCharCode(97 + ((i * 5) % 7))}${i}`, eventEpoch: t })));
+  }
+  const cmp = (a, b) => O.compareRows(a, b, R.GROUPS);
+  let badAnti = 0, badTrans = 0, zero = 0;
+  for (const a of gen) for (const b of gen) { if (a !== b && cmp(a, b) === 0) zero++; if (cmp(a, b) !== -cmp(b, a)) badAnti++; }
+  for (const a of gen) for (const b of gen) for (const c of gen) if (cmp(a, b) < 0 && cmp(b, c) < 0 && !(cmp(a, c) < 0)) badTrans++;
+  check(`Row order, transitivity: for every triple of the ${gen.length} generated rows (6 groups, with and without event time, equal times) a<b and b<c give a<c (${gen.length ** 3} triples, ${badTrans} broken)`, gen.length === 42 && badTrans === 0, `broken triples ${badTrans}`);
+  check(`Row order, strict order: no two different rows compare equal and cmp(a,b) = -cmp(b,a) for every pair (${gen.length ** 2} pairs, ${zero} equal, ${badAnti} not antisymmetric)`, zero === 0 && badAnti === 0);
+  // The VISION rule, computed in a second, independent way: one group at a time.
+  const reference = R.GROUPS.flatMap((g) => {
+    const inG = gen.filter((x) => x.group === g);
+    return g === "Not started" ? [...inG].sort((x, y) => (x.slug < y.slug ? -1 : 1)) : [...inG].sort((x, y) => (y.eventEpoch ?? -Infinity) - (x.eventEpoch ?? -Infinity) || (x.slug < y.slug ? -1 : 1));
+  });
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  const outs = new Set();
+  for (let k = 0; k < 200; k++) {
+    const sh = [...gen];
+    for (let i = sh.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [sh[i], sh[j]] = [sh[j], sh[i]]; }
+    outs.add(R.sortRows(sh).map((x) => x.slug).join(","));
+  }
+  check("Row order, VISION rule: the groups in GROUPS order, the newest event first inside a group (no time last, slug breaks a tie), Not started by slug, the same output for 200 random input orders", outs.size === 1 && [...outs][0] === reference.map((x) => x.slug).join(","), `${outs.size} different outputs`);
+  const before = gen.map((x) => x.slug).join(",");
+  R.sortRows(gen);
+  check("Row order: sortRows keeps the input array as it is, groupRows lists every row once, and an unknown group sorts after the known groups", gen.map((x) => x.slug).join(",") === before && R.groupRows(gen).reduce((n, g) => n + g.rows.length, 0) === gen.length && O.orderRows([{ slug: "a", group: "Zzz", eventEpoch: 1 }, { slug: "b", group: "Not started", eventEpoch: null }], R.GROUPS).map((x) => x.slug).join(",") === "b,a");
+  check("Row order, a missing time and a time that is NaN sort last in a group, equal times sort by slug", R.sortRows([mkRow("stopped", { slug: "a", eventEpoch: NaN }), mkRow("stopped", { slug: "c", eventEpoch: 5 }), mkRow("stopped", { slug: "b", eventEpoch: 5 }), mkRow("stopped", { slug: "d", eventEpoch: null })]).map((x) => x.slug).join(",") === "b,c,a,d");
 }
 
 // Monitor dashboard on a fixture (unit VW77a). The fixture and the fake Translator process come from fake_translator.py (real store.py code).
@@ -3998,6 +4038,18 @@ async function detailsTest() {
   check("GET / gives the link Details to the kinds of rows: Running, Stopped, Stopped by failure, Completed, Not started, Mark waiting, a pilot row, a broken status.json", ["mental_full", "rs_done3", "rs_fail", "rs_done", "rs_ns", "rs_wait_resume", "rs_pilot", "rs_broken"].every((s) => linkOf(s) === `/monitor/${s}`));
   check("Running row while a Restart waits (rs_running_restart): no button and the link Details stays (round 80 answer 18)", !/data-action/.test(rowHtml("rs_running_restart")) && linkOf("rs_running_restart") === "/monitor/rs_running_restart" && /Restart requested \d\d:\d\d PST/.test(rowHtml("rs_running_restart")));
   check("The link Details is a plain link, not a button, and it sits outside the buttons (data-col details)", /<div[^>]*data-col="details"[^>]*><a /.test(rowHtml("mental_full")) && !/<button[^>]*>Details</.test(homeHtml));
+
+  // ---- the title link (unit TF85, owner round 87 answer 9 "Title opens Details (Recommended)"; VISION 15.24.4.7, line 4017)
+  const tagsOf = (slug, attr) => rowHtml(slug).match(new RegExp(`<a\\b[^>]*\\b${attr}\\b[^>]*>`, "g")) ?? [];
+  const hrefOf = (tag) => /href="([^"]*)"/.exec(tag ?? "")?.[1];
+  const badTitle = list.rows.filter((r) => tagsOf(r.slug, "data-title-link").length !== 1 || tagsOf(r.slug, "data-details-link").length !== 1 || hrefOf(tagsOf(r.slug, "data-title-link")[0]) !== `/monitor/${encodeURIComponent(r.slug)}` || hrefOf(tagsOf(r.slug, "data-title-link")[0]) !== hrefOf(tagsOf(r.slug, "data-details-link")[0])).map((r) => r.slug);
+  check(`GET / gives each of the ${list.rows.length} rows exactly one title link (data-title-link) and exactly one link Details, both with the href /monitor/<slug>`, list.rows.length > 15 && badTitle.length === 0, badTitle.join(", "));
+  const titleText = (slug) => (/<a\b[^>]*\bdata-title-link\b[^>]*>([\s\S]*?)<\/a>/.exec(rowHtml(slug))?.[1] ?? "").replace(/<[^>]*>/g, "").replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+  const badText = list.rows.filter((r) => titleText(r.slug) !== (r.title !== r.slug ? `${r.title} (${r.slug})` : r.slug)).map((r) => r.slug);
+  check("The title link keeps the visible text of the old title: 'Making the Difference on the Day (mental_full)' for a row with a title, the slug alone for a row with no title (old: plain text, no link)", titleText("mental_full") === "Making the Difference on the Day (mental_full)" && badText.length === 0, `${badText.join(", ")} / ${titleText("mental_full")}`);
+  const mh = rowHtml("mental_full"), rr = rowHtml("rs_running_restart");
+  check("The title link comes first in the row, before the buttons and before the link Details (Tab order, VISION 15.24.4.7), and it holds no button", mh.indexOf("data-title-link") > 0 && mh.indexOf("data-title-link") < mh.indexOf("<button") && mh.indexOf("<button") < mh.indexOf("data-details-link") && !/<a\b[^>]*\bdata-title-link\b[^>]*>(?:(?!<\/a>)[\s\S])*<button/.test(mh) && rr.indexOf("data-title-link") > 0 && rr.indexOf("data-title-link") < rr.indexOf("data-details-link"));
+  check("The title link is not inside the cell of the link Details (data-col details), so the link Details stays a second door (round 87 answer 8, D1)", !/data-col="details"[^>]*>(?:(?!<\/div>)[\s\S])*data-title-link/.test(mh));
 
   // ---- the route
   let a = await api("mental_full");

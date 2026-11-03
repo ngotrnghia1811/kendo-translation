@@ -12,6 +12,7 @@
 // If VISION and store.py disagree, store.py and the newer answer win (see the notes at "running-pause" and "restart_requested_utc").
 import { parseUtcIso, pstClock, pstDateTime, pstStamp, relativeTime, runIdText } from "./pst";
 import { clearOffReason } from "./clear-mark-rule";
+import { orderRows } from "./row-order";
 
 export const HEARTBEAT_S = 30; // store.py:31
 export const STALE_S = 120; // store.py:32. A heartbeat older than this means the process is gone.
@@ -877,15 +878,13 @@ export function buildRow(f: BookFacts, now: number): MonitorRow {
 
 // ---------------------------------------------------------------- groups and summary
 
-/** Order inside a group (VISION 15.24.4.1): the newest event first. Not started books sort by slug. */
+/**
+ * Order of the rows (VISION 15.24.4.1, line 3916): the groups in GROUPS order. Inside a group the newest event comes first. Not started books sort by slug.
+ * Unit TF85 (owner round 87 answer 9): the comparator lives in lib/row-order.ts and is a strict total order (group first, then the VISION rule).
+ * The old comparator mixed the slug rule and the time rule across groups and gave a different order in Node and in Firefox (React error #418).
+ */
 export function sortRows(rows: MonitorRow[]): MonitorRow[] {
-  return [...rows].sort((a, b) => {
-    if (a.group === "Not started" && b.group === "Not started") return a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0;
-    const x = a.eventEpoch ?? -Infinity;
-    const y = b.eventEpoch ?? -Infinity;
-    if (x !== y) return y - x;
-    return a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0;
-  });
+  return orderRows(rows, GROUPS);
 }
 
 export function groupRows(rows: MonitorRow[]): { group: GroupName; rows: MonitorRow[] }[] {

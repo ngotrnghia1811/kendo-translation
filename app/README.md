@@ -743,6 +743,10 @@ The page `/monitor/<slug>` shows one book. It follows section 15.24.5 and 15.27.
 
 Every row of the Monitor dashboard `/` has a link "Details" to this page. The link is no button, so a Running row while a Restart waits keeps it with no button (round 80 answer 18).
 
+The title of a row (title and slug, for example "Making the Difference on the Day (mental_full)") is a second link to the same page (unit TF85, round 87 answer 9). It has the attribute `data-title-link` and the same href as the link "Details". The link "Details" stays on every row (round 87 answer 8, D1). The title link is the first element of the row, so Tab reaches it before the buttons and before the link "Details" (section 15.24.4.7 of `docs/VISION-viewer.md`). Enter on the title opens the Details view.
+
+The row order of the Monitor dashboard `/` sits in `lib/row-order.ts` (unit TF85, round 87 answer 9). The groups come in the order of `GROUPS`. Inside a group the newest event comes first, a row with no time comes last, and the slug breaks a tie. A Not started row sorts by slug. The order is strict and total, so Node and the browser give the same order for the same rows. The old comparator mixed two rules across groups. For the three rows `rs_pilot` (Stopped), `rs_mark_broken` and `rs_ns` (Not started) of the fixture `dt`, it gave a different order in Node and in Firefox, and React gave error #418 on `/`. `sortRows` in `lib/book-status-rules.ts` keeps its name and calls `orderRows`.
+
 | Part | Content | Source |
 |---|---|---|
 | Header | Title, slug, state label, sentence, row buttons (the same rules and dialogs as the row, with Restart), pages done, cost, page time, list folders | the row of `loadBookFresh` |
@@ -769,6 +773,7 @@ Every row of the Monitor dashboard `/` has a link "Details" to this page. The li
 
 ### Tests
 
-- `node scripts/smoke.mjs monitor-rules --t2 <T2>/data`: pure tests of the rules and the PST helpers. It starts no server. It runs `python3 -B` once to compare the labels with `label_of`.
+- `node scripts/smoke.mjs monitor-rules --t2 <T2>/data`: pure tests of the rules and the PST helpers. It starts no server. It runs `python3 -B` once to compare the labels with `label_of`. Unit TF85 adds 6 checks of the row order: the 3 `dt` rows in all 6 input orders, transitivity over 74088 triples, strict order, the VISION rule for 200 random input orders, an unknown group, and a time that is NaN.
 - `node scripts/smoke.mjs monitor --config FILE --fixture DIR`: the screen and the route on a fixture. The fixture comes from `fake_translator.py` of the unit folder, which uses the real code of `store.py`. The test reads only. It ends the fake Translator at the end.
-- `node scripts/smoke.mjs details --config FILE --fixture DIR --t2-scripts DIR`: the Details view on the fixture of `restart_fixture.py --details`. It tests the link on each row, the route, the page, every 404, the Run ID text, the critique share against `critique_share` of the Translator (run from `--t2-scripts`), the stop flag with its 3 reasons, and the Restart button. The test reads only.
+- `node scripts/smoke.mjs details --config FILE --fixture DIR --t2-scripts DIR`: the Details view on the fixture of `restart_fixture.py --details`. It tests the link on each row, the route, the page, every 404, the Run ID text, the critique share against `critique_share` of the Translator (run from `--t2-scripts`), the stop flag with its 3 reasons, and the Restart button. The test reads only. Unit TF85 adds 4 checks: one title link and one link "Details" with the same href on every row, the visible text of the title link, the title link before the buttons, and the title link outside the Details cell.
+- Browser check of the Monitor dashboard `/` and the Details view (`browser_vw77c.mjs`, Firefox through Playwright, fixture `dt`). Unit TF85 turns the old NOTE about React error #418 into a check of 0 script errors on `/`. It adds the tab order inside a row (title link first, `Details` last), Enter on the title link, and a click on the title link.

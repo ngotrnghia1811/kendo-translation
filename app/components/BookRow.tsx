@@ -19,8 +19,13 @@ export default function BookRow({ row, now, onChanged }: { row: MonitorRow; now:
         <StateLabel row={row} />
         <div className="min-w-0 flex-1 basis-64">
           {/* "Making the Difference on the Day (mental_full)": the title and the slug (VISION 15.24.4.3, item 2). The slug stays alone if no title exists. */}
-          {row.title !== row.slug ? <span className="font-medium">{row.title} </span> : null}
-          <code className={"font-mono text-xs " + (row.title !== row.slug ? "text-muted" : "font-medium")}>{row.title !== row.slug ? `(${row.slug})` : row.slug}</code>
+          {/* Unit TF85 (owner round 87 answer 9, "Title opens Details (Recommended)"; VISION 15.24.4.7, line 4017: "Enter on the title opens the detail view"):
+              the title and the slug are one link to the Details view `/monitor/<slug>`, the same href as the link Details (round 87 answer 8, D1: Details stays on every row).
+              The link is the first element of the row in the DOM, so Tab reaches it before the buttons (RowButtons) and before the link Details. */}
+          <a data-title-link href={`/monitor/${encodeURIComponent(row.slug)}`} className="underline-offset-2 hover:underline focus-visible:underline">
+            {row.title !== row.slug ? <span className="font-medium">{row.title} </span> : null}
+            <code className={"font-mono text-xs " + (row.title !== row.slug ? "text-muted" : "font-medium")}>{row.title !== row.slug ? `(${row.slug})` : row.slug}</code>
+          </a>
           {row.pilot ? (
             <span data-pilot-tag className="ml-2 rounded border border-line px-1.5 py-0.5 text-xs text-muted">
               pilot list
