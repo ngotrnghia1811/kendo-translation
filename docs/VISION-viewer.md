@@ -3986,7 +3986,7 @@ What each number counts, and where it shows:
 
 Phase 2 runs on the paired dataset. The paired dataset holds web articles with human English. The owner wrote that it holds more than 300 articles (quote in 15.24.1). A phase 2 run has no book, so it has no book row.
 
-- The dashboard shows one closed line below Not started: "Phase 2 (paired dataset): no run record yet." The line stays until the Translator writes a phase 2 record. Round 80 answers 22 to 24: the row shape for phase 2 is an open item (section 15.33.8).
+- The dashboard shows one closed line below Not started: "Phase 2 (paired dataset): no run record yet." The line stays until the Translator writes a phase 2 record. Round 80 answers 22 to 24: the row shape for phase 2 is an open item (section 15.33.8). Decided in round 87 answer 25 (`qa-memory-2026-11-02.md:241`: "Read-only row (Recommended)") `[owner, round 87 answer 25]`. Not built. Unit VW85 builds the row (`qa-memory-2026-11-02.md:246`). The Q-A file holds the label only, so the row shape is Not verified.
 - Reason: no phase 2 run exists. The Translator has no phase key and no command for it `[check: DM70 2026-10-29 22:06 sed of build_parser in translator_run.py]`. A made-up row shows invented data.
 - Open item 7 holds the options for the later shape.
 
@@ -4025,13 +4025,13 @@ Phase 2 runs on the paired dataset. The paired dataset holds web articles with h
 
 The detail view answers the question "why is this book in this state, and what happened". It shows the facts in layers: book, list folder, page, box.
 
-1. Header: title, slug, phase, state label with sentence, and the actions of the row. Below: pages done, cost, page time, list folders, and the count of errors.
-2. Last error: the newest error text, the page, the box, the time, and the file path of the failed file. Example path: `data/pilot-run/ogawa_lecture_part2_p089/20261026T185029Z-r41/failed/box-critic.TS_3.json`. If none: "No error stored for this book."
-3. Timeline: one fold for each list folder, newest first. The newest fold starts open. The fold heading shows the stamp, start and end in PST (round 80 answer 19), the kind, the critic mode, the book jobs, and the list state. The page table below has these columns: Page, State, Calls, QA_3, Cost, Time, Critiques against N, Memory pairs, and Settings.
-4. Boxes: a page row opens a grid of 4 box types by 4 levels. Each cell shows ok, failed, running, or waiting, with a word. A failed cell links to the file in `failed/` or `raw/`. A page in the state running shows the boxes in `running` of `progress.json` `[file: app/lib/runs.ts:108]`.
-5. Memory pairs: the count for each page and the list of pairs, reused from the panel of today `[file: app/components/ChainPanels.tsx:69-160]`. Example: p046 wrote 5 pairs, p047 6, p048 5, p049 4, p050 6. The total is 26.
-6. Critiques against N: for each page, the count of each box type, with a star when the count reached N. A total row sums the pages. Example: TS 1, TL 13, ED 17, QA 3 against N = 2. Replaced in round 86 answer 1: the Translator built the update step in round 85 (commit `8419914`, section 15.38.3). The note "The run program has no update step yet." is out of date. Open item 4 of section 15.38.7 asks for the new text. A box that stopped after 3 double REJECTs in a row shows a flag next to its count (round 72 answer 11, `.opencode/reminders/qa/qa-memory-2026-10-30.md:39`). The flag text is "ED_2 stopped after 3 double REJECTs in a row" for the box ED_2 (round 73b answer 2, `qa-memory-2026-10-30.md:83`, and round 74 answer 5). The flag also lists the 3 audit reject reasons. The flag has no button (round 74 answer 11). Replaced in round 74: the flag held a button Restart (round 73b answer 3). Round 74 answer 2: each box also shows the critique share, used and dropped (section 15.27.5). Translator design: section 9.25.4.
-7. Settings used: each page row shows N (key `update_N` of `summary.json`) and the models (`run.json`). A mark "Settings changed before this page" shows when a page used other values than the page before. Today `run.json` holds models, mode, jobs, and the cost limit. After unit TR70, it also holds the block `settings` and its sha1.
+1. Header: title, slug, phase, state label with sentence, and the actions of the row. Below: pages done, cost, page time, list folders, and the count of errors. Built in unit VW77c (commit `0e376c7`) `[brief fact, aki-main check 2026-11-03]`.
+2. Last error: the newest error text, the page, the box, the time, and the file path of the failed file. Example path: `data/pilot-run/ogawa_lecture_part2_p089/20261026T185029Z-r41/failed/box-critic.TS_3.json`. If none: "No error stored for this book." Built in unit VW77c (commit `0e376c7`) `[brief fact, aki-main check 2026-11-03]`.
+3. Timeline: one fold for each list folder, newest first. The newest fold starts open. The fold heading shows the stamp, start and end in PST (round 80 answer 19), the kind, the critic mode, the book jobs, and the list state. The page table below has these columns: Page, State, Calls, QA_3, Cost, Time, Critiques against N, Memory pairs, and Settings. Built in unit VW77c (commit `0e376c7`) `[brief fact, aki-main check 2026-11-03]`.
+4. Boxes: a page row opens a grid of 4 box types by 4 levels. Each cell shows ok, failed, running, or waiting, with a word. A failed cell links to the file in `failed/` or `raw/`. A page in the state running shows the boxes in `running` of `progress.json` `[file: app/lib/runs.ts:108]`. Built in unit VW77c as links and counts only (default D5). Owner words (round 87 answer 7, `qa-memory-2026-11-02.md:223`): "D5 Links, no grid (Recommended)" `[owner, round 87 answer 7]`.
+5. Memory pairs: the count for each page and the list of pairs, reused from the panel of today `[file: app/components/ChainPanels.tsx:69-160]`. Example: p046 wrote 5 pairs, p047 6, p048 5, p049 4, p050 6. The total is 26. Built in unit VW77c as links and counts only (default D5). Owner words (round 87 answer 7, `qa-memory-2026-11-02.md:223`): "D5 Links, no grid (Recommended)" `[owner, round 87 answer 7]`.
+6. Critiques against N: for each page, the count of each box type, with a star when the count reached N. A total row sums the pages. Example: TS 1, TL 13, ED 17, QA 3 against N = 2. Replaced in round 86 answer 1: the Translator built the update step in round 85 (commit `8419914`, section 15.38.3). The note "The run program has no update step yet." is out of date. Open item 4 of section 15.38.7 asks for the new text. A box that stopped after 3 double REJECTs in a row shows a flag next to its count (round 72 answer 11, `.opencode/reminders/qa/qa-memory-2026-10-30.md:39`). The flag text is "ED_2 stopped after 3 double REJECTs in a row" for the box ED_2 (round 73b answer 2, `qa-memory-2026-10-30.md:83`, and round 74 answer 5). The flag also lists the 3 audit reject reasons. The flag has no button (round 74 answer 11). Replaced in round 74: the flag held a button Restart (round 73b answer 3). Round 74 answer 2: each box also shows the critique share, used and dropped (section 15.27.5). Translator design: section 9.25.4. Built in unit VW77c (commit `0e376c7`) `[brief fact, aki-main check 2026-11-03]`. Closed in round 87: the Details view shows no note about the update step (section 15.39.4).
+7. Settings used: each page row shows N (key `update_N` of `summary.json`) and the models (`run.json`). A mark "Settings changed before this page" shows when a page used other values than the page before. Today `run.json` holds models, mode, jobs, and the cost limit. After unit TR70, it also holds the block `settings` and its sha1. Built in unit VW77c (commit `0e376c7`) `[brief fact, aki-main check 2026-11-03]`.
 
 Where each fact comes from:
 
@@ -4184,7 +4184,7 @@ v List 20261029T051152Z   Oct 28 22:11 PDT to Oct 29 00:50 PDT   chain · critic
   p049  done   32/32   PASS 10.0   $1.24  25.0 min  TS 0  TL 0   ED 0   QA 0    4            same
   p050  done   32/32   PASS 9.0    $1.81  35.3 min  TS 1  TL 3*  ED 3*  QA 1    6            same
   Total                            $8.30  159 min   TS 1  TL 13  ED 17  QA 3    26
-  * the count reached N. The run program has no update step yet.
+  * the count reached N. An update point runs after each accepted page for this box.
 
   p050 boxes     Level 0   Level 1   Level 2   Level 3        (cell words: ok, failed, running, waiting)
      TS          ok        ok        ok        ok
@@ -4206,7 +4206,7 @@ left_foot_full runs now at p051. It reads new values at the start of p052. Jobs,
 | 2 Models         |   Critiques of one box type that start a prompt rewrite.                                               |
 | 3 Box critic     |   Value [ 3 ]  Changed      Default 5  [Reset]     Whole number, 1 or more · critiques                 |
 | 4 Cost limit     |   Takes effect: next page.                                                                             |
-| 5 Jobs           |   Today N only sets the marks "reached N". The run program has no update step yet.                     |
+| 5 Jobs           |   An update point runs after each accepted page for each box with N or more critiques.                 |
 | 6 Critic mode    |                                                                                                        |
 | 7 Memory, links  | 4 Cost limit per page                                                                                  |
 | 8 Timeout        |   A page stops with "cost guard" when its cost reaches the limit.                                      |
@@ -6859,7 +6859,7 @@ Today the Monitor dashboard shows one closed line below Not started: "Phase 2 (p
 
 Open item 2 in section 15.33.12 asks for the row shape. The options:
 
-- Option A: one row for the phase 2 run. The row shows the year block and the article, for example "Phase 2 (paired dataset): Running. Article 4 of 40 (year block 2020). Page 17 of 144 pages." Benefit: it fits one run in one store folder. Cost: a year change is a text change in the row. The values of the example are invented. Option A fits the one run of round 81 answers 12 to 14 `[agent inference]`.
+- Option A: one row for the phase 2 run. The row shows the year block and the article, for example "Phase 2 (paired dataset): Running. Article 4 of 40 (year block 2020). Page 17 of 144 pages." Benefit: it fits one run in one store folder. Cost: a year change is a text change in the row. The values of the example are invented. Option A fits the one run of round 81 answers 12 to 14 `[agent inference]`. Decided in round 87 answer 25 (`qa-memory-2026-11-02.md:241`: "Read-only row (Recommended)") `[owner, round 87 answer 25]`. Not built. Unit VW85 builds the row (`qa-memory-2026-11-02.md:246`). The Q-A file holds the label only, so the row shape is Not verified.
 - Option B: one row for each year block, 7 rows. Benefit: each year has its own state. Cost: the screen gets 7 phase 2 rows. History: it does not fit one run (round 81 answers 12 to 14). No year runs exist in phase 2.
 
 Old text, replaced in round 81: no recommendation stood on its own `[agent inference]`. The choice follows open item 4 in `translator-design.md`, section 9.31.9 (one run or one run for each year). Round 81 answers 12 to 14 pick one run, so option A fits `[reading pending owner check]` (section 15.34.4).
@@ -6935,7 +6935,7 @@ The unit defaults of DZ79 follow. No owner answer settles them.
 ##### 15.33.12 Open items for the owner
 
 1. The group of a refused Restart on the Monitor dashboard `/` (section 15.33.4). Recommended: the row keeps its group and shows the refusal as a second line. Reason: answer 10 says "book state stays". Example: `mental_full` stays in the group Stopped and shows "Restart refused: ED_2 v4.1.3 has no file". Benefit: the group matches the book state. Cost: the mark stays in `request.json`, so the rule "a mark waits while `request.json` exists" must skip a refused mark. The Viewer can find it from the newest event `restart-refused` `[agent inference]`. Other option: the group Needs attention. Benefit: you see the refusal at once. Cost: the group does not match the book state. Answered in round 81 answer 15 (`qa-memory-2026-11-02.md:20`): "Same group, second line (Recommended)" (section 15.34.5).
-2. The row of phase 2 on the Monitor dashboard `/` (section 15.33.8). Recommended: follow open item 4 of `translator-design.md`, section 9.31.9. One run gives option A, one row. One run for each year gives option B, 7 rows. Reason: the row shape follows the run shape. Example: with one run, the row reads "Phase 2 (paired dataset): Running. Block 2020, article 3 of 9." Answered in part by round 81 answers 12 to 14: one run, so option A fits `[reading pending owner check]` (section 15.34.4).
+2. The row of phase 2 on the Monitor dashboard `/` (section 15.33.8). Recommended: follow open item 4 of `translator-design.md`, section 9.31.9. One run gives option A, one row. One run for each year gives option B, 7 rows. Reason: the row shape follows the run shape. Example: with one run, the row reads "Phase 2 (paired dataset): Running. Block 2020, article 3 of 9." Answered in part by round 81 answers 12 to 14: one run, so option A fits `[reading pending owner check]` (section 15.34.4). Decided in round 87 answer 25 (`qa-memory-2026-11-02.md:241`: "Read-only row (Recommended)") `[owner, round 87 answer 25]`. Not built. Unit VW85 builds the row (`qa-memory-2026-11-02.md:246`). The Q-A file holds the label only, so the row shape is Not verified.
 3. The time zone on the Reader dashboard `/read`. Answer 19 names the Monitor dashboard only. Recommended: keep the Reader dashboard as it is. Reason: the owner asked for PST on the Monitor dashboard, and readers use their own clock `[agent inference]`. Benefit: no change to reader screens. Cost: the two dashboards show two zones. Other option: PST on both dashboards. Benefit: one zone. Cost: a reader far from the Pacific coast reads a foreign zone. Answered in round 81 answers 17 and 18 (`qa-memory-2026-11-02.md:22,23`): PST on the Reader dashboard too. This replaces the recommendation above (section 15.34.6).
 4. The items 2 to 8 of `translator-design.md`, section 9.31.9, ask about phase 2, the table of contents of `tanden_full`, and the events of a refused Restart. They have no Viewer part. Answered in round 81 answers 3 to 16 and 29. See `translator-design.md`, section 9.32.12 for the new open items.
 
@@ -7045,7 +7045,7 @@ Reading of aki-main `[reading confirmed in round 82 answer 19, qa-memory-2026-11
 
 Facts `[check: DZ80 2026-11-02 07:19 python3 -B count of articles.jsonl in <T2>]`: the file has 311 rows, 244 `train-retrieval`, 40 `train-feedback`, and 27 `test` articles. The 2019 year has 14 articles, and 1 is `train-feedback`.
 
-Effect on the Monitor dashboard `/`. The line below Not started reads "Phase 2 (paired dataset): no run record yet." (line 3989). No phase 2 run command exists, because the run-book parser accepts only `agent-phase-3` and `agent-phase-4` `[file: <T2>/data/scripts/translator_run.py:8259]`. A row for phase 2 shows one run. Option A of section 15.33.8 fits `[agent inference]`. Example (invented values): "Phase 2 (paired dataset): Running. Article 4 of 40 (year block 2020). Page 17 of 144 pages." Option B, 7 rows, does not fit one run. Round 82 answer 18 keeps this example (`qa-memory-2026-11-02.md:67`).
+Effect on the Monitor dashboard `/`. The line below Not started reads "Phase 2 (paired dataset): no run record yet." (line 3989). No phase 2 run command exists, because the run-book parser accepts only `agent-phase-3` and `agent-phase-4` `[file: <T2>/data/scripts/translator_run.py:8259]`. A row for phase 2 shows one run. Option A of section 15.33.8 fits `[agent inference]`. Example (invented values): "Phase 2 (paired dataset): Running. Article 4 of 40 (year block 2020). Page 17 of 144 pages." Option B, 7 rows, does not fit one run. Round 82 answer 18 keeps this example (`qa-memory-2026-11-02.md:67`). Decided in round 87 answer 25 (`qa-memory-2026-11-02.md:241`: "Read-only row (Recommended)") `[owner, round 87 answer 25]`. Not built. Unit VW85 builds the row (`qa-memory-2026-11-02.md:246`). The Q-A file holds the label only, so the row shape is Not verified.
 
 The year books of phases 3 and 4 show as books on the Monitor dashboard `/`, like `mental_full`. The book ID of a web year book is `kendojidai_2019` to `kendojidai_2025` (round 82 answer 22, `qa-memory-2026-11-02.md:71`).
 
@@ -8283,7 +8283,7 @@ These results come from the unit folders, from git, and from the checks of aki-m
    - "Fixed section 3": the four roles have a fixed section 3 text with the label `v0`. Example: the header reads `[SECTION 3: INSTRUCTION TEXT, VERSION v0]` `[file: <T2>/data/scripts/translator/update_messages.py:120-129,155 at commit 6214100]`.
    - "N from run.json": N comes from `settings.values["update.N"]` of the `run.json` of the page that ended. Example (selftest): the settings file holds N = 9, the `run.json` of p005 holds N = 5, and the point uses 5 `[file: <T2>/data/scripts/translator_run.py:2496-2507,6574-6578 at commit 6214100]`.
    - "Block reject_reasons": try 2 of the optimizer message holds the block `reject_reasons` with "attempt: 2 of 2" and one row for each reason. Example rows from the worked example: "FORMAT FAIL: the new text is the same as the current text. The new text must differ." and the C3 reason `[file: <T2>/data/scripts/translator/update_messages.py:253-256 at commit 6214100]`.
-   - "Boxes first": DZ84 found no text for this label in the files that it read. What the label means is Not verified. Open item 3 of section 15.38.7 asks for it.
+   - "Boxes first": DZ84 found no text for this label in the files that it read. What the label means is Not verified. Open item 3 of section 15.38.7 asks for it. Replaced in round 87 answer 13: the meaning is decided (item 3 of section 15.38.7).
 11. TF84 is accepted, and four TF84 rules are accepted (round 86 answers 11 and 12, `qa-memory-2026-11-02.md:195,196`: "Accept and commit (Recommended)" and "Harness adds list folder (Recommended), PST as UTC minus 8 (Recommended), Check two versions (Recommended), 14 guard checks, no action (Recommended)").
    - "Harness adds list folder": the harness file `prep_pause.py` adds the list folder `20261027T000000Z` for the pause mode and removes it after `[file: <TMP>/r85/TF84/harness-edits.tsv]`.
    - "PST as UTC minus 8": the text "Paused since" subtracts 8 hours from UTC `[brief fact, aki-main check 2026-11-03]`.
@@ -8371,24 +8371,283 @@ No owner answer settles these items.
 
 The first option of each item is the recommended option.
 
-1. QA rubric table in the update messages `[agent inference]`. Recommended: one later unit adds the table text and the `table_change` lines before the first phase 3 run that can fire a QA box. Example: the audit of a new QA_3 text cannot test a table change today. Benefit: check C5 sees the whole fixed rules. Cost: one more unit and a rule for table changes before the lock. Other option: add the table after phase 3 starts. Benefit: less work now. Cost: the first QA updates run without the table.
-2. Lines that still hold old words `[agent inference]`. Recommended: a later docs unit changes them in place. Example: the templates line 1439 shows `{{critique_id}}`, but the built grouper uses `queue_id`. The templates lines 1605, 1619, and 1686 show `audit_reasons` or `critique_id`. The code blocks at lines 4187 and 4209 of this file show the old note. Benefit: all docs state one rule. Cost: one more docs unit. Other option: keep these lines as history, with Change 18 as the guide.
-3. Text of the rule "Boxes first" (answer 10) `[agent inference]`. Recommended: aki-main gives the text from the TR77d2 report, and a later docs unit adds it to section 15.38.4. Example: DZ84 can name the label only. Benefit: the rule has a text and an example. Cost: one small edit. Other option: delete the label from the notes. Benefit: no label without a text. Cost: the owner answer loses a name.
-4. Text of the note "The run program has no update step yet." in the Viewer `[agent inference]`. Recommended: remove the note from part 6 of section 15.24.5 and from the group 1 line, and keep the star for "reached N". Example: the Details view of `left_foot_full` shows the counts against N = 5. The old note says that no step runs, but the step runs after each accepted page. Benefit: the screen text is true. Cost: one Viewer unit. Other option: keep the note until the first real phase 3 run. Benefit: no Viewer change now. Cost: the screen text is false.
+1. QA rubric table in the update messages `[agent inference]`. Recommended: one later unit adds the table text and the `table_change` lines before the first phase 3 run that can fire a QA box. Example: the audit of a new QA_3 text cannot test a table change today. Benefit: check C5 sees the whole fixed rules. Cost: one more unit and a rule for table changes before the lock. Other option: add the table after phase 3 starts. Benefit: less work now. Cost: the first QA updates run without the table. Decided in round 87 answer 23 (`qa-memory-2026-11-02.md:239`: "Table unit first (Recommended)") `[owner, round 87 answer 23]` and answer 30 (`qa-memory-2026-11-02.md:246`: unit TR85b) `[owner, round 87 answer 30]`.
+2. Lines that still hold old words `[agent inference]`. Recommended: a later docs unit changes them in place. Example: the templates line 1439 shows `{{critique_id}}`, but the built grouper uses `queue_id`. The templates lines 1605, 1619, and 1686 show `audit_reasons` or `critique_id`. The code blocks at lines 4187 and 4209 of this file show the old note. Benefit: all docs state one rule. Cost: one more docs unit. Other option: keep these lines as history, with Change 18 as the guide. Decided in round 87 answer 14 (`qa-memory-2026-11-02.md:230`: "Fix them in DZ85 (Recommended)") `[owner, round 87 answer 14]`. Unit DZ85 did it (Change 19 of the templates file, section 15.39.5).
+3. Text of the rule "Boxes first" (answer 10) `[agent inference]`. Recommended: aki-main gives the text from the TR77d2 report, and a later docs unit adds it to section 15.38.4. Example: DZ84 can name the label only. Benefit: the rule has a text and an example. Cost: one small edit. Other option: delete the label from the notes. Benefit: no label without a text. Cost: the owner answer loses a name. Decided in round 87 answer 13 (`qa-memory-2026-11-02.md:229`: "Reading is right (Recommended)") `[owner, round 87 answer 13]`. Text of the rule: after each accepted page, the step first computes the boxes with N or more critiques. When no box fires, no update agents are built and no model entry is read (unit default 17 of TR77d2) `[brief fact, aki-main check 2026-11-03]`. The code returns before it calls `agents_for(pid)` `[file: <T2>/data/scripts/translator_run.py:2543-2546 at commit 9d0fbe8]`.
+4. Text of the note "The run program has no update step yet." in the Viewer `[agent inference]`. Recommended: remove the note from part 6 of section 15.24.5 and from the group 1 line, and keep the star for "reached N". Example: the Details view of `left_foot_full` shows the counts against N = 5. The old note says that no step runs, but the step runs after each accepted page. Benefit: the screen text is true. Cost: one Viewer unit. Other option: keep the note until the first real phase 3 run. Benefit: no Viewer change now. Cost: the screen text is false. Replaced in round 87: the Details view shows no such note. The test of unit VW77c checks that the note is gone `[file: <V2>/app/scripts/smoke.mjs:4062 at commit 9b40ed2]`. Unit DZ85 changed the lines 4187 and 4209 of this file (section 15.39.5).
 
 ##### 15.38.8 Not verified
 
-- The results of TR77f, VW77c, and SV86 are Not verified. They run in round 86 while this unit writes. This section does not describe them.
+- The results of TR77f, VW77c, and SV86 are Not verified. They run in round 86 while this unit writes. This section does not describe them. Replaced in round 87: section 15.39.3 holds the results of TR77f, VW77c, and SV86.
 - DZ84 ran no selftest. The number 798/798 comes from the log of TR77d2 and from the owner steps file.
 - The real cost of one update point is Not verified. The value 0.18 USD comes from fake calls.
-- What the label "Boxes first" means is Not verified.
+- What the label "Boxes first" means is Not verified. Replaced in round 87 answer 13: the meaning is decided (item 3 of section 15.38.7).
 - The text of the 17 unit defaults of TR77d2 is Not verified, except the rules that the code states (item 10 of section 15.38.4). DZ84 did not read the TR77d2 report.
 - The pause test result 16 PASS and 0 FAIL and the count 264 of the PST test come from the brief. DZ84 did not run them.
 - The time of the live check in `live_pages_after.txt` is Not verified. DZ84 made no GET.
 - The match of the eight DZ83 labels and the label "Check two versions" to their rules is an `[agent inference]`.
 - That nothing was pushed comes from the brief. DZ84 ran no `git remote` command.
 - The app files show no such note: `git grep` found no line with the note in `<V2>/app` at HEAD `[check: DZ84 2026-11-03 02:49 PST git grep -n 'no update step yet' HEAD -- app in <V2>]`. The note sits in the docs only.
-- The Restart move of the folder `update-points/` and the freeze rules need the code of TR77f. That code is Not verified.
+- The Restart move of the folder `update-points/` and the freeze rules need the code of TR77f. That code is Not verified. Replaced in round 87: section 15.39.3 holds the result of TR77f (commit `541fd3f`).
 - The dev server on port 3000 and PocketBase on port 8090 were not read or changed.
 
-Status: round 86 answers applied by unit DZ84. Items in section 15.38.7 wait for the owner.
+Status (round 86): round 86 answers applied by unit DZ84. Round 87 (section 15.39) closed the items 1 to 4 of section 15.38.7.
+
+#### 15.39 Round 87 answers: Details view accepted, Monitor row of phase 2, old note lines fixed, phase 2 and N decisions (unit DZ85, round 87)
+
+Unit DZ85 wrote this section in round 87, from 2026-11-03 10:27 PST. It records the owner answers of round 87. The Q-A file is `.opencode/reminders/qa/qa-memory-2026-11-02.md`. The design side is in `<T2>/docs/drafts/translator-design.md`, section 9.37. This section has the Viewer weight. This unit changed docs only. It started no server, no build, no model call, no Voyage call, and no network call.
+
+Pilot runs under `<T2>/data/pilot-run/` are not real runs (round 73e answer 10, `qa-memory-2026-10-31.md:13`): "All these are pilots, which DO NOT COUNT toward real runs". Examples use real book IDs and real article IDs, and each value carries a source tag. An example that shows a state with no real run says "example state (not run data)". The fake calls of the selftest give such a state.
+
+Screen names in this section: the Reader dashboard `/read` and the book screen `/read/<slug>`. The Monitor dashboard `/` runs on this Mac. The Details view is `/monitor/<slug>`. The Lists tab is `/runs`, and the run view is `/runs/<stamp>`. The Reader dashboard says "translated". The Monitor dashboard says "pages done".
+
+Source tags: owner words carry the Q-A file and the line, or `[owner, round N answer M]`. A unit default carries `[unit default DZ85]`. A fact that only the brief of DZ85 gives carries `[brief fact, aki-main check 2026-11-03]`. An inference of the unit carries `[agent inference]`. A reading that the owner has not checked carries `[reading pending owner check, round 87 answer N]` or `[reading pending owner check, round 88]`. A tag `[file: ...]` or `[check: DZ85 ...]` gives the evidence.
+
+In this section `<TMP>` is `/var/folders/sz/2hvwvpb16c77mfzqnvkb5gbc0000gn/T/opencode`. Code lines of the Translator carry the commit 9d0fbe8, the merge of the branch `v2/viewer` into the branch `v2/translator`. Code lines of the Viewer carry the commit 9b40ed2 or 0e376c7.
+
+##### 15.39.1 Sources and scope
+
+- The Q-A file has 256 lines. The round 87 header sits at line 216. Answer N of round 87 sits at line 216+N, so the answers fill the lines 217 to 249. Line 250 is the title line of the notes of aki-main. The notes sit at the lines 251 to 256 `[check: DZ85 2026-11-03 10:28 PST Read of qa-memory-2026-11-02.md lines 210 to 256]`.
+- `git rev-parse HEAD` shows 9d0fbe8 in <T2> (branch v2/translator) and 9b40ed2 in <V2> (branch v2/viewer). At the start of the unit, `git status --short` printed nothing in both repos `[check: DZ85 2026-11-03 10:27 PST git status --short and git rev-parse HEAD in <T2> and <V2>]`.
+- Unit TF85 runs in parallel and writes files under `<V2>/app/`. Its result is Not verified `[brief fact, aki-main check 2026-11-03]`. The Translator code stays at 9d0fbe8 during this unit.
+- This unit writes three docs: this file, `<T2>/docs/drafts/translator-prompt-templates.md`, and `<V2>/docs/VISION-viewer.md`.
+- Section 15.39.2 holds the owner words. Section 15.39.3 holds the unit results. Section 15.39.4 holds what the answers change. Section 15.39.5 lists the lines that this unit changed in place. Section 15.39.6 holds the unit defaults. Section 15.39.7 holds the open items. Section 15.39.8 holds the Not verified list.
+
+Open items that round 87 closed:
+
+- Section 15.38.7, item 1 (QA rubric table unit): decided in round 87 answers 23 and 30.
+- Section 15.38.7, item 2 (lines with old words): decided in round 87 answer 14. DZ85 changed the lines (section 15.39.5).
+- Section 15.38.7, item 3 (text of the rule "Boxes first"): decided in round 87 answer 13.
+- Section 15.38.7, item 4 (Viewer note about the update step): the Details view shows no such note. DZ85 changed the two sketch lines.
+- The list "Not designed." of design section 9.31.6: the run command (answer 18), the Monitor row (answer 25), and the Restart (answer 24) are decided. The code of the update step is built.
+
+##### 15.39.2 Owner words of round 87
+
+The lists below hold all 33 answers of round 87. A script copied each text after the number from the Q-A file and added the line number. The brackets at the end of each text are the source tags of the Q-A file. Answer 32 has no answer.
+
+- Round 87 answer 1 (line 217): A1 Accept freeze code (TR77f): "Accept and commit (Recommended)" [accepted recommendation]
+- Round 87 answer 2 (line 218): A2 Freeze timing (a box that freezes changes the routing from the next update point): "From the next update point (Recommended)" [accepted recommendation]
+- Round 87 answer 3 (line 219): A3 No move back (a critique of a frozen box moves only forward TS, TL, ED, QA; QA_2 and QA_3 frozen means the QA_2 critique stays queued): "option 1. Create an overflow queue for critique for monitoring. For critique that move through the whole grid but not resolved, record its content and its starting point" [user]
+- Round 87 answer 4 (line 220): A4 Other freeze rules: "1 Freeze event (Recommended), 2 Group counts (Recommended), 3 Old events ignored (Recommended), 6 List only when frozen (Recommended), 7 Moved critique keeps ID (Recommended), 8 Result key (Recommended)" [accepted recommendation, all 6]
+- Round 87 answer 5 (line 221): A5 Folder update-points/ at the phase 3 to phase 4 move: "Move it too, in TR85a (Recommended)" [accepted recommendation]
+- Round 87 answer 6 (line 222): B1 Accept Details view (VW77c): "Accept and commit (Recommended)" [accepted recommendation]
+- Round 87 answer 7 (line 223): B2 What the Details view shows: "D3 Last try reasons (Recommended), D5 Links, no grid (Recommended), D6 Separate tables (Recommended), D7 Total on top (Recommended), D8 Changed boxes only (Recommended), D11 Boxes with a point (Recommended), D12 Newest error (Recommended), D13 All list folders (Recommended)" [accepted recommendation, all 8]
+- Round 87 answer 8 (line 224): B3 How the Details view behaves: "D1 Link on all rows (Recommended), D4 Flag until Resume (Recommended), D9 Oldest first (Recommended), D10 Translator rounding (Recommended), D14 Refresh every 3 s (Recommended)" [accepted recommendation, all 5]
+- Round 87 answer 9 (line 225): B4 Viewer fixes in TF85: "Fix the row sort (Recommended), Title opens Details (Recommended)" [accepted recommendation, both]
+- Round 87 answer 10 (line 226): B5 Later screen texts: "Show frozen boxes, in VW85 (Recommended), Show book-run, in VW77e (Recommended)" [accepted recommendation, both]
+- Round 87 answer 11 (line 227): C1 Accept docs (DZ84): "Accept and commit (Recommended)" [accepted recommendation]
+- Round 87 answer 12 (line 228): C2 Docs writing rules: "1 Same words only (Recommended), 2 Replaced tag (Recommended), 3 Named lines only (Recommended), 4 Two more VISION lines (Recommended), 5 Wider column (Recommended), 6 Real line numbers (Recommended), 7 Labeled examples (Recommended), 8 Cite commit 6214100 (Recommended), 9 reject_reasons rows (Recommended)" [accepted recommendation, all 9]
+- Round 87 answer 13 (line 229): C3 Meaning of "Boxes first" (TR77d2 default 17): "Reading is right (Recommended)" [accepted recommendation]
+- Round 87 answer 14 (line 230): C4 Old words in docs: "Fix them in DZ85 (Recommended)" [accepted recommendation]
+- Round 87 answer 15 (line 231): D1 Accept phase 2 survey (SV86) and its four faults: "accept 1 and 3 \nFor 2, every page go through a forward-backward pass. we use N = 3 for phase 2 and N = 2 for phase 3 (for full runs with less than 100 pages use N = 2, less than 200 pages use N = 3, the rest use default N = 5)\nI dont understand 4." [user]
+- Round 87 answer 16 (line 232): D2 Cost cap reading (no total cap, round 39 answer 4): "Reading is right (Recommended)" [accepted recommendation]
+- Round 87 answer 17 (line 233): D3 Start texts of the 16 boxes in phase 2: "What is this? We have a whole full md docs of detailed prompt format already right?" [user]
+- Round 87 answer 18 (line 234): D4 Start command of phase 2: "Extend run-book (Recommended)" [accepted recommendation]
+- Round 87 answer 19 (line 235): D5 Page file names in phase 2: "Full page ID with _ (Recommended)" [accepted recommendation]
+- Round 87 answer 20 (line 236): D6 Book translation memory in phase 2: "One chain for the pass" [accepted option 2]
+- Round 87 answer 21 (line 237): D7 Box that gets a reference-diff critique: "Level 3 of the stage (Recommended)" [accepted recommendation]
+- Round 87 answer 22 (line 238): D8 Units that the reference-diff-critic compares: "We `correct` the defect right, meaning JA-EN is completely `paired`? If so then we can use all of them\nIf the defect is not paired 1-by-1 between JA-EN, then dont use them" [user]
+- Round 87 answer 23 (line 239): D9 QA rubric table code before phase 2: "Table unit first (Recommended)" [accepted recommendation]
+- Round 87 answer 24 (line 240): D10 Restart in phase 2: "option 1.treat the train-feedback the same as a book" [user]
+- Round 87 answer 25 (line 241): D11 Monitor row of phase 2: "Read-only row (Recommended)" [accepted recommendation]
+- Round 87 answer 26 (line 242): D12 Phase 3 gate: "Also need phase 2 completed (Recommended)" [accepted recommendation]
+- Round 87 answer 27 (line 243): D13 Report at the end of phase 2: "Text report command (Recommended)" [accepted recommendation]
+- Round 87 answer 28 (line 244): D14 Trend number during phase 2: "option 1 and 2" [user]
+- Round 87 answer 29 (line 245): E1 Commit plan: "Commit in this order (Recommended)" [accepted recommendation]
+- Round 87 answer 30 (line 246): E2 Next units: "TR85a phase 2 part 1 (Recommended), TF85 Viewer fixes (Recommended), DZ85 docs (Recommended), TR85b QA rubric table (Recommended), TR85c phase 2 part 2 (Recommended), VW85 phase 2 row (Recommended), VW77d Run settings panel, VW77e archive and ToC fold" [accepted recommendation plus options 7, 8]
+- Round 87 answer 31 (line 247): E3 DESTRUCTIVE temp delete: "Delete r85/TF84 (1.5 GB), Delete r84/TF83 (1,080 MB)" [user chose destructive options 2, 3]
+- Round 87 answer 32 (line 248): E4 Other wishes: (no answer)
+- Round 87 answer 33 (line 249): E5 Session control: "Run the plan (Recommended)" [accepted recommendation]
+
+Notes by aki-main (not owner words). They sit at the lines 251 to 256 of the Q-A file. Line 250 is their title line. The script copied each note in full.
+
+- Line 251 (not owner words): Answer 15, item 2: "forward-backward pass" is the forward boxes plus the backward box-critic and critique steps of one page (round 70 answer 12, qa-memory-2026-10-29.md:127). Reading: in phase 2 the update point check runs after every page, as in books, so the code today is right [reading pending owner check].
+- Line 252 (not owner words): Answer 15, N rule: phase 2 N = 3, phase 3 N = 2, phase 4 full runs N = 2 under 100 pages, N = 3 under 200 pages, N = 5 for the rest. This replaces round 72 answer 7 (N = 5 from the start) [reading pending owner check on how the settings file value and this rule meet].
+- Line 253 (not owner words): Answer 15, item 4 and answer 17 and answer 22: owner questions. aki-main answers them with facts in the round 88 batch before any build that depends on them.
+- Line 254 (not owner words): Answer 20: one book translation memory chain for the whole phase 2 pass (code today), not one chain per article.
+- Line 255 (not owner words): Answer 24: Restart in phase 2 works as for a book. 
+- Line 256 (not owner words): Answer 31: <TMP>/r81/TJ81 and /tmp/null were not chosen, so they stay.
+
+The note at line 251 gives the aki-main reading of the forward-backward pass. The note at line 252 gives the N rule and its open reading. The note at line 253 says that three owner questions get facts in round 88. The note at line 254 restates answer 20. The note at line 255 restates answer 24. The note at line 256 says which temp folders stay.
+
+##### 15.39.3 Results of the round 86 units
+
+These results come from git, from the unit folders, and from the checks of aki-main. Facts that DZ85 checked carry a `[check: DZ85 ...]` or `[file: ...]` tag. The other facts are unit claims that aki-main reported, and they carry `[brief fact, aki-main check 2026-11-03]`.
+
+- Unit TR77f (phase 4 box freeze) made the commit 541fd3f on v2/translator. The new file `data/scripts/translator/freeze.py` has 136 lines `[check: DZ85 2026-11-03 10:44 PST git show 9d0fbe8:data/scripts/translator/freeze.py | wc -l in <T2>]`.
+  - The file sets `FREEZE_PHASE = "agent-phase-4"` (line 31), `K = 3` (line 32), and the event name `box-frozen` (line 33). The functions are `freeze_on`, `frozen_boxes`, `soft_row`, `check_box`, `target_of`, `route_map`, and `sync_status` `[file: <T2>/data/scripts/translator/freeze.py:31-126 at commit 9d0fbe8]`.
+  - `store.py` has `UPDATE_POINTS_DIR` at line 40. The function `archive_run` starts at line 271. Its loop at line 283 moves `book-memory.jsonl`, `pages`, `prompts`, `update-points`, and `status.json` into the archive folder `[file: <T2>/data/scripts/translator/store.py:40,271,283 at commit 9d0fbe8]`. Round 86 answer 3 asked for this move.
+  - The stale texts in `config.py` lines 128 to 132 and in `config/translator-models.yaml` line 450 are fixed `[brief fact, aki-main check 2026-11-03]`. DZ85 read both places at 9d0fbe8 `[check: DZ85 2026-11-03 10:44 PST git show 9d0fbe8:<file> | sed -n in <T2>]`. It did not compare them with the older text. The comment at `config/translator-models.yaml` line 662 still says "The run program has no update step yet." (open item 10).
+  - The selftest gave 798, then 832/832. aki-main ran it at 03:25 and after the merge at 10:15, with 0 FAIL `[brief fact, aki-main check 2026-11-03]`. The last line of the log reads `TOTAL 832/832` `[check: DZ85 2026-11-03 10:44 PST tail -3 of <TMP>/r87/aki/selftest-merge.log]`.
+  - The eight unit defaults of TR77f follow `[brief fact, aki-main check 2026-11-03]`. Default 1 is the event `box-frozen`. Default 2 is the counts `hard_groups` and `soft_groups` in `update-point-ended`. Default 3 says that old events without the field neither add nor reset. Default 4 says that a freeze changes the routing from the next update point. Default 5 says that step (b) has no move back. Default 6 is the key `frozen_boxes` in `status.json` only when a box is frozen. Default 7 says that a moved critique keeps its own queue ID. Default 8 is the result key `frozen_now`.
+  - Answer 1 accepted the code. Answer 2 accepted default 4. Answer 4 accepted the defaults 1, 2, 3, 6, 7, and 8. Answer 3 accepted default 5 and added the overflow queue. Answer 5 moves `update-points/` at the phase 3 to phase 4 move in unit TR85a.
+- Unit VW77c (Details view `/monitor/<slug>`) made the commit 0e376c7 on v2/viewer. The commit changed 11 files with 1,396 insertions and 7 deletions `[check: DZ85 2026-11-03 10:44 PST git show 0e376c7 --stat in <V2>]`.
+  - New files: `app/app/monitor/[slug]/page.tsx`, `app/app/api/monitor/books/[slug]/route.ts` (GET), `components/BookDetailView.tsx`, `lib/book-detail.ts`, `lib/book-detail-rules.ts`, and `lib/critique-share.ts`. `BookRow.tsx` got the link "Details" on every row `[brief fact, aki-main check 2026-11-03]`.
+  - Tests: the mode "details" gave 81 PASS, and the browser run `run_browser_c.sh` gave 20 PASS. On port 3000 the link "Details" shows on 37 of 37 rows. `/monitor/mental_full` answers 200. aki-main checked `/monitor/mental_full` and the 11 compare results `[brief fact, aki-main check 2026-11-03]`.
+  - The test of VW77c checks that the note "The run program has no update step yet." is gone from the page `[file: <V2>/app/scripts/smoke.mjs:4062 at commit 9b40ed2]`.
+  - The 14 defaults D1 to D14 are accepted in answers 7 and 8. The Q-A file holds the labels only, and DZ85 did not read the VW77c report, so the text of each default is Not verified.
+  - Fault found: the function `sortRows` of the Monitor dashboard `/` is not transitive. It gave React error #418 in Firefox with the fixture `dt`. Unit TF85 fixes it (round 87 answer 9) `[brief fact, aki-main check 2026-11-03]`.
+  - Parts 4 (box grid) and 5 (list of memory pairs) of section 15.24.5 are links and counts only (default D5, round 87 answer 7).
+- Unit DZ84 (docs) made the commits a5f5905 (design and templates) and 9b40ed2 (VISION). It wrote design section 9.36, templates Change 18, and VISION section 15.38. Answer 11 accepted it, and answer 12 accepted its nine writing rules.
+- Unit SV86 (read-only survey of phase 2) wrote `<TMP>/r86/SV86/survey.txt` with 490 lines `[check: DZ85 2026-11-03 10:44 PST wc -l of survey.txt]`. It found four faults in the code at HEAD `[brief fact, aki-main check 2026-11-03]`.
+  - Fault 1: page files repeat across articles. The function `page_file` builds the name from the last part of the page ID, so `94380515/p001` and `443fc114/p001` both map to `pages/p001.json` `[file: <T2>/data/scripts/translator/store.py:235-236 at commit 9d0fbe8]`.
+  - Fault 2: the update point check runs after every accepted page `[file: <T2>/data/scripts/translator_run.py:2951 at commit 9d0fbe8]`. The reading of round 80 answer 22 said once after the last part of each article. The brief gives about line 2940.
+  - Fault 3: one chain of the book translation memory over the whole list joins unrelated articles. The chain is built at `translator_run.py:2784` `[file: <T2>/data/scripts/translator_run.py:2784 at commit 9d0fbe8]`. The brief gives about line 2773 and `book_memory.py` lines 463 to 494. The join code sits in `effective_rows` of `book_memory.py` `[file: <T2>/data/scripts/translator/book_memory.py:463-494 at commit 9d0fbe8]`.
+  - Fault 4: the function `stop_before_start` writes the phase "agent-phase-3" into a new `status.json` `[file: <T2>/data/scripts/translator_run.py:2436-2441 at commit 9d0fbe8]`.
+  - SV86 asked 13 owner questions. Round 87 answers 16 to 28 answered them.
+- Commits after round 87: the branch v2/base is v2/viewer at 9b40ed2. The merge 9d0fbe8 "Merge branch 'v2/viewer' into v2/translator" is the HEAD of v2/translator `[check: DZ85 2026-11-03 10:44 PST git log --oneline -8 in <T2>]`. The selftest after the merge gave TOTAL 832/832 (log `<TMP>/r87/aki/selftest-merge.log`). Nothing is pushed, and main stays at 2da3ab2 `[brief fact, aki-main check 2026-11-03]`.
+
+##### 15.39.4 What each answer changes
+
+1. Answer 1 accepts the freeze code of TR77f (round 87 answer 1, `qa-memory-2026-11-02.md:217`: "Accept and commit (Recommended)"). Section 15.39.3 holds the results.
+   - Rule: in phase 4, a box freezes after 3 update points in a row with no hard critique group (round 37 answer 11). The event `box-frozen` records the freeze `[file: <T2>/data/scripts/translator/freeze.py:31-33 at commit 9d0fbe8]`.
+   - Example state (not run data): `ED_2` of `mental_full` has the update points after p020, p040, and p060 with no hard critique group. The Translator writes `box-frozen` with the box `ED_2` and the phase `agent-phase-4`.
+2. A freeze changes the routing from the next update point (round 87 answer 2, `qa-memory-2026-11-02.md:218`: "From the next update point (Recommended)").
+   - The code reads the frozen set once, at the start of each update point `[file: <T2>/data/scripts/translator_run.py:2538-2541 at commit 9d0fbe8]`.
+   - Example state (not run data): `ED_2` freezes at the update point after p060. That point still routes with `ED_2` open. The point after p061 routes with `ED_2` frozen.
+3. A critique of a frozen box moves only forward (round 87 answer 3, `qa-memory-2026-11-02.md:219`). A critique with no open box goes to an overflow queue. Default 5 of TR77f is accepted with this owner addition.
+   - Owner words: "option 1. Create an overflow queue for critique for monitoring. For critique that move through the whole grid but not resolved, record its content and its starting point".
+   - Example state (not run data): a critique with the queue ID `QA_2:p060:1` starts at `QA_2`. `QA_2` and `QA_3` are frozen, so no open box exists above it. The critique goes to the overflow queue. The queue ID form is `<box>:<page>:<number>` `[file: <T2>/data/scripts/translator_run.py:1043-1051 at commit 9d0fbe8]`.
+   - The file form and the screen place of the overflow queue are not designed `[reading pending owner check, round 88]`. Open item 5 asks for them. Design line 2378 carries the rule.
+4. Six more freeze rules are accepted (round 87 answer 4, `qa-memory-2026-11-02.md:220`). The labels are "Freeze event", "Group counts", "Old events ignored", "List only when frozen", "Moved critique keeps ID", and "Result key".
+   - They match the TR77f defaults 1, 2, 3, 6, 7, and 8 in the order of the labels `[agent inference]`.
+   - Example state (not run data): `update-point-ended` of `ED_2` holds `hard_groups` 0 and `soft_groups` 2. `status.json` holds `frozen_boxes` ["ED_2"] only after the freeze. A critique `TL_1:p060:2` that moves to `TL_3` keeps the queue ID `TL_1:p060:2`.
+5. The folder `update-points/` moves with the other files at the phase 3 to phase 4 move (round 87 answer 5, `qa-memory-2026-11-02.md:221`: "Move it too, in TR85a (Recommended)").
+   - Example state (not run data): `data/book-store/left_foot_full/update-points/p060/` moves into the folder of the old phase. The function `move_phase` of `store.py` moves `status.json`, `book-memory.jsonl`, `pages/`, and `prompts/` today `[file: <T2>/data/scripts/translator/store.py:254-255 at commit 9d0fbe8]`. Unit TR85a adds `update-points/`.
+6. Answer 6 accepts the Details view of VW77c (round 87 answer 6, `qa-memory-2026-11-02.md:222`: "Accept and commit (Recommended)"). Commit 0e376c7 holds it.
+   - Example: the Details view of `mental_full` is `/monitor/mental_full`. It answers 200 on port 3000 `[brief fact, aki-main check 2026-11-03]`.
+   - The test of VW77c checks that the note "The run program has no update step yet." is gone. So part 6 of section 15.24.5 shows no such note. This file marks the old note lines as replaced.
+7. Answer 7 accepts eight defaults of the Details view (round 87 answer 7, `qa-memory-2026-11-02.md:223`). The labels are "D3 Last try reasons", "D5 Links, no grid", "D6 Separate tables", "D7 Total on top", "D8 Changed boxes only", "D11 Boxes with a point", "D12 Newest error", and "D13 All list folders".
+   - DZ85 did not read the VW77c report, so the text of each default is Not verified. Only D5 has a known effect: parts 4 and 5 of section 15.24.5 are links and counts only.
+8. Answer 8 accepts five more defaults (round 87 answer 8, `qa-memory-2026-11-02.md:224`). The labels are "D1 Link on all rows", "D4 Flag until Resume", "D9 Oldest first", "D10 Translator rounding", and "D14 Refresh every 3 s".
+   - Example for D1: the link "Details" shows on 37 of 37 rows of the Monitor dashboard `/` `[brief fact, aki-main check 2026-11-03]`. The text of the other defaults is Not verified.
+9. Unit TF85 fixes two Viewer faults (round 87 answer 9, `qa-memory-2026-11-02.md:225`: "Fix the row sort (Recommended), Title opens Details (Recommended)").
+   - Example: the title of the row `mental_full` opens `/monitor/mental_full` after TF85. The fix of `sortRows` removes React error #418 in Firefox `[brief fact, aki-main check 2026-11-03]`. The TF85 result is Not verified.
+10. Two screen texts come later (round 87 answer 10, `qa-memory-2026-11-02.md:226`: "Show frozen boxes, in VW85 (Recommended), Show book-run, in VW77e (Recommended)").
+   - Example: the Details view of a book with a frozen `ED_2` shows the frozen box after VW85. The Details view shows the book-run text after VW77e. Neither unit is built.
+11. Answer 11 accepts DZ84 (round 87 answer 11, `qa-memory-2026-11-02.md:227`: "Accept and commit (Recommended)"). The commits are a5f5905 and 9b40ed2.
+12. Answer 12 accepts nine docs writing rules (round 87 answer 12, `qa-memory-2026-11-02.md:228`). The labels are "Same words only", "Replaced tag", "Named lines only", "Two more VISION lines", "Wider column", "Real line numbers", "Labeled examples", "Cite commit 6214100", and "reject_reasons rows".
+   - DZ85 follows them. Example of "Named lines only": DZ85 changed the named templates lines and listed the lines that it left (section 15.39.5). Rule 8 names the commit 6214100. DZ85 cites 9d0fbe8 instead (unit default 4).
+13. The meaning of "Boxes first" is decided (round 87 answer 13, `qa-memory-2026-11-02.md:229`: "Reading is right (Recommended)").
+   - Rule: after each accepted page, the step first computes the boxes with N or more critiques. When no box fires, no update agents are built and no model entry is read (unit default 17 of TR77d2).
+   - The code returns before it calls `agents_for(pid)` `[file: <T2>/data/scripts/translator_run.py:2543-2546 at commit 9d0fbe8]`. Example state (not run data): after `left_foot_full/p060`, no box has 5 critiques, so the step makes no agent.
+14. Old words in the docs are fixed by DZ85 (round 87 answer 14, `qa-memory-2026-11-02.md:230`: "Fix them in DZ85 (Recommended)").
+   - Example: the templates line 1439 now reads `{{queue_id}} | book=...` where it read `{{critique_id}} | book=...`. Change 19 of the templates file lists every line. The two VISION sketch lines 4187 and 4209 now state the built behavior.
+15. Answer 15 has four parts (round 87 answer 15, `qa-memory-2026-11-02.md:231`).
+   - Part 1, "accept 1 and 3": the owner accepts the faults 1 and 3 of SV86 as faults. Fault 1 example: `94380515/p001` and `443fc114/p001` both map to `pages/p001.json`. Answer 19 sets the fix for fault 1. Open item 4 asks how fault 3 and answer 20 fit together.
+   - Part 2, "For 2, every page go through a forward-backward pass.": the aki-main reading is that the update point check runs after every page in phase 2, as for a book. In this project "forward and backward" means the forward boxes TS, TL, ED, and QA. It also means the backward box-critic and critique steps of one page (round 70 answer 12, `qa-memory-2026-10-29.md:127`). `[reading pending owner check, round 87 answer 15]` Open item 1 asks.
+   - Part 3, the N rule: "we use N = 3 for phase 2 and N = 2 for phase 3 (for full runs with less than 100 pages use N = 2, less than 200 pages use N = 3, the rest use default N = 5)". It replaces round 72 answer 7 ("N=5 from the start"). Example: a phase 4 run of 120 pages gets N = 3. The page count of `left_foot_full` is 120 in the sketch of section 15.24.5 (VISION line 4177). `[reading pending owner check: how the settings file value update.N and this rule meet]` Open items 2 and 3 ask.
+   - Part 4, "I dont understand 4.": fault 4 is `stop_before_start`. Open item 6 holds the facts. The owner asks, and aki-main answers in round 88.
+16. Answer 16 keeps the rule of no total cost cap (round 87 answer 16, `qa-memory-2026-11-02.md:232`: "Reading is right (Recommended)"). Round 39 answer 4 set it (`qa-memory-2026-10-26.md:8`: "No default, keep option (Recommended)").
+   - Example: a phase 2 run of 40 articles has no `--max-usd` unless you pass it. The cost estimate for phase 2 is open item 9.
+17. Answer 17 is an owner question about the start texts of the 16 boxes in phase 2 (round 87 answer 17, `qa-memory-2026-11-02.md:233`). Open item 7 holds the facts. Aki-main answers in round 88.
+18. The start command of phase 2 extends run-book (round 87 answer 18, `qa-memory-2026-11-02.md:234`: "Extend run-book (Recommended)").
+   - The command form is `run-book paired-dataset --phase agent-phase-2` `[brief fact, aki-main check 2026-11-03]`. Unit TR85a builds it. The parser accepts `agent-phase-3` and `agent-phase-4` only today `[file: design 9.31.6, line 9419]`.
+19. Page files in phase 2 use the full page ID with an underscore (round 87 answer 19, `qa-memory-2026-11-02.md:235`: "Full page ID with _ (Recommended)").
+   - Example: the page `94380515/p001` writes `pages/94380515_p001.json`. The page `94380515/p003` writes the folder `update-points/94380515_p003/` and the key `update_point` "94380515/p003". Books keep the short form, for example `p060` (round 83 answer 14) `[brief fact, aki-main check 2026-11-03]`.
+   - This removes fault 1 for phase 2. `443fc114/p001` then writes `pages/443fc114_p001.json` and the two files no longer collide.
+20. Phase 2 uses one chain of the book translation memory for the whole pass (round 87 answer 20, `qa-memory-2026-11-02.md:236`: "One chain for the pass"). This is the code today `[file: <T2>/data/scripts/translator_run.py:2784 at commit 9d0fbe8]`.
+   - The note at line 254 says: one chain for the whole phase 2 pass, not one chain per article. Open item 4 asks how this fits the acceptance of fault 3 in answer 15.
+21. A reference-diff critique goes to the level 3 box of the stage that it names (round 87 answer 21, `qa-memory-2026-11-02.md:237`: "Level 3 of the stage (Recommended)"). The stage is TL or ED. The web reply form drops TS.
+   - Example: a reference-diff critique that names the stage TL goes to `TL_3`. A critique that names ED goes to `ED_3`. The reference-diff-critic code is not built (units TR85a and TR85c).
+22. Answer 22 is an owner question about the defect units (round 87 answer 22, `qa-memory-2026-11-02.md:238`). Open item 8 holds the facts. Aki-main answers in round 88.
+23. The QA rubric table unit TR85b runs before phase 2 (round 87 answer 23, `qa-memory-2026-11-02.md:239`: "Table unit first (Recommended)"). Answer 30 ticks TR85b.
+   - Example: the audit message of a new `QA_3` text holds the line "rubric table: this message does not hold the table text" today `[file: <T2>/data/scripts/translator/update_messages.py:260 at commit 9d0fbe8]`. TR85b removes the gap.
+24. A Restart in phase 2 works as for a book (round 87 answer 24, `qa-memory-2026-11-02.md:240`: "option 1.treat the train-feedback the same as a book").
+   - Example state (not run data): you press Restart on the row of `paired-dataset`. The Translator moves the run into `archive/<run ID>/`, as it does for `mental_full`. The Restart in phase 2 is not built.
+25. The Monitor row of phase 2 is read-only (round 87 answer 25, `qa-memory-2026-11-02.md:241`: "Read-only row (Recommended)"). Unit VW85 builds it.
+   - Example (invented values): "Phase 2 (paired dataset): Running. Article 4 of 40 (year block 2020). Page 17 of 144 pages." The Q-A file holds the label only, so the exact shape of the row is Not verified.
+26. Phase 3 needs the state "completed" in `data/book-store/paired-dataset/status.json` too (round 87 answer 26, `qa-memory-2026-11-02.md:242`: "Also need phase 2 completed (Recommended)").
+   - Example state (not run data): a phase 3 start of `left_foot_full` is refused while `paired-dataset/status.json` holds the state "stopped". Whether the gate code exists is Not verified.
+27. A text report command runs at the end of phase 2 (round 87 answer 27, `qa-memory-2026-11-02.md:243`: "Text report command (Recommended)"). The command is not built.
+28. The trend numbers of phase 2 are two (round 87 answer 28, `qa-memory-2026-11-02.md:244`: "option 1 and 2"). Option 1 is the number of reference-diff critiques per 1,000 JA characters for each article. Option 2 is the chrF between the final EN and the human EN for each article `[brief fact, aki-main check 2026-11-03]`.
+   - Example: the article `94380515` gets one count of critiques per 1,000 JA characters and one chrF value. Neither is built.
+29. Answer 29 sets the commit order (round 87 answer 29, `qa-memory-2026-11-02.md:245`: "Commit in this order (Recommended)").
+30. Answer 30 names the next units (round 87 answer 30, `qa-memory-2026-11-02.md:246`). Ticked: TR85a (phase 2 part 1), TF85 (Viewer fixes), and DZ85 (docs). Also ticked: TR85b (QA rubric table), TR85c (phase 2 part 2), VW85 (phase 2 row), VW77d (Run settings panel), and VW77e (archive and ToC fold).
+31. Answer 31 is a destructive choice about temp folders (round 87 answer 31, `qa-memory-2026-11-02.md:247`): "Delete r85/TF84 (1.5 GB), Delete r84/TF83 (1,080 MB)". DZ85 deleted nothing. The note at line 256 says that `<TMP>/r81/TJ81` stays.
+32. Answer 32 has no answer (round 87 answer 32, `qa-memory-2026-11-02.md:248`).
+33. Answer 33 is "Run the plan (Recommended)" (round 87 answer 33, `qa-memory-2026-11-02.md:249`). It starts the round 87 units and this unit.
+
+##### 15.39.5 Lines of this file that DZ85 changed in place
+
+Each row is one line of this file. The unit changed the line in place. The line count above this section is the same before and after the edit. Quoted old text stays as a quote. The files `inplace-design.json`, `inplace-vision.json`, and `inplace-templates.json` in the unit folder hold the full old and new text of each line.
+
+| Line | Old text in short | New text in short | Source |
+|---|---|---|---|
+| 3989 | phase 2 line: no run record yet | adds: decided in answer 25, unit VW85 | round 87 answer 25 |
+| 4028 | part 1 header | tag: built in VW77c | unit VW77c |
+| 4029 | part 2 last error | tag: built in VW77c | unit VW77c |
+| 4030 | part 3 timeline | tag: built in VW77c | unit VW77c |
+| 4031 | part 4 boxes | tag: links and counts only (D5) | round 87 answer 7 |
+| 4032 | part 5 memory pairs | tag: links and counts only (D5) | round 87 answer 7 |
+| 4033 | part 6 critiques against N | tag: built in VW77c, note closed | unit VW77c |
+| 4034 | part 7 settings used | tag: built in VW77c | unit VW77c |
+| 4187 | star line: no update step yet | star line: update point runs after each accepted page | round 85 answer 14, round 86 answer 10, unit TR77d2 commit 8419914 |
+| 4209 | config panel line: today N only sets the marks | config panel line: update point runs after each accepted page, same width | round 85 answer 14, round 86 answer 10, unit TR77d2 commit 8419914 |
+| 6862 | option A: one row for the phase 2 run | adds: decided in answer 25, unit VW85 | round 87 answer 25 |
+| 6938 | open item 2: the row of phase 2 | adds: decided in answer 25, unit VW85 | round 87 answer 25 |
+| 7048 | effect on the Monitor dashboard: phase 2 row | adds: decided in answer 25, unit VW85 | round 87 answer 25 |
+| 8286 | Boxes first has no text | adds: decided in answer 13 | round 87 answer 13 |
+| 8374 | open item 1: QA rubric table unit | decided in answers 23 and 30 | round 87 answers 23 and 30 |
+| 8375 | open item 2: old words | decided in answer 14, done by DZ85 | round 87 answer 14 |
+| 8376 | open item 3: text of Boxes first | decided in answer 13, text written | round 87 answer 13 |
+| 8377 | open item 4: Viewer note | adds: Details view shows no such note, DZ85 changed lines 4187 and 4209 | unit VW77c and unit DZ85 |
+| 8381 | Not verified: TR77f, VW77c, SV86 results | pointer to section 15.39.3 | round 87 |
+| 8384 | Not verified: Boxes first | adds: decided in answer 13 | round 87 answer 13 |
+| 8391 | Not verified: TR77f code | pointer to section 15.39.3 | round 87 |
+| 8394 | status line of round 86 | history line, items closed in 15.39 | round 87 |
+
+The unit changed 23 lines of the design file and 12 lines of the templates file `[check: DZ85 2026-11-03 python3 -B edits.py]`. Section 9.37.5 of the design lists them.
+
+Lines that DZ85 read and did not change:
+
+- Lines 5606, 6673, and 6817: DZ84 already changed them in round 86. Line 5606 reads `archive/<run ID>/`. Line 6673 is a history note about line 6344. Line 6817 reads "current live version, update after p040".
+- Line 4072 and the old part of line 4033 say that open item 4 of section 15.38.7 asks for the new text. That item is closed now, and the closure sits at the end of item 4.
+- Line 4153 is a code block with the text "Phase 2 (paired dataset): no run record yet." It stays, because it shows the state before the first phase 2 run.
+- The owner reading "every page go through a forward-backward pass" changes no VISION line. The update point timing of phase 2 sits in the design only.
+
+##### 15.39.6 Unit defaults of DZ85
+
+No owner answer settles these items.
+
+1. `[unit default DZ85]` Rule: a line with an old reading keeps its text and gets an added tag. Example: design line 9382 keeps "The update point check runs once, after the last part of each article." and gets the tag of round 87 answer 15. Other option: rewrite the line to the aki-main reading. Benefit: the old words stay as a quote, and the owner decides first. Cost: the line grows.
+2. `[unit default DZ85]` Rule: DZ85 leaves a template line when the built code uses the same words. Example: line 1343 holds `{{critique_id}}`, and `block_previous_critique` reads `c["critique_id"]` `[file: <T2>/data/scripts/translator/messages.py:661-669 at commit 9d0fbe8]`. Other option: change line 1343 to `queue_id`. Benefit: none, because the built row differs. Cost: a wrong template.
+3. `[unit default DZ85]` Rule: DZ85 changes only the named word in a template line. Example: line 1439 keeps `book=` and `source=`, but the built row has `page=` and `version=` and no `book=` or `source=` `[file: <T2>/data/scripts/translator/update_messages.py:174-179 at commit 9d0fbe8]`. Other option: rewrite the whole row. Benefit: the template equals the built row. Cost: a wider change than the brief names.
+4. `[unit default DZ85]` Rule: Translator code lines carry "at commit 9d0fbe8", the HEAD at the start of the unit. Example: `store.py:40,271,283 at commit 9d0fbe8`. Other option: cite 6214100 as rule 8 of answer 12 names. Benefit: the old commit is the one the owner saw. Cost: the line numbers can differ at HEAD.
+5. `[unit default DZ85]` Rule: the old status line becomes a history line that starts with "Status (round 86):". Example: design line 11053. Other option: delete the old status line. Benefit: the history stays. Cost: a section can end with two status lines.
+6. `[unit default DZ85]` Rule: DZ85 adds pointers to the lines of section 15.38 that call "Boxes first" Not verified. It also adds a pointer to the bullet about the TR77f code. Example: VISION lines 8286, 8384, and 8391. Other option: leave those lines. Benefit: no stale bullet. Cost: three more changed lines.
+7. `[unit default DZ85]` Rule: a pointer line in Change 18 of the templates file marks the list of old words as replaced. Example: templates line 3272. Other option: leave the list. Benefit: none. Cost: Change 18 still says that line 1439 keeps `{{critique_id}}`.
+8. `[unit default DZ85]` Rule: the 14 defaults of the Details view appear by label only. Example: "D12 Newest error" has no text here. Other option: read the VW77c report. Benefit: full text. Cost: DZ85 reads a file outside the brief.
+9. `[unit default DZ85]` Rule: queue IDs in examples use the form `<box>:<page>:<number>` of `log_critiques`. Example: `QA_2:p060:1`. Each such example says "example state (not run data)". Other option: invent no ID. Benefit: no false ID. Cost: the example is less clear.
+10. `[unit default DZ85]` Rule: the check script `dl85.py` replaces the absent `dl.py`. It fails when a line of the old file is added or removed. Example: `dl-final.txt` in the unit folder. Other option: stop and ask. Benefit: none. Cost: a delay.
+
+##### 15.39.7 Open items for the owner
+
+The first option of each item is the recommended option. Items 6, 7, and 8 are owner questions. Aki-main answers them in round 88.
+
+1. Update point timing in phase 2 (answer 15, part 2) `[reading pending owner check, round 87 answer 15]`. Owner words: "For 2, every page go through a forward-backward pass." Recommended: the check runs after every page, as for a book (the code today, `translator_run.py:2951`). Example state (not run data, page count not checked): the article `94380515` has the pages `94380515/p001` to `94380515/p003`. The check runs after each of the three pages, so `ED_2` can fire after `94380515/p001`. Benefit: one rule for books and phase 2, and no code change. Cost: a critique group can hold critiques of a half-read article. Other option: the check runs once after the last part of each article (the reading of round 80 answer 22). Benefit: a rewrite sees whole articles. Cost: a code change and a second rule.
+2. How the N rule and the settings file meet (answer 15, part 3) `[reading pending owner check: how the settings file value update.N and this rule meet]`. Recommended: the rule sets the default N for each run from the phase and the page count. A value saved in the settings file wins. Example: `config/translator-models.yaml` holds `N: 5` (line 665). A phase 3 run needs N = 2, so the rule gives 2 unless the owner saves `update.N` in the config panel. Benefit: the owner keeps control in the panel of section 15.24.6. Cost: a saved value hides the rule, and the owner must remember it. Other option: the rule always wins, and the file value only serves the rest (N = 5). Benefit: one source. Cost: the panel field `update.N` does nothing in phases 2 to 4.
+3. Which page count decides N in phase 4 (answer 15, part 3) `[agent inference]`. Recommended: the count of pages in the target list of the run. Example: `left_foot_full` shows "6 of 120 pages" in the sketch of section 15.24.5, so 120 pages give N = 3. Benefit: the Translator knows the number at the start of the run. Cost: a Restart of a half-done book can change the page count. Other option: the page count of the whole book. Benefit: N stays the same across runs. Cost: the Translator must read the book size first.
+4. Fault 3 and answer 20 `[agent inference]`. Answer 15 accepts fault 3 (one chain joins unrelated articles). Answer 20 chooses one chain for the whole pass. Recommended: keep one chain, and stop the join of the page end across two articles. Example state (not run data): the last row of `94380515/p003` is open at its end, and the first row of `443fc114/p001` has a page start. Then `effective_rows` joins the two rows. Benefit: the chain keeps its context and no unrelated rows join. Cost: a code change in `book_memory.py` for phase 2. Other option: one chain for each article. Benefit: no join across articles by design. Cost: it contradicts answer 20.
+5. File form and screen place of the overflow queue (answer 3) `[reading pending owner check, round 88]`. Recommended: one file `critiques/overflow.jsonl` in the book folder. One row holds the queue ID, the content, and the box where the critique started. The Details view shows the count in part 6. Example state (not run data): the row for `QA_2:p060:1` holds the box `QA_2` and the text of the critique. Benefit: the form equals the form of `critiques/queue-<box>.jsonl`. Cost: one more file and one more count on the screen. Other option: keep the rows in the queue file with a flag. Benefit: no new file. Cost: the count of each box must skip them.
+6. Owner question, answer 15 part 4: "I dont understand 4." Aki-main answers it in round 88. Facts `[aki-main check 2026-11-03]`: fault 4 is the function `stop_before_start` (`translator_run.py` lines 2436 to 2441 at commit 9d0fbe8). When a book cannot start and has no `status.json` yet, the function writes a new `status.json` with the fixed phase "agent-phase-3". A phase 2 store that cannot start then shows a phase 3 stop. DZ85 read the function and found the same lines `[file: <T2>/data/scripts/translator_run.py:2436-2441 at commit 9d0fbe8]`. Example: a settings error at the start of the store `paired-dataset` calls `stop_before_start` (line 2771).
+7. Owner question, answer 17: "What is this? We have a whole full md docs of detailed prompt format already right?" Aki-main answers it in round 88. Facts `[aki-main check 2026-11-03]`: the templates file holds the message format of each role (sections 1 to 6, fixed rules, input blocks, output form). Section 3 of each box message is the placeholder `{{instruction_text}}` (templates line 90). The file says that the source of the first instruction text is open (templates lines 115 and 2395). The code fills it with built-in stage texts in `data/scripts/translator/messages.py` (version v0). DZ85 found the dictionary `INSTRUCTION` at `messages.py:185` with the keys TS, TL, ED, QA, and CRITIC. The brief says 4 stage texts, and the fifth key is the box-critic text `[file: <T2>/data/scripts/translator/messages.py:185-199 at commit 9d0fbe8]`.
+8. Owner question, answer 22 (defect units): "We `correct` the defect right, meaning JA-EN is completely `paired`? If so then we can use all of them\nIf the defect is not paired 1-by-1 between JA-EN, then dont use them". Aki-main answers it in round 88. Facts `[aki-main check 2026-11-03]`: in `<T2>/data/full/dataset/views/train-feedback.jsonl`, 659 of 3,868 units carry the flag defect (omission 479, fact_change 180). All 659 hold `en_fixed`, and their `en.text` is the corrected EN (`DATASHEET.md` line 52). 117 of the 659 are not linked 1-to-1. The split is 1-n 75, n-1 33, and n-m 9. Also, 212 added units hold only an English fact with no JA text. DZ85 did not recheck these numbers.
+9. The cost file assumes N = 5 and an update point after each article in places `[agent inference]`. Recommended: one cost unit after the round 88 answers. Example: `translator-cost-estimate.md` gives phase 2 one pass 334.04 USD (variant A) and 262.99 USD (variant B) at N = 5 (design line 9425). The new rule gives N = 3 for phase 2 and N = 2 for phase 3. Benefit: the estimate matches the rule once the timing of item 1 is decided. Cost: one more unit. Other option: redo the numbers now. Benefit: an early number. Cost: item 1 can change them again.
+10. The comment at `config/translator-models.yaml` line 662 and the N value `N: 5` (line 665) `[agent inference]`. The comment reads "The run program has no update step yet." at commit 9d0fbe8. Recommended: fix both in the Translator unit that builds the N rule. This file is code, outside the write set of DZ85. Example: line 662 says that the run program only marks stages, but the update step runs after each accepted page. Benefit: one unit changes the comment and the value together. Cost: the stale comment stays until then. Other option: a small unit for the comment only. Benefit: the comment is true at once. Cost: a second change to the same file.
+
+##### 15.39.8 Not verified
+
+- The results of TF85 and of the Translator units TR85a, TR85b, and TR85c are Not verified. They run in round 87 while this unit writes.
+- DZ85 ran no selftest and no browser test. The numbers 832/832, 81 PASS, and 20 PASS come from the brief. The last line of the merge log was read.
+- The text of the 14 Details view defaults D1 to D14 is Not verified. DZ85 did not read the VW77c report.
+- The text of the eight TR77f defaults comes from the brief. DZ85 did not read the TR77f report.
+- The counts of the SV86 faults come from the brief and the survey file. DZ85 did not read the survey file. The line numbers of the faults differ from the brief by about 11 lines (section 15.39.3).
+- The numbers about the defect units (659, 3,868, 117, 212) come from the brief. DZ85 read no data file.
+- The command form `run-book paired-dataset --phase agent-phase-2` and the metric names come from the brief. The Q-A file holds the labels only.
+- The exact shape of the Monitor row of phase 2 is Not verified. The Q-A file holds the label "Read-only row (Recommended)" only.
+- Each example with `QA_2:p060:1` or `ED_2` after p060 is an example state (not run data).
+- That nothing is pushed comes from the brief. DZ85 ran no `git remote` command.
+- The dev server on port 3000 and PocketBase on port 8090 were not read or changed.
+
+Status: round 87 answers applied by unit DZ85. Items in section 15.39.7 wait for the owner.
