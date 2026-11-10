@@ -1,6 +1,7 @@
 import { lineText, progressText, money, type MonitorRow } from "@/lib/book-status-rules";
 import StateLabel from "./StateLabel";
 import RowButtons from "./RowButtons";
+import { jsonViewHref } from "@/lib/json-view";
 
 // Unit VW77a (round 80), VISION-viewer 15.24.4.3: a row has two lines. Line 1 holds the facts in fixed columns, line 2 holds one sentence in words.
 // A third line shows only when an error text exists. It is red, it names the page and the box, and it is never cut.
@@ -88,7 +89,8 @@ export default function BookRow({ row, now, onChanged }: { row: MonitorRow; now:
           {row.errorFile ? (
             <>
               {" "}
-              <a data-error-file href={`/api/file?path=${encodeURIComponent(row.errorFile)}`} className="underline underline-offset-2">
+              {/* Unit VW89 (round 90), Q-A 3:1.7 item 3: the file path opens in the JSON viewer (before: the plain text from /api/file). */}
+              <a data-error-file href={jsonViewHref(row.errorFile)} className="underline underline-offset-2">
                 File: {row.errorFile}
               </a>
             </>

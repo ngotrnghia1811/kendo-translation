@@ -5,6 +5,8 @@ import type { CompareView, CompareVariantTotals, MemoryPage } from "@/lib/chain"
 import { usd } from "@/lib/format";
 import { pstFromUtcText } from "@/lib/pst-more";
 import { StatePill } from "./Pills";
+import Link from "next/link";
+import { jsonViewHref } from "@/lib/json-view";
 
 // Round 48 answer 9 (Q-A 2026-10-27 l55): "the Viewer shows the chain state per book, skipped pages, the book translation memory pairs,
 // the critic mode and the session turn, the compare table". These panels sit on the run view of a chain list. They only read files.
@@ -123,7 +125,14 @@ export function MemoryView({ d }: { d: MemoryData }) {
   if (!d.found) return <p className="border-t border-line px-3 py-2 text-sm text-muted">No memory file yet. A book gets one after its first accepted page.</p>;
   return (
     <div className="space-y-4 border-t border-line p-3">
-      <p className="font-mono text-xs text-muted">{d.file}</p>
+      {/* Unit VW89 (round 90), Q-A 3:1.7 item 3: the memory file opens in the JSON viewer. */}
+      <p className="font-mono text-xs text-muted">
+        {d.file ? (
+          <Link href={jsonViewHref(d.file)} data-memory-file-link className="underline underline-offset-2 hover:text-foreground">
+            {d.file}
+          </Link>
+        ) : null}
+      </p>
       {d.pages.map((pg) => (
         <div key={pg.pageId}>
           <h3 className="mb-1 text-sm font-semibold">
@@ -195,7 +204,11 @@ export function ComparePanel({ stamp, isChain }: { stamp: string; isChain: boole
       {list.map((c) => (
         <div key={c.folder} className="rounded border border-line bg-white p-3">
           <p className="mb-2 text-xs text-muted">
-            <span className="font-mono">critic-compare/{c.folder}</span>, made {c.generatedUtc ? pstFromUtcText(c.generatedUtc) : "at an unknown time"}, {c.pageCount} pages, {c.commonPageCount} pages in every variant.
+            {/* Unit VW89 (round 90), Q-A 3:1.7 item 3: the compare folder opens in the JSON viewer (folder list). */}
+            <Link href={jsonViewHref(`critic-compare/${c.folder}`)} data-compare-link className="font-mono underline underline-offset-2 hover:text-foreground">
+              critic-compare/{c.folder}
+            </Link>
+            , made {c.generatedUtc ? pstFromUtcText(c.generatedUtc) : "at an unknown time"}, {c.pageCount} pages, {c.commonPageCount} pages in every variant.
           </p>
           <TotalsTable title="All pages" rows={c.all} />
           {c.common.length > 0 && c.all.length > 1 ? <TotalsTable title="Pages that every variant covers" rows={c.common} /> : null}

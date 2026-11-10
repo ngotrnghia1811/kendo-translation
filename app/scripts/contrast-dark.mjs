@@ -50,7 +50,8 @@ const ratio = (a, b) => {
   const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
   return (x + 0.05) / (y + 0.05);
 };
-const BASE = ["foreground", "muted", "accent", "background", "line"];
+// Unit VW89 (round 90): the JSON viewer colors are base tokens too (--json-* in :root and in each theme block).
+const BASE = ["foreground", "muted", "accent", "background", "line", "json-key", "json-string", "json-number", "json-literal"];
 const val = (vars, name) => vars.get(name === "page" ? "background" : name.startsWith("color-") || BASE.includes(name) ? name : "color-" + name);
 
 // [use, text variable, background variable, body text (7 to 1 in every theme except light)]
@@ -93,6 +94,15 @@ const PAIRS = [
   ["Text on stone-50 fill", "foreground", "stone-50"],
   ["Muted text on stone-50 fill", "muted", "stone-50"],
   ["Text on stone-100 fill", "foreground", "stone-100"],
+  // Unit VW89 (round 90, Q-A 3:1.8 item 1): the JSON viewer tree sits on the card (white). A hover shows the stone-50 fill. Body text: 7 to 1.
+  ["JSON viewer: key on card", "json-key", "white", true],
+  ["JSON viewer: text on card", "json-string", "white", true],
+  ["JSON viewer: number on card", "json-number", "white", true],
+  ["JSON viewer: true, false, null on card", "json-literal", "white", true],
+  ["JSON viewer: key on stone-50 fill", "json-key", "stone-50", true],
+  ["JSON viewer: text on stone-50 fill", "json-string", "stone-50", true],
+  ["JSON viewer: number on stone-50 fill", "json-number", "stone-50", true],
+  ["JSON viewer: true, false, null on stone-50 fill", "json-literal", "stone-50", true],
 ];
 
 let fails = 0;

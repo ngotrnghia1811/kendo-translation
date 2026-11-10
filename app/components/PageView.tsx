@@ -10,6 +10,7 @@ import QaPanel from "./QaPanel";
 import ExtrasChecklist from "./ExtrasChecklist";
 import ExtraPanels from "./ExtraPanels";
 import { useExtras } from "./extras-store";
+import { jsonViewHref } from "@/lib/json-view";
 
 // Round 44 answer 13 (Q-A l142), page view: header with page ID, kind, run folder, cost, verdict.
 // Main area: ED_0 to ED_3 texts with the JA text. QA verdict and cells. Reasoning on request. 7 extra items off by default.
@@ -43,20 +44,29 @@ export default function PageView({ data }: { data: PageData }) {
           <div className="flex items-center gap-2">
             <dt className="text-xs uppercase tracking-wide text-muted">Run folder</dt>
             <dd>
+              {/* Unit VW89 (round 90), Q-A 3:1.7 item 3: the run folder opens in the JSON viewer (folder list). With a choice of run folders,
+                  the link "Open folder" sits after the choice [unit default VW89]. */}
               {data.runFolders.length > 1 ? (
-                <select
-                  className="rounded border border-line bg-white px-1 py-0.5 font-mono text-xs"
-                  value={data.runFolder}
-                  onChange={(e) => router.push(`/page/${data.slug}/${data.pageName}?run=${encodeURIComponent(e.target.value)}`)}
-                >
-                  {data.runFolders.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
+                <>
+                  <select
+                    className="rounded border border-line bg-white px-1 py-0.5 font-mono text-xs"
+                    value={data.runFolder}
+                    onChange={(e) => router.push(`/page/${data.slug}/${data.pageName}?run=${encodeURIComponent(e.target.value)}`)}
+                  >
+                    {data.runFolders.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>{" "}
+                  <Link href={jsonViewHref(data.runRel)} data-run-folder-link className="text-xs text-accent underline-offset-2 hover:underline">
+                    Open folder
+                  </Link>
+                </>
               ) : (
-                <span className="font-mono text-xs">{data.runFolder}</span>
+                <Link href={jsonViewHref(data.runRel)} data-run-folder-link className="font-mono text-xs text-accent underline-offset-2 hover:underline">
+                  {data.runFolder}
+                </Link>
               )}
             </dd>
           </div>

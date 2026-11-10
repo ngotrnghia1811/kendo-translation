@@ -8,6 +8,13 @@
   --muted: #6b665d;
   --line: #e3dfd4;
   --accent: #7a1f1f;
+
+  /* JSON viewer (unit VW89, round 90, Q-A 3:1.8 item 1): own colors for keys, text, numbers, and true/false/null in each theme.
+     The pairs are in scripts/contrast-dark.mjs ("JSON viewer: ..."). Each one reaches 7 to 1 on the card and on the stone-50 fill in every theme. */
+  --json-key: #1e3a8a;
+  --json-string: #14532d;
+  --json-number: #9a3412;
+  --json-literal: #6b21a8;
 }
 
 @theme inline {
@@ -16,6 +23,10 @@
   --color-muted: var(--muted);
   --color-line: var(--line);
   --color-accent: var(--accent);
+  --color-json-key: var(--json-key);
+  --color-json-string: var(--json-string);
+  --color-json-number: var(--json-number);
+  --color-json-literal: var(--json-literal);
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --font-serif: Georgia, "Times New Roman", serif;
   --font-ja: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif;
@@ -78,6 +89,11 @@ a {
   --color-sky-800: #bae6fd;
   --color-orange-100: #431407;
   --color-orange-800: #fed7aa;
+
+  --json-key: #93c5fd;
+  --json-string: #86efac;
+  --json-number: #fdba74;
+  --json-literal: #d8b4fe;
 }
 
 /* The edge of a box needs 3 to 1 on its surface. #777777 gives 3.89 to 1 on #1a1a1a and 4.69 to 1 on black. */
@@ -122,6 +138,11 @@ a {
   --color-sky-800: #1d4a5c;
   --color-orange-100: #f3d9bc;
   --color-orange-800: #7a3300;
+
+  --json-key: #1f3f66;
+  --json-string: #244a0e;
+  --json-number: #7a3300;
+  --json-literal: #5b2a6e;
 }
 
 /* Solarized light, high contrast (round 63 answer 7): the Solarized paper colors with the dark base02 ink. Body text 7 to 1 or more, every other pair 4.5 to 1 or more. The script scripts/contrast-dark.mjs tests every pair. */
@@ -161,6 +182,11 @@ a {
   --color-sky-800: #0d4a58;
   --color-orange-100: #f1d6b8;
   --color-orange-800: #783000;
+
+  --json-key: #14425e;
+  --json-string: #234600;
+  --json-number: #783000;
+  --json-literal: #4a3a8c;
 }
 
 /* Solarized dark, high contrast (round 63 answer 7): the Solarized dark page with base3 ink. Body text 7 to 1 or more, every other pair 4.5 to 1 or more. The script scripts/contrast-dark.mjs tests every pair. */
@@ -201,6 +227,11 @@ a {
   --color-sky-800: #bfe6f7;
   --color-orange-100: #4a2208;
   --color-orange-800: #ffd9b5;
+
+  --json-key: #a8d4f5;
+  --json-string: #bfe39a;
+  --json-number: #ffc89a;
+  --json-literal: #d9c8ff;
 }
 
 /* The edge of a box on the Solarized dark page. #7d9ea8 gives 3 to 1 or more on both surfaces. */

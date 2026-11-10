@@ -12,6 +12,8 @@ const TABS = [
   { href: "/runs", label: "Lists", monitor: true, match: (p: string) => p.startsWith("/runs") },
   { href: "/books", label: "Books", monitor: true, match: (p: string) => p.startsWith("/books") || p.startsWith("/page") },
   { href: "/settings/run", label: "Run settings", monitor: true, match: (p: string) => p.startsWith("/settings/run") },
+  // Unit VW89 (round 90), Q-A 3:1.7 item 2: the tab "JSON viewer" (/json) on this Mac only.
+  { href: "/json", label: "JSON viewer", monitor: true, match: (p: string) => p.startsWith("/json") },
   // Round 54 (unit H1): third tab for the human-translation-view. Sign-in is needed on this tab only (round 54 answer 9, Q-A l128).
   { href: "/translate", label: "Human translation", monitor: false, match: (p: string) => p.startsWith("/translate") },
 ];

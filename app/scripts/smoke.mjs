@@ -220,6 +220,14 @@ async function smoke() {
   const x5 = await get("/api/file?path=" + encodeURIComponent("pilot-run/lists/" + stamp + "/progress.json"));
   check("Inside the folder a json file reads fine", x5.status === 200);
 
+  // Unit VW89 (round 90): JSON viewer page /json (Q-A 3:1.7, 3:1.8). GET only.
+  const jv = await get("/json");
+  check("JSON viewer /json 200 and lists the data folder", jv.status === 200 && jv.body.includes("JSON viewer") && jv.body.includes('href="/json?path=pilot-run"') && jv.body.includes("Phase 2 report"), `status ${jv.status}, ${Math.round(jv.ms)} ms`);
+  const jvFile = await get("/json?path=" + encodeURIComponent("pilot-run/lists/" + stamp + "/progress.json"));
+  check("JSON viewer opens one .json file as a tree", jvFile.status === 200 && jvFile.body.includes("progress.json") && jvFile.body.includes("Open all") && jvFile.body.includes("Close all"), `status ${jvFile.status}, ${Math.round(jvFile.ms)} ms`);
+  const jvBad = await get("/json?path=" + encodeURIComponent("../config"));
+  check("JSON viewer refuses a path that leaves the data folder", jvBad.status === 200 && jvBad.body.includes("refused the path"), `status ${jvBad.status}`);
+
   // Round 49 unit V3: Books Details route.
   const bk = await get("/api/books/kendojidai_2014");
   const bkJson = parseJson(bk.body);
@@ -1321,7 +1329,7 @@ async function deployTest() {
   let r = await anon.req("/");
   // RC4 (round 70; round 69 answer 11): the old check "/ redirects to /translate" changed. With the monitor off, / goes by the sign-in state and the role.
   check("Deploy front door: a visitor who is not signed in goes from / to /sign-in", r.status === 307 && /\/sign-in$/.test(r.location), `status ${r.status}, location ${r.location}`);
-  const pages = ["/books", `/page/${P}`, `/runs/${STAMP}`];
+  const pages = ["/books", `/page/${P}`, `/runs/${STAMP}`, "/json", "/json?path=pilot-run%2Fx.json"]; // VW89: the JSON viewer page /json is a monitor page
   for (const u of pages) {
     r = await anon.req(u);
     check(`Deploy: ${u} gives 404 and no Mac path`, r.status === 404 && !r.body.includes("/Users/"), `status ${r.status}`);
@@ -3242,6 +3250,11 @@ async function monitorTest() {
     check("Monitor off: / follows frontDoor (no session goes to the sign-in page)", noFollow.status >= 300 && noFollow.status < 400 && /\/sign-in/.test(noFollow.headers.get("location") ?? ""), `status ${noFollow.status} ${noFollow.headers.get("location")}`);
     r = await get("/runs");
     check("Monitor off: /runs gives 404", r.status === 404, `status ${r.status}`);
+    // Unit VW89 (round 90): the JSON viewer page /json and its nav tab are off with the monitor (Q-A 3:1.7 item 2, 3:1.8 item 4).
+    r = await get("/json");
+    check("Monitor off: /json gives 404", r.status === 404, `status ${r.status}`);
+    r = await get("/json?path=" + encodeURIComponent("pilot-run/x.json"));
+    check("Monitor off: /json?path= gives 404 and no Mac path", r.status === 404 && !r.body.includes("/Users/"), `status ${r.status}`);
   } finally {
     off.child.kill("SIGTERM");
     base = off.old;
@@ -4121,7 +4134,7 @@ async function detailsTest() {
   const reasons = [...flagHtml.matchAll(/<li[^>]*data-reject-reason[^>]*>([\s\S]*?)<\/li>/g)].map((m) => visibleText(m[1]).trim());
   check("Stop flag: the 3 reject reasons show as 3 list items with the page, the try, the checks, and the reason text", reasons.length === 3 && reasons[0] === "After p020, try 2, check audit: AUDIT FAIL: the new text drops the rule for term lists." && reasons[1] === "After p030, try 2, check audit: AUDIT FAIL: the new text keeps a critique that the judge marked as a bad critique." && reasons[2] === "After p040, try 2, checks message-rebuild and audit: MESSAGE REBUILD FAIL: page left_foot_full/p038, box ED_2: section 3 does not hold the new label and the new text. AUDIT FAIL: the new text changes the output format.", JSON.stringify(reasons));
   check("Stop flag: the total row marks the ED column with '▲ ED_2 stopped'", /data-flag-mark="ED_2"/.test(pg.html) && /▲ ED_2 stopped/.test(LT));
-  check("Part 2 with an error: the red line 'Error on p040, box ED_2:', the time in PST, and the link 'File: book-store/left_foot_full/failed/ED_2.json'", /Error on p040, box ED_2: /.test(LT) && /Time: \d{4}-\d\d-\d\d \d\d:\d\d PST/.test(LT) && /<a[^>]*data-error-file[^>]*href="\/api\/file\?path=book-store%2Fleft_foot_full%2Ffailed%2FED_2\.json"/.test(pg.html) && !/No error stored/.test(LT));
+  check("Part 2 with an error: the red line 'Error on p040, box ED_2:', the time in PST, and the link 'File: book-store/left_foot_full/failed/ED_2.json' to the JSON viewer (unit VW89)", /Error on p040, box ED_2: /.test(LT) && /Time: \d{4}-\d\d-\d\d \d\d:\d\d PST/.test(LT) && /<a[^>]*data-error-file[^>]*href="\/json\?path=book-store%2Fleft_foot_full%2Ffailed%2FED_2\.json"/.test(pg.html) && !/No error stored/.test(LT));
   check("Part 3 with no list folder: 'No list folder holds this book.', and 'Archived runs (0)' with 'No archived run.'", LT.includes("No list folder holds this book.") && LT.includes("Archived runs (0)") && LT.includes("No archived run."));
   check("Critique share part, left_foot_full: ED_2 '5 of 20 (25.0 percent)' used and '15 of 20 (75.0 percent)' dropped", /ED_2\s+5 of 20 \(25\.0 percent\)\s+15 of 20 \(75\.0 percent\)/.test(LT), (LT.match(/Critique share of the current run.{0,300}/) ?? [""])[0]);
 

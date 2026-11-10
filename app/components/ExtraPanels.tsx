@@ -4,6 +4,7 @@ import type { PageData } from "@/lib/types";
 import Link from "next/link";
 import { EXTRAS, type ExtraKey } from "./extras-store";
 import { enFormBadge, enFormTone } from "@/lib/page-labels";
+import { jsonViewHref } from "@/lib/json-view";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -67,7 +68,7 @@ function Remote({ runRel, part, stage }: { runRel: string; part: string; stage: 
     case "chain":
       return <ChainInputs d={data} />;
     case "critic_only":
-      return <CriticOnly rows={data} stage={stage} />;
+      return <CriticOnly rows={data} stage={stage} runRel={runRel} />;
   }
   return null;
 }
@@ -392,14 +393,17 @@ export function ChainInputs({ d }: { d: any }) {
 
 // Round 48 answer 9, Extra detail item "Critic-only runs": one block per critic-<mode>-<stamp> subfolder of the run folder.
 // The counts cover the whole page. The critique list covers the boxes of the selected stage.
-export function CriticOnly({ rows, stage }: { rows: any[]; stage: number }) {
+export function CriticOnly({ rows, stage, runRel }: { rows: any[]; stage: number; runRel: string }) {
   if (rows.length === 0) return <Empty>This run folder has no critic-only subfolder.</Empty>;
   return (
     <div className="space-y-4">
       {rows.map((r) => (
         <div key={r.folder} className="rounded border border-line p-3 text-sm">
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <span className="font-mono text-xs font-semibold">{r.folder}</span>
+            {/* Unit VW89 (round 90), Q-A 3:1.7 item 3: the critic-only folder opens in the JSON viewer (folder list). */}
+            <Link href={jsonViewHref(`${runRel}/${r.folder}`)} data-critic-only-link className="font-mono text-xs font-semibold text-accent underline-offset-2 hover:underline">
+              {r.folder}
+            </Link>
             <span className="rounded bg-stone-100 px-1.5 text-xs">mode {r.mode || "unknown"}</span>
             {r.plan ? <span className="rounded bg-amber-100 px-1.5 text-xs text-amber-800">plan only, no model call</span> : null}
             {r.hasSummary ? <span className="text-xs text-muted">status {r.status || "unknown"}</span> : <span className="text-xs text-red-700">no summary.json (the run did not finish)</span>}

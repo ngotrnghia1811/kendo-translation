@@ -5,6 +5,7 @@ import { agoText, lineText, money, progressText } from "@/lib/book-status-rules"
 import { pstClockSeconds } from "@/lib/format";
 import { pstDateTimeOrDash } from "@/lib/pst-more";
 import { shareText, rejectLines } from "@/lib/critique-share";
+import { jsonViewHref } from "@/lib/json-view";
 import {
   BOX_TYPES,
   NO_ARCHIVE_TEXT,
@@ -208,7 +209,8 @@ export default function BookDetailView({ initial }: { initial: BookDetail }) {
             {data.lastError.epoch !== null ? <p data-error-time>Time: {pstDateTimeOrDash(data.lastError.epoch)}</p> : null}
             {data.lastError.file ? (
               <p>
-                <a data-error-file href={`/api/file?path=${encodeURIComponent(data.lastError.file)}`} className="underline underline-offset-2">
+                {/* Unit VW89 (round 90), Q-A 3:1.7 item 3: the file path opens in the JSON viewer (before: the plain text from /api/file). */}
+                <a data-error-file href={jsonViewHref(data.lastError.file)} className="underline underline-offset-2">
                   File: {data.lastError.file}
                 </a>
               </p>
