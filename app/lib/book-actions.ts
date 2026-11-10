@@ -9,6 +9,7 @@ import { utcIso } from "./pst-more";
 import { pstClock } from "./pst";
 import type { ActionId } from "./book-status-rules";
 import { writeRestartMark } from "./book-restart-actions";
+import { localWriteProblem } from "./local-write";
 
 /**
  * Write side of the Monitor dashboard buttons (unit VW77b1, round 81). Two routes use it:
@@ -28,18 +29,6 @@ import { writeRestartMark } from "./book-restart-actions";
 
 type Phase = "agent-phase-3" | "agent-phase-4";
 const MARK_BY = "Monitor dashboard"; // store.write_mark requested_by (store.py:324)
-
-/** Same logic as app/api/pause/route.ts. An Origin that cannot be read counts as foreign. */
-function foreignOrigin(req: Request): boolean {
-  const origin = req.headers.get("origin");
-  const host = req.headers.get("host");
-  if (!origin || !host) return false;
-  try {
-    return new URL(origin).host !== host;
-  } catch {
-    return true;
-  }
-}
 
 function fail(status: number, error: string): Response {
   return jsonResponse({ error }, status);
@@ -71,7 +60,8 @@ export async function handleBookAction(req: Request, params: Promise<{ slug: str
   try {
     const off = await monitorOffResponse(); // 1
     if (off) return off;
-    if (foreignOrigin(req)) return fail(403, "Foreign origin."); // 2
+    const guard = localWriteProblem(req);
+    if (guard) return fail(403, guard); // 2
     if (!(req.headers.get("content-type") ?? "").includes("application/json")) return fail(415, "Send JSON."); // 3
     const { slug } = await params; // 4
     if (typeof slug !== "string" || !isSafeSegment(slug)) return fail(404, "Not found");

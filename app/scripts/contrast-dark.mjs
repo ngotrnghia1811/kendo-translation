@@ -55,6 +55,13 @@ const val = (vars, name) => vars.get(name === "page" ? "background" : name.start
 
 // [use, text variable, background variable, body text (7 to 1 in every theme except light)]
 const PAIRS = [
+  ["Run settings: field value and dialog", "foreground", "white", true],
+  ["Run settings: field help", "muted", "white"],
+  ["Run settings: changed badge", "amber-800", "amber-100"],
+  ["Run settings: not-default badge", "stone-600", "stone-100"],
+  ["Run settings: custom model warning", "amber-800", "white"],
+  ["Run settings: field error", "red-700", "white"],
+  ["Run settings: save button", "white", "accent"],
   ["Body text on page", "foreground", "page", true],
   ["Body text on card", "foreground", "white", true],
   ["Muted text on page", "muted", "page"],

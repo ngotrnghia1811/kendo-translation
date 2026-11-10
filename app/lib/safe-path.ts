@@ -54,3 +54,18 @@ export function stripDataPrefix(p: string): string {
 export function isSafeSegment(s: string): boolean {
   return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(s) && !s.includes("..");
 }
+
+/** Fixed settings names only. Refuse links, directories, and hard-linked files. */
+export async function settingsFile(root: string, name: string): Promise<string> {
+  if (!["translator-settings.json", "translator-settings.history.jsonl"].includes(name)) throw new PathError("Not a settings file.");
+  if (!root) throw new PathError("No Translator configuration folder.");
+  const base = await fs.realpath(root);
+  const full = path.join(base, name);
+  try {
+    const st = await fs.lstat(full);
+    if (!st.isFile() || st.nlink !== 1) throw new PathError("The settings file must be a regular file without links.");
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+  }
+  return full;
+}

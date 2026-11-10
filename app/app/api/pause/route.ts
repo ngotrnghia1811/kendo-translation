@@ -1,6 +1,7 @@
 import { setPause } from "@/lib/runs";
 import { jsonResponse, errorResponse } from "@/lib/api";
 import { monitorOffResponse } from "@/lib/monitor";
+import { localWriteProblem } from "@/lib/local-write";
 
 export const dynamic = "force-dynamic";
 
@@ -12,11 +13,8 @@ export async function POST(req: Request) {
     // Round 58 answer 7 (Q-A 2026-10-28 l205): monitor off gives 404 before any file read.
     const off = await monitorOffResponse();
     if (off) return off;
-    const origin = req.headers.get("origin");
-    const host = req.headers.get("host");
-    if (origin && host && new URL(origin).host !== host) {
-      return jsonResponse({ error: "Foreign origin." }, 403);
-    }
+    const guard = localWriteProblem(req);
+    if (guard) return jsonResponse({ error: guard }, 403);
     if (!(req.headers.get("content-type") ?? "").includes("application/json")) {
       return jsonResponse({ error: "Send JSON." }, 415);
     }

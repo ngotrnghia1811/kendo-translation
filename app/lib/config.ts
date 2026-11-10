@@ -17,6 +17,8 @@ import path from "node:path";
 export interface ViewerConfig {
   /** Folder of the Translator data. Empty only when runSource is "pocketbase" (the monitor tabs then have no folder to read). */
   translatorDataDir: string;
+  /** Run settings only. Default: config beside translatorDataDir (VISION 15.24.9). */
+  translatorConfigDir: string;
   /**
    * Source of the human-translation-view (unit S2C, round 56): "files" (default) reads the run folders on this Mac.
    * "pocketbase" reads the snapshots that the sync command S2 uploaded into the collection page_runs. The monitor tabs always read files.
@@ -126,7 +128,13 @@ export async function loadConfig(): Promise<ViewerConfig> {
   const monitor = envMonitor !== undefined ? parseMonitorEnv(envMonitor) : (cfg.monitor ?? true);
   // The folder is a setting of the owner at run time. The comment tells the build not to trace the whole project for this path.
   const translatorDataDir = hasDir ? path.resolve(/* turbopackIgnore: true */ cfg.translatorDataDir as string) : "";
-  return { translatorDataDir, runSource, pocketbaseUrl, monitor };
+  if (cfg.translatorConfigDir !== undefined && (typeof cfg.translatorConfigDir !== "string" || !cfg.translatorConfigDir.trim())) {
+    throw new Error("viewer.config.json: the key translatorConfigDir must name a folder.");
+  }
+  const translatorConfigDir = cfg.translatorConfigDir
+    ? path.resolve(/* turbopackIgnore: true */ cfg.translatorConfigDir)
+    : translatorDataDir ? path.join(path.dirname(translatorDataDir), "config") : "";
+  return { translatorDataDir, translatorConfigDir, runSource, pocketbaseUrl, monitor };
 }
 
 export async function dataRoot(): Promise<string> {

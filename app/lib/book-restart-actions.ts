@@ -9,6 +9,7 @@ import { utcIso } from "./pst-more";
 import { pstClock } from "./pst";
 import { BOXES, restartBodyProblem, restartMarkText } from "./restart-rules";
 import type { MonitorRow } from "./book-status-rules";
+import { localWriteProblem } from "./local-write";
 
 /**
  * Write side of the Restart button and the Clear mark button (unit VW77b2, round 82). New file on purpose (VW77b1 default 19: the dev server keeps old
@@ -31,17 +32,6 @@ import type { MonitorRow } from "./book-status-rules";
  */
 
 const MARK_BY = "Monitor dashboard"; // store.py:324
-
-function foreignOrigin(req: Request): boolean {
-  const origin = req.headers.get("origin");
-  const host = req.headers.get("host");
-  if (!origin || !host) return false;
-  try {
-    return new URL(origin).host !== host;
-  } catch {
-    return true;
-  }
-}
 
 function fail(status: number, error: string): Response {
   return jsonResponse({ error }, status);
@@ -120,7 +110,8 @@ export async function handleClearMark(req: Request, params: Promise<{ slug: stri
   try {
     const off = await monitorOffResponse(); // 1
     if (off) return off;
-    if (foreignOrigin(req)) return fail(403, "Foreign origin."); // 2
+    const guard = localWriteProblem(req);
+    if (guard) return fail(403, guard); // 2
     if (!(req.headers.get("content-type") ?? "").includes("application/json")) return fail(415, "Send JSON."); // 3
     const { slug } = await params; // 4
     if (typeof slug !== "string" || !isSafeSegment(slug)) return fail(404, "Not found");
