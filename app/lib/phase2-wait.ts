@@ -11,8 +11,8 @@ import { pageShort } from "./book-status-rules";
 import { PST_OFFSET_S, parseUtcIso, pstClock, pstStamp } from "./pst";
 
 /**
- * The cards of the oc2 login accounts and their short names. Source: config/translator-models.yaml lines 271-276 of <T2> and the brief of unit VW92:
- * ntngh = ntnghia18111997@gmail.com, uonlp = uonlpsharing1@gmail.com, ngotr = ngotrnghia1811@gmail.com.
+ * The cards of the oc2 login accounts and their short names. Source: config/translator-models.yaml lines 271-276 of <T2> and the brief of unit VW92.
+ * The e-mail addresses of the cards stay out of this public code (Q-A 3:22.3).
  * [unit default VW92] The screen shows the short name and never the e-mail address. An ID that is not in this list shows as it is (for example xai, google).
  */
 export const CARD_NAMES: Record<string, string> = {
