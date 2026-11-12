@@ -14,6 +14,7 @@ import { parseUtcIso, pstClock, pstDateTime, pstStamp, relativeTime, runIdText }
 import { clearOffReason } from "./clear-mark-rule";
 import { orderRows } from "./row-order";
 import type { Phase2View } from "./phase2-row"; // type only (unit VW91): erased at run time, so there is no import cycle
+import type { Phase2ArticlesView } from "./phase2-articles"; // type only (unit VW94)
 // Unit VW93 (Q-A 3:15.2): tokens, not USD. lib/tokens-sum.ts has no import, so there is no import cycle.
 import { sumTokens, tokenCounts, type TokenCounts, type TokenSum } from "./tokens-sum";
 
@@ -240,6 +241,8 @@ export interface MonitorData {
   noRun: boolean;
   /** The live Phase 2 row (unit VW91, Q-A 3:4.6). Null or missing when book-store/paired-dataset/status.json does not exist: the old fixed line PHASE2_LINE shows then. */
   phase2?: Phase2View | null;
+  /** Unit VW94 (Q-A 3:17.4): the grouped row "Phase 2 articles" and the readable names of the phase 2 row. Null or missing when no phase 2 data exists. */
+  phase2Articles?: Phase2ArticlesView | null;
 }
 
 // ---------------------------------------------------------------- helpers

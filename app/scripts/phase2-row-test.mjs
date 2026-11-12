@@ -501,20 +501,29 @@ try {
     }).outputText;
     const file = path.join(root, "Phase2Row.mjs");
     await fs.writeFile(file, compiled);
+    // Unit VW94 fix round: Phase2Row imports "./BoxCode" (box codes with a hover, Q-A 3:18.5). The hook gives an extensionless import the ending .ts.
+    const boxCode = ts.transpileModule(await fs.readFile(path.join(app, "components/BoxCode.tsx"), "utf8"), {
+      compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+    await fs.writeFile(path.join(root, "BoxCode.ts"), boxCode);
     const Phase2Row = (await import(pathToFileURL(file).href)).default;
     const { createElement } = await import("react");
     const { renderToStaticMarkup } = await import("react-dom/server");
-    const plain = (html) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    // Unit VW94 fix round (Q-A 3:18.5): a box code shows as the code. Its hover text sits in a visually hidden span, which the reader does not see.
+    const unBox = (html) => html.replace(/<span data-box-code="[^"]*"[^>]*>([^<]*)<span class="sr-only">[^<]*<\/span><\/span>/g, "$1");
+    const plain = (html) => unBox(html).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
     // running
     const run = (await text(base)).v;
     const html = renderToStaticMarkup(createElement(Phase2Row, { view: run, now: NOW }));
-    assert.match(html, /data-phase2-row/);
-    assert.match(html, /data-phase2-state="running"/);
-    assert.match(html, /<span aria-hidden="true">●<\/span>/);
+    assert.match(unBox(html), /data-phase2-row/);
+    assert.match(unBox(html), /data-phase2-state="running"/);
+    assert.match(unBox(html), /<span aria-hidden="true">●<\/span>/);
     const p = plain(html);
-    assert.ok(p.startsWith("Phase 2 (paired dataset): ● Running Pages done: 56 of 144 Now: p057, boxes TS_2, TL_1. Last sign of life 12 s ago. Last accepted page: p056. Tokens: input 1,234,567"), p);
+    // Unit VW94 (Q-A 3:17.4 note): the state word "Running" gets plain words after it.
+    assert.ok(p.startsWith("Phase 2 (paired dataset): ● Running : the Translator process is alive and translates one page at a time. Pages done: 56 of 144 Now: p057, boxes TS_2, TL_1. Last sign of life 12 s ago. Last accepted page: p056. Tokens: input 1,234,567"), p);
     assert.ok(p.endsWith("JSON viewer: status.json · history.jsonl"), p);
+    assert.match(html, /data-box-code="TS_2" title="TS_2: transcription stage, writes the Japanese text of the page\. Level 2 of 4/);
     assert.ok(html.includes(`href="${STATUS_HREF}"`) && html.includes(`href="${HISTORY_HREF}"`), html);
     assert.ok(!html.includes("text-red-700"), "no red line without an error");
     assert.ok(!p.includes("no run record yet"));
@@ -526,7 +535,7 @@ try {
     await fs.writeFile(path.join(root, errRel), "{}");
     const stopped = await loadPhase2(root, NOW_MS, alive);
     const html2 = renderToStaticMarkup(createElement(Phase2Row, { view: stopped, now: NOW }));
-    assert.match(html2, /<li data-phase2-item="error"[^>]*class="break-words text-red-700">Error on p058, box TS_3: invalid JSON<span> <a [^>]*href="\/json\?path=book-store%2Fpaired-dataset%2Fruns%2Fp058%2Ffailed%2FTS_3\.json"[^>]*>File: book-store\/paired-dataset\/runs\/p058\/failed\/TS_3\.json<\/a><\/span><\/li>/);
+    assert.match(unBox(html2), /<li data-phase2-item="error"[^>]*class="break-words text-red-700">Error on p058, box TS_3: invalid JSON<span> <a [^>]*href="\/json\?path=book-store%2Fpaired-dataset%2Fruns%2Fp058%2Ffailed%2FTS_3\.json"[^>]*>File: book-store\/paired-dataset\/runs\/p058\/failed\/TS_3\.json<\/a><\/span><\/li>/);
     assert.ok(plain(html2).includes("Stop reason: Ctrl-C (Nov 11 08:40 PST, just now)."));
 
     // unreadable
@@ -537,9 +546,9 @@ try {
     // VW92: a quota wait. The two lines are list items of the row, in the colors of the other muted lines (no new color class).
     const waiting = (await text({ ...base, waiting: { ...WAIT_BASE, calls: 2 } })).v;
     const html5 = renderToStaticMarkup(createElement(Phase2Row, { view: waiting, now: NOW }));
-    assert.match(html5, /data-phase2-state="running"/);
-    assert.match(html5, /<li data-phase2-item="waiting">Waiting for the usage limit until 20:19 PST \(all 3 cards\)\.<\/li><li data-phase2-item="waiting-detail">Wait started 08:10 PST at p057, box TL_1\. 2 calls wait\. End time from the retry-after value of the error\.<\/li>/);
-    assert.ok(plain(html5).startsWith("Phase 2 (paired dataset): ● Running Pages done: 56 of 144 Now: p057, boxes TS_2, TL_1. Waiting for the usage limit until 20:19 PST (all 3 cards)."), plain(html5));
+    assert.match(unBox(html5), /data-phase2-state="running"/);
+    assert.match(unBox(html5), /<li data-phase2-item="waiting">Waiting for the usage limit until 20:19 PST \(all 3 cards\)\.<\/li><li data-phase2-item="waiting-detail">Wait started 08:10 PST at p057, box TL_1\. 2 calls wait\. End time from the retry-after value of the error\.<\/li>/);
+    assert.ok(plain(html5).startsWith("Phase 2 (paired dataset): ● Running : the Translator process is alive and translates one page at a time. Pages done: 56 of 144 Now: p057, boxes TS_2, TL_1. Waiting for the usage limit until 20:19 PST (all 3 cards)."), plain(html5));
     assert.ok(!html5.includes("text-red-700"), "the wait line is no error line");
     // Without the key the HTML holds no wait item.
     assert.ok(!html.includes("data-phase2-item=\"waiting"));
@@ -547,7 +556,7 @@ try {
     // no view: the old line, with the old attribute
     for (const none of [null, undefined]) {
       const html4 = renderToStaticMarkup(createElement(Phase2Row, { view: none, now: NOW }));
-      assert.match(html4, /^<p data-phase2-line[^>]*class="text-sm text-muted">Phase 2 \(paired dataset\): no run record yet\.<\/p>$/);
+      assert.match(unBox(html4), /^<p data-phase2-line[^>]*class="text-sm text-muted">Phase 2 \(paired dataset\): no run record yet\.<\/p>$/);
     }
   });
 
@@ -556,10 +565,11 @@ try {
   await check("wiring: loadMonitor adds phase2 and noRun counts it; MonitorData holds the key; the dashboard uses Phase2Row", async () => {
     const bs = await src("lib/book-status.ts");
     assert.match(bs, /const phase2 = await loadPhase2\(root, nowMs, pidAlive\);/);
-    assert.match(bs, /noRun: lists\.length === 0 && statusFiles === 0 && phase2 === null, phase2 \}/);
+    assert.match(bs, /noRun: lists\.length === 0 && statusFiles === 0 && phase2 === null, phase2, phase2Articles \}/); // unit VW94 adds phase2Articles
     assert.match(await src("lib/book-status-rules.ts"), /phase2\?: Phase2View \| null;/);
     const md = await src("components/MonitorDashboard.tsx");
-    assert.match(md, /<Phase2Row view=\{data\.phase2\} now=\{now\} \/>/);
+    // Unit VW94: the row also gets the readable names of the phase 2 articles.
+    assert.match(md, /<Phase2Row view=\{data\.phase2\} now=\{now\} articles=\{data\.phase2Articles\} \/>/);
     assert.ok(!md.includes("PHASE2_LINE"), "the dashboard no longer holds the fixed line (Phase2Row keeps it as the fallback)");
   });
   await check("poll rule: the dashboard polls the same API every 3 s with shouldPoll always true (the row refreshes while phase 2 runs)", async () => {

@@ -7,6 +7,11 @@ import { pageHref } from "./format";
 import { tokenCounts } from "./tokens-sum"; // unit VW93 (Q-A 3:15.2): tokens, not USD
 import { failureList, firstBool, firstNumber, firstString, listKindOf, parseBookMemory, parseChains } from "./chain";
 import type { RunDetail, RunPageRow, RunSummary } from "./types";
+// Unit VW94 (round 91), Q-A 3:17.4 and 3:17.5: article names and the mark "accepted before restart". New files, so the dev server has no old instance of them.
+import { dataRoot } from "./config";
+import { loadRunExtras } from "./phase2-articles-load";
+import { acceptedBeforeText, isPhase2List, listPageIds, nameMain, pageOfArticle, shortIdOf, showsAcceptedBefore } from "./phase2-articles";
+import { runIdText } from "./pst";
 
 const LISTS = "pilot-run/lists";
 export const PAUSE_NAME = "PAUSE";
@@ -120,8 +125,11 @@ export async function getRun(stamp: string): Promise<RunDetail | null> {
       bookMemory: parseBookMemory(sr?.book_memory),
     });
   }
+  const phase2Note = await addPhase2Extras(stamp, p, rows);
   return {
     ...summarize(stamp, p, listJson, summaryJson),
+    phase2Note,
+    phase2List: isPhase2List(p), // fix round: the run view heading "Phase 2 run, list started ..."
     noCritic: firstBool("no_critic", listJson, summaryJson),
     noVoyage: firstBool("no_voyage", listJson, summaryJson),
     // list.json is the file that run-chain --resume reads, so it comes first. The list summary is the fallback.
@@ -133,6 +141,40 @@ export async function getRun(stamp: string): Promise<RunDetail | null> {
     pages: rows,
     serverTimeEpoch: now,
   };
+}
+
+/**
+ * Unit VW94 (round 91). Q-A 3:17.4: each page ID that starts with 8 hex digits gets the title of its article and "page 1 of 3".
+ * Q-A 3:17.5: a row that this list shows as waiting with 0 calls, but that an earlier list of the same phase 2 run accepted (event page-done in
+ * book-store/paired-dataset/history.jsonl), gets the mark "accepted before restart" and the link to that page run. Returns the note line of the run view.
+ * A missing or broken file adds nothing.
+ */
+async function addPhase2Extras(stamp: string, p: J, rows: RunPageRow[]): Promise<string | null> {
+  const order = listPageIds(p);
+  if (!order.some((id) => shortIdOf(id) !== null)) return null;
+  let root: string;
+  try {
+    root = await dataRoot();
+  } catch {
+    return null;
+  }
+  const { names, before, runId } = await loadRunExtras(root, stamp, p, order);
+  for (const r of rows) {
+    const s = shortIdOf(r.pageId);
+    if (s) {
+      const n = names.get(s);
+      r.article = { shortId: s, title: nameMain(n), titleJa: n?.match === "one" && n.en ? n.ja : null, found: n?.match === "one", pageOf: pageOfArticle(r.pageId, order) };
+    }
+    const b = before.get(r.pageId);
+    if (b && showsAcceptedBefore(r)) r.acceptedBefore = { text: acceptedBeforeText(b), verdict: b.verdict, runFolder: b.runFolder, href: b.href };
+  }
+  if (!runId) return null;
+  const marked = rows.filter((r) => r.acceptedBefore).length;
+  const started = runIdText(runId) ?? runId;
+  return (
+    `This list is part of the phase 2 run that started ${started}. A restart of the run makes a new list folder. ` +
+    (marked > 0 ? `${marked === 1 ? "1 page of this list shows" : `${marked} pages of this list show`} "Accepted before restart": an earlier list of the same run accepted ${marked === 1 ? "it" : "them"}.` : "An earlier list of the same run accepted no page of this list.")
+  );
 }
 
 /**

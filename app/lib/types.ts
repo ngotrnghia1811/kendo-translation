@@ -50,6 +50,28 @@ export interface RunPageRow {
   criticFailures: string[] | null;
   /** Key book_memory of the page row in list-summary.json (chain pages only). */
   bookMemory: PageBookMemory | null;
+  /** Unit VW94 (Q-A 3:17.4): readable name of the article of a page ID that starts with 8 hex digits. Missing or null for other pages. */
+  article?: RunPageArticle | null;
+  /** Unit VW94 (Q-A 3:17.5): an earlier list of the same phase 2 run accepted this page. Missing or null otherwise. */
+  acceptedBefore?: RunPageAcceptedBefore | null;
+}
+
+/** Unit VW94: the article of a page row. `title` is "title not found" when no single item matches the short ID. */
+export interface RunPageArticle {
+  shortId: string;
+  title: string;
+  titleJa: string | null;
+  found: boolean;
+  /** "page 1 of 3" */
+  pageOf: string | null;
+}
+
+/** Unit VW94: the mark "accepted before restart" of a page row. */
+export interface RunPageAcceptedBefore {
+  text: string;
+  verdict: string | null;
+  runFolder: string | null;
+  href: string;
 }
 
 export interface PageBookMemory {
@@ -82,6 +104,10 @@ export interface RunDetail extends RunSummary {
   pauseFileExists: boolean;
   pages: RunPageRow[];
   serverTimeEpoch: number;
+  /** Unit VW94 (Q-A 3:17.5): a line about the phase 2 run of this list and its restarts. Missing or null for other lists. */
+  phase2Note?: string | null;
+  /** Unit VW94 fix round (Q-A 3:17.4): true for a list of the phase 2 run (book paired-dataset). The run view heading uses it. */
+  phase2List?: boolean;
 }
 
 export interface BookPage {

@@ -18,6 +18,9 @@ import {
   type StatusFile,
 } from "./book-status-rules";
 import { loadPhase2 } from "./phase2-load";
+// Unit VW94 (round 91): the grouped row of the phase 2 articles and the list filter. New files, so the dev server has no old instance of them.
+import { isPhase2List } from "./phase2-articles";
+import { loadPhase2Articles } from "./phase2-articles-load";
 
 /**
  * Server side of the Monitor dashboard (unit VW77a, round 80). It reads files and the clock, and calls the pure rules of book-status-rules.ts.
@@ -231,6 +234,9 @@ async function loadBookSet(root: string, lists: ListInput[]): Promise<Map<string
   const storeDirs = (await dirNames(path.join(root, STORE))).filter(isSafeSegment);
   for (const b of storeDirs) if (!bookPages.has(b)) bookPages.set(b, null);
   for (const l of lists) {
+    // Unit VW94 (Q-A 3:17.4): a list folder of phase 2 (book "paired-dataset") holds articles, not books. Its page IDs give no book row.
+    // The callers pass only the other lists. This line guards a new caller. The articles show in the grouped row "Phase 2 articles" (lib/phase2-articles.ts).
+    if (isPhase2List(l.progress)) continue;
     const pages = obj(l.progress)?.pages;
     if (!Array.isArray(pages)) continue;
     for (const p of pages) {
@@ -288,13 +294,15 @@ export async function loadMonitor(nowMs: number = Date.now()): Promise<MonitorDa
     return empty(DATA_ERROR_TEXT);
   }
   const { lists, lastListEnd } = await loadLists(root);
-  const bookPages = await loadBookSet(root, lists);
+  // Unit VW94 (Q-A 3:17.4): the book rows read only the lists that are not of phase 2. Else an older pilot row of an article (18d4ac29) copies the phase 2 state.
+  const bookLists = lists.filter((l) => !isPhase2List(l.progress));
+  const bookPages = await loadBookSet(root, bookLists);
   const titles = await loadTitles(root);
   const ph2 = await phase2Ready(root);
   const rows: MonitorRow[] = [];
   let statusFiles = 0;
   for (const [slug, pages] of bookPages) {
-    const { facts, hasStatusFile } = await readFacts(root, slug, pages, titles, lists, ph2, false);
+    const { facts, hasStatusFile } = await readFacts(root, slug, pages, titles, bookLists, ph2, false);
     if (hasStatusFile) statusFiles++;
     const row = buildRow(facts, now);
     await checkErrorFile(root, row);
@@ -302,7 +310,9 @@ export async function loadMonitor(nowMs: number = Date.now()): Promise<MonitorDa
   }
   // Unit VW91 (round 91), Q-A 3:4.6: the live Phase 2 row. A status.json of the phase 2 store counts as a run record, so the text "No run found" does not show above it [unit default VW91].
   const phase2 = await loadPhase2(root, nowMs, pidAlive);
-  return { ok: true, error: null, generatedAt: now, rows, summary: summarize(rows), lastListEnd, noRun: lists.length === 0 && statusFiles === 0 && phase2 === null, phase2 };
+  // Unit VW94 (Q-A 3:17.4): the grouped row "Phase 2 articles" and the readable names of the phase 2 row. Null when no phase 2 list and no status.json exist.
+  const phase2Articles = await loadPhase2Articles(root, lists, phase2?.key === "running" || phase2?.key === "running-pause");
+  return { ok: true, error: null, generatedAt: now, rows, summary: summarize(rows), lastListEnd, noRun: lists.length === 0 && statusFiles === 0 && phase2 === null, phase2, phase2Articles };
 }
 
 /**
@@ -313,9 +323,10 @@ export async function loadMonitor(nowMs: number = Date.now()): Promise<MonitorDa
 export async function loadBookFresh(slug: string, nowMs: number = Date.now()): Promise<{ row: MonitorRow; root: string } | null> {
   const root = await dataRoot();
   const { lists } = await loadLists(root);
-  const bookPages = await loadBookSet(root, lists);
+  const bookLists = lists.filter((l) => !isPhase2List(l.progress)); // unit VW94, the same rule as loadMonitor
+  const bookPages = await loadBookSet(root, bookLists);
   if (!bookPages.has(slug)) return null;
   const titles = await loadTitles(root);
-  const { facts } = await readFacts(root, slug, bookPages.get(slug) ?? null, titles, lists, await phase2Ready(root), true);
+  const { facts } = await readFacts(root, slug, bookPages.get(slug) ?? null, titles, bookLists, await phase2Ready(root), true);
   return { row: buildRow(facts, nowMs / 1000), root };
 }

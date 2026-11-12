@@ -8,6 +8,8 @@ import { useLive } from "./useLive";
 import { useGroupOpen } from "./monitor-open-store";
 import BookRow from "./BookRow";
 import Phase2Row from "./Phase2Row";
+import Phase2Articles from "./Phase2Articles";
+import { runningGroupNote } from "@/lib/phase2-articles";
 
 // Unit VW77a (round 80), VISION-viewer 15.24.4: the Monitor dashboard "/" on this Mac. It shows one row per book, in six groups.
 // Unit VW77b1 (round 81) adds the buttons (components/RowButtons.tsx). A press reads the rows again at once (refresh), so a new mark shows within one poll.
@@ -28,7 +30,9 @@ const POLL_BANNER_AFTER = 3;
 
 function Group({ group, rows, data, now, onChanged }: { group: GroupName; rows: ReturnType<typeof groupRows>[number]["rows"]; data: MonitorData; now: number; onChanged: () => Promise<void> }) {
   const [open, setOpen] = useGroupOpen(group);
-  const empty = rows.length === 0 ? emptyLine(group, data.lastListEnd, now) : null;
+  // Unit VW94 (Q-A 3:17.4): the phase 2 articles give no book row. While the phase 2 run runs, the empty group Running says where the run shows.
+  const note = group === "Running" && rows.length === 0 ? runningGroupNote(data.phase2?.key) : null;
+  const empty = rows.length === 0 ? (note ?? emptyLine(group, data.lastListEnd, now)) : null;
   return (
     <details
       data-group={group}
@@ -113,7 +117,9 @@ export default function MonitorDashboard({ initial }: { initial: MonitorData }) 
               <Group key={g.group} group={g.group} rows={g.rows} data={data} now={now} onChanged={refresh} />
             ))}
           {/* Unit VW91 (round 91), Q-A 3:4.6: the live Phase 2 row. It shows the old fixed line when the store has no status.json. It refreshes with the same poll as the rows. */}
-          <Phase2Row view={data.phase2} now={now} />
+          <Phase2Row view={data.phase2} now={now} articles={data.phase2Articles} />
+          {/* Unit VW94 (round 91), Q-A 3:17.4 "One grouped row": the 40 phase 2 articles below the phase 2 row, closed at the first paint. */}
+          <Phase2Articles view={data.phase2Articles} />
         </>
       )}
     </section>

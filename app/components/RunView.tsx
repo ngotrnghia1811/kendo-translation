@@ -11,6 +11,11 @@ import { LiveBadge, useLive } from "./useLive";
 import PauseButton from "./PauseButton";
 import ReaderOpenRows from "./ReaderOpenRows";
 import { ChainTable, ComparePanel, FailureLists, MemoryPanel } from "./ChainPanels";
+// Unit VW94 (round 91), Q-A 3:17.4 and 3:17.5: article names, readable state words and box names, and the mark "accepted before restart".
+import { ACCEPTED_BEFORE_HELP } from "@/lib/phase2-articles";
+// Fix round: plain words for the heading and the state pills (Q-A 3:17.4), box codes with a hover (Q-A 3:18.5 "Keep codes, explain on hover").
+import { listKindWord, listStateWord, pageStateWord, runHeading } from "@/lib/run-view-words";
+import { BoxCode } from "./BoxCode";
 
 // Round 44 answer 13 (Q-A l142): a list opens a run view with one row per page: state, calls, cost (unit VW93: tokens, Q-A 3:15.2), minutes,
 // QA_3 verdict and score, link to the page view. Viewer goal: few steps from a run to a page text.
@@ -20,14 +25,20 @@ import { ChainTable, ComparePanel, FailureLists, MemoryPanel } from "./ChainPane
 export default function RunView({ initial }: { initial: RunDetail }) {
   const { data: run, refresh, live } = useLive<RunDetail>(`/api/runs/${initial.stamp}`, initial, (d) => isLive(d.state));
   const isChain = run.listKind === "chain";
+  const runWord = listStateWord(run.state);
   return (
     <section>
       <Link href="/runs" className="text-sm text-muted hover:text-foreground">
         ← Lists
       </Link>
-      <div className="mt-2 mb-4 flex flex-wrap items-center gap-x-5 gap-y-2">
-        <h1 className="text-xl font-semibold font-mono">{run.stamp}</h1>
-        <StatePill state={run.state} />
+      <div data-run-head className="mt-2 mb-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+        <h1 data-run-heading className="text-xl font-semibold">
+          {runHeading(run.stamp, run.listKind, run.phase2List === true)}{" "}
+          <span data-run-stamp className="ml-1 font-mono text-sm font-normal text-muted" title="List folder name (UTC stamp), the same as in the URL">
+            {run.stamp}
+          </span>
+        </h1>
+        <StatePill state={run.state} label={runWord.label} help={runWord.help} />
         <LiveBadge live={live} />
       </div>
       <div className="mb-4 flex flex-wrap gap-x-8 gap-y-1 text-sm">
@@ -39,13 +50,18 @@ export default function RunView({ initial }: { initial: RunDetail }) {
         <Stat label={TOKENS_LABEL} value={<TokensDetail tokens={run.tokens} />} />
         <Stat label="Started" value={pstDateTimeOrDash(run.startedEpoch)} />
         <Stat label="Updated" value={pstDateTimeOrDash(run.updatedEpoch)} />
-        <Stat label="List kind" value={run.listKind} />
+        <Stat label="List kind" value={<span title={`List kind ${run.listKind} (progress.json key kind)`}>{listKindWord(run.listKind, run.phase2List === true)}</span>} />
         <Stat label="Critic mode" value={run.criticMode ?? "not stored"} />
         {run.bookJobs !== null ? <Stat label="Book jobs" value={String(run.bookJobs)} /> : null}
       </div>
       <div className="mb-4">
         <PauseButton stamp={run.stamp} state={run.state} fileExists={run.pauseFileExists} pausedSinceEpoch={run.pausedSinceEpoch} onDone={refresh} />
       </div>
+      {run.phase2Note ? (
+        <p data-phase2-note className="mb-4 text-sm text-muted">
+          {run.phase2Note}
+        </p>
+      ) : null}
       <ReaderOpenRows stamp={run.stamp} pages={run.pages} />
       {isChain ? (
         <div className="mb-6 space-y-6">
@@ -70,26 +86,65 @@ export default function RunView({ initial }: { initial: RunDetail }) {
               <th className="px-3 py-2 text-right">Calls</th>
               <TokenHeads className="px-3 py-2 text-right whitespace-nowrap" />
               <th className="px-3 py-2 text-right">Minutes</th>
-              <th className="px-3 py-2">QA_3</th>
+              <th className="px-3 py-2">
+                <BoxCode code="QA_3" />
+              </th>
               {isChain ? <th className="px-3 py-2">Book memory</th> : null}
             </tr>
           </thead>
           <tbody>
             {run.pages.map((p) => (
               <tr key={p.pageId} className="border-t border-line hover:bg-stone-50">
-                <td className="px-3 py-2">
+                <td className="px-3 py-2" data-run-page={p.pageId}>
                   {p.runFolder ? (
                     <Link href={p.href} className="font-mono text-accent underline-offset-2 hover:underline">
+                      {p.pageId}
+                    </Link>
+                  ) : p.acceptedBefore ? (
+                    <Link href={p.acceptedBefore.href} className="font-mono text-accent underline-offset-2 hover:underline">
                       {p.pageId}
                     </Link>
                   ) : (
                     <span className="font-mono text-muted">{p.pageId}</span>
                   )}
+                  {p.article ? (
+                    <div data-run-page-article className="mt-0.5 max-w-xs text-xs">
+                      <span className={p.article.found ? "text-foreground" : "italic text-muted"}>{p.article.title}</span>
+                      {p.article.pageOf ? <span className="text-muted">, {p.article.pageOf}</span> : null}
+                      {p.article.titleJa ? (
+                        <span lang="ja" className="block text-muted">
+                          {p.article.titleJa}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </td>
                 <td className="px-3 py-2 text-muted">{p.kind}</td>
                 <td className="px-3 py-2">
-                  <StatePill state={p.skippedReason && p.state === "waiting" ? "skipped" : p.state} />
-                  {p.running.length > 0 ? <div className="mt-1 text-xs text-muted">{p.running.join(", ")}</div> : null}
+                  {p.acceptedBefore ? (
+                    <div data-accepted-before title={ACCEPTED_BEFORE_HELP}>
+                      <StatePill state="accepted before restart" />
+                      <div className="mt-1 max-w-xs text-xs text-muted">
+                        {p.acceptedBefore.text}{" "}
+                        <Link href={p.acceptedBefore.href} className="text-accent underline underline-offset-2">
+                          Page run {p.acceptedBefore.runFolder ?? ""}
+                        </Link>
+                      </div>
+                      <div className="mt-0.5 text-xs text-muted">This list: not started yet, 0 calls.</div>
+                    </div>
+                  ) : (
+                    <PageStatePill state={p.skippedReason && p.state === "waiting" ? "skipped" : p.state} />
+                  )}
+                  {p.running.length > 0 ? (
+                    <div data-run-boxes className="mt-1 text-xs text-muted">
+                      {p.running.map((b, i) => (
+                        <span key={b}>
+                          {i > 0 ? ", " : ""}
+                          <BoxCode code={b} />
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                   {p.skippedReason ? <div className="mt-1 text-xs text-amber-800">Skipped: {p.skippedReason}</div> : null}
                   <FailureLists forward={p.forwardFailures} critic={p.criticFailures} />
                 </td>
@@ -114,6 +169,11 @@ export default function RunView({ initial }: { initial: RunDetail }) {
       </div>
     </section>
   );
+}
+
+function PageStatePill({ state }: { state: string }) {
+  const w = pageStateWord(state);
+  return <StatePill state={state} label={w.label} help={w.help} />;
 }
 
 function Stat({ label, value, warn }: { label: string; value: ReactNode; warn?: boolean }) {
