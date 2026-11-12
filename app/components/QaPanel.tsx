@@ -1,6 +1,7 @@
 import type { QaStage } from "@/lib/types";
 import { VerdictPill } from "./Pills";
 import Reasoning from "./Reasoning";
+import { BoxCode } from "./BoxCode"; // Unit VW96 (Q-A 3:18.5)
 import { issueAnchor, markTone } from "@/lib/page-labels";
 
 // Round 44 answer 13 (Q-A l142), page view: QA verdict, score, the 8 cells with row names, and issues.
@@ -13,7 +14,9 @@ export default function QaPanel({ qa }: { qa: QaStage | undefined }) {
   return (
     <aside className="rounded border border-line bg-white p-4 text-sm">
       <div className="flex items-center justify-between">
-        <h2 className="font-semibold">{qa.box}</h2>
+        <h2 className="font-semibold">
+          <BoxCode code={qa.box} />
+        </h2>
         <VerdictPill verdict={qa.verdict} score={qa.score} />
       </div>
       <p className="mt-1 text-xs text-muted">

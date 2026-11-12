@@ -7,7 +7,8 @@ import type { Section, StepData } from "@/lib/step-data";
 import { diffBlocks } from "@/lib/line-diff";
 import { minutes, pageHref, pstClock, pstDateTime } from "@/lib/format";
 import { jsonViewHref } from "@/lib/json-view";
-import { tokensShort, TOKENS_SHORT_LABEL } from "@/lib/tokens-view";
+import { tokensShort, TOKENS_SHORT_HELP, TOKENS_SHORT_LABEL } from "@/lib/tokens-view";
+import { modelOptionText } from "@/lib/readable-names";
 import { StatePill, VerdictPill } from "./Pills";
 import { BoxCode, BoxText } from "./BoxCode";
 
@@ -136,7 +137,10 @@ function PageItem({ n, page, choices, setChoice, tick }: { n: number; page: Page
           </span>
         ) : null}
         <span className="block text-xs text-muted">
-          {minutes(page.seconds)} min · {page.calls} model calls · {TOKENS_SHORT_LABEL} {tokensShort(page.tokens)}
+          {minutes(page.seconds)} min · {page.calls} model calls ·{" "}
+          <span title={TOKENS_SHORT_HELP}>
+            {TOKENS_SHORT_LABEL} {tokensShort(page.tokens)}
+          </span>
           {page.epoch !== null ? ` · ${page.running ? "started" : "ended"} ${pstDateTime(page.epoch)}` : ""}
           {page.listLabel ? ` · ${page.listLabel}` : ""}
         </span>
@@ -215,9 +219,18 @@ function StepItem({ page, step, choices, setChoice, tick }: { page: PageNode; st
           {step.verdict ? <VerdictPill verdict={step.verdict} score={step.score} /> : null}
         </span>
         <span className="block text-xs text-muted">
-          {step.model ? `model ${step.model}` : "no model stored"}
+          {step.model ? `model ${modelOptionText(step.model)}` : "no model stored"}
           {step.seconds !== null ? ` · ${secondsText(step.seconds)}` : ""}
-          {step.calls > 0 ? ` · ${TOKENS_SHORT_LABEL} ${tokensShort(step.tokens)}` : ""}
+          {step.calls > 0 ? (
+            <>
+              {" · "}
+              <span title={TOKENS_SHORT_HELP}>
+                {TOKENS_SHORT_LABEL} {tokensShort(step.tokens)}
+              </span>
+            </>
+          ) : (
+            ""
+          )}
           {step.calls > 1 ? ` · ${step.calls} calls` : ""}
           {step.startedEpoch !== null ? ` · started ${pstClock(step.startedEpoch)}` : ""}
         </span>

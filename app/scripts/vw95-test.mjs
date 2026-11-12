@@ -290,7 +290,7 @@ await check("step data: TL lines give the EN text per unit, QA gives score and i
   const c = cr.find((s) => s.kind === "critiques").rows[0];
   assert.deepEqual([c.id, c.ja, c.en, c.extra], ["C1", "日本", "Japan", "issues QA_2:I1"]);
   assert.match(cr.find((s) => s.title === "Queue").rows[0][1], /^1 critiques/);
-  assert.match(SD.callPairs([model("TL_1")], "TL_1").map((r) => r.join(":")).join("|"), /Tokens in \/ out:10 \/ 5/);
+  assert.match(SD.callPairs([model("TL_1")], "TL_1").map((r) => r.join(":")).join("|"), /Tokens:input 10 · output 5 · reasoning 0 · cache read 0 · cache write 0/); // VW96 (Q-A 3:20.2, 3:15.2): level 3 shows all 5 kinds, not the short form
   assert.equal(SD.programLine({ checked_text: "ED_3", items: 66, breaks: 0, notes: [1, 2] }), "checked text ED_3, items 66, breaks 0, notes 2");
 });
 

@@ -1,5 +1,6 @@
 import type { StageText } from "@/lib/types";
 import Reasoning from "./Reasoning";
+import { BoxCode } from "./BoxCode"; // Unit VW96 (Q-A 3:18.5): box codes keep their place, the readable name shows on hover.
 
 // Round 44 answer 13 (Q-A l142): ED_0 to ED_3 texts, line by line, with the JA text next to them.
 //
@@ -21,8 +22,12 @@ export function ReadText({ stage }: { stage: StageText }) {
   return (
     <div>
       <div className="grid grid-cols-2 gap-8 border-b border-line pb-1 text-xs font-semibold uppercase tracking-wide text-muted">
-        <div>JA (TS_{stage.box.slice(-1)})</div>
-        <div>EN ({stage.box})</div>
+        <div>
+          JA (<BoxCode code={`TS_${stage.box.slice(-1)}`} />)
+        </div>
+        <div>
+          EN (<BoxCode code={stage.box} />)
+        </div>
       </div>
       {stage.items.map((it, idx) => {
         const head = idx === 0 || stage.items[idx - 1].section !== it.section;
@@ -52,7 +57,9 @@ export function CompareText({ stages }: { stages: StageText[] }) {
   return (
     <div>
       <div className="grid grid-cols-2 gap-8 border-b border-line pb-1 text-xs font-semibold uppercase tracking-wide text-muted">
-        <div>JA (TS_{last.box.slice(-1)})</div>
+        <div>
+          JA (<BoxCode code={`TS_${last.box.slice(-1)}`} />)
+        </div>
         <div>EN (all stages)</div>
       </div>
       {last.items.map((it, idx) => {
@@ -73,11 +80,11 @@ export function CompareText({ stages }: { stages: StageText[] }) {
                   const same = k > 0 && text !== undefined && text === prev;
                   return (
                     <div key={s.box} className="flex gap-2">
-                      <span className="mt-1 w-9 shrink-0 font-mono text-[10px] text-muted">{s.box}</span>
+                      <span className="mt-1 w-9 shrink-0 font-mono text-[10px] text-muted"><BoxCode code={s.box} /></span>
                       {text === undefined ? (
                         <span className="text-muted">–</span>
                       ) : same ? (
-                        <span className="text-sm text-muted">same as {stages[k - 1].box}</span>
+                        <span className="text-sm text-muted">same as <BoxCode code={stages[k - 1].box} /></span>
                       ) : (
                         <span className="font-serif text-[1.05rem] leading-relaxed">{text}</span>
                       )}
@@ -102,7 +109,7 @@ function TermList({ stage }: { stage: StageText }) {
   if (stage.termList.length === 0) return null;
   return (
     <details className="mt-3 text-sm">
-      <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted">EN terms in {stage.box} ({stage.termList.length})</summary>
+      <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted">EN terms in <BoxCode code={stage.box} /> ({stage.termList.length})</summary>
       <ul className="mt-1 space-y-0.5">
         {stage.termList.map((t, k) => (
           <li key={k}>

@@ -10,8 +10,11 @@ import { createHash } from "node:crypto";
 
 const app = path.resolve(import.meta.dirname, "..");
 const u = await fs.realpath(path.dirname(app));
-assert.match(u, /\/opencode\/r89\/VW77d$/);
-assert.equal(process.env.VW77D_UNIT, u, "Use scripts/dev/cleanenv.sh");
+// [unit default VW96] The guard accepted only the folder /opencode/r89/VW77d and the variable VW77D_UNIT, so the test could not run in any other unit
+// (the same fault as in json-view-test before VW92). Now: the parent of the app folder is a build unit folder <TMP>/r<round>/<unit>, and the
+// unit variable <UNIT>_UNIT names it. The safety rule is the same: every write stays below this unit folder (TMPDIR and HOME are checked below).
+assert.match(u, /\/opencode\/r\d+\/[A-Za-z0-9_-]+$/);
+assert.ok(Object.entries(process.env).some(([k, v]) => /^[A-Z]{2}\d+_UNIT$/.test(k) && v === u), "Use scripts/dev/cleanenv.sh with the unit variable");
 assert.equal(await fs.realpath(process.env.TMPDIR), path.join(u, "tmp"));
 assert.equal(process.env.HOME, path.join(u, "tmp/home"));
 globalThis.fetch = async () => { throw new Error("Network is disabled in VW77d contracts."); };

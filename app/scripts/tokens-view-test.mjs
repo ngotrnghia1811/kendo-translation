@@ -42,10 +42,11 @@ const BIG = { input: 1234567, output: 345678, reasoning: 12345, cache_read: 9876
 const LINE = "Tokens: input 1,234,567 · output 345,678 · reasoning 12,345 · cache read 98,765,432 · cache write 1,234,567 · 432 calls";
 
 // ---------------------------------------------------------------- formats
-await check("short format: 'Tokens in / out' label and '1,234,567 / 345,678' (input / output)", () => {
-  assert.equal(V.TOKENS_SHORT_LABEL, "Tokens in / out");
-  assert.equal(V.tokensShort(BIG), "1,234,567 / 345,678");
-  assert.equal(V.tokensShort({ ...BIG, output: null }), "1,234,567 / –");
+// VW96 (Q-A 3:20.2 "In = input + cache"): the label is "Tokens in (with cache) / out", "in" = input + cache read + cache write. This replaces the VW93 form "Tokens in / out" = input / output.
+await check("short format: 'Tokens in (with cache) / out' label and '101,234,566 / 345,678' (input + cache read + cache write / output)", () => {
+  assert.equal(V.TOKENS_SHORT_LABEL, "Tokens in (with cache) / out");
+  assert.equal(V.tokensShort(BIG), "101,234,566 / 345,678");
+  assert.equal(V.tokensShort({ ...BIG, output: null }), "101,234,566 / –");
 });
 await check("5-kind format: the exact words and order of the phase 2 row, from tokensText of lib/phase2-row.ts", () => {
   assert.equal(V.tokensLine(BIG), LINE);
@@ -67,7 +68,7 @@ await check("no token data: a missing, empty, or wrong key gives null, and every
   assert.equal(V.tokensShort(null), "no token data");
   assert.equal(V.tokensLine(null), "no token data");
   assert.equal(V.tokensBody(null), "no token data");
-  assert.equal(V.allBooksText({ tokens: null, missing: 4 }), "Tokens in / out of all books: no token data");
+  assert.equal(V.allBooksText({ tokens: null, missing: 4 }), "Tokens in (with cache) / out of all books: no token data");
 });
 await check("tokenCounts: the key calls wins, else the argument. Zero counts are data, not 'no token data'", () => {
   assert.deepEqual(S.tokenCounts({ input: 1, output: 2, reasoning: 3, cache_read: 4, cache_write: 5, calls: 6 }, 99), { input: 1, output: 2, reasoning: 3, cache_read: 4, cache_write: 5, calls: 6 });
@@ -129,13 +130,13 @@ await check("Monitor derived row: an old list only gives tokens null; an old and
   assert.deepEqual(mixed.tokens, { tokens: { ...NEW_PAGE.tokens, calls: 24 }, missing: 1 });
   assert.equal(mixed.costUsd, 2.5, "the USD field stays in the data");
 });
-await check("Monitor summary line: 'Tokens in / out of all books', Not started rows do not count as missing", () => {
+await check("Monitor summary line: 'Tokens in (with cache) / out of all books', Not started rows do not count as missing", () => {
   const row = (group, tokens) => ({ group, tokens, errorCount: 0, cost: 1 });
   const t = { input: 1000, output: 20, reasoning: 0, cache_read: 0, cache_write: 0, calls: 3 };
   const sum = R.summarize([row("Running", t), row("Stopped", { ...t, input: 234 }), row("Stopped", null), row("Not started", null)]);
   assert.deepEqual(sum.tokens, { tokens: { input: 1234, output: 40, reasoning: 0, cache_read: 0, cache_write: 0, calls: 6 }, missing: 1 });
-  assert.equal(V.allBooksText(sum.tokens), "Tokens in / out of all books: 1,234 / 40 (1 book without token data)");
-  assert.equal(V.allBooksText(R.summarize([row("Running", t)]).tokens), "Tokens in / out of all books: 1,000 / 20");
+  assert.equal(V.allBooksText(sum.tokens), "Tokens in (with cache) / out of all books: 1,234 / 40 (1 book without token data)");
+  assert.equal(V.allBooksText(R.summarize([row("Running", t)]).tokens), "Tokens in (with cache) / out of all books: 1,000 / 20");
   assert.equal(sum.costUsd, 4, "the USD field stays in the data");
 });
 await check("critic-only summary and compare totals: the key tokens with model_calls or calls as the calls count", () => {

@@ -22,6 +22,10 @@ import {
 } from "@/lib/book-detail-rules";
 import { bookTagText } from "@/lib/book-run-rules";
 import { StatePill, VerdictPill } from "./Pills";
+import { BoxCode, BoxText } from "./BoxCode";
+import { GroupCode, ListStatePill, PageListStatePill, RawId } from "./Named";
+import { bookJobsText, capFirst, criticModeWord, levelModelsText, listTitle, pageNumberText } from "@/lib/readable-names";
+import { listKindWord } from "@/lib/run-view-words";
 import StateLabel from "./StateLabel";
 import RowButtons from "./RowButtons";
 import BookRunsTable from "./BookRunsTable";
@@ -47,18 +51,21 @@ function Section({ part, title, children }: { part: string; title: string; child
 }
 
 function ListFold({ list, open }: { list: DetailList; open: boolean }) {
-  const end = list.live ? "running" : pstDateTimeOrDash(list.updatedEpoch);
+  // VW96 (Q-A 3:17.4): "Ended running" read as a bare state word. A live list has no end time yet.
+  const end = list.live ? "not yet (the list is still running)" : pstDateTimeOrDash(list.updatedEpoch);
   return (
     <details data-list-fold={list.stamp} open={open} className="mb-3 rounded border border-line bg-white">
       <summary className="cursor-pointer px-3 py-2 text-sm">
-        <Link href={`/runs/${encodeURIComponent(list.stamp)}`} data-run-link className="font-mono font-semibold text-accent underline-offset-2 hover:underline">
-          {list.stamp}
-        </Link>
+        <Link href={`/runs/${encodeURIComponent(list.stamp)}`} data-run-link className="font-semibold text-accent underline-offset-2 hover:underline">
+          {listTitle(list.stamp)}
+        </Link>{" "}
+        <RawId title="Folder name of the list">{list.stamp}</RawId>
         <span className="ml-3 text-muted">
-          Started {pstDateTimeOrDash(list.startedEpoch)}. Ended {end}. Kind {list.listKind}. Critic mode {list.criticMode ?? "not stored"}.
-          {list.bookJobs !== null ? ` Book jobs ${list.bookJobs}.` : ""}
+          Started {pstDateTimeOrDash(list.startedEpoch)}. Ended {end}. Kind: {listKindWord(list.listKind, list.phase2List === true)}. Critic mode:{" "}
+          <span title={criticModeWord(list.criticMode).help}>{criticModeWord(list.criticMode).label}</span>.
+          {list.bookJobs !== null ? ` Jobs: ${bookJobsText(list.bookJobs)}.` : ""}
         </span>{" "}
-        <StatePill state={list.state} />
+        <ListStatePill state={list.state} />
       </summary>
       <div className="overflow-x-auto border-t border-line">
         <table className="w-full text-sm">
@@ -67,7 +74,9 @@ function ListFold({ list, open }: { list: DetailList; open: boolean }) {
               <th className={TH}>Page</th>
               <th className={TH}>State</th>
               <th className={TH + " text-right"}>Calls</th>
-              <th className={TH}>QA_3</th>
+              <th className={TH}>
+                <BoxCode code="QA_3" />
+              </th>
               {/* Unit VW93 (Q-A 3:15.2): the 5 token kinds of the page row in place of the cost. */}
               <TokenHeads className={TH + " text-right whitespace-nowrap"} />
               <th className={TH + " text-right"}>Time</th>
@@ -79,16 +88,21 @@ function ListFold({ list, open }: { list: DetailList; open: boolean }) {
               <tr key={p.pageId} data-page-row={p.page} className="border-t border-line">
                 <td className="px-3 py-2">
                   {p.href ? (
-                    <Link href={p.href} className="font-mono text-accent underline-offset-2 hover:underline">
-                      {p.page}
+                    <Link href={p.href} className="text-accent underline-offset-2 hover:underline">
+                      {capFirst(pageNumberText(p.page))}
                     </Link>
                   ) : (
-                    <span className="font-mono text-muted">{p.page}</span>
-                  )}
+                    <span className="text-muted">{capFirst(pageNumberText(p.page))}</span>
+                  )}{" "}
+                  <RawId title="Page name">{p.page}</RawId>
                 </td>
                 <td className="px-3 py-2">
-                  <StatePill state={p.state} />
-                  {p.running.length > 0 ? <div className="mt-1 text-xs text-muted">{p.running.join(", ")}</div> : null}
+                  <PageListStatePill state={p.state} />
+                  {p.running.length > 0 ? (
+                    <div className="mt-1 text-xs text-muted">
+                      Now: <BoxText text={p.running.join(", ")} />
+                    </div>
+                  ) : null}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">
                   {p.callsDone} / {p.callsTotal}
@@ -142,13 +156,15 @@ export default function BookDetailView({ initial }: { initial: BookDetail }) {
           <h1 className="text-xl font-semibold">
             {named ? <span>{row.title} </span> : null}
             <code className={"font-mono " + (named ? "text-base font-normal text-muted" : "")}>{named ? `(${row.slug})` : row.slug}</code>
+            {/* Unit VW96 (Q-A 3:17.4): an article slug (8 hex digits) with no title in items.filled.jsonl says so. */}
+            {!named && /^[0-9a-f]{8}$/.test(row.slug) ? <span className="ml-2 text-sm font-normal text-muted">(title not found)</span> : null}
           </h1>
           {tag === "book-run" ? (
-            <span data-book-run-tag className="rounded border border-line px-1.5 py-0.5 text-xs text-muted">
+            <span data-book-run-tag title="This book has a run in the book store, or a list of kind book-run" className="rounded border border-line px-1.5 py-0.5 text-xs text-muted">
               book-run
             </span>
           ) : tag === "pilot list" ? (
-            <span data-pilot-tag className="rounded border border-line px-1.5 py-0.5 text-xs text-muted">
+            <span data-pilot-tag title="A pilot list ran this book. A pilot list is a test, not a real run." className="rounded border border-line px-1.5 py-0.5 text-xs text-muted">
               pilot list
             </span>
           ) : null}
@@ -168,10 +184,10 @@ export default function BookDetailView({ initial }: { initial: BookDetail }) {
         </div>
         {sentence || row.note ? (
           <p data-row-line2 className="mt-2 text-sm text-muted">
-            {sentence}
+            <BoxText text={sentence} />
             {row.note ? (
               <span data-row-note className="ml-2 font-medium text-foreground">
-                {row.note}
+                <BoxText text={row.note} />
               </span>
             ) : null}
           </p>
@@ -219,7 +235,9 @@ export default function BookDetailView({ initial }: { initial: BookDetail }) {
       <Section part="last-error" title="Last error">
         {data.lastError ? (
           <div data-last-error className="text-sm break-words text-red-700">
-            <p>{data.lastError.text}</p>
+            <p>
+              <BoxText text={data.lastError.text} />
+            </p>
             {data.lastError.epoch !== null ? <p data-error-time>Time: {pstDateTimeOrDash(data.lastError.epoch)}</p> : null}
             {data.lastError.file ? (
               <p>
@@ -252,12 +270,12 @@ export default function BookDetailView({ initial }: { initial: BookDetail }) {
           <div key={f.box} data-stop-flag={f.box} role="note" className="mb-3 rounded border border-red-700 bg-red-50 px-3 py-2 text-sm text-red-800">
             <p className="font-medium">
               <span aria-hidden="true">▲ </span>
-              {f.text}
+              <BoxText text={f.text} />
             </p>
             <ol className="mt-1 list-decimal pl-5">
               {rejectLines(f).map((r, i) => (
                 <li key={i} data-reject-reason>
-                  {r.head}: {r.reasons.join(" ")}
+                  <BoxText text={r.head} />: {r.reasons.join(" ")}
                 </li>
               ))}
             </ol>
@@ -273,7 +291,7 @@ export default function BookDetailView({ initial }: { initial: BookDetail }) {
                   <th className={TH}>Page</th>
                   {BOX_TYPES.map((t) => (
                     <th key={t} className={TH + " text-right"}>
-                      {t}
+                      <GroupCode code={t} />
                     </th>
                   ))}
                   <th className={TH + " text-right"}>N</th>
@@ -288,7 +306,7 @@ export default function BookDetailView({ initial }: { initial: BookDetail }) {
                       {totals.counts[t]}
                       {data.flags.filter((f) => f.box.startsWith(t + "_")).map((f) => (
                         <span key={f.box} data-flag-mark={f.box} className="ml-1 text-xs font-normal text-red-700">
-                          ▲ {f.box} stopped
+                          ▲ <BoxCode code={f.box} /> stopped
                         </span>
                       ))}
                     </td>
@@ -297,7 +315,9 @@ export default function BookDetailView({ initial }: { initial: BookDetail }) {
                 </tr>
                 {data.critiques.map((r) => (
                   <tr key={r.pageId} data-critique-row={r.page} className="border-t border-line">
-                    <td className="px-3 py-2 font-mono">{r.page}</td>
+                    <td className="px-3 py-2">
+                      {capFirst(pageNumberText(r.page))} <RawId title="Page name">{r.page}</RawId>
+                    </td>
                     {BOX_TYPES.map((t) => (
                       <td key={t} className="px-3 py-2 text-right tabular-nums">
                         {r.counts[t]}
@@ -339,9 +359,11 @@ export default function BookDetailView({ initial }: { initial: BookDetail }) {
                 <tbody>
                   {data.settings.map((s) => (
                     <tr key={s.pageId} data-settings-row={s.page} className="border-t border-line">
-                      <td className="px-3 py-2 font-mono">{s.page}</td>
+                      <td className="px-3 py-2">
+                        {capFirst(pageNumberText(s.page))} <RawId title="Page name">{s.page}</RawId>
+                      </td>
                       <td className="px-3 py-2 text-right tabular-nums">{s.n ?? "–"}</td>
-                      <td className="px-3 py-2 text-xs">{s.models ?? "Not stored"}</td>
+                      <td className="px-3 py-2 text-xs">{s.models ? levelModelsText(s.models) : "Not stored"}</td>
                       <td className="px-3 py-2 text-xs font-medium">{s.changed ? SETTINGS_CHANGED_TEXT : ""}</td>
                     </tr>
                   ))}
@@ -369,7 +391,9 @@ export default function BookDetailView({ initial }: { initial: BookDetail }) {
               <tbody>
                 {Object.entries(data.share.boxes).map(([box, s]) => (
                   <tr key={box} data-share-row={box} className="border-t border-line">
-                    <td className="px-3 py-2 font-mono">{box}</td>
+                    <td className="px-3 py-2 font-mono">
+                      <BoxCode code={box} />
+                    </td>
                     <td data-share-used className="px-3 py-2 tabular-nums">
                       {shareText(s.used, s.total, s.used_percent)}
                     </td>

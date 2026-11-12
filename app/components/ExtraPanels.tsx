@@ -7,6 +7,12 @@ import { enFormBadge, enFormTone } from "@/lib/page-labels";
 import { jsonViewHref } from "@/lib/json-view";
 import { TOKENS_LABEL, missingNote, sumTokens, tokensLine } from "@/lib/tokens-view";
 import { NoTokenData, TokenCells, TokenHeads, TokensDetail } from "./Tokens";
+import { BoxText } from "./BoxCode";
+import { GroupCode, RawId, SessionId } from "./Named";
+import { criticFolderName, criticModeWord, critiqueLabel, modelOptionText, pageNumberText, pageRunStatusWord } from "@/lib/readable-names";
+
+// Unit VW96 (round 91), card P31.3, owner rule Q-A 3:17.4: box codes keep their place and show the readable name on hover (Q-A 3:18.5),
+// a session ID shows short with the full ID on hover, a critic-only folder shows a plain name with the folder name in small grey text.
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -103,9 +109,11 @@ export function Calls({ rows }: { rows: any[] }) {
         <tbody>
           {rows.map((r, k) => (
             <tr key={k} className="border-t border-line">
-              <td className={td + " font-mono text-xs"}>{r.tag}</td>
+              <td className={td + " font-mono text-xs"}>
+                <BoxText text={String(r.tag)} />
+              </td>
               <td className={td + " text-xs"}>
-                {r.model}
+                <span title={`Model ID: ${r.model}`}>{modelOptionText(String(r.model))}</span>
                 {r.variant ? <span className="text-muted"> ({r.variant})</span> : null}
               </td>
               <TokenCells tokens={r.tokenCounts ?? null} className={td + " text-right tabular-nums"} />
@@ -113,14 +121,20 @@ export function Calls({ rows }: { rows: any[] }) {
               <td className={td + " text-right tabular-nums"}>{r.retries}</td>
               <td className={td + " text-xs"}>
                 {r.sessionTurn !== null && r.sessionTurn !== undefined ? (
-                  <span className="mr-1 rounded bg-stone-100 px-1.5 text-stone-700" title={r.sessionId ?? ""}>
+                  <span className="mr-1 rounded bg-stone-100 px-1.5 text-stone-700" title="Turn of the critic session that held this call">
                     session turn {r.sessionTurn}
-                    {r.sessionId ? `, ${r.sessionId}` : ""}
+                    {r.sessionId ? (
+                      <>
+                        , session <SessionId id={String(r.sessionId)} />
+                      </>
+                    ) : (
+                      ""
+                    )}
                     {r.sessionFirstMessage ? ", first message" : ""}
                   </span>
                 ) : null}
                 {r.sessionRestart ? <span className="mr-1 text-amber-700">session restart: {String(r.sessionRestart)}</span> : null}
-                {r.ok === false ? <span className="text-red-700">failed: {r.error}</span> : "ok"}
+                {r.ok === false ? <span className="text-red-700">failed: {r.error}</span> : <span title="The call finished without an error">ok</span>}
                 {r.flag ? <span className="ml-1 text-amber-700">flag: {String(r.flag)}</span> : null}
                 {r.jsonRepairKind ? <span className="ml-1 text-amber-700">JSON repaired: {r.jsonRepairKind}</span> : null}
               </td>
@@ -150,7 +164,10 @@ function Messages({ rows }: { rows: { tag: string; text: string }[] }) {
       {rows.map((m) => (
         <details key={m.tag} className="rounded border border-line">
           <summary className="cursor-pointer px-3 py-1.5 text-sm">
-            <span className="font-mono text-xs">{m.tag}</span> <span className="text-muted">({m.text.length.toLocaleString("en-US")} characters)</span>
+            <span className="font-mono text-xs">
+              <BoxText text={m.tag} />
+            </span>{" "}
+            <span className="text-muted">({m.text.length.toLocaleString("en-US")} characters)</span>
           </summary>
           <pre className="max-h-96 overflow-auto whitespace-pre-wrap border-t border-line bg-stone-50 p-3 text-xs leading-relaxed">{m.text}</pre>
         </details>
@@ -165,7 +182,9 @@ function Lookup({ rows }: { rows: any[] }) {
     <div className="space-y-4">
       {rows.map((r) => (
         <div key={r.box}>
-          <div className="mb-1 font-mono text-xs font-semibold">{r.box}</div>
+          <div className="mb-1 font-mono text-xs font-semibold">
+            <BoxText text={String(r.box)} />
+          </div>
           {r.lookup ? (
             <div className="mb-2 text-sm">
               <span className="text-muted">Dictionary headwords found: </span>
@@ -175,7 +194,7 @@ function Lookup({ rows }: { rows: any[] }) {
                 </span>
               )) : "none"}
               <div className="text-xs text-muted">
-                Search hits: {(r.lookup.search ?? []).slice(0, 8).map((s: [string, number]) => `${s[0]} ${s[1]}`).join(", ") || "none"}
+                Search hits (memory chunk ID and score): {(r.lookup.search ?? []).slice(0, 8).map((s: [string, number]) => `${s[0]} ${s[1]}`).join(", ") || "none"}
               </div>
             </div>
           ) : null}
@@ -209,7 +228,10 @@ function Failed({ d }: { d: any }) {
       ))}
       {d.failed.map((f: any) => (
         <div key={f.file} className="rounded border border-line p-2">
-          <span className="font-mono text-xs">{f.tag}</span> <span className="text-xs text-muted">{f.model}</span>
+          <span className="font-mono text-xs">
+            <BoxText text={String(f.tag)} />
+          </span>{" "}
+          <span className="text-xs text-muted">{f.model}</span>
           <div className="text-xs text-red-700">{f.error}</div>
           <div className="text-xs text-muted">
             retries {f.retries ?? 0}, {f.seconds ?? "–"} s, {f.tokens ? tokensLine(f.tokens) : <NoTokenData />}
@@ -218,7 +240,10 @@ function Failed({ d }: { d: any }) {
       ))}
       {d.flagged.map((f: any, k: number) => (
         <div key={k} className="rounded border border-amber-200 bg-amber-50 p-2 text-xs">
-          <span className="font-mono">{f.tag}</span> flag: {String(f.flag)}
+          <span className="font-mono">
+            <BoxText text={String(f.tag)} />
+          </span>{" "}
+          flag: {String(f.flag)}
         </div>
       ))}
     </div>
@@ -294,8 +319,12 @@ function Critiques({ rows }: { rows: any[] }) {
       {rows.map((c, k) => (
         <li key={k} className="rounded border border-line p-3 text-sm">
           <div className="flex gap-3 text-xs text-muted">
-            <span className="font-mono">{c.id}</span>
-            <span>reviewed {c.reviewedBox}</span>
+            <span>
+              {critiqueLabel(String(c.id))} <RawId title="Critique ID">{String(c.id)}</RawId>
+            </span>
+            <span>
+              reviewed <BoxText text={String(c.reviewedBox)} />
+            </span>
           </div>
           <p className="mt-1 font-medium">{c.failureMode}</p>
           <p className="mt-1 text-xs leading-relaxed">{c.reason}</p>
@@ -327,7 +356,9 @@ function Counts({ page }: { page: PageData }) {
       <tbody>
         {page.critiqueCounts.map((c) => (
           <tr key={c.boxType} className="border-t border-line">
-            <td className={td + " font-mono text-xs"}>{c.boxType}</td>
+            <td className={td + " font-mono text-xs"}>
+              <GroupCode code={c.boxType} />
+            </td>
             <td className={td + " text-right tabular-nums"}>{c.critiques}</td>
             <td className={td + " text-right tabular-nums"}>{c.n ?? "–"}</td>
             <td className={td}>{c.reachedN === null ? "–" : c.reachedN ? "yes" : "no"}</td>
@@ -356,13 +387,14 @@ export function ChainInputs({ d }: { d: any }) {
         <p>
           <span className="text-muted">Previous page: </span>
           {d.previous.href ? (
-            <Link href={d.previous.href} className="font-mono text-accent underline-offset-2 hover:underline">
-              {d.previous.pageId}
+            <Link href={d.previous.href} className="text-accent underline-offset-2 hover:underline">
+              {pageNumberText(String(d.previous.pageId))}
             </Link>
           ) : (
-            <span className="font-mono">{d.previous.pageId}</span>
-          )}
-          <span className="ml-2 text-xs text-muted">
+            <span>{pageNumberText(String(d.previous.pageId))}</span>
+          )}{" "}
+          <RawId title="Page ID of the previous page">{String(d.previous.pageId)}</RawId>{" "}
+          <span className="ml-1 text-xs text-muted">
             Each box reads the pair of the same box on that page. {d.previous.note}
           </span>
         </p>
@@ -371,7 +403,9 @@ export function ChainInputs({ d }: { d: any }) {
       )}
       {d.boxes.map((b: any) => (
         <div key={b.box}>
-          <div className="mb-1 font-mono text-xs font-semibold">{b.box}</div>
+          <div className="mb-1 font-mono text-xs font-semibold">
+            <BoxText text={String(b.box)} />
+          </div>
           <div className="space-y-1.5">
             {CHAIN_BLOCK_LABELS.map((cb) => {
               const text: string | null = b.blocks[cb.key];
@@ -405,18 +439,42 @@ export function CriticOnly({ rows, stage, runRel }: { rows: any[]; stage: number
         <div key={r.folder} className="rounded border border-line p-3 text-sm">
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
             {/* Unit VW89 (round 90), Q-A 3:1.7 item 3: the critic-only folder opens in the JSON viewer (folder list). */}
-            <Link href={jsonViewHref(`${runRel}/${r.folder}`)} data-critic-only-link className="font-mono text-xs font-semibold text-accent underline-offset-2 hover:underline">
-              {r.folder}
+            <Link href={jsonViewHref(`${runRel}/${r.folder}`)} data-critic-only-link className="text-sm font-semibold text-accent underline-offset-2 hover:underline">
+              {criticFolderName(String(r.folder)).label}
             </Link>
-            <span className="rounded bg-stone-100 px-1.5 text-xs">mode {r.mode || "unknown"}</span>
+            <RawId title="Folder name of the critic-only run">{String(r.folder)}</RawId>
+            <span className="rounded bg-stone-100 px-1.5 text-xs" title={criticModeWord(r.mode).help}>
+              {r.mode ? criticModeWord(r.mode).label : "Critic mode unknown"}
+            </span>
             {r.plan ? <span className="rounded bg-amber-100 px-1.5 text-xs text-amber-800">plan only, no model call</span> : null}
-            {r.hasSummary ? <span className="text-xs text-muted">status {r.status || "unknown"}</span> : <span className="text-xs text-red-700">no summary.json (the run did not finish)</span>}
+            {r.hasSummary ? <span className="text-xs text-muted" title={r.status ? pageRunStatusWord(String(r.status)).help : undefined}>{r.status ? pageRunStatusWord(String(r.status)).label : "Status unknown"}</span> : <span className="text-xs text-red-700">no summary.json (the run did not finish)</span>}
           </div>
           {r.hasSummary ? (
             <p className="mt-1 text-xs">
               <span className="font-semibold">{r.critiquesTotal ?? "–"}</span> critiques
-              {r.byBoxType.length > 0 ? ` (${r.byBoxType.map((b: any) => `${b.boxType} ${b.critiques}`).join(", ")})` : ""}, {r.modelCalls ?? "–"} calls,{" "}
-              {r.failedCalls.length > 0 ? <span className="text-red-700">{r.failedCalls.length} failed ({r.failedCalls.join(", ")})</span> : "0 failed"},{" "}
+              {r.byBoxType.length > 0 ? (
+                <>
+                  {" ("}
+                  {r.byBoxType.map((b: any, i: number) => (
+                    <span key={i}>
+                      {i > 0 ? ", " : ""}
+                      <GroupCode code={String(b.boxType)} /> {b.critiques}
+                    </span>
+                  ))}
+                  {")"}
+                </>
+              ) : (
+                ""
+              )}
+              , {r.modelCalls ?? "–"} calls,{" "}
+              {r.failedCalls.length > 0 ? (
+                <span className="text-red-700">
+                  {r.failedCalls.length} failed (<BoxText text={r.failedCalls.join(", ")} />)
+                </span>
+              ) : (
+                "0 failed"
+              )}
+              ,{" "}
               {r.seconds ?? "–"} s
               {r.session ? `, session: ${r.session.turns ?? "?"} turns, ${r.session.sessionIds.length} session, ${r.session.restarts} restarts, turn message ${r.session.turnMessage || "–"}` : ""}
             </p>

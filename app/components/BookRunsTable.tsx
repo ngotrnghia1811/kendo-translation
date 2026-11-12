@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { BookRunRow } from "@/lib/book-detail-rules";
 import { openKey } from "@/lib/reader-opens-rule";
 import { BOOK_RUN_SOURCE } from "@/lib/book-run-rules";
+import { phaseText } from "@/lib/book-status-rules";
 import { OpenButton, OpenConfirm, OpenGateLine, changeOpens, readOpensFrom, type OpenLoad, type OpensRead } from "./ReaderOpenRows";
 
 /*
@@ -68,7 +69,9 @@ export default function BookRunsTable({ slug, runs }: { slug: string; runs: Book
         <table className="w-full text-sm">
           <thead className="bg-stone-50 text-left text-xs uppercase tracking-wide text-muted">
             <tr>
-              <th className={TH}>Run ID</th>
+              <th className={TH} title="The run ID is the start time of the run, in PST. The column name Run ID stays (Q-A 3:11.3 V2).">
+                Run ID
+              </th>
               <th className={TH}>Phase</th>
               <th className={TH}>Pages done</th>
               <th className={TH}>Prompts at start</th>
@@ -89,7 +92,10 @@ export default function BookRunsTable({ slug, runs }: { slug: string; runs: Book
                   <td data-archived-id className={"px-3 py-2 " + (a.runIdForm ? "" : "font-mono")}>
                     {a.runText}
                   </td>
-                  <td className="px-3 py-2">{a.phase ?? "Not stored"}</td>
+                  {/* Unit VW96 (Q-A 3:17.4): "Phase 4 · production run" in place of the raw key "agent-phase-4". */}
+                  <td className="px-3 py-2" title={a.phase ?? undefined}>
+                    {phaseText(a.phase) ?? a.phase ?? "Not stored"}
+                  </td>
                   <td className="px-3 py-2 tabular-nums">{a.pagesText}</td>
                   <td className="px-3 py-2 text-xs">{a.promptsStart}</td>
                   <td className="px-3 py-2 text-xs">{a.promptsEnd}</td>

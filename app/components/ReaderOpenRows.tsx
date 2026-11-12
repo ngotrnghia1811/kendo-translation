@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { RunPageRow } from "@/lib/types";
 import { openKey, PILOT_SOURCE } from "@/lib/reader-opens-rule";
 import ConfirmDialog from "./ConfirmDialog";
+import { RawId } from "./Named"; // Unit VW96 (Q-A 3:17.4): a plain book name and a plain list name; the raw key stays in small grey text.
+import { bookKeyLabel } from "@/lib/readable-names";
+import { listLabel } from "@/lib/phase2-articles";
 
 /*
  * Run view of the Monitor dashboard (/runs/<stamp>): one row for each book of the run, with the button "Open to readers" or "Close to readers".
@@ -176,7 +179,9 @@ export default function ReaderOpenRows({ stamp, pages }: { stamp: string; pages:
                 const state = load !== "ready" ? "Loading" : all ? "Readers see this run" : n === 0 ? "Readers do not see this run" : `Readers see ${n} of ${g.runIds.length} page runs of this run`;
                 return (
                   <tr key={g.book} className="border-t border-line first:border-t-0" data-reader-open-row={g.book}>
-                    <td className="px-3 py-2 font-mono">{g.book}</td>
+                    <td className="px-3 py-2">
+                      <span title={`Book key: ${g.book}`}>{bookKeyLabel(g.book)}</span> {bookKeyLabel(g.book) !== g.book ? <RawId>{g.book}</RawId> : null}
+                    </td>
                     <td className="px-3 py-2 text-muted">
                       {g.runIds.length} {g.runIds.length === 1 ? "page" : "pages"}
                     </td>
@@ -200,7 +205,7 @@ export default function ReaderOpenRows({ stamp, pages }: { stamp: string; pages:
       ) : null}
       {ask ? (
         <OpenConfirm
-          title={ask.open ? `Open run ${stamp} of ${ask.g.book} to readers?` : `Close run ${stamp} of ${ask.g.book} to readers?`}
+          title={ask.open ? `Open the run of ${bookKeyLabel(ask.g.book)} (${listLabel(stamp)}) to readers?` : `Close the run of ${bookKeyLabel(ask.g.book)} (${listLabel(stamp)}) to readers?`}
           openBody={`Readers see the Agent text of ${ask.g.passPages} of ${ask.g.runIds.length} pages after the next S2 run. The number counts the pages whose run has the verdict PASS. You can close the run again.`}
           open={ask.open}
           busy={busy}

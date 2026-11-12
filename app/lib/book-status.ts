@@ -20,6 +20,7 @@ import {
 import { loadPhase2 } from "./phase2-load";
 // Unit VW94 (round 91): the grouped row of the phase 2 articles and the list filter. New files, so the dev server has no old instance of them.
 import { isPhase2List } from "./phase2-articles";
+import { titleOf } from "./title-of";
 import { loadPhase2Articles } from "./phase2-articles-load";
 
 /**
@@ -261,7 +262,7 @@ async function readFacts(root: string, slug: string, pages: number | null, title
   const mark = typeof mf === "string" || markUnreadable ? null : (obj(mf.value) as MarkFile);
   const facts: BookFacts = {
     slug,
-    title: titles.get(slug) ?? "",
+    title: titleOf(titles, slug),
     bookPages: pages ?? (typeof status?.book_pages === "number" && status.book_pages > 0 ? status.book_pages : null),
     status,
     statusUnreadable,

@@ -168,6 +168,7 @@ async function loadLists(slug: string): Promise<{ lists: DetailList[]; folders: 
     lists.push({
       stamp: s.stamp,
       listKind: s.listKind,
+      phase2List: s.phase2List === true,
       criticMode: s.criticMode,
       bookJobs: s.bookJobs,
       state: s.state,

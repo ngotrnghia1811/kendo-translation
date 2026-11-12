@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { boxHelp } from "@/lib/box-names";
 
 // Round 41 answer 6: the docs word for the explanation field is "reasoning".
 // Round 42 answer 16: "explanation text shows on request". The text stays hidden until the owner presses the button.
@@ -11,6 +12,7 @@ export default function Reasoning({ text, label }: { text: string; label?: strin
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
+        title={label ? boxHelp(label) ?? undefined : undefined} // Unit VW96 (Q-A 3:18.5): the box code keeps its place, the readable name shows on hover.
         className="inline-flex items-center gap-2 rounded border border-line bg-white px-2.5 py-1 text-xs font-medium hover:border-accent"
       >
         <span aria-hidden>{open ? "▾" : "▸"}</span>

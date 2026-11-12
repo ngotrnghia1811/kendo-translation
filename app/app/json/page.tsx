@@ -4,6 +4,7 @@ import { loadJsonView } from "@/lib/json-view-load";
 import { jsonViewHref, parentOf, pathParts, sizeMb, MAX_VIEW_BYTES } from "@/lib/json-view";
 import JsonFolderList from "@/components/JsonFolderList";
 import JsonViewer from "@/components/JsonViewer";
+import { loadPlainLines } from "@/lib/json-view-lines-load";
 
 export const dynamic = "force-dynamic";
 
@@ -16,13 +17,30 @@ export default async function JsonPage({ searchParams }: { searchParams: Promise
   const q = await searchParams;
   const raw = Array.isArray(q.path) ? q.path[0] : q.path;
   const v = await loadJsonView(raw);
+  // Unit VW96 (card P31.3), default D4 of Q-A 3:20.3: one plain line above the path, and a plain line for each entry of a folder.
+  // A refused path gets no line (the page shows the refusal).
+  const entries = v.view === "folder" ? v.entries.map((e) => ({ path: e.path, folder: e.folder })) : [];
+  const lines = v.view === "refused" ? null : await loadPlainLines(v.path, v.view === "folder", entries);
+  const reports = v.view === "folder" && v.reports ? await readableReports(v.reports) : null;
   return (
     <section data-json-view={v.view}>
       <h1 className="text-xl font-semibold">JSON viewer</h1>
+      {lines ? (
+        <p data-json-plain-line className="mt-1 text-sm">
+          {lines.line}
+        </p>
+      ) : null}
       <PathLine rel={v.path} />
-      <Body v={v} />
+      <Body v={v.view === "folder" ? { ...v, reports } : v} lines={lines?.entries ?? {}} />
     </section>
   );
+}
+
+/** The label "Reference critiques of 066e72da/p001" has a bare page ID. The plain line of its path names the article and the page. */
+async function readableReports(reports: NonNullable<Extract<Awaited<ReturnType<typeof loadJsonView>>, { view: "folder" }>["reports"]>) {
+  const refs = reports.filter((r) => r.label.startsWith("Reference critiques of "));
+  const lines = (await loadPlainLines("", false, refs.map((r) => ({ path: r.path, folder: false })))).entries;
+  return reports.map((r) => (lines[r.path] ? { ...r, label: lines[r.path] } : r));
 }
 
 function PathLine({ rel }: { rel: string }) {
@@ -56,10 +74,10 @@ function Note({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Body({ v }: { v: Awaited<ReturnType<typeof loadJsonView>> }) {
+function Body({ v, lines }: { v: Awaited<ReturnType<typeof loadJsonView>>; lines: Record<string, string> }) {
   switch (v.view) {
     case "folder":
-      return <JsonFolderList path={v.path} entries={v.entries} total={v.total} reports={v.reports} />;
+      return <JsonFolderList path={v.path} entries={v.entries} total={v.total} reports={v.reports} lines={lines} />;
     case "file":
       return <JsonViewer path={v.path} kind={v.kind} size={sizeMb(v.bytes)} text={v.text} />;
     case "big":

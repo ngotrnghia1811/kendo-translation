@@ -1,4 +1,5 @@
 // Small colored labels for list state, page state, and QA verdict.
+import { verdictHelp } from "@/lib/readable-names";
 
 const STATE_STYLE: Record<string, string> = {
   running: "bg-blue-100 text-blue-800",
@@ -27,7 +28,8 @@ export function VerdictPill({ verdict, score }: { verdict: string | null; score?
   if (!verdict) return <span className="text-muted">–</span>;
   const pass = verdict === "PASS";
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-semibold ${pass ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+    // Unit VW96 (Q-A 3:17.4): the pill keeps the word PASS or FAIL and gets a hover that says what it means.
+    <span title={verdictHelp(verdict, score)} className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-semibold ${pass ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
       {verdict}
       {score !== null && score !== undefined ? <span className="font-normal">{score.toFixed(1)}</span> : null}
     </span>

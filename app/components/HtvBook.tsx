@@ -4,6 +4,8 @@ import type { HtvBookIndex, HtvBookPage, HtvPageTag, Role } from "@/lib/htv-type
 import { INDEX_WIDTH, type PaneId, type ViewName } from "@/lib/htv-settings";
 import { parsePageNumber } from "@/lib/htv-format";
 import { VerdictPill } from "./Pills";
+import { RawId } from "./Named"; // Unit VW96 (Q-A 3:17.4): "Page 1" with the page ID in small grey text, in place of the bare "slug/p001".
+import { capFirst, pageNumberText } from "@/lib/readable-names";
 import HtvIndex from "./HtvIndex";
 import HtvPageSection from "./HtvPageSection";
 import HtvPanelFrame, { CollapsedBar } from "./HtvPanelFrame";
@@ -85,11 +87,11 @@ const Section = memo(function Section({
       className={"underline-offset-2 hover:underline " + (pinned ? "text-accent" : "")}
       data-pin={`${slug}/${name}`}
     >
-      {slug}/{name}
+      {capFirst(pageNumberText(name))} <RawId>{`${slug}/${name}`}</RawId>
     </button>
   ) : (
     <span data-page-heading={`${slug}/${name}`}>
-      {slug}/{name}
+      {capFirst(pageNumberText(name))} <RawId>{`${slug}/${name}`}</RawId>
     </span>
   );
   return (

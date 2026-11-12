@@ -1,6 +1,7 @@
 import { lineText, progressText, type MonitorRow } from "@/lib/book-status-rules";
-import { TOKENS_SHORT_LABEL } from "@/lib/tokens-view";
+import { TOKENS_SHORT_HELP, TOKENS_SHORT_LABEL } from "@/lib/tokens-view";
 import { TokensShort } from "./Tokens";
+import { BoxText } from "./BoxCode"; // Unit VW96 (Q-A 3:18.5): box codes in the sentences keep their place and show the readable name on hover.
 import StateLabel from "./StateLabel";
 import RowButtons from "./RowButtons";
 import { jsonViewHref } from "@/lib/json-view";
@@ -29,8 +30,10 @@ export default function BookRow({ row, now, onChanged }: { row: MonitorRow; now:
             {row.title !== row.slug ? <span className="font-medium">{row.title} </span> : null}
             <code className={"font-mono text-xs " + (row.title !== row.slug ? "text-muted" : "font-medium")}>{row.title !== row.slug ? `(${row.slug})` : row.slug}</code>
           </a>
+          {/* Unit VW96 (Q-A 3:17.4): an article slug (8 hex digits) with no title in items.filled.jsonl says so. */}
+          {row.title === row.slug && /^[0-9a-f]{8}$/.test(row.slug) ? <span className="ml-2 text-xs text-muted">(title not found)</span> : null}
           {row.pilot ? (
-            <span data-pilot-tag className="ml-2 rounded border border-line px-1.5 py-0.5 text-xs text-muted">
+            <span data-pilot-tag title="A pilot list ran this book. A pilot list is a test, not a real run." className="ml-2 rounded border border-line px-1.5 py-0.5 text-xs text-muted">
               pilot list
             </span>
           ) : null}
@@ -54,7 +57,11 @@ export default function BookRow({ row, now, onChanged }: { row: MonitorRow; now:
                 [unit default VW93] The row has no column heads, so a small grey line under the counts names them, as the run text under the phase does. */}
             <div className="w-40 text-right text-sm tabular-nums" data-col="tokens">
               <TokensShort tokens={row.tokens} />
-              {row.tokens ? <div className="text-xs text-muted">{TOKENS_SHORT_LABEL}</div> : null}
+              {row.tokens ? (
+                <div className="text-xs text-muted" title={TOKENS_SHORT_HELP}>
+                  {TOKENS_SHORT_LABEL}
+                </div>
+              ) : null}
             </div>
             <div className="w-20 text-right text-sm tabular-nums" data-col="time">
               {row.minutes === null ? "–" : `${row.minutes} min`}
@@ -70,27 +77,27 @@ export default function BookRow({ row, now, onChanged }: { row: MonitorRow; now:
       </div>
       {line2 || row.note ? (
         <p data-row-line2 className="mt-1 text-sm text-muted">
-          {line2}
+          <BoxText text={line2} />
           {row.note ? (
             <span data-row-note className="ml-2 font-medium text-foreground">
-              {row.note}
+              <BoxText text={row.note} />
             </span>
           ) : null}
         </p>
       ) : null}
       {row.refused ? (
         <p data-row-refused className="mt-1 text-sm font-medium text-foreground">
-          {row.refused}
+          <BoxText text={row.refused} />
         </p>
       ) : null}
       {row.warning ? (
         <p data-row-warning className="mt-1 text-sm text-amber-800">
-          Warning: {row.warning}
+          Warning: <BoxText text={row.warning} />
         </p>
       ) : null}
       {row.error ? (
         <p data-row-error className="mt-1 text-sm break-words text-red-700">
-          {row.error}
+          <BoxText text={row.error} />
           {row.errorFile ? (
             <>
               {" "}

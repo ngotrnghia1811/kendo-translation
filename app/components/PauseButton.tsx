@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { pstClockOrDash } from "@/lib/pst-more";
 import ConfirmDialog from "./ConfirmDialog";
+import { listLabel } from "@/lib/phase2-articles"; // Unit VW96 (Q-A 3:17.4): "list started 2026-11-11 20:41 PST" in place of the bare list stamp in the dialog title.
 
 // Round 43 answer 8 (Q-A l112): "Pause before next call (Recommended)". Round 44 answer 13 (Q-A l142): a pause button writes PAUSE.
 // The run program checks the file before each new model call. Calls that run now finish.
@@ -67,7 +68,7 @@ export default function PauseButton({
       {msg ? <span className="text-xs text-muted">{msg}</span> : null}
       {asking ? (
         <ConfirmDialog
-          title={fileExists ? `Resume run ${stamp}?` : `Pause run ${stamp}?`}
+          title={fileExists ? `Resume the ${listLabel(stamp)}?` : `Pause the ${listLabel(stamp)}?`}
           body={
             fileExists
               ? "The button deletes the file PAUSE. A waiting run goes on within a few seconds."

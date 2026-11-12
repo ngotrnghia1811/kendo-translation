@@ -16,6 +16,9 @@ import { ACCEPTED_BEFORE_HELP } from "@/lib/phase2-articles";
 // Fix round: plain words for the heading and the state pills (Q-A 3:17.4), box codes with a hover (Q-A 3:18.5 "Keep codes, explain on hover").
 import { listKindWord, listStateWord, pageStateWord, runHeading } from "@/lib/run-view-words";
 import { BoxCode } from "./BoxCode";
+// Unit VW96 (card P31.3, Q-A 3:17.4): plain words for the critic mode, the book jobs, the page kind and the page run folder.
+import { bookJobsText, capFirst, criticModeWord, pageKindWord, pageNumberText, pageRunName } from "@/lib/readable-names";
+import { RawId } from "./Named";
 // Unit VW95 (round 91), Q-A 3:18.3: a phase 2 list shows the same tree as the step view /monitor/phase-2, plus the section "Prompt updates".
 import StepView from "./StepView";
 
@@ -53,8 +56,8 @@ export default function RunView({ initial }: { initial: RunDetail }) {
         <Stat label="Started" value={pstDateTimeOrDash(run.startedEpoch)} />
         <Stat label="Updated" value={pstDateTimeOrDash(run.updatedEpoch)} />
         <Stat label="List kind" value={<span title={`List kind ${run.listKind} (progress.json key kind)`}>{listKindWord(run.listKind, run.phase2List === true)}</span>} />
-        <Stat label="Critic mode" value={run.criticMode ?? "not stored"} />
-        {run.bookJobs !== null ? <Stat label="Book jobs" value={String(run.bookJobs)} /> : null}
+        <Stat label="Critic mode" value={<span title={criticModeWord(run.criticMode).help}>{criticModeWord(run.criticMode).label}</span>} />
+        {run.bookJobs !== null ? <Stat label="Book jobs" value={bookJobsText(run.bookJobs)} /> : null}
       </div>
       <div className="mb-4">
         <PauseButton stamp={run.stamp} state={run.state} fileExists={run.pauseFileExists} pausedSinceEpoch={run.pausedSinceEpoch} onDone={refresh} />
@@ -119,9 +122,15 @@ export default function RunView({ initial }: { initial: RunDetail }) {
                         </span>
                       ) : null}
                     </div>
-                  ) : null}
+                  ) : (
+                    <div data-run-page-number className="mt-0.5 text-xs text-muted">
+                      {capFirst(pageNumberText(p.pageId))}
+                    </div>
+                  )}
                 </td>
-                <td className="px-3 py-2 text-muted">{p.kind}</td>
+                <td className="px-3 py-2 text-muted">
+                  <span title={pageKindWord(p.kind).help}>{pageKindWord(p.kind).label}</span>
+                </td>
                 <td className="px-3 py-2">
                   {p.acceptedBefore ? (
                     <div data-accepted-before title={ACCEPTED_BEFORE_HELP}>
@@ -129,8 +138,14 @@ export default function RunView({ initial }: { initial: RunDetail }) {
                       <div className="mt-1 max-w-xs text-xs text-muted">
                         {p.acceptedBefore.text}{" "}
                         <Link href={p.acceptedBefore.href} className="text-accent underline underline-offset-2">
-                          Page run {p.acceptedBefore.runFolder ?? ""}
+                          {p.acceptedBefore.runFolder ? pageRunName(p.acceptedBefore.runFolder).label : "Page run"}
                         </Link>
+                        {p.acceptedBefore.runFolder ? (
+                          <>
+                            {" "}
+                            <RawId>{p.acceptedBefore.runFolder}</RawId>
+                          </>
+                        ) : null}
                       </div>
                       <div className="mt-0.5 text-xs text-muted">This list: not started yet, 0 calls.</div>
                     </div>

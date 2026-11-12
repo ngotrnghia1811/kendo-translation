@@ -25,6 +25,8 @@ export interface RunSummary {
   criticMode: string | null;
   /** Count of books that run at the same time (key book_jobs). Null when the key is absent. */
   bookJobs: number | null;
+  /** Unit VW96 (Q-A 3:17.4): true for a list of the phase 2 run (book paired-dataset). The Lists page shows "Phase 2 run" for it. */
+  phase2List?: boolean;
 }
 
 export interface RunPageRow {
@@ -91,6 +93,8 @@ export interface ChainRow {
   memoryPairs: number | null;
   /** Count of failed box-critic calls (unit T4). Null when the key is absent. */
   criticFailures: number | null;
+  /** Unit VW96 (Q-A 3:17.4): the title of the book of this chain (metadata), or null when none is known. The key `book` stays the slug. */
+  title?: string | null;
 }
 
 export interface RunDetail extends RunSummary {

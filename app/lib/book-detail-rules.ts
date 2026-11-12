@@ -120,6 +120,8 @@ export interface DetailPage {
 export interface DetailList {
   stamp: string;
   listKind: string;
+  /** Unit VW96: true for a phase 2 list (progress.json book "paired-dataset"). The fold then says "Phase 2 run", not "Book run list". */
+  phase2List?: boolean;
   criticMode: string | null;
   bookJobs: number | null;
   state: string;

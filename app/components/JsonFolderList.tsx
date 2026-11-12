@@ -5,7 +5,8 @@ import type { ReportItem } from "@/lib/json-view-load";
 // Unit VW89 (round 90), Q-A 3:1.7 item 4 "Folder list, reports first": /json with no path shows the folders of the Translator data folder.
 // A click on a folder shows its entries. A click on a file opens it. The phase 2 report files come first when they exist.
 // Server component: no open and close state here.
-export default function JsonFolderList({ path, entries, total, reports }: { path: string; entries: FolderEntry[]; total: number; reports: ReportItem[] | null }) {
+// Unit VW96 (card P31.3), default D4 of Q-A 3:20.3: `lines` holds a plain line for each entry path (lib/json-view-lines.ts), shown in small grey text under the name.
+export default function JsonFolderList({ path, entries, total, reports, lines = {} }: { path: string; entries: FolderEntry[]; total: number; reports: ReportItem[] | null; lines?: Record<string, string> }) {
   return (
     <div className="space-y-6">
       {reports ? (
@@ -55,6 +56,11 @@ export default function JsonFolderList({ path, entries, total, reports }: { path
                   </span>
                 )}
                 <span className="text-xs text-muted tabular-nums">{e.folder ? "folder" : e.bytes === null ? "" : sizeMb(e.bytes)}</span>
+                {lines[e.path] ? (
+                  <span data-entry-line className="basis-full font-sans text-xs text-muted">
+                    {lines[e.path]}
+                  </span>
+                ) : null}
               </li>
             ))}
           </ul>

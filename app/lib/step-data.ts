@@ -4,8 +4,9 @@
 
 import type { DiffLine } from "./line-diff";
 import { parseUtcIso, pstDateTime } from "./pst";
+import { modelOptionText } from "./readable-names";
 import { tokenCounts } from "./tokens-sum";
-import { tokensShort } from "./tokens-view";
+import { tokensKinds } from "./tokens-view";
 
 type Rec = Record<string, unknown>;
 const rec = (v: unknown): Rec | null => (v !== null && typeof v === "object" && !Array.isArray(v) ? (v as Rec) : null);
@@ -68,11 +69,12 @@ export function callPairs(calls: unknown[], tag: string): [string, string][] {
   mine.forEach((r, i) => {
     const pre = mine.length > 1 ? `Call ${i + 1}: ` : "";
     const program = r.model === "program";
-    rows.push([`${pre}Model`, program ? "program (no model call)" : `${str(r.model) ?? "–"}${str(r.variant) ? `, variant ${str(r.variant)}` : ""}`]);
+    rows.push([`${pre}Model`, program ? "program (no model call)" : `${str(r.model) ? modelOptionText(str(r.model) as string) : "–"}${str(r.variant) ? `, variant ${str(r.variant)}` : ""}`]);
     const started = parseUtcIso(r.started_utc);
     if (started !== null) rows.push([`${pre}Started`, pstDateTime(started)]);
     rows.push([`${pre}Seconds`, num(r.seconds) !== null ? `${num(r.seconds)} s` : "–"]);
-    if (!program) rows.push([`${pre}Tokens in / out`, tokensShort(tokenCounts(r.tokens, 1))]);
+    // Unit VW96 (Q-A 3:20.2, 3:15.2): level 3 is a detail place, so it shows all 5 kinds of the call.
+    if (!program) rows.push([`${pre}Tokens`, tokensKinds(tokenCounts(r.tokens, 1))]);
     if (num(r.retries)) rows.push([`${pre}Retries`, String(num(r.retries))]);
     rows.push([`${pre}Result`, r.ok === false ? `failed: ${str(r.error) ?? "no error text"}` : "ended without an error"]);
   });

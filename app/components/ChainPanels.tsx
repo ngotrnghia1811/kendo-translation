@@ -4,9 +4,13 @@ import type { ChainRow } from "@/lib/types";
 import type { CompareView, CompareVariantTotals, MemoryPage } from "@/lib/chain";
 import { TokenCells, TokenHeads } from "./Tokens";
 import { pstFromUtcText } from "@/lib/pst-more";
-import { StatePill } from "./Pills";
 import Link from "next/link";
 import { jsonViewHref } from "@/lib/json-view";
+// Unit VW96 (card P31.3, Q-A 3:17.4): plain chain states, book titles, page numbers, run times and critique group hovers.
+import { StatePill } from "./Pills";
+import { BoxText } from "./BoxCode";
+import { GroupCode, RawId } from "./Named";
+import { chainStateWord, criticModeWord, pageNumberText, pairRunText } from "@/lib/readable-names";
 
 // Round 48 answer 9 (Q-A 2026-10-27 l55): "the Viewer shows the chain state per book, skipped pages, the book translation memory pairs,
 // the critic mode and the session turn, the compare table". These panels sit on the run view of a chain list. They only read files.
@@ -18,10 +22,28 @@ const td = "px-3 py-2 align-top";
 
 /** Chain state text: "running", "completed", "interrupted", or "stopped: ..." (translator_run.py l1940 to l1960). */
 function ChainState({ state }: { state: string }) {
+  const w = chainStateWord(state);
   if (state.startsWith("stopped")) {
-    return <span className="inline-block rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">{state}</span>;
+    return (
+      <span title={w.help} className="inline-block rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
+        <BoxText text={w.label} />
+      </span>
+    );
   }
-  return <StatePill state={state} />;
+  return <StatePill state={state} label={w.label} help={w.help} />;
+}
+
+/** The book of a chain: its title when known, with the slug in small grey text. */
+function BookName({ book, title }: { book: string; title?: string | null }) {
+  return title ? (
+    <>
+      <span className="font-medium">{title}</span> <RawId title="Book key (folder name)">{book}</RawId>
+    </>
+  ) : (
+    <span className="font-mono text-xs" title="Book key (folder name). No title is known for it.">
+      {book}
+    </span>
+  );
 }
 
 /** One row per book: pages, state, accepted pages, memory pairs, critic failures. */
@@ -43,7 +65,9 @@ export function ChainTable({ chains }: { chains: ChainRow[] }) {
         <tbody>
           {chains.map((c) => (
             <tr key={c.book} className="border-t border-line">
-              <td className={td + " font-mono text-xs"}>{c.book}</td>
+              <td className={td}>
+                <BookName book={c.book} title={c.title} />
+              </td>
               <td className={td + " text-right tabular-nums"}>{c.pages.length}</td>
               <td className={td}>
                 <ChainState state={c.state} />
@@ -90,7 +114,9 @@ function MemoryBook({ stamp, chain }: { stamp: string; chain: ChainRow }) {
   return (
     <details className="rounded border border-line bg-white" onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
       <summary className="cursor-pointer px-3 py-2 text-sm">
-        <span className="font-mono text-xs font-semibold">{chain.book}</span>
+        <span className="font-semibold">
+          <BookName book={chain.book} title={chain.title} />
+        </span>
         <span className="ml-3 text-xs text-muted">
           {chain.memoryPairs ?? "?"} pairs from {chain.accepted.length} accepted {chain.accepted.length === 1 ? "page" : "pages"}
         </span>
@@ -136,7 +162,7 @@ export function MemoryView({ d }: { d: MemoryData }) {
       {d.pages.map((pg) => (
         <div key={pg.pageId}>
           <h3 className="mb-1 text-sm font-semibold">
-            <span className="font-mono">{pg.pageId}</span> <span className="font-normal text-muted">({pg.pairs.length} pairs)</span>
+            {pageNumberText(pg.pageId)} <RawId>{pg.pageId}</RawId> <span className="font-normal text-muted">({pg.pairs.length} pairs)</span>
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -146,7 +172,7 @@ export function MemoryView({ d }: { d: MemoryData }) {
                   <th className={th}>Part</th>
                   <th className={th}>JA</th>
                   <th className={th}>EN</th>
-                  <th className={th}>Run ID</th>
+                  <th className={th} title="The page run that wrote the pair (key run_id)">Written by page run</th>
                   <th className={th}>Written at</th>
                 </tr>
               </thead>
@@ -157,8 +183,18 @@ export function MemoryView({ d }: { d: MemoryData }) {
                     <td className={td}>{p.part || "–"}</td>
                     <td className={td + " font-ja min-w-60"}>{p.ja}</td>
                     <td className={td + " min-w-60"}>{p.en}</td>
-                    <td className={td + " font-mono break-all"}>{p.runId}</td>
-                    <td className={td + " whitespace-nowrap"}>{p.writtenAt}</td>
+                    <td className={td}>
+                      {pairRunText(p.runId) ?? p.runId}
+                      {pairRunText(p.runId) ? (
+                        <>
+                          {" "}
+                          <RawId>{p.runId}</RawId>
+                        </>
+                      ) : null}
+                    </td>
+                    <td className={td + " whitespace-nowrap"} title={p.writtenAt ? `Stored as ${p.writtenAt} (UTC)` : undefined}>
+                      {p.writtenAt ? pstFromUtcText(p.writtenAt) : "–"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -205,9 +241,10 @@ export function ComparePanel({ stamp, isChain }: { stamp: string; isChain: boole
         <div key={c.folder} className="rounded border border-line bg-white p-3">
           <p className="mb-2 text-xs text-muted">
             {/* Unit VW89 (round 90), Q-A 3:1.7 item 3: the compare folder opens in the JSON viewer (folder list). */}
-            <Link href={jsonViewHref(`critic-compare/${c.folder}`)} data-compare-link className="font-mono underline underline-offset-2 hover:text-foreground">
-              critic-compare/{c.folder}
-            </Link>
+            <Link href={jsonViewHref(`critic-compare/${c.folder}`)} data-compare-link className="underline underline-offset-2 hover:text-foreground">
+              Open the compare files
+            </Link>{" "}
+            <RawId>critic-compare/{c.folder}</RawId>
             , made {c.generatedUtc ? pstFromUtcText(c.generatedUtc) : "at an unknown time"}, {c.pageCount} pages, {c.commonPageCount} pages in every variant.
           </p>
           <TotalsTable title="All pages" rows={c.all} />
@@ -231,10 +268,10 @@ export function TotalsTable({ title, rows }: { title: string; rows: CompareVaria
             <th className={th}>Variant</th>
             <th className={th + " text-right"}>Pages</th>
             <th className={th + " text-right"}>Critiques</th>
-            <th className={th + " text-right"}>TS</th>
-            <th className={th + " text-right"}>TL</th>
-            <th className={th + " text-right"}>ED</th>
-            <th className={th + " text-right"}>QA</th>
+            <th className={th + " text-right"}><GroupCode code="TS" /></th>
+            <th className={th + " text-right"}><GroupCode code="TL" /></th>
+            <th className={th + " text-right"}><GroupCode code="ED" /></th>
+            <th className={th + " text-right"}><GroupCode code="QA" /></th>
             <th className={th + " text-right"}>Cite issues</th>
             <th className={th + " text-right"}>Cite another QA level</th>
             <th className={th + " text-right"}>Calls</th>
@@ -247,7 +284,16 @@ export function TotalsTable({ title, rows }: { title: string; rows: CompareVaria
         <tbody>
           {rows.map((r) => (
             <tr key={r.variant} className="border-t border-line">
-              <td className={td + " font-mono"}>{r.variant}</td>
+              <td className={td}>
+                {/* Unit VW96: a variant is a critic mode. The key stays as small grey text. */}
+                {r.variant === "separate" || r.variant === "session" ? (
+                  <>
+                    <span title={criticModeWord(r.variant).help}>{criticModeWord(r.variant).label}</span> <RawId>{r.variant}</RawId>
+                  </>
+                ) : (
+                  <span className="font-mono">{r.variant}</span>
+                )}
+              </td>
               <td className={td + " text-right tabular-nums"}>{n0(r.pages)}</td>
               <td className={td + " text-right tabular-nums font-semibold"}>{n0(r.critiques)}</td>
               <td className={td + " text-right tabular-nums"}>{n0(r.byBoxType.TS)}</td>
@@ -279,7 +325,9 @@ export function FailureLists({ forward, critic }: { forward: string[] | null; cr
           <summary className="cursor-pointer font-semibold text-red-700">{forward.length} forward {forward.length === 1 ? "failure" : "failures"}</summary>
           <ul className="list-disc pl-5 text-red-800">
             {forward.map((f, k) => (
-              <li key={k}>{f}</li>
+              <li key={k}>
+                <BoxText text={f} />
+              </li>
             ))}
           </ul>
         </details>
@@ -289,7 +337,9 @@ export function FailureLists({ forward, critic }: { forward: string[] | null; cr
           <summary className="cursor-pointer font-semibold text-amber-700">{critic.length} critic {critic.length === 1 ? "failure" : "failures"}</summary>
           <ul className="list-disc pl-5 text-amber-800">
             {critic.map((f, k) => (
-              <li key={k}>{f}</li>
+              <li key={k}>
+                <BoxText text={f} />
+              </li>
             ))}
           </ul>
         </details>

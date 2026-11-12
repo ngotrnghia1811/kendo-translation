@@ -12,6 +12,9 @@ import { dataRoot } from "./config";
 import { loadRunExtras } from "./phase2-articles-load";
 import { acceptedBeforeText, isPhase2List, listPageIds, nameMain, pageOfArticle, shortIdOf, showsAcceptedBefore } from "./phase2-articles";
 import { runIdText } from "./pst";
+// Unit VW96 (card P31.3, Q-A 3:17.4): a page of a book (a slug that is not 8 hex digits) gets the book title and "page 46" in the run view.
+import { bookTitle } from "./books";
+import { pageNumberText } from "./readable-names";
 
 const LISTS = "pilot-run/lists";
 export const PAUSE_NAME = "PAUSE";
@@ -37,6 +40,7 @@ function summarize(stamp: string, p: J, listJson: J = null, summaryJson: J = nul
     listKind: listKindOf(p, listJson, summaryJson),
     criticMode: firstString("critic_mode", listJson, summaryJson),
     bookJobs: firstNumber("book_jobs", p, listJson, summaryJson),
+    phase2List: isPhase2List(p), // unit VW96: the Lists page names a phase 2 list "Phase 2 run"
     stamp,
     state: String(p.state ?? "unknown"),
     pagesDone: num(p.pages_done),
@@ -126,6 +130,17 @@ export async function getRun(stamp: string): Promise<RunDetail | null> {
     });
   }
   const phase2Note = await addPhase2Extras(stamp, p, rows);
+  // Unit VW96: the chain table names each book by its title. The slug stays as small grey text.
+  const chains = parseChains(listJson?.chains) ?? parseChains(summaryJson?.chains);
+  for (const c of chains ?? []) c.title = (await bookTitle(c.book)) || null;
+  const titles = new Map<string, string>();
+  for (const r of rows) {
+    if (r.article || shortIdOf(r.pageId)) continue;
+    const slug = r.pageId.split("/")[0];
+    if (!titles.has(slug)) titles.set(slug, await bookTitle(slug));
+    const title = titles.get(slug);
+    if (title) r.article = { shortId: "", title, titleJa: null, found: true, pageOf: pageNumberText(r.pageId) };
+  }
   return {
     ...summarize(stamp, p, listJson, summaryJson),
     phase2Note,
@@ -133,7 +148,7 @@ export async function getRun(stamp: string): Promise<RunDetail | null> {
     noCritic: firstBool("no_critic", listJson, summaryJson),
     noVoyage: firstBool("no_voyage", listJson, summaryJson),
     // list.json is the file that run-chain --resume reads, so it comes first. The list summary is the fallback.
-    chains: parseChains(listJson?.chains) ?? parseChains(summaryJson?.chains),
+    chains,
     elapsedBeforeSeconds: num(p.elapsed_before),
     pauseSecondsTotal: num(p.pause_seconds_total),
     pausedSinceUtc: p.paused_since_utc ?? null,

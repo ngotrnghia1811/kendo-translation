@@ -5,6 +5,8 @@ import { enFormSummary, jsonRepairKind } from "./page-labels";
 import { criticOnlyFolders, cutChainBlocks, pagesRead, pairsFound, parseCriticOnlySummary, previousPageOf, sessionFields, CHAIN_BLOCKS } from "./chain";
 import { pageHref } from "./format";
 import { tokenCounts } from "./tokens-sum"; // unit VW93 (Q-A 3:15.2): tokens, not USD
+import { listLabel } from "./phase2-articles"; // unit VW96 (Q-A 3:17.4): a list is named by its start time, not by its stamp
+import { pageNumberText } from "./readable-names";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type J = any;
@@ -188,8 +190,8 @@ async function previousPageLink(runRel: string, prevPageId: string): Promise<{ h
     if (!mine) continue;
     const prev = rows.find((r) => r?.page_id === prevPageId);
     const prevRun = prev ? base(prev.folder) : undefined;
-    if (prevRun && isSafeSegment(prevRun)) return { href: pageHref(prevPageId, prevRun), note: `Same list: ${stamp}.` };
-    return { href: null, note: `List ${stamp} has no run folder for ${prevPageId}.` };
+    if (prevRun && isSafeSegment(prevRun)) return { href: pageHref(prevPageId, prevRun), note: `Same ${listLabel(stamp)}.` };
+    return { href: null, note: `The ${listLabel(stamp)} has no run folder for ${pageNumberText(prevPageId)}.` };
   }
   return { href: null, note: "No list folder holds this run folder, so the Viewer cannot tell which run of the previous page to open." };
 }

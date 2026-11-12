@@ -4,6 +4,8 @@ import type { BookRow } from "@/lib/types";
 import { pageHref } from "@/lib/format";
 import { VerdictPill } from "./Pills";
 import BookDetails from "./BookDetails";
+import { RawId } from "./Named";
+import { capFirst, pageNumberText } from "@/lib/readable-names"; // Unit VW96 (Q-A 3:17.4): "Page 1" in place of the bare "p001", the folder name in small grey text.
 
 // Round 44 answer 13 (Q-A l142), tab Books: every book with metadata (title, author, publisher, year, confidence, page count)
 // and the pages that have run folders. Web articles with runs sit in the separate group "Articles".
@@ -45,7 +47,9 @@ function BookTable({ rows }: { rows: BookRow[] }) {
       <table className="w-full text-sm">
         <thead className="bg-stone-50 text-left text-xs uppercase tracking-wide text-muted">
           <tr>
-            <th className="px-3 py-2">Book</th>
+            <th className="px-3 py-2" title="The folder name of the book or article. The title is in the next column.">
+              Folder name
+            </th>
             <th className="px-3 py-2">Title</th>
             <th className="px-3 py-2">Author</th>
             <th className="px-3 py-2">Publisher</th>
@@ -59,7 +63,9 @@ function BookTable({ rows }: { rows: BookRow[] }) {
           {rows.map((r) => (
             <Fragment key={r.id}>
             <tr className="border-t border-line align-top hover:bg-stone-50">
-              <td className="px-3 py-2 font-mono text-xs">{r.id}</td>
+              <td className="px-3 py-2">
+                <RawId>{r.id}</RawId>
+              </td>
               <td className="px-3 py-2">
                 <div className="font-ja">{r.titleJa || <span className="text-muted">–</span>}</div>
                 {r.titleEn ? <div className="text-xs text-muted">{r.titleEn}</div> : null}
@@ -80,7 +86,7 @@ function BookTable({ rows }: { rows: BookRow[] }) {
                         href={pageHref(p.pageId, p.runFolder)}
                         className="inline-flex items-center gap-1.5 rounded border border-line px-2 py-0.5 text-xs hover:border-accent"
                       >
-                        <span className="font-mono">{p.pageName}</span>
+                        <span title={`Page folder ${p.pageName}`}>{capFirst(pageNumberText(p.pageName))}</span>
                         <VerdictPill verdict={p.verdict} score={p.score} />
                       </Link>
                     ))}
