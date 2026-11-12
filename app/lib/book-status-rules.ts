@@ -13,6 +13,7 @@
 import { parseUtcIso, pstClock, pstDateTime, pstStamp, relativeTime, runIdText } from "./pst";
 import { clearOffReason } from "./clear-mark-rule";
 import { orderRows } from "./row-order";
+import type { Phase2View } from "./phase2-row"; // type only (unit VW91): erased at run time, so there is no import cycle
 
 export const HEARTBEAT_S = 30; // store.py:31
 export const STALE_S = 120; // store.py:32. A heartbeat older than this means the process is gone.
@@ -225,6 +226,8 @@ export interface MonitorData {
   lastListEnd: number | null;
   /** True when no list folder and no status.json exists (VISION 15.24.4.6, "Empty"). */
   noRun: boolean;
+  /** The live Phase 2 row (unit VW91, Q-A 3:4.6). Null or missing when book-store/paired-dataset/status.json does not exist: the old fixed line PHASE2_LINE shows then. */
+  phase2?: Phase2View | null;
 }
 
 // ---------------------------------------------------------------- helpers

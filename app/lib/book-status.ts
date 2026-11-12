@@ -17,6 +17,7 @@ import {
   type MonitorRow,
   type StatusFile,
 } from "./book-status-rules";
+import { loadPhase2 } from "./phase2-load";
 
 /**
  * Server side of the Monitor dashboard (unit VW77a, round 80). It reads files and the clock, and calls the pure rules of book-status-rules.ts.
@@ -299,7 +300,9 @@ export async function loadMonitor(nowMs: number = Date.now()): Promise<MonitorDa
     await checkErrorFile(root, row);
     rows.push(row);
   }
-  return { ok: true, error: null, generatedAt: now, rows, summary: summarize(rows), lastListEnd, noRun: lists.length === 0 && statusFiles === 0 };
+  // Unit VW91 (round 91), Q-A 3:4.6: the live Phase 2 row. A status.json of the phase 2 store counts as a run record, so the text "No run found" does not show above it [unit default VW91].
+  const phase2 = await loadPhase2(root, nowMs, pidAlive);
+  return { ok: true, error: null, generatedAt: now, rows, summary: summarize(rows), lastListEnd, noRun: lists.length === 0 && statusFiles === 0 && phase2 === null, phase2 };
 }
 
 /**

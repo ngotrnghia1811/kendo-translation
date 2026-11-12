@@ -3234,6 +3234,33 @@ async function monitorTest() {
   const d4 = await api();
   check("A changed status.json is read again (the mtime check): fx_ns turns to Completed", rowOf(d4, "fx_ns")?.label === "Completed");
 
+  // Unit VW91 (round 91), Q-A 3:4.6: the live Phase 2 row. Without book-store/paired-dataset/status.json the key phase2 is null and "/" keeps the old fixed line (checked above, text of r).
+  // With the file (state running, this process as pid, a fresh heartbeat) the API holds phase2 and "/" shows the row. The test removes the two files it wrote.
+  const p2dir = path.join(data, "book-store", "paired-dataset");
+  const p2had = await fs.stat(path.join(p2dir, "status.json")).then(() => true, () => false);
+  if (p2had) {
+    skip("Phase 2 row", "the fixture already holds book-store/paired-dataset/status.json");
+  } else {
+    check("Phase 2 row: without book-store/paired-dataset/status.json the key phase2 is null and '/' keeps the old line", (d.phase2 ?? null) === null && text.includes("Phase 2 (paired dataset): no run record yet."));
+    const p2dirHad = await fs.stat(p2dir).then(() => true, () => false);
+    const z = (ms) => new Date(ms).toISOString().slice(0, 19) + "Z";
+    await fs.mkdir(p2dir, { recursive: true });
+    await fs.writeFile(path.join(p2dir, "status.json"), JSON.stringify({ schema: "book-status-v1", book: "paired-dataset", phase: "agent-phase-2", state: "running", pid: process.pid, heartbeat_utc: z(Date.now()), updated_utc: z(Date.now()), running_page: "a1/p003", running_boxes: ["TS_1"], last_accepted_page: "a1/p002", pages_done: 2, pages_total: 144, cost_usd_models_phase: 9.87, tokens_phase: { input: 1234, output: 56, reasoning: 7, cache_read: 8901, cache_write: 234, calls: 12 } }));
+    await fs.writeFile(path.join(p2dir, "history.jsonl"), JSON.stringify({ utc: z(Date.now()), event: "page-done" }) + "\n");
+    const dp = await api();
+    check("Phase 2 row: the API holds phase2 with state Running, 2 of 144 pages, the token counts, no dollar value, and no Mac path", dp.phase2?.label === "Running" && dp.phase2?.pagesDone === 2 && dp.phase2?.pagesTotal === 144 && dp.phase2?.tokens?.cache_read === 8901 && !JSON.stringify(dp.phase2).includes("9.87") && !JSON.stringify(dp.phase2).match(/\/Users\/|\/private\/var|\/var\/folders/) && dp.noRun === false, JSON.stringify(dp.phase2)?.slice(0, 160));
+    r = await get("/");
+    const pt = visibleText(r.body.replace(/<!--[\s\S]*?-->/g, ""));
+    check("Phase 2 row: '/' shows the title with the state, the pages, the box, the token line, and the two JSON viewer links; the old line is gone", r.status === 200 && pt.includes("Phase 2 (paired dataset): ● Running") && pt.includes("Pages done: 2 of 144") && pt.includes("Now: p003, box TS_1.") && pt.includes("Tokens: input 1,234 · output 56 · reasoning 7 · cache read 8,901 · cache write 234 · 12 calls") && r.body.includes('href="/json?path=book-store%2Fpaired-dataset%2Fstatus.json"') && r.body.includes('href="/json?path=book-store%2Fpaired-dataset%2Fhistory.jsonl"') && !pt.includes("no run record yet") && !pt.includes("9.87"));
+    await fs.writeFile(path.join(p2dir, "status.json"), "{ not json");
+    const dq = await api();
+    check("Phase 2 row: a broken status.json gives the view 'Status file unreadable' and the books rows stay", dq.phase2?.kind === "unreadable" && dq.phase2?.label === "Status file unreadable" && dq.rows.length === d.rows.length);
+    await fs.rm(path.join(p2dir, "status.json"));
+    await fs.rm(path.join(p2dir, "history.jsonl"));
+    if (!p2dirHad) await fs.rmdir(p2dir).catch(() => {});
+    check("Phase 2 row: after the file is removed the key phase2 is null again", ((await api()).phase2 ?? null) === null);
+  }
+
   // The Monitor dashboard writes no file.
   const after = await listing(data);
   const diff = after.filter((x) => !before.includes(x)).concat(before.filter((x) => !after.includes(x))).filter((x) => !/status\.json|progress\.json|PAUSE/.test(x));

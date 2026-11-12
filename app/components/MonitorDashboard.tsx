@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { MonitorData, GroupName } from "@/lib/book-status-rules";
-import { NO_RUN_TEXT, PHASE2_LINE, agoText, emptyLine, groupRows, groupShows, tabTitle } from "@/lib/book-status-rules";
+import { NO_RUN_TEXT, agoText, emptyLine, groupRows, groupShows, tabTitle } from "@/lib/book-status-rules";
 import { pstClockSeconds } from "@/lib/format";
 import { useLive } from "./useLive";
 import { useGroupOpen } from "./monitor-open-store";
 import BookRow from "./BookRow";
+import Phase2Row from "./Phase2Row";
 
 // Unit VW77a (round 80), VISION-viewer 15.24.4: the Monitor dashboard "/" on this Mac. It shows one row per book, in six groups.
 // Unit VW77b1 (round 81) adds the buttons (components/RowButtons.tsx). A press reads the rows again at once (refresh), so a new mark shows within one poll.
@@ -109,9 +110,8 @@ export default function MonitorDashboard({ initial }: { initial: MonitorData }) 
             .map((g) => (
               <Group key={g.group} group={g.group} rows={g.rows} data={data} now={now} onChanged={refresh} />
             ))}
-          <p data-phase2-line className="text-sm text-muted">
-            {PHASE2_LINE}
-          </p>
+          {/* Unit VW91 (round 91), Q-A 3:4.6: the live Phase 2 row. It shows the old fixed line when the store has no status.json. It refreshes with the same poll as the rows. */}
+          <Phase2Row view={data.phase2} now={now} />
         </>
       )}
     </section>
