@@ -1,5 +1,6 @@
 import "server-only";
-import { readJson, exists, listDir } from "./json";
+import { readJson, readJsonl, exists, listDir } from "./json";
+import { callsTokens, tokenCounts } from "./tokens-sum"; // unit VW93 (Q-A 3:15.2): tokens, not USD
 import { criticOnlyFolders, parseBookMemory, parseCriticSession } from "./chain";
 import { runFoldersOf, bookTitle } from "./books";
 import { stripDataPrefix, isSafeSegment, PathError } from "./safe-path";
@@ -122,6 +123,11 @@ export async function getPage(slug: string, pageName: string, run?: string): Pro
     note: String(v.note ?? ""),
   }));
 
+  // Unit VW93: the tokens of the page come from the model calls of calls.jsonl, because most summary.json files have no key "tokens".
+  // [unit default VW93] With no model call in calls.jsonl, the key "tokens" of summary.json (with model_calls) is the fallback. With neither: no token data.
+  let tokenSum = callsTokens(await readJsonl<J>(`${rel}/calls.jsonl`));
+  if (tokenSum.tokens === null && tokenSum.missing === 0) tokenSum = { tokens: tokenCounts(summary?.tokens, summary?.model_calls ?? null), missing: 0 };
+
   let imagePath: string | null = pageJson?.image ? stripDataPrefix(String(pageJson.image)) : null;
   if (imagePath && !(await exists(imagePath))) imagePath = null;
 
@@ -137,6 +143,7 @@ export async function getPage(slug: string, pageName: string, run?: string): Pro
     failures: (summary?.failures ?? []).map(String),
     costModelsUsd: summary?.cost_usd_models ?? null,
     costListedUsd: summary?.cost_usd_models_listed_price ?? null,
+    tokenSum,
     wallSeconds: summary?.wall_seconds ?? null,
     modelCalls: summary?.model_calls ?? null,
     failedCalls: (summary?.failed_calls ?? []).map(String),

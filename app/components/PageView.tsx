@@ -1,9 +1,11 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { PageData } from "@/lib/types";
-import { minutes, usd } from "@/lib/format";
+import { minutes } from "@/lib/format";
+import { TOKENS_LABEL } from "@/lib/tokens-view";
+import { TokensDetail } from "./Tokens";
 import { StatePill, VerdictPill } from "./Pills";
 import { CompareText, ReadText } from "./PageText";
 import QaPanel from "./QaPanel";
@@ -76,8 +78,8 @@ export default function PageView({ data }: { data: PageData }) {
               <StatePill state={data.status} />
             </dd>
           </div>
-          <Fact label="Cost (models)" value={usd(data.costModelsUsd)} />
-          <Fact label="Cost (listed)" value={usd(data.costListedUsd)} />
+          {/* Unit VW93 (Q-A 3:15.2): the 5 token kinds of the page run in place of the two costs. A run with no token numbers shows "no token data" (Q-A 3:15.3). */}
+          <Fact label={TOKENS_LABEL} value={<TokensDetail tokens={data.tokenSum.tokens} sum={data.tokenSum} />} />
           <Fact label="Minutes" value={minutes(data.wallSeconds)} />
           <Fact label="Calls" value={data.modelCalls === null ? "–" : String(data.modelCalls)} />
           <div className="flex items-center gap-2">
@@ -181,7 +183,7 @@ function bookMemoryText(m: NonNullable<PageData["bookMemory"]>): string {
   return `${m.verdict ?? "no verdict"}, nothing written`;
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
+function Fact({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex items-center gap-2">
       <dt className="text-xs uppercase tracking-wide text-muted">{label}</dt>

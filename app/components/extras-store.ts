@@ -6,7 +6,7 @@ import { useCallback, useSyncExternalStore } from "react";
 // No sign-in exists yet, so the ticks live in the browser (localStorage). This is "per account after sign-in":
 // when sign-in arrives, move this store to the account. All items are off by default.
 export const EXTRAS = [
-  { key: "calls", label: "Cost and seconds per call", help: "One row per model call of the stage." },
+  { key: "calls", label: "Tokens and seconds per call", help: "One row per model call of the stage." },
   { key: "messages", label: "Exact text sent", help: "The full message that went to each box." },
   { key: "lookup", label: "Dictionary and aligned memory hits", help: "EN term entries and book translation memory pairs found for the box." },
   { key: "failed", label: "Failed and flagged calls", help: "Calls that failed or got a flag on this page." },

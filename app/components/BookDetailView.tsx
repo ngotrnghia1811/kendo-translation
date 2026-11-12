@@ -1,7 +1,9 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { agoText, lineText, money, progressText } from "@/lib/book-status-rules";
+import { agoText, lineText, progressText } from "@/lib/book-status-rules";
+import { TOKENS_LABEL } from "@/lib/tokens-view";
+import { TokenCells, TokenHeads, TokensDetail } from "./Tokens";
 import { pstClockSeconds } from "@/lib/format";
 import { pstDateTimeOrDash } from "@/lib/pst-more";
 import { shareText, rejectLines } from "@/lib/critique-share";
@@ -66,7 +68,8 @@ function ListFold({ list, open }: { list: DetailList; open: boolean }) {
               <th className={TH}>State</th>
               <th className={TH + " text-right"}>Calls</th>
               <th className={TH}>QA_3</th>
-              <th className={TH + " text-right"}>Cost</th>
+              {/* Unit VW93 (Q-A 3:15.2): the 5 token kinds of the page row in place of the cost. */}
+              <TokenHeads className={TH + " text-right whitespace-nowrap"} />
               <th className={TH + " text-right"}>Time</th>
               <th className={TH}>Memory pairs</th>
             </tr>
@@ -94,7 +97,7 @@ function ListFold({ list, open }: { list: DetailList; open: boolean }) {
                 <td className="px-3 py-2">
                   <VerdictPill verdict={p.qa3Verdict} score={p.qa3Score} />
                 </td>
-                <td className="px-3 py-2 text-right tabular-nums">{money(p.usd)}</td>
+                <TokenCells tokens={p.tokens} className="px-3 py-2 text-right tabular-nums" />
                 <td className="px-3 py-2 text-right tabular-nums">{p.minutes === null ? "–" : `${p.minutes.toFixed(1)} min`}</td>
                 <td className="px-3 py-2 text-xs">{p.pairs === null ? <span className="text-muted">–</span> : `${p.pairs} ${p.pairs === 1 ? "pair" : "pairs"}`}</td>
               </tr>
@@ -191,9 +194,10 @@ export default function BookDetailView({ initial }: { initial: BookDetail }) {
             </dd>
           </div>
           <div>
-            <dt className="text-xs uppercase tracking-wide text-muted">Cost</dt>
-            <dd data-fact="cost" className="tabular-nums">
-              {money(row.cost)}
+            {/* Unit VW93 (Q-A 3:15.2, 3:15.3): the 5 token kinds of the book in place of the cost, or "no token data". */}
+            <dt className="text-xs uppercase tracking-wide text-muted">{TOKENS_LABEL}</dt>
+            <dd data-fact="tokens" className="tabular-nums">
+              <TokensDetail tokens={row.tokens} sum={{ tokens: row.tokens, missing: row.tokensMissing ?? 0 }} one="page run" many="page runs" />
             </dd>
           </div>
           <div>

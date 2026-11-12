@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import type { ChainRow } from "@/lib/types";
 import type { CompareView, CompareVariantTotals, MemoryPage } from "@/lib/chain";
-import { usd } from "@/lib/format";
+import { TokenCells, TokenHeads } from "./Tokens";
 import { pstFromUtcText } from "@/lib/pst-more";
 import { StatePill } from "./Pills";
 import Link from "next/link";
@@ -239,7 +239,8 @@ export function TotalsTable({ title, rows }: { title: string; rows: CompareVaria
             <th className={th + " text-right"}>Cite another QA level</th>
             <th className={th + " text-right"}>Calls</th>
             <th className={th + " text-right"}>Failed calls</th>
-            <th className={th + " text-right"}>Cost</th>
+            {/* Unit VW93 (Q-A 3:15.2): the 5 token kinds of the totals row in place of the cost (the compare table sits in the run view, a detail place). */}
+            <TokenHeads className={th + " text-right whitespace-nowrap"} />
             <th className={th + " text-right"}>Seconds</th>
           </tr>
         </thead>
@@ -257,7 +258,7 @@ export function TotalsTable({ title, rows }: { title: string; rows: CompareVaria
               <td className={td + " text-right tabular-nums"}>{n0(r.citingOtherQa)}</td>
               <td className={td + " text-right tabular-nums"}>{n0(r.calls)}</td>
               <td className={td + " text-right tabular-nums " + (r.failedCalls ? "font-semibold text-red-700" : "")}>{n0(r.failedCalls)}</td>
-              <td className={td + " text-right tabular-nums"}>{usd(r.costUsd)}</td>
+              <TokenCells tokens={r.tokens ?? null} className={td + " text-right tabular-nums"} />
               <td className={td + " text-right tabular-nums"}>{r.seconds === null ? "–" : r.seconds.toFixed(1)}</td>
             </tr>
           ))}

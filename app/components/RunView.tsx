@@ -1,7 +1,10 @@
 "use client";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import type { RunDetail } from "@/lib/types";
-import { isLive, minutes, usd } from "@/lib/format";
+import { isLive, minutes } from "@/lib/format";
+import { TOKENS_LABEL } from "@/lib/tokens-view";
+import { TokenCells, TokenHeads, TokensDetail } from "./Tokens";
 import { pstDateTimeOrDash } from "@/lib/pst-more";
 import { StatePill, VerdictPill } from "./Pills";
 import { LiveBadge, useLive } from "./useLive";
@@ -9,7 +12,7 @@ import PauseButton from "./PauseButton";
 import ReaderOpenRows from "./ReaderOpenRows";
 import { ChainTable, ComparePanel, FailureLists, MemoryPanel } from "./ChainPanels";
 
-// Round 44 answer 13 (Q-A l142): a list opens a run view with one row per page: state, calls, USD, minutes,
+// Round 44 answer 13 (Q-A l142): a list opens a run view with one row per page: state, calls, cost (unit VW93: tokens, Q-A 3:15.2), minutes,
 // QA_3 verdict and score, link to the page view. Viewer goal: few steps from a run to a page text.
 // Round 48 answer 9 (Q-A 2026-10-27 l55): a chain list also shows the list kind, the critic mode, the book jobs, a table per book,
 // skipped pages with their reason, the failure lists, the book translation memory pairs, and the compare table of the critic modes.
@@ -32,8 +35,8 @@ export default function RunView({ initial }: { initial: RunDetail }) {
         <Stat label="Calls" value={`${run.callsDone} / ${run.callsTotal}`} />
         <Stat label="Failed" value={String(run.callsFailed)} warn={run.callsFailed > 0} />
         <Stat label="Flagged" value={String(run.callsFlagged)} warn={run.callsFlagged > 0} />
-        <Stat label="Cost (models)" value={usd(run.costModelsUsd)} />
-        <Stat label="Cost (listed)" value={usd(run.costListedUsd)} />
+        {/* Unit VW93 (Q-A 3:15.2): the 5 token kinds of the list in place of the two costs. An older list shows "no token data" (Q-A 3:15.3). */}
+        <Stat label={TOKENS_LABEL} value={<TokensDetail tokens={run.tokens} />} />
         <Stat label="Started" value={pstDateTimeOrDash(run.startedEpoch)} />
         <Stat label="Updated" value={pstDateTimeOrDash(run.updatedEpoch)} />
         <Stat label="List kind" value={run.listKind} />
@@ -65,7 +68,7 @@ export default function RunView({ initial }: { initial: RunDetail }) {
               <th className="px-3 py-2">Kind</th>
               <th className="px-3 py-2">State</th>
               <th className="px-3 py-2 text-right">Calls</th>
-              <th className="px-3 py-2 text-right">USD</th>
+              <TokenHeads className="px-3 py-2 text-right whitespace-nowrap" />
               <th className="px-3 py-2 text-right">Minutes</th>
               <th className="px-3 py-2">QA_3</th>
               {isChain ? <th className="px-3 py-2">Book memory</th> : null}
@@ -94,7 +97,7 @@ export default function RunView({ initial }: { initial: RunDetail }) {
                   {p.callsDone} / {p.callsTotal}
                   {p.callsFailed ? <span className="ml-1 font-semibold text-red-700">({p.callsFailed} failed)</span> : null}
                 </td>
-                <td className="px-3 py-2 text-right tabular-nums">{usd(p.usd)}</td>
+                <TokenCells tokens={p.tokens} className="px-3 py-2 text-right tabular-nums" />
                 <td className="px-3 py-2 text-right tabular-nums">{minutes(p.minutes === null ? null : p.minutes * 60)}</td>
                 <td className="px-3 py-2">
                   <VerdictPill verdict={p.qa3Verdict} score={p.qa3Score} />
@@ -113,7 +116,7 @@ export default function RunView({ initial }: { initial: RunDetail }) {
   );
 }
 
-function Stat({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
+function Stat({ label, value, warn }: { label: string; value: ReactNode; warn?: boolean }) {
   return (
     <div>
       <div className="text-xs uppercase tracking-wide text-muted">{label}</div>

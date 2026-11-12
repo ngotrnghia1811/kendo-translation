@@ -4,6 +4,7 @@ import { isSafeSegment, PathError, stripDataPrefix } from "./safe-path";
 import { enFormSummary, jsonRepairKind } from "./page-labels";
 import { criticOnlyFolders, cutChainBlocks, pagesRead, pairsFound, parseCriticOnlySummary, previousPageOf, sessionFields, CHAIN_BLOCKS } from "./chain";
 import { pageHref } from "./format";
+import { tokenCounts } from "./tokens-sum"; // unit VW93 (Q-A 3:15.2): tokens, not USD
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type J = any;
@@ -43,7 +44,9 @@ export async function loadExtra(runRel: string, part: ExtraPart, stage: number):
           reasoningNameSent: r.reasoning_name_sent ?? null,
           jsonRepair: r.json_repair ?? null,
           jsonRepairKind: jsonRepairKind(r.json_repair),
+          // Unit VW93: the 5 token kinds of the call (null: no token data). The raw key stays as it was read.
           tokens: r.tokens ?? null,
+          tokenCounts: tokenCounts(r.tokens, 1),
           // Session mode keys (translator_run.py l1079, l603). The separate mode and old files have none, so every field is null.
           ...sessionFields(r),
         }));
@@ -70,7 +73,7 @@ export async function loadExtra(runRel: string, part: ExtraPart, stage: number):
       const failed: J[] = [];
       for (const f of (await listDir(`${runRel}/failed`)).filter((x) => x.endsWith(".json")).sort()) {
         const j = await readJson<J>(`${runRel}/failed/${f}`);
-        if (j) failed.push({ file: f, tag: j.tag, model: j.model, error: j.error, retries: j.retries, seconds: j.seconds, costUsd: j.cost_usd });
+        if (j) failed.push({ file: f, tag: j.tag, model: j.model, error: j.error, retries: j.retries, seconds: j.seconds, costUsd: j.cost_usd, tokens: tokenCounts(j.tokens, 1) });
       }
       const calls = await readJsonl<J>(`${runRel}/calls.jsonl`);
       const flagged = calls.filter((c) => c.kind === "model" && c.flag).map((c) => ({ tag: c.tag, flag: c.flag }));

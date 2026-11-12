@@ -7,6 +7,7 @@
 //   Q-A 2026-11-02 round 86 answer 21 (l205): the first column of Archived runs is named "Run ID" and shows the run start in PST.
 //   <T2>/data/scripts/translator/store.py run_id_folder: 2026-11-04T00:15:00-08:00 gives the folder 20261104T001500-0800.
 import type { MonitorRow } from "./book-status-rules";
+import type { TokenCounts } from "./tokens-sum"; // type only (unit VW93)
 import type { ShareResult, StopFlag } from "./critique-share";
 import type { BookRunPlace } from "./book-run-rules";
 
@@ -104,6 +105,8 @@ export interface DetailPage {
   callsTotal: number;
   callsFailed: number;
   usd: number;
+  /** Unit VW93: the tokens of the page row (progress.json). Null in an older list. */
+  tokens: TokenCounts | null;
   minutes: number | null;
   qa3Verdict: string | null;
   qa3Score: number | null;

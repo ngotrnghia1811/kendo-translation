@@ -5,6 +5,8 @@ import Link from "next/link";
 import { EXTRAS, type ExtraKey } from "./extras-store";
 import { enFormBadge, enFormTone } from "@/lib/page-labels";
 import { jsonViewHref } from "@/lib/json-view";
+import { TOKENS_LABEL, missingNote, sumTokens, tokensLine } from "@/lib/tokens-view";
+import { NoTokenData, TokenCells, TokenHeads, TokensDetail } from "./Tokens";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -82,7 +84,8 @@ function Empty({ children }: { children: ReactNode }) {
 
 export function Calls({ rows }: { rows: any[] }) {
   if (rows.length === 0) return <Empty>No model call for this stage.</Empty>;
-  const cost = rows.reduce((s, r) => s + (r.costUsd ?? 0), 0);
+  // Unit VW93 (Q-A 3:15.2, 3:15.3): the 5 token kinds of each call in place of the dollar amount. The total adds the calls with token data.
+  const total = sumTokens(rows.map((r) => r.tokenCounts ?? null));
   const sec = rows.reduce((s, r) => s + (r.seconds ?? 0), 0);
   return (
     <div className="overflow-x-auto">
@@ -91,7 +94,7 @@ export function Calls({ rows }: { rows: any[] }) {
           <tr>
             <th className={th}>Call</th>
             <th className={th}>Model</th>
-            <th className={th + " text-right"}>USD</th>
+            <TokenHeads className={th + " text-right whitespace-nowrap"} />
             <th className={th + " text-right"}>Seconds</th>
             <th className={th + " text-right"}>Retries</th>
             <th className={th}>Result</th>
@@ -105,7 +108,7 @@ export function Calls({ rows }: { rows: any[] }) {
                 {r.model}
                 {r.variant ? <span className="text-muted"> ({r.variant})</span> : null}
               </td>
-              <td className={td + " text-right tabular-nums"}>{r.costUsd === null ? "–" : r.costUsd.toFixed(4)}</td>
+              <TokenCells tokens={r.tokenCounts ?? null} className={td + " text-right tabular-nums"} />
               <td className={td + " text-right tabular-nums"}>{r.seconds ?? "–"}</td>
               <td className={td + " text-right tabular-nums"}>{r.retries}</td>
               <td className={td + " text-xs"}>
@@ -128,8 +131,9 @@ export function Calls({ rows }: { rows: any[] }) {
           <tr className="border-t border-line font-medium">
             <td className={td} colSpan={2}>
               Total
+              {missingNote(total, "call", "calls") ? <span className="font-normal text-muted">{missingNote(total, "call", "calls")}</span> : null}
             </td>
-            <td className={td + " text-right tabular-nums"}>{cost.toFixed(4)}</td>
+            <TokenCells tokens={total.tokens} className={td + " text-right tabular-nums"} />
             <td className={td + " text-right tabular-nums"}>{sec.toFixed(1)}</td>
             <td colSpan={2} />
           </tr>
@@ -208,7 +212,7 @@ function Failed({ d }: { d: any }) {
           <span className="font-mono text-xs">{f.tag}</span> <span className="text-xs text-muted">{f.model}</span>
           <div className="text-xs text-red-700">{f.error}</div>
           <div className="text-xs text-muted">
-            retries {f.retries ?? 0}, {f.seconds ?? "–"} s, USD {f.costUsd ?? "–"}
+            retries {f.retries ?? 0}, {f.seconds ?? "–"} s, {f.tokens ? tokensLine(f.tokens) : <NoTokenData />}
           </div>
         </div>
       ))}
@@ -412,9 +416,15 @@ export function CriticOnly({ rows, stage, runRel }: { rows: any[]; stage: number
             <p className="mt-1 text-xs">
               <span className="font-semibold">{r.critiquesTotal ?? "–"}</span> critiques
               {r.byBoxType.length > 0 ? ` (${r.byBoxType.map((b: any) => `${b.boxType} ${b.critiques}`).join(", ")})` : ""}, {r.modelCalls ?? "–"} calls,{" "}
-              {r.failedCalls.length > 0 ? <span className="text-red-700">{r.failedCalls.length} failed ({r.failedCalls.join(", ")})</span> : "0 failed"}, USD{" "}
-              {r.costUsd === null ? "–" : r.costUsd.toFixed(4)}, {r.seconds ?? "–"} s
+              {r.failedCalls.length > 0 ? <span className="text-red-700">{r.failedCalls.length} failed ({r.failedCalls.join(", ")})</span> : "0 failed"},{" "}
+              {r.seconds ?? "–"} s
               {r.session ? `, session: ${r.session.turns ?? "?"} turns, ${r.session.sessionIds.length} session, ${r.session.restarts} restarts, turn message ${r.session.turnMessage || "–"}` : ""}
+            </p>
+          ) : null}
+          {/* Unit VW93 (Q-A 3:15.2, 3:15.3): the 5 token kinds of the critic-only run in place of the dollar amount, or "no token data". */}
+          {r.hasSummary ? (
+            <p className="mt-1 text-xs" data-critic-only-tokens>
+              {TOKENS_LABEL}: <TokensDetail tokens={r.tokens ?? null} />
             </p>
           ) : null}
           <h4 className="mt-3 mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Critiques of stage {stage}</h4>

@@ -1,4 +1,5 @@
 // Shared types. No server imports here, so client components can use them.
+import type { TokenCounts, TokenSum } from "./tokens-sum"; // type only (unit VW93): erased at run time
 
 export type ListState = string; // running, paused, completed, completed with failures, interrupted, ...
 
@@ -13,6 +14,8 @@ export interface RunSummary {
   callsFlagged: number;
   costModelsUsd: number;
   costListedUsd: number;
+  /** Unit VW93 (Q-A 3:15.2): key "tokens" of progress.json, with calls_done as the calls count. Null in an older list with no such key. */
+  tokens: TokenCounts | null;
   startedEpoch: number | null;
   updatedEpoch: number | null;
   pausedSinceEpoch: number | null;
@@ -34,6 +37,8 @@ export interface RunPageRow {
   callsFailed: number;
   running: string[];
   usd: number;
+  /** Unit VW93: key "tokens" of the page row in progress.json, with calls_done as the calls count. Null in an older list. */
+  tokens: TokenCounts | null;
   minutes: number | null;
   qa3Verdict: string | null;
   qa3Score: number | null;
@@ -254,6 +259,8 @@ export interface PageData {
   failures: string[];
   costModelsUsd: number | null;
   costListedUsd: number | null;
+  /** Unit VW93: the tokens of the model calls in calls.jsonl (summary.json "tokens" when calls.jsonl has no model call). `tokens` null: no token data. */
+  tokenSum: TokenSum;
   wallSeconds: number | null;
   modelCalls: number | null;
   failedCalls: string[];

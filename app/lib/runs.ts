@@ -4,6 +4,7 @@ import path from "node:path";
 import { listDir, readJson, exists } from "./json";
 import { resolveInside, stripDataPrefix, isSafeSegment, PathError } from "./safe-path";
 import { pageHref } from "./format";
+import { tokenCounts } from "./tokens-sum"; // unit VW93 (Q-A 3:15.2): tokens, not USD
 import { failureList, firstBool, firstNumber, firstString, listKindOf, parseBookMemory, parseChains } from "./chain";
 import type { RunDetail, RunPageRow, RunSummary } from "./types";
 
@@ -41,6 +42,7 @@ function summarize(stamp: string, p: J, listJson: J = null, summaryJson: J = nul
     callsFlagged: num(p.calls_flagged),
     costModelsUsd: num(p.cost_models_usd),
     costListedUsd: num(p.cost_listed_usd),
+    tokens: tokenCounts(p.tokens, num(p.calls_done)),
     startedEpoch: p.started_epoch ?? null,
     updatedEpoch: p.updated_epoch ?? null,
     pausedSinceEpoch: p.paused_since_epoch ?? null,
@@ -107,6 +109,7 @@ export async function getRun(stamp: string): Promise<RunDetail | null> {
       callsFailed: num(pg.calls_failed),
       running: Array.isArray(pg.running) ? pg.running.map(String) : [],
       usd: num(pg.models_usd),
+      tokens: tokenCounts(pg.tokens, num(pg.calls_done)),
       minutes,
       qa3Verdict,
       qa3Score,

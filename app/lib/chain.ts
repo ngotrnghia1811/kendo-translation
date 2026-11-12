@@ -5,6 +5,7 @@
 // translator/book_memory.py (memory_rows), translator/messages.py (block_* functions), critic_compare.py (build).
 
 import type { ChainRow, PageBookMemory, CriticSession, WebCandidate, WebRow } from "./types";
+import { tokenCounts, type TokenCounts } from "./tokens-sum"; // unit VW93 (Q-A 3:15.2): tokens, not USD
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type J = any;
@@ -259,6 +260,8 @@ export interface CriticOnlySummary {
   modelCalls: number | null;
   failedCalls: string[];
   costUsd: number | null;
+  /** Unit VW93: key "tokens" of summary.json, with model_calls as the calls count. Null: no token data. */
+  tokens: TokenCounts | null;
   seconds: number | null;
   session: CriticSession | null;
   plan: boolean;
@@ -280,6 +283,7 @@ export function parseCriticOnlySummary(folder: string, s: unknown): CriticOnlySu
     modelCalls: num(d.model_calls),
     failedCalls: Array.isArray(d.failed_calls) ? d.failed_calls.map(String) : [],
     costUsd: num(d.cost_usd_models),
+    tokens: tokenCounts(d.tokens, num(d.model_calls)),
     seconds: num(d.seconds_model_calls),
     session: parseCriticSession(d.critic_session),
     plan: d.plan === true,
@@ -302,6 +306,8 @@ export interface CompareVariantTotals {
   retries: number | null;
   sessionRestarts: number | null;
   costUsd: number | null;
+  /** Unit VW93: key "tokens" of the totals row (critic_compare.py), with calls as the calls count. Null: no token data. */
+  tokens: TokenCounts | null;
   seconds: number | null;
 }
 
@@ -335,6 +341,7 @@ function totalsOf(variant: string, t: unknown): CompareVariantTotals {
     retries: num(d.retries),
     sessionRestarts: num(d.session_restarts),
     costUsd: num(d.cost_usd),
+    tokens: tokenCounts(d.tokens, num(d.calls)),
     seconds: num(d.seconds),
   };
 }

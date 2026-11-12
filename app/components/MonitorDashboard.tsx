@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { MonitorData, GroupName } from "@/lib/book-status-rules";
 import { NO_RUN_TEXT, agoText, emptyLine, groupRows, groupShows, tabTitle } from "@/lib/book-status-rules";
 import { pstClockSeconds } from "@/lib/format";
+import { allBooksText } from "@/lib/tokens-view";
 import { useLive } from "./useLive";
 import { useGroupOpen } from "./monitor-open-store";
 import BookRow from "./BookRow";
@@ -92,8 +93,9 @@ export default function MonitorDashboard({ initial }: { initial: MonitorData }) 
             <p data-monitor-summary className="text-sm">
               {data.summary.text}
             </p>
-            <p data-monitor-cost className="text-sm text-muted">
-              {data.summary.costText}
+            {/* Unit VW93 (Q-A 3:15.2, 3:15.3): input / output tokens of all books in place of the model cost. No dollar amount shows. */}
+            <p data-monitor-tokens className="text-sm text-muted">
+              {allBooksText(data.summary.tokens)}
             </p>
             {/* VISION 15.24.4.7: the summary line announces a change of the count of Needs attention only. */}
             <span role="status" aria-live="polite" className="sr-only" data-needs-live>

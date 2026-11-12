@@ -1,7 +1,9 @@
 "use client";
 import Link from "next/link";
 import type { RunSummary } from "@/lib/types";
-import { isLive, usd } from "@/lib/format";
+import { isLive } from "@/lib/format";
+import { TOKENS_SHORT_LABEL } from "@/lib/tokens-view";
+import { TokensShort } from "./Tokens";
 import { pstClockOrDash, pstDateTimeOrDash } from "@/lib/pst-more";
 import { StatePill } from "./Pills";
 import { LiveBadge, useLive } from "./useLive";
@@ -33,8 +35,8 @@ export default function RunsTable({ initial }: { initial: RunSummary[] }) {
                 <th className="px-3 py-2 text-right">Calls</th>
                 <th className="px-3 py-2 text-right">Failed</th>
                 <th className="px-3 py-2 text-right">Flagged</th>
-                <th className="px-3 py-2 text-right">Cost (models)</th>
-                <th className="px-3 py-2 text-right">Cost (listed)</th>
+                {/* Unit VW93 (Q-A 3:15.2 "Short in tables, all 5 in details"): input / output tokens in place of the two cost columns. */}
+                <th className="px-3 py-2 text-right whitespace-nowrap">{TOKENS_SHORT_LABEL}</th>
                 <th className="px-3 py-2">Started</th>
                 <th className="px-3 py-2">Updated</th>
               </tr>
@@ -67,8 +69,9 @@ export default function RunsTable({ initial }: { initial: RunSummary[] }) {
                   </td>
                   <td className={"px-3 py-2 text-right tabular-nums " + (r.callsFailed ? "font-semibold text-red-700" : "")}>{r.callsFailed}</td>
                   <td className={"px-3 py-2 text-right tabular-nums " + (r.callsFlagged ? "font-semibold text-amber-700" : "")}>{r.callsFlagged}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{usd(r.costModelsUsd)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-muted">{usd(r.costListedUsd)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
+                    <TokensShort tokens={r.tokens} />
+                  </td>
                   <td className="px-3 py-2 whitespace-nowrap">{pstDateTimeOrDash(r.startedEpoch)}</td>
                   <td className="px-3 py-2 whitespace-nowrap">{pstDateTimeOrDash(r.updatedEpoch)}</td>
                 </tr>

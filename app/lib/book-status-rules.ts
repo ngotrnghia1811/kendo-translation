@@ -14,6 +14,8 @@ import { parseUtcIso, pstClock, pstDateTime, pstStamp, relativeTime, runIdText }
 import { clearOffReason } from "./clear-mark-rule";
 import { orderRows } from "./row-order";
 import type { Phase2View } from "./phase2-row"; // type only (unit VW91): erased at run time, so there is no import cycle
+// Unit VW93 (Q-A 3:15.2): tokens, not USD. lib/tokens-sum.ts has no import, so there is no import cycle.
+import { sumTokens, tokenCounts, type TokenCounts, type TokenSum } from "./tokens-sum";
 
 export const HEARTBEAT_S = 30; // store.py:31
 export const STALE_S = 120; // store.py:32. A heartbeat older than this means the process is gone.
@@ -69,6 +71,8 @@ export interface StatusFile {
   book_pages?: number;
   fail_pages?: string[];
   cost_usd_models_phase?: number;
+  /** Unit VW93: {input, output, reasoning, cache_read, cache_write, calls} (Translator unit TR91). An old status.json has no such key. */
+  tokens_phase?: unknown;
   seconds_phase?: number;
   last_error?: { page?: string | null; box?: string | null; text?: string | null; file?: string | null; utc?: string | null } | null;
   started_utc?: string | null;
@@ -98,6 +102,8 @@ export interface DerivedFacts {
   listCount: number;
   pagesDone: number; // distinct page IDs in the state "done" (VISION 15.24.4.2, notes)
   costUsd: number; // models_usd of every page row of every list folder (VISION 15.24.4.3, item 5)
+  /** Unit VW93: the key "tokens" of every page row of every list folder. A page row with no such key (an older list) counts as missing. */
+  tokens?: TokenSum;
   seconds: number; // sum of ended_epoch minus started_epoch of the page rows (the page time with no pauses, item 6)
   lastEventEpoch: number | null; // the latest ended_epoch of the book (VISION 15.24.9)
   newest: {
@@ -185,6 +191,10 @@ export interface MonitorRow {
   pagesDone: number | null;
   pagesTotal: number | null;
   cost: number | null;
+  /** Unit VW93 (Q-A 3:15.2): the tokens of the row. Null: no token data (Q-A 3:15.3). */
+  tokens: TokenCounts | null;
+  /** Unit VW93: page runs of a derived row with no token data. 0 for a status row. */
+  tokensMissing: number;
   minutes: number | null;
   line2: Seg[];
   note: string | null;
@@ -210,6 +220,8 @@ export interface MonitorSummary {
   costUsd: number;
   text: string;
   costText: string;
+  /** Unit VW93: the sum of the row tokens. A row outside "Not started" with no token data counts as missing. lib/tokens-view.ts allBooksText gives the line. */
+  tokens: TokenSum;
 }
 
 
@@ -405,6 +417,7 @@ export function deriveFacts(slug: string, lists: ListInput[]): DerivedFacts | nu
   if (held.length === 0) return null;
   const done = new Set<string>();
   let cost = 0;
+  const tokenParts: (TokenCounts | null)[] = [];
   let seconds = 0;
   let last: number | null = null;
   for (const l of held) {
@@ -412,6 +425,7 @@ export function deriveFacts(slug: string, lists: ListInput[]): DerivedFacts | nu
       const id = String(p.page_id);
       if (p.state === "done") done.add(id);
       cost += asNum(p.models_usd) ?? 0;
+      tokenParts.push(tokenCounts(p.tokens, asNum(p.calls_done)));
       const s = asNum(p.started_epoch);
       const e = asNum(p.ended_epoch);
       if (s !== null && e !== null && e >= s) seconds += e - s;
@@ -460,6 +474,7 @@ export function deriveFacts(slug: string, lists: ListInput[]): DerivedFacts | nu
     listCount: held.length,
     pagesDone: done.size,
     costUsd: cost,
+    tokens: sumTokens(tokenParts),
     seconds,
     lastEventEpoch: last,
     newest: {
@@ -523,6 +538,8 @@ function blankRow(f: BookFacts, key: LabelKey): MonitorRow {
     pagesDone: null,
     pagesTotal: null,
     cost: null,
+    tokens: null,
+    tokensMissing: 0,
     minutes: null,
     line2: [],
     note: null,
@@ -574,6 +591,7 @@ function statusRow(f: BookFacts, st: StatusFile, now: number): MonitorRow {
   r.pagesDone = asNum(st.pages_done) ?? 0;
   r.pagesTotal = asNum(st.pages_total) || null;
   r.cost = asNum(st.cost_usd_models_phase);
+  r.tokens = tokenCounts(st.tokens_phase);
   const sec = asNum(st.seconds_phase);
   r.minutes = sec === null ? null : Math.round(sec / 60);
   const next = pageShort(st.next_page);
@@ -650,6 +668,8 @@ function derivedRow(f: BookFacts, d: DerivedFacts, now: number): MonitorRow {
   r.pagesDone = d.pagesDone;
   r.pagesTotal = f.bookPages;
   r.cost = d.costUsd;
+  r.tokens = d.tokens?.tokens ?? null;
+  r.tokensMissing = d.tokens?.missing ?? 0;
   r.minutes = Math.round(d.seconds / 60);
   r.eventEpoch = d.lastEventEpoch;
   const stopPage = pageShort(n.stopPage);
@@ -911,7 +931,7 @@ export function groupStartsOpen(g: GroupName): boolean {
 /**
  * Summary line (VISION 15.24.4.1): "1 needs attention · 0 waiting for a run · 0 running · 11 stopped · 0 completed · 25 not started".
  * Round 81 answer 21 (Q-A 2026-11-02 l26): "Drop it (Recommended)". The line has no error count. The row keeps its red error line, and `errors` stays in the data.
- * The cost is the model cost of all rows.
+ * The cost is the model cost of all rows. Unit VW93: no screen shows it (Q-A 3:15.3). The screen shows the line of `tokens` (lib/tokens-view.ts allBooksText).
  */
 export function summarize(rows: MonitorRow[]): MonitorSummary {
   const counts = Object.fromEntries(GROUPS.map((g) => [g, 0])) as Record<GroupName, number>;
@@ -922,10 +942,12 @@ export function summarize(rows: MonitorRow[]): MonitorSummary {
     errors += r.errorCount;
     cost += r.cost ?? 0;
   }
+  // [unit default VW93] A book in "Not started" has no run, so it does not count as a book without token data.
+  const tokens = sumTokens(rows.filter((r) => r.group !== "Not started").map((r) => r.tokens ?? null));
   const text =
     `${counts["Needs attention"]} needs attention · ${counts["Waiting for a run"]} waiting for a run · ${counts["Running"]} running · ` +
     `${counts["Stopped"]} stopped · ${counts["Completed"]} completed · ${counts["Not started"]} not started`;
-  return { counts, errors, costUsd: cost, text, costText: `Model cost of all books: ${money(cost)}` };
+  return { counts, errors, costUsd: cost, text, costText: `Model cost of all books: ${money(cost)}`, tokens };
 }
 
 /** Tab title (VISION 15.24.4.1): "(1) Monitor dashboard" with the count of Needs attention. No prefix at 0. */

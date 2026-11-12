@@ -3214,7 +3214,7 @@ async function monitorTest() {
   check("GET / sends Monitor dashboard, Lists, Books, Run settings, Human translation", (() => { const nav = r.body.match(/<nav[^>]*aria-label="Main tabs"[\s\S]*?<\/nav>/)?.[0] ?? ""; const t = visibleText(nav).trim().replace(/\s+/g, " "); return t === "Monitor dashboard Lists Books Run settings Human translation" && /href="\/runs"/.test(nav) && /href="\/settings\/run"/.test(nav); })());
   r = await get("/runs");
   const rt = visibleText(r.body);
-  check("GET /runs 200 shows the Lists table: heading 'Lists', the three list stamps, the column 'Cost (listed)'", r.status === 200 && /Lists/.test(rt) && ["20261026T182511Z", "20261028T023006Z", "20261029T051152Z"].every((s) => rt.includes(s)) && rt.includes("Cost (listed)"));
+  check("GET /runs 200 shows the Lists table: heading 'Lists', the three list stamps, the column 'Tokens in / out' (unit VW93, Q-A 3:15.2) and no cost column", r.status === 200 && /Lists/.test(rt) && ["20261026T182511Z", "20261028T023006Z", "20261029T051152Z"].every((s) => rt.includes(s)) && rt.includes("Tokens in / out") && !rt.includes("Cost (listed)") && !rt.includes("Cost (models)"));
   r = await get("/runs/20261029T051152Z");
   check("GET /runs/<stamp> 200 and the back link reads '← Lists' and points to /runs", r.status === 200 && /href="\/runs"[^>]*>\s*← Lists/.test(r.body));
 
@@ -4142,7 +4142,7 @@ async function detailsTest() {
   // ---- the page
   let pg = await page("mental_full");
   const T = pg.text;
-  check("GET /monitor/mental_full gives 200 with the title, the slug, the state label, the phase and the run text, and the header facts", pg.status === 200 && T.includes("Making the Difference on the Day") && T.includes("(mental_full)") && /Running/.test(T) && T.includes("Phase 4 · production run") && T.includes("phase 4 run 2, started 2026-11-05 09:50 PST") && T.includes("50 of 169 pages") && /Cost\s+\$5\.00/.test(T) && /List folders\s+1/.test(T), T.slice(0, 600));
+  check("GET /monitor/mental_full gives 200 with the title, the slug, the state label, the phase and the run text, and the header facts (unit VW93: Tokens in place of Cost, no dollar amount)", pg.status === 200 && T.includes("Making the Difference on the Day") && T.includes("(mental_full)") && /Running/.test(T) && T.includes("Phase 4 · production run") && T.includes("phase 4 run 2, started 2026-11-05 09:50 PST") && T.includes("50 of 169 pages") && /Tokens\s+(no token data|input \d)/.test(T) && !/\$\d/.test(T) && /List folders\s+1/.test(T), T.slice(0, 600));
   const order = ["header", "last-error", "list-folders", "critiques", "settings", "critique-share", "runs"].map((p) => pg.html.indexOf(`data-part="${p}"`));
   check("The parts come in the order header, Last error, List folders, Critiques against N, Settings used, Critique share, Runs", order.every((x, i) => x > 0 && (i === 0 || x > order[i - 1])), order.join(","));
   check("The Details view draws the buttons of the row, with the Restart button (round 74 answer 11), and the back link to the Monitor dashboard", /data-action="pause"/.test(pg.html) && /data-action="restart"/.test(pg.html) && /<a[^>]*href="\/"[^>]*>\s*← Monitor dashboard/.test(pg.html));

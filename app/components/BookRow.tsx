@@ -1,4 +1,6 @@
-import { lineText, progressText, money, type MonitorRow } from "@/lib/book-status-rules";
+import { lineText, progressText, type MonitorRow } from "@/lib/book-status-rules";
+import { TOKENS_SHORT_LABEL } from "@/lib/tokens-view";
+import { TokensShort } from "./Tokens";
 import StateLabel from "./StateLabel";
 import RowButtons from "./RowButtons";
 import { jsonViewHref } from "@/lib/json-view";
@@ -48,8 +50,11 @@ export default function BookRow({ row, now, onChanged }: { row: MonitorRow; now:
               ) : null}
               <span className="tabular-nums">{progressText(row)}</span>
             </div>
-            <div className="w-16 text-right text-sm tabular-nums" data-col="cost">
-              {money(row.cost)}
+            {/* Unit VW93 (Q-A 3:15.2): input / output tokens in place of the cost. The column is wider for two counts with thousands separators.
+                [unit default VW93] The row has no column heads, so a small grey line under the counts names them, as the run text under the phase does. */}
+            <div className="w-40 text-right text-sm tabular-nums" data-col="tokens">
+              <TokensShort tokens={row.tokens} />
+              {row.tokens ? <div className="text-xs text-muted">{TOKENS_SHORT_LABEL}</div> : null}
             </div>
             <div className="w-20 text-right text-sm tabular-nums" data-col="time">
               {row.minutes === null ? "–" : `${row.minutes} min`}

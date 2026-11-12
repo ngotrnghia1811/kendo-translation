@@ -157,6 +157,7 @@ async function loadLists(slug: string): Promise<{ lists: DetailList[]; folders: 
         callsTotal: p.callsTotal,
         callsFailed: p.callsFailed,
         usd: p.usd,
+        tokens: p.tokens,
         minutes: p.minutes,
         qa3Verdict: p.qa3Verdict,
         qa3Score: p.qa3Score,
