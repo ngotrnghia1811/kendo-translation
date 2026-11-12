@@ -9,7 +9,7 @@ import { edForGroups, groupKey, placeMarks, sentenceGroups } from "./htv-groups"
 import { parseTl3Message } from "./htv-panel";
 import type { PanelData } from "./htv-panel";
 import type { HtvRow, HtvRun, TermEntry, TermLang, TermMark } from "./htv-types";
-import type { ReaderExtra, ReaderMark, ReaderRow } from "./reader-types";
+import type { ReaderExtra, ReaderMark, ReaderRow, RowLinks } from "./reader-types";
 import { searchColumns } from "./reader-search";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -197,16 +197,23 @@ export function readSnapshot(raw: J, pageId: string, runId: string): { ok: true;
 // The sync command S2 turns the built run of a page into one record of the collection reader_pages.
 // The record holds reader data only: no verdict, no score, no TL_3 panel, no reasoning, and no EN form check result (round 63 answer 3).
 
-/** Format number of the record in reader_pages. Change it when the shape changes. */
+/**
+ * Format number of the record in reader_pages. Change it when the shape changes.
+ * Unit VW90 (Q-A 3:1.6): the two optional row keys continues and continues_from do not change it. A row that lacks them reads as before, as with the key site (unit RT73a).
+ * Unit default VW90. No code reads this number, and the record has no format field.
+ */
 export const READER_FORMAT = 1;
 
 function readerMark(m: TermMark): ReaderMark {
   return { start: m.start, end: m.end, markId: m.markId, entryId: m.entryId, surface: m.surface };
 }
 
-/** The rows of a built run without the research fields: the ts_ids and the result and detail of every mark. */
-export function readerRows(rows: HtvRow[]): ReaderRow[] {
-  return rows.map((r) => ({ key: r.key, shortKey: r.shortKey, part: r.part, ja: r.ja, ed3: r.ed3, jaMarks: r.jaMarks.map(readerMark), edMarks: r.edMarks.map(readerMark) }));
+/**
+ * The rows of a built run without the research fields: the ts_ids and the result and detail of every mark.
+ * Unit VW90: `links` (by row key, from lib/cross-page-reader.ts) adds the keys continues and continues_from to a row. Without it every row is as before.
+ */
+export function readerRows(rows: HtvRow[], links?: ReadonlyMap<string, RowLinks>): ReaderRow[] {
+  return rows.map((r) => ({ key: r.key, shortKey: r.shortKey, part: r.part, ja: r.ja, ed3: r.ed3, jaMarks: r.jaMarks.map(readerMark), edMarks: r.edMarks.map(readerMark), ...(links?.get(r.key) ?? {}) }));
 }
 
 /**
@@ -247,9 +254,9 @@ export function readerSearchColumns(rows: ReaderRow[], terms: Record<string, Ter
 }
 
 /** The body of one reader_pages record (field names as in the collection). `agree` is the list of group keys with the translator tick. */
-export function makeReaderPage(pageId: string, itemId: string, runId: string, built: BuiltRun, extras: ReaderExtra[], agree: string[]) {
+export function makeReaderPage(pageId: string, itemId: string, runId: string, built: BuiltRun, extras: ReaderExtra[], agree: string[], links?: ReadonlyMap<string, RowLinks>) {
   const n = parseInt(pageId.slice(pageId.lastIndexOf("/p") + 2), 10);
-  const rows = readerRows(built.rows);
+  const rows = readerRows(built.rows, links);
   const { search_ja, search_en } = readerSearchColumns(rows, built.terms, extras);
   return {
     page_id: pageId,

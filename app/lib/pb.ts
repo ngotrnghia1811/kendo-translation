@@ -3,6 +3,7 @@ import { loadConfig } from "./config";
 import type { ChapterHead, CommentView, HtvRun, Role, SavedRow, SessionUser, TermEntry, VersionInfo } from "./htv-types";
 import type { BookmarkView, DashArticle, DashChapter, DashWork, ReaderBookFacts, ReaderExtra, ReaderFact, ReaderMark, ReaderPageRecord } from "./reader-types";
 import { hasAgentRecord } from "./reader-web";
+import { rowLinks } from "./cross-page-reader";
 import type { OpenSource, ReaderOpen } from "./reader-opens-rule";
 import type { PaneSettings, ThemeName } from "./htv-settings";
 import { isTheme } from "./htv-settings";
@@ -520,7 +521,7 @@ function toReaderPage(r: J): ReaderPageRecord {
     itemId: String(r.item_id ?? ""),
     n: Number(r.n ?? 0),
     runId: String(r.run_id ?? ""),
-    rows: rows.map((x) => ({ key: String(x.key), shortKey: String(x.shortKey ?? ""), part: x.part === "block_title" ? "block_title" : "lines", ja: String(x.ja ?? ""), ed3: String(x.ed3 ?? ""), jaMarks: toMarks(x.jaMarks), edMarks: toMarks(x.edMarks), ...(x.site === true ? { site: true } : {}) })),
+    rows: rows.map((x) => ({ key: String(x.key), shortKey: String(x.shortKey ?? ""), part: x.part === "block_title" ? "block_title" : "lines", ja: String(x.ja ?? ""), ed3: String(x.ed3 ?? ""), jaMarks: toMarks(x.jaMarks), edMarks: toMarks(x.edMarks), ...(x.site === true ? { site: true } : {}), ...rowLinks(x) })),
     terms: r.terms && typeof r.terms === "object" ? (r.terms as Record<string, TermEntry>) : {},
     extras: (Array.isArray(r.extras) ? r.extras : []) as ReaderExtra[],
     agree: (Array.isArray(r.agree) ? r.agree : []).map(String),

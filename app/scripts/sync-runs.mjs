@@ -21,6 +21,11 @@
 // and uploads the 311 web articles as 1,124 A4 pages: reader_pages records with run_id "web-ja" (Original text rows), the kendojidai.com text as the chosen
 // Human version (reader_versions, chosen_by empty), a copy of that text in own_translations under the disabled system account "kendojidai.com" (version 1),
 // and the page counts of catalog_items. The v1 placeholder is not uploaded (owner answer 8 of round 73d: the Viewer reads the v1 md files on this Mac).
+// Unit VW90 (Q-A 3:1.6, 3:4.7, design 9.24.11): a sentence that crosses a page end. The Translator (units TR90 and TR91) writes two files:
+// results/cross_page.json (role first_half) in the run folder of the earlier page and results/cross_page_from.json (role second_half) in the run folder of the later page.
+// A middle page can hold both. For the SHOWN run of a page, the reader record uses the files (lib/cross-page-reader.ts). Role first_half: the row of the tail gets the full English text,
+// no EN marks, and the key continues. Role second_half: the row of the head gets the key continues_from. The snapshot (page_runs) does not change. A run without the files gives the same record as before.
+// A damaged file, or a file with the wrong role for its name, is skipped with one warning line. The reader record is the only place that changes.
 // The same safety rules apply to all collections: dry run by default, compare then skip or update, never delete.
 // The deployed app cannot read the run folders, so it reads these records (config key runSource "pocketbase").
 //
@@ -44,6 +49,7 @@ const { isTranslatedPage } = await import("../lib/reader-translated.ts");
 const { SEARCH_COLUMN_MAX, searchColumns } = await import("../lib/reader-search.ts");
 const { hasAgentRecord, WEB_RUN_ID, WEB_SYSTEM_EMAIL, WEB_SYSTEM_NAME, WEB_VERSION } = await import("../lib/reader-web.ts");
 const { openKey, pickReaderRun, PILOT_SOURCE } = await import("../lib/reader-opens-rule.ts");
+const { CROSS_PAGE_FROM_REL, CROSS_PAGE_REL, crossPageForReader } = await import("../lib/cross-page-reader.ts");
 
 // ---------------------------------------------------------------- constants and small helpers
 
@@ -91,6 +97,10 @@ The collection reader_pages gets one record for each selected page with an agent
 The shown run is the run of the admin run mark if that run is open, else the newest open PASS run, else no Agent text. A page whose record holds a run that is not open loses it:
 a web article page goes back to its Original text record (run_id "web-ja"), a book page loses its record. Migration 1793300012 adds reader_opens. Without it, S2 stops.
 With --offline the server is not read, so the plan counts every run as open. The record holds no verdict, no score, no TL_3 panel, and no reasoning. The report lists the count and the sizes in MB.
+A sentence that crosses a page end (unit VW90): the Translator writes two files (schema cross-page-v1) after the QA_3 PASS of the later page. If the shown run has results/cross_page.json (role first_half, earlier page),
+the reader record shows the full English text on the row of the tail (the EN term marks of that row are dropped) and has the key continues. If it has results/cross_page_from.json (role second_half, later page),
+the reader record gets the key continues_from on the row of the head. A middle page can have both files. The snapshot does not change.
+The report lists each such change in a line "cross_page | ...". A damaged file, or a file with the wrong role for its name, is skipped with one line "Warning: ...". A run without the files gives the same record as before.
 The collection catalog_items always gets all rows of item-metadata/items.filled.jsonl (347 rows: 36 folders and 311 web articles), plus the item of each selected run that has no row.
 The slug of a web article is the first 8 characters of its item_id. The column translated holds the English pages that readers can read (a reader_pages record exists for the page).
 The column placement of a web article holds the web date and the print stamp of web-magazine-candidates.jsonl (the folds of the Reader dashboard use it).
@@ -830,6 +840,8 @@ const readerPlan = [];
 const readerSkipped = [];
 const readerNotOpen = []; // pages with a finished run and no open run: no Agent text
 const searchCut = [];
+const crossLines = []; // unit VW90: one report line for each file of the shown run that changes the reader record (cross_page.json, cross_page_from.json)
+const crossWarnings = []; // unit VW90: one warning line for each skipped file
 for (const [pageId, xs] of [...runsByPage].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
   xs.sort(newestFirst);
   const markedId = marks.get(pageId);
@@ -842,8 +854,16 @@ for (const [pageId, xs] of [...runsByPage].sort((a, b) => (a[0] < b[0] ? -1 : 1)
   const pick = hit.run.x;
   const markedHere = markedId ? xs.find((x) => x.run.runId === markedId) : undefined;
   const why = hit.why === "run mark" ? "run mark (open)" : markedId ? `newest open PASS (${markedHere ? "the marked run is not open" : "the marked run has no finished folder here"})` : "newest open PASS";
-  const agree = pick.built.rows.filter((r) => agreedTexts.get(`${pageId}|${r.key}`)?.has(r.ed3)).map((r) => r.key);
-  const body = makeReaderPage(pageId, pick.slug, pick.run.runId, pick.built, pick.extras, agree);
+  // Unit VW90 (Q-A 3:1.6, 3:4.7): the files results/cross_page.json and results/cross_page_from.json of the SHOWN run change the reader record only (the snapshot of the run stays as it is).
+  // The agree tick counts for exactly the text that the reader sees, so a translator tick on the half text does not carry over to the full sentence (unit default VW90).
+  const cross = crossPageForReader(pageId, pick.built, {
+    first: await readTextFile(path.join(pick.dir, CROSS_PAGE_REL)),
+    from: await readTextFile(path.join(pick.dir, CROSS_PAGE_FROM_REL)),
+  });
+  crossLines.push(...cross.lines);
+  for (const w of cross.warnings) crossWarnings.push(`${pageId} run ${pick.run.runId}: ${w}`);
+  const agree = cross.built.rows.filter((r) => agreedTexts.get(`${pageId}|${r.key}`)?.has(r.ed3)).map((r) => r.key);
+  const body = makeReaderPage(pageId, pick.slug, pick.run.runId, cross.built, pick.extras, agree, cross.links);
   // Unit RT73a (VISION-viewer 15.26.14): an agent page that also has a Human version (18d4ac29/p001) searches the kendojidai.com text too. The rows stay as they are.
   // It also gets the web Original text rows (keys <page_id>/web/<unit>), merged by key, so that the Human rows find their Japanese text (VISION-viewer 15.26.13).
   const webHere = webById.get(pageId);
@@ -1008,6 +1028,9 @@ for (const book of [...new Set(chapters.map((c) => c.book))].sort()) {
 console.log("");
 console.log("reader_pages | page_id | run_id | why | size | rows | agree | action");
 for (const p of readerPlan) console.log(`reader_pages | ${p.pageId} | ${p.x.run.runId} | ${p.why} | ${mb(p.bytes)} | ${p.body.rows.length} | ${p.body.agree.length} | ${p.action}`);
+// Unit VW90: the files of the shown run that change a reader record, and the files that S2 skipped. Nothing prints for a run without the files.
+for (const l of crossLines) console.log(l);
+for (const w of crossWarnings) console.log(`Warning: ${w}`);
 // Unit RT74: the pages that lose the Agent text because their run is not open (round 75 answer 3).
 {
   const lose = [

@@ -34,6 +34,7 @@ import {
 } from "./reader-types";
 import type { SessionUser } from "./htv-types";
 import { hasAgentRecord, isWebKey } from "./reader-web";
+import { rowLinks } from "./cross-page-reader";
 import { v1PageNumbers, v1PageRows } from "./reader-v1-files";
 import { buildFolds, matchWorks, type Dashboard } from "./reader-folds";
 import { foldQuery, snippetOf, type Snippet } from "./reader-search";
@@ -241,6 +242,7 @@ export function mergeRows(rec: ReaderPageRecord, human: ReaderHumanVersion | nul
       human: humanRow,
       web,
       site: r.site === true,
+      ...rowLinks(r), // unit VW90: the keys continues and continues_from of the stored row
     };
   });
   if (human) {

@@ -16,6 +16,7 @@ import {
   type ViewName,
   type WorkKind,
 } from "./htv-settings";
+import { rowNote } from "./cross-page-reader";
 import {
   KEEP_ONE,
   LABEL_AGREE_ROW,
@@ -96,6 +97,8 @@ export interface PageRow {
   facts: ReaderFact[];
   /** True for a Human row with no English text and a Japanese text: the muted line with the tag "fact dropped" (VISION-viewer 15.26.8, D21). */
   dropped: boolean;
+  /** Unit VW90: the small note under the English text of a row at a page end inside a sentence, for example "The sentence continues on page 54.". Absent on other rows. */
+  note?: string;
 }
 
 export interface PageRows {
@@ -130,7 +133,12 @@ export function pageRows(data: ReaderPageData): PageRows {
     jaFromV1 = true;
   }
 
-  const agent: PageRow[] = data.hasAgent ? plain.map((r) => ({ ...base(r), text: r.agent.text, marks: r.agent.marks, tag: r.agent.agreedByTranslator ? LABEL_AGREE_ROW : "", facts: [], dropped: false })) : [];
+  // Unit VW90 (Q-A 3:1.6): the note belongs to the English text of the agent. A Human row shows it only when it shows that same text (kind agent, or kind agree with the same text).
+  const noted = (r: (typeof data.rows)[number], shown: boolean): { note?: string } => {
+    const note = shown ? rowNote(r) : "";
+    return note ? { note } : {};
+  };
+  const agent: PageRow[] = data.hasAgent ? plain.map((r) => ({ ...base(r), text: r.agent.text, marks: r.agent.marks, tag: r.agent.agreedByTranslator ? LABEL_AGREE_ROW : "", facts: [], dropped: false, ...noted(r, true) })) : [];
 
   let human: PageRow[] = [];
   if (data.hasHuman) {
@@ -146,7 +154,7 @@ export function pageRows(data: ReaderPageData): PageRows {
         const h = r.human;
         if (!h) return [];
         const tag = h.kind === "agree" ? LABEL_AGREE_ROW : h.kind === "agent" ? "AI translation" : "";
-        return [{ ...base(r), text: h.text, marks: h.marks, tag, facts: h.facts, dropped: false }];
+        return [{ ...base(r), text: h.text, marks: h.marks, tag, facts: h.facts, dropped: false, ...noted(r, h.kind === "agent" || (h.kind === "agree" && h.text === r.agent.text)) }];
       });
     }
   }

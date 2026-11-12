@@ -254,6 +254,12 @@ export default function ReaderPageView({
         <>
           <FactText row={r} terms={s.terms} onPick={onPick} onFact={setFact} />
           <Tag text={focus ? "" : r.tag} />
+          {/* Unit VW90 (Q-A 3:1.6): the small note of a sentence that crosses a page end. It shows in Focus mode too, because it explains why the Japanese text is shorter. */}
+          {r.note ? (
+            <span className="mt-1 block text-sm text-muted" data-cross-note>
+              {r.note}
+            </span>
+          ) : null}
         </>
       ) : (
         <span className="text-muted">No English text for this row.</span>

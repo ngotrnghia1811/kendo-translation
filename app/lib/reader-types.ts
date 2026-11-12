@@ -15,8 +15,25 @@ export interface ReaderMark {
   surface: string;
 }
 
+/** The other page of a sentence that crosses a page end (unit VW90, Q-A 3:1.6). folio: the printed page number of that page, or null when the run found none. */
+export interface RowLink {
+  folio: string | null;
+  pageId: string;
+}
+
+/**
+ * The two optional keys of a row that touches a page end inside a sentence (unit VW90, design 9.24.11, Q-A 3:1.6).
+ * Both are absent on every other row, so a record of an old run keeps its shape. The key names follow the design text.
+ */
+export interface RowLinks {
+  /** The row ends the page inside a sentence. The later page holds the rest. The English text of the row is the full sentence. */
+  continues?: RowLink;
+  /** The row starts with the rest of a sentence that began on the earlier page. */
+  continues_from?: RowLink;
+}
+
 /** One row of the reader text: one sentence group of the page. */
-export interface ReaderRow {
+export interface ReaderRow extends RowLinks {
   key: string;
   shortKey: string;
   part: "lines" | "block_title";
@@ -53,7 +70,7 @@ export interface ReaderPageRecord {
 /** How a row of the human version reads (VISION-viewer 15.19.5). */
 export type HumanKind = "own" | "agree" | "agent";
 
-export interface ReaderViewRow {
+export interface ReaderViewRow extends RowLinks {
   key: string;
   shortKey: string;
   part: "lines" | "block_title";
