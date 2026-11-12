@@ -16,6 +16,8 @@ import { ACCEPTED_BEFORE_HELP } from "@/lib/phase2-articles";
 // Fix round: plain words for the heading and the state pills (Q-A 3:17.4), box codes with a hover (Q-A 3:18.5 "Keep codes, explain on hover").
 import { listKindWord, listStateWord, pageStateWord, runHeading } from "@/lib/run-view-words";
 import { BoxCode } from "./BoxCode";
+// Unit VW95 (round 91), Q-A 3:18.3: a phase 2 list shows the same tree as the step view /monitor/phase-2, plus the section "Prompt updates".
+import StepView from "./StepView";
 
 // Round 44 answer 13 (Q-A l142): a list opens a run view with one row per page: state, calls, cost (unit VW93: tokens, Q-A 3:15.2), minutes,
 // QA_3 verdict and score, link to the page view. Viewer goal: few steps from a run to a page text.
@@ -167,6 +169,13 @@ export default function RunView({ initial }: { initial: RunDetail }) {
           </tbody>
         </table>
       </div>
+      {run.phase2List === true ? (
+        <section data-run-steps className="mt-6">
+          <h2 className="mb-1 text-lg font-semibold">Steps of this phase 2 run</h2>
+          <p className="mb-2 text-sm text-muted">The same tree as the step view /monitor/phase-2: all lists of this run, in run order across restarts.</p>
+          <StepView initial={null} list={run.stamp} showUpdates />
+        </section>
+      ) : null}
     </section>
   );
 }

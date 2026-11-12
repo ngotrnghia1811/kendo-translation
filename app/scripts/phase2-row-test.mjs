@@ -580,7 +580,12 @@ try {
     const route = await src("app/api/monitor/books/route.ts");
     assert.ok(route.indexOf("monitorOffResponse()") > 0 && route.indexOf("monitorOffResponse()") < route.indexOf("loadMonitor()"));
     const files = (await fs.readdir(path.join(app, "app/api/monitor"))).filter((n) => !n.startsWith("."));
-    assert.deepEqual(files, ["books"]);
+    // Unit VW95 (round 91), Q-A 3:19.3 D2: the step view adds the read-only routes phase-2 and phase-2/step. Each keeps monitorOffResponse before its read.
+    assert.deepEqual(files.sort(), ["books", "phase-2"]);
+    for (const [f, read] of [["app/api/monitor/phase-2/route.ts", "loadStepSummary("], ["app/api/monitor/phase-2/step/route.ts", "loadStepData("]]) {
+      const r = await src(f);
+      assert.ok(r.indexOf("monitorOffResponse()") > 0 && r.indexOf("monitorOffResponse()") < r.indexOf(read), f);
+    }
   });
   await check("the new components and rules use no dollar or cost field", async () => {
     for (const f of ["lib/phase2-row.ts", "lib/phase2-load.ts", "components/Phase2Row.tsx"]) {
