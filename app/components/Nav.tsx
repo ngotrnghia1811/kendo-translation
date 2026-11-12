@@ -24,10 +24,13 @@ export default function Nav({ monitor, theme }: { monitor: boolean; theme: Theme
   // Unit RC1 (round 63): the reader pages, the sign-in and sign-up pages, and the admin pages have their own bar. They show no monitor tab.
   const reader = /^\/(read|admin|sign-in|sign-up)(\/|$)/.test(path);
   const tabs = reader ? [] : monitor ? TABS : TABS.filter((t) => !t.monitor);
+  // Unit VW92 (round 91), Q-A 3:7.6: at 390 px the whole page scrolled sideways (document scrollWidth 685; the tabs and the theme switch did not wrap).
+  // [unit default VW92] Below 768 px the bar and the tabs wrap onto more lines. From 768 px up the classes give the same bar as before VW92 (the browser check
+  // compares the boxes at 768, 1024, 1280 and 1440 px). The old bar scrolled sideways below about 700 px only, so 768 px (Tailwind md) is the smallest safe limit.
   return (
-    <header className="border-b border-line bg-white/70 px-6 flex items-end gap-8">
+    <header className="border-b border-line bg-white/70 px-6 flex flex-wrap md:flex-nowrap items-end gap-x-8">
       <div className="py-3 font-semibold tracking-tight">{reader ? "Kendo books" : path.startsWith("/translate") ? "human-translation-view" : "agent-translation-monitor"}</div>
-      <nav className="flex gap-1" aria-label="Main tabs">
+      <nav className="flex flex-wrap md:flex-nowrap gap-1" aria-label="Main tabs">
         {tabs.map((t) => {
           const on = t.match(path);
           return (

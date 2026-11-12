@@ -1,6 +1,8 @@
 "use client";
 import { useMemo, useState } from "react";
 import { countText, parseJsonText, parseJsonlText, rowTitle, startsOpen, type JsonViewKind, type JsonlRow, type OpenMode } from "@/lib/json-view";
+// Unit VW92 (round 91): the error lines show no parse message of the engine (it differs between Node and Firefox, React error #418). See lib/json-error-text.ts.
+import { jsonErrorText, jsonlErrorText } from "@/lib/json-error-text";
 
 // Unit VW89 (round 90), Q-A 3:1.8 (2026-11-09 16:55 PST):
 //   item 1 "Tree view": keys on their own lines, each part opens and closes, the first 2 levels open, own colors for keys, text,
@@ -48,7 +50,7 @@ export default function JsonViewer({ path, kind, size, text }: { path: string; k
       </div>
       {json && !json.ok ? (
         <p data-json-error className="mb-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          This file is not valid JSON{json.line !== null ? ` (line ${json.line}, column ${json.column})` : ""}: {json.error}. The plain text follows.
+          {jsonErrorText(json.line, json.column)}
         </p>
       ) : null}
       <div className="rounded border border-line bg-white p-4">
@@ -77,7 +79,7 @@ function Row({ row, mode }: { row: JsonlRow; mode: OpenMode }) {
     return (
       <li data-row-error={row.line} className="border-t border-line py-1 first:border-t-0">
         <span className="text-red-700">
-          Line {row.line} is not valid JSON: {row.error}
+          {jsonlErrorText(row)}
         </span>
         <pre className="whitespace-pre-wrap break-words text-muted">{row.raw}</pre>
       </li>

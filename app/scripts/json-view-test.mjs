@@ -1,24 +1,33 @@
-// VW89 (round 90): server-free tests of the JSON viewer helpers (Q-A 3:1.7, 3:1.8).
-// Run: scripts/dev/cleanenv.sh node app/scripts/json-view-test.mjs (from the unit folder).
-// Reads real pilot files read only from <T2>/data/pilot-run. Writes only the sample phase 2 report under <unit>/fixture.
+// VW89 (round 90): server-free tests of the JSON viewer helpers (Q-A 3:1.7, 3:1.8). VW92 (round 91): the guard accepts any build unit folder.
+// Run: scripts/dev/cleanenv.sh node app/scripts/json-view-test.mjs (from the unit folder; the wrapper of the unit sets the unit variable and TMPDIR).
+// Reads real pilot files read only from <T2>/data/pilot-run. Writes only below $TMPDIR (the sample phase 2 report in $TMPDIR/json-view-fixture).
 import assert from "node:assert/strict";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { createRequire, registerHooks } from "node:module";
 import { pathToFileURL } from "node:url";
-import { registerHooks } from "node:module";
 
 const app = path.resolve(import.meta.dirname, "..");
 const u = await fs.realpath(path.dirname(app));
-assert.match(u, /\/opencode\/r90\/VW89$/);
-assert.equal(process.env.VW89_UNIT, u, "Use scripts/dev/cleanenv.sh");
-assert.equal(await fs.realpath(process.env.TMPDIR), path.join(u, "tmp"));
-globalThis.fetch = async () => { throw new Error("Network is disabled in VW89 tests."); };
+// [unit default VW92] The guard before VW92 accepted only the folder /opencode/r90/VW89 and the variable VW89_UNIT, so the test failed in every other unit folder.
+// Now: the parent of the app folder is a build unit folder <TMP>/r<round>/<unit>, the wrapper of that unit names it in a variable <UNIT>_UNIT, and TMPDIR is <unit>/tmp.
+// The test writes only below TMPDIR, so it cannot write into the app folder, into <V2>, or into <T2>.
+assert.match(u, /\/opencode\/r\d+\/[A-Za-z0-9_-]+$/, "Run it inside a build unit folder");
+assert.ok(Object.entries(process.env).some(([k, v]) => /^[A-Z]{2}\d+_UNIT$/.test(k) && v === u), "Use scripts/dev/cleanenv.sh of the unit");
+assert.ok(process.env.TMPDIR, "Set TMPDIR (use scripts/dev/cleanenv.sh)");
+const tmp = await fs.realpath(process.env.TMPDIR);
+assert.equal(tmp, path.join(u, "tmp"));
+globalThis.fetch = async () => { throw new Error("Network is disabled in the JSON viewer tests."); };
+const appRequire = createRequire(path.join(app, "package.json"));
+// The paths are found before the hooks start, because require.resolve runs the hooks too (a hook that calls it loops).
+const reactUrl = Object.fromEntries(["react", "react/jsx-runtime", "react-dom/server"].map((s) => [s, pathToFileURL(appRequire.resolve(s)).href]));
 
 const t2data = "/Users/nghiango-mbp/git_repo/git_upload/reimplementation-folder/kendo-translation-translator/data";
 const run = "pilot-run/left_foot_full_p046/20261029T051154Z-r41";
 
-// Fixture: a data folder with one sample phase 2 report. No real data. The test makes it fresh each time.
-const fixture = path.join(u, "fixture");
+// Fixture: a data folder with one sample phase 2 report. No real data. The test makes it fresh each time, below $TMPDIR, and removes it at the end.
+// [unit default VW92] It is $TMPDIR/json-view-fixture. Before VW92 it was <unit>/fixture, which a unit also uses for its own browser check data.
+const fixture = path.join(tmp, "json-view-fixture");
 const data = path.join(fixture, "data");
 await fs.rm(data, { recursive: true, force: true });
 const store = path.join(data, "book-store/paired-dataset");
@@ -51,10 +60,12 @@ const fixtureConfig = path.join(fixture, "viewer.config.json");
 await fs.writeFile(fixtureConfig, JSON.stringify({ translatorDataDir: data, monitor: true }));
 const pilotConfig = path.join(fixture, "viewer-pilot.config.json");
 await fs.writeFile(pilotConfig, JSON.stringify({ translatorDataDir: t2data, monitor: true }));
-assert.equal(process.env.VIEWER_CONFIG, fixtureConfig);
+process.env.VIEWER_CONFIG = fixtureConfig;
 
 registerHooks({
   resolve(specifier, context, next) {
+    // react and react-dom resolve from the app folder, also for the component that the test compiles into the sample folder (only a file outside node_modules needs the map)
+    if (reactUrl[specifier] && !String(context.parentURL ?? "").includes("/node_modules/")) return next(reactUrl[specifier], context);
     if (specifier === "server-only") return { url: "data:text/javascript,export {};", shortCircuit: true };
     if (specifier === "next/navigation") return { url: "data:text/javascript,export function notFound(){throw new Error('NOT_FOUND')} export function redirect(){throw new Error('REDIRECT')}", shortCircuit: true };
     if (specifier === "next/headers") return { url: "data:text/javascript,export function cookies(){throw new Error('No cookies in VW89 tests')} export function headers(){throw new Error('No headers in VW89 tests')}", shortCircuit: true };
@@ -67,6 +78,7 @@ registerHooks({
 const v = await import("../lib/json-view.ts");
 const { loadJsonView, phase2Reports } = await import("../lib/json-view-load.ts");
 const { requireMonitor } = await import("../lib/monitor.ts");
+const E = await import("../lib/json-error-text.ts");
 
 let count = 0;
 async function check(name, fn) { await fn(); count++; console.log("PASS " + name); }
@@ -89,6 +101,81 @@ await check("parseJsonText: error line and column", () => {
   assert.equal(r.ok, false);
   assert.equal(r.line, 4);
   assert.ok(r.error.length > 0);
+});
+// VW92: React error #418 on the JSON viewer page of a broken file. Node (server) and Firefox (browser) write different parse messages (VW91 browser check, engine-msg.log).
+// The test makes the second engine: a JSON.parse that throws the Firefox text for every invalid text. A valid text parses as before.
+const FIREFOX_MSG = "JSON.parse: expected property name or '}' at line 1 column 3 of the JSON data";
+function asFirefox(fn) {
+  const real = JSON.parse;
+  JSON.parse = (t) => { try { return real(t); } catch { throw new SyntaxError(FIREFOX_MSG); } };
+  try { return fn(); } finally { JSON.parse = real; }
+}
+const BAD_JSON = ['{\n  "a": 1,\n  "b": \n}\n', "[1,]", "", '{ "a": ', '{"a" 1}', '{\n\n  "x": tru\n}'];
+await check("VW92 parseJsonText: line and column come from the own scan, the same on two engines", () => {
+  for (const t of BAD_JSON) {
+    const node = v.parseJsonText(t);
+    const ff = asFirefox(() => v.parseJsonText(t));
+    assert.equal(node.ok, false, t);
+    assert.equal(ff.ok, false, t);
+    assert.notEqual(node.error, ff.error, "the two engines write different messages: " + JSON.stringify(t));
+    assert.equal(ff.error, FIREFOX_MSG);
+    assert.deepEqual([node.line, node.column], [ff.line, ff.column], t);
+    const at = v.firstErrorAt(t);
+    assert.deepEqual([node.line, node.column], [v.lineAndColumn(t, at).line, v.lineAndColumn(t, at).column], t);
+  }
+  assert.deepEqual([v.parseJsonText("[1,]").line, v.parseJsonText("[1,]").column], [1, 4]);
+});
+await check("VW92 jsonErrorText: the words of Q-A 3:1.8 without the engine message", () => {
+  assert.equal(E.jsonErrorText(4, 1), "This file is not valid JSON (line 4, column 1). The plain text follows.");
+  assert.equal(E.jsonErrorText(null, null), "This file is not valid JSON. The plain text follows.");
+  for (const t of BAD_JSON) {
+    const node = v.parseJsonText(t);
+    const ff = asFirefox(() => v.parseJsonText(t));
+    const a = E.jsonErrorText(node.line, node.column);
+    assert.equal(a, E.jsonErrorText(ff.line, ff.column));
+    assert.ok(!a.includes(node.error) && !a.includes(FIREFOX_MSG) && !/JSON\.parse|at position|Expected|expected/.test(a), a);
+  }
+  const p = v.parseJsonText('{\n  "a": 1,\n  "b": \n}\n');
+  assert.equal(E.jsonErrorText(p.line, p.column), "This file is not valid JSON (line 4, column 1). The plain text follows.");
+});
+await check("VW92 jsonlErrorText: 'Line 2 is not valid JSON (column 7)' on two engines", () => {
+  const text = '{"a":1}\n{"a": broken\n\n{"b":2}\n';
+  const node = v.parseJsonlText(text);
+  const ff = asFirefox(() => v.parseJsonlText(text));
+  assert.notEqual(node[1].error, ff[1].error);
+  assert.equal(E.jsonlErrorText(node[1]), "Line 2 is not valid JSON (column 7)");
+  assert.equal(E.jsonlErrorText(ff[1]), "Line 2 is not valid JSON (column 7)");
+  assert.equal(E.jsonlErrorText({ line: 5, raw: "" }), "Line 5 is not valid JSON (column 1)");
+});
+await check("VW92 component JsonViewer: the HTML of a broken JSON file and of a broken JSONL file is the same on two engines (no React error #418)", async () => {
+  const ts = appRequire("typescript");
+  const compiled = ts.transpileModule(await fs.readFile(path.join(app, "components/JsonViewer.tsx"), "utf8"), {
+    compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const file = path.join(tmp, "JsonViewer.test-build.mjs");
+  await fs.writeFile(file, compiled);
+  const JsonViewer = (await import(pathToFileURL(file).href)).default;
+  const { createElement } = await import("react");
+  const { renderToString } = await import("react-dom/server");
+  const html = (kind, text) => renderToString(createElement(JsonViewer, { path: "x/y", kind, size: "0.001 MB", text }));
+  const plain = (h) => h.replace(/<!-- -->/g, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const badJson = '{\n  "a": 1,\n  "b": \n}\n';
+  const badJsonl = '{"a":1}\n{"a": broken\n{"b":2}\n';
+  for (const [kind, text, want] of [
+    ["json", badJson, "This file is not valid JSON (line 4, column 1). The plain text follows."],
+    ["jsonl", badJsonl, "Line 2 is not valid JSON (column 7)"],
+  ]) {
+    const a = html(kind, text);
+    const b = asFirefox(() => html(kind, text));
+    assert.equal(a, b, `${kind}: the server HTML and the browser HTML must be equal`);
+    assert.ok(plain(a).includes(want), plain(a));
+    assert.ok(!/JSON\.parse|at position|Expected property|expected property/.test(a), a);
+  }
+  // A good file still renders as a tree and as rows.
+  assert.match(html("json", '{"a":1}'), /data-json-tree/);
+  assert.match(html("jsonl", '{"a":1}\n'), /data-json-rows/);
+  const src = await fs.readFile(path.join(app, "components/JsonViewer.tsx"), "utf8");
+  assert.ok(!/\{json\.error\}|\{row\.error\}/.test(src), "JsonViewer.tsx must not print the message of the engine");
 });
 await check("firstErrorAt agrees with JSON.parse on good and bad texts", () => {
   const good = ['{}', '[]', '{"a":[1,-2.5e3,true,false,null,"x\\u00e9\\n"]}', ' 0 ', '"日本語"'];
@@ -250,4 +337,5 @@ await check("no new package", async () => {
   assert.deepEqual(Object.keys(pkg.dependencies).sort(), ["next", "react", "react-dom"]);
 });
 
+await fs.rm(fixture, { recursive: true, force: true });
 console.log(`json-view tests: ${count} passed`);

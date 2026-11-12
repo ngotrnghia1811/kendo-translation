@@ -1,4 +1,4 @@
-// VW91 (round 91): server-free tests of the live Phase 2 row of the Monitor dashboard "/" (Q-A 3:4.6, 3:4.2).
+// VW91 (round 91): server-free tests of the live Phase 2 row of the Monitor dashboard "/" (Q-A 3:4.6, 3:4.2). VW92 adds the quota wait (Q-A 3:7.6, 3:7.4).
 // Run: scripts/dev/cleanenv.sh node scripts/phase2-row-test.mjs (from the app folder; the wrapper sets TMPDIR).
 // It makes sample folders <data>/book-store/paired-dataset below $TMPDIR, reads them with loadPhase2, and checks the text of the row.
 // It reads no real data, starts no server, makes no network call, and removes its folder at the end.
@@ -10,7 +10,7 @@ import { createRequire, registerHooks } from "node:module";
 
 const app = path.resolve(import.meta.dirname, "..");
 assert.ok(process.env.TMPDIR, "Set TMPDIR (use scripts/dev/cleanenv.sh)");
-globalThis.fetch = async () => { throw new Error("Network is disabled in VW91 tests."); };
+globalThis.fetch = async () => { throw new Error("Network is disabled in the Phase 2 row tests."); };
 const appRequire = createRequire(path.join(app, "package.json"));
 // The paths are found before the hooks start, because require.resolve runs the hooks too (a hook that calls it loops).
 const reactUrl = Object.fromEntries(["react", "react/jsx-runtime", "react-dom/server"].map((s) => [s, pathToFileURL(appRequire.resolve(s)).href]));
@@ -28,6 +28,7 @@ registerHooks({
   load(url, context, next) { if (url.endsWith(".ts")) return { ...next(url, { ...context, format: "module-typescript" }), format: "module-typescript" }; return next(url, context); },
 });
 const P = await import("../lib/phase2-row.ts");
+const WT = await import("../lib/phase2-wait.ts");
 const { loadPhase2 } = await import("../lib/phase2-load.ts");
 const R = await import("../lib/book-status-rules.ts");
 
@@ -306,6 +307,192 @@ try {
     assert.ok(!s.includes(root) && !/\/Users\/|\/private\/var|\/var\/folders/.test(s));
   });
 
+  // ---- VW92 (round 91, Q-A 3:7.6 and 3:7.4 A11 to A13): the quota wait. The key "waiting" of status.json (translator_run.py make_quota_watch).
+  const WAIT_BASE = {
+    reason: "usage limit", page: "article_a/p057", box: "TL_1", since_utc: "2026-11-11T16:10:00Z", until_utc: "2026-11-12T04:19:00Z", wait_s: 43740, source: "retry-after",
+    cards: ["claude-028c2ffe", "claude-7f6d8610", "claude-aade7ca8"], calls: 1,
+  };
+  const waitLinesOf = (t) => ({ main: lineOf(t, "waiting")?.text, detail: lineOf(t, "waiting-detail")?.text });
+
+  await check("VW92 quota wait, 3 cards: the main line, the detail line, and the state stays Running", async () => {
+    const { v, t } = await text({ ...base, waiting: { ...WAIT_BASE, calls: 2 } });
+    assert.equal(t.title, "Phase 2 (paired dataset): ● Running");
+    assert.deepEqual(keys(t), ["progress", "now", "waiting", "waiting-detail", "alive", "last-accepted", "tokens", "last-event", "links"]);
+    assert.equal(lineOf(t, "waiting").text, "Waiting for the usage limit until 20:19 PST (all 3 cards).");
+    assert.equal(lineOf(t, "waiting-detail").text, "Wait started 08:10 PST at p057, box TL_1. 2 calls wait. End time from the retry-after value of the error.");
+    assert.deepEqual(Object.keys(v.waiting).sort(), ["box", "calls", "cards", "page", "reason", "sinceEpoch", "source", "untilEpoch"]);
+    assert.equal(v.waiting.untilEpoch, Date.UTC(2026, 10, 12, 4, 19, 0) / 1000);
+    // The old lines stay as they were.
+    assert.equal(lineOf(t, "now").text, "Now: p057, boxes TS_2, TL_1.");
+    assert.equal(lineOf(t, "alive").text, "Last sign of life 12 s ago.");
+  });
+
+  await check("VW92 quota wait, 1 card and 2 cards: the short names ntngh, uonlp, ngotr in a fixed order", async () => {
+    const one = waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, cards: ["claude-028c2ffe"] } })).t);
+    assert.equal(one.main, "Waiting for the usage limit until 20:19 PST (card ntngh).");
+    const two = waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, cards: ["claude-7f6d8610", "claude-028c2ffe"] } })).t);
+    assert.equal(two.main, "Waiting for the usage limit until 20:19 PST (cards ntngh, ngotr).");
+    const uonlp = waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, cards: ["claude-aade7ca8"] } })).t);
+    assert.equal(uonlp.main, "Waiting for the usage limit until 20:19 PST (card uonlp).");
+    const ngotr = waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, cards: ["claude-7f6d8610"] } })).t);
+    assert.equal(ngotr.main, "Waiting for the usage limit until 20:19 PST (card ngotr).");
+    // Two doubles count once.
+    const dbl = waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, cards: ["claude-028c2ffe", "claude-028c2ffe"] } })).t);
+    assert.equal(dbl.main, "Waiting for the usage limit until 20:19 PST (card ntngh).");
+    assert.equal(WT.CARD_NAMES["claude-028c2ffe"], "ntngh");
+    assert.equal(WT.CARD_NAMES["claude-aade7ca8"], "uonlp");
+    assert.equal(WT.CARD_NAMES["claude-7f6d8610"], "ngotr");
+  });
+
+  await check("VW92 quota wait, an unknown ID and the providers xai and google show as written (A11)", async () => {
+    const xai = waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, box: "TS_2", cards: ["xai"], source: "step" } })).t);
+    assert.equal(xai.main, "Waiting for the usage limit until 20:19 PST (xai).");
+    assert.equal(xai.detail, "Wait started 08:10 PST at p057, box TS_2. End time is a fixed step, because no reset time is known.");
+    const ggl = waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, cards: ["google"], source: "usage file" } })).t);
+    assert.equal(ggl.main, "Waiting for the usage limit until 20:19 PST (google).");
+    assert.equal(ggl.detail, "Wait started 08:10 PST at p057, box TL_1. End time from the reset time in the usage file.");
+    const unk = waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, cards: ["claude-deadbeef"] } })).t);
+    assert.equal(unk.main, "Waiting for the usage limit until 20:19 PST (claude-deadbeef).");
+    const mix = waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, cards: ["xai", "claude-028c2ffe"] } })).t);
+    assert.equal(mix.main, "Waiting for the usage limit until 20:19 PST (ntngh, xai).");
+    const all = waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, cards: ["claude-028c2ffe", "claude-aade7ca8", "claude-7f6d8610", "xai"] } })).t);
+    assert.equal(all.main, "Waiting for the usage limit until 20:19 PST (all 3 cards, xai).");
+    const none = waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, cards: [] } })).t);
+    assert.equal(none.main, "Waiting for the usage limit until 20:19 PST.");
+    assert.equal(WT.cardsText(["claude-028c2ffe", "claude-aade7ca8", "claude-7f6d8610"]), "all 3 cards");
+  });
+
+  await check("VW92 quota wait, no key: no wait line, and the lines are the same as before VW92", async () => {
+    const { v, t } = await text(base);
+    assert.equal(v.waiting, null);
+    assert.ok(!keys(t).includes("waiting") && !keys(t).includes("waiting-detail"));
+    assert.deepEqual(keys(t), ["progress", "now", "alive", "last-accepted", "tokens", "last-event", "links"]);
+    // The key goes away: the next read shows no line (the live update of the dashboard calls this read every 3 s).
+    const withKey = await text({ ...base, waiting: WAIT_BASE });
+    assert.ok(keys(withKey.t).includes("waiting"));
+    assert.ok(!keys((await text(base)).t).includes("waiting"));
+    for (const none of [null, undefined]) assert.ok(!keys((await text({ ...base, waiting: none })).t).includes("waiting"));
+  });
+
+  await check("VW92 quota wait, a broken key: no crash and no wait line (wrong types, no end time)", async () => {
+    const broken = [
+      "x", 5, true, [], [WAIT_BASE], {}, { cards: ["claude-028c2ffe"] }, { until_utc: 5 }, { until_utc: "tomorrow" }, { until_utc: "2026-13-45T99:00:00Z" },
+      { since_utc: "2026-11-11T16:10:00Z" }, { since_utc: "2026-11-11T16:10:00Z", wait_s: "long" }, { since_utc: "2026-11-11T16:10:00Z", wait_s: -5 },
+      { since_utc: "2026-11-11T16:10:00Z", wait_s: NaN }, { until_utc: { a: 1 }, cards: 7, calls: "x", page: [], box: {}, source: 9, reason: 3 },
+    ];
+    for (const b of broken) {
+      const r = await text({ ...base, waiting: b });
+      assert.equal(r.v.kind, "status", JSON.stringify(b));
+      assert.equal(r.v.waiting, null, JSON.stringify(b));
+      assert.ok(!keys(r.t).includes("waiting"), JSON.stringify(b));
+      assert.equal(r.t.title, "Phase 2 (paired dataset): ● Running", JSON.stringify(b));
+    }
+    // Wrong types in the other fields only drop that part.
+    const part = await text({ ...base, waiting: { until_utc: "2026-11-12T04:19:00Z", cards: 7, calls: "x", page: [], box: {}, source: 9, reason: 3, since_utc: 4 } });
+    assert.equal(lineOf(part.t, "waiting").text, "Waiting until 20:19 PST.");
+    assert.equal(lineOf(part.t, "waiting-detail"), undefined);
+    const cards = await text({ ...base, waiting: { ...WAIT_BASE, cards: [1, null, "", "  ", { a: 1 }, "claude-aade7ca8"], calls: 0 } });
+    assert.equal(lineOf(cards.t, "waiting").text, "Waiting for the usage limit until 20:19 PST (card uonlp).");
+    assert.ok(!/calls wait/.test(lineOf(cards.t, "waiting-detail").text));
+    // since_utc plus wait_s gives the end when until_utc is missing.
+    const calc = await text({ ...base, waiting: { since_utc: "2026-11-11T16:10:00Z", wait_s: 3600, cards: ["claude-028c2ffe"] } });
+    assert.equal(lineOf(calc.t, "waiting").text, "Waiting until 09:10 PST (card ntngh).");
+    // A very long card ID is cut, and a long page or box is cut.
+    const longId = await text({ ...base, waiting: { ...WAIT_BASE, cards: ["c".repeat(300)], box: "b".repeat(300) } });
+    assert.ok(lineOf(longId.t, "waiting").text.length < 120 && lineOf(longId.t, "waiting-detail").text.length < 160);
+    // At most 8 cards show.
+    const many = await text({ ...base, waiting: { ...WAIT_BASE, cards: Array.from({ length: 40 }, (_, i) => "id" + i) } });
+    assert.equal(many.v.waiting.cards.length, 8);
+  });
+
+  await check("VW92 quota wait, the end time is in the past: the line says the planned end is past and shows no negative time", async () => {
+    const past = await text({ ...base, waiting: { ...WAIT_BASE, since_utc: "2026-11-11T14:00:00Z", until_utc: "2026-11-11T16:30:00Z" } });
+    assert.equal(lineOf(past.t, "waiting").text, "Waiting for the usage limit. The planned end, 08:30 PST, is past (all 3 cards).");
+    assert.ok(!/-\d/.test(lineOf(past.t, "waiting").text));
+    assert.equal(past.t.title, "Phase 2 (paired dataset): ● Running");
+    // The end equals the clock: also past (the run writes quota-resumed within a second).
+    const edge = await text({ ...base, waiting: { ...WAIT_BASE, until_utc: "2026-11-11T16:40:30Z" } });
+    assert.ok(lineOf(edge.t, "waiting").text.includes("is past"));
+    const edge2 = await text({ ...base, waiting: { ...WAIT_BASE, until_utc: "2026-11-11T16:40:31Z" } });
+    assert.ok(lineOf(edge2.t, "waiting").text.startsWith("Waiting for the usage limit until 08:40 PST"));
+    // The same view moves with the clock of the browser (phase2Text is called with its own clock every 30 s).
+    const v = (await text({ ...base, waiting: { ...WAIT_BASE, until_utc: "2026-11-11T16:41:00Z" } })).v;
+    assert.ok(P.phase2Text(v, NOW).lines.find((l) => l.key === "waiting").text.includes("until 08:41 PST"));
+    assert.ok(P.phase2Text(v, NOW + 60).lines.find((l) => l.key === "waiting").text.includes("is past"));
+  });
+
+  await check("VW92 quota wait, the date shows only when the time is on another PST day (UTC minus 8 hours)", async () => {
+    // Now is 08:40 PST on Nov 11. 2026-11-12T08:30:00Z is 00:30 PST on Nov 12.
+    const next = waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, until_utc: "2026-11-12T08:30:00Z" } })).t);
+    assert.equal(next.main, "Waiting for the usage limit until Nov 12 00:30 PST (all 3 cards).");
+    // 2026-11-11T07:59:00Z is 23:59 PST on Nov 10, the day before.
+    const old = waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, since_utc: "2026-11-11T07:59:00Z", until_utc: "2026-11-11T16:50:00Z" } })).t);
+    assert.equal(old.detail.split(". ")[0], "Wait started Nov 10 23:59 PST at p057, box TL_1");
+    assert.ok(old.main.includes("until 08:50 PST"));
+  });
+
+  await check("VW92 quota wait, other reasons, missing page or box, and a key in a state that does not run", async () => {
+    assert.equal(waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, reason: "maintenance" } })).t).main, "Waiting (maintenance) until 20:19 PST (all 3 cards).");
+    assert.equal(waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, reason: null } })).t).main, "Waiting until 20:19 PST (all 3 cards).");
+    assert.equal(waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, page: null } })).t).detail.split(". ")[0], "Wait started 08:10 PST at box TL_1");
+    assert.equal(waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, box: null } })).t).detail.split(". ")[0], "Wait started 08:10 PST at p057");
+    assert.equal(waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, page: null, box: null, source: null } })).t).detail, "Wait started 08:10 PST.");
+    assert.equal(waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, since_utc: null, source: null } })).t).detail, "Wait at p057, box TL_1.");
+    assert.equal(waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, since_utc: null, page: null, box: null, source: null } })).t).detail, undefined);
+    assert.equal(waitLinesOf((await text({ ...base, waiting: { ...WAIT_BASE, source: "magic" } })).t).detail, "Wait started 08:10 PST at p057, box TL_1.");
+    // With a PAUSE file the state is Running with pause requested and the wait shows too.
+    await put({ ...base, waiting: WAIT_BASE });
+    await fs.writeFile(path.join(store, "PAUSE"), "");
+    const tp = P.phase2Text(await loadPhase2(root, NOW_MS, alive), NOW);
+    assert.equal(tp.title, "Phase 2 (paired dataset): ● Running with pause requested");
+    assert.deepEqual(keys(tp).slice(0, 5), ["progress", "pause", "now", "waiting", "waiting-detail"]);
+    // A key that stays after the run ended or died: no wait line (the process no longer waits).
+    for (const st of [
+      { state: "stopped", stop_reason: "ctrl-c", pid: null },
+      { state: "completed", pid: null, pages_done: 144 },
+      { state: "stopped", stop_reason: "forward-failure", pid: null },
+      { state: "running", heartbeat_utc: "2026-11-11T16:35:30Z" }, // silent for 300 s: Stopped unexpectedly
+      { state: "running", pid: 99999999 }, // process gone
+      { state: "not-started", pid: null },
+    ]) {
+      const r = await text({ ...base, ...st, waiting: WAIT_BASE });
+      assert.equal(r.v.waiting, null, JSON.stringify(st));
+      assert.ok(!keys(r.t).includes("waiting") && !keys(r.t).includes("waiting-detail"), JSON.stringify(st));
+    }
+    // A bad status file: no wait, no crash.
+    assert.equal((await text("{ waiting")).v.waiting, null);
+  });
+
+  await check("VW92 quota wait: tokens only, no dollar, no e-mail address, no Mac path, JSON-safe answer", async () => {
+    const { v, t } = await text({ ...base, cost_usd_models_phase: 12.34, waiting: { ...WAIT_BASE, calls: 3 } });
+    const all = JSON.stringify(t) + JSON.stringify(v);
+    assert.ok(!all.includes("12.34") && !all.includes("$") && !/USD|@gmail|ntnghia|uonlpsharing|ngotrnghia/i.test(all), all);
+    assert.ok(!/\/Users\/|\/private\/var|\/var\/folders/.test(all) && !all.includes(root));
+    assert.deepEqual(JSON.parse(JSON.stringify(v)), v);
+    assert.ok(lineOf(t, "tokens").text.startsWith("Tokens: input 1,234,567"), "the token line stays");
+    for (const f of ["lib/phase2-wait.ts"]) {
+      const s = await fs.readFile(path.join(app, f), "utf8");
+      assert.ok(!/cost_usd|costUsd|money\(|usd\(/.test(s.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "")), f);
+    }
+  });
+
+  await check("VW92 quota wait: the rules read the files of TR91 as they are written (shape of make_quota_watch and quota_wait_plan)", async () => {
+    // The shape from translator_run.py 214-216 and launcher.py 295-296: reason, page, box, since_utc, until_utc, wait_s, source, cards (sorted), calls.
+    const written = { reason: "usage limit", page: "article_a/p057", box: "TL_1", since_utc: "2026-11-11T16:10:00Z", until_utc: "2026-11-12T04:19:00Z", wait_s: 43740.0, source: "usage file",
+      cards: ["claude-028c2ffe", "claude-7f6d8610", "claude-aade7ca8"], calls: 3 };
+    const w = WT.waitOf(written);
+    assert.deepEqual(w, { reason: "usage limit", page: "p057", box: "TL_1", sinceEpoch: Date.UTC(2026, 10, 11, 16, 10, 0) / 1000, untilEpoch: Date.UTC(2026, 10, 12, 4, 19, 0) / 1000,
+      source: "usage file", cards: ["claude-028c2ffe", "claude-7f6d8610", "claude-aade7ca8"], calls: 3 });
+    // An agent tag as the box (the key box holds "a tag such as TL_1 or an agent tag").
+    assert.equal(WT.waitOf({ ...written, box: "CRITIC" }).box, "CRITIC");
+    // The three events of history.jsonl (A13) show as the last event with their own name.
+    for (const name of ["quota-wait", "quota-resumed", "quota-wait-stopped"]) {
+      const h = JSON.stringify({ utc: "2026-11-11T16:40:00Z", event: name, page: "article_a/p057", box: "TL_1", cards: ["claude-028c2ffe"], since_utc: "2026-11-11T16:10:00Z" }) + "\n";
+      const r = await text(base, history + h);
+      assert.equal(lineOf(r.t, "last-event").text, `Last event: ${name}, Nov 11 08:40 PST (just now)`);
+    }
+  });
+
   // ---- the component, rendered to HTML with react-dom/server (no server process). TypeScript compiles the .tsx file into the sample folder.
   await check("component: renders the row (title, items, red error line with the file link, JSON viewer links) and the old line when the view is null", async () => {
     const ts = appRequire("typescript");
@@ -346,6 +533,16 @@ try {
     const bad = (await text("{ nope")).v;
     const html3 = renderToStaticMarkup(createElement(Phase2Row, { view: bad, now: NOW }));
     assert.ok(plain(html3).startsWith("Phase 2 (paired dataset): ? Status file unreadable The file status.json cannot be read as a JSON object."), plain(html3));
+
+    // VW92: a quota wait. The two lines are list items of the row, in the colors of the other muted lines (no new color class).
+    const waiting = (await text({ ...base, waiting: { ...WAIT_BASE, calls: 2 } })).v;
+    const html5 = renderToStaticMarkup(createElement(Phase2Row, { view: waiting, now: NOW }));
+    assert.match(html5, /data-phase2-state="running"/);
+    assert.match(html5, /<li data-phase2-item="waiting">Waiting for the usage limit until 20:19 PST \(all 3 cards\)\.<\/li><li data-phase2-item="waiting-detail">Wait started 08:10 PST at p057, box TL_1\. 2 calls wait\. End time from the retry-after value of the error\.<\/li>/);
+    assert.ok(plain(html5).startsWith("Phase 2 (paired dataset): ● Running Pages done: 56 of 144 Now: p057, boxes TS_2, TL_1. Waiting for the usage limit until 20:19 PST (all 3 cards)."), plain(html5));
+    assert.ok(!html5.includes("text-red-700"), "the wait line is no error line");
+    // Without the key the HTML holds no wait item.
+    assert.ok(!html.includes("data-phase2-item=\"waiting"));
 
     // no view: the old line, with the old attribute
     for (const none of [null, undefined]) {

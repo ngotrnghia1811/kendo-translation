@@ -12,6 +12,9 @@ import type { BaseKey, StatusFile } from "./book-status-rules";
 import { LABELS, agoText, baseLabelOf, errorLine, pageShort } from "./book-status-rules";
 import { jsonViewHref } from "./json-view";
 import { parseUtcIso, pstStamp } from "./pst";
+// Unit VW92 (round 91), Q-A 3:7.6: the quota wait (key "waiting" of status.json). The rules sit in the new file lib/phase2-wait.ts.
+import { waitOf, waitText } from "./phase2-wait";
+import type { Phase2Wait } from "./phase2-wait";
 
 /** Folder of the phase 2 store below the Translator data folder (PHASE2_BOOK in book-status.ts, prompts.py:26). */
 export const PHASE2_DIR = "book-store/paired-dataset";
@@ -69,6 +72,11 @@ export interface Phase2View {
   errorFile: string | null;
   tokens: Phase2Tokens | null;
   lastEvent: { name: string; epoch: number | null } | null;
+  /**
+   * The quota wait (key "waiting" of status.json), or null. [unit default VW92] It is set only while the state is Running or Running with pause requested.
+   * A key that stays in the file after a stop or a crash shows nothing, because the process no longer waits.
+   */
+  waiting: Phase2Wait | null;
   statusHref: string;
   historyHref: string | null;
 }
@@ -189,7 +197,7 @@ export function buildPhase2(input: Phase2Input, now: number): Phase2View | null 
     return {
       kind: "unreadable", key: "unreadable", label: LABELS.unreadable.text, symbol: LABELS.unreadable.symbol,
       pagesDone: null, pagesTotal: null, runningPage: null, runningBoxes: [], lastAccepted: null, stopReason: null, heartbeat: null, updated: null,
-      silentText: null, error: null, errorFile: null, tokens: null, lastEvent: null, ...base,
+      silentText: null, error: null, errorFile: null, tokens: null, lastEvent: null, waiting: null, ...base,
     };
   }
   const key = baseLabelOf(st, input.pauseExists, input.pidAlive, now);
@@ -222,6 +230,7 @@ export function buildPhase2(input: Phase2Input, now: number): Phase2View | null 
     errorFile: le && lt ? errorFilePath(le.file) : null,
     tokens: tokensOf(raw.tokens_phase),
     lastEvent: ev && evName ? { name: shorten(evName, 60), epoch: parseUtcIso(ev.utc) } : null,
+    waiting: key === "running" || key === "running-pause" ? waitOf(raw.waiting) : null,
     ...base,
   };
 }
@@ -285,6 +294,12 @@ export function phase2Text(v: Phase2View, now: number): Phase2Text {
   if (v.key === "running" || v.key === "running-pause") {
     if (v.key === "running-pause") out("pause", "Pause requested. The process finishes the current page, then ends.");
     if (v.runningPage) out("now", `Now: ${v.runningPage}${boxesText(v.runningBoxes)}.`);
+    if (v.waiting) {
+      // Unit VW92: the quota wait. The heartbeat stays fresh during a wait, so the state stays Running and these lines add the reason.
+      const w = waitText(v.waiting, now);
+      out("waiting", w.main);
+      if (w.detail) out("waiting-detail", w.detail);
+    }
     if (v.heartbeat !== null) out("alive", `Last sign of life ${agoText(v.heartbeat, now, true)}.`);
   } else if (v.key === "unexpected" && v.silentText) {
     out("silent", v.silentText);

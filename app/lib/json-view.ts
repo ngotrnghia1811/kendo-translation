@@ -51,24 +51,22 @@ export function lineAndColumn(text: string, position: number): { line: number; c
 
 export type JsonParse = { ok: true; value: unknown } | { ok: false; error: string; line: number | null; column: number | null };
 
-/** Parse a JSON text. A parse error gives the message and, when the engine names a position, the line and the column. */
+/**
+ * Parse a JSON text. A parse error gives the message of the engine and the line and the column of the first wrong character.
+ * [unit default VW92] The line and the column come from the own scan (firstErrorAt) on every engine, never from the engine message.
+ * The message differs by engine (Node and Firefox write different text), so it is for a log or a test and never for the screen (lib/json-error-text.ts).
+ * Before VW92 the position came from the engine message, and the screen showed the message. The server and the browser then wrote different text (React error #418).
+ */
 export function parseJsonText(text: string): JsonParse {
   try {
     return { ok: true, value: JSON.parse(text) };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    const lc = /line (\d+) column (\d+)/.exec(message);
-    if (lc) return { ok: false, error: message, line: Number(lc[1]), column: Number(lc[2]) };
-    const pos = /position (\d+)/.exec(message);
-    if (pos) {
-      const at = lineAndColumn(text, Number(pos[1]));
-      return { ok: false, error: message, line: at.line, column: at.column };
-    }
-    // Some engines (for example Node 26) name no position. A small scan finds the first wrong character.
+    // The scan finds no position only for a text that it accepts but the engine refuses (or a very deep text). Then the screen shows no line.
     const at = firstErrorAt(text);
     if (at === null) return { ok: false, error: message, line: null, column: null };
-    const lcAt = lineAndColumn(text, at);
-    return { ok: false, error: message, line: lcAt.line, column: lcAt.column };
+    const lc = lineAndColumn(text, at);
+    return { ok: false, error: message, line: lc.line, column: lc.column };
   }
 }
 
