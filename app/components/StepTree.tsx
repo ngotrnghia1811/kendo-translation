@@ -9,6 +9,7 @@ import { minutes, pageHref, pstClock, pstDateTime } from "@/lib/format";
 import { jsonViewHref } from "@/lib/json-view";
 import { tokensShort, TOKENS_SHORT_HELP, TOKENS_SHORT_LABEL } from "@/lib/tokens-view";
 import { modelOptionText } from "@/lib/readable-names";
+import { ModelCardId } from "./ModelCardId"; // Unit VW97 (Q-A 3:21.3): the Claude card ID in small grey text next to the card name.
 import { StatePill, VerdictPill } from "./Pills";
 import { BoxCode, BoxText } from "./BoxCode";
 
@@ -220,6 +221,7 @@ function StepItem({ page, step, choices, setChoice, tick }: { page: PageNode; st
         </span>
         <span className="block text-xs text-muted">
           {step.model ? `model ${modelOptionText(step.model)}` : "no model stored"}
+          {step.model ? <ModelCardId value={step.model} /> : null}
           {step.seconds !== null ? ` · ${secondsText(step.seconds)}` : ""}
           {step.calls > 0 ? (
             <>

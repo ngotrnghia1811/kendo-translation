@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { PageData } from "@/lib/types";
 import Link from "next/link";
 import { EXTRAS, type ExtraKey } from "./extras-store";
+import { ModelCardId } from "./ModelCardId"; // Unit VW97 (Q-A 3:21.3): the Claude card ID in small grey text next to the card name.
 import { enFormBadge, enFormTone } from "@/lib/page-labels";
 import { jsonViewHref } from "@/lib/json-view";
 import { TOKENS_LABEL, missingNote, sumTokens, tokensLine } from "@/lib/tokens-view";
@@ -114,6 +115,7 @@ export function Calls({ rows }: { rows: any[] }) {
               </td>
               <td className={td + " text-xs"}>
                 <span title={`Model ID: ${r.model}`}>{modelOptionText(String(r.model))}</span>
+                <ModelCardId value={String(r.model)} />
                 {r.variant ? <span className="text-muted"> ({r.variant})</span> : null}
               </td>
               <TokenCells tokens={r.tokenCounts ?? null} className={td + " text-right tabular-nums"} />

@@ -13,7 +13,9 @@ const u = await fs.realpath(path.dirname(app));
 // Now: the parent of the app folder is a build unit folder <TMP>/r<round>/<unit>, the wrapper of that unit names it in a variable <UNIT>_UNIT, and TMPDIR is <unit>/tmp.
 // The test writes only below TMPDIR, so it cannot write into the app folder, into <V2>, or into <T2>.
 assert.match(u, /\/opencode\/r\d+\/[A-Za-z0-9_-]+$/, "Run it inside a build unit folder");
-assert.ok(Object.entries(process.env).some(([k, v]) => /^[A-Z]{2}\d+_UNIT$/.test(k) && v === u), "Use scripts/dev/cleanenv.sh of the unit");
+// [unit default VW97] The variable value is compared by its real path, because /var/folders/... on macOS is a link to /private/var/folders/... (the card command names the first form).
+const unitVars = await Promise.all(Object.entries(process.env).filter(([k, v]) => /^[A-Z]{2}\d+_UNIT$/.test(k) && v).map(([, v]) => fs.realpath(v).catch(() => null)));
+assert.ok(unitVars.includes(u), "Use scripts/dev/cleanenv.sh of the unit");
 assert.ok(process.env.TMPDIR, "Set TMPDIR (use scripts/dev/cleanenv.sh)");
 const tmp = await fs.realpath(process.env.TMPDIR);
 assert.equal(tmp, path.join(u, "tmp"));
@@ -60,6 +62,20 @@ const fixtureConfig = path.join(fixture, "viewer.config.json");
 await fs.writeFile(fixtureConfig, JSON.stringify({ translatorDataDir: data, monitor: true }));
 const pilotConfig = path.join(fixture, "viewer-pilot.config.json");
 await fs.writeFile(pilotConfig, JSON.stringify({ translatorDataDir: t2data, monitor: true }));
+// [unit default VW97] Two more made-up data folders for the root listing (Q-A 3:21.3, fix a). The live folder <T2>/data cannot serve the check
+// "no phase 2 report yet", because the paid phase 2 run writes reports there. One folder has no report, one has exactly one report. No real data.
+const noReportData = path.join(fixture, "data-no-report");
+await fs.mkdir(path.join(noReportData, "pilot-run/sample_run"), { recursive: true });
+await fs.mkdir(path.join(noReportData, "book-store/sample-book"), { recursive: true });
+await fs.writeFile(path.join(noReportData, "pilot-run/sample_run/summary.json"), "{}");
+await fs.writeFile(path.join(noReportData, "note.txt"), "made-up note\n");
+const noReportConfig = path.join(fixture, "viewer-no-report.config.json");
+await fs.writeFile(noReportConfig, JSON.stringify({ translatorDataDir: noReportData, monitor: true }));
+const oneReportData = path.join(fixture, "data-one-report");
+await fs.mkdir(path.join(oneReportData, "book-store/paired-dataset/report"), { recursive: true });
+await fs.writeFile(path.join(oneReportData, "book-store/paired-dataset/report/summary.json"), JSON.stringify({ schema: "phase2-report-v1", state: "translated" }));
+const oneReportConfig = path.join(fixture, "viewer-one-report.config.json");
+await fs.writeFile(oneReportConfig, JSON.stringify({ translatorDataDir: oneReportData, monitor: true }));
 process.env.VIEWER_CONFIG = fixtureConfig;
 
 registerHooks({
@@ -244,11 +260,22 @@ await check("pilot run folder lists folders first", async () => {
   const firstFile = r.entries.findIndex((x) => !x.folder);
   assert.ok(r.entries.slice(firstFile).every((x) => !x.folder));
 });
-await check("real data folder today: no phase 2 report yet", async () => {
+// VW97 (Q-A 3:21.3): this check used the live folder <T2>/data and failed when the phase 2 run wrote reports there. It now uses made-up data folders.
+await check("made-up data folder with no phase 2 report: reports is empty, the folders are listed", async () => {
+  process.env.VIEWER_CONFIG = noReportConfig;
   const r = await loadJsonView("");
   assert.equal(r.view, "folder");
   assert.deepEqual(r.reports, []);
   assert.ok(r.entries.some((x) => x.name === "pilot-run" && x.folder));
+  assert.ok(r.entries.some((x) => x.name === "book-store" && x.folder));
+  assert.ok(r.entries.some((x) => x.name === "note.txt" && !x.folder && x.kind === "text"));
+});
+await check("made-up data folder with one phase 2 report: reports holds that report", async () => {
+  process.env.VIEWER_CONFIG = oneReportConfig;
+  const r = await loadJsonView("");
+  assert.equal(r.view, "folder");
+  assert.deepEqual(r.reports, [{ label: "Phase 2 report", path: "book-store/paired-dataset/report/summary.json", folder: false }]);
+  process.env.VIEWER_CONFIG = pilotConfig; // the next two checks use the pilot files again
 });
 await check("paths that leave the data folder are refused", async () => {
   for (const bad of ["../config/translator-models.yaml", "pilot-run/../../config", "/etc/hosts", "pilot-run/\0x.json"]) {

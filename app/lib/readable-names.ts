@@ -10,6 +10,7 @@ import { listLabel, PHASE2_BOOK, stampEpoch } from "./phase2-articles";
 import { pstDateTime, runIdText } from "./pst";
 import { BOX_ROLE } from "./box-names";
 import { listStateWord, type StateWord } from "./run-view-words";
+import { providerWords } from "./model-card"; // Unit VW97 (Q-A 3:21.3): Claude card names in place of provider IDs.
 
 /** Plain name of the book key of a status.json or a list. The phase 2 store has the key paired-dataset (it holds articles, not a book). */
 export function bookKeyLabel(book: string): string {
@@ -163,10 +164,13 @@ export function modelOption(value: string): { label: string; provider: string | 
   return { label: value.slice(i + 1), provider: value.slice(0, i) };
 }
 
-/** Text of a model option in a list: "claude-haiku-5-5 (provider claude-aaaa1111)". The option value stays "provider/model". */
+/**
+ * Text of a model option in a list: "claude-haiku-5-5 (Claude card ntngh)" for a known Claude card (Q-A 3:21.3, 3:17.4), "some-model (provider xai)" for
+ * another provider. The option value stays "provider/model". The card ID shows next to this text in small grey text (components/ModelCardId.tsx).
+ */
 export function modelOptionText(value: string): string {
   const m = modelOption(value);
-  return m.provider ? `${m.label} (provider ${m.provider})` : m.label;
+  return m.provider ? `${m.label} (${providerWords(m.provider)})` : m.label;
 }
 
 /**

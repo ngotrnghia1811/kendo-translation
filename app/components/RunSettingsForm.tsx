@@ -102,7 +102,7 @@ export default function RunSettingsForm({ initialText, pageLabels = {} }: { init
     if (f.kind === "model") {
       const custom = other[f.key] || !saved.models.includes(String(value));
       return <div className="space-y-2"><select {...props} value={custom ? "__other" : String(value)} onChange={(e) => { const custom = e.target.value === "__other"; setOther((p) => ({ ...p, [f.key]: custom })); if (!custom) setValue(f, e.target.value); }}>
-        {saved.models.map((m) => <option key={m} value={m}>{modelOptionText(m)}</option>)}<option value="__other">Other…</option>
+        {saved.models.map((m) => <option key={m} value={m} title={`Model ID: ${m}`}>{modelOptionText(m)}</option>)}<option value="__other">Other…</option>
       </select>{custom && <><label htmlFor={f.key + "-other"} className="block text-sm">Other model ID</label><input {...props} id={f.key + "-other"} value={String(value ?? "")} onChange={(e) => setValue(f, e.target.value)} /><p className="text-sm text-amber-800">{MODEL_WARNING}</p></>}</div>;
     }
     if (f.kind === "variant") return <><input {...props} list={f.key + "-efforts"} value={String(value ?? "")} onChange={(e) => setValue(f, e.target.value)} /><datalist id={f.key + "-efforts"}>{saved.variants.map((v) => <option key={v} value={v} />)}</datalist></>;
