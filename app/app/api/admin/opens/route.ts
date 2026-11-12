@@ -3,6 +3,8 @@ import { guard, htvError, isResponse, readBody } from "@/lib/htv-api";
 import { closeRun, listOpensOfBook, listOpensOfRuns, openRun } from "@/lib/pb";
 import { isOpenSource, PILOT_SOURCE, type OpenSource, type ReaderOpen } from "@/lib/reader-opens-rule";
 import { runExists } from "@/lib/reader-opens";
+import { bookRunExists } from "@/lib/book-run-exists";
+import { BOOK_RUN_SOURCE, isBookStoreName, isRunIdFolder } from "@/lib/book-run-rules";
 import { isSafeSegment } from "@/lib/safe-path";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +18,8 @@ export const dynamic = "force-dynamic";
  *   DELETE {source, book, run_id}        close one run (or run_ids)
  * Any state of a run can open, also an unfinished run (the owner: "any run"). A run without a folder on disk cannot open.
  * Readers see a change after the next S2 run.
+ * Unit VW77e: the source "book-store" opens one book run (round 78 answer 8). The book is the book store folder (never paired-dataset),
+ * and the run ID is the folder form, for example 20261111T183021-0800 (Q-A 3:11.2 D1). The run folder is checked in the 3 places of the book store.
  */
 
 const MAX_IDS = 500;
@@ -58,10 +62,13 @@ async function target(req: Request): Promise<{ source: OpenSource; book: string;
   const b = await readBody(req);
   const source = sourceOf(b.source);
   if (!source) return jsonResponse({ error: "Bad source." }, 400);
-  if (source !== PILOT_SOURCE) return jsonResponse({ error: `Runs of the source ${source} are not built yet.` }, 400);
   if (typeof b.book !== "string" || !isSafeSegment(b.book)) return jsonResponse({ error: "Bad book name." }, 400);
   const runIds = runIdsOf(b.run_id, b.run_ids);
   if (!runIds) return jsonResponse({ error: "Send run_id or run_ids (up to " + MAX_IDS + ", safe names)." }, 400);
+  if (source === BOOK_RUN_SOURCE) {
+    if (!isBookStoreName(b.book)) return jsonResponse({ error: "Bad book name." }, 400);
+    if (!runIds.every(isRunIdFolder)) return jsonResponse({ error: "Bad run ID. A book run ID has the folder form, for example 20261111T183021-0800." }, 400);
+  }
   return { source, book: b.book, runIds };
 }
 
@@ -73,7 +80,8 @@ export async function PUT(req: Request) {
     if (t instanceof Response) return t;
     // Check every run first, so that a bad run opens nothing.
     for (const runId of t.runIds) {
-      if (!(await runExists(g.token, t.book, runId))) return jsonResponse({ error: `The run ${runId} of ${t.book} has no run folder. It cannot open.` }, 400);
+      const there = t.source === PILOT_SOURCE ? await runExists(g.token, t.book, runId) : await bookRunExists(t.book, runId);
+      if (!there) return jsonResponse({ error: `The run ${runId} of ${t.book} has no run folder. It cannot open.` }, 400);
     }
     let opened = 0;
     for (const runId of t.runIds) {

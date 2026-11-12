@@ -3,6 +3,7 @@ import { loadConfig } from "./config";
 import type { ChapterHead, CommentView, HtvRun, Role, SavedRow, SessionUser, TermEntry, VersionInfo } from "./htv-types";
 import type { BookmarkView, DashArticle, DashChapter, DashWork, ReaderBookFacts, ReaderExtra, ReaderFact, ReaderMark, ReaderPageRecord } from "./reader-types";
 import { hasAgentRecord } from "./reader-web";
+import { TOC_COLLECTION, tocCountsOf, type TocCount } from "./reader-toc";
 import { rowLinks } from "./cross-page-reader";
 import type { OpenSource, ReaderOpen } from "./reader-opens-rule";
 import type { PaneSettings, ThemeName } from "./htv-settings";
@@ -673,6 +674,8 @@ export async function catalogWorks(token: string): Promise<DashWork[]> {
       synopsis: text(r.row?.synopsis),
       isbn: text(r.row?.isbn),
       partOf: text(r.row?.part_of),
+      partTitleEn: text(r.row?.part_title_en),
+      partTitleJa: text(r.row?.part_title_ja),
       webDate,
       placement: {
         webYear: num0(pl.web_year) ?? (webDate ? Number(webDate.slice(0, 4)) : null),
@@ -719,6 +722,20 @@ export async function magazineChapterRows(token: string): Promise<DashChapter[]>
       (a): DashArticle => ({ order: Number(a.order ?? 0), titleEn: String(a.title_en ?? "").replace(/\*/g, ""), titleJa: String(a.title_ja ?? ""), pageStart: Number(a.page_start ?? 0), pageEnd: Number(a.page_end ?? a.page_start ?? 0) }),
     ),
   }));
+}
+
+/**
+ * Unit VW77e (Q-A 3:10.5 R3): the counts of the ToC rows of each book, read from book_toc (migration 1793300013, loaded by S2).
+ * Only the keys book and level are read. The caller wraps this in soft(), so a database without the collection gives an empty map.
+ */
+export async function bookTocCounts(token: string): Promise<Map<string, TocCount>> {
+  const recs = await listAll(token, TOC_COLLECTION, { fields: "book,level", sort: "book,order" });
+  return tocCountsOf(recs);
+}
+
+/** Unit VW77e: the ToC records of one book, by order. The fields are the ones that buildTocRows reads. */
+export async function bookTocRecords(token: string, book: string): Promise<Record<string, unknown>[]> {
+  return listAll(token, TOC_COLLECTION, { filter: `book=${q(book)}`, sort: "order", fields: "book,order,level,title_ja,title_en,page_ref,pdf_page,page_id" });
 }
 
 export interface PageHit {

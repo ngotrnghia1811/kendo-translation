@@ -1,7 +1,11 @@
 // The admin gate for agent text (unit RT74, round 75 answer 3, qa-memory-2026-10-31.md:53: "Admin opens any run").
 // No import of server code and no server-only marker, so the sync command S2, the page code, and a test script can load it.
 
-/** The sources of an open. "pilot-run" is <T2>/data/pilot-run. "book-store" is reserved for <T2>/data/book-store (no run there yet, S2 does not read it). */
+/**
+ * The sources of an open. "pilot-run" is <T2>/data/pilot-run (run ID = page run folder, for example 20261029T051154Z-r41).
+ * "book-store" is <T2>/data/book-store/<book> (unit VW77e: run ID = book run in folder form, for example 20261111T183021-0800).
+ * S2 reads both. The picker for a page that mixes both sources is pickReaderCandidate in lib/book-run-rules.ts.
+ */
 export const OPEN_SOURCES = ["pilot-run", "book-store"] as const;
 export type OpenSource = (typeof OPEN_SOURCES)[number];
 

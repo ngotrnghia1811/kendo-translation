@@ -23,9 +23,13 @@ function isObj(v: unknown): v is Record<string, J> {
 
 // ---------------------------------------------------------------- list files
 
-/** "chain" when the list file or progress.json holds kind "chain". Every other list, also an old one, is "list". */
-export function listKindOf(...docs: unknown[]): "chain" | "list" {
-  return docs.some((d) => isObj(d) && d.kind === "chain") ? "chain" : "list";
+/**
+ * "chain" when the list file or progress.json holds kind "chain". "book-run" when it holds kind "book-run" (the list folder of run-book, unit VW77e, Q-A 3:11.3 V4).
+ * Every other list, also an old one, is "list".
+ */
+export function listKindOf(...docs: unknown[]): "chain" | "book-run" | "list" {
+  if (docs.some((d) => isObj(d) && d.kind === "chain")) return "chain";
+  return docs.some((d) => isObj(d) && d.kind === "book-run") ? "book-run" : "list";
 }
 
 /** The first string value of a key in the given list files. Null when no file has the key. */

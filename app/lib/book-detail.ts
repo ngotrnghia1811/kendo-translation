@@ -8,6 +8,8 @@ import { isSafeSegment, stripDataPrefix } from "./safe-path";
 import { parseUtcIso } from "./pst";
 import { BOXES, PHASE_NUMBER, pageNumberOf, parseVersionLabel } from "./restart-rules";
 import { critiqueShare, stopFlags, type HistoryEvent } from "./critique-share";
+import { placeText } from "./book-run-rules";
+import { passCounts, readBookRuns } from "./book-runs";
 import {
   critiqueRows,
   modelsText,
@@ -16,8 +18,10 @@ import {
   promptsCells,
   settingsRows,
   archiveRunText,
+  NO_RUN_ID_TEXT,
   type ArchivedRun,
   type BookDetail,
+  type BookRunRow,
   type DetailList,
   type DetailPage,
   type LastError,
@@ -37,6 +41,8 @@ import {
  *   critique share      history.jsonl events update-point-ended of the current run (lib/critique-share.ts)
  *   stop flag           history.jsonl events box-stopped, prompt-rejected, update-point-started
  *   archived runs       book-store/<slug>/archive/<run ID folder>/ : status.json, prompts/<BOX>/current, and run.json of the first page
+ *   runs (VW77e)        the current run (book-store/<slug>/), the archived runs, and the phase 3 run (book-store/<slug>/agent-phase-3/), read by lib/book-runs.ts.
+ *                       The same files as an archived run. The pointer files give the PASS count for the dialog of the button Open to readers.
  * Parts 4 (box grid) and 5 (list of memory pairs) of VISION 15.24.5 are not built. A page row links to the page view, and a list folder links to the run view.
  */
 
@@ -186,6 +192,24 @@ async function usedLabels(folderRel: string | null): Promise<Record<string, stri
   return Object.keys(out).length > 0 ? out : null;
 }
 
+/** The prompt labels at the end of a run: the pointer files prompts/<BOX>/current in the run folder. A label of another phase counts as not stored. */
+async function endLabels(dir: string, phase: string | null): Promise<Record<string, string> | null> {
+  const phaseNum = phase ? (PHASE_NUMBER[phase] ?? null) : null;
+  const end: Record<string, string> = {};
+  for (const b of BOXES) {
+    let text: string | null = null;
+    try {
+      text = await readText(`${dir}/prompts/${b}/current`);
+    } catch {
+      text = null;
+    }
+    const label = text?.trim() ?? "";
+    const p = parseVersionLabel(label);
+    if (p && (phaseNum === null || p.phase === phaseNum)) end[b] = label;
+  }
+  return Object.keys(end).length > 0 ? end : null;
+}
+
 /** One archived run: the facts that status.json, the pointer files, and the first page record give. Nothing that is missing is guessed. */
 async function loadArchive(root: string, slug: string): Promise<ArchivedRun[]> {
   const base = `${STORE}/${slug}/archive`;
@@ -195,20 +219,8 @@ async function loadArchive(root: string, slug: string): Promise<ArchivedRun[]> {
     const dir = `${base}/${name}`;
     const status = rec(await safeJson(`${dir}/status.json`));
     const phase = typeof status?.phase === "string" ? status.phase : null;
-    const phaseNum = phase ? (PHASE_NUMBER[phase] ?? null) : null;
-    // Prompts at the end: the pointer files of the archived run. A label of another phase counts as not stored.
-    const end: Record<string, string> = {};
-    for (const b of BOXES) {
-      let text: string | null = null;
-      try {
-        text = await readText(`${dir}/prompts/${b}/current`);
-      } catch {
-        text = null;
-      }
-      const label = text?.trim() ?? "";
-      const p = parseVersionLabel(label);
-      if (p && (phaseNum === null || p.phase === phaseNum)) end[b] = label;
-    }
+    // Prompts at the end: the pointer files of the archived run.
+    const end = await endLabels(dir, phase);
     // Prompts at the start: the prompts block of run.json of the first archived page (translator-design.md 9.23.5, item 10).
     let start: Record<string, string> | null = null;
     const pageDocs: { n: number; folder: string }[] = [];
@@ -219,11 +231,57 @@ async function loadArchive(root: string, slug: string): Promise<ArchivedRun[]> {
     }
     pageDocs.sort((a, b) => a.n - b.n);
     if (pageDocs.length > 0) start = await usedLabels(pageDocs[0].folder);
-    const cells = promptsCells(start, Object.keys(end).length > 0 ? end : null);
+    const cells = promptsCells(start, end);
     const done = num(status?.pages_done);
     const total = num(status?.pages_total);
     const t = archiveRunText(name);
     out.push({ folder: name, runText: t.text, runIdForm: t.isRunId, phase, pagesDone: done, pagesTotal: total, pagesText: pagesDoneText(done, total), promptsStart: cells.start, promptsEnd: cells.end });
+  }
+  return out;
+}
+
+/** The cell "Prompts at end" of a current run that has not ended. */
+const NOT_ENDED_TEXT = "The run has not ended";
+
+/**
+ * Unit VW77e (Q-A 3:11.3 V1 and V2): the rows of the table "Runs". The current run first, then the archived runs (newest first), then the phase 3 run.
+ * The 5 built columns follow the rule of loadArchive. A current run that has not ended shows "The run has not ended" at the end [unit default VW77e].
+ * An archived run keeps the same cells as in `archived`.
+ */
+async function loadRuns(root: string, slug: string): Promise<BookRunRow[]> {
+  const { runs } = await readBookRuns(root, slug);
+  const out: BookRunRow[] = [];
+  for (const r of runs) {
+    const dirRel = r.dir;
+    const pageDocs = r.pointers
+      .map((p) => ({ n: pageNumberOf(p.pageId), folder: p.folder }))
+      .filter((p): p is { n: number; folder: string } => p.n !== null && p.folder !== null)
+      .sort((a, b) => a.n - b.n);
+    const start = pageDocs.length > 0 ? await usedLabels(pageDocs[0].folder) : null;
+    const ended = r.place !== "current" || r.state === "completed";
+    const end = ended ? await endLabels(dirRel, r.phase) : null;
+    const cells = promptsCells(start, end);
+    const { pass, total } = passCounts(r);
+    const folder = r.place === "archive" ? path.posix.basename(dirRel) : null;
+    const t = r.runId ? archiveRunText(r.runId) : folder ? archiveRunText(folder) : { text: NO_RUN_ID_TEXT, isRunId: false };
+    out.push({
+      key: `${r.place}:${folder ?? r.runId ?? "none"}`,
+      place: r.place,
+      placeText: placeText(r.place),
+      folder: folder ?? "",
+      runText: t.text,
+      runIdForm: t.isRunId,
+      runId: r.runId,
+      noRunIdReason: r.noRunIdReason,
+      phase: r.phase,
+      pagesDone: r.pagesDone,
+      pagesTotal: r.pagesTotal,
+      pagesText: pagesDoneText(r.pagesDone, r.pagesTotal),
+      promptsStart: cells.start,
+      promptsEnd: ended ? cells.end : NOT_ENDED_TEXT,
+      passPages: pass,
+      totalPages: total,
+    });
   }
   return out;
 }
@@ -258,5 +316,6 @@ export async function loadBookDetail(slug: string, nowMs: number = Date.now()): 
     share: Object.keys(share.boxes).length > 0 ? share : null,
     flags: stopFlags(history),
     archived: await loadArchive(root, slug),
+    runs: await loadRuns(root, slug),
   };
 }

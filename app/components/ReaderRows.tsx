@@ -2,6 +2,7 @@ import Link from "next/link";
 import { progressLine } from "@/lib/reader-translated";
 import { digitsOf, type ArticleRow, type LineRow, type Node, type WorkRow } from "@/lib/reader-folds";
 import { readHref } from "@/lib/reader-links";
+import type { TocRow } from "@/lib/reader-toc";
 import { pageLabel } from "@/lib/reader-types";
 
 /*
@@ -91,7 +92,43 @@ export function LineItem({ l }: { l: LineRow }) {
   );
 }
 
-/** The rows of a month (articles, web articles, chapter lines). A month holds no fold. */
+/**
+ * Unit VW77e (Q-A 3:10.4 F3, 3:10.5 R1 and R2): one row of the table of contents of a book. It shows the English title, the Japanese title smaller,
+ * and the book page number. A chapter row (level 1) sits at the left. A sub-row (level 2) is indented. A row opens the book at its PDF page.
+ * A row with no book page number still shows (it shows no number). A row with no PDF page shows and has no link.
+ */
+export function TocItem({ t, approved }: { t: TocRow; approved: boolean }) {
+  const main = t.titleIsJa ? (
+    <span lang="ja" className="font-ja">
+      {t.title}
+    </span>
+  ) : (
+    <span>{t.title}</span>
+  );
+  return (
+    <li data-toc-row={`${t.book}/${t.order}`} data-toc-level={t.level} className={`flex flex-wrap items-baseline gap-x-2 border-b border-line/60 py-1 text-sm ${t.level === 2 ? "pl-6" : "font-medium"}`}>
+      {approved && t.pageNo > 0 ? (
+        <Link href={readHref(t.book, "page", t.pageNo, t.digits)} className="text-accent underline" data-toc-link>
+          {main}
+        </Link>
+      ) : (
+        main
+      )}
+      {t.titleJa ? (
+        <span lang="ja" className="font-ja text-xs font-normal text-muted">
+          {t.titleJa}
+        </span>
+      ) : null}
+      {t.pageRef ? (
+        <span className="text-muted" data-toc-page>
+          {`book page ${t.pageRef}`}
+        </span>
+      ) : null}
+    </li>
+  );
+}
+
+/** The rows of a month (articles, web articles, chapter lines) or of a book table of contents. A month holds no fold. */
 export function RowList({ nodes, approved }: { nodes: Node[]; approved: boolean }) {
   return (
     <ul>
@@ -99,6 +136,7 @@ export function RowList({ nodes, approved }: { nodes: Node[]; approved: boolean 
         if (n.type === "work") return <WorkItem key={n.work.slug} r={n} approved={approved} compact />;
         if (n.type === "article") return <ArticleItem key={`${n.book}/${n.order}`} a={n} approved={approved} />;
         if (n.type === "line") return <LineItem key={n.label + n.pageStart} l={n} />;
+        if (n.type === "toc") return <TocItem key={`${n.book}/${n.order}`} t={n} approved={approved} />;
         return null;
       })}
     </ul>

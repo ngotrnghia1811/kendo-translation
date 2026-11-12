@@ -48,7 +48,8 @@ export default function RunsTable({ initial }: { initial: RunSummary[] }) {
                     </Link>
                   </td>
                   <td className="px-3 py-2 text-xs">
-                    {r.listKind === "chain" ? <span className="rounded bg-blue-50 px-1.5 py-0.5 font-medium text-blue-800">chain</span> : <span className="text-muted">list</span>}
+                    {/* Unit VW77e (Q-A 3:11.3 V4): the Kind of a run-book list folder is "book-run". The colors are the pair of "chain" (blue-50 on blue-800), so no new pair. */}
+                    {r.listKind === "chain" || r.listKind === "book-run" ? <span className="rounded bg-blue-50 px-1.5 py-0.5 font-medium text-blue-800">{r.listKind}</span> : <span className="text-muted">list</span>}
                     <div className="mt-0.5 text-muted">
                       {r.criticMode ? `critic ${r.criticMode}` : "critic mode not stored"}
                       {r.bookJobs !== null ? `, ${r.bookJobs} book jobs` : ""}

@@ -170,6 +170,9 @@ export interface DashWork {
   isbn: string;
   /** Metadata key part_of: the slug of the full book (men0 and men1 name men_full), or a title text. */
   partOf: string;
+  /** Unit VW77e: metadata keys part_title_en and part_title_ja (Lectures on Kendo has 3 books with one title and 3 part titles). Empty or missing for any other work. */
+  partTitleEn?: string;
+  partTitleJa?: string;
   /** Web date as text, for example 2019-10-21. Empty for a work that is not a web article. */
   webDate: string;
   placement: DashPlacement;

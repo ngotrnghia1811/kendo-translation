@@ -2,8 +2,10 @@ import ReaderBar from "@/components/ReaderBar";
 import ReaderList from "@/components/ReaderList";
 import ReaderSearch, { SearchBox } from "@/components/ReaderSearch";
 import { requireReaderSession } from "@/lib/htv-session";
-import { lazyMonths } from "@/lib/reader-folds";
+import { bookTocRecords } from "@/lib/pb";
+import { digitsOf, findFold, lazyMonths, withTocRows } from "@/lib/reader-folds";
 import { loadDashboard } from "@/lib/reader-data";
+import { buildTocRows, tocSlugOf } from "@/lib/reader-toc";
 import { foldProgress } from "@/lib/reader-translated";
 import { DASHBOARD_TITLE, WAITING } from "@/lib/reader-types";
 
@@ -15,6 +17,7 @@ const first = (v: string | string[] | undefined): string => (Array.isArray(v) ? 
 //   /read              the folds Books and Kendo Jidai, every visible work at zero too, the progress of each work
 //   /read?q=seme       the search results (titles and metadata of the visible works, and the folded page text); &screen=2 for the next 20 hits
 //   /read?open=kj-2014-10   the dashboard with that month drawn on the server (the link "Show this month" for a browser without script)
+//   /read?open=toc-<slug>   the dashboard with the table of contents of that book drawn on the server (unit VW77e)
 // The month folds send no rows. The browser loads them when a month opens (GET /api/read/month). With all rows the HTML had 2.08 MB.
 // Any signed-in person sees the folds. A reader who waits for approval sees the folds and the progress and no link to a page.
 // The line "Your account waits for approval by an admin." stays. The page text stays closed (rules of PocketBase).
@@ -24,8 +27,22 @@ export default async function ReadList({ searchParams }: { searchParams: Promise
   if ("down" in s) return <p role="alert" className="text-red-700">{s.down}</p>;
   const screen = Number.parseInt(first(q.screen), 10);
   const { dash: full, search } = await loadDashboard(s.token, s.user, first(q.q), Number.isFinite(screen) ? screen : 1);
-  const openId = /^(kj|web)-(\d{4}|unknown)-\d{2}$/.test(first(q.open)) ? first(q.open) : "";
-  const dash = { ...full, folds: lazyMonths(full.folds, openId) };
+  const openRaw = first(q.open);
+  let openId = /^(kj|web)-(\d{4}|unknown)-\d{2}$/.test(openRaw) ? openRaw : "";
+  let folds = full.folds;
+  // Unit VW77e: /read?open=toc-<slug> draws the table of contents of that book on the server (the link "Show the table of contents" for a browser without script).
+  // Only a book that has a ToC fold opens. A failed read leaves the fold closed with its link.
+  const tocSlug = tocSlugOf(openRaw);
+  const tocFold = tocSlug ? findFold(full.folds, openRaw) : null;
+  if (tocSlug && tocFold?.toc) {
+    try {
+      folds = withTocRows(folds, openRaw, buildTocRows(await bookTocRecords(s.token, tocSlug), digitsOf(tocFold.head?.pages ?? 0)));
+      openId = openRaw;
+    } catch {
+      openId = "";
+    }
+  }
+  const dash = { ...full, folds: lazyMonths(folds, openId) };
   const known = dash.visible.every((w) => w.known);
   const t = dash.totals;
   return (

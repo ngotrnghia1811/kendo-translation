@@ -2,6 +2,7 @@
 // No import of server code and no server-only marker, so a test script can run it without PocketBase.
 import type { DashArticle, DashChapter, DashWork } from "./reader-types";
 import { foldText } from "./reader-search";
+import { tocFoldId, tocNote, type TocCount, type TocRow } from "./reader-toc";
 
 // ---------------------------------------------------------------- choices of the owner, each in one constant
 
@@ -100,9 +101,14 @@ export interface Fold {
   children: Node[];
   /** True for a month whose rows load when the fold opens (see lazyMonths). Then `children` is empty unless the page opens this month on the server. */
   lazy?: boolean;
+  /**
+   * Unit VW77e (Q-A 3:10.4 F1 and F2): the slug of the book when this fold is the table of contents (ToC) of a book. The fold starts closed and has lazy true.
+   * Its rows (TocRow) load when the reader opens it. `head` is the row of the book. Without ToC data in the database no fold has this key.
+   */
+  toc?: string;
 }
 
-export type Node = Fold | WorkRow | ArticleRow | LineRow;
+export type Node = Fold | WorkRow | ArticleRow | LineRow | TocRow;
 
 export interface Dashboard {
   folds: Fold[];
@@ -267,8 +273,31 @@ function yearFold(year: number, idBase: string, mag: DashWork | null, chapters: 
   return { type: "fold", id: idBase, title: mag ? mag.titleEn || mag.titleJa || mag.slug : inWebFold ? String(year) : yearFoldTitle(year), titleJa: "", level: 2, counts, note, head: mag ? rowOf(mag) : null, children: nodes };
 }
 
-/** The works of the Books fold: works with the same English title form one fold. Another work is a row. */
-function bookNodes(books: DashWork[]): Node[] {
+/**
+ * Unit VW77e (Q-A 3:10.4 F1 to F4): a book with ToC rows is a fold, like a year of Kendo Jidai. The fold starts closed, its rows load when it opens,
+ * and its head is the row of the book. Inside a series (Lectures on Kendo has 3 books with one title) the fold takes the part title
+ * (metadata keys part_title_en and part_title_ja) so that the 3 folds differ. Without a part title it takes the title of the book.
+ */
+function tocFold(w: DashWork, count: TocCount, level: number, inSeries: boolean): Fold {
+  const head = rowOf(w);
+  const own = w.titleEn || w.titleJa || w.slug;
+  return {
+    type: "fold",
+    id: tocFoldId(w.slug),
+    title: inSeries ? w.partTitleEn || own : own,
+    titleJa: inSeries ? w.partTitleJa || w.titleJa : w.titleJa,
+    level,
+    counts: { works: 1, pages: head.pages, translated: head.translated },
+    note: tocNote(count),
+    head,
+    children: [],
+    lazy: true,
+    toc: w.slug,
+  };
+}
+
+/** The works of the Books fold: works with the same English title form one fold. Another work is a row. A book with ToC rows is a ToC fold instead of a row. */
+function bookNodes(books: DashWork[], tocBooks?: ReadonlyMap<string, TocCount>): Node[] {
   const groups = new Map<string, DashWork[]>();
   for (const b of books) {
     const k = b.titleEn || b.titleJa || b.slug;
@@ -282,18 +311,22 @@ function bookNodes(books: DashWork[]): Node[] {
     const k = b.titleEn || b.titleJa || b.slug;
     const list = groups.get(k)!;
     if (list.length === 1) {
-      out.push(rowOf(b));
+      const c = tocBooks?.get(b.slug);
+      out.push(c ? tocFold(b, c, 2, false) : rowOf(b));
       continue;
     }
     if (done.has(k)) continue;
     done.add(k);
-    const rows = list.map(rowOf);
+    const rows = list.map((w) => {
+      const c = tocBooks?.get(w.slug);
+      return c ? tocFold(w, c, 3, true) : rowOf(w);
+    });
     out.push({ type: "fold", id: `books-series-${++n}`, title: k, titleJa: list[0].titleJa, level: 2, counts: sum(rows), note: "", head: null, children: rows });
   }
   return out;
 }
 
-export function buildFolds(all: DashWork[], chapters: DashChapter[], options: FoldOptions = DEFAULT_OPTIONS): Dashboard {
+export function buildFolds(all: DashWork[], chapters: DashChapter[], options: FoldOptions = DEFAULT_OPTIONS, tocBooks?: ReadonlyMap<string, TocCount>): Dashboard {
   const visible = all.filter((w) => !isHidden(w, all));
   const books = visible.filter((w) => w.kind === "book");
   const mags = visible.filter((w) => w.kind === "magazine-year");
@@ -302,7 +335,7 @@ export function buildFolds(all: DashWork[], chapters: DashChapter[], options: Fo
   const folds: Fold[] = [];
   const first = (id: string, title: string, titleJa: string, children: Node[]): Fold => ({ type: "fold", id, title, titleJa, level: 1, counts: sum(children), note: "", head: null, children });
 
-  const bookChildren = bookNodes(books);
+  const bookChildren = bookNodes(books, tocBooks);
   if (bookChildren.length) folds.push(first("books", "Books", "", bookChildren));
 
   const magYear = (w: DashWork) => Number(/(\d{4})$/.exec(w.slug)?.[1] ?? w.year) || 0;
@@ -354,9 +387,20 @@ export function slimRows(nodes: Node[]): Node[] {
 /** The tree for the page: every month fold (level 3) has `lazy` true and no rows, except the month `openId`, which keeps its rows. */
 export function lazyMonths(folds: Fold[], openId: string): Fold[] {
   return folds.map((f) =>
-    f.level === MONTH_LEVEL
-      ? { ...f, lazy: true, children: f.id === openId ? slimRows(f.children) : [] }
-      : { ...f, children: f.children.map((c) => (c.type === "fold" ? lazyMonths([c], openId)[0] : c)) },
+    f.toc
+      ? { ...f, lazy: true, children: f.id === openId ? f.children : [] } // unit VW77e: a ToC fold of a book (level 2 or 3) is always lazy
+      : f.level === MONTH_LEVEL
+        ? { ...f, lazy: true, children: f.id === openId ? slimRows(f.children) : [] }
+        : { ...f, children: f.children.map((c) => (c.type === "fold" ? lazyMonths([c], openId)[0] : c)) },
+  );
+}
+
+/** Unit VW77e: the same tree, with `rows` as the children of the ToC fold `id`. The page uses it for the link /read?open=toc-<slug> (no script). */
+export function withTocRows(folds: Fold[], id: string, rows: Node[]): Fold[] {
+  return folds.map((f) =>
+    f.id === id && f.toc
+      ? { ...f, children: rows }
+      : { ...f, children: f.children.map((c) => (c.type === "fold" ? withTocRows([c], id, rows)[0] : c)) },
   );
 }
 

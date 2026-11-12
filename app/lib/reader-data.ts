@@ -1,6 +1,7 @@
 import "server-only";
 import { idDigits, pageName } from "./htv-books";
 import {
+  bookTocCounts,
   catalogFacts,
   catalogWorks,
   magazineChapterRows,
@@ -37,6 +38,7 @@ import { hasAgentRecord, isWebKey } from "./reader-web";
 import { rowLinks } from "./cross-page-reader";
 import { v1PageNumbers, v1PageRows } from "./reader-v1-files";
 import { buildFolds, matchWorks, type Dashboard } from "./reader-folds";
+import type { TocCount } from "./reader-toc";
 import { foldQuery, snippetOf, type Snippet } from "./reader-search";
 import type { DashWork } from "./reader-types";
 
@@ -123,7 +125,9 @@ export async function loadDashboard(token: string, user: SessionUser, rawQuery: 
       w.known = true;
     }
   }
-  const dash = buildFolds(works, await magazineChapterRows(token));
+  // Unit VW77e: the ToC counts of the books (collection book_toc, loaded by S2). An old database has no collection: soft() gives an empty map and /read looks as before.
+  const tocBooks = await soft(new Map<string, TocCount>(), () => bookTocCounts(token));
+  const dash = buildFolds(works, await magazineChapterRows(token), undefined, tocBooks);
   const folded = foldQuery(rawQuery);
   if (!folded) return { dash, search: null };
 

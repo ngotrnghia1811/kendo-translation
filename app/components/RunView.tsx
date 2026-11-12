@@ -36,7 +36,7 @@ export default function RunView({ initial }: { initial: RunDetail }) {
         <Stat label="Cost (listed)" value={usd(run.costListedUsd)} />
         <Stat label="Started" value={pstDateTimeOrDash(run.startedEpoch)} />
         <Stat label="Updated" value={pstDateTimeOrDash(run.updatedEpoch)} />
-        <Stat label="List kind" value={isChain ? "chain" : "list"} />
+        <Stat label="List kind" value={run.listKind} />
         <Stat label="Critic mode" value={run.criticMode ?? "not stored"} />
         {run.bookJobs !== null ? <Stat label="Book jobs" value={String(run.bookJobs)} /> : null}
       </div>

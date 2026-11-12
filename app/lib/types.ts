@@ -16,8 +16,8 @@ export interface RunSummary {
   startedEpoch: number | null;
   updatedEpoch: number | null;
   pausedSinceEpoch: number | null;
-  /** "chain" for a list from run-chain (key kind in progress.json). Every other list is "list". */
-  listKind: "chain" | "list";
+  /** "chain" for a list from run-chain (key kind in progress.json). "book-run" for a list folder of run-book (unit VW77e). Every other list is "list". */
+  listKind: "chain" | "book-run" | "list";
   /** Critic mode from list.json. Null when the key is absent (a list from before the critic mode). */
   criticMode: string | null;
   /** Count of books that run at the same time (key book_jobs). Null when the key is absent. */

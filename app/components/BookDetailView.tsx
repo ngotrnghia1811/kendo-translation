@@ -8,26 +8,30 @@ import { shareText, rejectLines } from "@/lib/critique-share";
 import { jsonViewHref } from "@/lib/json-view";
 import {
   BOX_TYPES,
-  NO_ARCHIVE_TEXT,
   NO_CRITIQUE_TEXT,
   NO_ERROR_TEXT,
   NO_LIST_TEXT,
+  NO_RUNS_TEXT,
   NO_SHARE_TEXT,
   SETTINGS_CHANGED_TEXT,
   critiqueTotals,
   type BookDetail,
   type DetailList,
 } from "@/lib/book-detail-rules";
+import { bookTagText } from "@/lib/book-run-rules";
 import { StatePill, VerdictPill } from "./Pills";
 import StateLabel from "./StateLabel";
 import RowButtons from "./RowButtons";
+import BookRunsTable from "./BookRunsTable";
 import { useLive } from "./useLive";
 
 // Unit VW77c (round 86), VISION-viewer 15.24.5: the Details view of one book on the Monitor dashboard. It follows the Monitor dashboard `/` in its rules:
 // the same row (label, sentence, buttons, dialogs), times in PST, a poll every 3 s while the tab is visible.
 // Built parts: 1 header with the row actions, 2 last error, 3 list folders, 6 critiques against N with the stop flag, 7 settings used, and from 15.27.5
-// Critique share of the current run and Archived runs. Not built: 4 box grid and 5 list of memory pairs (see lib/book-detail.ts).
-// Not in this unit: Open and Close to readers (unit VW77e), the Run settings page (unit VW77d).
+// Critique share of the current run and Runs. Not built: 4 box grid and 5 list of memory pairs (see lib/book-detail.ts).
+// Unit VW77e (Q-A 3:11.3): the part Runs replaces Archived runs. It lists the current run, the archived runs and the phase 3 run, with Place, Readers and the button
+// "Open to readers" (components/BookRunsTable.tsx). The tag "book-run" replaces "pilot list" for a book with a run-book run (V4).
+// Not in this unit: the Run settings page (unit VW77d).
 const TH = "px-3 py-2";
 const POLL_BANNER_AFTER = 3;
 
@@ -116,6 +120,8 @@ export default function BookDetailView({ initial }: { initial: BookDetail }) {
   const sentence = lineText(row.line2, now);
   const totals = critiqueTotals(data.critiques);
   const named = row.title !== row.slug;
+  // V4: a book with a run in the book store, or a list folder of kind book-run, gets the tag "book-run". A pilot list keeps "pilot list".
+  const tag = bookTagText(data.runs.length > 0 || data.lists.some((l) => l.listKind === "book-run"), row.pilot);
   return (
     <section data-book-detail={slug}>
       <Link href="/" className="text-sm text-muted hover:text-foreground">
@@ -134,7 +140,11 @@ export default function BookDetailView({ initial }: { initial: BookDetail }) {
             {named ? <span>{row.title} </span> : null}
             <code className={"font-mono " + (named ? "text-base font-normal text-muted" : "")}>{named ? `(${row.slug})` : row.slug}</code>
           </h1>
-          {row.pilot ? (
+          {tag === "book-run" ? (
+            <span data-book-run-tag className="rounded border border-line px-1.5 py-0.5 text-xs text-muted">
+              book-run
+            </span>
+          ) : tag === "pilot list" ? (
             <span data-pilot-tag className="rounded border border-line px-1.5 py-0.5 text-xs text-muted">
               pilot list
             </span>
@@ -370,38 +380,9 @@ export default function BookDetailView({ initial }: { initial: BookDetail }) {
         )}
       </Section>
 
-      {/* VISION 15.27.5: Archived runs */}
-      <Section part="archived-runs" title={`Archived runs (${data.archived.length})`}>
-        {data.archived.length === 0 ? (
-          <p className="text-sm text-muted">{NO_ARCHIVE_TEXT}</p>
-        ) : (
-          <div className="overflow-x-auto rounded border border-line bg-white">
-            <table className="w-full text-sm">
-              <thead className="bg-stone-50 text-left text-xs uppercase tracking-wide text-muted">
-                <tr>
-                  <th className={TH}>Run ID</th>
-                  <th className={TH}>Phase</th>
-                  <th className={TH}>Pages done</th>
-                  <th className={TH}>Prompts at start</th>
-                  <th className={TH}>Prompts at end</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.archived.map((a) => (
-                  <tr key={a.folder} data-archived-run={a.folder} className="border-t border-line align-top">
-                    <td data-archived-id className={"px-3 py-2 " + (a.runIdForm ? "" : "font-mono")}>
-                      {a.runText}
-                    </td>
-                    <td className="px-3 py-2">{a.phase ?? "Not stored"}</td>
-                    <td className="px-3 py-2 tabular-nums">{a.pagesText}</td>
-                    <td className="px-3 py-2 text-xs">{a.promptsStart}</td>
-                    <td className="px-3 py-2 text-xs">{a.promptsEnd}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      {/* VISION 15.27.5 and 15.31.3, Q-A 3:11.3 V1 to V3: one table "Runs" (current run, archived runs, phase 3 run) with Place, Readers and the button */}
+      <Section part="runs" title={`Runs (${data.runs.length})`}>
+        {data.runs.length === 0 ? <p className="text-sm text-muted">{NO_RUNS_TEXT}</p> : <BookRunsTable slug={slug} runs={data.runs} />}
       </Section>
     </section>
   );

@@ -8,6 +8,7 @@
 //   <T2>/data/scripts/translator/store.py run_id_folder: 2026-11-04T00:15:00-08:00 gives the folder 20261104T001500-0800.
 import type { MonitorRow } from "./book-status-rules";
 import type { ShareResult, StopFlag } from "./critique-share";
+import type { BookRunPlace } from "./book-run-rules";
 
 export const BOX_TYPES = ["TS", "TL", "ED", "QA"] as const;
 export type BoxType = (typeof BOX_TYPES)[number];
@@ -49,6 +50,28 @@ export interface ArchivedRun {
   promptsStart: string;
   promptsEnd: string;
 }
+
+/**
+ * One row of the table "Runs" (unit VW77e, Q-A 3:11.3 V1 and V2). The 5 built columns keep their values.
+ * Place, Readers, and the button come after them. The run ID is the folder form (Q-A 3:11.2 D1).
+ */
+export interface BookRunRow extends ArchivedRun {
+  /** Key of the row: the place and the folder. */
+  key: string;
+  place: BookRunPlace;
+  placeText: string;
+  /** Folder form of the run ID. It is the run_id of the open record. Null when the run holds no usable run ID: then the row has no button. */
+  runId: string | null;
+  /** Why the row has no run ID and no button. Null when runId is set. */
+  noRunIdReason: string | null;
+  /** Pages of this run that S2 takes: pointer with accepted true and verdict PASS (D2). */
+  passPages: number;
+  /** Pointer files of this run (the pages that the run wrote). */
+  totalPages: number;
+}
+
+export const NO_RUNS_TEXT = "No run in the book store.";
+export const NO_RUN_ID_TEXT = "No run ID";
 
 /**
  * The two prompt cells of an archived run (VISION 15.27.5). Only the boxes whose label changed during the run show, for example
@@ -217,5 +240,8 @@ export interface BookDetail {
   settings: SettingsRow[];
   share: ShareResult | null;
   flags: StopFlag[];
+  /** The archived runs only. Kept for the API of unit VW77c. The Details view shows `runs`. */
   archived: ArchivedRun[];
+  /** Unit VW77e: the current run, the archived runs (newest first), and the phase 3 run (Q-A 3:11.3 V1). */
+  runs: BookRunRow[];
 }

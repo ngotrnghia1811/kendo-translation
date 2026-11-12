@@ -26,6 +26,13 @@
 // A middle page can hold both. For the SHOWN run of a page, the reader record uses the files (lib/cross-page-reader.ts). Role first_half: the row of the tail gets the full English text,
 // no EN marks, and the key continues. Role second_half: the row of the head gets the key continues_from. The snapshot (page_runs) does not change. A run without the files gives the same record as before.
 // A damaged file, or a file with the wrong role for its name, is skipped with one warning line. The reader record is the only place that changes.
+// Unit VW77e part 1 (Q-A 3:10.3 to 3:10.5, R3): it also fills book_toc (migration 1793300013) with the rows of item-metadata/book-toc.jsonl (23 books, the table of contents
+// of the Reader dashboard `/read`). The rows do not depend on --page or --list. The research keys (status, evidence, and the like) stay out of the records.
+// Unit VW77e part 2 (Q-A 3:11.1 O1 and O2, 3:11.2 D1 to D5): it also reads BOOK RUNS of the book stores <data>/book-store/<book>/ (never paired-dataset, the phase 2 training store).
+// A book run lives in the book folder (current run), in archive/<run ID folder>/ (ended runs), or in agent-phase-3/ (the phase 3 store). The open record of a book run (reader_opens,
+// source "book-store") holds the run ID in the folder form, for example 20261111T183021-0800. S2 takes a page of an OPEN book run only if its pointer pages/<page>.json has
+// accepted true and verdict PASS. The pointer names the page run folder (data/pilot-run/<page>/<run>) that holds the text. Order for a page: the run mark, else the newest open book run
+// with PASS, else the newest open pilot run with PASS, else no Agent text. Pilot runs behave as before (the open record has the source "pilot-run").
 // The same safety rules apply to all collections: dry run by default, compare then skip or update, never delete.
 // The deployed app cannot read the run folders, so it reads these records (config key runSource "pocketbase").
 //
@@ -48,7 +55,10 @@ const { folderToPageId } = await import("../lib/format.ts");
 const { isTranslatedPage } = await import("../lib/reader-translated.ts");
 const { SEARCH_COLUMN_MAX, searchColumns } = await import("../lib/reader-search.ts");
 const { hasAgentRecord, WEB_RUN_ID, WEB_SYSTEM_EMAIL, WEB_SYSTEM_NAME, WEB_VERSION } = await import("../lib/reader-web.ts");
-const { openKey, pickReaderRun, PILOT_SOURCE } = await import("../lib/reader-opens-rule.ts");
+const { openKey, PILOT_SOURCE } = await import("../lib/reader-opens-rule.ts");
+const { BOOK_RUN_SOURCE, pickReaderCandidate, pointerTakesPage, pageRunNameOf } = await import("../lib/book-run-rules.ts");
+const { listBookStoreBooks, passCounts, readBookRuns } = await import("../lib/book-runs.ts");
+const { TOC_COLLECTION, tocRecordEqual, tocRecordOf } = await import("../lib/reader-toc.ts");
 const { CROSS_PAGE_FROM_REL, CROSS_PAGE_REL, crossPageForReader } = await import("../lib/cross-page-reader.ts");
 
 // ---------------------------------------------------------------- constants and small helpers
@@ -71,7 +81,7 @@ function fail(message) {
   process.exit(2);
 }
 
-const HELP = `Sync command S2: upload finished page runs from the run folders into PocketBase (page_runs, catalog_items, magazine_chapters, and reader_pages).
+const HELP = `Sync command S2: upload finished page runs from the run folders into PocketBase (page_runs, catalog_items, magazine_chapters, book_toc, and reader_pages).
 
 Usage (run it in the app folder):
   node scripts/sync-runs.mjs [options]
@@ -93,9 +103,14 @@ Options:
 
 Without --page and --list the command syncs every page with a finished run.
 The collection magazine_chapters always gets all rows of item-metadata/magazine-chapters.jsonl (the month headings of the book screen).
+The collection book_toc always gets all rows of item-metadata/book-toc.jsonl (unit VW77e: the table of contents of 23 books, 1,181 rows, for the book folds of the Reader dashboard /read).
+S2 creates and updates book_toc records. It never deletes one. A damaged row is skipped with one line "Warning: ...". Migration 1793300013 adds book_toc. Without it, --apply stops and a dry run prints a warning.
 The collection reader_pages gets one record for each selected page with an agent translation to show. Only an OPEN run can show (round 75 answer 3: the admin opens a run with "Open to readers", collection reader_opens).
-The shown run is the run of the admin run mark if that run is open, else the newest open PASS run, else no Agent text. A page whose record holds a run that is not open loses it:
+The shown run is the run of the admin run mark if that run is open, else the newest open book run with the verdict PASS on the page, else the newest open pilot run with PASS, else no Agent text (unit VW77e, Q-A 3:11.1). A page whose record holds a run that is not open loses it:
 a web article page goes back to its Original text record (run_id "web-ja"), a book page loses its record. Migration 1793300012 adds reader_opens. Without it, S2 stops.
+Book runs (unit VW77e, Q-A 3:11.2): S2 looks in the book stores <data>/book-store/<book>/ in 3 places: the book folder (the current run), archive/<run ID folder>/ (ended runs) and agent-phase-3/ (the phase 3 store).
+The run ID of a book run has the folder form, for example 20261111T183021-0800. The open record of a book run has the source "book-store", the book, and that run ID. S2 takes a page of a book run only if its pointer pages/<page>.json has accepted true and verdict "PASS".
+The pointer names the page run folder under pilot-run/. The reader_pages record keeps the name of that page run folder, as for a pilot run. S2 never reads book-store/paired-dataset (the phase 2 training run).
 With --offline the server is not read, so the plan counts every run as open. The record holds no verdict, no score, no TL_3 panel, and no reasoning. The report lists the count and the sizes in MB.
 A sentence that crosses a page end (unit VW90): the Translator writes two files (schema cross-page-v1) after the QA_3 PASS of the later page. If the shown run has results/cross_page.json (role first_half, earlier page),
 the reader record shows the full English text on the row of the tail (the EN term marks of that row are dropped) and has the key continues. If it has results/cross_page_from.json (role second_half, later page),
@@ -568,6 +583,42 @@ async function loadChapters(dataDir) {
   return out;
 }
 
+/**
+ * Unit VW77e: one record for each usable row of item-metadata/book-toc.jsonl (23 books, 1,181 rows). The research keys stay in the file.
+ * A line that is not JSON, a row that tocRecordOf refuses, and a second row with the same (book, order) are counted in `skipped`.
+ */
+async function loadBookToc(dataDir) {
+  const out = [];
+  const seen = new Set();
+  const skipped = [];
+  const text = await readTextFile(path.join(dataDir, "item-metadata/book-toc.jsonl"));
+  let lineNo = 0;
+  for (const line of (text ?? "").split("\n")) {
+    lineNo++;
+    if (!line.trim()) continue;
+    let raw;
+    try {
+      raw = JSON.parse(line);
+    } catch {
+      skipped.push(`line ${lineNo}: not JSON`);
+      continue;
+    }
+    const rec = tocRecordOf(raw);
+    if (!rec) {
+      skipped.push(`line ${lineNo}: not a usable ToC row`);
+      continue;
+    }
+    const key = `${rec.book}|${rec.order}`;
+    if (seen.has(key)) {
+      skipped.push(`line ${lineNo}: second row for ${rec.book} order ${rec.order}`);
+      continue;
+    }
+    seen.add(key);
+    out.push(rec);
+  }
+  return { records: out, skipped, fileFound: text !== null };
+}
+
 // Research fields of a metadata row (unit RC2, round 65; owner round 64 answer 7: "Strip research fields"). Every signed-in user can read catalog_items,
 // so the column row must not hold them. VISION-viewer 15.19.4 names the six. The files in item-metadata keep them.
 // Unit RC3 (round 66 answer 6, Q-A 2026-10-29 l32): eight more keys leave the row. hint_secondary holds a file path of the Mac of the owner.
@@ -689,6 +740,23 @@ for (const slug of slugs) {
 
 const chapters = await loadChapters(dataDir);
 
+// 2a. The table of contents of the books (unit VW77e part 1, Q-A 3:10.5 R3). The collection book_toc always gets all usable rows of book-toc.jsonl.
+const tocLoad = await loadBookToc(dataDir);
+const tocRecords = tocLoad.records;
+if (!tocLoad.fileFound) console.error("Warning: item-metadata/book-toc.jsonl is missing. The collection book_toc gets no rows.");
+for (const s of tocLoad.skipped) console.error(`Warning: book-toc.jsonl ${s}. The row is skipped.`);
+
+// 2a2. Book runs (unit VW77e part 2, Q-A 3:11.1 and 3:11.2). D3: listBookStoreBooks never returns book-store/paired-dataset (the phase 2 training run).
+// D4: readBookRuns looks in the book folder (current run), archive/<run ID folder>/ and agent-phase-3/.
+const bookRuns = [];
+const bookWarnings = [];
+for (const book of await listBookStoreBooks(dataDir)) {
+  const found = await readBookRuns(dataDir, book);
+  bookRuns.push(...found.runs);
+  for (const d of found.duplicates) bookWarnings.push(`${book}: the run ID ${d.runId} appears twice. The copy in ${d.place} is ignored.`);
+  for (const r of found.runs) if (r.badPointers > 0) bookWarnings.push(`${book} ${r.place} ${r.runId ?? "no run ID"}: ${r.badPointers} pointer file(s) in pages/ are not usable and are skipped.`);
+}
+
 // 2b. Web articles (unit RT73a, round 73; VISION-viewer 15.26.3 and 15.26.13). The page file of the Translator holds one line for each A4 page.
 const webFile = o.webPages ? path.resolve(o.webPages) : path.join(dataDir, "item-metadata/web-pages.jsonl");
 const webAll = [];
@@ -726,6 +794,8 @@ const pb = new Pb(base);
 let serverRuns = null;
 let serverItems = null;
 let serverChapters = null;
+let serverToc = null; // unit VW77e: book_toc records, "book|order" -> record. null = not read (--offline) or the collection is missing (dry run)
+let tocMissing = false; // true when the server has no collection book_toc
 let serverReader = null;
 let marks = new Map(); // page ID to the run ID of the admin run mark
 let openSet = null; // unit RT74: the opened runs, as openKey(source, book, run ID). null = not read (--offline): every run counts as open
@@ -786,6 +856,16 @@ if (!o.offline) {
       fail("Collection reader_opens is missing. Restart PocketBase so that migration 1793300012 runs.");
     }
     openSet = new Set((await pb.listAll("reader_opens")).map((r) => openKey(String(r.source), String(r.book), String(r.run_id))));
+    // Unit VW77e (Q-A 3:10.5 R3): the collection book_toc. --apply stops without it. A dry run warns and shows the ToC rows as not compared.
+    try {
+      await pb.call("GET", `/api/collections/${TOC_COLLECTION}`);
+    } catch {
+      tocMissing = true;
+      const text = `Collection ${TOC_COLLECTION} is missing. Restart PocketBase so that migration 1793300013 runs.`;
+      if (o.apply) fail(text);
+      console.error("Warning: " + text + " The dry run goes on, and the ToC rows count as not compared.");
+    }
+    if (!tocMissing) serverToc = new Map((await pb.listAll(TOC_COLLECTION, { perPage: 500 })).map((r) => [`${r.book}|${r.order}`, r]));
     const qs = (v) => JSON.stringify(String(v)); // a PocketBase filter text
     sysUser = (await pb.listAll("users", { filter: `email=${qs(WEB_SYSTEM_EMAIL)}`, fields: "id,email,disabled" }))[0] ?? null;
     ownRows = await pb.listAll("own_translations", sysUser ? { filter: `user!=${qs(sysUser.id)}` } : {});
@@ -810,6 +890,14 @@ const chapterPlan = chapters.map((c) => {
   if (!stored) return { c, action: "create" };
   return { c, action: chapterRecordEqual(stored, c) ? "unchanged" : "update", id: stored.id };
 });
+const tocPlan = tocRecords.map((c) => {
+  if (!serverToc) return { c, action: "not compared" };
+  const stored = serverToc.get(`${c.book}|${c.order}`);
+  if (!stored) return { c, action: "create" };
+  return { c, action: tocRecordEqual(stored, c) ? "unchanged" : "update", id: stored.id };
+});
+const tocKeys = new Set(tocRecords.map((c) => `${c.book}|${c.order}`));
+const tocServerOnly = serverToc ? [...serverToc.keys()].filter((k) => !tocKeys.has(k)) : []; // S2 never deletes a ToC record
 const serverOnly = serverRuns
   ? [...serverRuns.values()].filter((r) => !localAll.has(`${r.page_id}|${r.run_id}`) && (!filtered || filter.has(String(r.page_id))))
   : [];
@@ -836,6 +924,44 @@ for (const r of ownRows) {
   if (!agreedTexts.has(k)) agreedTexts.set(k, new Set());
   agreedTexts.get(k).add(String(r.ed3_text ?? ""));
 }
+// Unit VW77e (Q-A 3:11.1 O1 and O2, Q-A 3:11.2 D1 to D4). A book run is open when reader_opens holds the record (source "book-store", the book, the run ID in folder form).
+// D2: a page of a book run counts only if its pointer has accepted true and the verdict PASS. The pointer names the page run folder under pilot-run/, and that folder gives the text.
+// A pointer whose page run folder is not a finished run here, or is outside --page and --list, gives no candidate (the report counts it).
+const selectedSet = new Set(selected);
+const bookCandsByPage = new Map(); // pageId -> candidates of the open and the closed book runs
+const openBookStored = new Set(); // "pageId|page run folder" of each PASS pointer of an open book run, also when the folder is gone: a stored record of it stays
+const bookReport = []; // one entry for each book run, for the report
+for (const run of bookRuns) {
+  const open = run.runId !== null && (openSet === null || openSet.has(openKey(BOOK_RUN_SOURCE, run.book, run.runId)));
+  const rep = { run, open, pass: 0, other: 0, used: 0, outside: 0, lost: [] };
+  for (const p of run.pointers) {
+    if (!pointerTakesPage(p)) {
+      rep.other++;
+      continue;
+    }
+    rep.pass++;
+    const name = pageRunNameOf(p.folder);
+    if (!name) {
+      rep.lost.push(`${p.pageId}: the pointer names no page run folder`);
+      continue;
+    }
+    if (open) openBookStored.add(`${p.pageId}|${name}`);
+    const x = localAll.get(`${p.pageId}|${name}`);
+    if (!x) {
+      rep.lost.push(`${p.pageId}: ${PILOT}/${p.folder.split("/")[1]}/${name} is not a finished run`);
+      continue;
+    }
+    if (!selectedSet.has(x)) {
+      rep.outside++;
+      continue;
+    }
+    rep.used++;
+    if (!bookCandsByPage.has(p.pageId)) bookCandsByPage.set(p.pageId, []);
+    bookCandsByPage.get(p.pageId).push({ source: BOOK_RUN_SOURCE, pageRunId: name, bookRunId: run.runId, verdict: "PASS", x, open });
+  }
+  bookReport.push(rep);
+}
+const isStoredOpen = (pageId, book, runId) => isOpenRun(book, runId) || openBookStored.has(`${pageId}|${runId}`);
 const readerPlan = [];
 const readerSkipped = [];
 const readerNotOpen = []; // pages with a finished run and no open run: no Agent text
@@ -845,15 +971,29 @@ const crossWarnings = []; // unit VW90: one warning line for each skipped file
 for (const [pageId, xs] of [...runsByPage].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
   xs.sort(newestFirst);
   const markedId = marks.get(pageId);
-  const hit = pickReaderRun(xs.map((x) => ({ runId: x.run.runId, verdict: x.run.verdict, x })), markedId, (runId) => isOpenRun(xs[0].slug, runId));
+  // Unit VW77e: with no book run on the page this picks as pickReaderRun did before (the pilot runs, newest first). A book run comes before a pilot run (O1).
+  const bookCands = bookCandsByPage.get(pageId) ?? [];
+  const hit = pickReaderCandidate(
+    bookCands,
+    xs.map((x) => ({ source: PILOT_SOURCE, pageRunId: x.run.runId, bookRunId: null, verdict: x.run.verdict, x })),
+    markedId,
+    (c) => (c.source === BOOK_RUN_SOURCE ? c.open : isOpenRun(c.x.slug, c.pageRunId)),
+  );
   if (!hit) {
-    if (xs.some((x) => isOpenRun(x.slug, x.run.runId))) readerSkipped.push(`${pageId}: no open PASS run`);
+    if (xs.some((x) => isOpenRun(x.slug, x.run.runId)) || bookCands.some((c) => c.open)) readerSkipped.push(`${pageId}: no open PASS run`);
     else readerNotOpen.push(pageId);
     continue;
   }
-  const pick = hit.run.x;
+  const pick = hit.cand.x;
   const markedHere = markedId ? xs.find((x) => x.run.runId === markedId) : undefined;
-  const why = hit.why === "run mark" ? "run mark (open)" : markedId ? `newest open PASS (${markedHere ? "the marked run is not open" : "the marked run has no finished folder here"})` : "newest open PASS";
+  const why =
+    hit.why === "run mark"
+      ? "run mark (open)"
+      : hit.why === "newest open book-run PASS"
+        ? `newest open book-run PASS (book run ${hit.cand.bookRunId})`
+        : markedId
+          ? `newest open PASS (${markedHere ? "the marked run is not open" : "the marked run has no finished folder here"})`
+          : "newest open PASS";
   // Unit VW90 (Q-A 3:1.6, 3:4.7): the files results/cross_page.json and results/cross_page_from.json of the SHOWN run change the reader record only (the snapshot of the run stays as it is).
   // The agree tick counts for exactly the text that the reader sees, so a translator tick on the half text does not carry over to the full sentence (unit default VW90).
   const cross = crossPageForReader(pageId, pick.built, {
@@ -892,7 +1032,7 @@ if (serverReader) {
   for (const [id, rec] of serverReader) {
     if (readerPlanned.has(id) || webById.has(id) || (filtered && !filter.has(id))) continue;
     const agent = hasAgentRecord(rec);
-    if (agent && (runsByPage.has(id) || !isOpenRun(String(rec.item_id), String(rec.run_id)))) readerRemove.push({ pageId: id, id: rec.id, runId: String(rec.run_id) });
+    if (agent && (runsByPage.has(id) || !isStoredOpen(id, String(rec.item_id), String(rec.run_id)))) readerRemove.push({ pageId: id, id: rec.id, runId: String(rec.run_id) });
     else readerServerOnly.push(id);
   }
 }
@@ -915,7 +1055,7 @@ for (const w of webSel) {
   // Unit RT74: an agent record of a web page stays only when the plan keeps an Agent text for the page, or when the page has no finished local run and the stored run is open.
   // Else the page goes back to its Original text record (run_id web-ja) below. The compare with the stored record then says "update".
   const storedAgent = Boolean(stored && hasAgentRecord(stored));
-  const keepStored = storedAgent && !runsByPage.has(pageId) && isOpenRun(String(stored.item_id), String(stored.run_id));
+  const keepStored = storedAgent && !runsByPage.has(pageId) && isStoredOpen(pageId, String(stored.item_id), String(stored.run_id));
   if (agentPlanned.has(pageId) || keepStored) {
     webKept.push(`${pageId}: agent record`);
   } else {
@@ -1026,6 +1166,24 @@ for (const book of [...new Set(chapters.map((c) => c.book))].sort()) {
   console.log(`${book} | ${mine.length} | ${n("create")} | ${n("update")} | ${n("unchanged")}`);
 }
 console.log("");
+// Unit VW77e: the ToC rows of each book (Q-A 3:10.5 R3). S2 never deletes a ToC record, so a record that the file no longer holds is only counted.
+console.log("book_toc | rows | create | update | unchanged");
+for (const book of [...new Set(tocRecords.map((c) => c.book))].sort()) {
+  const mine = tocPlan.filter((p) => p.c.book === book);
+  const n = (a) => (serverToc ? mine.filter((p) => p.action === a).length : "-");
+  console.log(`${book} | ${mine.length} | ${n("create")} | ${n("update")} | ${n("unchanged")}`);
+}
+console.log(`book_toc | ${tocRecords.length} rows in ${new Set(tocRecords.map((c) => c.book)).size} books${tocMissing ? " (the collection is missing on the server)" : serverToc ? `, ${tocServerOnly.length} record(s) on the server that the file does not hold (kept)` : " (not compared)"}`);
+console.log("");
+// Unit VW77e: the book runs found in the book stores, and which of them are open (Q-A 3:11.1 and 3:11.2).
+console.log("book runs | book | place | run ID | readers | PASS pages | other pages | used | outside the selection | page run folder missing");
+for (const r of bookReport) {
+  console.log(`book runs | ${r.run.book} | ${r.run.place} | ${r.run.runId ?? "no run ID"} | ${r.run.runId === null ? "no button" : openSet === null ? "open (not compared)" : r.open ? "open" : "closed"} | ${r.pass} | ${r.other} | ${r.used} | ${r.outside} | ${r.lost.length}`);
+  for (const l of r.lost) console.log(`  Warning: ${r.run.book} ${r.run.runId ?? r.run.place}: ${l}`);
+}
+for (const w of bookWarnings) console.log(`Warning: ${w}`);
+if (bookReport.length === 0) console.log("book runs | none found in book-store/ (book-store/paired-dataset is never read)");
+console.log("");
 console.log("reader_pages | page_id | run_id | why | size | rows | agree | action");
 for (const p of readerPlan) console.log(`reader_pages | ${p.pageId} | ${p.x.run.runId} | ${p.why} | ${mb(p.bytes)} | ${p.body.rows.length} | ${p.body.agree.length} | ${p.action}`);
 // Unit VW90: the files of the shown run that change a reader record, and the files that S2 skipped. Nothing prints for a run without the files.
@@ -1073,6 +1231,7 @@ else console.log("reader_pages sizes: 0 records");
 const done = { created: [], updated: [], unchanged: [], failed: [] };
 const itemDone = { created: [], updated: [], unchanged: [], failed: [] };
 const chapterDone = { created: [], updated: [], unchanged: [], failed: [] };
+const tocDone = { created: [], updated: [], unchanged: [], failed: [] }; // unit VW77e
 const readerDone = { created: [], updated: [], unchanged: [], removed: [], failed: [] };
 // Unit RT73a: results of the web articles. user is "created", "exists", or "".
 const webDone = {
@@ -1122,6 +1281,21 @@ if (o.apply) {
       (p.action === "create" ? chapterDone.created : chapterDone.updated).push(p.c.chapter);
     } catch (e) {
       chapterDone.failed.push(`${p.c.chapter}: ${e.message}`);
+    }
+  }
+  // Unit VW77e: create or update each ToC record. S2 never deletes one.
+  for (const p of tocPlan) {
+    const label = `${p.c.book}#${p.c.order}`;
+    if (p.action === "unchanged") {
+      tocDone.unchanged.push(label);
+      continue;
+    }
+    try {
+      if (p.action === "create") await pb.call("POST", `/api/collections/${TOC_COLLECTION}/records`, p.c);
+      else await pb.call("PATCH", `/api/collections/${TOC_COLLECTION}/records/${encodeURIComponent(p.id)}`, p.c);
+      (p.action === "create" ? tocDone.created : tocDone.updated).push(label);
+    } catch (e) {
+      tocDone.failed.push(`${label}: ${e.message}`);
     }
   }
   for (const p of readerPlan) {
@@ -1210,6 +1384,7 @@ if (o.apply) {
   for (const p of readerPlan) if (p.action !== "not compared") (p.action === "create" ? readerDone.created : p.action === "update" ? readerDone.updated : readerDone.unchanged).push(p.pageId);
   for (const r of readerRemove) readerDone.removed.push(r.pageId);
   for (const p of chapterPlan) if (p.action !== "not compared") (p.action === "create" ? chapterDone.created : p.action === "update" ? chapterDone.updated : chapterDone.unchanged).push(p.c.chapter);
+  for (const p of tocPlan) if (p.action !== "not compared") (p.action === "create" ? tocDone.created : p.action === "update" ? tocDone.updated : tocDone.unchanged).push(`${p.c.book}#${p.c.order}`);
   for (const p of plan) if (p.action !== "not compared") (p.action === "create" ? done.created : p.action === "update" ? done.updated : done.unchanged).push(`${p.x.pageId} ${p.x.run.runId}`);
   for (const p of itemPlan) if (p.action !== "not compared") (p.action === "create" ? itemDone.created : p.action === "update" ? itemDone.updated : itemDone.unchanged).push(p.it.slug);
   // Unit RT73a
@@ -1252,6 +1427,24 @@ chapterLine(word[0], chapterDone.created);
 chapterLine(word[1], chapterDone.updated);
 chapterLine(word[2], chapterDone.unchanged);
 if (o.apply) console.log(`  failed: ${chapterDone.failed.length}${chapterDone.failed.length ? " (" + chapterDone.failed.join(", ") + ")" : ""}`);
+console.log("book_toc (unit VW77e)");
+{
+  const tocCompared = (name, list) => (o.offline || tocMissing ? console.log(`  ${name}: not compared`) : console.log(`  ${name}: ${list.length}`));
+  tocCompared(word[0], tocDone.created);
+  tocCompared(word[1], tocDone.updated);
+  tocCompared(word[2], tocDone.unchanged);
+  if (o.apply) console.log(`  failed: ${tocDone.failed.length}${tocDone.failed.length ? " (" + tocDone.failed.join(", ") + ")" : ""}`);
+  console.log(`  skipped rows of book-toc.jsonl: ${tocLoad.skipped.length}`);
+  if (!o.offline && !tocMissing) console.log(`  on the server only (never deleted): ${tocServerOnly.length}`);
+}
+console.log("book runs (unit VW77e)");
+{
+  const openRuns = bookReport.filter((r) => r.open);
+  console.log(`  runs found: ${bookReport.length} (open: ${o.offline ? "not compared" : openRuns.length}, closed or without run ID: ${o.offline ? "not compared" : bookReport.length - openRuns.length})`);
+  console.log(`  pages of open book runs that give the Agent text: ${readerPlan.filter((p) => p.why.startsWith("newest open book-run PASS")).length}`);
+  console.log(`  PASS pointers without a finished page run folder: ${bookReport.reduce((t, r) => t + r.lost.length, 0)}`);
+  console.log("  book-store/paired-dataset (phase 2 training run): not read");
+}
 console.log("web articles (unit RT73a)");
 {
   const cmp = (name, list) => (o.offline ? console.log(`  ${name}: not compared`) : console.log(`  ${name}: ${fmt(list.length)}`));
@@ -1279,4 +1472,4 @@ line("on the server only (kept)", readerServerOnly);
 console.log(`Total snapshot size: ${mb(total)} for ${selected.length} run(s)`);
 console.log(`Total reader_pages size: ${mb(readerTotal)} for ${readerPlan.length} record(s)`);
 if (!o.apply) console.log("Nothing was written. Add --apply to write.");
-process.exit(done.failed.length || itemDone.failed.length || chapterDone.failed.length || readerDone.failed.length || webDone.reader.failed.length || webDone.versions.failed.length || webDone.own.failed.length ? 1 : 0);
+process.exit(done.failed.length || itemDone.failed.length || chapterDone.failed.length || tocDone.failed.length || readerDone.failed.length || webDone.reader.failed.length || webDone.versions.failed.length || webDone.own.failed.length ? 1 : 0);

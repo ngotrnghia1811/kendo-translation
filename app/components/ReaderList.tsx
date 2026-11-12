@@ -16,7 +16,7 @@ function Summary({ f, known }: { f: Fold; known: boolean }) {
   const first = f.level === 1;
   const text = [first ? `${f.counts.works.toLocaleString("en-US")} works` : f.note, first ? `${f.counts.pages.toLocaleString("en-US")} pages` : ""].filter(Boolean).join(" · ");
   // A month and every higher fold show the same full form "N of M pages translated" (VISION-viewer 15.23.3.2, round 70 answer 9).
-  const progress = !known ? "" : f.level === 3 ? progressLine(f.counts.translated, f.counts.pages) : foldProgress(f.counts.translated, f.counts.pages);
+  const progress = !known ? "" : f.level === 3 && !f.toc ? progressLine(f.counts.translated, f.counts.pages) : foldProgress(f.counts.translated, f.counts.pages);
   return (
     <>
       <span className={first ? "text-lg font-semibold" : "font-semibold"}>{f.title}</span>
@@ -56,9 +56,15 @@ function FoldView({ f, approved, known, openId }: { f: Fold; approved: boolean; 
   const first = f.level === 1;
   // A month (level 3) sends no rows. The page opens the month in openId on the server (the link "Show this month" and the search of a month).
   if (f.lazy) {
+    // Unit VW77e: the fold of a book (f.toc) loads its table of contents when it opens. The row of the book shows above the rows (the head, as in a year fold).
+    const head = f.toc && f.head ? (
+      <ul className="mb-2 grid gap-2">
+        <WorkItem r={f.head} approved={approved} compact={false} />
+      </ul>
+    ) : undefined;
     return (
       <li id={f.id}>
-        <ReaderMonth id={f.id} level={f.level} summary={<Summary f={f} known={known} />} initial={f.id === openId ? f.children : null} approved={approved} />
+        <ReaderMonth id={f.id} level={f.level} summary={<Summary f={f} known={known} />} initial={f.id === openId ? f.children : null} approved={approved} kind={f.toc ? "toc" : "month"} head={head} />
       </li>
     );
   }
