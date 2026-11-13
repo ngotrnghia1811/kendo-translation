@@ -1,5 +1,6 @@
 import "server-only";
-import { loadConfig } from "./config";
+import { loadConfig, loadSignUpKey } from "./config";
+import { signUpHeaders } from "./sign-up-guard";
 import type { ChapterHead, CommentView, HtvRun, Role, SavedRow, SessionUser, TermEntry, VersionInfo } from "./htv-types";
 import type { BookmarkView, DashArticle, DashChapter, DashWork, ReaderBookFacts, ReaderExtra, ReaderFact, ReaderMark, ReaderPageRecord } from "./reader-types";
 import { hasAgentRecord } from "./reader-web";
@@ -35,11 +36,12 @@ interface PbResult {
 }
 
 /** One request to PocketBase. A bad HTTP status does not throw. A network failure throws a plain PbError with status 503. */
-async function pbFetch(method: string, path: string, opts: { token?: string; body?: unknown } = {}): Promise<PbResult> {
+async function pbFetch(method: string, path: string, opts: { token?: string; body?: unknown; headers?: Record<string, string> } = {}): Promise<PbResult> {
   const { pocketbaseUrl } = await loadConfig();
   const headers: Record<string, string> = { Accept: "application/json" };
   if (opts.body !== undefined) headers["Content-Type"] = "application/json";
   if (opts.token) headers["Authorization"] = opts.token;
+  if (opts.headers) Object.assign(headers, opts.headers);
   let res: Response;
   try {
     res = await fetch(pocketbaseUrl + path, {
@@ -497,19 +499,25 @@ export async function saveUserSettings(token: string, userId: string, changes: {
 
 /**
  * Public sign-up (round 63 answer 4). The body names the role reader and holds no approved key, so the field stays false.
- * The create rule of users refuses any other role (migration 1793300006). No secret is needed.
+ * The create rule of users refuses any other role (migration 1793300006). No token is needed. The app key of unit VW102 (see below) is not a user token.
  * emailVisibility is true, so that an admin sees the email on the approval page. Only translators and admins read other user records (same migration).
  * Unit VW101 (Q-A 3:31.2 to 3:31.4): migration 1793300014 limits sign-ups to 5 per hour for one network address. PocketBase then answers with HTTP 429,
  * and this function returns the plain message below (status 429). A sign-up that fails also counts toward the limit (PocketBase counts every create request).
+ * Unit VW102 (Q-A 3:33.3 "Count per reader, with an app key (VW102)"): `clientIp` is the reader address that the route found. The function sends it in the header
+ * X-Kendo-Client-IP, so that PocketBase counts the limit for each reader (migration 1793300015). It sends the app key VIEWER_SIGN_UP_KEY in the header
+ * X-Kendo-Sign-Up-Key. The hook sign_up_key.pb.js refuses a public sign-up without it (HTTP 403 with the data code sign_up_key_refused).
+ * That refusal gets its own message. A 403 with no such code (for example from another layer) keeps the old message, as in unit VW101.
  */
-export async function pbSignUp(name: string, email: string, password: string): Promise<{ ok: true } | { ok: false; status: number; message: string }> {
-  const r = await pbFetch("POST", "/api/collections/users/records", { body: { name, email, password, passwordConfirm: password, role: "reader", emailVisibility: true } });
+export async function pbSignUp(name: string, email: string, password: string, clientIp: string | null = null): Promise<{ ok: true } | { ok: false; status: number; message: string }> {
+  const headers = signUpHeaders(loadSignUpKey(), clientIp);
+  const r = await pbFetch("POST", "/api/collections/users/records", { body: { name, email, password, passwordConfirm: password, role: "reader", emailVisibility: true }, headers });
   if (ok(r)) return { ok: true };
   const f = r.data?.data ?? {};
   if (f.email?.code === "validation_not_unique") return { ok: false, status: 400, message: "This email is already used. Sign in instead." };
   if (f.email) return { ok: false, status: 400, message: "Enter a valid email." };
   if (f.password) return { ok: false, status: 400, message: "The password must have 8 characters or more." };
   if (r.status === 429) return { ok: false, status: 429, message: "Too many sign-ups from this network. Try again later." };
+  if (r.status === 403 && f.signUpKey?.code === "sign_up_key_refused") return { ok: false, status: 503, message: "Sign-up is closed on this server. Try again later." };
   if (r.status === 503) return { ok: false, status: 503, message: "The sign-in server is not reachable. Try again later." };
   return { ok: false, status: r.status === 400 ? 400 : 502, message: "The account was not created. Check the fields and try again." };
 }

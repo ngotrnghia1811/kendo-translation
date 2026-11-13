@@ -237,12 +237,14 @@ function runMigration() {
   return { afterUp, afterDown, afterUpAgain, saves: calls.length, logs, src };
 }
 
-await check("migration folder: the 15 files are in the folder, the new one is the last, and the timestamps are unique", () => {
+// Unit VW102 added migration 1793300015: the folder holds 16 files, and the file of this unit is the second from last.
+await check("migration folder: the 16 files are in the folder, the file of this unit is the second from last, and the timestamps are unique", () => {
   assert.ok(dir, "no migration folder found");
   const files = readdirSync(dir).filter((f) => f.endsWith(".js")).sort();
-  assert.equal(files.length, 15);
-  assert.equal(files.at(-1), FILE);
-  assert.equal(new Set(files.map((f) => f.split("_")[0])).size, 15);
+  assert.equal(files.length, 16);
+  assert.equal(files.at(-2), FILE);
+  assert.equal(files.at(-1), "1793300015_v2_sign_up_address.js");
+  assert.equal(new Set(files.map((f) => f.split("_")[0])).size, 16);
   assert.equal(files[0], "1793300000_v2_users_rules.js");
 });
 

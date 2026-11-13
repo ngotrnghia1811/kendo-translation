@@ -183,6 +183,24 @@ export function loadPageImageConfig(): PageImageConfig {
 }
 
 /**
+ * The app key for public sign-ups (unit VW102, Q-A 3:33.3 "Count per reader, with an app key (VW102)").
+ *   VIEWER_SIGN_UP_KEY  a secret, at least 32 characters, for example from `openssl rand -hex 32`. No default value.
+ * The route /api/read/sign-up sends it to PocketBase in the header X-Kendo-Sign-Up-Key. The PocketBase hook
+ * data/scripts/pocketbase/pb_hooks/sign_up_key.pb.js refuses a public sign-up without the same value in its variable SIGN_UP_KEY.
+ * An empty variable counts as not set. Not set: the app sends no key (the local PocketBase on port 8090 loads no hook, so it needs none).
+ * A key that is too short throws a plain error. No message of this file shows the value of the key.
+ */
+export const MIN_SIGN_UP_KEY = 32;
+
+export function loadSignUpKey(): string | undefined {
+  const key = envValue("VIEWER_SIGN_UP_KEY");
+  if (key !== undefined && key.length < MIN_SIGN_UP_KEY) {
+    throw new Error(`The environment variable VIEWER_SIGN_UP_KEY must have at least ${MIN_SIGN_UP_KEY} characters.`);
+  }
+  return key;
+}
+
+/**
  * The v1 md files (unit RT73a, round 73d answer 8: "This Mac, copy in data folder (Recommended)"; VISION-viewer 15.26.9).
  * They hold the v1 placeholder: JA, EN, and ZH lines of the browser Gemini agent of v1, for display testing only.
  *   VIEWER_V1_DIR  folder of the md files, one subfolder for each work: <dir>/<slug>/page_NNN.md. Default ../data/v1-md from the app folder.
