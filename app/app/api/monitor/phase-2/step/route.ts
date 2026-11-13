@@ -2,6 +2,7 @@ import { jsonResponse, errorResponse } from "@/lib/api";
 import { monitorOffResponse } from "@/lib/monitor";
 import { dataRoot } from "@/lib/config";
 import { loadStepData } from "@/lib/step-tree-load";
+import { storeOfQuery } from "@/lib/run-store-load";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,11 @@ export async function GET(req: Request) {
     const off = await monitorOffResponse();
     if (off) return off;
     const q = new URL(req.url).searchParams;
-    return jsonResponse(await loadStepData(await dataRoot(), { folder: q.get("folder"), step: q.get("step"), page: q.get("page"), diff: q.get("diff"), version: q.get("version") }));
+    const root = await dataRoot();
+    // Unit VW85 (Q-A 3:26.3 (a)): &list=<stamp> or &book=<slug> names the store of a book run. Without both: the phase 2 store.
+    const store = await storeOfQuery(root, q.get("list"), q.get("book"));
+    if ("error" in store) return jsonResponse({ error: store.error }, 400);
+    return jsonResponse(await loadStepData(root, { folder: q.get("folder"), step: q.get("step"), page: q.get("page"), diff: q.get("diff"), version: q.get("version") }, store));
   } catch (e) {
     return errorResponse(e);
   }

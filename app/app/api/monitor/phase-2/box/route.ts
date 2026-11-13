@@ -4,6 +4,7 @@ import { dataRoot } from "@/lib/config";
 import { isSafeSegment } from "@/lib/safe-path";
 import { loadBoxMonitor, loadMonitorItem } from "@/lib/training-monitor-load";
 import type { MonitorUnchanged } from "@/lib/training-monitor";
+import { storeOfQuery } from "@/lib/run-store-load";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,10 @@ export async function GET(req: Request) {
     const root = await dataRoot();
     const item = q.get("item");
     if (item) {
-      return jsonResponse(await loadMonitorItem(root, { item, box: q.get("box"), folder: q.get("folder"), queueId: q.get("queue"), page: q.get("page"), change: q.get("change") }));
+      // Unit VW85 (Q-A 3:26.3 (a)): &list=<stamp> or &book=<slug> names the store of a book run. Without both: the phase 2 store.
+      const store = await storeOfQuery(root, q.get("list"), q.get("book"));
+      if ("error" in store) return jsonResponse({ error: store.error }, 400);
+      return jsonResponse(await loadMonitorItem(root, { item, box: q.get("box"), folder: q.get("folder"), queueId: q.get("queue"), page: q.get("page"), change: q.get("change") }, store));
     }
     const list = q.get("list") ?? "";
     if (!isSafeSegment(list)) return jsonResponse({ error: "The request names no valid list stamp." }, 400);

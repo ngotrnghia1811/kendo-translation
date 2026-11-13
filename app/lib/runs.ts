@@ -15,6 +15,7 @@ import { runIdText } from "./pst";
 // Unit VW96 (card P31.3, Q-A 3:17.4): a page of a book (a slug that is not 8 hex digits) gets the book title and "page 46" in the run view.
 import { bookTitle } from "./books";
 import { pageNumberText } from "./readable-names";
+import { bookRunBookOf } from "./run-store"; // unit VW85 (Q-A 3:26.3 (a))
 
 const LISTS = "pilot-run/lists";
 export const PAUSE_NAME = "PAUSE";
@@ -141,10 +142,13 @@ export async function getRun(stamp: string): Promise<RunDetail | null> {
     const title = titles.get(slug);
     if (title) r.article = { shortId: "", title, titleJa: null, found: true, pageOf: pageNumberText(r.pageId) };
   }
+  // Unit VW85 (Q-A 3:26.3 (a)): a book-run list of a real book gets the step tree and the training monitor in the run view.
+  const runBook = bookRunBookOf(p);
   return {
     ...summarize(stamp, p, listJson, summaryJson),
     phase2Note,
     phase2List: isPhase2List(p), // fix round: the run view heading "Phase 2 run, list started ..."
+    ...(runBook ? { bookRunBook: runBook, bookRunTitle: (await bookTitle(runBook)) || null } : {}),
     noCritic: firstBool("no_critic", listJson, summaryJson),
     noVoyage: firstBool("no_voyage", listJson, summaryJson),
     // list.json is the file that run-chain --resume reads, so it comes first. The list summary is the fallback.

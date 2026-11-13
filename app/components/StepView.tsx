@@ -6,6 +6,10 @@ import { LiveBadge, useLive } from "./useLive";
 import { PromptUpdates, StepTree, type Choices } from "./StepTree";
 // Unit VW98 (Q-A 3:23.3): box codes link to the training monitor in the run view of the newest list of the run.
 import { MonitorStampProvider } from "./TrainingMonitorLink";
+// Unit VW85 (Q-A 3:26.3 (a), (b)): the same tree for a book run, and the frozen boxes of the run.
+import { storeQuery } from "@/lib/run-store";
+import { RunStoreQueryProvider } from "./RunStoreQuery";
+import { FrozenBoxes } from "./RunStoreParts";
 
 // Unit VW95 (round 91). The live wrapper of the tree: the step view /monitor/phase-2 (list null) and the run view /runs/<stamp> of a phase 2 list
 // (list = the stamp, initial null: the summary loads after the first paint). Q-A 3:19.3 D3: it updates every 3 s while the tab is visible
@@ -24,7 +28,19 @@ const EMPTY: StepSummary = {
   error: null,
 };
 
-export default function StepView({ initial, list, showUpdates = false }: { initial: StepSummary | null; list: string | null; showUpdates?: boolean }) {
+// `book` (unit VW85): the slug of a book run. The step view /monitor/<slug>/steps sends ?book=<slug>, the run view of a book-run list sends ?list=<stamp>.
+// Without `book` the component works as before for phase 2 (VW95).
+export default function StepView({
+  initial,
+  list,
+  showUpdates = false,
+  book = null,
+}: {
+  initial: StepSummary | null;
+  list: string | null;
+  showUpdates?: boolean;
+  book?: string | null;
+}) {
   const [choices, setChoices] = useState<Choices>({});
   const setChoice = useCallback((key: string, open: boolean) => setChoices((c) => ({ ...c, [key]: open })), []);
   // The open pages go into the query, so the next answer carries their steps. The running page carries them always.
@@ -33,11 +49,12 @@ export default function StepView({ initial, list, showUpdates = false }: { initi
     .map((k) => k.slice(5));
   const params = new URLSearchParams();
   if (list) params.set("list", list);
+  else if (book) params.set("book", book);
   const open = openParam(openPages);
   if (open) params.set("open", open);
   const qs = params.toString();
   const url = qs ? `/api/monitor/phase-2?${qs}` : "/api/monitor/phase-2";
-  const { data, refresh, live } = useLive<StepSummary>(url, initial ?? EMPTY, () => true);
+  const { data, refresh, live } = useLive<StepSummary>(url, initial ?? (book ? { ...EMPTY, runLabel: "book run" } : EMPTY), () => true);
   const [loaded, setLoaded] = useState(initial !== null);
   const first = useRef(true);
   useEffect(() => {
@@ -49,16 +66,19 @@ export default function StepView({ initial, list, showUpdates = false }: { initi
     first.current = false;
     void refresh().then(() => setLoaded(true));
   }, [url, initial, refresh]);
-  if (!loaded) return <p className="text-sm text-muted">Loading the steps of the phase 2 run…</p>;
+  if (!loaded) return <p className="text-sm text-muted">{book ? "Loading the steps of the book run…" : "Loading the steps of the phase 2 run…"}</p>;
   return (
     <MonitorStampProvider stamp={list ?? data.lists[data.lists.length - 1]?.stamp ?? null}>
-      <div data-step-view>
-        <div className="mb-2">
-          <LiveBadge live={live} />
+      <RunStoreQueryProvider query={storeQuery({ book, list })}>
+        <div data-step-view>
+          <div className="mb-2">
+            <LiveBadge live={live} />
+          </div>
+          <StepTree summary={data} choices={choices} setChoice={setChoice} />
+          <FrozenBoxes frozen={data.frozen} title={data.book?.title ?? null} book={Boolean(book)} />
+          {showUpdates ? <PromptUpdates updates={data.updates} choices={choices} setChoice={setChoice} tick={data.generatedEpoch} /> : null}
         </div>
-        <StepTree summary={data} choices={choices} setChoice={setChoice} />
-        {showUpdates ? <PromptUpdates updates={data.updates} choices={choices} setChoice={setChoice} tick={data.generatedEpoch} /> : null}
-      </div>
+      </RunStoreQueryProvider>
     </MonitorStampProvider>
   );
 }

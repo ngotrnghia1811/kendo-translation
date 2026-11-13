@@ -25,6 +25,10 @@ import {
   type UpdatePoint,
 } from "./step-tree";
 import { stepDataSections, type StepData, type Section } from "./step-data";
+// Unit VW85 (Q-A 3:26.3 (a)): "The step view and the training monitor work for a book run too." Each loader takes the store of the run.
+// The default is the phase 2 store, so the phase 2 screens read the same files as before.
+import { PHASE2_STORE, bookPageNumber, bookPageText, frozenBoxes, listOfStore, pageName, phaseWord, type RunStore } from "./run-store";
+import { bookTitleAt } from "./run-store-load";
 
 /**
  * Server side of the step view (unit VW95, round 91). It reads files and writes none (Q-A 3:19.3 D4).
@@ -40,7 +44,8 @@ const rec = (v: unknown): Rec | null => (v !== null && typeof v === "object" && 
 const str = (v: unknown): string | null => (typeof v === "string" && v.length > 0 ? v : null);
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
-const STORE = path.join("book-store", PHASE2_BOOK);
+// Unit VW85: the store folder comes from a RunStore (lib/run-store.ts). PHASE2_STORE.dir is "book-store/paired-dataset" (PHASE2_BOOK).
+void PHASE2_BOOK;
 const LISTS = path.join("pilot-run", "lists");
 
 // ---------------------------------------------------------------- small readers below the data root
@@ -117,15 +122,18 @@ async function cachedParse<T>(root: string, rel: string, cache: Map<string, Cach
 interface HistoryParts {
   history: Phase2History;
   updates: UpdatePoint[];
+  /** Unit VW85: all rows, for the box-frozen events (freeze.py:33) and the phase of each start row (translator_run.py:3263). */
+  rows: Record<string, unknown>[];
 }
 const historyCache = new Map<string, Cached<HistoryParts>>();
 const listCache = new Map<string, Cached<unknown>>();
 const updateCallsCache = new Map<string, Cached<unknown[]>>();
 
-async function loadHistoryParts(root: string): Promise<HistoryParts> {
-  return cachedParse(root, path.join(STORE, "history.jsonl"), historyCache, (text) => {
+async function loadHistoryParts(root: string, store: RunStore = PHASE2_STORE): Promise<HistoryParts> {
+  // history.jsonl stays in book-store/<book>/ after a phase change (store.py:281), so it comes from store.historyRel.
+  return cachedParse(root, store.historyRel, historyCache, (text) => {
     const rows = parseHistory(text ?? "");
-    return { history: phase2History(rows), updates: updatePoints(rows) };
+    return { history: phase2History(rows), updates: updatePoints(rows), rows };
   });
 }
 
@@ -152,7 +160,7 @@ function listRows(progress: unknown): ListRowLite[] {
   return out;
 }
 
-async function loadPhase2Lists(root: string): Promise<ListLite[]> {
+async function loadPhase2Lists(root: string, store: RunStore = PHASE2_STORE): Promise<ListLite[]> {
   const out: ListLite[] = [];
   for (const stamp of (await listDirRel(root, LISTS)).sort()) {
     if (!isSafeSegment(stamp)) continue;
@@ -163,7 +171,8 @@ async function loadPhase2Lists(root: string): Promise<ListLite[]> {
         return null;
       }
     });
-    if (isPhase2List(progress)) out.push({ stamp, rows: listRows(progress) });
+    // Unit VW85: a book run takes the lists whose progress.json names its book (translator_run.py:3290-3293).
+    if (store.phase2 ? isPhase2List(progress) : listOfStore(progress, store)) out.push({ stamp, rows: listRows(progress) });
   }
   return out;
 }
@@ -207,10 +216,11 @@ async function loadPageFiles(root: string, folder: string, ended: boolean): Prom
   return files;
 }
 
-async function fillUpdateCalls(root: string, u: UpdatePoint): Promise<void> {
-  const dir = u.page.replace("/", "_");
+async function fillUpdateCalls(root: string, u: UpdatePoint, store: RunStore = PHASE2_STORE): Promise<void> {
+  // Folder update-points/<page name> (store.py:253-255): "94380515_p001" in phase 2, "p060" in a book (store.py:239-248).
+  const dir = pageName(store, u.page);
   if (!isSafeSegment(dir)) return;
-  const rows = await cachedParse(root, path.join(STORE, "update-points", dir, "calls.jsonl"), updateCallsCache, parseJsonl);
+  const rows = await cachedParse(root, path.join(store.dir, "update-points", dir, "calls.jsonl"), updateCallsCache, parseJsonl);
   const mine = rows.filter((r) => {
     const tag = str(rec(r)?.tag);
     return tag !== null && tag.startsWith(`${u.box}-`) && rec(r)?.kind === "model";
@@ -229,11 +239,19 @@ async function fillUpdateCalls(root: string, u: UpdatePoint): Promise<void> {
  * `openPages`: the pages that are open on the screen. Only these and the running page carry their steps (null: all pages).
  * Measured on live data (2026-11-12): all steps of 30 pages gave 0.4 MB per call, too much for a call every 3 s.
  */
-export async function loadStepSummary(root: string, listStamp: string | null = null, openPages: Set<string> | null = null): Promise<StepSummary> {
+export async function loadStepSummary(
+  root: string,
+  listStamp: string | null = null,
+  openPages: Set<string> | null = null,
+  store: RunStore = PHASE2_STORE,
+): Promise<StepSummary> {
   const t0 = Date.now();
+  // Unit VW85: a book run names its book by its title (Q-A 3:17.4 "Annotate the names intuitively and properly ... Apply this for EVERYTHING.").
+  const bookTitle = store.phase2 ? null : await bookTitleAt(root, store.book);
+  const bookName = bookTitle ?? store.book;
   const empty: StepSummary = {
     runId: null,
-    runLabel: "phase 2 run",
+    runLabel: store.phase2 ? "phase 2 run" : `book run of ${bookName}`,
     runWord: runWord(null),
     lists: [],
     pages: [],
@@ -244,15 +262,22 @@ export async function loadStepSummary(root: string, listStamp: string | null = n
     error: null,
   };
   try {
-    const status = rec(await readJsonRel(root, path.join(STORE, "status.json")));
-    const { history, updates } = await loadHistoryParts(root);
-    const allLists = await loadPhase2Lists(root);
+    const status = rec(await readJsonRel(root, path.join(store.dir, "status.json")));
+    const { history, updates, rows: historyRows } = await loadHistoryParts(root, store);
+    const allLists = await loadPhase2Lists(root, store);
     let runId: string | null = null;
     if (listStamp) runId = history.listRun.get(listStamp) ?? null;
     else runId = str(status?.run_id) ?? history.lastRunId;
     let lists = allLists.filter((l) => runId !== null && history.listRun.get(l.stamp) === runId);
     if (listStamp && lists.length === 0) lists = allLists.filter((l) => l.stamp === listStamp);
-    if (lists.length === 0 && !runId) return { ...empty, error: "No phase 2 run found: status.json and history.jsonl hold no run, and no phase 2 list exists." };
+    if (lists.length === 0 && !runId) {
+      return {
+        ...empty,
+        error: store.phase2
+          ? "No phase 2 run found: status.json and history.jsonl hold no run, and no phase 2 list exists."
+          : `No run of the book ${bookName} found: status.json and history.jsonl hold no run, and no list of this book exists.`,
+      };
+    }
     const newest = lists.length ? lists[lists.length - 1] : null;
     const statusState = str(status?.state);
     const runActive = statusState === "running" && str(status?.run_id) === runId && (newest === null || str(status?.list_stamp) === newest.stamp);
@@ -260,23 +285,24 @@ export async function loadStepSummary(root: string, listStamp: string | null = n
     const failPages = new Set(Array.isArray(status?.fail_pages) ? status.fail_pages.filter((b): b is string => typeof b === "string") : []);
     const ordered = pagesInRunOrder(history.pageEvents, runId, lists, runActive);
     const order = newest ? newest.rows.map((r) => r.page) : ordered.map((p) => p.page);
-    const names = await loadArticleNames(root, ordered.map((p) => p.page));
+    const names = store.phase2 ? await loadArticleNames(root, ordered.map((p) => p.page)) : new Map();
     const runUpdates = updates.filter((u) => u.runId === runId);
-    for (const u of runUpdates) await fillUpdateCalls(root, u);
+    for (const u of runUpdates) await fillUpdateCalls(root, u, store);
     const pages: PageNode[] = [];
     const notStarted: StepSummary["notStarted"] = [];
     for (const p of ordered) {
-      const s = shortIdOf(p.page);
+      const s = store.phase2 ? shortIdOf(p.page) : null;
       const name = s ? names.get(s) : undefined;
-      const found = name?.match === "one";
+      // Unit VW85: a book page shows the book title and "page 12" (the rule of the run view, lib/runs.ts getRun, unit VW96).
+      const found = store.phase2 ? name?.match === "one" : bookTitle !== null;
       const state = pageState(p, failPages);
       const runFolder = p.folder ? (p.folder.split("/").pop() ?? null) : null;
       const node: PageNode = {
         pageId: p.page,
-        title: found ? (name?.en ?? name?.ja ?? "title not found") : "title not found",
-        titleJa: found && name?.en ? (name?.ja ?? null) : null,
+        title: !store.phase2 ? (bookTitle ?? "title not found") : found ? (name?.en ?? name?.ja ?? "title not found") : "title not found",
+        titleJa: store.phase2 && found && name?.en ? (name?.ja ?? null) : null,
         titleFound: found,
-        pageOf: pageOfArticle(p.page, order),
+        pageOf: store.phase2 ? pageOfArticle(p.page, order) : bookPageNumber(p.page),
         state,
         verdict: p.event?.verdict ?? null,
         score: null,
@@ -325,20 +351,43 @@ export async function loadStepSummary(root: string, listStamp: string | null = n
     const startEpoch = runId ? Date.parse(runId) / 1000 : null;
     const firstList = lists[0]?.stamp ?? null;
     const runStart = startEpoch !== null && Number.isFinite(startEpoch) ? startEpoch : stampEpoch(firstList);
+    const word = runActive ? runWord("running") : runWord(statusState === "running" ? "stopped" : statusState);
+    if (store.phase2) {
+      return {
+        runId,
+        runLabel: runStart !== null ? `phase 2 run started ${pstDateTime(runStart)}` : "phase 2 run",
+        runWord: word,
+        lists: lists.map((l) => ({ stamp: l.stamp, label: listLabel(l.stamp) })),
+        pages,
+        notStarted,
+        updates: runUpdates.map((u) => ({ ...u, pageText: pageText(u.page, order, names) })),
+        generatedEpoch: Math.floor(t0 / 1000),
+        millis: Date.now() - t0,
+        error: null,
+      };
+    }
+    // Unit VW85: a book run. The phase comes from the start row of the run (translator_run.py:3263), else from status.json.
+    const startRow = [...historyRows].reverse().find((r) => r.event === "start" && r.run_id === runId);
+    const phase = str(startRow?.phase) ?? str(status?.phase) ?? store.phase;
+    const kind = `${phaseWord(phase) ?? "book"} run of ${bookName}`;
     return {
       runId,
-      runLabel: runStart !== null ? `phase 2 run started ${pstDateTime(runStart)}` : "phase 2 run",
-      runWord: runActive ? runWord("running") : runWord(statusState === "running" ? "stopped" : statusState),
+      runLabel: runStart !== null ? `${kind} started ${pstDateTime(runStart)}` : kind,
+      runWord: { ...word, help: word.help.replace("the phase 2 run", "the book run") },
       lists: lists.map((l) => ({ stamp: l.stamp, label: listLabel(l.stamp) })),
       pages,
       notStarted,
-      updates: runUpdates.map((u) => ({ ...u, pageText: pageText(u.page, order, names) })),
+      updates: runUpdates.map((u) => ({ ...u, pageText: bookPageText(u.page, bookTitle) })),
       generatedEpoch: Math.floor(t0 / 1000),
       millis: Date.now() - t0,
       error: null,
+      book: { slug: store.book, title: bookTitle, phase },
+      // Q-A 3:26.3 (b): "A frozen box shows "Frozen since page n" in the step view". The events of this run only (freeze.py:42-47).
+      frozen: frozenBoxes(historyRows, runId),
     };
   } catch (e) {
-    return { ...empty, millis: Date.now() - t0, error: `The step view cannot read the phase 2 files: ${(e as Error).message}` };
+    const what = store.phase2 ? "the phase 2 files" : `the files of the book ${bookName}`;
+    return { ...empty, millis: Date.now() - t0, error: `The step view cannot read ${what}: ${(e as Error).message}` };
   }
 }
 
@@ -378,11 +427,12 @@ function textSection(title: string, text: string | null, file: string): Section 
 }
 
 /** The data of one step. A wrong query gives a plain message. */
-export async function loadStepData(root: string, q: StepQuery): Promise<StepData> {
+export async function loadStepData(root: string, q: StepQuery, store: RunStore = PHASE2_STORE): Promise<StepData> {
   try {
-    if (q.diff) return await loadPromptDiff(root, q.diff, q.version);
+    // Unit VW85: a prompt diff and an update point read the store of the run. A page run folder is the same for phase 2 and a book.
+    if (q.diff) return await loadPromptDiff(root, q.diff, q.version, store);
     const step = q.step ?? "";
-    if (step.startsWith("update:")) return await loadUpdateData(root, safePage(q.page), step.slice(7));
+    if (step.startsWith("update:")) return await loadUpdateData(root, safePage(q.page), step.slice(7), store);
     const folder = safeRunFolder(q.folder);
     if (!folder) return { title: "Step data", sections: [{ kind: "note", text: "The request names no valid page run folder." }] };
     const calls = parseJsonl(await readTextRel(root, path.join(folder, "calls.jsonl")));
@@ -446,13 +496,13 @@ export async function loadStepData(root: string, q: StepQuery): Promise<StepData
   }
 }
 
-async function loadPromptDiff(root: string, box: string, version: string | null): Promise<StepData> {
+async function loadPromptDiff(root: string, box: string, version: string | null, store: RunStore = PHASE2_STORE): Promise<StepData> {
   if (!BOX.test(box) || !version || !/^v[0-9][0-9.]*$/.test(version)) return { title: "Prompt diff", sections: [{ kind: "note", text: "The request names no valid box and version." }] };
-  const newRel = path.join(STORE, "prompts", box, `${version}.json`);
+  const newRel = path.join(store.dir, "prompts", box, `${version}.json`);
   const v = rec(await readJsonRel(root, newRel));
   if (!v) return { title: "Prompt diff", sections: [{ kind: "note", text: `The prompt file ${newRel} does not exist.` }] };
   const parentVersion = str(v.parent) ?? str(rec(v.parent)?.version);
-  const oldRel = parentVersion && /^v[0-9][0-9.]*$/.test(parentVersion) ? path.join(STORE, "prompts", box, `${parentVersion}.json`) : null;
+  const oldRel = parentVersion && /^v[0-9][0-9.]*$/.test(parentVersion) ? path.join(store.dir, "prompts", box, `${parentVersion}.json`) : null;
   const old = oldRel ? rec(await readJsonRel(root, oldRel)) : null;
   const lines = lineDiff(str(old?.text) ?? "", str(v.text) ?? "");
   const sections: Section[] = [
@@ -475,13 +525,13 @@ async function loadPromptDiff(root: string, box: string, version: string | null)
   return { title: `Prompt diff of ${box}`, code: box, sections };
 }
 
-async function loadUpdateData(root: string, page: string | null, box: string): Promise<StepData> {
+async function loadUpdateData(root: string, page: string | null, box: string, store: RunStore = PHASE2_STORE): Promise<StepData> {
   if (!page || !BOX.test(box)) return { title: "Prompt update", sections: [{ kind: "note", text: "The request names no valid page and box." }] };
-  const dir = path.join(STORE, "update-points", page.replace("/", "_"));
+  const dir = path.join(store.dir, "update-points", pageName(store, page));
   const calls = parseJsonl(await readTextRel(root, path.join(dir, "calls.jsonl"))).filter((r) => (str(rec(r)?.tag) ?? "").startsWith(`${box}-`));
   const commitRel = path.join(dir, `commit-${box}.json`);
   const commit = rec(await readJsonRel(root, commitRel));
-  const { updates } = await loadHistoryParts(root);
+  const { updates } = await loadHistoryParts(root, store);
   const u = [...updates].reverse().find((x) => x.page === page && x.box === box) ?? null;
   const sections: Section[] = [];
   const rows: [string, string][] = [];
@@ -512,11 +562,11 @@ async function loadUpdateData(root: string, page: string | null, box: string): P
     }),
   });
   if (u?.version) {
-    const d = await loadPromptDiff(root, box, u.version);
+    const d = await loadPromptDiff(root, box, u.version, store);
     sections.push(...d.sections.filter((s) => s.kind !== "links"));
   }
   if (u?.rubric?.changeIds.length) {
-    const changes = parseJsonl(await readTextRel(root, path.join(STORE, "rubric-tables", "changes.jsonl")));
+    const changes = parseJsonl(await readTextRel(root, path.join(store.dir, "rubric-tables", "changes.jsonl")));
     for (const c0 of changes) {
       const c = rec(c0);
       if (!c || !u.rubric.changeIds.includes(str(c.change_id) ?? "")) continue;

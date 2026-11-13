@@ -10,6 +10,8 @@ import { BOXES, PHASE_NUMBER, pageNumberOf, parseVersionLabel } from "./restart-
 import { critiqueShare, stopFlags, type HistoryEvent } from "./critique-share";
 import { placeText } from "./book-run-rules";
 import { passCounts, readBookRuns } from "./book-runs";
+import { bookStore, bookWatch, showsWatch, watchListStamp } from "./run-store"; // unit VW85 (Q-A 3:26.3)
+import { loadOverflowRows } from "./run-store-load"; // unit VW85
 import {
   critiqueRows,
   modelsText,
@@ -306,6 +308,12 @@ export async function loadBookDetail(slug: string, nowMs: number = Date.now()): 
   const pointers = await pointerFolders(root, slug);
   const sources = pointers.size > 0 ? pointers : listFolders;
   const facts = (await mapLimit([...sources.entries()], 24, ([pageId, folder]) => pageFacts(pageId, folder))).filter((f): f is PageFacts => f !== null);
+  // Unit VW85 (Q-A 3:26.3 (a), (b), (c)): links "Steps" and "Training monitor", frozen boxes (history.jsonl box-frozen, freeze.py:33),
+  // overflow count (critiques/overflow.jsonl of the current store, critique_queue.py:270).
+  const watchStamp = watchListStamp(status?.list_stamp, lists);
+  const watch = showsWatch(status !== null, history.length, watchStamp)
+    ? bookWatch(slug, history as unknown as Record<string, unknown>[], await loadOverflowRows(root, bookStore(slug)), watchStamp)
+    : null;
 
   return {
     ok: true,
@@ -319,5 +327,6 @@ export async function loadBookDetail(slug: string, nowMs: number = Date.now()): 
     flags: stopFlags(history),
     archived: await loadArchive(root, slug),
     runs: await loadRuns(root, slug),
+    watch,
   };
 }

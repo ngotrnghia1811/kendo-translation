@@ -14,6 +14,7 @@ import { StatePill, VerdictPill } from "./Pills";
 import { BoxText } from "./BoxCode";
 // Unit VW98 (Q-A 3:23.3): a box code links to the training monitor of its box.
 import { BoxMonitorLink } from "./TrainingMonitorLink";
+import { useRunStoreQuery, withStoreQuery } from "./RunStoreQuery"; // unit VW85
 
 // Unit VW95 (round 91). One tree for the step view /monitor/phase-2 and the run view /runs/<stamp> of a phase 2 list (Q-A 3:18.3 "Reuse one tree").
 // Level 1: one line per page in run order (Q-A 3:17.7, 3:18.2). Level 2: the steps of a page in the order of the owner (Q-A 3:17.1 note).
@@ -255,7 +256,9 @@ function StepItem({ page, step, choices, setChoice, tick }: { page: PageNode; st
 
 /** Level 3: the data of one step. It loads once when it opens, and again at each update only while the step runs (Q-A 3:19.3 D3). */
 // Unit VW98: `base` lets the training monitor load the data of a critique, an update point or a rubric table change (/api/monitor/phase-2/box).
-export function StepDataPanel({ query, reloadKey, base = "/api/monitor/phase-2/step" }: { query: string; reloadKey: number; base?: string }) {
+// Unit VW85 (Q-A 3:26.3 (a)): a book run adds the store part (list=<stamp> or book=<slug>) to the query. Phase 2 adds nothing.
+export function StepDataPanel({ query: query0, reloadKey, base = "/api/monitor/phase-2/step" }: { query: string; reloadKey: number; base?: string }) {
+  const query = withStoreQuery(query0, useRunStoreQuery());
   const [data, setData] = useState<StepData | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {

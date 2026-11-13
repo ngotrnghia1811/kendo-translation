@@ -23,6 +23,8 @@ import { RawId } from "./Named";
 import StepView from "./StepView";
 // Unit VW98 (round 91), Q-A 3:23.3: section "Training monitor" with the box picker.
 import { TrainingMonitor } from "./TrainingMonitor";
+// Unit VW85 (round 91), Q-A 3:26.3 (a): the same two sections for a book-run list.
+import BookRunSections from "./BookRunSections";
 
 // Round 44 answer 13 (Q-A l142): a list opens a run view with one row per page: state, calls, cost (unit VW93: tokens, Q-A 3:15.2), minutes,
 // QA_3 verdict and score, link to the page view. Viewer goal: few steps from a run to a page text.
@@ -195,6 +197,8 @@ export default function RunView({ initial }: { initial: RunDetail }) {
           <StepView initial={null} list={run.stamp} showUpdates />
         </section>
       ) : null}
+      {/* Unit VW85 (Q-A 3:26.3 (a)): a book-run list of a real book shows the same training monitor and step tree as a phase 2 list. */}
+      {run.phase2List !== true && run.bookRunBook ? <BookRunSections stamp={run.stamp} book={run.bookRunBook} title={run.bookRunTitle ?? null} /> : null}
     </section>
   );
 }

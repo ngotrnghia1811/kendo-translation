@@ -11,10 +11,14 @@ import { jsonViewHref, sizeMb } from "./json-view";
 import { lineDiff, diffCounts } from "./line-diff";
 import type { Section, StepData } from "./step-data";
 import { modelOptionText } from "./readable-names";
+// Unit VW85 (Q-A 3:26.3): the store of the run comes from the list (book runs too), and a book run adds the frozen line and the overflow list.
+import { PHASE2_STORE, pageName, type RunStore } from "./run-store";
+import { loadOverflowRows, storeOfList } from "./run-store-load";
 import {
   MONITOR_BOXES,
   buildBoxMonitor,
   emptyMonitor,
+  hashText,
   pageWords,
   sourceWord,
   type BoxMonitor,
@@ -37,7 +41,8 @@ const rec = (v: unknown): Rec | null => (v !== null && typeof v === "object" && 
 const str = (v: unknown): string | null => (typeof v === "string" && v.length > 0 ? v : null);
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
-const STORE = path.join("book-store", PHASE2_BOOK);
+// Unit VW85: the store folder comes from a RunStore (lib/run-store.ts). PHASE2_STORE.dir is "book-store/paired-dataset" (PHASE2_BOOK).
+void PHASE2_BOOK;
 
 async function readTextRel(root: string, rel: string): Promise<string | null> {
   try {
@@ -228,11 +233,13 @@ export async function loadBoxMonitor(root: string, stamp: string, box: string): 
   const t0 = Date.now();
   const gen = Math.floor(t0 / 1000);
   if (!MONITOR_BOXES.includes(box)) return emptyMonitor(box, stamp, `Unknown box code ${JSON.stringify(box)}. Pick one of the 16 boxes.`, gen, 0);
+  let store: RunStore = PHASE2_STORE;
   try {
-    const summary = await loadStepSummary(root, stamp, new Set());
+    store = await storeOfList(root, stamp);
+    const summary = await loadStepSummary(root, stamp, new Set(), store);
     if (summary.error) return emptyMonitor(box, stamp, summary.error, gen, Date.now() - t0);
-    const status = statusFacts(rec(await readJsonRel(root, path.join(STORE, "status.json"))));
-    const facts = await cachedParse(root, path.join(STORE, "history.jsonl"), historyCache, (t) => historyFacts(parseHistory(t ?? "")));
+    const status = statusFacts(rec(await readJsonRel(root, path.join(store.dir, "status.json"))));
+    const facts = await cachedParse(root, store.historyRel, historyCache, (t) => historyFacts(parseHistory(t ?? "")));
     const runActive = summary.pages.some((p) => p.running) || (status.state === "running" && status.runId !== null && status.runId === summary.runId);
     const pages: MonitorPageInput[] = [];
     for (const p of summary.pages) {
@@ -271,9 +278,10 @@ export async function loadBoxMonitor(root: string, stamp: string, box: string): 
     const updates: MonitorUpdateInput[] = [];
     for (const u of summary.updates) {
       if (u.box !== box) continue;
-      const dir = u.page.replace("/", "_");
+      // A book update point writes no commit file (update_step.py:598-599, paired-dataset only), so audit and groups stay empty there.
+      const dir = pageName(store, u.page);
       const commit =
-        u.endedEpoch !== null && isSafeSegment(dir) ? await cachedParse(root, path.join(STORE, "update-points", dir, `commit-${box}.json`), commitCache, commitFacts) : null;
+        u.endedEpoch !== null && isSafeSegment(dir) ? await cachedParse(root, path.join(store.dir, "update-points", dir, `commit-${box}.json`), commitCache, commitFacts) : null;
       updates.push({
         page: u.page,
         pageText: u.pageText,
@@ -297,7 +305,7 @@ export async function loadBoxMonitor(root: string, stamp: string, box: string): 
     const rubric: MonitorRubricInput[] = [];
     let liveRubric: string | null = null;
     if (box.startsWith("QA_")) {
-      const rows = await cachedParse(root, path.join(STORE, "rubric-tables", "changes.jsonl"), rubricCache, parseJsonLines);
+      const rows = await cachedParse(root, path.join(store.dir, "rubric-tables", "changes.jsonl"), rubricCache, parseJsonLines);
       const runStart = summary.runId ? Date.parse(summary.runId) / 1000 : null;
       for (const r0 of rows) {
         const r = rec(r0);
@@ -321,12 +329,12 @@ export async function loadBoxMonitor(root: string, stamp: string, box: string): 
           parent: str(r.parent) ?? str(rec(r.parent)?.version),
         });
       }
-      liveRubric = (await readTextRel(root, path.join(STORE, "rubric-tables", box, "current")))?.trim() || null;
+      liveRubric = (await readTextRel(root, path.join(store.dir, "rubric-tables", box, "current")))?.trim() || null;
     }
-    const versions = (await listDirRel(root, path.join(STORE, "prompts", box)))
+    const versions = (await listDirRel(root, path.join(store.dir, "prompts", box)))
       .filter((f) => /^v[0-9][0-9.]*\.json$/.test(f))
       .map((f) => f.slice(0, -5));
-    const liveVersion = (await readTextRel(root, path.join(STORE, "prompts", box, "current")))?.trim() || null;
+    const liveVersion = (await readTextRel(root, path.join(store.dir, "prompts", box, "current")))?.trim() || null;
     const runN = summary.runId ? facts.runN.get(summary.runId) : undefined;
     const statusIsRun = status.runId !== null && status.runId === summary.runId;
     const input: MonitorInput = {
@@ -347,9 +355,19 @@ export async function loadBoxMonitor(root: string, stamp: string, box: string): 
       runningPage: runActive ? status.runningPage : null,
       runningBoxes: runActive ? status.runningBoxes : [],
     };
-    return buildBoxMonitor(input, gen, Date.now() - t0);
+    const built = buildBoxMonitor(input, gen, Date.now() - t0);
+    if (store.phase2) return built;
+    // Unit VW85, Q-A 3:26.3 (b) "Frozen since page n" in the training monitor header, and (c) "The training monitor of the start box lists each
+    // overflow critique with its content and its start point". The phase 2 answer keeps its old shape and signature.
+    const extra = {
+      book: summary.book,
+      frozen: (summary.frozen ?? []).find((f) => f.box === box) ?? null,
+      overflow: (await loadOverflowRows(root, store)).filter((r) => r.startBox === box),
+    };
+    return { ...built, ...extra, sig: hashText(`${built.sig}|${JSON.stringify(extra)}`) };
   } catch (e) {
-    return emptyMonitor(box, stamp, `The training monitor cannot read the phase 2 files: ${(e as Error).message}`, gen, Date.now() - t0);
+    const what = store.phase2 ? "the phase 2 files" : `the files of the book ${store.book}`;
+    return emptyMonitor(box, stamp, `The training monitor cannot read ${what}: ${(e as Error).message}`, gen, Date.now() - t0);
   }
 }
 
@@ -424,13 +442,13 @@ function roleOfMessage(name: string): string {
 }
 
 /** The full data of one line of the time line. A wrong query gives a plain message. */
-export async function loadMonitorItem(root: string, q: MonitorItemQuery): Promise<StepData> {
+export async function loadMonitorItem(root: string, q: MonitorItemQuery, store: RunStore = PHASE2_STORE): Promise<StepData> {
   try {
     const box = q.box && BOX.test(q.box) ? q.box : null;
     if (!box) return { title: "Training monitor", sections: [{ kind: "note", text: "The request names no valid box." }] };
     if (q.item === "critique") return await loadCritique(root, box, safeRunFolder(q.folder), q.queueId);
-    if (q.item === "update") return await loadUpdate(root, box, safePage(q.page));
-    if (q.item === "rubric") return await loadRubricChange(root, box, q.change);
+    if (q.item === "update") return await loadUpdate(root, box, safePage(q.page), store);
+    if (q.item === "rubric") return await loadRubricChange(root, box, q.change, store);
     return { title: "Training monitor", sections: [{ kind: "note", text: `The request names no valid item: ${JSON.stringify(q.item)}.` }] };
   } catch (e) {
     return { title: "Training monitor", sections: [{ kind: "note", text: `The data cannot be read: ${(e as Error).message}` }] };
@@ -460,10 +478,10 @@ async function loadCritique(root: string, box: string, folder: string | null, qu
   return { title: `Critique ${queueId}`, code: box, sections };
 }
 
-async function loadUpdate(root: string, box: string, page: string | null): Promise<StepData> {
+async function loadUpdate(root: string, box: string, page: string | null, store: RunStore = PHASE2_STORE): Promise<StepData> {
   if (!page) return { title: "Update point", sections: [{ kind: "note", text: "The request names no valid page." }] };
-  const base = await loadStepData(root, { folder: null, step: `update:${box}`, page, diff: null, version: null });
-  const dir = path.join(STORE, "update-points", page.replace("/", "_"));
+  const base = await loadStepData(root, { folder: null, step: `update:${box}`, page, diff: null, version: null }, store);
+  const dir = path.join(store.dir, "update-points", pageName(store, page));
   const commitRel = path.join(dir, `commit-${box}.json`);
   const commit = rec(await readJsonRel(root, commitRel));
   const groups = Array.isArray(rec(commit?.ctx)?.groups) ? (rec(commit?.ctx)?.groups as unknown[]) : [];
@@ -507,6 +525,9 @@ async function loadUpdate(root: string, box: string, page: string | null): Promi
   if (commit) {
     const shown = withoutMoney(commit);
     sections.push(textSection(`Commit file commit-${box}.json (keys that hold money left out)`, JSON.stringify(shown, null, 2), commitRel));
+  } else if (!store.phase2) {
+    // Unit VW85: update_step.py:598-599 writes the commit journal for paired-dataset only.
+    sections.push({ kind: "note", text: `A book update point writes no commit file, so the audit verdict and the critique groups are not stored here (${commitRel}).` });
   } else sections.push({ kind: "note", text: `The commit file ${commitRel} does not exist (the update point did not end, or it wrote no commit).` });
   const links = [{ text: `commit-${box}.json`, href: jsonViewHref(commitRel) }, { text: "calls.jsonl of the update point", href: jsonViewHref(path.join(dir, "calls.jsonl")) }, { text: "Update point folder", href: jsonViewHref(dir) }];
   for (const n of names) links.push({ text: `messages/${n}`, href: jsonViewHref(path.join(dir, "messages", n)) });
@@ -514,9 +535,9 @@ async function loadUpdate(root: string, box: string, page: string | null): Promi
   return { title: `Update point of ${box}`, code: box, sections };
 }
 
-async function loadRubricChange(root: string, box: string, change: string | null): Promise<StepData> {
+async function loadRubricChange(root: string, box: string, change: string | null, store: RunStore = PHASE2_STORE): Promise<StepData> {
   if (!change) return { title: "Rubric table change", sections: [{ kind: "note", text: "The request names no change ID." }] };
-  const rel = path.join(STORE, "rubric-tables", "changes.jsonl");
+  const rel = path.join(store.dir, "rubric-tables", "changes.jsonl");
   const row = rec(parseJsonLines(await readTextRel(root, rel)).find((r) => rec(r)?.change_id === change && rec(r)?.box === box));
   if (!row) return { title: "Rubric table change", sections: [{ kind: "note", text: `The file ${rel} holds no change ${change} of ${box}.` }] };
   const before = JSON.stringify(row.text_before ?? null, null, 2);
@@ -536,7 +557,7 @@ async function loadRubricChange(root: string, box: string, change: string | null
   }
   const links = [{ text: "rubric-tables/changes.jsonl", href: jsonViewHref(rel) }];
   for (const v of [str(row.parent), str(row.version)]) {
-    if (v && /^v[0-9][0-9.]*$/.test(v)) links.push({ text: `rubric-tables/${box}/${v}.json`, href: jsonViewHref(path.join(STORE, "rubric-tables", box, `${v}.json`)) });
+    if (v && /^v[0-9][0-9.]*$/.test(v)) links.push({ text: `rubric-tables/${box}/${v}.json`, href: jsonViewHref(path.join(store.dir, "rubric-tables", box, `${v}.json`)) });
   }
   sections.push({ kind: "links", title: "Files", links });
   return { title: `Rubric table change ${change} of ${box}`, code: box, sections };

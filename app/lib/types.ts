@@ -112,6 +112,13 @@ export interface RunDetail extends RunSummary {
   phase2Note?: string | null;
   /** Unit VW94 fix round (Q-A 3:17.4): true for a list of the phase 2 run (book paired-dataset). The run view heading uses it. */
   phase2List?: boolean;
+  /**
+   * Unit VW85 (Q-A 3:26.3 (a)): the slug of the book of a book-run list (progress.json kind "book-run" and a book that is not "paired-dataset",
+   * translator_run.py:3290-3293). The run view shows the step tree and the training monitor of that book run. Missing or null for other lists.
+   */
+  bookRunBook?: string | null;
+  /** Unit VW85: the title of that book (metadata title_en, else title_ja), or null when unknown. */
+  bookRunTitle?: string | null;
 }
 
 export interface BookPage {

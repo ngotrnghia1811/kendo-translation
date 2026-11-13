@@ -30,6 +30,7 @@ import StateLabel from "./StateLabel";
 import RowButtons from "./RowButtons";
 import BookRunsTable from "./BookRunsTable";
 import { useLive } from "./useLive";
+import { BookRunWatch } from "./RunStoreParts"; // unit VW85 (Q-A 3:26.3)
 
 // Unit VW77c (round 86), VISION-viewer 15.24.5: the Details view of one book on the Monitor dashboard. It follows the Monitor dashboard `/` in its rules:
 // the same row (label, sentence, buttons, dialogs), times in PST, a poll every 3 s while the tab is visible.
@@ -230,6 +231,13 @@ export default function BookDetailView({ initial }: { initial: BookDetail }) {
           </div>
         </dl>
       </div>
+
+      {/* Unit VW85 (Q-A 3:26.3): links "Steps" and "Training monitor", the frozen boxes and the overflow count of the current run. */}
+      {data.watch ? (
+        <Section part="book-watch" title="Steps, training monitor, frozen boxes, overflow">
+          <BookRunWatch watch={data.watch} title={data.row.title && data.row.title !== data.row.slug ? data.row.title : null} />
+        </Section>
+      ) : null}
 
       {/* Part 2: last error */}
       <Section part="last-error" title="Last error">

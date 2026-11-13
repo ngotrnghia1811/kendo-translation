@@ -20,6 +20,7 @@
 import { boxHelp } from "./box-names";
 import { stepWord, type Word } from "./step-tree";
 import { sumTokens, type TokenCounts } from "./tokens-sum";
+import type { FrozenBox, OverflowRow } from "./run-store"; // unit VW85
 
 type Rec = Record<string, unknown>;
 const rec = (v: unknown): Rec | null => (v !== null && typeof v === "object" && !Array.isArray(v) ? (v as Rec) : null);
@@ -319,6 +320,12 @@ export interface BoxMonitor {
   generatedEpoch: number;
   millis: number;
   error: string | null;
+  /** Unit VW85 (Q-A 3:26.3): the book of a book run. Missing for the phase 2 run. */
+  book?: { slug: string; title: string | null; phase: string | null };
+  /** Unit VW85 (Q-A 3:26.3 (b)): the freeze of this box in the run, or null. Missing for the phase 2 run. */
+  frozen?: FrozenBox | null;
+  /** Unit VW85 (Q-A 3:26.3 (c)): the overflow critiques whose start box is this box. Missing for the phase 2 run. */
+  overflow?: OverflowRow[];
 }
 
 /** The text of an unchanged poll answer: the client keeps its data. */

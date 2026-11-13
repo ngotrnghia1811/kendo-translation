@@ -7,6 +7,10 @@ import { boxHelp } from "@/lib/box-names";
 import { pstClock } from "@/lib/format";
 import { EVENT_KINDS, MONITOR_BOXES, parseBoxParam, type BoxMonitor, type EventKind, type MonitorUnchanged } from "@/lib/training-monitor";
 import { KindTicks, MonitorHeader, TimeLine } from "./TrainingMonitorView";
+// Unit VW85 (Q-A 3:26.3): the same monitor for a book run, with the frozen line (b) and the overflow list (c).
+import { FROZEN_HELP, storeQuery } from "@/lib/run-store";
+import { RunStoreQueryProvider } from "./RunStoreQuery";
+import { FrozenLine, OverflowList } from "./RunStoreParts";
 
 // Unit VW98 (round 91). Section "Training monitor" of the run view /runs/<stamp> of a phase 2 list (Q-A 3:23.3 "Section with box picker in the run view").
 // 16 box buttons; a click shows the history of that box below and sets ?box=TL_2 in the address, so a kept link opens that box.
@@ -15,7 +19,11 @@ import { KindTicks, MonitorHeader, TimeLine } from "./TrainingMonitorView";
 
 const ALL_ON: Record<EventKind, boolean> = Object.fromEntries(EVENT_KINDS.map((k) => [k, true])) as Record<EventKind, boolean>;
 
-export function TrainingMonitor({ stamp }: { stamp: string }) {
+/**
+ * `book`: the slug of the book of a book-run list (unit VW85), else undefined for a phase 2 list. A phase 2 list keeps its words and addresses (VW98).
+ * A book run sends "list=<stamp>" with each opened line too, so the server reads book-store/<book>/ (components/RunStoreQuery.tsx).
+ */
+export function TrainingMonitor({ stamp, book }: { stamp: string; book?: string | null }) {
   const params = useSearchParams();
   const pathname = usePathname();
   const box = parseBoxParam(params.get("box"));
@@ -36,12 +44,23 @@ export function TrainingMonitor({ stamp }: { stamp: string }) {
     <section ref={ref} id="training-monitor" data-training-monitor className="mt-6 scroll-mt-4">
       <h2 className="text-lg font-semibold">Training monitor</h2>
       <p className="mb-2 text-sm text-muted">
-        Pick a box to see its whole history in this phase 2 run, across restarts: its page calls, the critiques that it got, its update points, and the
-        rubric table changes (QA boxes). Hover a code for the name of the box.
+        {book ? (
+          <>
+            Pick a box to see its whole history in this book run, across restarts: its page calls, the critiques that it got, its update points, the
+            rubric table changes (QA boxes), whether it is frozen, and the overflow critiques that started at it. Hover a code for the name of the box.
+          </>
+        ) : (
+          <>
+            Pick a box to see its whole history in this phase 2 run, across restarts: its page calls, the critiques that it got, its update points, and the
+            rubric table changes (QA boxes). Hover a code for the name of the box.
+          </>
+        )}
       </p>
       <BoxPicker box={box} pick={pick} />
       {wrongBox ? <p className="mt-2 text-sm text-red-700">The address names an unknown box ({params.get("box")}). Pick one of the 16 boxes.</p> : null}
-      {box ? <BoxPanel key={box} stamp={stamp} box={box} /> : <p className="mt-3 text-sm text-muted">No box picked yet.</p>}
+      <RunStoreQueryProvider query={storeQuery({ book: book ?? null, list: stamp })}>
+        {box ? <BoxPanel key={box} stamp={stamp} box={box} /> : <p className="mt-3 text-sm text-muted">No box picked yet.</p>}
+      </RunStoreQueryProvider>
     </section>
   );
 }
@@ -129,6 +148,20 @@ function BoxPanel({ stamp, box }: { stamp: string; box: string }) {
       {data ? (
         <>
           <MonitorHeader data={data} />
+          {data.book ? (
+            <>
+              <p data-monitor-frozen className="mt-1 rounded border border-line bg-white px-3 py-2 text-sm">
+                {data.frozen ? (
+                  <FrozenLine f={data.frozen} title={data.book.title} />
+                ) : (
+                  <span className="text-muted" title={FROZEN_HELP}>
+                    Not frozen in this run.
+                  </span>
+                )}
+              </p>
+              <OverflowList box={data.box} rows={data.overflow} title={data.book.title} />
+            </>
+          ) : null}
           <KindTicks events={data.events} shown={shown} setShown={(k, on) => setShownState((s) => ({ ...s, [k]: on }))} />
           <TimeLine data={data} shown={shown} opened={opened} setOpened={(k, o) => setOpenedState((s) => ({ ...s, [k]: o }))} tick={tick} />
         </>

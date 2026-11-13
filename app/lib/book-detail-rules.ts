@@ -10,6 +10,7 @@ import type { MonitorRow } from "./book-status-rules";
 import type { TokenCounts } from "./tokens-sum"; // type only (unit VW93)
 import type { ShareResult, StopFlag } from "./critique-share";
 import type { BookRunPlace } from "./book-run-rules";
+import type { BookWatch } from "./run-store"; // type only (unit VW85)
 
 export const BOX_TYPES = ["TS", "TL", "ED", "QA"] as const;
 export type BoxType = (typeof BOX_TYPES)[number];
@@ -249,4 +250,9 @@ export interface BookDetail {
   archived: ArchivedRun[];
   /** Unit VW77e: the current run, the archived runs (newest first), and the phase 3 run (Q-A 3:11.3 V1). */
   runs: BookRunRow[];
+  /**
+   * Unit VW85 (Q-A 3:26.3): the links "Steps" and "Training monitor", the frozen boxes and the overflow count of the current run.
+   * Null for a book with no store and no book-run list (a pilot book).
+   */
+  watch?: BookWatch | null;
 }

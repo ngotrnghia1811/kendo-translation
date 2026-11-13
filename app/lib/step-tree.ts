@@ -10,6 +10,7 @@
 import { parseUtcIso } from "./pst";
 import { tokenCounts, sumTokens, type TokenCounts } from "./tokens-sum";
 import type { PageEvent } from "./phase2-articles";
+import type { FrozenBox } from "./run-store"; // unit VW85
 
 type Rec = Record<string, unknown>;
 
@@ -573,6 +574,10 @@ export interface StepSummary {
   /** Milliseconds of the summary call on the server. */
   millis: number;
   error: string | null;
+  /** Unit VW85 (Q-A 3:26.3): the book of a book run. Missing for the phase 2 run. */
+  book?: { slug: string; title: string | null; phase: string | null };
+  /** Unit VW85 (Q-A 3:26.3 (b)): the frozen boxes of a book run (event box-frozen, freeze.py:33). Missing for the phase 2 run. */
+  frozen?: FrozenBox[];
 }
 
 export const RUN_WORDS: Record<string, Word> = {
