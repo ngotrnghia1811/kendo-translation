@@ -4,6 +4,8 @@ import type { StepSummary } from "@/lib/step-tree";
 import { openParam, runWord } from "@/lib/step-tree";
 import { LiveBadge, useLive } from "./useLive";
 import { PromptUpdates, StepTree, type Choices } from "./StepTree";
+// Unit VW98 (Q-A 3:23.3): box codes link to the training monitor in the run view of the newest list of the run.
+import { MonitorStampProvider } from "./TrainingMonitorLink";
 
 // Unit VW95 (round 91). The live wrapper of the tree: the step view /monitor/phase-2 (list null) and the run view /runs/<stamp> of a phase 2 list
 // (list = the stamp, initial null: the summary loads after the first paint). Q-A 3:19.3 D3: it updates every 3 s while the tab is visible
@@ -49,12 +51,14 @@ export default function StepView({ initial, list, showUpdates = false }: { initi
   }, [url, initial, refresh]);
   if (!loaded) return <p className="text-sm text-muted">Loading the steps of the phase 2 run…</p>;
   return (
-    <div data-step-view>
-      <div className="mb-2">
-        <LiveBadge live={live} />
+    <MonitorStampProvider stamp={list ?? data.lists[data.lists.length - 1]?.stamp ?? null}>
+      <div data-step-view>
+        <div className="mb-2">
+          <LiveBadge live={live} />
+        </div>
+        <StepTree summary={data} choices={choices} setChoice={setChoice} />
+        {showUpdates ? <PromptUpdates updates={data.updates} choices={choices} setChoice={setChoice} tick={data.generatedEpoch} /> : null}
       </div>
-      <StepTree summary={data} choices={choices} setChoice={setChoice} />
-      {showUpdates ? <PromptUpdates updates={data.updates} choices={choices} setChoice={setChoice} tick={data.generatedEpoch} /> : null}
-    </div>
+    </MonitorStampProvider>
   );
 }

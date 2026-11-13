@@ -11,7 +11,9 @@ import { tokensShort, TOKENS_SHORT_HELP, TOKENS_SHORT_LABEL } from "@/lib/tokens
 import { modelOptionText } from "@/lib/readable-names";
 import { ModelCardId } from "./ModelCardId"; // Unit VW97 (Q-A 3:21.3): the Claude card ID in small grey text next to the card name.
 import { StatePill, VerdictPill } from "./Pills";
-import { BoxCode, BoxText } from "./BoxCode";
+import { BoxText } from "./BoxCode";
+// Unit VW98 (Q-A 3:23.3): a box code links to the training monitor of its box.
+import { BoxMonitorLink } from "./TrainingMonitorLink";
 
 // Unit VW95 (round 91). One tree for the step view /monitor/phase-2 and the run view /runs/<stamp> of a phase 2 list (Q-A 3:18.3 "Reuse one tree").
 // Level 1: one line per page in run order (Q-A 3:17.7, 3:18.2). Level 2: the steps of a page in the order of the owner (Q-A 3:17.1 note).
@@ -34,7 +36,7 @@ function stepQuery(page: PageNode, step: StepNode): string {
 function Code({ code }: { code: string }) {
   return (
     <span className="font-mono">
-      <BoxCode code={code} />
+      <BoxMonitorLink code={code} />
     </span>
   );
 }
@@ -252,12 +254,13 @@ function StepItem({ page, step, choices, setChoice, tick }: { page: PageNode; st
 }
 
 /** Level 3: the data of one step. It loads once when it opens, and again at each update only while the step runs (Q-A 3:19.3 D3). */
-export function StepDataPanel({ query, reloadKey }: { query: string; reloadKey: number }) {
+// Unit VW98: `base` lets the training monitor load the data of a critique, an update point or a rubric table change (/api/monitor/phase-2/box).
+export function StepDataPanel({ query, reloadKey, base = "/api/monitor/phase-2/step" }: { query: string; reloadKey: number; base?: string }) {
   const [data, setData] = useState<StepData | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let gone = false;
-    fetch(`/api/monitor/phase-2/step?${query}`, { cache: "no-store" })
+    fetch(`${base}?${query}`, { cache: "no-store" })
       .then(async (r) => {
         if (!r.ok) throw new Error(`answer ${r.status}`);
         const d = (await r.json()) as StepData;
@@ -272,7 +275,7 @@ export function StepDataPanel({ query, reloadKey }: { query: string; reloadKey: 
     return () => {
       gone = true;
     };
-  }, [query, reloadKey]);
+  }, [base, query, reloadKey]);
   if (!data) return <p className="py-1 text-xs text-muted">{error ?? "Loading the step data…"}</p>;
   return (
     <div data-step-data className="space-y-3 py-2 text-sm">

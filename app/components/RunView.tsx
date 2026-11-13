@@ -21,6 +21,8 @@ import { bookJobsText, capFirst, criticModeWord, pageKindWord, pageNumberText, p
 import { RawId } from "./Named";
 // Unit VW95 (round 91), Q-A 3:18.3: a phase 2 list shows the same tree as the step view /monitor/phase-2, plus the section "Prompt updates".
 import StepView from "./StepView";
+// Unit VW98 (round 91), Q-A 3:23.3: section "Training monitor" with the box picker.
+import { TrainingMonitor } from "./TrainingMonitor";
 
 // Round 44 answer 13 (Q-A l142): a list opens a run view with one row per page: state, calls, cost (unit VW93: tokens, Q-A 3:15.2), minutes,
 // QA_3 verdict and score, link to the page view. Viewer goal: few steps from a run to a page text.
@@ -184,6 +186,8 @@ export default function RunView({ initial }: { initial: RunDetail }) {
           </tbody>
         </table>
       </div>
+      {/* Unit VW98 (Q-A 3:23.3): the training monitor of one box, above the step tree. */}
+      {run.phase2List === true ? <TrainingMonitor stamp={run.stamp} /> : null}
       {run.phase2List === true ? (
         <section data-run-steps className="mt-6">
           <h2 className="mb-1 text-lg font-semibold">Steps of this phase 2 run</h2>
