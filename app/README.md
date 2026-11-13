@@ -80,11 +80,11 @@ The file `viewer.config.json` in the app folder holds the settings. It has four 
 
 ## Screens
 
-The title bar shows agent-translation-monitor and the tabs Monitor dashboard, Lists, Books, and Human translation (see the sections Monitor dashboard and Human-translation-view at the end). The tab Run settings does not exist yet.
+The title bar shows agent-translation-monitor and the tabs Monitor dashboard, Lists, Books, and Human translation (see the sections Monitor dashboard and Human-translation-view at the end). The tabs Run settings (`/settings/run`, unit VW77d) and JSON viewer (`/json`) sit between Books and Human translation.
 
-- Lists tab (`/runs`, unit VW77a: the old Runs tab, which sat at `/` before): one row for each list folder, newest first. Columns: list, kind, state, pages, calls, failed, flagged, cost (models), cost (listed), started, updated. The table refreshes every 3 seconds while a list has the state `running` or `paused`.
+- Lists tab (`/runs`, unit VW77a: the old Runs tab, which sat at `/` before): one row for each list folder, newest first. Columns: list, kind, state, pages, calls, failed, flagged, tokens in (with cache) / out, started, updated. The table refreshes every 3 seconds while a list has the state `running` or `paused`. A list shows a readable name such as "List started 2026-11-11 20:41 PST", with the stamp in grey (unit VW96).
   - The kind column shows `chain` for a list from `run-chain` and `list` for every other list. Below it, the table shows the critic mode and the number of book jobs. A list from before the critic mode shows "critic mode not stored".
-- Run page (`/runs/<list>`): click a list name to open it. It shows the totals of the list and one row for each page. Columns: page, kind, state, calls, USD, minutes, QA_3 verdict.
+- Run page (`/runs/<list>`): click a list name to open it. It shows the totals of the list and one row for each page. Columns: page, kind, state, calls, tokens in (with cache) / out, minutes, QA_3 verdict. A phase 2 list also shows the sections Training monitor, Steps of this phase 2 run, and Prompt updates (units VW95, VW98).
   - The totals also show the list kind, the critic mode (or "not stored"), and the book jobs.
   - The Pause button writes a pause file. The button shows only if the list has the state `running` or `paused`. After a pause, the same button reads Resume.
   - Click a page ID to open the page view.
@@ -105,7 +105,7 @@ The title bar shows agent-translation-monitor and the tabs Monitor dashboard, Li
   - Run folder list: it shows when a page has more than one run folder.
   - Header facts of a chain run: "Critic mode" shows the mode from `summary.json`. In session mode it also shows the turns, the sessions, the restarts, and the turn message. An old page reads "not stored". "Book memory" shows the QA_3 verdict and the pairs written. "Critic-only runs" shows the number of `critic-<mode>-<stamp>` subfolders.
   - Extra detail menu: 9 items, all off at start. A tick shows the item below the text. The items are:
-    1. Cost and seconds per call. If a reply needed a JSON repair, the row shows `JSON repaired:` and the kind as text. A kind for several repairs shows joined with `+`.
+    1. Tokens and seconds per call (all 5 token kinds). If a reply needed a JSON repair, the row shows `JSON repaired:` and the kind as text. A kind for several repairs shows joined with `+`.
     2. Exact text sent
     3. Dictionary and aligned memory hits
     4. Failed and flagged calls
@@ -141,7 +141,7 @@ The app reads these files. All paths are relative to `translatorDataDir`.
 
 - `pilot-run/lists/<list>/progress.json`: state and page rows of a list.
 - `pilot-run/lists/<list>/list.json` and `pilot-run/lists/<list>/PAUSE`: used by the Pause button.
-- `pilot-run/<book>_pNNN/<run folder>/summary.json`: status, cost, calls, critique counts of one page run.
+- `pilot-run/<book>_pNNN/<run folder>/summary.json`: status, tokens, calls, critique counts of one page run.
 - `pilot-run/<book>_pNNN/<run folder>/page/page.json`: page kind and the path of the page image.
 - `pilot-run/<book>_pNNN/<run folder>/results/TS_n.json`, `ED_n.json`, `QA_n.json`: stage results, n = 0 to 3.
 - For the extra items, the same run folder:
@@ -777,3 +777,32 @@ The row order of the Monitor dashboard `/` sits in `lib/row-order.ts` (unit TF85
 - `node scripts/smoke.mjs monitor --config FILE --fixture DIR`: the screen and the route on a fixture. The fixture comes from `fake_translator.py` of the unit folder, which uses the real code of `store.py`. The test reads only. It ends the fake Translator at the end.
 - `node scripts/smoke.mjs details --config FILE --fixture DIR --t2-scripts DIR`: the Details view on the fixture of `restart_fixture.py --details`. It tests the link on each row, the route, the page, every 404, the Run ID text, the critique share against `critique_share` of the Translator (run from `--t2-scripts`), the stop flag with its 3 reasons, and the Restart button. The test reads only. Unit TF85 adds 4 checks: one title link and one link "Details" with the same href on every row, the visible text of the title link, the title link before the buttons, and the title link outside the Details cell.
 - Browser check of the Monitor dashboard `/` and the Details view (`browser_vw77c.mjs`, Firefox through Playwright, fixture `dt`). Unit TF85 turns the old NOTE about React error #418 into a check of 0 script errors on `/`. It adds the tab order inside a row (title link first, `Details` last), Enter on the title link, and a click on the title link.
+
+## Phase 2 screens, routes and tests (units VW94 to VW98, DZ86)
+
+The design is in `docs/VISION-viewer.md` section 15.40. This section lists the routes, the tests and the files.
+
+Routes:
+
+- `/monitor/phase-2`: the step view of the phase 2 run (unit VW95). The phase 2 row on the Monitor dashboard `/` links to it with "Steps".
+- `/api/monitor/phase-2` (`?list=`, `?open=`): the summary of the step tree. It holds the steps of the open pages and the running page only.
+- `/api/monitor/phase-2/step`: the data of one step. The screen calls it when you open a step.
+- `/api/monitor/phase-2/box` (`?list=&box=&sig=`, `?item=critique|update|rubric`): the training monitor of one box (unit VW98). An unchanged `sig` returns no data.
+- `/runs/<list>?box=TL_2`: the run view of a phase 2 list with the training monitor of box TL_2 open.
+
+Tests (run each one from the `app` folder, one after another):
+
+- `node scripts/vw94-test.mjs`
+- `node scripts/vw95-test.mjs`
+- `node scripts/vw96-test.mjs`
+- `node scripts/vw97-test.mjs`
+- `node scripts/vw98-test.mjs`
+- `node scripts/tokens-view-test.mjs`
+- `node scripts/json-view-test.mjs` runs only inside a build unit folder. It refuses the real worktree.
+
+Files:
+
+- Unit VW94, phase 2 articles group: `lib/phase2-articles.ts`, `lib/phase2-articles-load.ts`, `components/Phase2Articles.tsx`.
+- Unit VW95, step view: `app/monitor/phase-2/page.tsx`, `lib/step-tree.ts`, `lib/step-data.ts`, `lib/step-tree-load.ts`, `lib/line-diff.ts`, `components/StepTree.tsx`, `components/StepView.tsx`.
+- Units VW93, VW96 and VW97, tokens and readable names: `lib/tokens-view.ts`, `lib/tokens-sum.ts`, `components/Tokens.tsx`, `lib/readable-names.ts`, `lib/model-card.ts`, `components/ModelCardId.tsx`.
+- Unit VW98, training monitor: `lib/training-monitor.ts`, `lib/training-monitor-load.ts`, `components/TrainingMonitor.tsx`, `components/TrainingMonitorView.tsx`, `components/TrainingMonitorLink.tsx`.

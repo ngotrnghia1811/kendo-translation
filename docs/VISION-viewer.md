@@ -3827,7 +3827,7 @@ Notes of aki-main, not owner words `[file: .opencode/reminders/qa/qa-memory-2026
 
 Viewer `[check: DM70 2026-10-29 21:59 cat -n of the files named below]`:
 
-- `/` shows the runs table. It has one row for each list folder. The columns are List, Kind, State, Pages, Calls, Failed, Flagged, Cost (models), Cost (listed), Started, and Updated `[file: app/components/RunsTable.tsx:27-37]` `[file: app/app/page.tsx:9-12]`.
+- `/` shows the runs table. It has one row for each list folder. The columns are List, Kind, State, Pages, Calls, Failed, Flagged, Cost (models), Cost (listed), Started, and Updated `[file: app/components/RunsTable.tsx:27-37]` `[file: app/app/page.tsx:9-12]`. Replaced by 15.40.2: no screen shows USD (Q-A 3:15.2).
 - The table polls `/api/runs` every 3000 ms while one row runs or pauses `[file: app/components/useLive.tsx:4,20-25]` `[file: app/components/RunsTable.tsx:12]`. A failed poll is silent `[file: app/components/useLive.tsx:15-18]`.
 - The time helper `dateTime` shows the time of the browser without a zone name `[file: app/lib/format.ts:8-13]`. Changed in round 81 answers 17 and 18 (`qa-memory-2026-11-02.md:22,23`): every time shows PST. Unit VW77b1 built PST on the Lists tab, the run view, and the page check date (round 81, accepted in round 82 answer 8). See sections 15.34.6 and 15.35.6.
 - The state colors cover running, paused, completed, done, completed with failures, failed, interrupted, and waiting `[file: app/components/Pills.tsx:3-12]`. A pill has color and a word.
@@ -3963,7 +3963,7 @@ Line 1, from left to right:
 2. Title in English and the slug in a mono font, for example "Making the Difference on the Day (`mental_full`)". The title comes from the item metadata `[file: app/lib/books.ts:107-111]`. The slug stays if no title exists.
 3. Phase, for example "Phase 3" with the owner words "warm initialization", or "Phase 4" with "production run". A pilot row shows an empty phase cell (round 81 answer 22, `qa-memory-2026-11-02.md:27`). Old text: it showed "Phase not stored".
 4. Progress: a bar and the text "5 of 20 pages". The bar has a text next to it and the role `progressbar` with values. The count is pages done of the pages in the phase target. Phase 3 has 20 pages. Phase 4 has all pages of the book.
-5. Cost: "$8.30". It counts the model cost (`cost_usd_models`) of the book in the current phase. For a derived row it counts all list folders.
+5. Cost: "$8.30". It counts the model cost (`cost_usd_models`) of the book in the current phase. For a derived row it counts all list folders. Replaced by 15.40.2: the row shows "Tokens in (with cache) / out".
 6. Time: "159 min". It is the sum of the page times, with no pauses. It is not the clock time between start and end.
 7. Actions: the buttons of section 15.24.4.5.
 
@@ -3980,11 +3980,11 @@ What each number counts, and where it shows:
 
 - "Pages done" counts pages that a run finished, on the Monitor dashboard. The Reader dashboard (`/read`) shows "translated" pages, which are pages with reader text `[file: docs/VISION-viewer.md:3462]`.
 - Example: `kendojidai_2014` has 6 pages done on the Monitor dashboard: p0794 to p0798 and p0839. The Reader dashboard shows 5 of 1051 pages, because p0839 has a QA_3 FAIL and no reader text `[file: docs/VISION-viewer.md:3458,3724]`.
-- "Cost" counts what the models charged. It does not count Voyage `[file: data/pilot-run/lists/20261029T051152Z/progress.json, key cost_models_usd]`.
+- "Cost" counts what the models charged. It does not count Voyage `[file: data/pilot-run/lists/20261029T051152Z/progress.json, key cost_models_usd]`. Replaced by 15.40.2.
 
 ##### 15.24.4.4 Phase 2
 
-Phase 2 runs on the paired dataset. The paired dataset holds web articles with human English. The owner wrote that it holds more than 300 articles (quote in 15.24.1). A phase 2 run has no book, so it has no book row.
+Phase 2 runs on the paired dataset. The paired dataset holds web articles with human English. The owner wrote that it holds more than 300 articles (quote in 15.24.1). A phase 2 run has no book, so it has no book row. Replaced by 15.40.3: the phase 2 row and the group "Phase 2 articles (40)" (Q-A 3:17.4, 3:25.4).
 
 - The dashboard shows one closed line below Not started: "Phase 2 (paired dataset): no run record yet." The line stays until the Translator writes a phase 2 record. Round 80 answers 22 to 24: the row shape for phase 2 is an open item (section 15.33.8). Decided in round 87 answer 25 (`qa-memory-2026-11-02.md:241`: "Read-only row (Recommended)") `[owner, round 87 answer 25]`. Not built. Unit VW85 builds the row (`qa-memory-2026-11-02.md:246`). The Q-A file holds the label only, so the row shape is Not verified.
 - Reason: no phase 2 run exists. The Translator has no phase key and no command for it `[check: DM70 2026-10-29 22:06 sed of build_parser in translator_run.py]`. A made-up row shows invented data.
@@ -8651,3 +8651,143 @@ The first option of each item is the recommended option. Items 6, 7, and 8 are o
 - The dev server on port 3000 and PocketBase on port 8090 were not read or changed.
 
 Status: round 87 answers applied by unit DZ85. Items in section 15.39.7 wait for the owner.
+
+#### 15.40 Rounds 89 to 91 (oc2 Q-A 3:13 to 3:26): tokens, phase 2 on the Monitor dashboard, step view, readable names, card names, training monitor (unit DZ86)
+
+The Q-A records of these rounds live in collab.db (session chain of plan "Kendo Translator phase 2 build and Viewer"). A citation such as Q-A 3:15.2 means session 3, batch 15, question 2.
+
+##### 15.40.1 Owner words
+
+- Q-A 3:15.1 note: "I need an overview of the currently running process step-by-step, and I can expand each step to view the data."
+- Q-A 3:17.1 note: "I want to be able to `view the FULL process step-by-step`: + Display like a tree going down each step of the script + In chronological order: p1 -> p2 -> p3 ..., inside a page I can unfold to view full detail: input -> TL output -> ED output ->  QA output, layer 0 -> 1 -> 2 -> 3, then loss function, then backward pass, then prompt update + In the run view screen I want to see ALL data also, be able to see prompt diff after each training step update"
+- Q-A 3:17.4 note: "Annotate the names intuitively and properly. I cant understand what they are if you just write `Running` and each name is a long id number. Apply this for EVERYTHING."
+- Q-A 3:22.4 note: "Add a training monitor page in the run view page: User pick an individual component (e.g TL_2) to see ALL information relevant to that component in the run (all its critique history, all its updates, etc) in similar chronological order."
+- Q-A 3:23.4 note: "With training statistics (number of critique, types, updates, etc)"
+- Picked labels: Q-A 3:15.2 "Short in tables, all 5 in details", Q-A 3:15.3 "Show 'no token data'", Q-A 3:18.5 "Keep codes, explain on hover", Q-A 3:20.2 "In = input + cache", Q-A 3:22.3 "Delete the comment line now".
+
+##### 15.40.2 Tokens in place of USD (units VW93 and VW96)
+
+- Commits: `350331e` (VW93) and `6f92786` (VW96). Rules in the guideline `docs/agents/viewer.md`, section Screens (Q-A 3:21.5).
+- No screen shows USD. The files keep `cost_usd`. The Viewer does not read it for the screens.
+- Tables and one-line places show "Tokens in (with cache) / out" (Q-A 3:15.2, 3:20.2).
+  - "in" is input + cache read + cache write.
+  - Reason: a Claude call puts the prompt into the cache. Example: page 94380515/p002, box TL_1 (claude-haiku) holds input 4, output 17,590, cache write 28,671.
+  - Places: Lists tab `/runs`, book rows and the all-books line of the Monitor dashboard `/`, step lines of the step view, page call lines of the training monitor.
+- Detail places show all 5 kinds: input, output, reasoning, cache read, cache write.
+  - Places: the phase 2 row, the page view, the per-call lists, the open step data, the compare table of critic modes.
+- A run with no token numbers shows "no token data" (Q-A 3:15.3). In November 2026, 28 old plan runs hold no token field.
+- A token kind that no call holds stays out of the line, so no false 0 shows (VW93 default A2).
+- The field "Cost limit per page" of the Run settings panel `/settings/run` and the cost guard of the Translator stay until plan item P32. The owner picked "Remove it after the run" (Q-A 3:17.3).
+
+##### 15.40.3 Phase 2 on the Monitor dashboard (units VW91 and VW94)
+
+- Commits: `cada684` (VW91, phase 2 row) and `658fd13` (VW94, phase 2 articles group).
+- The phase 2 row shows the state, the pages done of 144, the page and the box now, the last sign of life, the last accepted page, the tokens (all 5 kinds), the last event, and links. The links open the step view, the run view, and `status.json` and `history.jsonl` in the JSON viewer `/json`.
+- Below the row, one closed group shows the 40 articles of the phase 2 list (Q-A 3:17.4, picked "One grouped row").
+  - Example head line: "Phase 2 articles (40): 3 accepted · 1 translating now · 36 not started yet".
+  - Each article shows the English title, the Japanese title, the short ID in grey, a state such as "Accepted: 3 of 3 pages", "Translating now: page 2 of 3" or "Not started yet", and page links.
+  - The titles come from `<T2>/data/item-metadata/items.filled.jsonl`. The group says that the owner did not check these titles yet.
+- The count "Running (n)" of the book list counts real books only. Before VW94 it showed "Running (40)" for the 40 articles.
+- This replaces the rule of 15.24.4.4 "A phase 2 run has no book, so it has no book row." The owner picked the group with this conflict named in the question (Q-A 3:17.4) and confirmed it (Q-A 3:25.4).
+- Run view of a phase 2 list: a page that an earlier list of the same run accepted shows "accepted before restart" with a link to that page run (Q-A 3:17.5).
+- Accepted defaults (Q-A 3:19.1):
+  1. A phase 2 list is a list whose `progress.json` holds the book "paired-dataset".
+  2. A page with the verdict FAIL counts as accepted. The screen shows the verdict.
+  3. State words come from one legend.
+  4. Box codes show the readable name on hover.
+  5. The row and the group each hold one "Run view" link.
+  6. Titles come from `items.filled.jsonl` with the note "not checked by the owner".
+
+##### 15.40.4 Step view `/monitor/phase-2` (unit VW95)
+
+- Commit: `5ff8e91`. The phase 2 row opens it with the link "Steps" (Q-A 3:17.6).
+- Level 1: one line per page in run order across a restart. The running page is open at the start (Q-A 3:17.7).
+- Level 2: the steps of one page in the owner order of Q-A 3:17.1 (Q-A 3:18.2):
+  - INPUT (TS_0, page transcription);
+  - GRID LEVEL 0 to 3, each with TS, TL output, ED output, QA output;
+  - LOSS FUNCTION (reference-diff-critic);
+  - BACKWARD PASS (box critics);
+  - PROMPT UPDATE.
+  - Each line shows the state, the model with the card name, the seconds, "Tokens in (with cache) / out" and the verdict.
+- Level 3: the data of one step: the call, the English text per unit, the reasoning, the score, the critiques, the exact text sent, the program check results, and links to the page view and the JSON viewer. Step data loads when you open it (Q-A 3:19.3).
+- The screen polls every 3 s while the tab is visible.
+- The run view of a phase 2 list shows the same tree, plus the section "Prompt updates" (Q-A 3:18.3). Each update shows the time in PST, the box, the page, the version change, the critique groups, the result, the calls, and a line diff of the prompt.
+- Accepted defaults (Q-A 3:20.1):
+  1. Steps show in the owner order. Each step also shows its start time, because the box critics run before the reference-diff-critic in the files.
+  2. The summary call holds the steps of the open pages and the running page only.
+  3. Page order across a restart: pages from the history, then started pages, then the running page, then pages not started yet.
+  4. A rubric table change shows as a line diff of the JSON text.
+  5. Step states "Done", "Done (program)", "Working now", "No call record". Page states "Accepted", "Accepted with verdict FAIL", "Translating now", "Stopped before the end", "Not started yet".
+  6. Update roles show a short text, for example "critique-grouper (groups the critiques of the box)".
+
+##### 15.40.5 Readable names and card names (units VW96 and VW97)
+
+- Commits: `6f92786` (VW96), `17b2a6f` (VW97), `ec38c63` (e-mail comment removed).
+- Rule (guideline `docs/agents/viewer.md`, section Screens, Q-A 3:17.4): every ID and every state on every screen gets a readable label. The raw ID or stamp shows in small grey text next to it.
+  - Example: the Lists tab `/runs` shows "List started 2026-11-11 20:41 PST" with the stamp `20261112T044136Z` in grey.
+  - Example: the old pilot row `18d4ac29` shows "Kendo droplet guard (18d4ac29)".
+- Exception: box codes such as TL_2 and box-critic.ED_2 stay on the screen. The readable name shows on hover (Q-A 3:18.5, 3:19.2). The names come from `<T2>/data/scripts/translator/messages.py` lines 524 and 531-534.
+- A Claude model shows its card name, for example "claude-haiku-5-5 (Claude card ntngh)", with the provider ID in grey (Q-A 3:21.3, 3:22.1). Other providers show "(provider xai)". No e-mail address appears in any tracked file of v2/viewer (Q-A 3:22.3, guideline `docs/agents/git.md`).
+- The JSON viewer `/json` shows one plain line above the path, for example "Status of the phase 2 run" for `book-store/paired-dataset/status.json`.
+- Accepted defaults of VW96 (Q-A 3:21.2):
+  1. An article title comes from the item whose ID starts with the 8-character short ID.
+  2. "page n of m" comes from the newest phase 2 list that holds the page.
+  3. List states "Translating now", "Translated", "Translated, with failures", "Stopped".
+  4. Critic modes "One critic session per box" and "One critic session per page".
+  5. Settings show "Yes" / "No" and "Level 0: ...". The stored values do not change.
+  6. PASS, FAIL, the column "Run ID" and the tag "book-run" stay (Q-A 3:11.3) and get a hover text.
+  7. The stage tabs of the page view wrap at 390 px width.
+- Accepted defaults of VW97 (Q-A 3:22.1): the open step data shows the model row without the grey ID. An unknown Claude ID keeps "(provider ...)".
+- The owner looked at the Reader dashboard `/read` and one book after VW96 and found all names readable (Q-A 3:22.2).
+
+##### 15.40.6 Training monitor (unit VW98)
+
+- Commit: `c47fa5b`. A section "Training monitor" in the run view of a phase 2 list (Q-A 3:23.3).
+- 16 box buttons: TS_0 to TS_3, TL_0 to TL_3, ED_0 to ED_3, QA_0 to QA_3. A click shows the history of that box in the whole run, across a restart. The address gets `?box=TL_2`. Each box code of the step view links there.
+- Header with training statistics (Q-A 3:23.4 note): the live prompt version, the critiques by source and by group mark (soft, hard, not grouped yet), the waiting critiques against N = 3, the failure modes, the update points with their results and audit verdicts, the prompt versions, the page calls with time and tokens, and the critiques per page.
+- Time line, one line per event in run order: page call, critique, update point, rubric table change (QA boxes). Each line opens to its full data: the box output, the full critique, the prompt line diff, the exact text sent to each update role, the commit file, and JSON viewer links. Tick boxes show or hide each event kind.
+- The screen polls every 3 s while the tab is visible. An unchanged poll returns no data.
+- Accepted defaults (Q-A 3:25.2):
+  1. A critique is one queue row. `critiques/reference.json` does not count twice.
+  2. The time of a critique is the start of its critic call.
+  3. Critique states "Used", "Waits", "Page translating now", "Not in the queue". Only the waiting count shows against N.
+  4. Soft and hard come from the group marks of the update point.
+  5. Rubric table rows count from the run start.
+  6. Events sort by clock time, with a fixed tie order.
+  7. The commit file hides the money keys.
+  8. The section sits above the step tree. No box is open at the start. A second click closes the box.
+
+##### 15.40.7 Files that the Viewer reads for phase 2 (adds to 15.24.9)
+
+All read only, below `<T2>/data`:
+
+- `book-store/paired-dataset/status.json` and `history.jsonl`. History events: start, page-done, stopped, update-point-started, prompt-live, prompt-rejected, rubric-table-live, update-point-ended. A history line can hold control characters, so the Viewer parses each line apart.
+- `book-store/paired-dataset/prompts/<BOX>/v*.json`: box, version, parent, text, group IDs, critique IDs, audit.
+- `book-store/paired-dataset/update-points/<article>_<page>/`: calls, messages of each update role, `commit-<BOX>.json`.
+- `book-store/paired-dataset/rubric-tables/changes.jsonl`: one file for all QA boxes.
+- `pilot-run/lists/<stamp>/progress.json`: the pages of one list.
+- `pilot-run/<article>_<page>/<stamp>-r41/`: `calls.jsonl`, `parsed/`, `messages/`, `critiques/queue-<BOX>.jsonl`, `critiques/reference.json`, `programs/`, `summary.json`.
+- `item-metadata/items.filled.jsonl`: article titles.
+
+##### 15.40.8 Lines of this file that DZ86 replaces
+
+- 15.24.2, the Lists table columns "Cost (models), Cost (listed)": replaced by 15.40.2.
+- 15.24.4.3 item 5 "Cost" and the line "'Cost' counts what the models charged": replaced by 15.40.2.
+- 15.24.4.4 "A phase 2 run has no book, so it has no book row." and "Phase 2 (paired dataset): no run record yet.": replaced by 15.40.3.
+- 15.24.8, the text sketches with "$" amounts and PDT times: kept as the round 70 sketches. The screens show tokens and PST (15.40.2, round 81 answers 17 and 18).
+- The cost limit lines of 15.24.6 stay until plan item P32.
+
+##### 15.40.9 Open items
+
+- VW85: book runs in the step view and the training monitor, frozen boxes, the overflow queue (Q-A 3:26.3). Committed as `283f2e7` (Q-A 3:28.1). Its section comes in DZ86 part 2.
+- VW99: tabs in place of stacked monitor sections (Q-A 3:26.5 note) and more colors on all screens (Q-A 3:26.3 note). Design decided: tabs on three screens (Q-A 3:27.3), color style B (Q-A 3:27.4), defaults D1-D5 (Q-A 3:28.3). In build.
+- P32: merge into v2/translator, selftest, removal of the cost limit field and the cost guard, after the phase 2 run.
+- The bare page ID in the admin part of `/translate/<slug>` (`app/components/HtvPageSection.tsx` lines 198-203) and the "readers see" line: after the first book run.
+
+##### 15.40.10 Not verified
+
+- The Reader screens `/read` and `/read/<slug>` after VW96 rest on the owner look (Q-A 3:22.2). The smoke script did not run (Q-A 2:13.1).
+- The step view and the training monitor were checked with the first 47 pages of the phase 2 run only.
+- The article titles in `items.filled.jsonl` are not checked by the owner.
+
+Status: VW91 to VW98 documented by unit DZ86 part 1. VW85 and VW99 add their own section in part 2.
