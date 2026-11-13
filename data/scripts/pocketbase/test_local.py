@@ -138,12 +138,15 @@ class Results:
 
 # ---------------------------------------------------------------- http
 
-def http(method, path, body=None, token=None):
+def http(method, path, body=None, token=None, xff=None):
     """Return (status, decoded JSON). Never raise on a 4xx or 5xx status."""
     data = None if body is None else json.dumps(body).encode("utf-8")
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = token
+    if xff:
+        # Migration 1793300014 (unit VW101) allows 5 sign-ups per address and hour. A test sign-up sends its own made-up address.
+        headers["X-Forwarded-For"] = xff
     req = urllib.request.Request(BASE + path, data=data, method=method, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=60) as response:
@@ -321,7 +324,7 @@ def check_users(ctx):
     ctx.check("0 pb_users list shows 5 test users", len([u for u in users if u["email"].endswith("@p1-test.local")]) == 5,
               "count differs")
     stranger = {"email": "stranger@p1-test.local", "password": "x" * 12, "passwordConfirm": "x" * 12, "role": "admin"}
-    status, _ = http("POST", "/api/collections/users/records", stranger)
+    status, _ = http("POST", "/api/collections/users/records", stranger, xff="203.0.113.1")
     ctx.check("1 anonymous user create fails", is_denied(status), "status " + str(status))
     status, data = http("GET", "/api/collections/users/records")
     ctx.check("2 anonymous list of users fails or is empty", is_denied(status) or data.get("totalItems", 1) == 0,
@@ -794,12 +797,14 @@ def check_reader_pages(ctx):
     """Migrations 1793300006 to 1793300009 (unit RC1, round 63): the sign-up rule, the approval, the reader collections, and the closed page_runs."""
     users = "/api/collections/users/records"
     su = ctx.su_token
+    sign_up_count = [10]
 
     def sign_up(key, extra):
+        sign_up_count[0] += 1
         pw = secrets.token_urlsafe(18)
         body = {"email": addr(key), "password": pw, "passwordConfirm": pw, "name": key}
         body.update(extra)
-        status, data = http("POST", users, body)
+        status, data = http("POST", users, body, xff="203.0.113." + str(sign_up_count[0]))
         return status, data, pw
 
     status, data, pw1 = sign_up("su1", {"role": "reader"})
@@ -1083,7 +1088,7 @@ def check_restart(ctx, server, shape_dir, counts):
     ctx.check("13a records survive the restart", count_records(ctx) == counts, "counts differ")
     server.stop()
     removed = forget_v2_history(shape_dir)
-    ctx.check("13b v2 history rows removed for the test (13 expected, unit RT74 added migration 1793300012)", removed == 13, "removed " + str(removed))
+    ctx.check("13b v2 history rows removed for the test (15 expected, unit VW101 added migration 1793300014)", removed == 15, "removed " + str(removed))
     try:
         server.start()
         ok, reason = True, ""
@@ -1100,7 +1105,7 @@ def check_restart(ctx, server, shape_dir, counts):
     log = open(server.log_path, "rb").read().decode("utf-8", "replace")
     exists_lines = len(re.findall(r"v2 migration: collection \w+ exists, left as it is", log))
     ctx.info("13b log lines 'collection ... exists, left as it is': " + str(exists_lines))
-    ctx.check("13b the second run reports the 13 existing collections (6 of 1793300001, user_settings, 3 of 1793300007, 2 of 1793300008, reader_opens of 1793300012)", exists_lines == 13, "lines " + str(exists_lines))
+    ctx.check("13b the second run reports the 14 existing collections (6 of 1793300001, user_settings, 3 of 1793300007, 2 of 1793300008, reader_opens of 1793300012, book_toc of 1793300013)", exists_lines == 14, "lines " + str(exists_lines))
     approved_lines = len(re.findall(r"v2 migration: field approved exists, data left as it is", log))
     ctx.check("13b the second run reports that the field approved exists and leaves the data (migration 1793300006)", approved_lines == 1, "lines " + str(approved_lines))
     status, data = http("GET", "/api/collections/users/records?filter=" + urllib.parse.quote('email="' + addr("su1") + '"'), token=ctx.su_token)
@@ -1116,8 +1121,8 @@ def check_restart(ctx, server, shape_dir, counts):
 
 def check_down_up(ctx, server, shape_dir):
     server.stop()
-    code, output = run_cli(server, ["migrate", "down", "13"])
-    ctx.check("15a migrate down 13 exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
+    code, output = run_cli(server, ["migrate", "down", "15"])
+    ctx.check("15a migrate down 15 exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
     ctx.check("15q down of migration 1793300011 prints that the field own_translations.facts stays (soft down)", "the field own_translations.facts stays" in output, output.strip()[-300:])
     ctx.check("15o down of migration 1793300010 prints that the 4 fields stay (soft down)", "the fields catalog_items.translated, catalog_items.placement, reader_pages.search_ja, and reader_pages.search_en stay" in output, output.strip()[-300:])
     ctx.check("15g down turns the batch API off", batch_enabled_db(shape_dir) is False, "batch " + repr(batch_enabled_db(shape_dir)))

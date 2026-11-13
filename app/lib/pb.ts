@@ -499,6 +499,8 @@ export async function saveUserSettings(token: string, userId: string, changes: {
  * Public sign-up (round 63 answer 4). The body names the role reader and holds no approved key, so the field stays false.
  * The create rule of users refuses any other role (migration 1793300006). No secret is needed.
  * emailVisibility is true, so that an admin sees the email on the approval page. Only translators and admins read other user records (same migration).
+ * Unit VW101 (Q-A 3:31.2 to 3:31.4): migration 1793300014 limits sign-ups to 5 per hour for one network address. PocketBase then answers with HTTP 429,
+ * and this function returns the plain message below (status 429). A sign-up that fails also counts toward the limit (PocketBase counts every create request).
  */
 export async function pbSignUp(name: string, email: string, password: string): Promise<{ ok: true } | { ok: false; status: number; message: string }> {
   const r = await pbFetch("POST", "/api/collections/users/records", { body: { name, email, password, passwordConfirm: password, role: "reader", emailVisibility: true } });
@@ -507,6 +509,7 @@ export async function pbSignUp(name: string, email: string, password: string): P
   if (f.email?.code === "validation_not_unique") return { ok: false, status: 400, message: "This email is already used. Sign in instead." };
   if (f.email) return { ok: false, status: 400, message: "Enter a valid email." };
   if (f.password) return { ok: false, status: 400, message: "The password must have 8 characters or more." };
+  if (r.status === 429) return { ok: false, status: 429, message: "Too many sign-ups from this network. Try again later." };
   if (r.status === 503) return { ok: false, status: 503, message: "The sign-in server is not reachable. Try again later." };
   return { ok: false, status: r.status === 400 ? 400 : 502, message: "The account was not created. Check the fields and try again." };
 }
