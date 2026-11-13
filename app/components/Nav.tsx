@@ -1,7 +1,9 @@
 "use client";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ThemeSwitch from "./ThemeSwitch";
+import NavMenuButton, { NAV_MENU_ID, navMenuClass } from "./NavMenuButton";
 import type { ThemeName } from "@/lib/htv-settings";
 
 // Round 43 answer 6 (Q-A l110): first view "Two tabs". Runs first, Books second, full width, one click switches.
@@ -29,28 +31,56 @@ export default function Nav({ monitor, theme }: { monitor: boolean; theme: Theme
   // compares the boxes at 768, 1024, 1280 and 1440 px). The old bar scrolled sideways below about 700 px only, so 768 px (Tailwind md) is the smallest safe limit.
   // Unit VW99 (Q-A 3:27.4 "B, A plus colored bands"): the bar is a dark red band with light text (theme variables --band and --band-ink,
   // 7 to 1 in all 5 themes). The open tab is bold with a light underline, so the color is not the only sign. The theme switch keeps its paper box.
+  // Unit VW100 (Q-A 3:29.2 "Compact top bar in VW100"): below 768 px the closed band shows the site name and one button "Menu" (about 48 px high, before 256 px).
+  // A tap on "Menu" opens the links and the theme switch below it (the same TABS list and the same filter, no second list). A second tap, Escape, a link click
+  // and a route change close it. The open tab gets a left bar on the phone, besides the bold text and the underline. From 768 px up the two wrappers have
+  // display: contents (md:contents), so the name, the nav and the theme switch are flex items of the header as before, and the button is hidden.
+  // [unit default VW100] The menu state is the path where the menu was opened: a new path closes it without an effect.
+  const [openPath, setOpenPath] = useState<string | null>(null);
+  const open = openPath === path;
+  const headerRef = useRef<HTMLElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpenPath(null);
+      // Focus goes back to the button, so that it does not stay on a link that the close hides.
+      if (headerRef.current?.contains(document.activeElement)) buttonRef.current?.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
   return (
-    <header data-top-band className="border-b border-line bg-band text-band-ink px-6 flex flex-wrap md:flex-nowrap items-end gap-x-8">
-      <div className="py-3 font-semibold tracking-tight">{reader ? "Kendo books" : path.startsWith("/translate") ? "human-translation-view" : "agent-translation-monitor"}</div>
-      <nav className="flex flex-wrap md:flex-nowrap gap-1" aria-label="Main tabs">
-        {tabs.map((t) => {
-          const on = t.match(path);
-          return (
-            <Link
-              key={t.href}
-              href={t.href}
-              aria-current={on ? "page" : undefined}
-              className={
-                "px-4 py-3 text-sm border-b-2 -mb-px " +
-                (on ? "border-band-ink font-semibold text-band-ink" : "border-transparent text-band-ink hover:border-band-ink")
-              }
-            >
-              {t.label}
-            </Link>
-          );
-        })}
-      </nav>
-      <ThemeSwitch theme={theme} />
+    <header ref={headerRef} data-top-band className="border-b border-line bg-band text-band-ink px-6 flex flex-wrap md:flex-nowrap items-end gap-x-8">
+      <div className="max-md:flex max-md:basis-full max-md:items-center max-md:justify-between max-md:gap-3 md:contents">
+        <div className="py-3 font-semibold tracking-tight">{reader ? "Kendo books" : path.startsWith("/translate") ? "human-translation-view" : "agent-translation-monitor"}</div>
+        <NavMenuButton open={open} onToggle={() => setOpenPath(open ? null : path)} buttonRef={buttonRef} />
+      </div>
+      <div id={NAV_MENU_ID} data-top-menu className={navMenuClass(open)}>
+        <nav className={"flex flex-wrap md:flex-nowrap max-md:flex-col max-md:gap-0 gap-1" + (tabs.length ? "" : " max-md:hidden")} aria-label="Main tabs">
+          {tabs.map((t) => {
+            const on = t.match(path);
+            return (
+              <Link
+                key={t.href}
+                href={t.href}
+                aria-current={on ? "page" : undefined}
+                onClick={() => setOpenPath(null)}
+                className={
+                  "px-4 py-3 text-sm border-b-2 -mb-px max-md:border-l-4 " +
+                  (on ? "border-band-ink font-semibold text-band-ink" : "border-transparent text-band-ink hover:border-band-ink")
+                }
+              >
+                {t.label}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="md:contents">
+          <ThemeSwitch theme={theme} />
+        </div>
+      </div>
     </header>
   );
 }
