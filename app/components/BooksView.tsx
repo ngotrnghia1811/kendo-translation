@@ -32,7 +32,7 @@ export default function BooksView({ rows }: { rows: BookRow[] }) {
       </div>
       <div>
         <div className="mb-3 flex items-baseline gap-4">
-          <h2 className="text-lg font-semibold">Articles</h2>
+          <h2 className="section-band text-lg font-semibold">Articles</h2>
           <span className="text-sm text-muted">{articles.length} web articles with run folders</span>
         </div>
         {articles.length === 0 ? <p className="text-muted">No article has a run folder.</p> : <BookTable rows={articles} />}

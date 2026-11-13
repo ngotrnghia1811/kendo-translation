@@ -1,4 +1,5 @@
 import { StatePill } from "./Pills";
+import { KIND_CHIP } from "./BoxCode";
 import { chainStateWord, groupHelp, pageRunStatusWord, sessionShort } from "@/lib/readable-names";
 import { listStateWord, pageStateWord } from "@/lib/run-view-words";
 
@@ -47,7 +48,7 @@ export function GroupCode({ code }: { code: string }) {
   const help = groupHelp(code);
   if (!help) return <>{code}</>;
   return (
-    <span data-group-code={code} title={help} className="relative cursor-help underline decoration-dotted underline-offset-2">
+    <span data-group-code={code} title={help} className={`relative cursor-help underline decoration-dotted underline-offset-2 rounded px-1 ${KIND_CHIP[code] ?? ""}`}>
       {code}
       <span className="sr-only"> ({help})</span>
     </span>

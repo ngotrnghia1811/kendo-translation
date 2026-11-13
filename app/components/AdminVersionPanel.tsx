@@ -69,7 +69,7 @@ export default function AdminVersionPanel({ pageId }: { pageId: string }) {
   const btn = "min-h-[36px] rounded border border-line px-2 py-0.5 text-sm disabled:opacity-50";
   return (
     <section data-version-panel={pageId} aria-label={`Human versions of ${pageId}`}>
-      <h2 className="mb-2 text-lg font-semibold">{pageId}</h2>
+      <h2 className="section-band mb-2 text-lg font-semibold">{pageId}</h2>
       {error ? <p role="alert" className="mb-2 text-sm text-red-700">{error}</p> : null}
       {!info ? <p className="text-sm text-muted">Loading…</p> : null}
       {info ? (

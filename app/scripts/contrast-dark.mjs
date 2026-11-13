@@ -6,6 +6,8 @@
 //      dark:                                    every pair must reach 7 to 1 (WCAG AAA), as before.
 //      sepia, solarized-light, solarized-dark:  the body text pairs must reach 7 to 1, every other pair 4.5 to 1 (round 63 answer 7).
 //      light:                                   every pair must reach 4.5 to 1 (report only: the lowest pair is printed).
+//      Unit VW99 (D3, Q-A 3:28.3): the new color pairs of VW99 ("VW99: ...") must reach 7 to 1 in all 5 themes, light included.
+//      Each VW99 variable (VW99_VARS) must have a value in all 5 themes.
 // 3. It scans the source files for palette classes (bg-green-100, text-red-700, and so on). A palette color without a value in a theme block is a FAIL,
 //    because the class keeps its light color on the dark page. Two colors stay as they are by design: blue-500 and black.
 // 4. It prints the lowest pair of each theme.
@@ -51,10 +53,16 @@ const ratio = (a, b) => {
   return (x + 0.05) / (y + 0.05);
 };
 // Unit VW89 (round 90): the JSON viewer colors are base tokens too (--json-* in :root and in each theme block).
-const BASE = ["foreground", "muted", "accent", "background", "line", "json-key", "json-string", "json-number", "json-literal"];
+// Unit VW99 (round 91, Q-A 3:27.4, D3 in Q-A 3:28.3): the colors by meaning are base tokens too (--chip-*, --state-*, --bar-*, --band, --tab-on, --section, --title, --button2-ink).
+const VW99_VARS = [
+  "chip-ts", "chip-ts-ink", "chip-tl", "chip-tl-ink", "chip-ed", "chip-ed-ink", "chip-qa", "chip-qa-ink",
+  "state-ok", "state-ok-ink", "state-run", "state-run-ink", "state-wait", "state-wait-ink", "state-fail", "state-fail-ink", "state-stop", "state-stop-ink",
+  "bar-ok", "bar-run", "bar-wait", "band", "band-ink", "tab-on", "tab-on-ink", "section", "section-ink", "title", "button2-ink",
+];
+const BASE = ["foreground", "muted", "accent", "background", "line", "json-key", "json-string", "json-number", "json-literal", ...VW99_VARS];
 const val = (vars, name) => vars.get(name === "page" ? "background" : name.startsWith("color-") || BASE.includes(name) ? name : "color-" + name);
 
-// [use, text variable, background variable, body text (7 to 1 in every theme except light)]
+// [use, text variable, background variable, body text (7 to 1 in every theme except light), VW99 pair (7 to 1 in all 5 themes)]
 const PAIRS = [
   ["Run settings: field value and dialog", "foreground", "white", true],
   ["Run settings: field help", "muted", "white"],
@@ -103,15 +111,41 @@ const PAIRS = [
   ["JSON viewer: text on stone-50 fill", "json-string", "stone-50", true],
   ["JSON viewer: number on stone-50 fill", "json-number", "stone-50", true],
   ["JSON viewer: true, false, null on stone-50 fill", "json-literal", "stone-50", true],
+  // Unit VW99 (D3, Q-A 3:28.3): every new text and fill pair reaches 7 to 1 in all 5 themes.
+  ["VW99: TS box code chip", "chip-ts-ink", "chip-ts", false, true],
+  ["VW99: TL box code chip", "chip-tl-ink", "chip-tl", false, true],
+  ["VW99: ED box code chip", "chip-ed-ink", "chip-ed", false, true],
+  ["VW99: QA box code chip", "chip-qa-ink", "chip-qa", false, true],
+  ["VW99: state Accepted (green)", "state-ok-ink", "state-ok", false, true],
+  ["VW99: state Translating now, Working now (blue)", "state-run-ink", "state-run", false, true],
+  ["VW99: state Not started yet (grey)", "state-wait-ink", "state-wait", false, true],
+  ["VW99: state FAIL (dark red)", "state-fail-ink", "state-fail", false, true],
+  ["VW99: state Stopped (amber)", "state-stop-ink", "state-stop", false, true],
+  ["VW99: header text on the header band", "band-ink", "band", false, true],
+  ["VW99: tab text on the open tab", "tab-on-ink", "tab-on", false, true],
+  ["VW99: closed tab text on page", "foreground", "page", false, true],
+  ["VW99: section title on the section band", "section-ink", "section", false, true],
+  ["VW99: title on page", "title", "page", false, true],
+  ["VW99: title on card", "title", "white", false, true],
+  ["VW99: second button text on page", "button2-ink", "page", false, true],
+  ["VW99: second button text on card", "button2-ink", "white", false, true],
 ];
 
 let fails = 0;
 const lowest = [];
+const lowestNew = [];
 for (const [name, vars] of themes) {
-  const limitOf = (body) => (name === "dark" ? 7 : name === "light" ? 4.5 : body ? 7 : 4.5);
+  const limitOf = (body, vw99) => (vw99 || name === "dark" ? 7 : name === "light" ? 4.5 : body ? 7 : 4.5);
   console.log(`\nTheme ${name} (limits: body text ${name === "light" ? 4.5 : 7} to 1, other pairs ${name === "dark" ? 7 : 4.5} to 1):`);
   let low = { r: Infinity, use: "" };
-  for (const [use, fg, bg, body] of PAIRS) {
+  let lowNew = { r: Infinity, use: "" };
+  for (const v of VW99_VARS) {
+    if (!vars.has(v)) {
+      fails++;
+      console.log(`FAIL  VW99 variable --${v} has no value in the theme ${name}`);
+    }
+  }
+  for (const [use, fg, bg, body, vw99] of PAIRS) {
     const a = val(vars, fg);
     const b = val(vars, bg);
     if (!a || !b) {
@@ -120,13 +154,15 @@ for (const [name, vars] of themes) {
       continue;
     }
     const r = ratio(a, b);
-    const limit = limitOf(body);
+    const limit = limitOf(body, vw99);
     const ok = r >= limit;
     if (!ok) fails++;
     if (r < low.r) low = { r, use };
+    if (vw99 && r < lowNew.r) lowNew = { r, use };
     console.log(`${ok ? "PASS" : "FAIL"}  ${use}: ${a} on ${b} = ${r.toFixed(2)} to 1 (limit ${limit})`);
   }
   lowest.push(`${name}: ${low.r.toFixed(2)} to 1 (${low.use})`);
+  lowestNew.push(`${name}: ${lowNew.r.toFixed(2)} to 1 (${lowNew.use})`);
 }
 
 // Scan the source for palette classes.
@@ -154,5 +190,7 @@ for (const name of ["dark", "sepia", "solarized-light", "solarized-dark"]) {
 }
 console.log("\nLowest pair of each theme:");
 for (const l of lowest) console.log("  " + l);
+console.log("Lowest VW99 pair of each theme (limit 7 to 1):");
+for (const l of lowestNew) console.log("  " + l);
 console.log(`\nFailures: ${fails}`);
 process.exit(fails ? 1 : 0);

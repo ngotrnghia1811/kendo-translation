@@ -13,6 +13,19 @@ const STEPS_LINE: Phase2Line = { key: "steps", text: "Step view of the whole run
 // Unit VW94 (round 91), Q-A 3:17.4 note "Annotate the names intuitively and properly": the state word gets plain words, the page IDs get the article title
 // and "page 1 of 3", and a new line holds the link "Run view". The texts come from phase2Overrides (lib/phase2-articles.ts).
 // Fix round, Q-A 3:18.5 "Keep codes, explain on hover": a box code in a line stays a code and gets a hover (BoxText, components/BoxCode.tsx).
+// Unit VW99 (Q-A 3:27.4): the state of the phase 2 run in a pill colored by meaning, the same theme variables as components/StateLabel.tsx.
+// A local map, because scripts/phase2-row-test.mjs compiles this file with components/BoxCode.tsx only.
+const PHASE2_STATE_STYLE: Record<string, string> = {
+  running: "bg-state-run text-state-run-ink",
+  "running-pause": "bg-state-run text-state-run-ink",
+  stopped: "bg-state-stop text-state-stop-ink",
+  failure: "bg-state-fail text-state-fail-ink",
+  unexpected: "bg-state-fail text-state-fail-ink",
+  unreadable: "bg-state-fail text-state-fail-ink",
+  completed: "bg-state-ok text-state-ok-ink",
+  "not-started": "bg-state-wait text-state-wait-ink",
+};
+
 export default function Phase2Row({ view, now, articles }: { view: Phase2View | null | undefined; now: number; articles?: Phase2ArticlesView | null }) {
   if (!view) {
     return (
@@ -36,7 +49,9 @@ export default function Phase2Row({ view, now, articles }: { view: Phase2View | 
     <div data-phase2-row data-phase2-state={view.key} className="rounded border border-line bg-white px-3 py-2 text-sm">
       <p data-phase2-title className="font-semibold">
         {t.lead}{" "}
-        <span aria-hidden="true">{t.symbol}</span> {t.label}
+        <span data-phase2-state-pill className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 ${PHASE2_STATE_STYLE[view.key] ?? PHASE2_STATE_STYLE["not-started"]}`}>
+          <span aria-hidden="true">{t.symbol}</span> {t.label}
+        </span>
         {help ? (
           <span data-phase2-state-help className="font-normal text-muted">
             : {help}

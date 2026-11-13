@@ -31,7 +31,7 @@ export default function AdminReaders({ users, me }: { users: AdminUser[]; me: st
     <div data-admin-readers>
       {error ? <p role="alert" className="mb-2 text-sm text-red-700">{error}</p> : null}
       <section className="mb-6" aria-labelledby="waiting-h">
-        <h2 id="waiting-h" className="mb-2 text-lg font-semibold">
+        <h2 id="waiting-h" className="section-band mb-2 text-lg font-semibold">
           Readers that wait for approval ({waiting.length})
         </h2>
         {waiting.length === 0 ? <p className="text-sm text-muted" data-none-waiting>No reader waits for approval.</p> : null}
@@ -54,7 +54,7 @@ export default function AdminReaders({ users, me }: { users: AdminUser[]; me: st
         </ul>
       </section>
       <section aria-labelledby="all-h">
-        <h2 id="all-h" className="mb-2 text-lg font-semibold">
+        <h2 id="all-h" className="section-band mb-2 text-lg font-semibold">
           All other accounts ({others.length})
         </h2>
         <div className="overflow-x-auto">

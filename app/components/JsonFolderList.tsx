@@ -11,7 +11,7 @@ export default function JsonFolderList({ path, entries, total, reports, lines = 
     <div className="space-y-6">
       {reports ? (
         <section data-json-reports>
-          <h2 className="mb-2 text-lg font-semibold">Phase 2 report</h2>
+          <h2 className="section-band mb-2 text-lg font-semibold">Phase 2 report</h2>
           {reports.length === 0 ? (
             <p data-no-report className="text-sm text-muted">
               No phase 2 report yet.
@@ -31,7 +31,7 @@ export default function JsonFolderList({ path, entries, total, reports, lines = 
         </section>
       ) : null}
       <section data-json-folder>
-        <h2 className="mb-2 text-lg font-semibold">{path ? "Folder" : "Translator data folder"}</h2>
+        <h2 className="section-band mb-2 text-lg font-semibold">{path ? "Folder" : "Translator data folder"}</h2>
         {path ? (
           <p className="mb-2 text-sm">
             <Link href={jsonViewHref(parentOf(path))} data-up-link className="text-accent underline-offset-2 hover:underline">

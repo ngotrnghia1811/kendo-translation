@@ -426,14 +426,20 @@ await check("render: Details view part with the links Steps and Training monitor
 
 await check("render: book run sections of the run view (training monitor text for a book, step tree heading with title and slug)", async () => {
   const B = await import("../components/BookRunSections.tsx");
-  const html = h(B.default, { stamp: LB, book: SLUG, title: TITLE });
+  // Unit VW99 (Q-A 3:27.3): each section shows in its own tab of the run view, so the test renders one tab at a time.
+  const training = h(B.default, { stamp: LB, book: SLUG, title: TITLE, open: "training" });
+  assert.ok(training.includes('id="training-monitor"'));
+  assert.ok(htmlText(training).includes("whole history in this book run"));
+  const html = h(B.default, { stamp: LB, book: SLUG, title: TITLE, open: "steps" });
   const t = htmlText(html);
-  assert.ok(html.includes('id="training-monitor"'));
-  assert.ok(t.includes("whole history in this book run"));
   assert.ok(t.includes(`Steps of this book run: ${TITLE}`));
   assert.ok(t.includes(`/monitor/${SLUG}/steps`));
   assert.ok(t.includes("Loading the steps of the book run"));
   assert.ok(html.includes(`data-run-steps-book="${SLUG}"`));
+  assert.ok(!html.includes('id="training-monitor"'), "the closed tab Training monitor is not in the page");
+  const updates = h(B.default, { stamp: LB, book: SLUG, title: TITLE, open: "updates" });
+  assert.ok(updates.includes(`data-run-updates-book="${SLUG}"`));
+  assert.equal(h(B.default, { stamp: LB, book: SLUG, title: TITLE, open: "pages" }), "");
 });
 
 await check("render: the phase 2 training monitor keeps its words", async () => {
@@ -453,9 +459,11 @@ await check("render: no money and no e-mail address in the new parts", () => {
 
 await check("sources: the phase 2 lines of the run view and the step view route stay; the book route and the book sections exist", () => {
   const rv = read("components/RunView.tsx");
-  assert.match(rv, /\{run\.phase2List === true \? <TrainingMonitor stamp=\{run\.stamp\} \/> : null\}/);
-  assert.ok(rv.includes('<h2 className="mb-1 text-lg font-semibold">Steps of this phase 2 run</h2>'));
-  assert.ok(rv.includes("<StepView initial={null} list={run.stamp} showUpdates />"));
+  // Unit VW99 (Q-A 3:27.3): the phase 2 sections sit in the tabs "Training monitor", "Steps" and "Prompt updates".
+  assert.ok(rv.includes('{open === "training" && run.phase2List === true ? <TrainingMonitor stamp={run.stamp} /> : null}'));
+  assert.ok(rv.includes('<h2 className="section-band mb-1 text-lg font-semibold">Steps of this phase 2 run</h2>'));
+  assert.ok(rv.includes("<StepView initial={null} list={run.stamp} />"));
+  assert.ok(rv.includes("<StepView initial={null} list={run.stamp} showTree={false} showUpdates />"));
   assert.match(rv, /run\.phase2List !== true && run\.bookRunBook \? <BookRunSections/);
   const p2 = read("app/monitor/phase-2/page.tsx");
   assert.ok(p2.includes("Steps of the phase 2 run"));

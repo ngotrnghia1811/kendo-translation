@@ -30,15 +30,18 @@ const EMPTY: StepSummary = {
 
 // `book` (unit VW85): the slug of a book run. The step view /monitor/<slug>/steps sends ?book=<slug>, the run view of a book-run list sends ?list=<stamp>.
 // Without `book` the component works as before for phase 2 (VW95).
+// `showTree` (unit VW99, Q-A 3:27.3): false for the tab "Prompt updates" of the run view, which shows the updates without the tree.
 export default function StepView({
   initial,
   list,
   showUpdates = false,
+  showTree = true,
   book = null,
 }: {
   initial: StepSummary | null;
   list: string | null;
   showUpdates?: boolean;
+  showTree?: boolean;
   book?: string | null;
 }) {
   const [choices, setChoices] = useState<Choices>({});
@@ -74,8 +77,12 @@ export default function StepView({
           <div className="mb-2">
             <LiveBadge live={live} />
           </div>
-          <StepTree summary={data} choices={choices} setChoice={setChoice} />
-          <FrozenBoxes frozen={data.frozen} title={data.book?.title ?? null} book={Boolean(book)} />
+          {showTree ? (
+            <>
+              <StepTree summary={data} choices={choices} setChoice={setChoice} />
+              <FrozenBoxes frozen={data.frozen} title={data.book?.title ?? null} book={Boolean(book)} />
+            </>
+          ) : null}
           {showUpdates ? <PromptUpdates updates={data.updates} choices={choices} setChoice={setChoice} tick={data.generatedEpoch} /> : null}
         </div>
       </RunStoreQueryProvider>

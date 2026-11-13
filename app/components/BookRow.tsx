@@ -47,8 +47,8 @@ export default function BookRow({ row, now, onChanged }: { row: MonitorRow; now:
             </div>
             <div className="flex w-52 items-center gap-2 text-sm" data-col="progress">
               {row.pagesTotal && row.pagesDone !== null ? (
-                <div role="progressbar" aria-label={`Pages done of ${row.slug}`} aria-valuemin={0} aria-valuemax={row.pagesTotal} aria-valuenow={row.pagesDone} aria-valuetext={progressText(row)} className="h-2 w-16 shrink-0 rounded bg-line">
-                  <div className="h-2 rounded bg-accent" style={{ width: `${pct}%` }} />
+                <div role="progressbar" aria-label={`Pages done of ${row.slug}`} aria-valuemin={0} aria-valuemax={row.pagesTotal} aria-valuenow={row.pagesDone} aria-valuetext={progressText(row)} className="h-2 w-16 shrink-0 overflow-hidden rounded bg-bar-wait">
+                  <div className="h-2 bg-bar-ok" style={{ width: `${pct}%` }} />
                 </div>
               ) : null}
               <span className="tabular-nums">{progressText(row)}</span>

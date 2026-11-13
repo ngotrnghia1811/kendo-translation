@@ -126,7 +126,7 @@ export default function RunSettingsForm({ initialText, pageLabels = {} }: { init
       <aside><nav aria-label="Settings groups" className="flex flex-wrap gap-2 md:sticky md:top-4 md:flex-col md:gap-1">{GROUPS.map((g, i) => <a key={g} href={`#group-${i}`} className="rounded px-2 py-2 text-sm text-accent underline focus-visible:outline-2 focus-visible:outline-accent">{i + 1}. {g}</a>)}<a href="#change-history" className="px-2 py-2 text-sm text-accent underline">Change history</a></nav></aside>
       <div className="min-w-0 space-y-10 pb-6">
         {GROUPS.map((g, i) => <section key={g} id={`group-${i}`} aria-labelledby={`heading-${i}`} className="scroll-mt-6 border-t border-line pt-5">
-          <h2 id={`heading-${i}`} className="text-xl font-semibold">{i + 1}. {g}</h2>
+          <h2 id={`heading-${i}`} className="section-band text-xl font-semibold">{i + 1}. {g}</h2>
           {i === 0 && <p className="mt-2 max-w-prose text-sm">{saved.n_rule ?? <span className="text-red-700">{saved.n_rule_error}</span>} Reset removes update.N{saved.defaults["update.N"] === undefined ? "" : ` instead of saving ${showValue(saved.defaults["update.N"])}`}.</p>}
           {FIELDS.filter((f) => f.group === i).map((f) => <div key={f.key} className="mt-6 rounded border border-line bg-white p-4">
             <div className="flex flex-wrap items-baseline gap-2"><label htmlFor={f.key} className="font-semibold">{f.label}</label>{changed.has(f.key) ? <span className="rounded bg-amber-100 px-2 text-sm text-amber-800">Changed</span> : Object.hasOwn(saved.overrides, f.key) && (f.key === "update.N" || pythonJson(saved.overrides[f.key]) !== pythonJson(saved.defaults[f.key])) ? <span className="rounded bg-stone-100 px-2 text-sm text-stone-600">Not default</span> : null}</div>
@@ -137,7 +137,7 @@ export default function RunSettingsForm({ initialText, pageLabels = {} }: { init
             <div className="mt-3 flex flex-wrap items-center gap-3 text-sm"><span className="break-words">Default: {f.key === "update.N" ? "phase rule (no override)" : valueText(f.key, saved.defaults[f.key])}</span><button className={button} disabled={disabled} onClick={() => reset(f)}>Reset {f.label}</button></div>
           </div>)}
         </section>)}
-        <section id="change-history" className="scroll-mt-6 border-t border-line pt-5"><h2 className="text-xl font-semibold">Change history</h2><p className="my-2 text-sm text-muted">Last 20 saves. <a className="text-accent underline" href="/api/settings/run?history=1">Download the full history file</a></p>
+        <section id="change-history" className="scroll-mt-6 border-t border-line pt-5"><h2 className="section-band text-xl font-semibold">Change history</h2><p className="my-2 text-sm text-muted">Last 20 saves. <a className="text-accent underline" href="/api/settings/run?history=1">Download the full history file</a></p>
           {!saved.history.length ? <p>No entry yet.</p> : <ol className="divide-y divide-line">{saved.history.map((h) => <li key={h.sha1_after} className="py-4 text-sm"><p className="font-semibold">Revision {String(h.revision)} · {pst(h.utc)}</p><ul className="mt-2 space-y-1">{h.changes.map((c) => <li key={c.key} className="break-words" title={c.key}>{FIELDS.find((f) => f.key === c.key)?.label ?? c.key}: {valueText(c.key, c.old_present ? c.old : undefined)} → {valueText(c.key, c.new_present ? c.new : undefined)} <span className="font-mono text-xs text-muted">{c.key}</span></li>)}</ul></li>)}</ol>}
         </section>
       </div>

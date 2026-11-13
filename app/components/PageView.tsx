@@ -53,15 +53,16 @@ export default function PageView({ data, names }: { data: PageData; names: PageN
         </div>
         <dl className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
           <Fact label="Kind" value={<span title={pageKindWord(data.kind).help}>{pageKindWord(data.kind).label}</span>} />
-          <div className="flex items-center gap-2">
+          {/* Unit VW99: min-w-0 and max-w-full let the long run folder choice shrink, so a 390 px screen has no sideways scroll. */}
+          <div className="flex min-w-0 max-w-full items-center gap-2">
             <dt className="text-xs uppercase tracking-wide text-muted">Run folder</dt>
-            <dd>
+            <dd className="min-w-0">
               {/* Unit VW89 (round 90), Q-A 3:1.7 item 3: the run folder opens in the JSON viewer (folder list). With a choice of run folders,
                   the link "Open folder" sits after the choice [unit default VW89]. */}
               {data.runFolders.length > 1 ? (
                 <>
                   <select
-                    className="rounded border border-line bg-white px-1 py-0.5 font-mono text-xs"
+                    className="max-w-full rounded border border-line bg-white px-1 py-0.5 font-mono text-xs"
                     value={data.runFolder}
                     onChange={(e) => router.push(`/page/${data.slug}/${data.pageName}?run=${encodeURIComponent(e.target.value)}`)}
                   >
@@ -131,7 +132,7 @@ export default function PageView({ data, names }: { data: PageData; names: PageN
                 role="tab"
                 aria-selected={on}
                 onClick={() => setStage(n)}
-                className={"flex items-center gap-2 rounded border px-3 py-1.5 text-sm " + (on ? "border-accent bg-white font-semibold" : "border-line text-muted hover:border-accent")}
+                className={"flex items-center gap-2 rounded border px-3 py-1.5 text-sm " + (on ? "border-tab-on bg-tab-on font-semibold text-tab-on-ink" : "border-line text-muted hover:border-accent")}
               >
                 <BoxCode code={`ED_${n}`} />
                 <VerdictPill verdict={q?.verdict ?? null} score={q?.score ?? null} />

@@ -10,6 +10,10 @@ import BookRow from "./BookRow";
 import Phase2Row from "./Phase2Row";
 import Phase2Articles from "./Phase2Articles";
 import { runningGroupNote } from "@/lib/phase2-articles";
+// Unit VW99 (round 91), Q-A 3:27.3 and D1, D2 of Q-A 3:28.3: tabs "Phase 2 run | Books". The title, the update time, the button Refresh
+// and the banners stay above the tabs. The one poll of the page feeds both tabs, as before.
+import { Tabs } from "./Tabs";
+import { DASHBOARD_TABS, dashboardDefaultTab } from "@/lib/tabs";
 
 // Unit VW77a (round 80), VISION-viewer 15.24.4: the Monitor dashboard "/" on this Mac. It shows one row per book, in six groups.
 // Unit VW77b1 (round 81) adds the buttons (components/RowButtons.tsx). A press reads the rows again at once (refresh), so a new mark shows within one poll.
@@ -42,7 +46,7 @@ function Group({ group, rows, data, now, onChanged }: { group: GroupName; rows: 
       }}
       className="mb-4 rounded border border-line bg-white"
     >
-      <summary className="cursor-pointer px-3 py-2 font-semibold">
+      <summary className="cursor-pointer rounded-t bg-section px-3 py-2 font-semibold text-section-ink">
         <span aria-hidden="true">{GROUP_SYMBOL[group]}</span> {group} ({rows.length})
       </summary>
       {empty ? <p className="px-3 pb-2 text-sm text-muted">{empty}</p> : null}
@@ -93,33 +97,44 @@ export default function MonitorDashboard({ initial }: { initial: MonitorData }) 
         </p>
       ) : (
         <>
-          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-            <p data-monitor-summary className="text-sm">
-              {data.summary.text}
-            </p>
-            {/* Unit VW93 (Q-A 3:15.2, 3:15.3): input / output tokens of all books in place of the model cost. No dollar amount shows. */}
-            <p data-monitor-tokens className="text-sm text-muted">
-              {allBooksText(data.summary.tokens)}
-            </p>
-            {/* VISION 15.24.4.7: the summary line announces a change of the count of Needs attention only. */}
-            <span role="status" aria-live="polite" className="sr-only" data-needs-live>
-              {needs} {needs === 1 ? "book needs" : "books need"} attention
-            </span>
-          </div>
-          {data.noRun ? (
-            <p data-no-run className="mb-4 text-muted">
-              {NO_RUN_TEXT}
-            </p>
-          ) : null}
-          {groups
-            .filter((g) => groupShows(g.group, g.rows.length))
-            .map((g) => (
-              <Group key={g.group} group={g.group} rows={g.rows} data={data} now={now} onChanged={refresh} />
-            ))}
-          {/* Unit VW91 (round 91), Q-A 3:4.6: the live Phase 2 row. It shows the old fixed line when the store has no status.json. It refreshes with the same poll as the rows. */}
-          <Phase2Row view={data.phase2} now={now} articles={data.phase2Articles} />
-          {/* Unit VW94 (round 91), Q-A 3:17.4 "One grouped row": the 40 phase 2 articles below the phase 2 row, closed at the first paint. */}
-          <Phase2Articles view={data.phase2Articles} />
+          {/* VISION 15.24.4.7: the summary line announces a change of the count of Needs attention only. It stays above the tabs. */}
+          <span role="status" aria-live="polite" className="sr-only" data-needs-live>
+            {needs} {needs === 1 ? "book needs" : "books need"} attention
+          </span>
+          <Tabs label="Parts of the Monitor dashboard" idBase="monitor" tabs={DASHBOARD_TABS} fallback={dashboardDefaultTab(initial.phase2?.key)}>
+            {(open) =>
+              open === "phase2" ? (
+                <>
+                  {/* Unit VW91 (round 91), Q-A 3:4.6: the live Phase 2 row. It shows the old fixed line when the store has no status.json. It refreshes with the same poll as the rows. */}
+                  <Phase2Row view={data.phase2} now={now} articles={data.phase2Articles} />
+                  {/* Unit VW94 (round 91), Q-A 3:17.4 "One grouped row": the 40 phase 2 articles below the phase 2 row, closed at the first paint. */}
+                  <Phase2Articles view={data.phase2Articles} />
+                </>
+              ) : (
+                <>
+                  <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                    <p data-monitor-summary className="text-sm">
+                      {data.summary.text}
+                    </p>
+                    {/* Unit VW93 (Q-A 3:15.2, 3:15.3): input / output tokens of all books in place of the model cost. No dollar amount shows. */}
+                    <p data-monitor-tokens className="text-sm text-muted">
+                      {allBooksText(data.summary.tokens)}
+                    </p>
+                  </div>
+                  {data.noRun ? (
+                    <p data-no-run className="mb-4 text-muted">
+                      {NO_RUN_TEXT}
+                    </p>
+                  ) : null}
+                  {groups
+                    .filter((g) => groupShows(g.group, g.rows.length))
+                    .map((g) => (
+                      <Group key={g.group} group={g.group} rows={g.rows} data={data} now={now} onChanged={refresh} />
+                    ))}
+                </>
+              )
+            }
+          </Tabs>
         </>
       )}
     </section>

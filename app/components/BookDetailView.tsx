@@ -31,6 +31,11 @@ import RowButtons from "./RowButtons";
 import BookRunsTable from "./BookRunsTable";
 import { useLive } from "./useLive";
 import { BookRunWatch } from "./RunStoreParts"; // unit VW85 (Q-A 3:26.3)
+// Unit VW99 (Q-A 3:27.3): the tabs, and the step tree and the training monitor of the book run in their tabs.
+import { Tabs } from "./Tabs";
+import { DETAIL_DEFAULT_TAB, DETAIL_TABS } from "@/lib/tabs";
+import StepView from "./StepView";
+import { TrainingMonitor } from "./TrainingMonitor";
 
 // Unit VW77c (round 86), VISION-viewer 15.24.5: the Details view of one book on the Monitor dashboard. It follows the Monitor dashboard `/` in its rules:
 // the same row (label, sentence, buttons, dialogs), times in PST, a poll every 3 s while the tab is visible.
@@ -41,11 +46,14 @@ import { BookRunWatch } from "./RunStoreParts"; // unit VW85 (Q-A 3:26.3)
 // Not in this unit: the Run settings page (unit VW77d).
 const TH = "px-3 py-2";
 const POLL_BANNER_AFTER = 3;
+// Unit VW99: the words of the tabs "Steps" and "Training monitor" for a book with no book run.
+const NO_BOOK_RUN_STEPS_TEXT = "This book has no book run yet, so it has no step tree. A pilot list shows its pages in the tab Pages, under List folders.";
+const NO_BOOK_RUN_TRAINING_TEXT = "This book has no book run yet, so no box has a history to show.";
 
 function Section({ part, title, children }: { part: string; title: string; children: React.ReactNode }) {
   return (
     <section data-part={part} className="mb-6">
-      <h2 className="mb-2 text-lg font-semibold">{title}</h2>
+      <h2 className="section-band mb-2 text-lg font-semibold">{title}</h2>
       {children}
     </section>
   );
@@ -68,7 +76,7 @@ function ListFold({ list, open }: { list: DetailList; open: boolean }) {
         </span>{" "}
         <ListStatePill state={list.state} />
       </summary>
-      <div className="overflow-x-auto border-t border-line">
+      <div className="relative overflow-x-auto border-t border-line">
         <table className="w-full text-sm">
           <thead className="bg-stone-50 text-left text-xs uppercase tracking-wide text-muted">
             <tr>
@@ -232,13 +240,6 @@ export default function BookDetailView({ initial }: { initial: BookDetail }) {
         </dl>
       </div>
 
-      {/* Unit VW85 (Q-A 3:26.3): links "Steps" and "Training monitor", the frozen boxes and the overflow count of the current run. */}
-      {data.watch ? (
-        <Section part="book-watch" title="Steps, training monitor, frozen boxes, overflow">
-          <BookRunWatch watch={data.watch} title={data.row.title && data.row.title !== data.row.slug ? data.row.title : null} />
-        </Section>
-      ) : null}
-
       {/* Part 2: last error */}
       <Section part="last-error" title="Last error">
         {data.lastError ? (
@@ -263,163 +264,198 @@ export default function BookDetailView({ initial }: { initial: BookDetail }) {
         )}
       </Section>
 
-      {/* Part 3: list folders, newest first, the newest fold starts open */}
-      <Section part="list-folders" title="List folders">
-        {data.lists.length === 0 ? (
-          <p className="text-sm text-muted">{NO_LIST_TEXT}</p>
-        ) : (
-          data.lists.map((l, i) => <ListFold key={l.stamp} list={l} open={i === 0} />)
-        )}
-      </Section>
+      {/* Unit VW99 (Q-A 3:27.3, D1 of Q-A 3:28.3): tabs "Pages | Steps | Training monitor", "Pages" first. The header and the last error belong
+          to the whole book and stay above the tabs. The step tree and the training monitor load only in their open tab. */}
+      <Tabs label="Parts of the Details view" idBase="book" tabs={DETAIL_TABS} fallback={DETAIL_DEFAULT_TAB}>
+        {(open) => (
+          <>
+            {open === "pages" ? (
+              <>
+                {/* Part 3: list folders, newest first, the newest fold starts open */}
+                <Section part="list-folders" title="List folders">
+                  {data.lists.length === 0 ? (
+                    <p className="text-sm text-muted">{NO_LIST_TEXT}</p>
+                  ) : (
+                    data.lists.map((l, i) => <ListFold key={l.stamp} list={l} open={i === 0} />)
+                  )}
+                </Section>
 
-      {/* Part 6: critiques against N, with the stop flag */}
-      <Section part="critiques" title={`Critiques against N${totals.n !== null ? ` = ${totals.n}` : ""}`}>
-        {data.flags.map((f) => (
-          <div key={f.box} data-stop-flag={f.box} role="note" className="mb-3 rounded border border-red-700 bg-red-50 px-3 py-2 text-sm text-red-800">
-            <p className="font-medium">
-              <span aria-hidden="true">▲ </span>
-              <BoxText text={f.text} />
-            </p>
-            <ol className="mt-1 list-decimal pl-5">
-              {rejectLines(f).map((r, i) => (
-                <li key={i} data-reject-reason>
-                  <BoxText text={r.head} />: {r.reasons.join(" ")}
-                </li>
-              ))}
-            </ol>
-          </div>
-        ))}
-        {data.critiques.length === 0 ? (
-          <p className="text-sm text-muted">{NO_CRITIQUE_TEXT}</p>
-        ) : (
-          <div className="overflow-x-auto rounded border border-line bg-white">
-            <table className="w-full text-sm">
-              <thead className="bg-stone-50 text-left text-xs uppercase tracking-wide text-muted">
-                <tr>
-                  <th className={TH}>Page</th>
-                  {BOX_TYPES.map((t) => (
-                    <th key={t} className={TH + " text-right"}>
-                      <GroupCode code={t} />
-                    </th>
+                {/* Part 6: critiques against N, with the stop flag */}
+                <Section part="critiques" title={`Critiques against N${totals.n !== null ? ` = ${totals.n}` : ""}`}>
+                  {data.flags.map((f) => (
+                    <div key={f.box} data-stop-flag={f.box} role="note" className="mb-3 rounded border border-red-700 bg-red-50 px-3 py-2 text-sm text-red-800">
+                      <p className="font-medium">
+                        <span aria-hidden="true">▲ </span>
+                        <BoxText text={f.text} />
+                      </p>
+                      <ol className="mt-1 list-decimal pl-5">
+                        {rejectLines(f).map((r, i) => (
+                          <li key={i} data-reject-reason>
+                            <BoxText text={r.head} />: {r.reasons.join(" ")}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
                   ))}
-                  <th className={TH + " text-right"}>N</th>
-                </tr>
-              </thead>
-              <tbody>
-                {/* The total row sits on top, so the sum shows with no scroll over the pages [unit default VW77c]. */}
-                <tr data-critique-total className="border-b-2 border-line bg-stone-50 font-semibold">
-                  <td className="px-3 py-2">Total</td>
-                  {BOX_TYPES.map((t) => (
-                    <td key={t} className="px-3 py-2 text-right tabular-nums">
-                      {totals.counts[t]}
-                      {data.flags.filter((f) => f.box.startsWith(t + "_")).map((f) => (
-                        <span key={f.box} data-flag-mark={f.box} className="ml-1 text-xs font-normal text-red-700">
-                          ▲ <BoxCode code={f.box} /> stopped
-                        </span>
-                      ))}
-                    </td>
-                  ))}
-                  <td className="px-3 py-2 text-right tabular-nums">{totals.nMixed ? "varies" : (totals.n ?? "–")}</td>
-                </tr>
-                {data.critiques.map((r) => (
-                  <tr key={r.pageId} data-critique-row={r.page} className="border-t border-line">
-                    <td className="px-3 py-2">
-                      {capFirst(pageNumberText(r.page))} <RawId title="Page name">{r.page}</RawId>
-                    </td>
-                    {BOX_TYPES.map((t) => (
-                      <td key={t} className="px-3 py-2 text-right tabular-nums">
-                        {r.counts[t]}
-                        {r.reached[t] ? (
-                          <span title="This count reached N" className="ml-1">
-                            ★<span className="sr-only"> reached N</span>
-                          </span>
-                        ) : null}
-                      </td>
-                    ))}
-                    <td className="px-3 py-2 text-right tabular-nums">{r.n ?? "–"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Section>
+                  {data.critiques.length === 0 ? (
+                    <p className="text-sm text-muted">{NO_CRITIQUE_TEXT}</p>
+                  ) : (
+                    <div className="relative overflow-x-auto rounded border border-line bg-white">
+                      <table className="w-full text-sm">
+                        <thead className="bg-stone-50 text-left text-xs uppercase tracking-wide text-muted">
+                          <tr>
+                            <th className={TH}>Page</th>
+                            {BOX_TYPES.map((t) => (
+                              <th key={t} className={TH + " text-right"}>
+                                <GroupCode code={t} />
+                              </th>
+                            ))}
+                            <th className={TH + " text-right"}>N</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {/* The total row sits on top, so the sum shows with no scroll over the pages [unit default VW77c]. */}
+                          <tr data-critique-total className="border-b-2 border-line bg-stone-50 font-semibold">
+                            <td className="px-3 py-2">Total</td>
+                            {BOX_TYPES.map((t) => (
+                              <td key={t} className="px-3 py-2 text-right tabular-nums">
+                                {totals.counts[t]}
+                                {data.flags.filter((f) => f.box.startsWith(t + "_")).map((f) => (
+                                  <span key={f.box} data-flag-mark={f.box} className="ml-1 text-xs font-normal text-red-700">
+                                    ▲ <BoxCode code={f.box} /> stopped
+                                  </span>
+                                ))}
+                              </td>
+                            ))}
+                            <td className="px-3 py-2 text-right tabular-nums">{totals.nMixed ? "varies" : (totals.n ?? "–")}</td>
+                          </tr>
+                          {data.critiques.map((r) => (
+                            <tr key={r.pageId} data-critique-row={r.page} className="border-t border-line">
+                              <td className="px-3 py-2">
+                                {capFirst(pageNumberText(r.page))} <RawId title="Page name">{r.page}</RawId>
+                              </td>
+                              {BOX_TYPES.map((t) => (
+                                <td key={t} className="px-3 py-2 text-right tabular-nums">
+                                  {r.counts[t]}
+                                  {r.reached[t] ? (
+                                    <span title="This count reached N" className="ml-1">
+                                      ★<span className="sr-only"> reached N</span>
+                                    </span>
+                                  ) : null}
+                                </td>
+                              ))}
+                              <td className="px-3 py-2 text-right tabular-nums">{r.n ?? "–"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Section>
 
-      {/* Part 7: settings used */}
-      <Section part="settings" title="Settings used">
-        {data.settings.length === 0 ? (
-          <p className="text-sm text-muted">No page folder holds a run.json yet.</p>
-        ) : (
-          <details className="rounded border border-line bg-white">
-            <summary className="cursor-pointer px-3 py-2 text-sm">
-              {data.settings.length} {data.settings.length === 1 ? "page" : "pages"}, {data.settings.filter((s) => s.changed).length} with a change of settings
-            </summary>
-            <div className="overflow-x-auto border-t border-line">
-              <table className="w-full text-sm">
-                <thead className="bg-stone-50 text-left text-xs uppercase tracking-wide text-muted">
-                  <tr>
-                    <th className={TH}>Page</th>
-                    <th className={TH + " text-right"}>N</th>
-                    <th className={TH}>Models</th>
-                    <th className={TH}>Mark</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.settings.map((s) => (
-                    <tr key={s.pageId} data-settings-row={s.page} className="border-t border-line">
-                      <td className="px-3 py-2">
-                        {capFirst(pageNumberText(s.page))} <RawId title="Page name">{s.page}</RawId>
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums">{s.n ?? "–"}</td>
-                      <td className="px-3 py-2 text-xs">{s.models ? levelModelsText(s.models) : "Not stored"}</td>
-                      <td className="px-3 py-2 text-xs font-medium">{s.changed ? SETTINGS_CHANGED_TEXT : ""}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </details>
-        )}
-      </Section>
+                {/* Part 7: settings used */}
+                <Section part="settings" title="Settings used">
+                  {data.settings.length === 0 ? (
+                    <p className="text-sm text-muted">No page folder holds a run.json yet.</p>
+                  ) : (
+                    <details className="rounded border border-line bg-white">
+                      <summary className="cursor-pointer px-3 py-2 text-sm">
+                        {data.settings.length} {data.settings.length === 1 ? "page" : "pages"}, {data.settings.filter((s) => s.changed).length} with a change of settings
+                      </summary>
+                      <div className="relative overflow-x-auto border-t border-line">
+                        <table className="w-full text-sm">
+                          <thead className="bg-stone-50 text-left text-xs uppercase tracking-wide text-muted">
+                            <tr>
+                              <th className={TH}>Page</th>
+                              <th className={TH + " text-right"}>N</th>
+                              <th className={TH}>Models</th>
+                              <th className={TH}>Mark</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {data.settings.map((s) => (
+                              <tr key={s.pageId} data-settings-row={s.page} className="border-t border-line">
+                                <td className="px-3 py-2">
+                                  {capFirst(pageNumberText(s.page))} <RawId title="Page name">{s.page}</RawId>
+                                </td>
+                                <td className="px-3 py-2 text-right tabular-nums">{s.n ?? "–"}</td>
+                                <td className="px-3 py-2 text-xs">{s.models ? levelModelsText(s.models) : "Not stored"}</td>
+                                <td className="px-3 py-2 text-xs font-medium">{s.changed ? SETTINGS_CHANGED_TEXT : ""}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </details>
+                  )}
+                </Section>
 
-      {/* VISION 15.27.5: Critique share of the current run */}
-      <Section part="critique-share" title="Critique share of the current run">
-        {data.share === null ? (
-          <p className="text-sm text-muted">{NO_SHARE_TEXT}</p>
-        ) : (
-          <div className="overflow-x-auto rounded border border-line bg-white">
-            <table className="w-full text-sm">
-              <thead className="bg-stone-50 text-left text-xs uppercase tracking-wide text-muted">
-                <tr>
-                  <th className={TH}>Box</th>
-                  <th className={TH}>Critiques used in live rewrites</th>
-                  <th className={TH}>Critiques dropped after a double REJECT</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(data.share.boxes).map(([box, s]) => (
-                  <tr key={box} data-share-row={box} className="border-t border-line">
-                    <td className="px-3 py-2 font-mono">
-                      <BoxCode code={box} />
-                    </td>
-                    <td data-share-used className="px-3 py-2 tabular-nums">
-                      {shareText(s.used, s.total, s.used_percent)}
-                    </td>
-                    <td data-share-dropped className="px-3 py-2 tabular-nums">
-                      {shareText(s.dropped, s.total, s.dropped_percent)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                {/* VISION 15.27.5 and 15.31.3, Q-A 3:11.3 V1 to V3: one table "Runs" (current run, archived runs, phase 3 run) with Place, Readers and the button */}
+                <Section part="runs" title={`Runs (${data.runs.length})`}>
+                  {data.runs.length === 0 ? <p className="text-sm text-muted">{NO_RUNS_TEXT}</p> : <BookRunsTable slug={slug} runs={data.runs} />}
+                </Section>
+              </>
+            ) : null}
+            {open === "steps" ? (
+              data.watch ? (
+                <>
+                  {/* Unit VW85 (Q-A 3:26.3): links "Steps" and "Training monitor", the frozen boxes and the overflow count of the current run. */}
+                  <Section part="book-watch" title="Steps, training monitor, frozen boxes, overflow">
+                    <BookRunWatch watch={data.watch} title={data.row.title && data.row.title !== data.row.slug ? data.row.title : null} />
+                  </Section>
+                  <StepView initial={null} list={null} book={slug} />
+                </>
+              ) : (
+                <p data-no-book-run className="text-sm text-muted">{NO_BOOK_RUN_STEPS_TEXT}</p>
+              )
+            ) : null}
+            {open === "training" ? (
+              <>
+                {data.watch?.monitorStamp ? (
+                  <div className="mb-6">
+                    <TrainingMonitor stamp={data.watch.monitorStamp} book={slug} />
+                  </div>
+                ) : (
+                  <p data-no-book-run className="mb-6 text-sm text-muted">{NO_BOOK_RUN_TRAINING_TEXT}</p>
+                )}
+                {/* VISION 15.27.5: Critique share of the current run */}
+                <Section part="critique-share" title="Critique share of the current run">
+                  {data.share === null ? (
+                    <p className="text-sm text-muted">{NO_SHARE_TEXT}</p>
+                  ) : (
+                    <div className="relative overflow-x-auto rounded border border-line bg-white">
+                      <table className="w-full text-sm">
+                        <thead className="bg-stone-50 text-left text-xs uppercase tracking-wide text-muted">
+                          <tr>
+                            <th className={TH}>Box</th>
+                            <th className={TH}>Critiques used in live rewrites</th>
+                            <th className={TH}>Critiques dropped after a double REJECT</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(data.share.boxes).map(([box, s]) => (
+                            <tr key={box} data-share-row={box} className="border-t border-line">
+                              <td className="px-3 py-2 font-mono">
+                                <BoxCode code={box} />
+                              </td>
+                              <td data-share-used className="px-3 py-2 tabular-nums">
+                                {shareText(s.used, s.total, s.used_percent)}
+                              </td>
+                              <td data-share-dropped className="px-3 py-2 tabular-nums">
+                                {shareText(s.dropped, s.total, s.dropped_percent)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Section>
+              </>
+            ) : null}
+          </>
         )}
-      </Section>
-
-      {/* VISION 15.27.5 and 15.31.3, Q-A 3:11.3 V1 to V3: one table "Runs" (current run, archived runs, phase 3 run) with Place, Readers and the button */}
-      <Section part="runs" title={`Runs (${data.runs.length})`}>
-        {data.runs.length === 0 ? <p className="text-sm text-muted">{NO_RUNS_TEXT}</p> : <BookRunsTable slug={slug} runs={data.runs} />}
-      </Section>
+      </Tabs>
     </section>
   );
 }

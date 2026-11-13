@@ -6,15 +6,15 @@ import { ARTICLES_TITLE, ARTICLE_STATE_HELP, TITLES_NOTE, TITLE_NOT_FOUND, artic
 // you just write `Running` and each name is a long id number. Apply this for EVERYTHING."
 // Each line: the English title, the Japanese title in small grey text, the short ID in grey at the end, the state in plain words, and the pages with links.
 // The group is a native <details>, closed at the first paint. The poll of the Monitor dashboard does not close it again (no `open` prop).
-// Colors: only the classes of components/Pills.tsx and of the phase 2 row, which scripts/contrast-dark.mjs already tests.
+// Colors (unit VW99, Q-A 3:27.4): the state colors of components/Pills.tsx, theme variables that scripts/contrast-dark.mjs tests at 7 to 1. Partly keeps its amber pair.
 
 const STATE_STYLE: Record<ArticleStateKey, string> = {
-  translating: "bg-blue-100 text-blue-800",
-  accepted: "bg-green-100 text-green-800",
+  translating: "bg-state-run text-state-run-ink",
+  accepted: "bg-state-ok text-state-ok-ink",
   partly: "bg-amber-100 text-amber-800",
-  stopped: "bg-stone-100 text-stone-700",
-  failed: "bg-red-100 text-red-800",
-  "not-started": "bg-stone-100 text-stone-600",
+  stopped: "bg-state-stop text-state-stop-ink",
+  failed: "bg-state-fail text-state-fail-ink",
+  "not-started": "bg-state-wait text-state-wait-ink",
 };
 
 const LEGEND_ORDER: ArticleStateKey[] = ["translating", "accepted", "partly", "stopped", "failed", "not-started"];

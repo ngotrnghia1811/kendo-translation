@@ -232,7 +232,7 @@ export default function ReaderPanels({
               aria-selected={current === p.key}
               data-panel-tab={p.key}
               onClick={() => setTab(p.key)}
-              className={"min-h-[44px] min-w-0 flex-1 px-1.5 py-1 text-xs leading-tight " + (current === p.key ? "bg-accent font-semibold text-white" : "")}
+              className={"min-h-[44px] min-w-0 flex-1 px-1.5 py-1 text-xs leading-tight " + (current === p.key ? "bg-tab-on font-semibold text-tab-on-ink" : "")}
             >
               {p.title}
             </button>

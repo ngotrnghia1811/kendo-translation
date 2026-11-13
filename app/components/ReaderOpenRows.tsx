@@ -165,7 +165,7 @@ export default function ReaderOpenRows({ stamp, pages }: { stamp: string; pages:
 
   return (
     <section className="mb-6" data-reader-opens>
-      <h2 className="mb-1 text-lg font-semibold">Readers</h2>
+      <h2 className="section-band mb-1 text-lg font-semibold">Readers</h2>
       <p className="mb-2 text-sm text-muted">Readers see the Agent text of an open run only. Readers see a change after the next S2 run.</p>
       {load === "signin" || load === "forbidden" || load === "error" ? (
         <OpenGateLine load={load} next={`/runs/${stamp}`} />

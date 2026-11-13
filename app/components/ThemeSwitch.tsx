@@ -25,7 +25,7 @@ export default function ThemeSwitch({ theme: initial }: { theme: ThemeName }) {
     await fetch("/api/theme", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ theme: t }) });
   }
   return (
-    <div role="group" aria-label="Color theme" className="mb-2 ml-auto flex flex-wrap overflow-hidden rounded border border-line text-sm" data-theme-switch>
+    <div role="group" aria-label="Color theme" className="mb-2 ml-auto flex flex-wrap overflow-hidden rounded border border-line bg-white text-sm" data-theme-switch>
       {OPTIONS.map((o) => (
         <button
           key={o.value}

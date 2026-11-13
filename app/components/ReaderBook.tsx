@@ -446,7 +446,7 @@ export default function ReaderBook({
           </section>
         ) : null}
         <section aria-label="Pages of the book" className="max-w-3xl">
-          <h2 className="mb-1 text-lg font-semibold">Pages</h2>
+          <h2 className="section-band mb-1 text-lg font-semibold">Pages</h2>
           <ReaderIndex slug={index.slug} pages={index.pages} digits={index.digits} textPages={index.textPages} agentPages={index.agentPages} humanPages={index.humanPages} checkedPages={index.checkedPages} chapters={index.chapters} current={null} view={s.view} dense={false} />
         </section>
       </div>

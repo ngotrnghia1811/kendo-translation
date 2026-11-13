@@ -65,7 +65,9 @@ export default function BookRunsTable({ slug, runs }: { slug: string; runs: Book
     <div data-book-runs>
       <p className="mb-2 text-sm text-muted">Readers see the Agent text of an open run only. Readers see a change after the next S2 run.</p>
       {gate && hasId ? <OpenGateLine load={gate} next={`/monitor/${encodeURIComponent(slug)}`} /> : null}
-      <div className="mt-2 overflow-x-auto rounded border border-line bg-white">
+      {/* Unit VW99 (Q-A 3:28.2): "relative" makes this box the containing block of the hidden label in the last head cell (sr-only is
+          position absolute). Without it, the label sat outside the scroll box and made the page wider than a 390 px screen. */}
+      <div className="relative mt-2 overflow-x-auto rounded border border-line bg-white">
         <table className="w-full text-sm">
           <thead className="bg-stone-50 text-left text-xs uppercase tracking-wide text-muted">
             <tr>

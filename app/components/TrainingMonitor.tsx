@@ -41,8 +41,8 @@ export function TrainingMonitor({ stamp, book }: { stamp: string; book?: string 
     if (box && window.location.hash === "#training-monitor") ref.current?.scrollIntoView({ block: "start" });
   }, [box]);
   return (
-    <section ref={ref} id="training-monitor" data-training-monitor className="mt-6 scroll-mt-4">
-      <h2 className="text-lg font-semibold">Training monitor</h2>
+    <section ref={ref} id="training-monitor" data-training-monitor className="scroll-mt-4">
+      <h2 className="section-band mb-1 text-lg font-semibold">Training monitor</h2>
       <p className="mb-2 text-sm text-muted">
         {book ? (
           <>
@@ -83,7 +83,7 @@ export function BoxPicker({ box, pick }: { box: string | null; pick: (code: stri
                 aria-pressed={on}
                 title={boxHelp(c) ?? c}
                 onClick={() => pick(on ? null : c)}
-                className={`rounded border px-1 py-1 font-mono ${on ? "border-blue-800 bg-blue-100 text-blue-800 font-semibold" : "border-line bg-white hover:bg-stone-50"}`}
+                className={`rounded border px-1 py-1 font-mono ${on ? "border-tab-on bg-tab-on font-semibold text-tab-on-ink" : "border-line bg-white hover:bg-stone-50"}`}
               >
                 <BoxCode code={c} />
               </button>

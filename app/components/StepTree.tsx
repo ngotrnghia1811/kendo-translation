@@ -150,7 +150,8 @@ function PageItem({ n, page, choices, setChoice, tick }: { n: number; page: Page
         </span>
         {page.running && page.runningBoxes.length ? (
           <span className="block text-xs text-muted">
-            Working now:{" "}
+            {/* Unit VW99 (Q-A 3:27.4): "Working now" in the blue of the running state. */}
+            <span className="rounded bg-state-run px-1 text-state-run-ink">Working now</span>:{" "}
             {page.runningBoxes.map((b, i) => (
               <span key={b}>
                 {i > 0 ? ", " : ""}
@@ -425,7 +426,7 @@ export function DiffView({ title, lines, counts }: { title: string; lines: Extra
 export function PromptUpdates({ updates, choices, setChoice, tick }: { updates: (UpdatePoint & { pageText: string })[]; choices: Choices; setChoice: (k: string, o: boolean) => void; tick: number }) {
   return (
     <section data-prompt-updates className="mt-6">
-      <h2 className="mb-1 text-lg font-semibold">Prompt updates</h2>
+      <h2 className="section-band mb-1 text-lg font-semibold">Prompt updates</h2>
       <p className="mb-2 text-sm text-muted">
         One entry per update point of this run, in run order. Open an entry to see its calls, its critique groups, and the line diff of the prompt text (old version against new version). Rubric table
         changes show in the same entry.

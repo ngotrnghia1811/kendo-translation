@@ -98,7 +98,7 @@ export function MemoryPanel({ stamp, chains }: { stamp: string; chains: ChainRow
   if (chains.length === 0) return null;
   return (
     <section>
-      <h2 className="mb-2 text-lg font-semibold">Book translation memory</h2>
+      <h2 className="section-band mb-2 text-lg font-semibold">Book translation memory</h2>
       <p className="mb-2 text-xs text-muted">Only a QA_3 PASS adds a page. Open a book to read its pairs.</p>
       <div className="space-y-2">
         {chains.map((c) => (
@@ -229,14 +229,14 @@ export function ComparePanel({ stamp, isChain }: { stamp: string; isChain: boole
   if (list.length === 0) {
     return isChain ? (
       <section>
-        <h2 className="mb-1 text-lg font-semibold">Compare of critic modes</h2>
+        <h2 className="section-band mb-1 text-lg font-semibold">Compare of critic modes</h2>
         <p className="text-sm text-muted">No compare.json in critic-compare/ names this list. The script critic_compare.py writes one.</p>
       </section>
     ) : null;
   }
   return (
     <section className="space-y-4">
-      <h2 className="text-lg font-semibold">Compare of critic modes</h2>
+      <h2 className="section-band text-lg font-semibold">Compare of critic modes</h2>
       {list.map((c) => (
         <div key={c.folder} className="rounded border border-line bg-white p-3">
           <p className="mb-2 text-xs text-muted">

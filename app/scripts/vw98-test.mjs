@@ -513,7 +513,8 @@ await check("sources: step tree box codes use the monitor link, the run view sho
   const tree = read("components/StepTree.tsx");
   assert.match(tree, /function Code\(\{ code \}: \{ code: string \}\) \{\s*return \(\s*<span className="font-mono">\s*<BoxMonitorLink code=\{code\} \/>/);
   assert.match(read("components/StepView.tsx"), /<MonitorStampProvider stamp=\{list \?\? data\.lists\[data\.lists\.length - 1\]\?\.stamp \?\? null\}>/);
-  assert.match(read("components/RunView.tsx"), /\{run\.phase2List === true \? <TrainingMonitor stamp=\{run\.stamp\} \/> : null\}/);
+  // Unit VW99 (Q-A 3:27.3): the section shows in the tab "Training monitor" of a phase 2 list.
+  assert.ok(read("components/RunView.tsx").includes('{open === "training" && run.phase2List === true ? <TrainingMonitor stamp={run.stamp} /> : null}'));
 });
 
 await fs.rm(base, { recursive: true, force: true });
