@@ -1951,7 +1951,7 @@ EN  In Kendo, Budo and other traditional arts, “Keiko” represents an attitud
 
 ##### Design
 
-- Switch. Two options in the top bar, at the right: "Light" and "High-contrast dark". It sits in `Nav` (monitor and view) `[file: app/components/Nav.tsx:16-36]`. The sign-in bar of the view has the same switch `[file: app/components/HtvBar.tsx:22-29]`. Light is the default.
+- Switch. Two options in the top bar, at the right: "Light" and "High-contrast dark". It sits in `Nav` (monitor and view) `[file: app/components/Nav.tsx:16-36]`. The sign-in bar of the view has the same switch `[file: app/components/HtvBar.tsx:22-29]`. Light is the default. On a phone the switch sits in the Menu of the top band (15.41.4).
 - Base colors. The dark values come from the v1 block `[data-reader-theme="high-contrast"]` `[file: kendo-translation-viewer-v1/app/globals.css:193-206]`. The surface color is `--rt-surface` of the same block.
 
 | Token | Light | Dark | Text on background, light | Text on background, dark |
@@ -3066,7 +3066,7 @@ Each question gives the case, the options with benefit and cost, and the recomme
 - Whether `@request.body.approved = false` accepts a sign-up body that has no `approved` key.
 - Whether PocketBase hides the email of a user from other signed-in users.
 - Whether a list rule that fails gives an empty list or status 403 on this version.
-- The rate limit of PocketBase for the sign-up route.
+- The rate limit of PocketBase for the sign-up route. Built in units VW101 and VW102 (15.41.5).
 - The size of one `reader_pages` record and of all records.
 - The group keys of a page across runs, except for `left_foot_full/p048` (two runs, the same 5 keys).
 - The order of the saved rows of `own_translations` by `created`. The design uses the order of the agent rows.
@@ -3138,7 +3138,7 @@ Status: open. The code of this design is in section 15.20 (unit RC1).
 #### 15.20.5 Not verified
 
 - Safari, Firefox, and a real phone. The 390 px test used Chrome device emulation.
-- The rate limit of PocketBase for the public sign-up route.
+- The rate limit of PocketBase for the public sign-up route. Built in units VW101 and VW102 (15.41.5).
 - The test `test_local.py` in the live shape (the v1 migrations). The unit ran the fresh shape only.
 - A full S2 run against the live server and the behavior with the real number of readers.
 - The speed of the scroll view in a book of 1,000 pages or more.
@@ -3834,7 +3834,7 @@ Viewer `[check: DM70 2026-10-29 21:59 cat -n of the files named below]`:
 - The pause button writes the file `PAUSE` into one list folder. It accepts a list in the state running or paused `[file: app/lib/runs.ts:141-170]`. The route refuses a foreign Origin. It does not check the Host header `[file: app/app/api/pause/route.ts:15-19]`.
 - The Books tab lists the 36 books of `book-slugs.json` and adds any ID that has run folders `[file: app/lib/books.ts:38-104]`.
 - The file reader accepts paths inside `<T2>/data` only `[file: app/lib/safe-path.ts:6-17]` `[file: app/lib/config.ts:132-136]`. The folder `<T2>/config` lies outside. So the settings file needs one new path rule.
-- The tabs are Runs, Books, and Human translation `[file: app/components/Nav.tsx:8-13]`. The dark theme switch sits in the same bar `[file: app/components/Nav.tsx:42]`.
+- The tabs are Runs, Books, and Human translation `[file: app/components/Nav.tsx:8-13]`. The dark theme switch sits in the same bar `[file: app/components/Nav.tsx:42]`. On a phone the tabs sit in the Menu of the top band (15.41.4).
 
 Translator `[check: DM70 2026-10-29 22:00 grep and python3 -B read of the Translator files]`:
 
@@ -8791,3 +8791,87 @@ All read only, below `<T2>/data`:
 - The article titles in `items.filled.jsonl` are not checked by the owner.
 
 Status: VW91 to VW98 documented by unit DZ86 part 1. VW85 and VW99 add their own section in part 2.
+
+#### 15.41 Rounds 91 to 95 (oc2 Q-A 3:26 to 3:38): book runs, tabs and colors, phone menu, sign-up limit, running update point (unit DZ86 part 2)
+
+This section adds to section 15.40. It holds the owner words, the decisions and the commits of units VW85, VW99, VW100, VW101, VW102 and VW103.
+
+##### 15.41.1 Owner words
+
+- Q-A 3:26.3 note: "Also need more colors in All View page for better UI UX human reading (titles, bars, headers, buttons, etc)."
+- Q-A 3:26.5 note: "Don't stack all run monitors in 1 page. Make them different tabs so user don't have to scroll so much"
+- Q-A 3:35.4 note, about the terminal lines of an update point: "This tell nothing about what happen? what is the process? etc"
+- Round 87 answer 3, the overflow queue: "option 1. Create an overflow queue for critique for monitoring. For critique that move through the whole grid but not resolved, record its content and its starting point"
+
+##### 15.41.2 Book runs, frozen boxes and the overflow queue (unit VW85, commit 283f2e7)
+
+- Owner pick (Q-A 3:26.3): "Book runs, frozen boxes, overflow". Builder model (Q-A 3:26.4): Opus high on the card uonlp.
+- Book runs: the step view and the training monitor also show a book run, not only phase 2.
+  - A list is a book run when the key `book` of its progress.json names a book other than `paired-dataset`.
+  - The step view of one book lives at `/monitor/<book>/steps`. The address `/monitor/paired-dataset/steps` sends you to `/monitor/phase-2`.
+  - The Details view `/monitor/<book>` has the part "Steps, training monitor, frozen boxes, overflow". It sits after the header and before "Last error".
+  - The run view of a book-run list shows the step tree and the training monitor, as for phase 2.
+- Frozen boxes: a box that phase 4 stops updating shows "Frozen since page n" in the step view, in the header of the training monitor, and in the Details view. The source is the event `box-frozen` in history.jsonl (`<T2>/data/scripts/translator/freeze.py`).
+- Overflow queue: the Details view shows the number of overflow critiques. The training monitor of the start box lists each one with its content and its start point. The source is `book-store/<book>/critiques/overflow.jsonl` (`<T2>/data/scripts/translator/critique_queue.py`).
+- Unit defaults that the owner accepted (Q-A 3:28.1): the files of an old phase sit in `book-store/<book>/<phase>/`; overflow rows keep the file order and show no time; a book update point has no commit file.
+
+##### 15.41.3 Tabs and colors (unit VW99, commit 3f64bb1)
+
+- Owner picks: Q-A 3:27.3 "Tabs on all three screens", Q-A 3:27.4 color style B, Q-A 3:28.3 defaults D1 to D5, Q-A 3:29.1 accept.
+- Tabs:
+  - Run view `/runs/<list>`: Pages, Steps, Prompt updates, Training monitor (phase 2 and book-run lists, Steps first). A chain list has Pages and Chain state per book. A pilot list has no tabs. The title, the numbers and a progress bar stay above the tabs.
+  - Monitor dashboard `/` on this Mac: Phase 2 run, Books.
+  - Details view `/monitor/<book>`: Pages, Steps, Training monitor.
+  - The open tab lives only in the address, for example `?tab=steps`. `?box=TL_2` opens the Training monitor tab. Only the open tab loads and polls its data.
+- Colors: a dark red top band, filled tabs, a tinted band behind each section title, box code chips (TS grey, TL blue, ED green, QA purple), state pills (Accepted green, Translating now blue, Not started yet grey, FAIL dark red, Stopped amber), and a green, blue and grey progress bar. The words stay next to the colors.
+  - The colors are theme variables in `app/app/globals.css` for all 5 themes. The 17 new color pairs reach 7 to 1 in all 5 themes (`scripts/contrast-dark.mjs`).
+- Width fixes: the Runs table of the Details view and the page view no longer scroll sideways at 390 px.
+
+##### 15.41.4 Compact top bar on a phone (unit VW100, commit 49b2763)
+
+- Owner pick (Q-A 3:29.2): "Compact top bar in VW100". Accept: Q-A 3:30.2.
+- Below 768 px, the top band shows the site name and the button "Menu". A tap opens the links and the theme switch inside the band. A second tap, Escape, or a link tap closes it.
+- From 768 px up, the bar is the same as before.
+- Reader pages (`/read`, `/sign-in`) also get the compact form. Their menu holds only the theme switch.
+
+##### 15.41.5 Sign-up rate limit (units VW101, commit 5d27f70, and VW102, commit d46302a)
+
+- Owner picks: Q-A 3:31.2 "PocketBase rule, new migration", Q-A 3:31.3 "5 per hour", Q-A 3:31.4 "Sign-up rule only", Q-A 3:33.1 "Count all requests", Q-A 3:33.3 "Count per reader, with an app key (VW102)".
+- Migration `1793300014_v2_rate_limits.js` turns on the PocketBase rate limiter with one rule: label `users:create`, all requests, at most 5 in 3600 s for one address. It removes the 4 default rules. Superusers are never limited.
+- The website sends the sign-up from the Vercel server. So VW102 adds:
+  - the header `X-Kendo-Client-IP` with the reader address (`app/lib/sign-up-guard.ts`), and migration `1793300015_v2_sign_up_address.js`, which makes PocketBase count that address;
+  - the header `X-Kendo-Sign-Up-Key` with the secret app key `VIEWER_SIGN_UP_KEY`, and the hook `pb_hooks/sign_up_key.pb.js`, which refuses a sign-up without the key (`SIGN_UP_KEY` on the server). The hook fails closed.
+- The sign-up page `/sign-up` shows "Too many sign-ups from this network. Try again later." on HTTP 429, and "Sign-up is closed on this server. Try again later." when the key is missing or wrong.
+- The migration and the hook go to the server together (hand-steps sections 8.5 and 8.5a).
+
+##### 15.41.6 Running update point on the Monitor dashboard and the step view (unit VW103, commit 7967c2a)
+
+- Owner pick (Q-A 3:36.4): "Both: Translator lines in TR93, Viewer now (VW103)". Accept: Q-A 3:37.4.
+- While an update point runs, the phase 2 row shows one line: "Now: update point after <article title>, page n of m · box <code> · role r of 4 <role> (<plain words>) · try t on Claude card <name> · <time>". It also shows the earlier tries of the role.
+- Source: the key `running_update` of status.json (Translator unit TR93, commit `<T2>` 4af44a7). Without the key, the Viewer reads history.jsonl and the folder `update-points/<article>_<page>/`.
+- A content filter wait (key `waiting` with reason "content filter") shows "Content filter wait n of 4: the next try starts at hh:mm PST." The owner rule (Q-A 3:36.3, 3:37.2): 4 waits of 30 min, then the run stops.
+- The step PROMPT UPDATE of the running page shows the pill "Working now", or "Waiting" during a wait.
+- History words: `filter-wait`, `filter-wait-ended`, `filter-wait-stopped`.
+
+##### 15.41.7 Older text that this section replaces
+
+- 15.16.5 and the theme lines: the new color variables of 15.41.3 add to them.
+- 15.24.4.1 Layout and groups: the Monitor dashboard has two tabs (15.41.3).
+- 15.27.5 and 15.31.4 Details view: the parts sit in three tabs (15.41.3).
+- 15.40.4 and 15.40.6: Steps, Prompt updates and Training monitor are tabs of the run view (15.41.3).
+- Lines 1954 and 3837 (the top bar): see 15.41.4.
+- Lines 3069 and 3141 (the sign-up rate limit was open): see 15.41.5.
+
+##### 15.41.8 Open items
+
+- Merge of v2/viewer into v2/translator, the selftest, and the removal of the cost limit field: after the phase 2 run (plan item P32, Q-A 3:17.3).
+- The bare page ID in `app/components/HtvPageSection.tsx` lines 198 to 203: after the first book run.
+- At 320 px width, the site name wraps and the closed band is 70 px high.
+
+##### 15.41.9 Not verified
+
+- A real book run, a frozen box and an overflow queue on real data.
+- The sepia and solarized themes in a browser. Only the contrast test checks them.
+- A real phone, Safari, Firefox and a screen reader.
+- That Caddy on the server passes the header `X-Kendo-Client-IP`, and that Vercel sets `x-forwarded-for` to the reader address.
+- The `running_update` line during a real update point, and a real content filter wait.

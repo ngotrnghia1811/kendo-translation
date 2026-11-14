@@ -388,7 +388,7 @@ Design: `docs/VISION-viewer.md` section 15.16. Code state: section 15.17.
 
 ### Theme
 
-- The switch in the top bar sets the cookie `theme`. The root layout writes `data-theme` on `<html>`. A signed-in user also keeps the theme in the account.
+- The switch in the top bar sets the cookie `theme`. The root layout writes `data-theme` on `<html>`. A signed-in user also keeps the theme in the account. On a phone the switch opens with the Menu button (unit VW100).
 - `node scripts/contrast-dark.mjs` tests the dark colors (7 to 1 or more) and finds palette colors without a dark value. A new color class must follow the pairing rule of `app/globals.css`.
 
 ### Settings cog
@@ -449,7 +449,7 @@ The reader pages are the book reading site for readers. Design: `docs/VISION-vie
 
 ### Routes
 
-- `/sign-up` makes an account. The account is a reader that waits for approval. The person signs in at once.
+- `/sign-up` makes an account. The account is a reader that waits for approval. The person signs in at once. At most 5 sign-ups come from one address in one hour (units VW101 and VW102, section at the end).
 - `/sign-in` signs in every role. A reader goes to `/read`. A translator and an admin go to `/translate`. `/translate/sign-in` stays.
 - `/read` shows the Reader dashboard (section Reader dashboard, unit RC4). `/read/<book>` shows the book screen. `?view=page&at=p048` shows one page. `?view=scroll&at=p048` shows all pages in one scroll.
 - `/admin/readers` lists the readers that wait for approval. `/admin/versions?page=left_foot_full/p048` chooses the human version and the page check. Only the admin role opens them.
@@ -806,3 +806,34 @@ Files:
 - Unit VW95, step view: `app/monitor/phase-2/page.tsx`, `lib/step-tree.ts`, `lib/step-data.ts`, `lib/step-tree-load.ts`, `lib/line-diff.ts`, `components/StepTree.tsx`, `components/StepView.tsx`.
 - Units VW93, VW96 and VW97, tokens and readable names: `lib/tokens-view.ts`, `lib/tokens-sum.ts`, `components/Tokens.tsx`, `lib/readable-names.ts`, `lib/model-card.ts`, `components/ModelCardId.tsx`.
 - Unit VW98, training monitor: `lib/training-monitor.ts`, `lib/training-monitor-load.ts`, `components/TrainingMonitor.tsx`, `components/TrainingMonitorView.tsx`, `components/TrainingMonitorLink.tsx`.
+
+## Book runs, tabs, phone menu, sign-up limit and running update point (units VW85 and VW99 to VW103, DZ86 part 2)
+
+The design is in `docs/VISION-viewer.md` section 15.41.
+
+Routes and addresses:
+
+- `/monitor/<book>/steps`: the step view of one book run (unit VW85). `/monitor/paired-dataset/steps` sends you to `/monitor/phase-2`.
+- `/api/monitor/phase-2`, `/api/monitor/phase-2/step` and `/api/monitor/phase-2/box` also take `?book=` or `?list=` for a book run.
+- `?tab=`: run view `pages`, `steps`, `updates`, `training`, `chain`. Monitor dashboard `phase2`, `books`. Details view `pages`, `steps`, `training` (unit VW99).
+
+Environment key on the app host (unit VW102):
+
+- `VIEWER_SIGN_UP_KEY`: a secret of at least 32 characters, for example from `openssl rand -hex 32`. It must equal `SIGN_UP_KEY` of the PocketBase server. Without it, `/sign-up` shows "Sign-up is closed on this server. Try again later."
+
+Tests (run each one from the `app` folder, one after another):
+
+- `node scripts/vw85-test.mjs` (uses the helper `scripts/vw-test-kit.mjs`)
+- `node scripts/vw99-test.mjs`
+- `node scripts/vw100-test.mjs`
+- `node scripts/vw101-test.mjs`
+- `node scripts/vw102-test.mjs`
+- `node scripts/vw103-test.mjs`
+
+Files:
+
+- Unit VW85, book runs, frozen boxes, overflow: `lib/run-store.ts`, `lib/run-store-load.ts`, `components/RunStoreParts.tsx`, `components/RunStoreQuery.tsx`, `components/BookRunSections.tsx`, `app/monitor/[slug]/steps/page.tsx`.
+- Unit VW99, tabs and colors: `lib/tabs.ts`, `components/Tabs.tsx`, `components/ProgressBar.tsx`, `components/RunPagesTable.tsx`.
+- Unit VW100, phone menu: `components/NavMenuButton.tsx`.
+- Unit VW102, sign-up address and key: `lib/sign-up-guard.ts`.
+- Unit VW103, running update point: `lib/update-live.ts`, `lib/update-live-load.ts`, `lib/phase2-wait-reason.ts`, `components/UpdateLiveBlock.tsx`.

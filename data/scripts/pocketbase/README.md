@@ -254,3 +254,16 @@ The Reader dashboard needs four new fields. Design: `docs/VISION-viewer.md` sect
 - S2 creates the disabled account `kendojidai-com@system.invalid` (name "kendojidai.com", role reader, approved false, disabled true) with a random password that nobody sees. The rule `authRule` "disabled = false" refuses its sign-in.
 - S2 `--apply` stops with the line "Restart PocketBase so that migration 1793300011 runs." if the field is missing. Restart PocketBase so that it runs the new file.
 - `test_local.py` checks 24a to 24m cover the field, the account, and the default choice. The restart check removes 12 history rows. The down check uses `migrate down 12`.
+
+## Migrations 1793300012 and 1793300013 (units RT74 and VW77e)
+
+- `1793300012_v2_reader_opens.js` creates `reader_opens`: one record for each run of one book that the admin opened with "Open to readers". S2 shows Agent text only for these runs. Only the admin and the superuser read or write it.
+- `1793300013_v2_book_toc.js` creates `book_toc`: one record for each table of contents row of one book. S2 loads it from `<Translator data>/item-metadata/book-toc.jsonl` (23 books, 1,181 rows). The Reader dashboard `/read` shows the rows in the fold of each book.
+
+## Sign-up rate limit: migrations 1793300014 and 1793300015 and the hook `sign_up_key.pb.js` (units VW101 and VW102)
+
+- `1793300014_v2_rate_limits.js` turns on the rate limiter with one rule: `users:create`, all requests, at most 5 in 3600 s for one address. It removes the 4 default rules. Superusers are never limited. The down function turns the limiter off and puts back the defaults.
+- `1793300015_v2_sign_up_address.js` makes PocketBase take the client address from the header `X-Kendo-Client-IP`. The website sends the reader address in it.
+- `pb_hooks/sign_up_key.pb.js` refuses a create in `users` without the header `X-Kendo-Sign-Up-Key` equal to the environment variable `SIGN_UP_KEY` (at least 32 characters). A superuser passes. A missing or short `SIGN_UP_KEY` refuses every public sign-up (fail closed).
+- Copy the migration and the hook to the server together. Start PocketBase with `--hooksDir` (hand-steps sections 8.5, 8.5a and 8.6).
+- `test_local.py` covers all 16 files: 274 PASS, 0 FAIL (unit VW102 on port 8092). Each test sign-up sends its own made-up address, so the limit does not stop the test.
