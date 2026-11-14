@@ -83,7 +83,7 @@ export default function StepView({
               <FrozenBoxes frozen={data.frozen} title={data.book?.title ?? null} book={Boolean(book)} />
             </>
           ) : null}
-          {showUpdates ? <PromptUpdates updates={data.updates} choices={choices} setChoice={setChoice} tick={data.generatedEpoch} /> : null}
+          {showUpdates ? <PromptUpdates updates={data.updates} choices={choices} setChoice={setChoice} tick={data.generatedEpoch} live={data.updateLive ?? null} /> : null}
         </div>
       </RunStoreQueryProvider>
     </MonitorStampProvider>

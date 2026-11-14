@@ -11,6 +11,7 @@ import { parseUtcIso } from "./pst";
 import { tokenCounts, sumTokens, type TokenCounts } from "./tokens-sum";
 import type { PageEvent } from "./phase2-articles";
 import type { FrozenBox } from "./run-store"; // unit VW85
+import type { UpdateLive } from "./update-live"; // unit VW103 (type only: erased at run time, so there is no import cycle)
 
 type Rec = Record<string, unknown>;
 
@@ -578,6 +579,8 @@ export interface StepSummary {
   book?: { slug: string; title: string | null; phase: string | null };
   /** Unit VW85 (Q-A 3:26.3 (b)): the frozen boxes of a book run (event box-frozen, freeze.py:33). Missing for the phase 2 run. */
   frozen?: FrozenBox[];
+  /** Unit VW103 (Q-A 3:36.4): the update point that runs now (box, role n of 4, try, card, time, wait), or null. Missing in an answer of an older server. */
+  updateLive?: UpdateLive | null;
 }
 
 export const RUN_WORDS: Record<string, Word> = {

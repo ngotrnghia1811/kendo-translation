@@ -1,8 +1,10 @@
 import { PHASE2_LINE } from "@/lib/book-status-rules";
 import { phase2Text } from "@/lib/phase2-row";
 import type { Phase2Line, Phase2View } from "@/lib/phase2-row";
-import { PHASE2_STATE_HELP, phase2Overrides } from "@/lib/phase2-articles";
+import { PHASE2_STATE_HELP, pageText, phase2Overrides } from "@/lib/phase2-articles";
 import type { Phase2ArticlesView } from "@/lib/phase2-articles";
+// Unit VW103 (round 91), Q-A 3:36.4: the running update point. The lines come from lib/update-live.ts, so a node test checks the same words.
+import { updateLines } from "@/lib/update-live";
 import { BoxText } from "./BoxCode";
 
 const STEPS_LINE: Phase2Line = { key: "steps", text: "Step view of the whole run, page by page and step by step: ", links: [{ text: "Steps", href: "/monitor/phase-2" }] };
@@ -26,6 +28,13 @@ const PHASE2_STATE_STYLE: Record<string, string> = {
   "not-started": "bg-state-wait text-state-wait-ink",
 };
 
+/** Readable name of the page of the update point: "<title>, page 4 of 5 (0a9f6ca7/p004)". Without the list of the run, only the page ID. */
+function updatePageLabel(page: string | null, articles: Phase2ArticlesView | null | undefined): string | null {
+  if (!page) return null;
+  if (!articles) return page;
+  return pageText(page, articles.order, new Map(articles.articles.map((a) => [a.shortId, a.name])));
+}
+
 export default function Phase2Row({ view, now, articles }: { view: Phase2View | null | undefined; now: number; articles?: Phase2ArticlesView | null }) {
   if (!view) {
     return (
@@ -36,8 +45,15 @@ export default function Phase2Row({ view, now, articles }: { view: Phase2View | 
   }
   const t = phase2Text(view, now);
   const over = articles ? phase2Overrides(articles, now, view.pagesDone, view.pagesTotal) : {};
+  // Unit VW103: the update point shows after the progress line, before the wait and the sign of life. The wait lines come from the key "waiting" of the row itself.
+  const update = view.update ? updateLines(view.update, now, { pageLabel: updatePageLabel(view.update.page, articles), place: "row", withWait: false }) : [];
+  let updatePlaced = false;
   const lines: Phase2Line[] = [];
   for (const l of t.lines) {
+    if (!updatePlaced && update.length > 0 && (l.key === "waiting" || l.key === "alive" || l.key === "last-accepted")) {
+      lines.push(...update);
+      updatePlaced = true;
+    }
     if (l.key === "links" && over["run-view"]) lines.push({ key: "run-view", ...over["run-view"] });
     // Unit VW95 (round 91), Q-A 3:17.6: the link "Steps" opens the step view /monitor/phase-2 (the whole run, page by page and step by step).
     if (l.key === "links") lines.push(STEPS_LINE);

@@ -2,6 +2,8 @@ import "server-only";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { HISTORY_TAIL_BYTES, PHASE2_DIR, buildPhase2, lastHistoryRow, type Phase2Input, type Phase2View } from "./phase2-row";
+import { PHASE2_STORE } from "./run-store";
+import { loadUpdateLive } from "./update-live-load";
 
 /**
  * Server side of the live Phase 2 row (unit VW91, round 91). Owner pick Q-A 3:4.6 (2026-11-11 10:42 PST): "Small live row now (VW91)".
@@ -79,6 +81,10 @@ export async function loadPhase2(root: string, nowMs: number, alive: (pid: unkno
       historyExists: hist.exists,
     };
     const view = buildPhase2(input, now);
+    // Unit VW103 (Q-A 3:36.4): the running update point (box, role, try, card, time). Only while the process runs. It reads files and never throws.
+    if (view && (view.key === "running" || view.key === "running-pause") && status !== null && typeof status === "object" && !Array.isArray(status)) {
+      view.update = await loadUpdateLive(root, PHASE2_STORE, status as Record<string, unknown>, nowMs);
+    }
     // A link to a failed file must point at a file that exists (the rule of checkErrorFile in book-status.ts).
     if (view?.errorFile) {
       const full = path.resolve(root, view.errorFile);

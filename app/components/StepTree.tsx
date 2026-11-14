@@ -15,6 +15,10 @@ import { BoxText } from "./BoxCode";
 // Unit VW98 (Q-A 3:23.3): a box code links to the training monitor of its box.
 import { BoxMonitorLink } from "./TrainingMonitorLink";
 import { useRunStoreQuery, withStoreQuery } from "./RunStoreQuery"; // unit VW85
+// Unit VW103 (Q-A 3:36.4): the update point that runs now (box, role n of 4, try, card, time, wait). It shows on its page row, under its step, and in the tab "Prompt updates".
+import { updateSummaryText } from "@/lib/update-live";
+import type { UpdateLive } from "@/lib/update-live";
+import { UpdateLiveBlock } from "./UpdateLiveBlock";
 
 // Unit VW95 (round 91). One tree for the step view /monitor/phase-2 and the run view /runs/<stamp> of a phase 2 list (Q-A 3:18.3 "Reuse one tree").
 // Level 1: one line per page in run order (Q-A 3:17.7, 3:18.2). Level 2: the steps of a page in the order of the owner (Q-A 3:17.1 note).
@@ -98,7 +102,7 @@ export function StepTree({ summary, choices, setChoice }: TreeProps) {
       ) : null}
       <ol className="space-y-1">
         {summary.pages.map((p, i) => (
-          <PageItem key={p.pageId} n={i + 1} page={p} choices={choices} setChoice={setChoice} tick={summary.generatedEpoch} />
+          <PageItem key={p.pageId} n={i + 1} page={p} choices={choices} setChoice={setChoice} tick={summary.generatedEpoch} live={summary.updateLive && summary.updateLive.page === p.pageId ? summary.updateLive : null} />
         ))}
       </ol>
       {summary.notStarted.length ? (
@@ -118,9 +122,10 @@ export function StepTree({ summary, choices, setChoice }: TreeProps) {
   );
 }
 
-function PageItem({ n, page, choices, setChoice, tick }: { n: number; page: PageNode; choices: Choices; setChoice: (k: string, o: boolean) => void; tick: number }) {
+// `live`: the update point that runs after this page, or null. The page is accepted already, so it opens by default while its update point runs.
+function PageItem({ n, page, choices, setChoice, tick, live }: { n: number; page: PageNode; choices: Choices; setChoice: (k: string, o: boolean) => void; tick: number; live: UpdateLive | null }) {
   const key = `page:${page.pageId}`;
-  const open = isOpen(key, choices, page.running);
+  const open = isOpen(key, choices, page.running || live !== null);
   const word = pageWordOf(page.state);
   return (
     <li data-step-page={page.pageId} data-step-page-running={page.running ? "yes" : undefined} className="rounded border border-line bg-white">
@@ -160,6 +165,11 @@ function PageItem({ n, page, choices, setChoice, tick }: { n: number; page: Page
             ))}
           </span>
         ) : null}
+        {live ? (
+          <span data-page-update-now className="block text-xs text-muted">
+            <span className="rounded bg-state-run px-1 text-state-run-ink">Working now</span>: <BoxText text={updateSummaryText(live, tick)} />
+          </span>
+        ) : null}
       </Toggle>
       {open ? (
         <div className="border-t border-line px-2 pb-2 sm:px-4">
@@ -179,7 +189,7 @@ function PageItem({ n, page, choices, setChoice, tick }: { n: number; page: Page
           {page.error ? <p className="mt-2 text-sm text-red-700">{page.error}</p> : null}
           {!page.stepsShown ? <p className="mt-2 text-xs text-muted">Loading the steps of this page…</p> : null}
           {page.groups.map((g) => (
-            <GroupItem key={g.key} page={page} group={g} choices={choices} setChoice={setChoice} tick={tick} />
+            <GroupItem key={g.key} page={page} group={g} choices={choices} setChoice={setChoice} tick={tick} live={live} />
           ))}
         </div>
       ) : null}
@@ -187,7 +197,7 @@ function PageItem({ n, page, choices, setChoice, tick }: { n: number; page: Page
   );
 }
 
-function GroupItem({ page, group, choices, setChoice, tick }: { page: PageNode; group: StepGroup; choices: Choices; setChoice: (k: string, o: boolean) => void; tick: number }) {
+function GroupItem({ page, group, choices, setChoice, tick, live }: { page: PageNode; group: StepGroup; choices: Choices; setChoice: (k: string, o: boolean) => void; tick: number; live: UpdateLive | null }) {
   return (
     <div data-step-group={group.key} className="mt-2">
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
@@ -200,7 +210,7 @@ function GroupItem({ page, group, choices, setChoice, tick }: { page: PageNode; 
       ) : (
         <ul className="mt-0.5">
           {group.steps.map((s) => (
-            <StepItem key={s.id} page={page} step={s} choices={choices} setChoice={setChoice} tick={tick} />
+            <StepItem key={s.id} page={page} step={s} choices={choices} setChoice={setChoice} tick={tick} live={live} />
           ))}
         </ul>
       )}
@@ -208,7 +218,7 @@ function GroupItem({ page, group, choices, setChoice, tick }: { page: PageNode; 
   );
 }
 
-function StepItem({ page, step, choices, setChoice, tick }: { page: PageNode; step: StepNode; choices: Choices; setChoice: (k: string, o: boolean) => void; tick: number }) {
+function StepItem({ page, step, choices, setChoice, tick, live }: { page: PageNode; step: StepNode; choices: Choices; setChoice: (k: string, o: boolean) => void; tick: number; live: UpdateLive | null }) {
   const key = `step:${page.pageId}:${step.id}`;
   const open = isOpen(key, choices, false);
   const word = stepWord(step.state);
@@ -245,6 +255,8 @@ function StepItem({ page, step, choices, setChoice, tick }: { page: PageNode; st
             <BoxText text={step.note} />
           </span>
         ) : null}
+        {/* Unit VW103: the update step that runs now shows its role, try, card and time, and a wait. */}
+        {live && step.running && step.id === `update:${live.box}` ? <UpdateLiveBlock live={live} now={tick} /> : null}
       </Toggle>
       {open ? (
         <div className="mb-2 ml-5 border-l border-line pl-3">
@@ -423,7 +435,7 @@ export function DiffView({ title, lines, counts }: { title: string; lines: Extra
 }
 
 /** Run view section "Prompt updates" (Q-A 3:18.3): one entry per update point, in run order, with its data and diff on request. */
-export function PromptUpdates({ updates, choices, setChoice, tick }: { updates: (UpdatePoint & { pageText: string })[]; choices: Choices; setChoice: (k: string, o: boolean) => void; tick: number }) {
+export function PromptUpdates({ updates, choices, setChoice, tick, live = null }: { updates: (UpdatePoint & { pageText: string })[]; choices: Choices; setChoice: (k: string, o: boolean) => void; tick: number; live?: UpdateLive | null }) {
   return (
     <section data-prompt-updates className="mt-6">
       <h2 className="section-band mb-1 text-lg font-semibold">Prompt updates</h2>
@@ -448,6 +460,8 @@ export function PromptUpdates({ updates, choices, setChoice, tick }: { updates: 
                 <span className="block text-xs text-muted">
                   <BoxText text={updateNote(u)} />
                 </span>
+                {/* Unit VW103: the entry of the update point that runs now shows its role, try, card, time and wait. */}
+                {live && u.endedEpoch === null && live.box === u.box && live.page === u.page ? <UpdateLiveBlock live={live} now={tick} /> : null}
               </Toggle>
               {open ? (
                 <div className="border-t border-line px-3 pb-2">

@@ -398,6 +398,16 @@ export function eventText(row: Record<string, unknown>, order: string[], names: 
       return `${ev} (prompt update of box ${box ?? "not stored"} ended, result: ${asStr(row.result) ?? "not stored"})`;
     case "prompt-live":
       return `${ev} (prompt version ${asStr(row.version) ?? "not stored"} of box ${box ?? "not stored"} is live)`;
+    // Unit VW103: the three events of a content filter wait (TR93). The extra fields of the rows are not known, so only the box and the wait number show when they are there.
+    case "filter-wait": {
+      const n = typeof row.wait_n === "number" && Number.isFinite(row.wait_n) ? row.wait_n : null;
+      const of = typeof row.waits === "number" && Number.isFinite(row.waits) ? row.waits : null;
+      return `${ev} (content filter wait${n !== null ? ` ${n}${of !== null ? ` of ${of}` : ""}` : ""} started${box ? ` at box ${box}` : ""}${pt ? `, ${pt}` : ""})`;
+    }
+    case "filter-wait-ended":
+      return `${ev} (content filter wait ended${box ? ` at box ${box}` : ""}: the next try starts)`;
+    case "filter-wait-stopped":
+      return `${ev} (content filter wait stopped early${box ? ` at box ${box}` : ""}: Ctrl-C or the PAUSE file)`;
     case "start":
       return `${ev} (the run started the ${listLabel(asStr(row.list_stamp) ?? "")})`;
     case "stopped":

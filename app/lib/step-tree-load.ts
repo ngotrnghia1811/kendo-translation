@@ -29,6 +29,7 @@ import { stepDataSections, type StepData, type Section } from "./step-data";
 // The default is the phase 2 store, so the phase 2 screens read the same files as before.
 import { PHASE2_STORE, bookPageNumber, bookPageText, frozenBoxes, listOfStore, pageName, phaseWord, type RunStore } from "./run-store";
 import { bookTitleAt } from "./run-store-load";
+import { loadUpdateLive } from "./update-live-load"; // unit VW103
 
 /**
  * Server side of the step view (unit VW95, round 91). It reads files and writes none (Q-A 3:19.3 D4).
@@ -283,6 +284,9 @@ export async function loadStepSummary(
     const runActive = statusState === "running" && str(status?.run_id) === runId && (newest === null || str(status?.list_stamp) === newest.stamp);
     const runningBoxes = Array.isArray(status?.running_boxes) ? status.running_boxes.filter((b): b is string => typeof b === "string") : [];
     const failPages = new Set(Array.isArray(status?.fail_pages) ? status.fail_pages.filter((b): b is string => typeof b === "string") : []);
+    // Unit VW103 (Q-A 3:36.4): the update point that runs now. It runs after a page that history.jsonl already shows as accepted, so that page gets its steps
+    // and its first line even when the owner did not open it. The 3 s poll stays small: one more page of steps, and about 1 KB for the live part.
+    const live = runActive ? await loadUpdateLive(root, store, status, t0) : null;
     const ordered = pagesInRunOrder(history.pageEvents, runId, lists, runActive);
     const order = newest ? newest.rows.map((r) => r.page) : ordered.map((p) => p.page);
     const names = store.phase2 ? await loadArticleNames(root, ordered.map((p) => p.page)) : new Map();
@@ -317,7 +321,7 @@ export async function loadStepSummary(
         running: p.kind === "running",
         runningBoxes: p.kind === "running" ? runningBoxes : [],
         groups: [],
-        stepsShown: openPages === null || openPages.has(p.page) || p.kind === "running",
+        stepsShown: openPages === null || openPages.has(p.page) || p.kind === "running" || (live !== null && live.page === p.page),
         error: null,
       };
       if (p.kind === "not-started") {
@@ -364,6 +368,7 @@ export async function loadStepSummary(
         generatedEpoch: Math.floor(t0 / 1000),
         millis: Date.now() - t0,
         error: null,
+        updateLive: live,
       };
     }
     // Unit VW85: a book run. The phase comes from the start row of the run (translator_run.py:3263), else from status.json.
@@ -382,6 +387,7 @@ export async function loadStepSummary(
       millis: Date.now() - t0,
       error: null,
       book: { slug: store.book, title: bookTitle, phase },
+      updateLive: live,
       // Q-A 3:26.3 (b): "A frozen box shows "Frozen since page n" in the step view". The events of this run only (freeze.py:42-47).
       frozen: frozenBoxes(historyRows, runId),
     };

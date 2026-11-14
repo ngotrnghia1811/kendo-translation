@@ -13,8 +13,12 @@ import { LABELS, agoText, baseLabelOf, errorLine, pageShort } from "./book-statu
 import { jsonViewHref } from "./json-view";
 import { parseUtcIso, pstStamp } from "./pst";
 // Unit VW92 (round 91), Q-A 3:7.6: the quota wait (key "waiting" of status.json). The rules sit in the new file lib/phase2-wait.ts.
-import { waitOf, waitText } from "./phase2-wait";
+import { waitOf } from "./phase2-wait";
 import type { Phase2Wait } from "./phase2-wait";
+// Unit VW103 (round 91), Q-A 3:36.4: a content filter wait gets its own words (lib/phase2-wait-reason.ts), and the running update point is a field of the view (lib/update-live.ts).
+import { waitExtraOf, waitTexts } from "./phase2-wait-reason";
+import type { WaitExtra } from "./phase2-wait-reason";
+import type { UpdateLive } from "./update-live";
 
 /** Folder of the phase 2 store below the Translator data folder (PHASE2_BOOK in book-status.ts, prompts.py:26). */
 export const PHASE2_DIR = "book-store/paired-dataset";
@@ -77,6 +81,10 @@ export interface Phase2View {
    * A key that stays in the file after a stop or a crash shows nothing, because the process no longer waits.
    */
   waiting: Phase2Wait | null;
+  /** Unit VW103: the extra fields of the key "waiting" (wait n of 4, role). Missing or null when the key has none. */
+  waitExtra?: WaitExtra | null;
+  /** Unit VW103: the running update point, set by lib/phase2-load.ts. Null or missing when no update point runs. */
+  update?: UpdateLive | null;
   statusHref: string;
   historyHref: string | null;
 }
@@ -231,6 +239,8 @@ export function buildPhase2(input: Phase2Input, now: number): Phase2View | null 
     tokens: tokensOf(raw.tokens_phase),
     lastEvent: ev && evName ? { name: shorten(evName, 60), epoch: parseUtcIso(ev.utc) } : null,
     waiting: key === "running" || key === "running-pause" ? waitOf(raw.waiting) : null,
+    waitExtra: key === "running" || key === "running-pause" ? waitExtraOf(raw.waiting) : null,
+    update: null,
     ...base,
   };
 }
@@ -296,7 +306,7 @@ export function phase2Text(v: Phase2View, now: number): Phase2Text {
     if (v.runningPage) out("now", `Now: ${v.runningPage}${boxesText(v.runningBoxes)}.`);
     if (v.waiting) {
       // Unit VW92: the quota wait. The heartbeat stays fresh during a wait, so the state stays Running and these lines add the reason.
-      const w = waitText(v.waiting, now);
+      const w = waitTexts(v.waiting, v.waitExtra, now); // unit VW103: a quota wait keeps its text, a content filter wait gets its own words
       out("waiting", w.main);
       if (w.detail) out("waiting-detail", w.detail);
     }
