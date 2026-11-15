@@ -5,6 +5,9 @@ import { useState } from "react";
 import type { Role } from "@/lib/htv-types";
 
 // Sign-in state bar of the human-translation-view (round 54 answer 9, Q-A 2026-10-28 l128: sign-in on this view only).
+// Unit VW105 (Q-A 3:61.2 "Same links in both bars"): the bar has the links of the Reader bar (components/ReaderBar.tsx): "Read" (/read),
+// "Readers" and "Human versions" for an admin, and the name of the person as the link to the profile page /profile (Q-A 3:60.4 row 1).
+// The landing page after sign-in does not change: a translator and an admin land on /translate.
 const ROLE_LABEL: Record<Role, string> = { admin: "admin", translator: "translator", reader: "reader" };
 
 export default function HtvBar({ name, email, role, backHref }: { name: string; email: string; role: Role; backHref?: string }) {
@@ -17,11 +20,34 @@ export default function HtvBar({ name, email, role, backHref }: { name: string; 
     router.refresh();
   }
   return (
-    <div className="mb-3 flex items-center justify-between border-b border-line pb-2 text-sm">
-      <div>{backHref ? <Link href={backHref} className="text-accent underline">All books</Link> : null}</div>
-      <div className="flex items-center gap-3">
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-line pb-2 text-sm" data-htv-bar>
+      <nav aria-label="Translator links" className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        {backHref ? (
+          <Link href={backHref} className="text-accent underline">
+            All books
+          </Link>
+        ) : null}
+        <Link href="/read" className="text-accent underline" data-read-link>
+          Read
+        </Link>
+        {role === "admin" ? (
+          <>
+            <Link href="/admin/readers" className="text-accent underline" data-admin-link>
+              Readers
+            </Link>
+            <Link href="/admin/versions" className="text-accent underline" data-admin-link>
+              Human versions
+            </Link>
+          </>
+        ) : null}
+      </nav>
+      <div className="flex flex-wrap items-center gap-3">
         <span data-user>
-          Signed in as <span className="font-medium">{name || email}</span> ({ROLE_LABEL[role]})
+          Signed in as{" "}
+          <Link href="/profile" className="font-medium text-accent underline" data-profile-link>
+            {name || email}
+          </Link>{" "}
+          ({ROLE_LABEL[role]})
         </span>
         <button type="button" onClick={out} disabled={busy} className="rounded border border-line px-2 py-0.5 disabled:opacity-50">
           Sign out

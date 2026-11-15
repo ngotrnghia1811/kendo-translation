@@ -4,10 +4,12 @@ import Nav from "@/components/Nav";
 import { monitorEnabled } from "@/lib/monitor";
 import { readTheme } from "@/lib/theme";
 
-export const metadata: Metadata = {
-  title: "agent-translation-monitor",
-  description: "Local monitor for the Translator runs. Round 44 answer 13.",
-};
+// Unit VW105 (Q-A 3:60.3, finding 1 of DEPLOYCHECK): with the monitor off (the public site) the title of this layout shows only on the 404 page of a monitor path,
+// for example /runs, because every other page has its own title. That title must not say "agent-translation-monitor" there. With the monitor on (this Mac) it stays as before.
+export async function generateMetadata(): Promise<Metadata> {
+  if (await monitorEnabled()) return { title: "agent-translation-monitor", description: "Local monitor for the Translator runs. Round 44 answer 13." };
+  return { title: "Kendo books", description: "Japanese kendo books and magazines in English, next to the Japanese text." };
+}
 
 // Round 58 answer 7 (Q-A 2026-10-28 l205): with the monitor off, the tabs of the agent-translation-monitor disappear.
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

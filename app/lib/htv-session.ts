@@ -72,9 +72,9 @@ export async function requireAdmin(nextPath: string): Promise<Session | { down: 
   return s;
 }
 
-/** True for a path inside the human-translation-view, the reader pages, or the admin pages. Used to check the `next` value after sign-in. */
+/** True for a path inside the human-translation-view, the reader pages, the admin pages, or the profile page. Used to check the `next` value after sign-in. Unit VW105 adds /profile. */
 export function isSafeNext(next: string | null | undefined): next is string {
-  return typeof next === "string" && /^\/(translate|read|admin)(\/[A-Za-z0-9._-]+)*$/.test(next) && !next.includes("..");
+  return typeof next === "string" && /^\/(translate|read|admin|profile)(\/[A-Za-z0-9._-]+)*$/.test(next) && !next.includes("..");
 }
 
 /** Cookie options. Secure only on https (a plain http page on this Mac must keep the cookie). */

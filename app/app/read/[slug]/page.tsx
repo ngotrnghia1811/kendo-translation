@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import ReaderBar from "@/components/ReaderBar";
 import ReaderBook from "@/components/ReaderBook";
-import { loadPaneSettings, readTheme } from "@/lib/theme";
+import { hasThemeCookie, loadPaneSettings, readTheme } from "@/lib/theme";
 import { requireReaderSession } from "@/lib/htv-session";
-import { isView } from "@/lib/htv-settings";
+import { DEFAULT_THEME_READER, isView } from "@/lib/htv-settings";
 import { loadBookmarks, loadReaderIndex, loadReaderPages } from "@/lib/reader-data";
 import { parseAt } from "@/lib/reader-links";
 import { isSafeSegment } from "@/lib/safe-path";
@@ -57,7 +57,9 @@ export default async function ReadBook({ params, searchParams }: { params: Promi
         settings={reader}
         view={view}
         at={s.user.approved ? at : null}
-        theme={await readTheme()}
+        // Unit VW105 (Q-A 3:61.3, finding 4 of DEPLOYCHECK): with no theme cookie the layout of /read sets Solarized light in the browser (components/ReaderTheme.tsx).
+        // Before, this prop was "light" in that case, so the Reading settings panel said "Light" while the top bar said "Solarized light".
+        theme={(await hasThemeCookie()) ? await readTheme() : DEFAULT_THEME_READER}
         note={note}
       />
     </>

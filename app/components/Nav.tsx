@@ -24,7 +24,10 @@ const TABS = [
 export default function Nav({ monitor, theme }: { monitor: boolean; theme: ThemeName }) {
   const path = usePathname() ?? "/";
   // Unit RC1 (round 63): the reader pages, the sign-in and sign-up pages, and the admin pages have their own bar. They show no monitor tab.
-  const reader = /^\/(read|admin|sign-in|sign-up)(\/|$)/.test(path);
+  // Unit VW105 (Q-A 3:60.3, 3:60.4): the profile page has the reader look too. With the monitor off (the public site) every path outside /translate has it:
+  // the only such page is the 404 page, which must not show the name "agent-translation-monitor" or a monitor tab (finding 1 of DEPLOYCHECK).
+  // With the monitor on (this Mac) nothing changes for the monitor screens and their 404 page.
+  const reader = /^\/(read|admin|sign-in|sign-up|profile)(\/|$)/.test(path) || (!monitor && !path.startsWith("/translate"));
   const tabs = reader ? [] : monitor ? TABS : TABS.filter((t) => !t.monitor);
   // Unit VW92 (round 91), Q-A 3:7.6: at 390 px the whole page scrolled sideways (document scrollWidth 685; the tabs and the theme switch did not wrap).
   // [unit default VW92] Below 768 px the bar and the tabs wrap onto more lines. From 768 px up the classes give the same bar as before VW92 (the browser check
