@@ -87,7 +87,7 @@ export interface ReaderViewRow extends RowLinks {
 
 /**
  * One block of a v1 md file (VISION-viewer 15.26.9). The v1 placeholder is text of the browser Gemini agent of v1, for display testing only.
- * It counts in no number, it is not searched, and it never reaches the database (owner round 73c answers 2 and 3, round 73d answer 8).
+ * It counts in no number and it is not searched (owner round 73c answers 2 and 3). The public site reads it from the PocketBase collection v1_placeholders (Q-A 3:44.4, 3:45.2, unit VW104).
  */
 export interface ReaderV1Row {
   /** <page_id>/v1/<NN>, NN the number of the block on the page. */
@@ -114,7 +114,7 @@ export interface ReaderPageData {
   hasAgent: boolean;
   /** Who chose the human version: "default" (S2, kendojidai.com) or "admin". Null when the page has none. */
   humanBy: "default" | "admin" | null;
-  /** The v1 placeholder blocks of the page, or an empty list (no md file, no folder on this machine). They count in no number. */
+  /** The v1 placeholder blocks of the page, or an empty list (no md file on this machine, or no record in v1_placeholders in PocketBase mode). They count in no number. */
   v1: ReaderV1Row[];
   /** The label lines of the page (VISION-viewer l240-249 and 15.26.7). The screen always shows the line for the shown text. */
   label: { agent: string; human: string; v1: string };
@@ -213,7 +213,7 @@ export interface ReaderBookIndex extends ReaderBookFacts {
   humanPages: number[];
   /** Pages that the scroll view asks the server for: every page with a reader_pages record, and every page with a v1 md file. The v1 file adds to no count. */
   dataPages: number[];
-  /** Pages with a v1 md file on this machine (unit RT73b). The component list shows the v1 rows when this list is not empty. They add to no count. */
+  /** Pages with a v1 text (unit RT73b): an md file on this machine, or in PocketBase mode a record of v1_placeholders (unit VW104). The component list shows the v1 rows when this list is not empty. They add to no count. */
   v1Pages: number[];
   /** Page numbers with a page check. */
   checkedPages: number[];

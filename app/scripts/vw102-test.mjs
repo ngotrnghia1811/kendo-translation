@@ -548,12 +548,14 @@ await check("migration 1793300014 is not changed (the rule and the X-Forwarded-F
   assert.ok(src.includes('settings.trustedProxy.headers = ["X-Forwarded-For"];'));
 });
 
-await check("folders: 16 migration files with unique timestamps (the new one is last), and 2 hook files", () => {
+// Unit VW104 added migration 1793300016: the folder holds 17 files, and the file of this unit is the second from last.
+await check("folders: 17 migration files with unique timestamps (the file of this unit is the second from last), and 2 hook files", () => {
   const files = readdirSync(path.join(pbDir, "pb_migrations")).filter((f) => f.endsWith(".js")).sort();
-  assert.equal(files.length, 16);
-  assert.equal(files.at(-1), MIGRATION);
-  assert.equal(files.at(-2), PREVIOUS);
-  assert.equal(new Set(files.map((f) => f.split("_")[0])).size, 16);
+  assert.equal(files.length, 17);
+  assert.equal(files.at(-1), "1793300016_v2_v1_placeholders.js");
+  assert.equal(files.at(-2), MIGRATION);
+  assert.equal(files.at(-3), PREVIOUS);
+  assert.equal(new Set(files.map((f) => f.split("_")[0])).size, 17);
   assert.equal(files[0], "1793300000_v2_users_rules.js");
   const hooks = readdirSync(path.join(pbDir, "pb_hooks")).filter((f) => f.endsWith(".pb.js")).sort();
   assert.deepEqual(hooks, ["page_images.pb.js", HOOK]);

@@ -36,7 +36,7 @@ import {
 import type { SessionUser } from "./htv-types";
 import { hasAgentRecord, isWebKey } from "./reader-web";
 import { rowLinks } from "./cross-page-reader";
-import { v1PageNumbers, v1PageRows } from "./reader-v1-files";
+import { v1PagesOfWork, v1RowsOfPages } from "./reader-v1-source";
 import { buildFolds, matchWorks, type Dashboard } from "./reader-folds";
 import type { TocCount } from "./reader-toc";
 import { foldQuery, snippetOf, type Snippet } from "./reader-search";
@@ -189,7 +189,7 @@ export async function loadReaderIndex(token: string, user: SessionUser, slug: st
   // Unit RT73a: a page is translated when it has an Agent text or a Human version. A page with only Original text rows or a v1 file is not (VISION-viewer 15.26.10).
   const nums = await soft<{ agent: number[]; web: number[] }>({ agent: [], web: [] }, () => readerPageNumbers(token, slug));
   const humanPages = await soft<number[]>([], () => readerVersionPages(token, slug));
-  const v1Pages = await v1PageNumbers(slug);
+  const v1Pages = await v1PagesOfWork(token, slug); // unit VW104: the files on this Mac, or the collection v1_placeholders in PocketBase mode
   const textPages = sortedUnion(nums.agent, humanPages);
   const checks = await pageCheckDates(token, slug).catch(() => new Map<string, string>());
   const chapters = (await magazineChapters(token, slug)).filter((c) => c.pageStart > 0);
@@ -269,13 +269,14 @@ function noText(n: number): ReaderPageData {
 /**
  * The data of some pages of a book. A page without a reader_pages record answers hasText false.
  * Unit RT73a: each page also carries the v1 placeholder blocks of its md file (v1), when this machine has the file. They count in no number.
+ * Unit VW104 (Q-A 3:44.4, 3:45.2): in PocketBase mode (the public site) the blocks come from the collection v1_placeholders (lib/reader-v1-source.ts).
  */
 export async function loadReaderPages(token: string, slug: string, nums: number[], digits: number): Promise<ReaderPageData[]> {
   const ids = nums.map((n) => `${slug}/${pageName(n, digits)}`);
   const recs = new Map((await soft<ReaderPageRecord[]>([], () => readerPageRecords(token, ids))).map((r) => [r.pageId, r]));
   const versions = await soft(new Map<string, ReaderHumanVersion>(), () => readerVersionRecords(token, [...recs.keys()]));
   const checks = await pageCheckDates(token, slug).catch(() => new Map<string, string>());
-  const v1 = await Promise.all(nums.map((n, i) => v1PageRows(slug, n, ids[i])));
+  const v1 = await v1RowsOfPages(token, slug, nums, ids);
   return nums.map((n, i) => {
     const id = ids[i];
     const rec = recs.get(id);

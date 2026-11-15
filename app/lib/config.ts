@@ -204,7 +204,8 @@ export function loadSignUpKey(): string | undefined {
  * The v1 md files (unit RT73a, round 73d answer 8: "This Mac, copy in data folder (Recommended)"; VISION-viewer 15.26.9).
  * They hold the v1 placeholder: JA, EN, and ZH lines of the browser Gemini agent of v1, for display testing only.
  *   VIEWER_V1_DIR  folder of the md files, one subfolder for each work: <dir>/<slug>/page_NNN.md. Default ../data/v1-md from the app folder.
- * The hosted site has no such folder, so it shows no placeholder. A missing folder is not an error: the Viewer shows no placeholder.
+ * The hosted site has no such folder. In PocketBase mode (VIEWER_RUN_SOURCE=pocketbase) the app reads the collection v1_placeholders instead and never this folder
+ * (unit VW104, Q-A 3:44.4 and 3:45.2). Sync command S2 uploads this folder into the collection (option --v1-dir, same default). A missing folder is not an error: the Viewer shows no placeholder.
  * An empty variable counts as not set.
  */
 export const DEFAULT_V1_DIR = "../data/v1-md";

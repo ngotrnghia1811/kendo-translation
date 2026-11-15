@@ -20,7 +20,7 @@
 // Unit RT73a (round 73, VISION-viewer 15.26): it also reads the page file of the Translator (item-metadata/web-pages.jsonl, made by data/scripts/web_pages.py)
 // and uploads the 311 web articles as 1,124 A4 pages: reader_pages records with run_id "web-ja" (Original text rows), the kendojidai.com text as the chosen
 // Human version (reader_versions, chosen_by empty), a copy of that text in own_translations under the disabled system account "kendojidai.com" (version 1),
-// and the page counts of catalog_items. The v1 placeholder is not uploaded (owner answer 8 of round 73d: the Viewer reads the v1 md files on this Mac).
+// and the page counts of catalog_items. Round 73d answer 8 kept the v1 placeholder on this Mac (not uploaded). Unit VW104 replaced that rule (see the VW104 paragraph below).
 // Unit VW90 (Q-A 3:1.6, 3:4.7, design 9.24.11): a sentence that crosses a page end. The Translator (units TR90 and TR91) writes two files:
 // results/cross_page.json (role first_half) in the run folder of the earlier page and results/cross_page_from.json (role second_half) in the run folder of the later page.
 // A middle page can hold both. For the SHOWN run of a page, the reader record uses the files (lib/cross-page-reader.ts). Role first_half: the row of the tail gets the full English text,
@@ -33,6 +33,11 @@
 // source "book-store") holds the run ID in the folder form, for example 20261111T183021-0800. S2 takes a page of an OPEN book run only if its pointer pages/<page>.json has
 // accepted true and verdict PASS. The pointer names the page run folder (data/pilot-run/<page>/<run>) that holds the text. Order for a page: the run mark, else the newest open book run
 // with PASS, else the newest open pilot run with PASS, else no Agent text. Pilot runs behave as before (the open record has the source "pilot-run").
+// Unit VW104 (Q-A 3:44.4 "Show the placeholder on v2", Q-A 3:45.2 "A. PocketBase collection", Q-A 3:45.3 "Rules stay, defaults OK"): it also fills v1_placeholders (migration 1793300016)
+// with one record for each md file of v1: <v1 dir>/<slug>/page_NNN.md (option --v1-dir, default ../data/v1-md from the app folder, or the env variable VIEWER_V1_DIR).
+// A record holds the work (slug), the page number (n), the page ID, the md text, and the SHA-256 of the file. S2 compares the SHA-256 (and the page ID), creates a new page, updates a changed page, and never deletes.
+// The v1 text goes into no search column, no count, and not into the column translated of catalog_items. The step does not depend on --page or --list.
+// A damaged file (not readable, not valid UTF-8, a NUL byte, too long) is skipped with one line "Warning: ...". The code of the step is in lib/v1-placeholder-sync.ts and lib/v1-placeholder-rules.ts.
 // The same safety rules apply to all collections: dry run by default, compare then skip or update, never delete.
 // The deployed app cannot read the run folders, so it reads these records (config key runSource "pocketbase").
 //
@@ -60,6 +65,8 @@ const { BOOK_RUN_SOURCE, pickReaderCandidate, pointerTakesPage, pageRunNameOf } 
 const { listBookStoreBooks, passCounts, readBookRuns } = await import("../lib/book-runs.ts");
 const { TOC_COLLECTION, tocRecordEqual, tocRecordOf } = await import("../lib/reader-toc.ts");
 const { CROSS_PAGE_FROM_REL, CROSS_PAGE_REL, crossPageForReader } = await import("../lib/cross-page-reader.ts");
+const { V1_COLLECTION, V1_DEFAULT_DIR, planV1, v1Counts, v1Key, v1ServerOnly } = await import("../lib/v1-placeholder-rules.ts");
+const { loadV1Records } = await import("../lib/v1-placeholder-sync.ts");
 
 // ---------------------------------------------------------------- constants and small helpers
 
@@ -81,7 +88,7 @@ function fail(message) {
   process.exit(2);
 }
 
-const HELP = `Sync command S2: upload finished page runs from the run folders into PocketBase (page_runs, catalog_items, magazine_chapters, book_toc, and reader_pages).
+const HELP = `Sync command S2: upload finished page runs from the run folders into PocketBase (page_runs, catalog_items, magazine_chapters, book_toc, reader_pages, and v1_placeholders).
 
 Usage (run it in the app folder):
   node scripts/sync-runs.mjs [options]
@@ -99,12 +106,18 @@ Options:
   --apply            Write to PocketBase. Without it the command writes nothing.
   --offline          Dry run without sign-in. It skips the compare with the server.
   --web-pages FILE   Page file of the web articles. Default: <data>/item-metadata/web-pages.jsonl (made by data/scripts/web_pages.py in the Translator folder).
+  --v1-dir DIR       Folder of the v1 md files (unit VW104): one subfolder for each work, with the files page_NNN.md. Default: the env variable VIEWER_V1_DIR, else ${V1_DEFAULT_DIR} from the app folder.
   --help             Show this text.
 
 Without --page and --list the command syncs every page with a finished run.
 The collection magazine_chapters always gets all rows of item-metadata/magazine-chapters.jsonl (the month headings of the book screen).
 The collection book_toc always gets all rows of item-metadata/book-toc.jsonl (unit VW77e: the table of contents of 23 books, 1,181 rows, for the book folds of the Reader dashboard /read).
 S2 creates and updates book_toc records. It never deletes one. A damaged row is skipped with one line "Warning: ...". Migration 1793300013 adds book_toc. Without it, --apply stops and a dry run prints a warning.
+The collection v1_placeholders always gets one record for each md file of the v1 folder (unit VW104, Q-A 3:44.4, 3:45.2, 3:45.3: the public v2 site shows the v1 Gemini translation as a placeholder). The files are <v1 dir>/<slug>/page_NNN.md.
+A record holds the work (slug), the page number (n), the page ID, the md text, and the SHA-256 of the file. S2 compares the SHA-256 and the page ID with the server, creates a new page, and updates a changed page. It never deletes a record.
+A file that is not named page_NNN.md (for example SHA256SUMS) is skipped. A damaged file (not readable, not valid UTF-8, a NUL byte, over 200,000 characters) is skipped with one line "Warning: ...".
+The v1 text goes into no search column and no count, and it does not change the column translated of catalog_items. Migration 1793300016 adds v1_placeholders. Without it, --apply stops and a dry run prints a warning.
+With --offline the server is not read, so every v1 page counts as not compared. The step does not depend on --page or --list. The app reads the collection only in PocketBase mode. On this Mac it keeps reading the files.
 The collection reader_pages gets one record for each selected page with an agent translation to show. Only an OPEN run can show (round 75 answer 3: the admin opens a run with "Open to readers", collection reader_opens).
 The shown run is the run of the admin run mark if that run is open, else the newest open book run with the verdict PASS on the page, else the newest open pilot run with PASS, else no Agent text (unit VW77e, Q-A 3:11.1). A page whose record holds a run that is not open loses it:
 a web article page goes back to its Original text record (run_id "web-ja"), a book page loses its record. Migration 1793300012 adds reader_opens. Without it, S2 stops.
@@ -123,7 +136,7 @@ The columns search_ja and search_en of reader_pages hold the folded text for the
 The page file of the web articles (unit RT73a) gives the 311 web articles their A4 pages: 1,124 pages. For each page S2 writes a reader_pages record with run_id "web-ja"
 (the Original text rows, no Agent text), the kendojidai.com text as the chosen Human version in reader_versions (chosen_by empty, written once: a page whose choice an admin removed stays without it),
 and a copy of that text in own_translations under the disabled account kendojidai.com (version 1). S2 creates the account if it is missing. It has a random password that nobody sees.
-catalog_items.pages of a web article is the A4 page count. The search columns hold the kendojidai.com text. The v1 placeholder is not uploaded. Migration 1793300011 adds own_translations.facts. Without it, --apply stops.
+catalog_items.pages of a web article is the A4 page count. The search columns hold the kendojidai.com text. The v1 placeholder text is not in a search column (it has its own collection, v1_placeholders). Migration 1793300011 adds own_translations.facts. Without it, --apply stops.
 The column row of catalog_items holds the metadata row without 14 research keys (sources, confidence, filled_by, confirmed_by, notes, source_url, hint_secondary, confidence_draft, notes_draft, issue_evidence, status, title_en_source, author_en_source, synopsis_source).
 An --apply run replaces the row of a record that exists already, so one run cleans the records of an earlier run.
 The password comes from a hidden prompt on the terminal. If stdin is not a terminal, the command reads one line from stdin.
@@ -134,7 +147,7 @@ Sizes are in MB (1 MB = 1,048,576 bytes).
 // ---------------------------------------------------------------- options
 
 function parseArgs(argv) {
-  const o = { url: DEFAULT_URL, superuser: process.env.PB_SUPERUSER_EMAIL ?? "", data: "", pages: [], list: "", apply: false, offline: false, help: false, webPages: "" };
+  const o = { url: DEFAULT_URL, superuser: process.env.PB_SUPERUSER_EMAIL ?? "", data: "", pages: [], list: "", apply: false, offline: false, help: false, webPages: "", v1Dir: "" };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const value = () => {
@@ -148,6 +161,7 @@ function parseArgs(argv) {
     else if (a === "--page") o.pages.push(value());
     else if (a === "--list") o.list = value();
     else if (a === "--web-pages") o.webPages = value();
+    else if (a === "--v1-dir") o.v1Dir = value();
     else if (a === "--apply") o.apply = true;
     else if (a === "--offline") o.offline = true;
     else if (a === "--help" || a === "-h") o.help = true;
@@ -216,6 +230,16 @@ async function dataDirOf(o) {
   }
   if (!cfg.translatorDataDir || typeof cfg.translatorDataDir !== "string") fail(`${cfgFile} has no key translatorDataDir. Use --data DIR.`);
   return path.resolve(cfg.translatorDataDir);
+}
+
+/**
+ * Folder of the v1 md files (unit VW104). The order of loadV1Config in lib/config.ts: the option --v1-dir, else the env variable VIEWER_V1_DIR (an empty variable counts as not set),
+ * else ../data/v1-md from the app folder. An option or variable with a relative path counts from the current folder.
+ */
+function v1DirOf(o) {
+  if (o.v1Dir) return path.resolve(o.v1Dir);
+  const env = process.env.VIEWER_V1_DIR?.trim();
+  return env ? path.resolve(env) : path.resolve(appDir, V1_DEFAULT_DIR);
 }
 
 // ---------------------------------------------------------------- password
@@ -746,6 +770,14 @@ const tocRecords = tocLoad.records;
 if (!tocLoad.fileFound) console.error("Warning: item-metadata/book-toc.jsonl is missing. The collection book_toc gets no rows.");
 for (const s of tocLoad.skipped) console.error(`Warning: book-toc.jsonl ${s}. The row is skipped.`);
 
+// 2a1. The v1 placeholder (unit VW104, Q-A 3:44.4, 3:45.2, 3:45.3). The collection v1_placeholders always gets one record for each md file of the v1 folder.
+// The records come from lib/v1-placeholder-sync.ts. The text goes into no search column, no count, and not into catalog_items.translated.
+const v1Dir = v1DirOf(o);
+const v1Load = await loadV1Records(v1Dir);
+const v1Records = v1Load.records;
+if (!v1Load.dirFound) console.error(`Warning: the v1 folder ${v1Dir} does not exist or cannot be read. The collection ${V1_COLLECTION} gets no records.`);
+for (const w of v1Load.warnings) console.error(`Warning: v1 md ${w}`);
+
 // 2a2. Book runs (unit VW77e part 2, Q-A 3:11.1 and 3:11.2). D3: listBookStoreBooks never returns book-store/paired-dataset (the phase 2 training run).
 // D4: readBookRuns looks in the book folder (current run), archive/<run ID folder>/ and agent-phase-3/.
 const bookRuns = [];
@@ -796,6 +828,8 @@ let serverItems = null;
 let serverChapters = null;
 let serverToc = null; // unit VW77e: book_toc records, "book|order" -> record. null = not read (--offline) or the collection is missing (dry run)
 let tocMissing = false; // true when the server has no collection book_toc
+let serverV1 = null; // unit VW104: v1_placeholders records, "slug|n" -> {id, slug, n, page_id, sha256}. null = not read (--offline) or the collection is missing (dry run)
+let v1Missing = false; // true when the server has no collection v1_placeholders
 let serverReader = null;
 let marks = new Map(); // page ID to the run ID of the admin run mark
 let openSet = null; // unit RT74: the opened runs, as openKey(source, book, run ID). null = not read (--offline): every run counts as open
@@ -866,6 +900,24 @@ if (!o.offline) {
       console.error("Warning: " + text + " The dry run goes on, and the ToC rows count as not compared.");
     }
     if (!tocMissing) serverToc = new Map((await pb.listAll(TOC_COLLECTION, { perPage: 500 })).map((r) => [`${r.book}|${r.order}`, r]));
+    // Unit VW104 (Q-A 3:45.2): the collection v1_placeholders. --apply stops without it. A dry run warns and shows the v1 pages as not compared.
+    // S2 reads the fields that it compares (no md text), 500 records for each call.
+    try {
+      await pb.call("GET", `/api/collections/${V1_COLLECTION}`);
+    } catch {
+      v1Missing = true;
+      const text = `Collection ${V1_COLLECTION} is missing. Restart PocketBase so that migration 1793300016 runs.`;
+      if (o.apply) fail(text);
+      console.error("Warning: " + text + " The dry run goes on, and the v1 pages count as not compared.");
+    }
+    if (!v1Missing) {
+      serverV1 = new Map(
+        (await pb.listAll(V1_COLLECTION, { perPage: 500, fields: "id,slug,n,page_id,sha256" })).map((r) => [
+          v1Key(String(r.slug), Number(r.n)),
+          { id: String(r.id), slug: String(r.slug), n: Number(r.n), page_id: String(r.page_id ?? ""), sha256: String(r.sha256 ?? "") },
+        ]),
+      );
+    }
     const qs = (v) => JSON.stringify(String(v)); // a PocketBase filter text
     sysUser = (await pb.listAll("users", { filter: `email=${qs(WEB_SYSTEM_EMAIL)}`, fields: "id,email,disabled" }))[0] ?? null;
     ownRows = await pb.listAll("own_translations", sysUser ? { filter: `user!=${qs(sysUser.id)}` } : {});
@@ -898,6 +950,8 @@ const tocPlan = tocRecords.map((c) => {
 });
 const tocKeys = new Set(tocRecords.map((c) => `${c.book}|${c.order}`));
 const tocServerOnly = serverToc ? [...serverToc.keys()].filter((k) => !tocKeys.has(k)) : []; // S2 never deletes a ToC record
+const v1Plan = planV1(v1Records, serverV1); // unit VW104: create a new page, update a changed page (SHA-256 or page ID), leave an equal page
+const v1ServerOnlyKeys = v1ServerOnly(v1Records, serverV1); // S2 never deletes a v1 page
 const serverOnly = serverRuns
   ? [...serverRuns.values()].filter((r) => !localAll.has(`${r.page_id}|${r.run_id}`) && (!filtered || filter.has(String(r.page_id))))
   : [];
@@ -1175,6 +1229,13 @@ for (const book of [...new Set(tocRecords.map((c) => c.book))].sort()) {
 }
 console.log(`book_toc | ${tocRecords.length} rows in ${new Set(tocRecords.map((c) => c.book)).size} books${tocMissing ? " (the collection is missing on the server)" : serverToc ? `, ${tocServerOnly.length} record(s) on the server that the file does not hold (kept)` : " (not compared)"}`);
 console.log("");
+// Unit VW104 (Q-A 3:45.2): the v1 placeholder pages. S2 never deletes one, so a record that the folder no longer holds is only counted (see the Result lines below).
+{
+  const c = v1Counts(v1Plan);
+  const tail = v1Missing ? " (the collection is missing on the server)" : serverV1 ? `: ${fmt(c.create)} new, ${fmt(c.update)} changed, ${fmt(c.unchanged)} same` : " (not compared)";
+  console.log(`v1_placeholders | ${fmt(v1Records.length)} pages in ${fmt(v1Load.works)} works${tail}, ${mb(v1Load.bytes)}`);
+}
+console.log("");
 // Unit VW77e: the book runs found in the book stores, and which of them are open (Q-A 3:11.1 and 3:11.2).
 console.log("book runs | book | place | run ID | readers | PASS pages | other pages | used | outside the selection | page run folder missing");
 for (const r of bookReport) {
@@ -1232,6 +1293,7 @@ const done = { created: [], updated: [], unchanged: [], failed: [] };
 const itemDone = { created: [], updated: [], unchanged: [], failed: [] };
 const chapterDone = { created: [], updated: [], unchanged: [], failed: [] };
 const tocDone = { created: [], updated: [], unchanged: [], failed: [] }; // unit VW77e
+const v1Done = { created: [], updated: [], unchanged: [], failed: [] }; // unit VW104
 const readerDone = { created: [], updated: [], unchanged: [], removed: [], failed: [] };
 // Unit RT73a: results of the web articles. user is "created", "exists", or "".
 const webDone = {
@@ -1298,6 +1360,21 @@ if (o.apply) {
       tocDone.failed.push(`${label}: ${e.message}`);
     }
   }
+  // Unit VW104 (Q-A 3:45.2): create or update each v1 page, 8 calls at the same time. S2 never deletes one.
+  await pool(v1Plan, 8, async (p) => {
+    const label = `${p.c.slug}#${p.c.n}`;
+    if (p.action === "unchanged") {
+      v1Done.unchanged.push(label);
+      return;
+    }
+    try {
+      if (p.action === "create") await pb.call("POST", `/api/collections/${V1_COLLECTION}/records`, p.c);
+      else await pb.call("PATCH", `/api/collections/${V1_COLLECTION}/records/${encodeURIComponent(p.id)}`, p.c);
+      (p.action === "create" ? v1Done.created : v1Done.updated).push(label);
+    } catch (e) {
+      v1Done.failed.push(`${label}: ${e.message}`);
+    }
+  });
   for (const p of readerPlan) {
     if (p.action === "unchanged") {
       readerDone.unchanged.push(p.pageId);
@@ -1385,6 +1462,7 @@ if (o.apply) {
   for (const r of readerRemove) readerDone.removed.push(r.pageId);
   for (const p of chapterPlan) if (p.action !== "not compared") (p.action === "create" ? chapterDone.created : p.action === "update" ? chapterDone.updated : chapterDone.unchanged).push(p.c.chapter);
   for (const p of tocPlan) if (p.action !== "not compared") (p.action === "create" ? tocDone.created : p.action === "update" ? tocDone.updated : tocDone.unchanged).push(`${p.c.book}#${p.c.order}`);
+  for (const p of v1Plan) if (p.action !== "not compared") (p.action === "create" ? v1Done.created : p.action === "update" ? v1Done.updated : v1Done.unchanged).push(`${p.c.slug}#${p.c.n}`);
   for (const p of plan) if (p.action !== "not compared") (p.action === "create" ? done.created : p.action === "update" ? done.updated : done.unchanged).push(`${p.x.pageId} ${p.x.run.runId}`);
   for (const p of itemPlan) if (p.action !== "not compared") (p.action === "create" ? itemDone.created : p.action === "update" ? itemDone.updated : itemDone.unchanged).push(p.it.slug);
   // Unit RT73a
@@ -1437,6 +1515,17 @@ console.log("book_toc (unit VW77e)");
   console.log(`  skipped rows of book-toc.jsonl: ${tocLoad.skipped.length}`);
   if (!o.offline && !tocMissing) console.log(`  on the server only (never deleted): ${tocServerOnly.length}`);
 }
+console.log("v1_placeholders (unit VW104)");
+{
+  const v1Compared = (name, list) => (o.offline || v1Missing ? console.log(`  ${name}: not compared`) : console.log(`  ${name}: ${fmt(list.length)}`));
+  v1Compared(word[0], v1Done.created);
+  v1Compared(word[1], v1Done.updated);
+  v1Compared(word[2], v1Done.unchanged);
+  // Up to 5 failures show in the line. A damaged server could fail thousands of pages.
+  if (o.apply) console.log(`  failed: ${v1Done.failed.length}${v1Done.failed.length ? " (" + v1Done.failed.slice(0, 5).join(", ") + (v1Done.failed.length > 5 ? ", ..." : "") + ")" : ""}`);
+  console.log(`  skipped (a damaged file, or a file name that is not page_NNN.md): ${v1Load.warnings.length}`);
+  if (!o.offline && !v1Missing) console.log(`  on the server only (never deleted): ${v1ServerOnlyKeys.length}`);
+}
 console.log("book runs (unit VW77e)");
 {
   const openRuns = bookReport.filter((r) => r.open);
@@ -1472,4 +1561,4 @@ line("on the server only (kept)", readerServerOnly);
 console.log(`Total snapshot size: ${mb(total)} for ${selected.length} run(s)`);
 console.log(`Total reader_pages size: ${mb(readerTotal)} for ${readerPlan.length} record(s)`);
 if (!o.apply) console.log("Nothing was written. Add --apply to write.");
-process.exit(done.failed.length || itemDone.failed.length || chapterDone.failed.length || tocDone.failed.length || readerDone.failed.length || webDone.reader.failed.length || webDone.versions.failed.length || webDone.own.failed.length ? 1 : 0);
+process.exit(done.failed.length || itemDone.failed.length || chapterDone.failed.length || tocDone.failed.length || v1Done.failed.length || readerDone.failed.length || webDone.reader.failed.length || webDone.versions.failed.length || webDone.own.failed.length ? 1 : 0);

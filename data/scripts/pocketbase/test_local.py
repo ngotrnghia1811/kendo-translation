@@ -109,6 +109,8 @@ EXPECTED_RULES = {
     "reader_progress": {"listRule": READ_OK + " && user = @request.auth.id", "viewRule": READ_OK + " && user = @request.auth.id",
                         "createRule": READ_OK + " && @request.body.user = @request.auth.id",
                         "updateRule": READ_OK + " && user = @request.auth.id && @request.body.user:changed = false", "deleteRule": None},
+    # Migration 1793300016 (unit VW104, Q-A 3:44.4, 3:45.2, 3:45.3): the v1 placeholder md text of each page. Same read rule as reader_pages. Only the superuser writes.
+    "v1_placeholders": {"listRule": READ_OK, "viewRule": READ_OK, "createRule": None, "updateRule": None, "deleteRule": None},
     # Migration 1793300005 (unit UXC, round 59 answer 6): a user reads and changes the own settings record only. Nobody deletes.
     "user_settings": {"listRule": OWN_ONLY, "viewRule": OWN_ONLY,
                       "createRule": '@request.auth.id != "" && @request.body.user = @request.auth.id',
@@ -1016,6 +1018,57 @@ def check_web_fields(ctx):
     ctx.check("24m the RT73a test records and the test account are removed again", all(http("GET", "/api/collections/" + c + "/records?perPage=1&filter=" + urllib.parse.quote(fl), token=su)[1].get("totalItems") == 0 for c, fl in (("own_translations", 'item_id="rt73x"'), ("reader_versions", 'page_id~"rt73x/"'), ("users", 'name="kendojidai.com"'))), "")
 
 
+def check_v1_placeholders(ctx):
+    """Migration 1793300016 (unit VW104, Q-A 3:44.4, 3:45.2, 3:45.3): the collection v1_placeholders for the v1 placeholder md text of each page.
+    The read rule is the rule of reader_pages. Only the superuser writes. The text is made up."""
+    su = ctx.su_token
+    t = ctx.token
+    path = "/api/collections/v1_placeholders/records"
+    col = get_collection(ctx, "v1_placeholders") or {}
+    fields = {f.get("name"): f for f in col.get("fields", [])}
+    ctx.check("25a v1_placeholders is a base collection with slug, n, page_id, md, sha256", col.get("type") == "base" and all(k in fields for k in ("slug", "n", "page_id", "md", "sha256")), "fields " + str(sorted(fields)))
+    ctx.check("25b slug, n and page_id are required, n is a whole number from 1, md has max 200000 characters",
+              all(fields.get(k, {}).get("required") for k in ("slug", "n", "page_id")) and fields.get("n", {}).get("onlyInt") is True and fields.get("n", {}).get("min") == 1 and fields.get("md", {}).get("max") == 200000, "fields " + str(fields.get("n")) + str(fields.get("md")))
+    indexes = " | ".join(col.get("indexes") or []).replace("`", "")
+    ctx.check("25c a unique index on (slug, n) and an index on slug", "UNIQUE INDEX" in indexes.upper() and "(slug, n)" in indexes and "(slug)" in indexes, indexes)
+    ctx.check("25d the rules equal the rules of reader_pages (read: signed in and approved, translator or admin; write: superuser only)",
+              all(col.get(k) == EXPECTED_RULES["v1_placeholders"][k] for k in ("listRule", "viewRule", "createRule", "updateRule", "deleteRule")), "rules differ")
+    big = ("---\n" + "あ" * 30 + "。\nA made-up English line that has some length to it.\n这是一个编造的句子。\n") * 700
+    status, rec = http("POST", path, {"slug": "vw104x", "n": 1, "page_id": "vw104x/p001", "md": big, "sha256": "a" * 64}, su)
+    ctx.check("25e the superuser writes a large made-up md (%d characters)" % len(big), is_ok(status) and rec.get("md") == big, "status " + str(status) + " " + str(rec)[:200])
+    rid = rec.get("id", "x")
+    status, _ = http("POST", path, {"slug": "vw104x", "n": 2, "page_id": "vw104x/p002", "md": "x" * 200001, "sha256": "b" * 64}, su)
+    ctx.check("25f a md over 200,000 characters fails", is_denied(status), "status " + str(status))
+    status, _ = http("POST", path, {"slug": "vw104x", "n": 1, "page_id": "vw104x/p001", "md": "again", "sha256": "c" * 64}, su)
+    ctx.check("25g a second record for the same (slug, n) fails (unique index)", is_denied(status), "status " + str(status))
+    status, _ = http("POST", path, {"slug": "vw104x", "n": 0, "page_id": "vw104x/p000", "md": "zero", "sha256": "d" * 64}, su)
+    ctx.check("25h n = 0 fails", is_denied(status), "status " + str(status))
+    status, _ = http("POST", path, {"slug": "vw104x", "n": 2, "md": "no page id", "sha256": "e" * 64}, su)
+    ctx.check("25i a record with no page_id fails", is_denied(status), "status " + str(status))
+    status, data = http("GET", path)
+    ctx.check("25j a guest gets no v1_placeholders record", is_denied(status) or data.get("totalItems", 1) == 0, "status " + str(status))
+    status, _ = http("GET", path + "/" + rid)
+    ctx.check("25k a guest cannot view a record", is_denied(status), "status " + str(status))
+    status, data = http("GET", path, token=t["su1"])
+    ctx.check("25l a not approved reader gets no record", is_denied(status) or data.get("totalItems", 1) == 0, "status " + str(status))
+    status, _ = http("GET", path + "/" + rid, token=t["su1"])
+    ctx.check("25m a not approved reader cannot view a record", is_denied(status), "status " + str(status))
+    for who in ("rd1", "rd2", "tr1", "admin1"):
+        status, data = http("GET", path + "?filter=" + urllib.parse.quote('slug="vw104x"') + "&fields=n", token=t[who])
+        ctx.check("25n " + who + " lists the record with a filter on slug and the field n", is_ok(status) and data.get("totalItems") == 1 and data["items"][0].get("n") == 1, "status " + str(status))
+        status, one = http("GET", path + "/" + rid, token=t[who])
+        ctx.check("25o " + who + " views the whole md", is_ok(status) and one.get("md") == big, "status " + str(status))
+    for who in ("su1", "rd1", "rd2", "tr1", "admin1"):
+        s1, _ = http("POST", path, {"slug": "vw104y", "n": 1, "page_id": "vw104y/p001", "md": "x", "sha256": "f" * 64}, t[who])
+        s2, _ = http("PATCH", path + "/" + rid, {"md": "changed"}, t[who])
+        s3, _ = http("DELETE", path + "/" + rid, token=t[who])
+        ctx.check("25p " + who + " cannot create, update or delete (only the superuser)", is_denied(s1) and is_denied(s2) and is_denied(s3), "status " + str((s1, s2, s3)))
+    status, one = http("GET", path + "/" + rid, token=su)
+    ctx.check("25q the record is whole after the denied writes", is_ok(status) and one.get("md") == big, "status " + str(status))
+    http("DELETE", path + "/" + rid, token=su)
+    ctx.check("25r the test record is removed again (the collection is empty for the down check)", http("GET", path + "?perPage=1", token=su)[1].get("totalItems") == 0, "")
+
+
 def count_records(ctx):
     counts = {}
     for name in ("own_translations", "comments", "run_marks", "page_runs", "user_settings"):
@@ -1089,7 +1142,7 @@ def check_restart(ctx, server, shape_dir, counts):
     ctx.check("13a records survive the restart", count_records(ctx) == counts, "counts differ")
     server.stop()
     removed = forget_v2_history(shape_dir)
-    ctx.check("13b v2 history rows removed for the test (16 expected, unit VW102 added migration 1793300015)", removed == 16, "removed " + str(removed))
+    ctx.check("13b v2 history rows removed for the test (17 expected, unit VW104 added migration 1793300016)", removed == 17, "removed " + str(removed))
     try:
         server.start()
         ok, reason = True, ""
@@ -1106,7 +1159,7 @@ def check_restart(ctx, server, shape_dir, counts):
     log = open(server.log_path, "rb").read().decode("utf-8", "replace")
     exists_lines = len(re.findall(r"v2 migration: collection \w+ exists, left as it is", log))
     ctx.info("13b log lines 'collection ... exists, left as it is': " + str(exists_lines))
-    ctx.check("13b the second run reports the 14 existing collections (6 of 1793300001, user_settings, 3 of 1793300007, 2 of 1793300008, reader_opens of 1793300012, book_toc of 1793300013)", exists_lines == 14, "lines " + str(exists_lines))
+    ctx.check("13b the second run reports the 15 existing collections (6 of 1793300001, user_settings, 3 of 1793300007, 2 of 1793300008, reader_opens of 1793300012, book_toc of 1793300013, v1_placeholders of 1793300016)", exists_lines == 15, "lines " + str(exists_lines))
     approved_lines = len(re.findall(r"v2 migration: field approved exists, data left as it is", log))
     ctx.check("13b the second run reports that the field approved exists and leaves the data (migration 1793300006)", approved_lines == 1, "lines " + str(approved_lines))
     status, data = http("GET", "/api/collections/users/records?filter=" + urllib.parse.quote('email="' + addr("su1") + '"'), token=ctx.su_token)
@@ -1122,15 +1175,15 @@ def check_restart(ctx, server, shape_dir, counts):
 
 def check_down_up(ctx, server, shape_dir):
     server.stop()
-    code, output = run_cli(server, ["migrate", "down", "16"])
-    ctx.check("15a migrate down 16 exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
+    code, output = run_cli(server, ["migrate", "down", "17"])
+    ctx.check("15a migrate down 17 exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
     ctx.check("15q down of migration 1793300011 prints that the field own_translations.facts stays (soft down)", "the field own_translations.facts stays" in output, output.strip()[-300:])
     ctx.check("15o down of migration 1793300010 prints that the 4 fields stay (soft down)", "the fields catalog_items.translated, catalog_items.placement, reader_pages.search_ja, and reader_pages.search_en stay" in output, output.strip()[-300:])
     ctx.check("15g down turns the batch API off", batch_enabled_db(shape_dir) is False, "batch " + repr(batch_enabled_db(shape_dir)))
     ctx.check("15b down sets users authRule to empty", users_auth_rule(shape_dir) == "", "authRule " + repr(users_auth_rule(shape_dir)))
     names = {row["name"] for row in read_collections_db(shape_dir)}
     kept = {"own_translations", "comments", "run_marks", "page_runs", "user_settings"}
-    gone = {"catalog_items", "magazine_chapters", "reader_pages", "reader_versions", "page_checks", "reader_bookmarks", "reader_progress", "reader_opens"}
+    gone = {"catalog_items", "magazine_chapters", "reader_pages", "reader_versions", "page_checks", "reader_bookmarks", "reader_progress", "reader_opens", "v1_placeholders"}
     ctx.check("15c down keeps collections with records and drops empty ones",
               kept <= names and not (gone & names), "kept " + str(sorted(kept & names)) + " empty-left " + str(sorted(gone & names)))
     down_runs = next((row for row in read_collections_db(shape_dir) if row["name"] == "page_runs"), {})
@@ -1152,7 +1205,7 @@ def check_down_up(ctx, server, shape_dir):
     ctx.check("15e up sets users authRule again", users_auth_rule(shape_dir) == "disabled = false",
               "authRule " + repr(users_auth_rule(shape_dir)))
     names = {row["name"] for row in read_collections_db(shape_dir)}
-    ctx.check("15f up creates the collections again (13 with the reader collections and reader_opens)", set(NEW_COLLECTIONS) <= names, "missing " + str(sorted(set(NEW_COLLECTIONS) - names)))
+    ctx.check("15f up creates the collections again (14 with the reader collections, reader_opens, and v1_placeholders)", set(NEW_COLLECTIONS) <= names, "missing " + str(sorted(set(NEW_COLLECTIONS) - names)))
     up_runs = next((row for row in read_collections_db(shape_dir) if row["name"] == "page_runs"), {})
     ctx.check("15j up sets the page_runs list and view rules to translator or admin (migration 1793300009)",
               up_runs.get("listRule") == STAFF and up_runs.get("viewRule") == STAFF,
@@ -1187,6 +1240,7 @@ def run_shape(shape, v1_dir, res):
         check_reader_pages(ctx)
         check_dashboard_fields(ctx)
         check_web_fields(ctx)
+        check_v1_placeholders(ctx)
         counts = count_records(ctx)
         check_restart(ctx, server, shape_dir, counts)
         check_down_up(ctx, server, shape_dir)

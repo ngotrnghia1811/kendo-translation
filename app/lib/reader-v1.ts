@@ -1,7 +1,8 @@
 // The v1 placeholder: block rule of the v1 md files (unit RT73a, round 73; VISION-viewer 15.26.9, unit default D28).
 // No import of server code and no server-only marker, so the page code and a test script can load it.
 // The v1 text is text of the browser Gemini agent of v1. The owner calls it a placeholder "for display testing purpose ONLY" (round 73c answer 3).
-// It counts in no number, it is not searched, and it is not stored in the database (round 73c answer 2, round 73d answer 8).
+// It counts in no number and it is not searched (round 73c answer 2). It sits in the PocketBase collection v1_placeholders for the public site
+// (owner picks of 2026-11-14: Q-A 3:44.4 "Show the placeholder on v2", Q-A 3:45.2 "A. PocketBase collection", unit VW104). The text of that collection goes into no search column.
 import type { ReaderV1Row } from "./reader-types";
 
 /** File name of page n in a v1 folder: page_051.md, and page_1000.md for a page number over 999. */
