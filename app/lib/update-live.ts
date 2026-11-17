@@ -26,6 +26,8 @@ import { providerWords } from "./model-card";
 import { ROLE_ORDER, isContentFilter, waitTexts } from "./phase2-wait-reason";
 import type { WaitExtra } from "./phase2-wait-reason";
 import { UPDATE_ROLE_WORDS } from "./step-tree";
+import { fallbackOf, fallbackText } from "./fallback-model";
+import type { FallbackModel } from "./fallback-model";
 
 /** The number of roles of an update point. */
 export const ROLES_TOTAL = ROLE_ORDER.length;
@@ -174,6 +176,8 @@ export interface UpdateLive {
    * The call then waits for its next try. The try number of the key running_update is not used then, because it is not known if it names the try that ended or the next one.
    */
   filterWait?: boolean;
+  /** Unit VW108 (Q-A 3:71.3 row 1): the fallback model of the running try (TR96 keys model, variant, step, steps). Null or absent: the model of the role. */
+  fallback?: FallbackModel | null;
 }
 
 // ---------------------------------------------------------------- the key running_update (TR93)
@@ -190,6 +194,8 @@ export interface LiveBase {
   card: string | null;
   startedEpoch: number | null;
   tryStartedEpoch: number | null;
+  /** Unit VW108: the fallback model of the try (lib/fallback-model.ts). Absent for the folder rule. */
+  fallback?: FallbackModel | null;
 }
 
 /**
@@ -207,6 +213,8 @@ export function runningUpdateOf(v: unknown): LiveBase | null {
   const roleRaw = str(r.role, 60);
   const role = roleRaw ?? info?.role ?? null;
   const byName = role ? ROLE_ORDER.indexOf(role) + 1 : 0;
+  // Unit VW108 (Q-A 3:71.3 row 1): TR96 adds model, variant, step, steps. Step 0 or missing keys give no key "fallback", so the TR93 shape stays the same.
+  const fallback = fallbackOf(r);
   return {
     page: str(r.page, 120),
     box,
@@ -218,6 +226,7 @@ export function runningUpdateOf(v: unknown): LiveBase | null {
     card: cardIdOf(r.card),
     startedEpoch: parseUtcIso(r.started_utc),
     tryStartedEpoch: parseUtcIso(r.try_started_utc),
+    ...(fallback ? { fallback } : {}),
   };
 }
 
@@ -492,6 +501,8 @@ export function buildLive(i: LiveInput): UpdateLive {
     wait: i.wait,
     waitExtra: i.waitExtra,
     filterWait,
+    // Unit VW108: only the key running_update names the model of the try. The folder rule has no model step.
+    fallback: byStatus ? (b.fallback ?? null) : null,
   };
 }
 
@@ -537,6 +548,8 @@ export function updatePieces(u: UpdateLive, now: number): string[] {
   if (role) out.push(role);
   const t = tryText(u);
   if (t) out.push(t);
+  // Unit VW108 (Q-A 3:71.3 row 1): "· fallback model 1 of 3: Fable 5.2 low" after the try piece. No piece for the model of the role.
+  if (u.fallback) out.push(fallbackText(u.fallback));
   if (u.tryStartedEpoch !== null) out.push(durationText(now - u.tryStartedEpoch));
   else if (u.startedEpoch !== null) out.push(`${durationText(now - u.startedEpoch)} since the update point started`);
   return out;

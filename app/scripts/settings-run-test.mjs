@@ -201,8 +201,11 @@ await check("settings and both pause routes refuse foreign/missing Host before a
 });
 const file = path.join(config, "translator-settings.json");
 const historyFile = path.join(config, "translator-settings.history.jsonl");
+// Unit VW108 (Q-A 3:71.3 row 3): the fixed count 5 broke when TR94 added a sixth model. The test now counts the distinct values of the
+// "model:" lines of the model file that this test reads (the copy in the fixture config folder), so a new model does not break it again.
+const modelFileCount = new Set([...(await fs.readFile(path.join(config, "translator-models.yaml"), "utf8")).matchAll(/^[ \t]*model:[ \t]*["']?([^"'#\s]+)/gm)].map((m) => m[1])).size;
 await check("N stays absent on load and a non-N save", async () => {
-  const s = await store.readSettings(); assert.equal(s.error, null); assert.equal(s.exists, false); assert.ok(!Object.hasOwn(s.overrides, "update.N")); assert.equal(s.models.length, 5);
+  const s = await store.readSettings(); assert.equal(s.error, null); assert.equal(s.exists, false); assert.ok(!Object.hasOwn(s.overrides, "update.N")); assert.ok(modelFileCount >= 1); assert.equal(s.models.length, modelFileCount);
   const next = await route.PUT(request(undefined, undefined, { sha1: null, settings: { run: { jobs: 2 } } })); assert.equal(next.status, 200, await next.clone().text());
   const d = JSON.parse(await fs.readFile(file, "utf8")); assert.ok(!d.update); assert.equal(d.revision, 1); assert.equal(d.run.jobs, 2);
   assert.ok(!(await fs.readdir(config)).some((n) => n.endsWith(".part")));
@@ -420,3 +423,5 @@ await fs.writeFile(path.join(u, "logs/latest-fixture.txt"), fixture + "\n");
 console.log(`VW77d contracts: ${count} checks PASS; fixture ${fixture}`);
 // Keep the status fresh for the owner's later fixture screenshot, without a false active process.
 await fs.writeFile(path.join(data, "book-store/paired-dataset/status.json"), JSON.stringify({ state: "stopped", running_page: null }));
+// Unit VW108 (card P43.1 check c3): the summary line of scripts/vw-test-kit.mjs. A failed check throws before this line, so "0 failed" is true here.
+console.log(`${count} passed, 0 failed`);

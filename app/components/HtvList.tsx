@@ -35,7 +35,9 @@ export default function HtvList({ rows }: { rows: HtvBookRow[] }) {
                   {r.title || r.slug}
                 </Link>
               </td>
-              <td className="pr-4 font-mono text-xs">{r.slug}</td>
+              {/* Unit VW108 (Q-A 3:71.3 row 2): a slug such as ki_breath_full_clean has no break point and held the column at 145 px, so the table
+                  needed 436 px at 390 px screen width. break-all lets the slug wrap at any letter, so the table fits its box. */}
+              <td className="pr-4 font-mono text-xs break-all">{r.slug}</td>
               <td className="pr-4">{r.pages || <span className="text-muted">–</span>}</td>
               <td className="pr-4">{r.tagged}</td>
             </tr>
