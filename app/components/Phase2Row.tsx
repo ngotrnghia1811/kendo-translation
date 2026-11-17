@@ -8,6 +8,8 @@ import { updateLines } from "@/lib/update-live";
 import { BoxText } from "./BoxCode";
 
 const STEPS_LINE: Phase2Line = { key: "steps", text: "Step view of the whole run, page by page and step by step: ", links: [{ text: "Steps", href: "/monitor/phase-2" }] };
+// Unit VW106 (Q-A 3:64.5 row 3): the vector map of the prompt points, one map for each box type, read only.
+const VECTOR_MAP_LINE: Phase2Line = { key: "vector-map", text: "Points of the stored prompt versions, one map for each box type: ", links: [{ text: "Vector map", href: "/monitor/vector-map" }] };
 
 // Unit VW91 (round 91), Q-A 3:4.6 (2026-11-11 10:42 PST): "Small live row now (VW91)". Read only: no button (the owner runs phase 2 in his terminal, Q-A 3:3.7).
 // It replaces the fixed line "Phase 2 (paired dataset): no run record yet." when book-store/paired-dataset/status.json exists. Without the file the old line stays.
@@ -56,7 +58,7 @@ export default function Phase2Row({ view, now, articles }: { view: Phase2View | 
     }
     if (l.key === "links" && over["run-view"]) lines.push({ key: "run-view", ...over["run-view"] });
     // Unit VW95 (round 91), Q-A 3:17.6: the link "Steps" opens the step view /monitor/phase-2 (the whole run, page by page and step by step).
-    if (l.key === "links") lines.push(STEPS_LINE);
+    if (l.key === "links") lines.push(STEPS_LINE, VECTOR_MAP_LINE);
     const o = l.key === "error" ? undefined : over[l.key];
     lines.push(o ? { ...l, text: o.text, links: o.links ?? l.links } : l);
   }
