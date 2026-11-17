@@ -1,11 +1,13 @@
 import { BoxCode } from "./BoxCode";
 import VectorMapChart, { type Axes } from "./VectorMapChart";
 import VectorMapSlider from "./VectorMapSlider";
+import VectorMapPrompt from "./VectorMapPrompt";
 import { pstTime } from "@/lib/htv-pst";
 import { BOX_TYPES, moved, oneDecimal, pointBody, pointHistory, type BoxMap, type PointStep } from "@/lib/vector-map-rules";
+import { pointEnds, wordDiff } from "@/lib/vector-map-detail";
 
 // Unit VW106: the vector map screen /monitor/vector-map on the Monitor dashboard on this Mac (Q-A 3:64.5 row 3).
-// Everything is a link with the state in the address (?box=&v=&axes=&p=), so the server renders each view and the client part is the slider only.
+// Box, version, axes, and point stay in the address. VW107 zoom, filters, and the prompt dialog stay local.
 
 export const VM_PATH = "/monitor/vector-map";
 
@@ -36,10 +38,13 @@ const pct = (v: number) => `${oneDecimal(v)} %`;
 
 function PointDetails({ map, id }: { map: BoxMap; id: string }) {
   const { steps, removedIn } = pointHistory(map, id);
-  if (steps.length === 0) return null;
+  const ends = pointEnds(map, id);
+  if (!ends) return null;
+  const diff = wordDiff(ends.start.text, ends.end.text);
+  const side = (s: PointStep, parts: typeof diff.start) => ({ version: s.version, num: s.num, prompt: map.versions.find((v) => v.version === s.version)?.text ?? "", parts });
   const last = steps[steps.length - 1];
   return (
-    <section data-vm-details aria-labelledby="vm-details-h" className="mt-6">
+    <section data-vm-details aria-labelledby="vm-details-h" className="min-w-0">
       <h2 id="vm-details-h" className="section-band mb-2 text-lg font-semibold">
         Point {last.num} of <BoxCode code={map.box} /> in each prompt version
       </h2>
@@ -48,7 +53,10 @@ function PointDetails({ map, id }: { map: BoxMap; id: string }) {
           This point is not in {removedIn} and later versions (removed).
         </p>
       ) : null}
-      <ol className="space-y-3">
+      <VectorMapPrompt start={side(ends.start, diff.start)} end={side(ends.end, diff.end)} />
+      <details data-vm-history className="mt-4">
+        <summary className="cursor-pointer text-sm font-semibold">Point text, values, and critique groups in each prompt version ({steps.length})</summary>
+      <ol className="mt-3 space-y-3">
         {steps.map((s, i) => {
           const sameText = i > 0 && pointBody(steps[i - 1].text) === pointBody(s.text);
           return (
@@ -90,6 +98,7 @@ function PointDetails({ map, id }: { map: BoxMap; id: string }) {
           );
         })}
       </ol>
+      </details>
     </section>
   );
 }
@@ -159,30 +168,8 @@ export default function VectorMapView({ map, counts, state }: { map: BoxMap; cou
           <p data-vm-counts className="mt-2 text-sm">
             {pts.length} points · {added} new (hard add) · {movedCount} moved {prev ? `since ${prev.version}` : ""} · {cur.removed.length} removed
           </p>
-          <ul data-vm-legend className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
-            <li>
-              <svg width="14" height="14" aria-hidden="true" className="mr-1 inline align-[-2px]">
-                <circle cx="7" cy="7" r="4.5" style={{ fill: "var(--muted)" }} />
-              </svg>
-              point
-            </li>
-            <li>
-              <svg width="20" height="20" aria-hidden="true" className="mr-1 inline align-[-5px]">
-                <circle cx="10" cy="10" r="8" fill="none" strokeWidth="2.5" style={{ stroke: "var(--bar-ok)" }} />
-                <circle cx="10" cy="10" r="4" style={{ fill: "var(--muted)" }} />
-              </svg>
-              ring: new point (hard add)
-            </li>
-            <li>
-              <svg width="24" height="12" aria-hidden="true" className="mr-1 inline">
-                <line x1="1" y1="6" x2="18" y2="6" strokeWidth="2" style={{ stroke: "var(--bar-run)" }} />
-                <path d="M 17 2 L 23 6 L 17 10 z" style={{ fill: "var(--bar-run)" }} />
-              </svg>
-              arrow: soft move from the last version (0.1 percentage points or more)
-            </li>
-          </ul>
-          <div className="mt-2 max-w-3xl">
-            <VectorMapChart points={pts} axes={axes} top={top} selected={state.point} hrefOf={(id) => here({ point: id })} prevVersion={prev?.version ?? null} />
+          <div className="mt-4 min-w-0">
+            <VectorMapChart key={`${map.box}-${cur.version}-${axes}`} points={pts} removed={prev?.points.filter((p) => cur.removed.some((r) => r.id === p.id)) ?? []} axes={axes} top={top} selected={state.point} hrefs={Object.fromEntries([...pts, ...cur.removed].map((p) => [p.id, here({ point: p.id })]))} prevVersion={prev?.version ?? null} details={state.point ? <PointDetails map={map} id={state.point} /> : null} />
           </div>
           <p className="mt-1 text-xs text-muted">
             Program counts: comprehensiveness is the share of the prompt characters in the point. Importance is the share of the emphasis marks: citations by other points and the words must, never, always, only, do not, every.
@@ -220,7 +207,6 @@ export default function VectorMapView({ map, counts, state }: { map: BoxMap; cou
               })}
             </ul>
           </details>
-          {state.point ? <PointDetails map={map} id={state.point} /> : null}
         </>
       )}
     </div>

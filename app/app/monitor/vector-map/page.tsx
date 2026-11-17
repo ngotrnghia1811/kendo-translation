@@ -31,7 +31,7 @@ export default async function VectorMapPage({ searchParams }: { searchParams: Pr
       </h1>
       <p className="mb-3 max-w-3xl text-sm text-muted">
         One map for each box type. One dot for each numbered point of a stored prompt version. Across: comprehensiveness, how detailed the point is described in the prompt. Up:
-        importance, how much the prompt emphasizes the point. A hard critique adds a point (ring). A soft critique moves a point (arrow). Click a dot to see its text in each version and the critique groups that changed it.
+        importance, how much the prompt emphasizes the point. Click a point to compare its start and end versions, open the whole prompt, or read its critique groups.
       </p>
       <VectorMapView map={map} counts={counts} state={{ box, version: one(q.v), axes: one(q.axes) === "model" ? "model" : "program", point: one(q.p) }} />
     </section>

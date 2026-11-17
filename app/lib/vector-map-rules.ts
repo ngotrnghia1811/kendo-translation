@@ -220,6 +220,8 @@ export interface MapPoint {
 
 export interface MapVersion {
   version: string;
+  /** Exact prompt text for the start/end whole-prompt view (VW107). */
+  text: string;
   parent: string | null;
   created_utc: string | null;
   update_point: string | null;
@@ -291,6 +293,7 @@ export function buildBoxMap(box: string, inputs: VersionInput[], scores: (versio
     }
     versions.push({
       version: v,
+      text: input.text,
       parent: input.parent,
       created_utc: input.created_utc,
       update_point: input.update_point,
