@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { HtvBookRow } from "@/lib/htv-types";
 import { Pane, PaneCog } from "./PaneSettings";
+import { bookNames } from "@/lib/htv-titles";
 
 // Book list of the human-translation-view (unit UXC step D, round 59). Round 59 answer 4 (Q-A 2026-10-28 l222): the list shows the books
 // that have a finished run until the owner decides (constant BOOK_LIST_MODE in lib/htv-books.ts). One click opens the book screen with all pages.
@@ -22,26 +23,33 @@ export default function HtvList({ rows }: { rows: HtvBookRow[] }) {
         <thead className="border-b border-line text-xs uppercase tracking-wide text-muted">
           <tr>
             <th className="py-1.5 pr-4">Book</th>
-            <th className="pr-4">Name</th>
             <th className="pr-4">Pages</th>
             <th className="pr-4">Pages with an agent translation</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
-            <tr key={r.slug} className="border-b border-line/60" data-book={r.slug} data-pages={r.pages} data-tagged={r.tagged}>
-              <td className="py-1.5 pr-4">
-                <Link href={`/translate/${encodeURIComponent(r.slug)}`} className="font-medium text-accent underline">
-                  {r.title || r.slug}
-                </Link>
-              </td>
-              {/* Unit VW108 (Q-A 3:71.3 row 2): a slug such as ki_breath_full_clean has no break point and held the column at 145 px, so the table
-                  needed 436 px at 390 px screen width. break-all lets the slug wrap at any letter, so the table fits its box. */}
-              <td className="pr-4 font-mono text-xs break-all">{r.slug}</td>
-              <td className="pr-4">{r.pages || <span className="text-muted">–</span>}</td>
-              <td className="pr-4">{r.tagged}</td>
-            </tr>
-          ))}
+          {rows.map((r) => {
+            const n = bookNames(r.slug, r.titleEn, r.titleJa);
+            return (
+              <tr key={r.slug} className="border-b border-line/60" data-book={r.slug} data-pages={r.pages} data-tagged={r.tagged}>
+                {/* Unit VW109 (Q-A 3:73.2 "English, Japanese below"): one Book column. The English title is the link, the Japanese title is small gray text below it,
+                    and the file name (the slug) shows on hover only. The Name column of unit VW108 is gone, so its break-all stopgap is gone too.
+                    An item with no title shows the file name (Q-A 3:73.3 row 3). */}
+                <td className="py-1.5 pr-4">
+                  <Link href={`/translate/${encodeURIComponent(r.slug)}`} className="font-medium text-accent underline" title={n.hover || undefined} lang={n.mainLang || undefined} data-book-title>
+                    {n.main}
+                  </Link>
+                  {n.sub ? (
+                    <div className="text-xs text-muted" lang="ja" data-book-title-ja>
+                      {n.sub}
+                    </div>
+                  ) : null}
+                </td>
+                <td className="pr-4">{r.pages || <span className="text-muted">–</span>}</td>
+                <td className="pr-4">{r.tagged}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       </Pane>

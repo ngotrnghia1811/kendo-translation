@@ -5,6 +5,7 @@ import { chaptersOf, parseChapterRows } from "./chapters";
 import { loadHtvPage, listFinishedPages } from "./htv-runs";
 import { catalogInfo, listComments, magazineChapters, PbError, runMarkOf, savedRows, savedVersions } from "./pb";
 import type { ChapterHead, HtvBookIndex, HtvBookPage, HtvBookRow, HtvPageTag, SessionUser } from "./htv-types";
+import { filesBookFacts, WEB_ARTICLE, type BookFactsData } from "./htv-titles";
 
 /*
  * Book screen of the human-translation-view (unit UXC step D, round 59).
@@ -26,9 +27,6 @@ import type { ChapterHead, HtvBookIndex, HtvBookPage, HtvBookRow, HtvPageTag, Se
 export type BookListMode = "with-runs" | "all";
 export const BOOK_LIST_MODE: BookListMode = "all";
 
-/** Kind of a catalog row for a web article (the 311 articles of items.filled.jsonl). */
-const WEB_ARTICLE = "web-article";
-
 /** The page window: a section loads its rows when it is within this many pages of the screen (VISION-viewer 15.16.2). */
 export const WINDOW_PAGES = 2;
 
@@ -49,34 +47,25 @@ export function pageName(n: number, digits: number): string {
   return "p" + String(n).padStart(digits, "0");
 }
 
-interface BookFacts {
-  title: string;
-  pages: number;
-  /** Kind of the catalog row (runSource pocketbase only). Empty in files mode. */
-  kind?: string;
-}
-
 async function fromServer(): Promise<boolean> {
   return (await loadConfig()).runSource === "pocketbase";
 }
 
-/** Title and page count of books. With a slug the map holds that book only. */
-async function bookFacts(token: string, slug?: string): Promise<Map<string, BookFacts>> {
+/**
+ * Titles and page count of books. With a slug the map holds that book only.
+ * Unit VW109 (Q-A 3:73.3 row 1): both titles come in both modes. In files mode a web article matches its metadata row by the first 8 characters
+ * of item_id. The rule sits in lib/htv-titles.ts (filesBookFacts).
+ */
+async function bookFacts(token: string, slug?: string): Promise<Map<string, BookFactsData>> {
   if (await fromServer()) return catalogInfo(token, slug);
   let rows = await readJsonl<J>("item-metadata/items.filled.jsonl");
   if (rows.length === 0) rows = await readJsonl<J>("item-metadata/items.draft.jsonl");
   const slugs = await readJson<J>("pilot-sample/book-slugs.json");
-  const out = new Map<string, BookFacts>();
-  for (const b of (slugs?.books ?? []) as J[]) {
-    if (typeof b?.slug === "string") out.set(b.slug, { title: "", pages: typeof b.pages === "number" ? b.pages : 0 });
-  }
-  // Only the rows of the 36 book folders count. items.filled.jsonl holds 347 rows, and 311 of them are web articles with long IDs.
-  for (const r of rows) {
-    const id = String(r.item_id);
-    const old = out.get(id);
-    if (!old) continue;
-    out.set(id, { title: String(r.title_en || r.title_ja || ""), pages: typeof r.pages === "number" ? r.pages : old.pages });
-  }
+  const books = ((slugs?.books ?? []) as J[])
+    .filter((b) => typeof b?.slug === "string")
+    .map((b) => ({ slug: b.slug as string, pages: typeof b.pages === "number" ? b.pages : 0 }));
+  // items.filled.jsonl holds 347 rows: the 36 book folders and 311 web articles with long IDs. A web article is listed only when it has a run (see listBookRows).
+  const out = filesBookFacts(rows, books);
   if (slug) return new Map([...out].filter(([k]) => k === slug));
   return out;
 }
@@ -103,7 +92,7 @@ export async function listBookRows(marks: Map<string, string>, token: string): P
   for (const slug of [...slugs].sort()) {
     const tags = tagged.get(slug) ?? [];
     const f = facts.get(slug);
-    rows.push({ slug, title: f?.title ?? "", pages: pageCount(f?.pages ?? 0, tags), tagged: tags.length });
+    rows.push({ slug, title: f?.title ?? "", titleEn: f?.titleEn ?? "", titleJa: f?.titleJa ?? "", pages: pageCount(f?.pages ?? 0, tags), tagged: tags.length });
   }
   return rows;
 }
@@ -133,7 +122,7 @@ export async function loadBookIndex(slug: string, marks: Map<string, string>, to
   const pages = pageCount(f?.pages ?? 0, tags);
   const firstTagged = mine[0];
   const digits = firstTagged ? firstTagged.page.length - 1 : idDigits(pages);
-  return { slug, title: f?.title ?? "", pages, digits, tags, chapters: await chaptersFor(slug, token) };
+  return { slug, title: f?.title ?? "", titleEn: f?.titleEn ?? "", titleJa: f?.titleJa ?? "", pages, digits, tags, chapters: await chaptersFor(slug, token) };
 }
 
 /** Page numbers of the window around a page: tagged pages within `radius` pages of `n`. */

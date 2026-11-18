@@ -10,6 +10,7 @@ import type { OpenSource, ReaderOpen } from "./reader-opens-rule";
 import type { PaneSettings, ThemeName } from "./htv-settings";
 import { isTheme } from "./htv-settings";
 import { pstDateOfPb } from "./pst-more";
+import { cleanTitle, titleText } from "./htv-titles";
 
 /*
  * ALL PocketBase calls of the app sit in this one module (round 54 answer 10, Q-A 2026-10-28 l129:
@@ -446,11 +447,18 @@ export async function catalogTitles(token: string, slug?: string): Promise<Map<s
  * The field pages is 0 for a web article (S2 looks up the short ID, the metadata row has the long ID).
  * Unit RC4 (round 70): the kind comes with it, so that the translator list can leave out web articles that have no run (round 61 answer 6).
  */
-export async function catalogInfo(token: string, slug?: string): Promise<Map<string, { title: string; pages: number; kind: string }>> {
+export async function catalogInfo(token: string, slug?: string): Promise<Map<string, { title: string; titleEn: string; titleJa: string; pages: number; kind: string }>> {
   const params: Record<string, string> = { fields: "item_id,kind,title_en,title_ja,pages" };
   if (slug) params.filter = `item_id=${q(slug)}`;
   const recs = await listAll(token, "catalog_items", params);
-  return new Map(recs.map((r) => [String(r.item_id), { title: String(r.title_en || r.title_ja || ""), pages: typeof r.pages === "number" ? r.pages : 0, kind: String(r.kind ?? "") }]));
+  // Unit VW109 (Q-A 3:73.2): both titles come with the item. title keeps the older rule (English, else Japanese).
+  return new Map(
+    recs.map((r) => {
+      const titleEn = cleanTitle(r.title_en);
+      const titleJa = cleanTitle(r.title_ja);
+      return [String(r.item_id), { title: titleText(titleEn, titleJa), titleEn, titleJa, pages: typeof r.pages === "number" ? r.pages : 0, kind: String(r.kind ?? "") }];
+    }),
+  );
 }
 
 /** The month chapters of one magazine year from magazine_chapters (filled by the sync command S2). Front chapter first, then by month. */

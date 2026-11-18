@@ -6,6 +6,7 @@ import { parsePageNumber } from "@/lib/htv-format";
 import { VerdictPill } from "./Pills";
 import { RawId } from "./Named"; // Unit VW96 (Q-A 3:17.4): "Page 1" with the page ID in small grey text, in place of the bare "slug/p001".
 import { capFirst, pageNumberText } from "@/lib/readable-names";
+import { bookNames } from "@/lib/htv-titles";
 import HtvIndex from "./HtvIndex";
 import HtvPageSection from "./HtvPageSection";
 import HtvPanelFrame, { CollapsedBar } from "./HtvPanelFrame";
@@ -570,15 +571,22 @@ export default function HtvBook({
   const shownItems = pageView ? items.slice(cur - 1, cur) : items;
   const curChapter = pageView ? index.chapters.find((c) => c.pageStart >= 1 && cur >= c.pageStart && cur <= c.pageEnd) : undefined;
   const panelPage = loaded[panelN];
+  const names = bookNames(slug, index.titleEn, index.titleJa);
 
   return (
     <div>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            {index.title || slug}
-            <span className="ml-3 font-mono text-sm font-normal text-muted">{slug}</span>
+          {/* Unit VW109 (Q-A 3:73.2, 3:73.3 row 2): the same names as the list. The English title is the heading, the Japanese title is small gray text below,
+              and the file name (the slug) shows on hover only. No title: the heading shows the file name. */}
+          <h1 className="text-xl font-semibold tracking-tight" title={names.hover || undefined} lang={names.mainLang || undefined} data-book-name>
+            {names.main}
           </h1>
+          {names.sub ? (
+            <p className="text-sm text-muted" lang="ja" data-book-name-ja>
+              {names.sub}
+            </p>
+          ) : null}
           <p className="mt-1 text-sm text-muted" data-book-facts>
             {pages} pages. {taggedCount} {taggedCount === 1 ? "page has" : "pages have"} an agent translation.
             {firstTagged ? (

@@ -142,7 +142,12 @@ export interface CommentView {
 /** One row of the book list. */
 export interface HtvBookRow {
   slug: string;
+  /** English title, else Japanese title. "" when the book has no title. */
   title: string;
+  /** English title (unit VW109). */
+  titleEn: string;
+  /** Japanese title (unit VW109). */
+  titleJa: string;
   /** Page count of the book (catalog_items.pages or items.filled.jsonl). */
   pages: number;
   /** Count of pages with a finished run. */
@@ -173,7 +178,12 @@ export interface ChapterHead {
 /** The page index of a book: the data that the server sends at once. */
 export interface HtvBookIndex {
   slug: string;
+  /** English title, else Japanese title. "" when the book has no title. */
   title: string;
+  /** English title (unit VW109). */
+  titleEn: string;
+  /** Japanese title (unit VW109). */
+  titleJa: string;
   /** Count of page sections. */
   pages: number;
   /** Digits of a page ID: 3, or 4 when the book has more than 999 pages (pages.py id_digits). */
