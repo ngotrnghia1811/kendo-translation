@@ -182,6 +182,30 @@ export interface DashWork {
   known: boolean;
   /** Page number of the saved place of the signed-in account, or null. */
   resumeAt: number | null;
+  /** Unit VW112 (Q-A 3:78.4): the facts that only the human translation view /translate shows. Missing on /read. */
+  staff?: DashStaffFacts;
+}
+
+/** Unit VW112 (Q-A 3:78.4): the extra facts of a work row on /translate. */
+export interface DashStaffFacts {
+  /** True when the book screen /translate/<book> opens for this work (a book folder, or a work with a finished run). */
+  opens: boolean;
+  /** True when the row is in a group of equal titles, so the file name shows in small gray text (Q-A 3:74.3). */
+  showFile: boolean;
+  /** The Monitor dashboard facts of the work on this Mac (files mode). Null in PocketBase mode, with the Monitor off, or with no Monitor row. */
+  monitor: DashMonitorFacts | null;
+}
+
+/** Unit VW112: the Monitor dashboard facts of one work, as plain text. */
+export interface DashMonitorFacts {
+  /** "book" for a book row of the Monitor dashboard, "phase 2" for an article of the grouped row "Phase 2 articles". */
+  source: "book" | "phase 2";
+  /** The state words, for example "Completed" or "Accepted: 4 of 4 pages". */
+  state: string;
+  /** The page progress, for example "12 of 120 pages". "" when the row has none. */
+  progress: string;
+  /** The sentence of line 2 of the Monitor row, for example "Stopped 3 h ago at p048". "" when the row has none. */
+  line: string;
 }
 
 /** One article row of a magazine month (magazine_chapters.articles). */

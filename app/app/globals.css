@@ -48,6 +48,7 @@
   --section-ink: #6e1b1b;
   --title: #7a1f1f;
   --button2-ink: #7a1f1f;
+  --open: #f6e7c8; /* unit VW112: the highlight of an open fold (Q-A 3:78.4) */
 }
 
 @theme inline {
@@ -89,6 +90,7 @@
   --color-section-ink: var(--section-ink);
   --color-title: var(--title);
   --color-button2-ink: var(--button2-ink);
+  --color-open: var(--open);
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --font-serif: Georgia, "Times New Roman", serif;
   --font-ja: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif;
@@ -186,6 +188,7 @@ a {
   --section-ink: #ffff00;
   --title: #ffff00;
   --button2-ink: #ffff00;
+  --open: #1f2a44; /* unit VW112: the highlight of an open fold (Q-A 3:78.4) */
 }
 
 /* The edge of a box needs 3 to 1 on its surface. #777777 gives 3.89 to 1 on #1a1a1a and 4.69 to 1 on black. */
@@ -265,6 +268,7 @@ a {
   --section-ink: #6b1a1a;
   --title: #6e1b1b;
   --button2-ink: #6b1a1a;
+  --open: #e6d3a6; /* unit VW112: the highlight of an open fold (Q-A 3:78.4) */
 }
 
 /* Solarized light, high contrast (round 63 answer 7): the Solarized paper colors with the dark base02 ink. Body text 7 to 1 or more, every other pair 4.5 to 1 or more. The script scripts/contrast-dark.mjs tests every pair. */
@@ -339,6 +343,7 @@ a {
   --section-ink: #6f1210;
   --title: #7a1715;
   --button2-ink: #6f1210;
+  --open: #f0e2b8; /* unit VW112: the highlight of an open fold (Q-A 3:78.4) */
 }
 
 /* Solarized dark, high contrast (round 63 answer 7): the Solarized dark page with base3 ink. Body text 7 to 1 or more, every other pair 4.5 to 1 or more. The script scripts/contrast-dark.mjs tests every pair. */
@@ -414,6 +419,7 @@ a {
   --section-ink: #ffd24a;
   --title: #ffd24a;
   --button2-ink: #ffd24a;
+  --open: #0d4a5a; /* unit VW112: the highlight of an open fold (Q-A 3:78.4) */
 }
 
 /* The edge of a box on the Solarized dark page. #7d9ea8 gives 3 to 1 or more on both surfaces. */
@@ -446,4 +452,22 @@ a {
 button.border-line:not(.bg-accent):not([aria-pressed]):not([role="tab"]) {
   border-color: var(--button2-ink);
   color: var(--button2-ink);
+}
+
+/* Unit VW112 (Q-A 3:78.4 note): "When use open a fold, change its bg color to highlight it. Apply this to every relevant user interactions also".
+   One shared rule for the whole Viewer: the summary line of an open fold (details/summary) and an open expander button (aria-expanded="true")
+   inside the page content get the background --open and a bar in the title color at the left edge. The bar is a second sign, so color is not the only sign.
+   Contrast on --open (scripts/vw112-test.mjs): body text 9 to 1 or more, muted text 4.6 to 1 or more, accent and title 5.9 to 1 or more, in all 5 themes.
+   In the layer components, so a utility class with its own background (a tab, a pressed toggle, a state label) keeps its look.
+   :where(main) keeps the header band out: its menu button has light text on the dark band. */
+@layer components {
+  :where(main) details[open] > summary,
+  :where(main) button[aria-expanded="true"] {
+    background-color: var(--open);
+    box-shadow: inset 3px 0 0 var(--title);
+  }
+  :where(main) details[open] > summary {
+    border-top-left-radius: inherit;
+    border-top-right-radius: inherit;
+  }
 }

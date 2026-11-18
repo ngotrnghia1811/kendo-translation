@@ -297,7 +297,8 @@ await check("pocketbase mode: loadBookIndex holds both titles", async () => {
 await check("both modes give the same fields for the same item (made-up item c0ffee08)", () => {
   const a = filesRows.find((r) => r.slug === "c0ffee08");
   const b = pbRows.find((r) => r.slug === "c0ffee08");
-  assert.deepEqual({ ...a, tagged: 0, pages: 0 }, { ...b, tagged: 0, pages: 0 });
+  // Unit VW112: taggedPages (the page numbers behind `tagged`) differs by mode for the same reason as `tagged`, so it is left out of the compare too.
+  assert.deepEqual({ ...a, tagged: 0, pages: 0, taggedPages: [] }, { ...b, tagged: 0, pages: 0, taggedPages: [] });
 });
 
 // ---------------------------------------------------------------- markup of the list

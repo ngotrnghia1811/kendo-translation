@@ -6,8 +6,9 @@ import { EXTRAS, type ExtraKey } from "./extras-store";
 export default function ExtrasChecklist({ ticks, toggle }: { ticks: Partial<Record<ExtraKey, boolean>>; toggle: (k: ExtraKey) => void }) {
   const on = EXTRAS.filter((e) => ticks[e.key]).length;
   return (
-    <details className="relative">
-      <summary className="cursor-pointer select-none rounded border border-line bg-white px-3 py-1.5 text-sm hover:border-accent">
+    // Unit VW112 (Q-A 3:78.4 note): group-open gives the open summary the highlight color over its own bg-white.
+    <details className="group relative">
+      <summary className="cursor-pointer select-none rounded border border-line bg-white px-3 py-1.5 text-sm hover:border-accent group-open:bg-open">
         Extra detail{on ? ` (${on} on)` : ""}
       </summary>
       <div className="absolute right-0 z-20 mt-1 w-96 rounded border border-line bg-white p-3 shadow-lg">

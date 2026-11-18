@@ -4,6 +4,8 @@ import { digitsOf, type ArticleRow, type LineRow, type Node, type WorkRow } from
 import { readHref } from "@/lib/reader-links";
 import type { TocRow } from "@/lib/reader-toc";
 import { pageLabel } from "@/lib/reader-types";
+import { agentLine, translatePageHref, type DashTarget } from "@/lib/translate-dash";
+import TranslateWork from "./TranslateWork";
 
 /*
  * The rows of the Reader dashboard (unit RC4, round 70): a work, a magazine article, and a chapter line.
@@ -30,7 +32,9 @@ function textLink(r: WorkRow, approved: boolean): { href: string; label: string;
   return null;
 }
 
-export function WorkItem({ r, approved, compact }: { r: WorkRow; approved: boolean; compact: boolean }) {
+export function WorkItem({ r, approved, compact, to = "read" }: { r: WorkRow; approved: boolean; compact: boolean; to?: DashTarget }) {
+  // Unit VW112 (Q-A 3:78.4 row 2): the human translation view /translate draws its own work row with the same fold tree.
+  if (to === "translate") return <TranslateWork r={r} compact={compact} />;
   const w = r.work;
   const title = w.titleEn || w.titleJa || `Web article ${w.slug}`;
   const link = textLink(r, approved);
@@ -60,13 +64,16 @@ export function WorkItem({ r, approved, compact }: { r: WorkRow; approved: boole
   );
 }
 
-export function ArticleItem({ a, approved }: { a: ArticleRow; approved: boolean }) {
+export function ArticleItem({ a, approved, to = "read" }: { a: ArticleRow; approved: boolean; to?: DashTarget }) {
   const title = a.titleEn || a.titleJa;
   const range = a.pageEnd > a.pageStart ? `pages ${a.pageStart}-${a.pageEnd}` : `page ${a.pageStart}`;
+  // Unit VW112: on /translate an article opens the book screen /translate/<book> at its first page, and its line counts agent translations.
+  const translate = to === "translate";
+  const progress = translate ? agentLine(a.translated, rangePages(a.pageStart, a.pageEnd)) : progressLine(a.translated, rangePages(a.pageStart, a.pageEnd));
   return (
     <li data-article={`${a.book}/${a.order}`} className="flex flex-wrap items-baseline gap-x-2 border-b border-line/60 py-1 text-sm">
       {approved && a.pageStart > 0 ? (
-        <Link href={readHref(a.book, "page", a.pageStart, a.digits)} className="text-accent underline" data-article-link>
+        <Link href={translate ? translatePageHref(a.book, a.pageStart, a.digits) : readHref(a.book, "page", a.pageStart, a.digits)} className="text-accent underline" data-article-link>
           {title}
         </Link>
       ) : (
@@ -78,16 +85,17 @@ export function ArticleItem({ a, approved }: { a: ArticleRow; approved: boolean 
         </span>
       ) : null}
       <span className="text-muted">{range}</span>
-      {a.translated ? <span className="text-muted" data-article-progress>{progressLine(a.translated, rangePages(a.pageStart, a.pageEnd))}</span> : null}
+      {a.translated ? <span className="text-muted" data-article-progress>{progress}</span> : null}
     </li>
   );
 }
 
-export function LineItem({ l }: { l: LineRow }) {
+export function LineItem({ l, to = "read" }: { l: LineRow; to?: DashTarget }) {
+  const progress = to === "translate" ? agentLine(l.translated, rangePages(l.pageStart, l.pageEnd)) : progressLine(l.translated, rangePages(l.pageStart, l.pageEnd));
   return (
     <li className="border-b border-line/60 py-1 text-sm text-muted" data-chapter-line>
       {l.label}, pages {l.pageStart}-{l.pageEnd}
-      {l.translated ? <span data-line-progress>{`, ${progressLine(l.translated, rangePages(l.pageStart, l.pageEnd))}`}</span> : null}
+      {l.translated ? <span data-line-progress>{`, ${progress}`}</span> : null}
     </li>
   );
 }
@@ -97,7 +105,9 @@ export function LineItem({ l }: { l: LineRow }) {
  * and the book page number. A chapter row (level 1) sits at the left. A sub-row (level 2) is indented. A row opens the book at its PDF page.
  * A row with no book page number still shows (it shows no number). A row with no PDF page shows and has no link.
  */
-export function TocItem({ t, approved }: { t: TocRow; approved: boolean }) {
+export function TocItem({ t, approved, to = "read" }: { t: TocRow; approved: boolean; to?: DashTarget }) {
+  // Unit VW112 fix round (Q-A 3:80.3): on /translate a row opens /translate/<book> at its PDF page, and a chapter row shows its agent translation count.
+  const href = to === "translate" ? translatePageHref(t.book, t.pageNo, t.digits) : readHref(t.book, "page", t.pageNo, t.digits);
   const main = t.titleIsJa ? (
     <span lang="ja" className="font-ja">
       {t.title}
@@ -108,7 +118,7 @@ export function TocItem({ t, approved }: { t: TocRow; approved: boolean }) {
   return (
     <li data-toc-row={`${t.book}/${t.order}`} data-toc-level={t.level} className={`flex flex-wrap items-baseline gap-x-2 border-b border-line/60 py-1 text-sm ${t.level === 2 ? "pl-6" : "font-medium"}`}>
       {approved && t.pageNo > 0 ? (
-        <Link href={readHref(t.book, "page", t.pageNo, t.digits)} className="text-accent underline" data-toc-link>
+        <Link href={href} className="text-accent underline" data-toc-link>
           {main}
         </Link>
       ) : (
@@ -124,19 +134,24 @@ export function TocItem({ t, approved }: { t: TocRow; approved: boolean }) {
           {`book page ${t.pageRef}`}
         </span>
       ) : null}
+      {to === "translate" && t.agent ? (
+        <span className="text-xs font-normal text-muted" data-toc-agent>
+          {agentLine(t.agent.translated, t.agent.pages)}
+        </span>
+      ) : null}
     </li>
   );
 }
 
 /** The rows of a month (articles, web articles, chapter lines) or of a book table of contents. A month holds no fold. */
-export function RowList({ nodes, approved }: { nodes: Node[]; approved: boolean }) {
+export function RowList({ nodes, approved, to = "read" }: { nodes: Node[]; approved: boolean; to?: DashTarget }) {
   return (
     <ul>
       {nodes.map((n) => {
-        if (n.type === "work") return <WorkItem key={n.work.slug} r={n} approved={approved} compact />;
-        if (n.type === "article") return <ArticleItem key={`${n.book}/${n.order}`} a={n} approved={approved} />;
-        if (n.type === "line") return <LineItem key={n.label + n.pageStart} l={n} />;
-        if (n.type === "toc") return <TocItem key={`${n.book}/${n.order}`} t={n} approved={approved} />;
+        if (n.type === "work") return <WorkItem key={n.work.slug} r={n} approved={approved} compact to={to} />;
+        if (n.type === "article") return <ArticleItem key={`${n.book}/${n.order}`} a={n} approved={approved} to={to} />;
+        if (n.type === "line") return <LineItem key={n.label + n.pageStart} l={n} to={to} />;
+        if (n.type === "toc") return <TocItem key={`${n.book}/${n.order}`} t={n} approved={approved} to={to} />;
         return null;
       })}
     </ul>

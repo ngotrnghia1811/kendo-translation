@@ -85,7 +85,8 @@ export async function listBookRows(marks: Map<string, string>, token: string): P
   for (const slug of [...slugs].sort()) {
     const tags = tagged.get(slug) ?? [];
     const f = facts.get(slug);
-    rows.push({ slug, title: f?.title ?? "", titleEn: f?.titleEn ?? "", titleJa: f?.titleJa ?? "", pages: pageCount(f?.pages ?? 0, tags), tagged: tags.length });
+    // Unit VW112: taggedPages gives the month folds of /translate the page numbers (a magazine month counts the run pages in its page range).
+    rows.push({ slug, title: f?.title ?? "", titleEn: f?.titleEn ?? "", titleJa: f?.titleJa ?? "", pages: pageCount(f?.pages ?? 0, tags), tagged: tags.length, taggedPages: tags.map((t) => t.n).sort((a, b) => a - b) });
   }
   return rows;
 }

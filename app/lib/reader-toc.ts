@@ -99,6 +99,8 @@ export interface TocRow {
   pageNo: number;
   /** Digits of the page ID of the book (3, or 4 over 999 pages), for the link. */
   digits: number;
+  /** Unit VW112 (Q-A 3:80.3): on /translate only, the pages of a chapter row (level 1) and how many of them have an agent translation. */
+  agent?: { translated: number; pages: number };
 }
 
 /** The PDF page of a record: pdf_page, else the number in page_id (`<book>/p008`), else 0. */

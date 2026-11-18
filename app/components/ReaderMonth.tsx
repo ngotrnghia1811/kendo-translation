@@ -2,6 +2,7 @@
 import { useState, type ReactNode } from "react";
 import { RowList } from "./ReaderRows";
 import type { Node } from "@/lib/reader-folds";
+import type { DashTarget } from "@/lib/translate-dash";
 
 /*
  * One month fold of the Reader dashboard that loads its rows when it opens (unit RC4, round 70).
@@ -12,7 +13,7 @@ import type { Node } from "@/lib/reader-folds";
  * Unit VW77e (Q-A 3:10.4 F1 and F2): kind "toc" is the same fold for the table of contents of a book. It asks GET /api/read/toc?id=toc-<slug>,
  * and `head` (the row of the book) shows above the rows. Without script, the link "Show the table of contents" opens /read?open=toc-<slug>.
  */
-export default function ReaderMonth({ id, level, summary, initial, approved, kind = "month", head }: { id: string; level: number; summary: ReactNode; initial: Node[] | null; approved: boolean; kind?: "month" | "toc"; head?: ReactNode }) {
+export default function ReaderMonth({ id, level, summary, initial, approved, kind = "month", head, to = "read" }: { id: string; level: number; summary: ReactNode; initial: Node[] | null; approved: boolean; kind?: "month" | "toc"; head?: ReactNode; to?: DashTarget }) {
   const [nodes, setNodes] = useState<Node[] | null>(initial);
   const [state, setState] = useState<"idle" | "loading" | "failed">("idle");
   const toc = kind === "toc";
@@ -21,7 +22,8 @@ export default function ReaderMonth({ id, level, summary, initial, approved, kin
     if (nodes || state === "loading") return;
     setState("loading");
     try {
-      const r = await fetch(`/api/read/${toc ? "toc" : "month"}?id=${encodeURIComponent(id)}`);
+      // Unit VW112: the human translation view /translate asks its own route, which adds the staff facts of each row.
+      const r = await fetch(`/api/${to}/${toc ? "toc" : "month"}?id=${encodeURIComponent(id)}`);
       if (!r.ok) throw new Error(String(r.status));
       const j = (await r.json()) as { children: Node[] };
       setNodes(j.children);
@@ -37,7 +39,7 @@ export default function ReaderMonth({ id, level, summary, initial, approved, kin
       <div className="px-3 pb-3" data-fold-body>
         {head}
         {nodes ? (
-          <RowList nodes={nodes} approved={approved} />
+          <RowList nodes={nodes} approved={approved} to={to} />
         ) : state === "failed" ? (
           <p role="alert" className="text-sm text-red-700">
             {toc ? "The table of contents did not load. Close the fold and open it again." : "The month did not load. Close the fold and open it again."}
@@ -45,7 +47,7 @@ export default function ReaderMonth({ id, level, summary, initial, approved, kin
         ) : state === "loading" ? (
           <p className="text-sm text-muted">Loading…</p>
         ) : (
-          <a href={`/read?open=${encodeURIComponent(id)}#${id}`} className="text-sm text-accent underline" {...(toc ? { "data-show-toc": true } : { "data-show-month": true })}>
+          <a href={`/${to}?open=${encodeURIComponent(id)}#${id}`} className="text-sm text-accent underline" {...(toc ? { "data-show-toc": true } : { "data-show-month": true })}>
             {toc ? "Show the table of contents" : "Show this month"}
           </a>
         )}

@@ -21,6 +21,7 @@ import { loadPhase2 } from "./phase2-load";
 // Unit VW94 (round 91): the grouped row of the phase 2 articles and the list filter. New files, so the dev server has no old instance of them.
 import { isPhase2List } from "./phase2-articles";
 import { titleOf } from "./title-of";
+import { plainTitle, rowsByKey, WEB_ARTICLE } from "./htv-titles";
 import { loadPhase2Articles } from "./phase2-articles-load";
 
 /**
@@ -132,17 +133,20 @@ async function loadTitles(root: string): Promise<Map<string, string>> {
     if (!e) continue;
     let titles = titleCache.get(e);
     if (!titles) {
-      titles = new Map();
+      const rows: Record<string, unknown>[] = [];
       for (const line of e.text.split("\n")) {
         if (!line.trim()) continue;
         try {
           const r = JSON.parse(line) as Record<string, unknown>;
-          const t = (typeof r.title_en === "string" && r.title_en) || (typeof r.title_ja === "string" && r.title_ja) || "";
-          if (r.item_id !== undefined) titles.set(String(r.item_id), t);
+          if (r.item_id !== undefined) rows.push(r);
         } catch {
           /* skip a broken line */
         }
       }
+      // Unit VW112 (Q-A 3:78.4 row 6): the shared title lookup of VW111 (lib/htv-titles.ts rowsByKey). A row matches by its full item_id,
+      // and a web article also by its first 8 characters. Two web articles that share the 8 characters give no title (no guess).
+      titles = new Map();
+      for (const [key, r] of rowsByKey(rows, (r) => String(r.item_id), (r) => r.kind === WEB_ARTICLE)) titles.set(key, plainTitle(r.title_en, r.title_ja));
       titleCache.set(e, titles);
     }
     for (const [k, v] of titles) out.set(k, v);

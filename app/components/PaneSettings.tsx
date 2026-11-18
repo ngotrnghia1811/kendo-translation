@@ -249,7 +249,8 @@ export function PaneCog({ id, align = "right" }: { id: PaneId; align?: "left" | 
         aria-expanded={open}
         aria-label={`Settings of the pane: ${PANE_LABELS[id]}`}
         title={`Settings: ${PANE_LABELS[id]}`}
-        className={"rounded border border-line bg-white px-1.5 text-sm leading-5 hover:bg-stone-100 " + (s ? "text-accent" : "text-muted")}
+        // Unit VW112 (Q-A 3:78.4 note): the open cog gets the highlight color. The utility beats bg-white, which the shared rule in globals.css cannot.
+        className={"rounded border border-line bg-white px-1.5 text-sm leading-5 hover:bg-stone-100 aria-expanded:bg-open " + (s ? "text-accent" : "text-muted")}
         data-cog={id}
       >
         ⚙

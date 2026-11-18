@@ -13,7 +13,8 @@ export default function Reasoning({ text, label }: { text: string; label?: strin
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         title={label ? boxHelp(label) ?? undefined : undefined} // Unit VW96 (Q-A 3:18.5): the box code keeps its place, the readable name shows on hover.
-        className="inline-flex items-center gap-2 rounded border border-line bg-white px-2.5 py-1 text-xs font-medium hover:border-accent"
+        // Unit VW112 (Q-A 3:78.4 note): the open toggle gets the highlight color over its own bg-white.
+        className="inline-flex items-center gap-2 rounded border border-line bg-white px-2.5 py-1 text-xs font-medium hover:border-accent aria-expanded:bg-open"
       >
         <span aria-hidden>{open ? "▾" : "▸"}</span>
         {`Reasoning${label ? ` of ${label}` : ""}`}

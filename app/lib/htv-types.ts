@@ -152,6 +152,8 @@ export interface HtvBookRow {
   pages: number;
   /** Count of pages with a finished run. */
   tagged: number;
+  /** Unit VW112: the page numbers with a finished run, sorted. The fold tree of /translate counts them by month (lib/translate-dash.ts). */
+  taggedPages?: number[];
 }
 
 /** Tag of a page with an agent translation: the shown run, its verdict and score. Pages without a tag have no entry. */
