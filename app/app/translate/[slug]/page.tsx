@@ -1,8 +1,10 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import HtvBar from "@/components/HtvBar";
 import HtvBook from "@/components/HtvBook";
 import { loadBookIndex, loadBookPages, pageName, windowAround } from "@/lib/htv-books";
-import { requireStaff } from "@/lib/htv-session";
+import { getSession, requireStaff } from "@/lib/htv-session";
+import { bookTitlesOf } from "@/lib/htv-book-titles";
 import { isSafeSegment } from "@/lib/safe-path";
 import { PbError, runMarks } from "@/lib/pb";
 import { PaneSettingsProvider } from "@/components/PaneSettings";
@@ -10,6 +12,22 @@ import { loadPaneSettings, readTheme } from "@/lib/theme";
 import { DEFAULT_VIEW, isView } from "@/lib/htv-settings";
 
 export const dynamic = "force-dynamic";
+
+// Q-A 3:82.4: the tab title of a book page is "<book title> · Human translation", for example
+// "The Secret of Kendo and the Left Foot · Human translation". No title, no session or a failed read: the title of the layout, "Human translation".
+// getSession does not redirect. The page itself still sends a visitor without a session to the sign-in page.
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  if (!isSafeSegment(slug)) return {};
+  try {
+    const s = await getSession();
+    if (!s) return {};
+    const title = (await bookTitlesOf(s.token, [slug]))[slug];
+    return title ? { title: `${title} · Human translation` } : {};
+  } catch {
+    return {};
+  }
+}
 
 // Human-translation-view, one book with all pages (unit UXC step D, round 59). VISION-viewer 15.16.2.
 // The query ?at=p048 makes the server load the window around p048 first. The anchor #p048 scrolls to the section.
