@@ -259,7 +259,7 @@ export default function HtvPageSection({ page, data, user, pinned, canPin, onPin
       {user.role === "admin" ? (
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded border border-line bg-white/60 p-2 text-sm">
           <span className="font-medium">Run mark</span>
-          <select aria-label="Run to mark" value={markRun} onChange={(e) => setMarkRun(e.target.value)} className="rounded border border-line bg-white px-1.5 py-0.5">
+          <select aria-label="Run to mark" value={markRun} onChange={(e) => setMarkRun(e.target.value)} className="min-w-0 max-w-full rounded border border-line bg-white px-1.5 py-0.5" data-run-mark-select>
             {data.runs.map((r) => (
               <option key={r.runId} value={r.runId}>
                 {r.runId} · {r.verdict} · {pstTimeOrText(r.startedUtc) || "no start time"}

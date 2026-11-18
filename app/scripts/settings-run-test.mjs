@@ -53,16 +53,16 @@ async function check(name, fn) { await fn(); count++; console.log("PASS " + name
 const outcome = (promise) => promise.then((value) => ({ status: "fulfilled", value }), (reason) => ({ status: "rejected", reason }));
 const defaultsDoc = JSON.parse(await fs.readFile(path.join(config, "translator-settings.defaults.json"), "utf8"));
 const defaults = schema.validateSettings(defaultsDoc);
-ok("all 22 keys and all eight groups", () => { assert.equal(schema.FIELDS.length, 22); assert.equal(new Set(schema.FIELDS.map((f) => f.group)).size, 8); assert.deepEqual(Object.keys(defaults).sort(), [...schema.KEY_ORDER].sort()); });
+ok("all 21 keys and all seven groups (unit VW113: the cost limit is gone)", () => { assert.equal(schema.FIELDS.length, 21); assert.equal(new Set(schema.FIELDS.map((f) => f.group)).size, 7); assert.equal(schema.GROUPS.length, 7); assert.deepEqual(Object.keys(defaults).sort(), [...schema.KEY_ORDER].sort()); });
 const cases = [];
 for (const f of schema.FIELDS) {
   cases.push(JSON.stringify(schema.nestSettings({ [f.key]: defaults[f.key] })));
   for (const bad of [true, false, null, [], {}, "", "bad value", -1, 0, 1.5, 99999]) cases.push(JSON.stringify(schema.nestSettings({ [f.key]: bad })));
   for (const n of [f.min, f.max].filter((n) => n !== undefined)) cases.push(JSON.stringify(schema.nestSettings({ [f.key]: n })));
 }
-cases.push(...['{"update":{"N":1.0}}', '{"update":{"N":1e0}}', '{"revision":1.0}', '{"run":{"jobs":8.0}}', '{"run":{"max_usd_per_page":1.0}}', '{"levels":{"0":{"model":"日本語"}}}', '{"schema":"日本語"}', '{"update":{"N":1},"update":{"N":3}}']);
+cases.push(...['{"update":{"N":1.0}}', '{"update":{"N":1e0}}', '{"revision":1.0}', '{"run":{"jobs":8.0}}', '{"run":{"max_usd_per_page":1.0}}', '{"run":{"max_usd_per_page":null,"jobs":2}}', '{"run":{"max_usd_per_page":"bad","jobs":2}}', '{"run":{"max_usd_per_page":-5}}', '{"run":{"max_usd_per_page":1,"max_usd":1}}', '{"levels":{"0":{"model":"日本語"}}}', '{"schema":"日本語"}', '{"update":{"N":1},"update":{"N":3}}']);
 for (const d of [[], null, 1, true, { unknown: 1 }, { levels: [] }, { levels: { 4: {} } }, { levels: { 0: null } }, { levels: { 0: { unknown: 1 } } }, { schema: 3 }, { revision: true }, { revision: -1 }, { update: null }, { memory: { join_across_title: 1 } }, { updated_utc: [] }]) cases.push(JSON.stringify(d));
-for (const key of ["update.N", "run.jobs", "run.max_usd_per_page", "links.window_lines"]) {
+for (const key of ["update.N", "run.jobs", "run.book_jobs", "links.window_lines"]) {
   for (const token of ["9007199254740993", "-9007199254740993", "1e20", "1e-7", "1e400", "NaN", "Infinity", "-Infinity"]) {
     cases.push(JSON.stringify(schema.nestSettings({ [key]: "__number__" })).replace('"__number__"', token));
   }
@@ -74,7 +74,7 @@ cases.push('', '{', '[', '{"a" 1}', '{"a":}', '[1,]', '{"a":1,}', '{"a":1} 2', '
 const python = String.raw`
 import ast,json,re,sys,types
 source=open(sys.argv[1],encoding='utf8').read()
-names={'SCHEMA','FILE_NAME','CRITIC_MODES','LEVELS','VARIANT_RE','TOP_KEYS','GROUPS','KEY_ORDER'}
+names={'SCHEMA','FILE_NAME','CRITIC_MODES','LEVELS','VARIANT_RE','TOP_KEYS','GROUPS','KEY_ORDER','RETIRED_KEYS'}
 tree=ast.parse(source)
 nodes=[n for n in tree.body if (isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id in names for t in n.targets)) or (isinstance(n,ast.FunctionDef) and n.name in {'_is_int','check_value','flatten'})]
 env={'json':json,'re':re,'SettingsError':ValueError,'C':types.SimpleNamespace(MODEL_ID_RE=re.compile(r'^[A-Za-z0-9_.-]+/[A-Za-z0-9_.:@-]+(/[A-Za-z0-9_.:@-]+)*$'))}
@@ -359,10 +359,11 @@ await check("large integers, float types and malformed JSON survive every file/A
   const raw = '{"revision":9007199254740993,"update":{"N":9007199254740993},"run":{"max_usd_per_page":1.0}}';
   await fs.writeFile(file, raw); const s = await store.readSettings(); assert.equal(s.error, null);
   assert.equal(String(s.overrides["update.N"]), "9007199254740993");
-  const proposal = parseSettingsJson('{"update":{"N":9007199254740993},"run":{"max_usd_per_page":1.0,"jobs":2}}');
+  assert.equal(Object.hasOwn(s.overrides, "run.max_usd_per_page"), false); // unit VW113: the retired key is read and ignored
+  const proposal = parseSettingsJson('{"update":{"N":9007199254740993},"run":{"jobs":2}}');
   const response = await route.PUT(new Request("http://127.0.0.1:3217/api/settings/run", { method: "PUT", headers: { host: "127.0.0.1:3217", "content-type": "application/json" }, body: stringifySettingsJson({ sha1: s.sha1, settings: proposal }) }));
   assert.equal(response.status, 200, await response.clone().text()); const text = await response.text();
-  assert.match(text, /"revision":9007199254740994/); assert.match(text, /"update.N":9007199254740993/); assert.match(text, /"run.max_usd_per_page":1.0/);
+  assert.match(text, /"revision":9007199254740994/); assert.match(text, /"update.N":9007199254740993/); assert.ok(!text.includes("max_usd_per_page")); assert.match(text, /"run.jobs":2/);
   assert.match(await fs.readFile(file, "utf8"), /"N": 9007199254740993/); assert.match(await fs.readFile(historyFile, "utf8"), /"revision":9007199254740994/);
   await fs.writeFile(file, '{"update":'); assert.equal((await store.readSettings()).error, "translator-settings.json: the file is not valid JSON (Expecting value: line 1 column 11 (char 10))");
   await fs.writeFile(file, original); await fs.writeFile(historyFile, historyOriginal);

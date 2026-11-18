@@ -19,7 +19,7 @@ export interface PointValues extends PromptPoint {
   comp: number;
   /** Emphasis marks of the point / sum of the emphasis marks of all points, in percent. 0 when the sum is 0. */
   imp: number;
-  /** Citations of this point by other points plus strong words in the point. */
+  /** Citations of this point by other points plus strong words in the point plus its direct sub-points (Q-A 3:81.4). */
   marks: number;
 }
 
@@ -27,7 +27,7 @@ export interface PointValues extends PromptPoint {
 const POINT_LINE = /^\s*(\d+(?:\.\d+)*)\.\s/;
 // Q-A 3:64.4: a citation is "point 2.4" or "points 2.4" in the text of another point.
 const CITATION = /points? (\d+\.\d+)/g;
-// Q-A 3:64.4: strong words, case-insensitive.
+// Q-A 3:64.4: strong words, case-insensitive. Sub-points: Q-A 3:81.4 (see SUB_POINT_MODE).
 const STRONG = /\b(must|never|always|only|do not|every)\b/gi;
 
 /** Split a prompt text into its numbered points. Text before the first point line belongs to no point. */
@@ -41,10 +41,35 @@ export function parsePoints(text: string): PromptPoint[] {
   return out.map((p) => ({ num: p.num, text: p.lines.filter((l) => l !== "").join(" ") }));
 }
 
-/** The program counts of every point of a prompt text (Q-A 3:64.4). */
-export function pointValues(text: string): PointValues[] {
-  const points = parsePoints(text);
-  const total = text.length;
+/**
+ * Unit VW113, owner pick Q-A 3:81.4 "Add sub-points": each numbered sub-point under a point counts as one emphasis mark of that point.
+ * "none" is the rule of VW106 (citations and strong words only), kept for the measurement of check c6.
+ * "direct" counts the sub-points one level below: 2.4.1 and 2.4.2 for point 2.4, and 2.1 to 2.9 for point 2.
+ * "deep" counts every sub-point below, to the fourth level (2.4.1.1 also counts for 2.4).
+ */
+export type SubPointMode = "none" | "direct" | "deep";
+/** Unit default VW113: the direct sub-points (see report.md, c6: "deep" is not higher by 0.02). */
+export const SUB_POINT_MODE: SubPointMode = "direct";
+
+/** The sub-point count of each point number. A point with no sub-point has no entry. */
+export function subPointCounts(points: PromptPoint[], mode: SubPointMode = SUB_POINT_MODE): Map<string, number> {
+  const out = new Map<string, number>();
+  if (mode === "none") return out;
+  for (const p of points) {
+    const parts = p.num.split(".");
+    // direct: the parent only (all parts but the last). deep: every ancestor that has at least one part.
+    if (parts.length < 2) continue; // a top-level point has no parent
+    const from = mode === "direct" ? parts.length - 1 : 1;
+    for (let k = parts.length - 1; k >= from; k--) {
+      const parent = parts.slice(0, k).join(".");
+      out.set(parent, (out.get(parent) ?? 0) + 1);
+    }
+  }
+  return out;
+}
+
+/** The emphasis marks of each point, in the order of `points`: citations by other points, strong words, and sub-points (Q-A 3:64.4, 3:81.4). */
+export function emphasisMarks(points: PromptPoint[], mode: SubPointMode = SUB_POINT_MODE): number[] {
   const cited = new Map<string, number>();
   points.forEach((p) => {
     for (const m of p.text.matchAll(CITATION)) {
@@ -52,7 +77,15 @@ export function pointValues(text: string): PointValues[] {
       if (m[1] !== p.num) cited.set(m[1], (cited.get(m[1]) ?? 0) + 1);
     }
   });
-  const marks = points.map((p) => (cited.get(p.num) ?? 0) + (p.text.match(STRONG)?.length ?? 0));
+  const subs = subPointCounts(points, mode);
+  return points.map((p) => (cited.get(p.num) ?? 0) + (p.text.match(STRONG)?.length ?? 0) + (subs.get(p.num) ?? 0));
+}
+
+/** The program counts of every point of a prompt text (Q-A 3:64.4, 3:81.4). */
+export function pointValues(text: string): PointValues[] {
+  const points = parsePoints(text);
+  const total = text.length;
+  const marks = emphasisMarks(points);
   const sum = marks.reduce((a, b) => a + b, 0);
   return points.map((p, i) => ({
     ...p,

@@ -85,14 +85,14 @@ await check("program counts: comprehensiveness = point characters / prompt chara
   const len = V1.length;
   assert.ok(near(v[0].comp, ("1. Read the text.".length / len) * 100));
   assert.ok(near(v[1].comp, ("1.1. Never skip a line.".length / len) * 100));
-  // marks: 1 = 0; 1.1 = "Never" + a citation by point 2 = 2; 2 = "must" = 1 (its own citation of 1.1 counts for 1.1)
-  assert.deepEqual(v.map((x) => x.marks), [0, 2, 1]);
-  assert.ok(near(v[1].imp, (2 / 3) * 100) && near(v[2].imp, (1 / 3) * 100) && v[0].imp === 0);
+  // marks: 1 = its direct sub-point 1.1 = 1 (unit VW113, Q-A 3:81.4; was 0); 1.1 = "Never" + a citation by point 2 = 2; 2 = "must" = 1 (its own citation of 1.1 counts for 1.1)
+  assert.deepEqual(v.map((x) => x.marks), [1, 2, 1]);
+  assert.ok(near(v[0].imp, 25) && near(v[1].imp, 50) && near(v[2].imp, 25)); // unit VW113: was 0, 66.7, 33.3 with the sum 3
 });
 
 await check("program counts: strong words are case-insensitive whole words, 'points 1.1' cites, a point does not cite itself, a sum of 0 gives 0", () => {
   const v = R.pointValues("1. ONLY this. Every time. Do not stop. Mustard is no strong word.\n   1.1. See point 1.1 and points 1.2.\n   1.2. Plain.\n");
-  assert.deepEqual(v.map((x) => x.marks), [3, 0, 1]);
+  assert.deepEqual(v.map((x) => x.marks), [5, 0, 1]); // unit VW113: point 1 has 3 strong words and 2 direct sub-points (1.1, 1.2); was 3
   const z = R.pointValues("1. Plain.\n2. Also plain.\n");
   assert.deepEqual(z.map((x) => x.imp), [0, 0]);
   assert.equal(R.oneDecimal(6.45), "6.5");

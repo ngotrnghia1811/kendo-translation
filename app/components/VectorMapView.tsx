@@ -172,7 +172,7 @@ export default function VectorMapView({ map, counts, state }: { map: BoxMap; cou
             <VectorMapChart key={`${map.box}-${cur.version}-${axes}`} points={pts} removed={prev?.points.filter((p) => cur.removed.some((r) => r.id === p.id)) ?? []} axes={axes} top={top} selected={state.point} hrefs={Object.fromEntries([...pts, ...cur.removed].map((p) => [p.id, here({ point: p.id })]))} prevVersion={prev?.version ?? null} details={state.point ? <PointDetails map={map} id={state.point} /> : null} />
           </div>
           <p className="mt-1 text-xs text-muted">
-            Program counts: comprehensiveness is the share of the prompt characters in the point. Importance is the share of the emphasis marks: citations by other points and the words must, never, always, only, do not, every.
+            Program counts: comprehensiveness is the share of the prompt characters in the point. Importance is the share of the emphasis marks: citations by other points, the words must, never, always, only, do not, every, and the sub-points of the point (the numbered points directly below it, for example 2.4.1 and 2.4.2 for point 2.4).
           </p>
           {cur.removed.length > 0 ? (
             <section data-vm-removed className="mt-4 text-sm">

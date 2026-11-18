@@ -400,10 +400,12 @@ try {
 // ---------------------------------------------------------------- part 5: rules that the source must keep
 
 const read = (rel) => readFileSync(path.join(app, rel), "utf8");
-await check("settings: the field 'Cost limit per page' stays (owner pick Q-A 3:17.3, later unit P32)", () => {
+// Unit VW113 (Q-A 3:78.6, 3:81.2): unit P32 removed the cost limit. Before VW113 this case pinned the field (owner pick Q-A 3:17.3).
+await check("settings: the field 'Cost limit per page' is gone, the key stays only as a retired key (unit VW113)", () => {
   const s = read("lib/settings-schema.ts");
-  assert.match(s, /run\.max_usd_per_page/);
-  assert.match(s, /Cost limit per page/);
+  assert.doesNotMatch(s, /Cost limit per page/);
+  assert.doesNotMatch(s, /field\("run\.max_usd_per_page"/);
+  assert.match(s, /RETIRED_KEYS[^\n]*\["run", "max_usd_per_page"\]/);
 });
 await check("the admin 'readers see' line in HtvPageSection.tsx stays as it was (it waits for the first book run)", () => {
   assert.match(read("components/HtvPageSection.tsx"), /readers see/i);

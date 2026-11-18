@@ -3,12 +3,12 @@ import { JsonFloat, JsonInteger, pythonJson } from "./settings-json";
 export const SCHEMA = "translator-settings-v1";
 export type Scalar = string | number | boolean | null | JsonInteger | JsonFloat;
 export type FlatSettings = Record<string, Scalar>;
-export const GROUPS = ["N", "Model and effort per level", "Box critic model", "Cost limit per page", "Jobs and book jobs", "Critic mode", "Memory and link constants", "Call timeout and retries"];
+export const GROUPS = ["N", "Model and effort per level", "Box critic model", "Jobs and book jobs", "Critic mode", "Memory and link constants", "Call timeout and retries"];
 export const N_RULE_STOP = "The Translator stops each book at its next start, before any page, until you correct update.phase_rule in config/translator-models.yaml. A saved N does not prevent this stop.";
 export const OLD_N = "The update point after the current page keeps its old N.";
 export const MODEL_WARNING = "The Viewer cannot check this ID. A wrong ID stops the page at the start with CONFIG ERROR.";
 export const CONFLICT = "The file changed since you opened this page. Reload and check your changes.";
-export type Field = { key: string; label: string; meaning: string; group: number; kind: "integer" | "model" | "variant" | "cost" | "boolean" | "mode"; allowed: string; unit: string; min?: number; max?: number };
+export type Field = { key: string; label: string; meaning: string; group: number; kind: "integer" | "model" | "variant" | "boolean" | "mode"; allowed: string; unit: string; min?: number; max?: number };
 const field = (key: string, label: string, meaning: string, group: number, kind: Field["kind"], allowed: string, unit = "none", min?: number, max?: number): Field => ({ key, label, meaning, group, kind, allowed, unit, min, max });
 export const FIELDS: Field[] = [
   field("update.N", "N", "Critiques of one box type that start a prompt rewrite.", 0, "integer", "Whole number, 1 or more", "critiques", 1),
@@ -18,18 +18,19 @@ export const FIELDS: Field[] = [
   ]),
   field("box_critic.model", "Box critic model", "Model of the critic that reads each box.", 2, "model", "provider/model ID"),
   field("box_critic.variant", "Box critic effort", "Effort of the critic that reads each box.", 2, "variant", "Letters, digits, underscore, dot or hyphen"),
-  field("run.max_usd_per_page", "Cost limit per page", 'A page stops with "cost guard" when its cost reaches this limit.', 3, "cost", "Empty for no limit, or a number above 0", "USD"),
-  field("run.jobs", "Calls in parallel", "Calls in parallel inside one page.", 4, "integer", "Whole number from 1 to 8", "calls", 1, 8),
-  field("run.book_jobs", "Books in parallel", "Books that run in parallel.", 4, "integer", "Whole number from 1 to 8", "books", 1, 8),
-  field("run.critic_mode", "Critic mode", "Separate: one critic session per box. Session: one critic session per page. A resume must use the stored mode.", 5, "mode", "separate or session"),
-  field("memory.memory_k", "Memory pairs", "Book translation memory pairs for one box.", 6, "integer", "Whole number from 1 to 10", "pairs", 1, 10),
-  field("memory.join_page_end", "Join across the page end", "Join a memory pair across the page end.", 6, "boolean", "true or false"),
-  field("memory.join_across_title", "Join across a title", "Join a memory pair across a title.", 6, "boolean", "true or false"),
-  field("links.neighbor_skip_cites", "Cited items before a skip", "Cited items that skip the neighbor link. Zero turns this off.", 6, "integer", "Whole number, 0 or more", "cited items", 0),
-  field("links.window_lines", "Neighbor window", "Lines of the neighbor window.", 6, "integer", "Whole number, 0 or more", "lines", 0),
-  field("calls.call_timeout_s", "Call timeout", "Seconds before one call times out.", 7, "integer", "Whole number from 60 to 7200", "seconds", 60, 7200),
-  field("calls.max_attempts", "Call attempts", "Maximum attempts for one call.", 7, "integer", "Whole number from 1 to 5", "attempts", 1, 5),
+  field("run.jobs", "Calls in parallel", "Calls in parallel inside one page.", 3, "integer", "Whole number from 1 to 8", "calls", 1, 8),
+  field("run.book_jobs", "Books in parallel", "Books that run in parallel.", 3, "integer", "Whole number from 1 to 8", "books", 1, 8),
+  field("run.critic_mode", "Critic mode", "Separate: one critic session per box. Session: one critic session per page. A resume must use the stored mode.", 4, "mode", "separate or session"),
+  field("memory.memory_k", "Memory pairs", "Book translation memory pairs for one box.", 5, "integer", "Whole number from 1 to 10", "pairs", 1, 10),
+  field("memory.join_page_end", "Join across the page end", "Join a memory pair across the page end.", 5, "boolean", "true or false"),
+  field("memory.join_across_title", "Join across a title", "Join a memory pair across a title.", 5, "boolean", "true or false"),
+  field("links.neighbor_skip_cites", "Cited items before a skip", "Cited items that skip the neighbor link. Zero turns this off.", 5, "integer", "Whole number, 0 or more", "cited items", 0),
+  field("links.window_lines", "Neighbor window", "Lines of the neighbor window.", 5, "integer", "Whole number, 0 or more", "lines", 0),
+  field("calls.call_timeout_s", "Call timeout", "Seconds before one call times out.", 6, "integer", "Whole number from 60 to 7200", "seconds", 60, 7200),
+  field("calls.max_attempts", "Call attempts", "Maximum attempts for one call.", 6, "integer", "Whole number from 1 to 5", "attempts", 1, 5),
 ];
+/** Unit VW113 (Q-A 3:78.6, 3:81.2): keys of older files that the program reads and ignores. Same as RETIRED_KEYS in settings.py (the cost limit is gone). */
+export const RETIRED_KEYS: [string, string][] = [["run", "max_usd_per_page"]];
 export const KEY_ORDER = FIELDS.map((f) => f.key);
 export const BOOK_KEYS = ["run.jobs", "run.book_jobs", "run.critic_mode"];
 export function effect(key: string) { return BOOK_KEYS.includes(key) ? "Next list or book start" : "Next page"; }
@@ -40,7 +41,6 @@ export function valueError(key: string, v: unknown): string | null {
   if (key === "update.N") { if (!whole(v) || (v as number) < 1) reason = "not a whole number of 1 or more"; }
   else if (key.endsWith(".model")) { if (typeof v !== "string" || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.:@-]+(\/[A-Za-z0-9_.:@-]+)*$/.test(v.replace(/\n$/, ""))) reason = "not a provider/model ID"; }
   else if (key.endsWith(".variant")) { if (typeof v !== "string" || !/^[A-Za-z0-9_.-]+$/.test(v.replace(/\n$/, ""))) reason = "not a variant name"; }
-  else if (key === "run.max_usd_per_page") { if (v !== null && (!(typeof v === "number" || v instanceof JsonFloat || v instanceof JsonInteger) || Number(v instanceof JsonFloat ? v.value : v) <= 0)) reason = "not null and not a number above 0"; }
   else if (["run.jobs", "run.book_jobs"].includes(key)) { if (!whole(v) || (v as number) < 1 || (v as number) > 8) reason = "not a whole number from 1 to 8"; }
   else if (key === "run.critic_mode") { if (v !== "separate" && v !== "session") reason = "not one of separate, session"; }
   else if (key === "memory.memory_k") { if (!whole(v) || (v as number) < 1 || (v as number) > 10) reason = "not a whole number from 1 to 10"; }
@@ -56,13 +56,14 @@ export function valueError(key: string, v: unknown): string | null {
 export function validateSettings(doc: unknown): FlatSettings {
   const fail = (s: string): never => { throw new Error("translator-settings.json: " + s); };
   if (!object(doc)) return fail("the file must hold one JSON object");
-  const groups: Record<string, string[]> = { update: ["N"], levels: ["0", "1", "2", "3"], box_critic: ["model", "variant"], run: ["max_usd_per_page", "jobs", "book_jobs", "critic_mode"], memory: ["memory_k", "join_page_end", "join_across_title"], links: ["neighbor_skip_cites", "window_lines"], calls: ["call_timeout_s", "max_attempts"] };
+  const groups: Record<string, string[]> = { update: ["N"], levels: ["0", "1", "2", "3"], box_critic: ["model", "variant"], run: ["jobs", "book_jobs", "critic_mode"], memory: ["memory_k", "join_page_end", "join_across_title"], links: ["neighbor_skip_cites", "window_lines"], calls: ["call_timeout_s", "max_attempts"] };
   const flat: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(doc)) {
     if (["schema", "revision", "updated_utc"].includes(k)) continue;
     if (!Object.hasOwn(groups, k)) fail("unknown key " + k);
     if (!object(v)) fail(k + " must hold an object");
     for (const [k2, v2] of Object.entries(v as Record<string, unknown>)) {
+      if (RETIRED_KEYS.some(([g, key]) => g === k && key === k2)) continue;
       if (!groups[k].includes(k2)) fail(`unknown key ${k}.${k2}`);
       if (k === "levels") {
         if (!object(v2)) fail(`levels.${k2} must hold an object`);

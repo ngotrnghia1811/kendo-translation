@@ -1,8 +1,9 @@
 "use client";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { HtvBookIndex, HtvBookPage, HtvPageTag, Role } from "@/lib/htv-types";
 import { INDEX_WIDTH, type PaneId, type ViewName } from "@/lib/htv-settings";
 import { parsePageNumber } from "@/lib/htv-format";
+import { BAR_VAR, barHeightValue, barOffsetCss } from "@/lib/htv-bar-offset"; // Unit VW113 (Q-A 3:81.2 row 4): the jump offset follows the height of the sticky bar.
 import { VerdictPill } from "./Pills";
 import { capFirst, pageNumberText } from "@/lib/readable-names"; // Unit VW96 (Q-A 3:17.4): "Page 1" in place of the bare "slug/p001".
 import { bookNames, staffBookName } from "@/lib/htv-titles";
@@ -110,8 +111,8 @@ const Section = memo(function Section({
       data-section={name}
       data-n={n}
       ref={(el) => register(n, el)}
-      style={page?.data ? undefined : { minHeight }}
-      className="scroll-mt-14 border-t border-line py-3"
+      style={page?.data ? { scrollMarginTop: barOffsetCss() } : { minHeight, scrollMarginTop: barOffsetCss() }}
+      className="border-t border-line py-3"
     >
       {!tag ? (
         <h2 className="flex flex-wrap items-center gap-3 text-base font-semibold">
@@ -150,9 +151,31 @@ const HEADER_COLUMNS: { id: PaneId; label: string; writer: boolean }[] = [
   { id: "versions", label: "Version history", writer: true },
 ];
 
-function ColumnHeader({ readOnly }: { readOnly: boolean }) {
+function ColumnHeader({ readOnly, onHeight }: { readOnly: boolean; onHeight: () => void }) {
+  // Unit VW113 (Q-A 3:81.2 row 4): the bar takes 1 line at 1280 px and 3 lines at 390 px. It writes its height into --htv-bar-h on the element that holds the
+  // sections, so that the scroll margin of each page section and chapter heading (barOffsetCss) follows the real height. The layout of the bar stays as it was.
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const holder = el?.parentElement;
+    if (!el || !holder) return;
+    let last = "";
+    const measure = () => {
+      const value = barHeightValue(el.getBoundingClientRect().height);
+      if (value === null || value === last) return;
+      last = value;
+      holder.style.setProperty(BAR_VAR, value);
+      onHeight();
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [onHeight]);
   return (
     <div
+      ref={ref}
       className="sticky top-0 z-20 mb-1 flex flex-wrap items-center gap-x-5 gap-y-1 border-b border-line bg-background px-3 py-1.5 text-sm"
       style={{ fontFamily: "var(--font-sans)" }}
       data-column-header
@@ -465,6 +488,26 @@ export default function HtvBook({
     if (el && Math.abs(el.getBoundingClientRect().top) > 4) el.scrollIntoView();
   }, [loaded, heights]);
 
+  // Unit VW113 (Q-A 3:81.2 row 4): the bar height changes the scroll margin of every target. The browser does not scroll again by itself,
+  // so the jump repeats once: for a jump that runs now (the anchor), or, at the first measure, for a plain #p045 or #chapter-3 link of the address.
+  const barSeen = useRef(false);
+  const onBarHeight = useCallback(() => {
+    const a = anchor.current;
+    if (a && Date.now() <= a.until) {
+      els.current.get(a.n)?.scrollIntoView();
+      return;
+    }
+    if (barSeen.current) return;
+    barSeen.current = true;
+    let id = "";
+    try {
+      id = decodeURIComponent(window.location.hash.slice(1));
+    } catch {
+      id = "";
+    }
+    if (id) document.getElementById(id)?.scrollIntoView();
+  }, []);
+
   const goTo = useCallback(
     (n: number) => {
       const id = nameOf(n);
@@ -676,7 +719,7 @@ export default function HtvBook({
           onWidth={(w) => setUi((u) => ({ ...u, index: { ...u.index, width: w } }))}
         />
         <div className="min-w-0 lg:flex-1" data-sections data-view-now={view}>
-          <ColumnHeader readOnly={readOnly} />
+          <ColumnHeader readOnly={readOnly} onHeight={onBarHeight} />
           {pageView && curChapter ? (
             <p className="mt-2 text-lg font-semibold" data-page-chapter>
               {curChapter.titleEn || curChapter.chapter}
@@ -685,7 +728,7 @@ export default function HtvBook({
           {shownItems.map((it) => (
             <div key={it.n}>
               {!pageView && chapterAt.has(it.n) ? (
-                <h2 id={`chapter-${it.n}`} className="mt-6 scroll-mt-14 border-t-2 border-accent pt-2 text-xl font-semibold" data-chapter={it.n}>
+                <h2 id={`chapter-${it.n}`} style={{ scrollMarginTop: barOffsetCss() }} className="mt-6 border-t-2 border-accent pt-2 text-xl font-semibold" data-chapter={it.n}>
                   {chapterAt.get(it.n)}
                 </h2>
               ) : null}

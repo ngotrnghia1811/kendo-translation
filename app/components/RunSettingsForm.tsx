@@ -106,10 +106,10 @@ export default function RunSettingsForm({ initialText, pageLabels = {}, bookLabe
       </select>{custom && <><label htmlFor={f.key + "-other"} className="block text-sm">Other model ID</label><input {...props} id={f.key + "-other"} value={String(value ?? "")} onChange={(e) => setValue(f, e.target.value)} /><p className="text-sm text-amber-800">{MODEL_WARNING}</p></>}</div>;
     }
     if (f.kind === "variant") return <><input {...props} list={f.key + "-efforts"} value={String(value ?? "")} onChange={(e) => setValue(f, e.target.value)} /><datalist id={f.key + "-efforts"}>{saved.variants.map((v) => <option key={v} value={v} />)}</datalist></>;
-    return <input {...props} type="number" min={f.min} max={f.max} step={f.kind === "cost" ? "any" : "1"} placeholder={f.key === "update.N" ? "Phase rule (no override)" : f.kind === "cost" ? "No limit" : undefined} value={value === undefined || value === null ? "" : String(value)} onChange={(e) => {
+    return <input {...props} type="number" min={f.min} max={f.max} step="1" placeholder={f.key === "update.N" ? "Phase rule (no override)" : undefined} value={value === undefined || value === null ? "" : String(value)} onChange={(e) => {
       const text = e.target.value;
       if (f.key === "update.N" && text === "") { setDraft((p) => { const n = { ...p }; delete n[f.key]; return n; }); setErrors((p) => { const n = { ...p }; delete n[f.key]; return n; }); setNotice(""); return; }
-      try { setValue(f, text === "" ? f.kind === "cost" ? null : "" : parseSettingsJson(text) as Scalar); }
+      try { setValue(f, text === "" ? "" : parseSettingsJson(text) as Scalar); }
       catch { setValue(f, text); }
     }} />;
   }
