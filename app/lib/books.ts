@@ -5,6 +5,7 @@ import { chaptersOf, parseChapterRows } from "./chapters";
 import { parseWebRows, webRowsOfChapter } from "./chain";
 import { isSafeSegment, PathError } from "./safe-path";
 import type { BookDetail, BookPage, BookRow, ChapterWeb } from "./types";
+import { cleanTitle, plainTitle, rowsByKey, WEB_ARTICLE } from "./htv-titles";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type J = any;
@@ -21,9 +22,9 @@ async function loadMetadata(): Promise<Map<string, J>> {
   // items.filled.jsonl is the filled file (unit MM). Use it when it exists, else the draft.
   let rows = await readJsonl<J>("item-metadata/items.filled.jsonl");
   if (rows.length === 0) rows = await readJsonl<J>("item-metadata/items.draft.jsonl");
-  const m = new Map<string, J>();
-  for (const r of rows) m.set(String(r.item_id), r);
-  return m;
+  // Unit VW111 (Q-A 3:76.1 row a, Q-A 3:72.2): the key is the full item_id, and for a web article also the first 8 characters of item_id.
+  // The rule sits in lib/htv-titles.ts (rowsByKey): two articles with the same 8 characters get no row, so no title.
+  return rowsByKey(rows, (r) => (r.item_id === undefined || r.item_id === null ? "" : String(r.item_id)), (r) => r.kind === WEB_ARTICLE);
 }
 
 /** Rows of item-metadata/magazine-chapters.jsonl (unit M1). An absent file gives an empty list. A bad line is skipped by readJsonl. */
@@ -69,8 +70,8 @@ export async function listBooks(): Promise<BookRow[]> {
     rows.push({
       id: String(b.slug),
       group: b.magazine_year ? "magazine" : "book",
-      titleJa: m?.title_ja ?? "",
-      titleEn: m?.title_en ?? "",
+      titleJa: cleanTitle(m?.title_ja),
+      titleEn: cleanTitle(m?.title_en),
       author: m?.author_ja || m?.author_en || "",
       publisher: m?.publisher ?? "",
       year: m?.publish_year ?? null,
@@ -89,13 +90,14 @@ export async function listBooks(): Promise<BookRow[]> {
     rows.push({
       id,
       group: "article",
-      titleJa: m?.title_ja ?? "",
-      titleEn: m?.title_en ?? "",
+      titleJa: cleanTitle(m?.title_ja),
+      titleEn: cleanTitle(m?.title_en),
       author: m?.author_ja || m?.author_en || "",
       publisher: m?.publisher ?? "",
       year: m?.publish_year ?? null,
       confidence: m?.confidence ?? "",
-      pages: m?.pages ?? null,
+      // A web article has pages 0 in its metadata row (the page count comes from the pages with a run), so 0 shows as "–" (unit default of VW111).
+      pages: m?.pages || null,
       pagesWithRuns: pages,
       hasMeta: !!m,
       chapterCount: null,
@@ -104,10 +106,23 @@ export async function listBooks(): Promise<BookRow[]> {
   return rows;
 }
 
-export async function bookTitle(slug: string): Promise<string> {
+/**
+ * Unit VW111 (Q-A 3:76.1 row a): the titles of some book keys with one read of the metadata file. The key is a book folder name, a full item_id,
+ * or the 8-character short ID of a web article. A key with no title (or two articles with the same 8 characters) is not in the map.
+ */
+export async function bookTitles(slugs: Iterable<string>): Promise<Map<string, string>> {
   const meta = await loadMetadata();
-  const m = meta.get(slug);
-  return m?.title_en || m?.title_ja || "";
+  const out = new Map<string, string>();
+  for (const s of slugs) {
+    const m = meta.get(s);
+    const t = plainTitle(m?.title_en, m?.title_ja);
+    if (t) out.set(s, t);
+  }
+  return out;
+}
+
+export async function bookTitle(slug: string): Promise<string> {
+  return (await bookTitles([slug])).get(slug) ?? "";
 }
 
 /**

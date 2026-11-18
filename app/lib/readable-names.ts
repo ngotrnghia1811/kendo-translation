@@ -12,9 +12,13 @@ import { BOX_ROLE } from "./box-names";
 import { listStateWord, type StateWord } from "./run-view-words";
 import { providerWords } from "./model-card"; // Unit VW97 (Q-A 3:21.3): Claude card names in place of provider IDs.
 
-/** Plain name of the book key of a status.json or a list. The phase 2 store has the key paired-dataset (it holds articles, not a book). */
-export function bookKeyLabel(book: string): string {
-  return book === PHASE2_BOOK ? "The phase 2 run" : book;
+/**
+ * Plain name of the book key of a status.json or a list. The phase 2 store has the key paired-dataset (it holds articles, not a book).
+ * Unit VW111 (Q-A 3:76.1 place 3, Q-A 3:72.2): `titles` maps a book key to its title. A book with a title shows the title, else the key as before.
+ * The phase 2 key keeps "The phase 2 run" even when a title exists.
+ */
+export function bookKeyLabel(book: string, titles?: Record<string, string>): string {
+  return book === PHASE2_BOOK ? "The phase 2 run" : titles?.[book] || book;
 }
 
 /** "list started" becomes "List started". */
@@ -80,6 +84,14 @@ export function pageNumberText(pageId: string): string {
   const last = pageId.split("/").pop() ?? pageId;
   const m = /^p(\d+)$/.exec(last);
   return m ? `page ${Number(m[1])}` : pageId;
+}
+
+/**
+ * Unit VW111 (Q-A 3:76.1 place 5, Q-A 3:72.2): "How to Create an Ideal Kamae · page 12" for the page ID "<book>/p012". The screen puts the page ID in the hover text.
+ * A book with no title keeps the page ID.
+ */
+export function titledPage(pageId: string, title?: string): string {
+  return title ? `${title} · ${pageNumberText(pageId)}` : pageId;
 }
 
 // ---------------------------------------------------------------- critic mode, kind, jobs

@@ -37,6 +37,8 @@ export interface PairCard {
   chip: string;
   /** The page of a book translation memory pair (the link target), or null. */
   page: { slug: string; page: string } | null;
+  /** The pair name of the source, for example "P01". Empty when the source has no page. Unit VW111. */
+  pair: string;
   source: string;
   ja: string;
   en: string;
@@ -174,17 +176,70 @@ function entryCard(lines: string[]): EntryCard {
 }
 
 /** Chip text and page of a pair source. The run and the word "split none" stay out of the chip. */
-function chipOf(source: string): { chip: string; page: { slug: string; page: string } | null } {
+function chipOf(source: string): { chip: string; page: { slug: string; page: string } | null; pair: string } {
   const b = /^page ([^/\s,]+)\/(p\d+), pair (\S+?)(?:,|$)/.exec(source.trim());
-  if (b) return { chip: `${b[1]}/${b[2]} · ${b[3]}`, page: { slug: b[1], page: b[2] } };
-  return { chip: source.trim(), page: null };
+  if (b) return { chip: `${b[1]}/${b[2]} · ${b[3]}`, page: { slug: b[1], page: b[2] }, pair: b[3] };
+  return { chip: source.trim(), page: null, pair: "" };
 }
 
 function pairCard(lines: string[]): PairCard {
   const { fields, lead } = parseFields(lines, ["source", "ja", "en"]);
   const source = valueOf(fields, "source");
   const c = chipOf(source);
-  return { kind: "pair", chip: c.chip, page: c.page, source, ja: valueOf(fields, "ja"), en: valueOf(fields, "en"), more: [...lead], fields, lead };
+  return { kind: "pair", chip: c.chip, page: c.page, pair: c.pair, source, ja: valueOf(fields, "ja"), en: valueOf(fields, "en"), more: [...lead], fields, lead };
+}
+
+/** Length of a short title in a pair chip (unit default of VW111). */
+export const CHIP_TITLE_LENGTH = 30;
+
+/**
+ * Unit VW111 (Q-A 3:76.2 "Short title in the chip"): the first 30 characters of a title. A title of 30 characters or fewer stays whole.
+ * A longer title is cut at the last word end inside the first 30 characters, when there is one, else after 30 characters. A cut adds "…".
+ * Unit defaults: a word end is a space; the cut drops the spaces and the characters , ; : ( - at its end.
+ * The title comes clean (lib/htv-titles.ts cleanTitle). This file imports nothing at run time, so that scripts/smoke.mjs can load it with Node type stripping.
+ */
+export function shortTitle(title: string, max: number = CHIP_TITLE_LENGTH): string {
+  const chars = Array.from(title.trim());
+  if (chars.length <= max) return chars.join("");
+  let cut = chars.slice(0, max).join("");
+  if (!/\s/.test(chars[max])) {
+    const i = cut.search(/\s\S*$/);
+    if (i > 0) cut = cut.slice(0, i);
+  }
+  return cut.replace(/[\s,;:(\-\u2013\u2014]+$/u, "") + "\u2026";
+}
+
+/**
+ * Unit VW111 (Q-A 3:76.2 "Short title in the chip", Q-A 3:72.2): the chip text of a pair with the short title of its book, for example
+ * "How to Create an Ideal Kamae · p3 · P01". `titles` maps a book slug to its title (English, else Japanese). The hover text holds the full title and the page ID.
+ * A pair with no page, or a book with no title in `titles`, keeps the older text (the chip of the card, "slug/page · pair"), and has no hover text.
+ */
+export function pairChip(c: PairCard, titles: Record<string, string> = {}): { text: string; hover: string } {
+  const title = c.page ? titles[c.page.slug] : "";
+  if (!c.page || !title) return { text: c.chip, hover: "" };
+  return { text: `${shortTitle(title)} · p${Number(c.page.page.slice(1))} · ${c.pair}`, hover: `${title}. Page ID ${c.page.slug}/${c.page.page}, pair ${c.pair}.` };
+}
+
+/** The same for the cell "First used on page" of the marks table: "Short title · p3". The older text (the page ID) stays when the book has no title. */
+export function firstPageChip(page: { slug: string; page: string } | null, text: string, titles: Record<string, string> = {}): { text: string; hover: string } {
+  const title = page ? titles[page.slug] : "";
+  if (!page || !title) return { text, hover: "" };
+  return { text: `${shortTitle(title)} · p${Number(page.page.slice(1))}`, hover: `${title}. Page ID ${page.slug}/${page.page}.` };
+}
+
+/** The slugs of the books that the cards of a panel name: the pair pages, the first pages of the marks, and the book of the marks. Sorted, no repeat. */
+export function panelBookSlugs(blocks: PanelBlock[]): string[] {
+  const out = new Set<string>();
+  for (const b of panelCards(blocks)) {
+    for (const c of b.cards) {
+      if (c.kind === "pair" && c.page) out.add(c.page.slug);
+      else if (c.kind === "marks") {
+        if (c.bookId) out.add(c.bookId);
+        for (const r of c.rows) if (r.firstPage) out.add(r.firstPage.slug);
+      }
+    }
+  }
+  return [...out].sort();
 }
 
 const RESULT_FIELDS = ["from", "stance", "result", "translation_rationale"];

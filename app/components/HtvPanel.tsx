@@ -1,5 +1,5 @@
 import type { PanelData } from "@/lib/htv-panel";
-import { panelCards, type CardBlock, type EntryCard, type MarksCard, type NoteCard, type PairCard, type PanelCard, type ResultCard } from "@/lib/htv-panel-cards";
+import { firstPageChip, pairChip, panelCards, type CardBlock, type EntryCard, type MarksCard, type NoteCard, type PairCard, type PanelCard, type ResultCard } from "@/lib/htv-panel-cards";
 
 // Round 51 answer 8 (Q-A 2026-10-28 l53): the panel shows the information that the TL_3 agent got, next to the ED_3 text.
 // Round 53 answers 5 and 6 (l99, l100): no fixed text, blocks of the whole page.
@@ -19,10 +19,10 @@ function More({ children, label = "more" }: { children: React.ReactNode; label?:
   );
 }
 
-function PageLink({ slug, page, current, children }: { slug: string; page: string; current: string; children: React.ReactNode }) {
+function PageLink({ slug, page, current, title, children }: { slug: string; page: string; current: string; title?: string; children: React.ReactNode }) {
   const href = slug === current ? `#${page}` : `/translate/${encodeURIComponent(slug)}?at=${page}#${page}`;
   return (
-    <a href={href} className="text-accent underline">
+    <a href={href} className="text-accent underline" title={title || undefined}>
       {children}
     </a>
   );
@@ -61,17 +61,20 @@ function Entry({ c }: { c: EntryCard }) {
   );
 }
 
-function Pair({ c, slug }: { c: PairCard; slug: string }) {
+// Unit VW111 (Q-A 3:76.2 "Short title in the chip"): the chip shows the short title of the book, "p3" and the pair, for example "How to Create an Ideal Kamae · p3 · P01".
+// The full title and the page ID are the hover text. A book with no title in `titles` keeps the older text "slug/page · pair".
+function Pair({ c, slug, titles }: { c: PairCard; slug: string; titles: Record<string, string> }) {
+  const chip = pairChip(c, titles);
   return (
     <div className="rounded border border-line bg-white/60 p-2" data-card="pair">
       <div className="mb-1 text-[0.8em]">
-        <span className="rounded bg-sky-100 px-1.5 py-0.5 text-sky-800">
+        <span className="rounded bg-sky-100 px-1.5 py-0.5 text-sky-800" data-pair-chip title={chip.hover || undefined}>
           {c.page ? (
-            <PageLink slug={c.page.slug} page={c.page.page} current={slug}>
-              {c.chip}
+            <PageLink slug={c.page.slug} page={c.page.page} current={slug} title={chip.hover}>
+              {chip.text}
             </PageLink>
           ) : (
-            c.chip
+            chip.text
           )}
         </span>
       </div>
@@ -126,11 +129,23 @@ function Result({ c }: { c: ResultCard }) {
   );
 }
 
-function Marks({ c, slug }: { c: MarksCard; slug: string }) {
+// Unit VW111 (Q-A 3:76.1 place 1, Q-A 3:72.2): the book of the marks shows its title, the ID (the file name) is the hover text (the rule of the Note card).
+// The title of the book on the screen is `bookTitle`, the title of another book is in `titles`. A book with no title shows the ID as before.
+// The cell "First used on page" of another book shows the short title and "p3" (Q-A 3:76.2), the page ID is the hover text.
+function Marks({ c, slug, bookTitle, titles }: { c: MarksCard; slug: string; bookTitle: string; titles: Record<string, string> }) {
+  const markTitle = (c.bookId === slug ? bookTitle : "") || (titles[c.bookId] ?? "");
   return (
     <div data-card="marks">
       <div className="mb-1 text-[0.85em] text-muted">
-        {c.bookId ? <span className="font-mono">{c.bookId}</span> : null}
+        {c.bookId ? (
+          markTitle ? (
+            <span title={c.bookId} data-marks-book-title>
+              {markTitle}
+            </span>
+          ) : (
+            <span className="font-mono">{c.bookId}</span>
+          )
+        ) : null}
         {c.pagesRead ? <span>, {c.pagesRead} pages read.</span> : null}
         {c.rows.length === 0 ? <span> No earlier marks.</span> : null}
       </div>
@@ -153,8 +168,8 @@ function Marks({ c, slug }: { c: MarksCard; slug: string }) {
                 <td className="pr-2">{r.enTerm}</td>
                 <td className="pr-2 text-[0.85em]">
                   {r.firstPage ? (
-                    <PageLink slug={r.firstPage.slug} page={r.firstPage.page} current={slug}>
-                      {r.firstPage.slug === slug ? r.firstPage.page : r.firstPageText}
+                    <PageLink slug={r.firstPage.slug} page={r.firstPage.page} current={slug} title={r.firstPage.slug === slug ? undefined : firstPageChip(r.firstPage, r.firstPageText, titles).hover}>
+                      {r.firstPage.slug === slug ? r.firstPage.page : firstPageChip(r.firstPage, r.firstPageText, titles).text}
                     </PageLink>
                   ) : (
                     r.firstPageText
@@ -210,16 +225,16 @@ function Note({ c, slug, bookTitle }: { c: NoteCard; slug: string; bookTitle: st
   );
 }
 
-function Card({ c, slug, bookTitle }: { c: PanelCard; slug: string; bookTitle: string }) {
+function Card({ c, slug, bookTitle, titles }: { c: PanelCard; slug: string; bookTitle: string; titles: Record<string, string> }) {
   switch (c.kind) {
     case "entry":
       return <Entry c={c} />;
     case "pair":
-      return <Pair c={c} slug={slug} />;
+      return <Pair c={c} slug={slug} titles={titles} />;
     case "result":
       return <Result c={c} />;
     case "marks":
-      return <Marks c={c} slug={slug} />;
+      return <Marks c={c} slug={slug} bookTitle={bookTitle} titles={titles} />;
     case "note":
       return <Note c={c} slug={slug} bookTitle={bookTitle} />;
     case "text":
@@ -227,7 +242,7 @@ function Card({ c, slug, bookTitle }: { c: PanelCard; slug: string; bookTitle: s
   }
 }
 
-function Block({ b, slug, bookTitle }: { b: CardBlock; slug: string; bookTitle: string }) {
+function Block({ b, slug, bookTitle, titles }: { b: CardBlock; slug: string; bookTitle: string; titles: Record<string, string> }) {
   return (
     <details open={b.lineCount <= OPEN_LIMIT} className="border-b border-line/70 py-1.5" data-block={b.name}>
       <summary className="cursor-pointer select-none font-semibold">
@@ -239,7 +254,7 @@ function Block({ b, slug, bookTitle }: { b: CardBlock; slug: string; bookTitle: 
       </summary>
       <div className="mt-1.5 space-y-2">
         {b.cards.map((c, i) => (
-          <Card key={i} c={c} slug={slug} bookTitle={bookTitle} />
+          <Card key={i} c={c} slug={slug} bookTitle={bookTitle} titles={titles} />
         ))}
       </div>
     </details>
@@ -249,8 +264,10 @@ function Block({ b, slug, bookTitle }: { b: CardBlock; slug: string; bookTitle: 
 /**
  * The TL_3 information panel of one page. `slug` is the book on the screen, so that a page chip can link inside the screen.
  * `bookTitle` (unit VW110) is the title of that book, "" when it has none. The "Book:" line of the Note card uses it.
+ * `panel.bookTitles` (unit VW111) maps the slug of each book that the panel names to its title. The server adds it (lib/htv-book-titles.ts).
  */
 export default function Tl3Panel({ panel, slug, bookTitle = "" }: { panel: PanelData; slug: string; bookTitle?: string }) {
+  const titles = panel.bookTitles ?? {};
   const blocks = panel.available ? panelCards(panel.blocks) : [];
   const shown = blocks.reduce((s, b) => s + b.lineCount, 0);
   return (
@@ -262,7 +279,7 @@ export default function Tl3Panel({ panel, slug, bookTitle = "" }: { panel: Panel
             Panel lines: {shown} of {panel.totalLines} message lines. Information of the whole page.
           </p>
           {blocks.map((b) => (
-            <Block key={b.name} b={b} slug={slug} bookTitle={bookTitle} />
+            <Block key={b.name} b={b} slug={slug} bookTitle={bookTitle} titles={titles} />
           ))}
         </>
       ) : (

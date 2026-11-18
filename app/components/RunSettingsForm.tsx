@@ -16,16 +16,16 @@ function pst(utc: string) {
 // Unit VW96 (round 91), card P31.3, owner rule Q-A 3:17.4: a book key, a page ID, a model option and a mode show in plain words. The raw key or ID stays in small grey text or in the hover.
 function valueText(key: string, v: Scalar | undefined) { return typeof v === "string" || typeof v === "boolean" ? optionText(key, String(v)) : showValue(v, key); }
 function PageName({ id, labels }: { id: string; labels: Record<string, string> }) { return <><strong title={id}>{labels[id] ?? id}</strong> <span className="font-mono text-xs text-muted">{id}</span></>; }
-function ActiveBooks({ active, labels }: { active: ActiveBook[]; labels: Record<string, string> }) {
+function ActiveBooks({ active, labels, bookLabels }: { active: ActiveBook[]; labels: Record<string, string>; bookLabels: Record<string, string> }) {
   return <div className="space-y-1">
     {!active.length && <p>No active run exists.</p>}
-    {active.map((a) => <p key={a.book}><strong title={`Book key: ${a.book}`}>{bookKeyLabel(a.book)}</strong> runs now{a.page ? <> at <PageName id={a.page} labels={labels} /></> : ". No current page is stored"}. It reads new values at the start of {a.next && a.next !== a.page ? <><PageName id={a.next} labels={labels} /></> : "the next page"}.{a.n !== null && <> Current page N: {a.n}.</>}</p>)}
+    {active.map((a) => <p key={a.book}><strong title={`Book key: ${a.book}`}>{bookKeyLabel(a.book, bookLabels)}</strong> runs now{a.page ? <> at <PageName id={a.page} labels={labels} /></> : ". No current page is stored"}. It reads new values at the start of {a.next && a.next !== a.page ? <><PageName id={a.next} labels={labels} /></> : "the next page"}.{a.n !== null && <> Current page N: {a.n}.</>}</p>)}
     <p>{OLD_N}</p>
     <p>Jobs, book jobs, and critic mode apply at the next list or book start.</p>
   </div>;
 }
 
-function Review({ changes, active, labels, busy, cancel, save }: { changes: ReturnType<typeof diffSettings>; active: ActiveBook[]; labels: Record<string, string>; busy: boolean; cancel: () => void; save: () => void }) {
+function Review({ changes, active, labels, bookLabels, busy, cancel, save }: { changes: ReturnType<typeof diffSettings>; active: ActiveBook[]; labels: Record<string, string>; bookLabels: Record<string, string>; busy: boolean; cancel: () => void; save: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const cancelButton = useRef<HTMLButtonElement>(null);
   useEffect(() => { dialog.current?.showModal(); cancelButton.current?.focus(); }, []);
@@ -37,13 +37,13 @@ function Review({ changes, active, labels, busy, cancel, save }: { changes: Retu
       <p className="text-sm text-muted">{c.effect}</p>
     </li>)}</ul>
     <p className="mb-3">“Next page” means the start of the next page of each book.</p>
-    <ActiveBooks active={active} labels={labels} />
+    <ActiveBooks active={active} labels={labels} bookLabels={bookLabels} />
     <p className="my-4">The file changes on this Mac only. Reset prepares defaults for a later save. Reset for N removes its override.</p>
     <div className="flex justify-end gap-3"><button ref={cancelButton} className={button} disabled={busy} onClick={cancel}>Cancel</button><button className={primary} disabled={busy} onClick={save}>{busy ? "Save in progress" : `Save ${changes.length} changes`}</button></div>
   </dialog>;
 }
 
-export default function RunSettingsForm({ initialText, pageLabels = {} }: { initialText: string; pageLabels?: Record<string, string> }) {
+export default function RunSettingsForm({ initialText, pageLabels = {}, bookLabels = {} }: { initialText: string; pageLabels?: Record<string, string>; bookLabels?: Record<string, string> }) {
   const [saved, setSaved] = useState(() => parseSettingsJson(initialText) as SettingsSnapshot);
   const [draft, setDraft] = useState<FlatSettings>(() => (parseSettingsJson(initialText) as SettingsSnapshot).overrides);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -116,7 +116,7 @@ export default function RunSettingsForm({ initialText, pageLabels = {} }: { init
   return <main className="mx-auto max-w-6xl px-4 py-8 md:px-8">
     <p className="mb-2 text-sm text-muted"><Link href="/" className="text-accent underline">Monitor dashboard / on this Mac</Link> / Run settings</p>
     <h1 className="text-3xl font-semibold">Run settings</h1>
-    <div className="my-5 border-y border-line py-4 text-sm"><ActiveBooks active={saved.active} labels={pageLabels} /></div>
+    <div className="my-5 border-y border-line py-4 text-sm"><ActiveBooks active={saved.active} labels={pageLabels} bookLabels={bookLabels} /></div>
     <p className="text-sm text-muted">translator-settings.json: {saved.exists ? `revision ${saved.revision}${saved.updated_utc ? ", " + pst(saved.updated_utc) : ""}` : "not created yet. The Translator uses its defaults and phase rule."}</p>
     {saved.error && <div role="alert" className="my-4 rounded border border-line bg-red-50 p-4 text-red-700"><p>{saved.error}</p><p>The file cannot be saved here. Correct the file by hand, then reload. Unknown keys must be removed by hand.</p></div>}
     {saved.n_rule_error && <div role="alert" className="my-4 rounded border border-line bg-red-50 p-4 text-red-700"><p>N rule error: {saved.n_rule_error}</p><p>{N_RULE_STOP}</p>{!saved.error && <p>This error does not block a save of translator-settings.json.</p>}</div>}
@@ -146,6 +146,6 @@ export default function RunSettingsForm({ initialText, pageLabels = {} }: { init
       <p aria-live="polite">{changes.length} unsaved changes</p>
       <div className="flex flex-wrap gap-2"><button className={button} disabled={disabled} onClick={() => { const next = { ...saved.defaults }; delete next["update.N"]; setDraft(next); setErrors({}); setOther({}); }}>Reset all</button><button className={button} disabled={busy || !changes.length} onClick={() => { setDraft(saved.overrides); setErrors({}); setOther({}); setNotice(""); }}>Discard</button><button ref={reviewButton} className={primary} disabled={disabled || !changes.length || Object.values(errors).some(Boolean)} onClick={prepareReview}>Review changes</button></div>
     </div>
-    {review && <Review changes={changes} active={saved.active} labels={pageLabels} busy={busy} cancel={closeReview} save={save} />}
+    {review && <Review changes={changes} active={saved.active} labels={pageLabels} bookLabels={bookLabels} busy={busy} cancel={closeReview} save={save} />}
   </main>;
 }

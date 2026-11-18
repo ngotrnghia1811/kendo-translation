@@ -12,6 +12,8 @@ import { criticFolderName, criticModeWord, listTitle, pageRunName } from "./read
 export interface LineContext {
   /** English (else Japanese) title of each article, by the first 8 hex digits of its ID. A missing ID means "title not found". */
   titles?: ReadonlyMap<string, string>;
+  /** Unit VW111 (Q-A 3:76.1 place 4, Q-A 3:72.2): the title of each book folder name (for example 100_practice_full). A missing name means "no title": the phrase keeps the folder name alone. */
+  bookNames?: ReadonlyMap<string, string>;
 }
 
 const PAGE_DIR = /^([0-9a-f]{8})_p(\d+)$/;
@@ -24,6 +26,21 @@ export function articleIdsIn(rel: string): string[] {
   return out;
 }
 
+/**
+ * Unit VW111 (place 4): the book folder names in a path such as pilot-run/100_practice_full_p012/..., the names that pagePhrase writes as "page 12 of the book ...".
+ * A page folder of an article (8 hex digits) is not a book name. The server uses the names to find the titles.
+ */
+export function bookSlugsIn(rel: string): string[] {
+  const out: string[] = [];
+  for (const segment of rel.split("/")) {
+    const name = segment.replace(/\.json$/, "");
+    if (PAGE_DIR.test(name)) continue;
+    const b = BOOK_PAGE_DIR.exec(name);
+    if (b && !out.includes(b[1])) out.push(b[1]);
+  }
+  return out;
+}
+
 /** "page 2 of the article "Title" (94380515)" for a page folder or file name part such as 94380515_p002 or 94380515_p002.json. */
 export function pagePhrase(segment: string, ctx?: LineContext): string | null {
   const name = segment.replace(/\.json$/, "");
@@ -33,7 +50,10 @@ export function pagePhrase(segment: string, ctx?: LineContext): string | null {
     return title ? `page ${Number(a[2])} of the article "${title}" (${a[1]})` : `page ${Number(a[2])} of the article ${a[1]} (title not found)`;
   }
   const b = BOOK_PAGE_DIR.exec(name);
-  return b ? `page ${Number(b[2])} of the book ${b[1]}` : null;
+  if (!b) return null;
+  // Unit VW111 (place 4): a book with a title reads `page 12 of the book "Title" (100_practice_full)`, the same form as an article. No title keeps the folder name.
+  const bookTitle = ctx?.bookNames?.get(b[1]);
+  return bookTitle ? `page ${Number(b[2])} of the book "${bookTitle}" (${b[1]})` : `page ${Number(b[2])} of the book ${b[1]}`;
 }
 
 const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);

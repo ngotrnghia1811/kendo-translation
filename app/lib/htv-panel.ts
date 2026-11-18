@@ -43,6 +43,11 @@ export interface PanelData {
   /** Sum of the lines of the shown blocks, marker lines included. */
   shownLines: number;
   blocks: PanelBlock[];
+  /**
+   * Unit VW111 (Q-A 3:76.2): the title of each book that the cards of the panel name (slug to title). The server adds it when it loads a page
+   * (lib/htv-book-titles.ts). The snapshot of S2 does not hold it. A book with no title is left out, and the panel then shows the older text.
+   */
+  bookTitles?: Record<string, string>;
 }
 
 const BLOCK_START = /^\[BLOCK ([a-z_]+)\]$/;

@@ -79,6 +79,8 @@ export interface TitleRecord {
   id: string;
   en: string | null;
   ja: string | null;
+  /** Unit VW111: the kind of the row (for example web-article), so that bookTitleAt can use the shared key rule (lib/htv-titles.ts rowsByKey). */
+  kind?: string | null;
 }
 
 /** The records of items.filled.jsonl (one JSON object per line). A broken line is skipped. */
@@ -89,7 +91,7 @@ export function parseTitleRecords(text: string): TitleRecord[] {
     try {
       const r = rec(JSON.parse(line));
       const id = r && typeof r.item_id === "string" ? r.item_id : null;
-      if (r && id) out.push({ id, en: asStr(r.title_en), ja: asStr(r.title_ja) });
+      if (r && id) out.push({ id, en: asStr(r.title_en), ja: asStr(r.title_ja), kind: asStr(r.kind) });
     } catch {
       /* skip a broken line */
     }

@@ -5,6 +5,8 @@ import ReaderBar from "@/components/ReaderBar";
 import { requireAdmin } from "@/lib/htv-session";
 import { adminMarks, readerAllPages } from "@/lib/pb";
 import { isSafeSegment } from "@/lib/safe-path";
+import { bookTitlesOf } from "@/lib/htv-book-titles";
+import { titledPage } from "@/lib/readable-names";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Human versions (admin)" };
@@ -18,6 +20,8 @@ export default async function AdminVersionsPage({ searchParams }: { searchParams
   if ("down" in s) return <p role="alert" className="text-red-700">{s.down}</p>;
   const pages = await readerAllPages(s.token);
   const marks = await adminMarks(s.token);
+  // Unit VW111 (Q-A 3:76.1 place 5, Q-A 3:72.2): each page shows "<book title> · page 12". The page ID is the hover text.
+  const titles = await bookTitlesOf(s.token, [...new Set(pages.map((p) => p.pageId.split("/")[0]))]);
   const m = typeof raw === "string" ? /^([^/]+)\/(p\d+)$/.exec(raw) : null;
   const selected = m && isSafeSegment(m[1]) && pages.some((p) => p.pageId === raw) ? raw : null;
   return (
@@ -31,7 +35,9 @@ export default async function AdminVersionsPage({ searchParams }: { searchParams
             {pages.map((p) => (
               <li key={p.pageId}>
                 <Link href={`/admin/versions?page=${encodeURIComponent(p.pageId)}`} aria-current={selected === p.pageId ? "page" : undefined} className={"flex items-center justify-between rounded px-2 py-1 hover:bg-stone-100 " + (selected === p.pageId ? "bg-stone-200 font-semibold" : "")}>
-                  <span>{p.pageId}</span>
+                  <span className="min-w-0 break-words" title={`Page ID ${p.pageId}`} data-version-page-name>
+                    {titledPage(p.pageId, titles[p.pageId.split("/")[0]])}
+                  </span>
                   <span className="text-xs text-muted">
                     {marks.chosen.has(p.pageId) ? "human " : ""}
                     {marks.checked.has(p.pageId) ? "checked" : ""}
@@ -42,7 +48,7 @@ export default async function AdminVersionsPage({ searchParams }: { searchParams
           </ul>
         </nav>
         <div className="min-w-0 flex-1">
-          {selected ? <AdminVersionPanel key={selected} pageId={selected} /> : <p className="text-sm text-muted">Choose a page in the list.</p>}
+          {selected ? <AdminVersionPanel key={selected} pageId={selected} bookTitle={titles[selected.split("/")[0]] ?? ""} /> : <p className="text-sm text-muted">Choose a page in the list.</p>}
         </div>
       </div>
     </>

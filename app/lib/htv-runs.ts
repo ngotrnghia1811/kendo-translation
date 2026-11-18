@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import { exists, listDir, readJson, readText } from "./json";
 import { bookTitle } from "./books";
 import { loadFilesFacts } from "./htv-files-titles";
+import { panelBookTitles } from "./htv-book-titles"; // Unit VW111 (Q-A 3:76.2): the titles of the books that the panel names.
 import { loadConfig } from "./config";
 import { folderToPageId } from "./format";
 import { isSafeSegment, PathError, resolveInside } from "./safe-path";
@@ -213,7 +214,7 @@ export async function loadHtvPage(slug: string, page: string, markedRunId: strin
       markedRunId: shown.marked ? shown.run.runId : null,
       markNote,
       rows: snap.rows,
-      panel: snap.panel,
+      panel: { ...snap.panel, bookTitles: await panelBookTitles(snap.panel, token) },
       terms: snap.terms,
       notes: snap.notes ?? [],
     };
@@ -243,7 +244,7 @@ export async function loadHtvPage(slug: string, page: string, markedRunId: strin
     markedRunId: shown.marked ? shown.run.runId : null,
     markNote,
     rows: built.rows,
-    panel: built.panel,
+    panel: { ...built.panel, bookTitles: await panelBookTitles(built.panel, token) },
     terms: built.terms,
     notes: built.notes,
   };

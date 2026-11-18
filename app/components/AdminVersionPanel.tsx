@@ -4,6 +4,7 @@ import { pstTime } from "@/lib/htv-pst"; // unit TF83: PST on /admin (round 82 a
 import type { AdminVersion } from "@/lib/pb";
 import { factLine } from "@/lib/reader-layout";
 import type { ReaderFact } from "@/lib/reader-types";
+import { titledPage } from "@/lib/readable-names";
 
 // Panel of one page on /admin/versions (unit RC1, round 63 answer 6, Q-A 2026-10-28 l310: "Admin page /admin/versions", "Collection page_checks").
 // It lists the saved human versions of the page (translator name, version number, date, row count), shows a preview, chooses one for the readers,
@@ -24,7 +25,8 @@ interface PreviewRow {
   facts: ReaderFact[];
 }
 
-export default function AdminVersionPanel({ pageId }: { pageId: string }) {
+// Unit VW111 (Q-A 3:76.1 place 5): `bookTitle` is the title of the book of the page, "" when it has none. The heading then reads "<title> · page 12" and the page ID is the hover text.
+export default function AdminVersionPanel({ pageId, bookTitle = "" }: { pageId: string; bookTitle?: string }) {
   const [info, setInfo] = useState<Info | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -69,7 +71,7 @@ export default function AdminVersionPanel({ pageId }: { pageId: string }) {
   const btn = "min-h-[36px] rounded border border-line px-2 py-0.5 text-sm disabled:opacity-50";
   return (
     <section data-version-panel={pageId} aria-label={`Human versions of ${pageId}`}>
-      <h2 className="section-band mb-2 text-lg font-semibold">{pageId}</h2>
+      <h2 className="section-band mb-2 text-lg font-semibold" title={`Page ID ${pageId}`} data-version-heading>{titledPage(pageId, bookTitle)}</h2>
       {error ? <p role="alert" className="mb-2 text-sm text-red-700">{error}</p> : null}
       {!info ? <p className="text-sm text-muted">Loading…</p> : null}
       {info ? (

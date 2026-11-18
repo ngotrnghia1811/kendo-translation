@@ -1,6 +1,7 @@
 import "server-only";
 import { dataRoot } from "./config";
-import { articleIdsIn, plainLine, type LineContext } from "./json-view-lines";
+import { articleIdsIn, bookSlugsIn, plainLine, type LineContext } from "./json-view-lines";
+import { bookTitles } from "./books";
 import { nameMain } from "./phase2-articles";
 import { loadArticleNames } from "./phase2-articles-load";
 
@@ -13,10 +14,14 @@ export async function lineContext(paths: string[]): Promise<LineContext> {
   const ids = new Set<string>();
   for (const p of paths) for (const id of articleIdsIn(p)) ids.add(id);
   const titles = new Map<string, string>();
-  if (ids.size === 0) return { titles };
+  // Unit VW111 (place 4): the titles of the book folders that the paths name (one read of the metadata file, the shared lookup of lib/books.ts).
+  const slugs = new Set<string>();
+  for (const p of paths) for (const s of bookSlugsIn(p)) slugs.add(s);
+  const bookNames = slugs.size > 0 ? await bookTitles(slugs) : new Map<string, string>();
+  if (ids.size === 0) return { titles, bookNames };
   const names = await loadArticleNames(await dataRoot(), [...ids].map((id) => `${id}/p001`));
   for (const [id, n] of names) if (n.match === "one" && (n.en ?? n.ja)) titles.set(id, nameMain(n));
-  return { titles };
+  return { titles, bookNames };
 }
 
 /** The line above the path, and a line for each folder entry (a map from the entry path to its line). */

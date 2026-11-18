@@ -4,6 +4,7 @@ import path from "node:path";
 import { PathError, isSafeSegment, resolveInside } from "./safe-path";
 import { PHASE2_BOOK } from "./phase2-articles";
 import { loadTitleRecords } from "./phase2-articles-load";
+import { rowsByKey, WEB_ARTICLE } from "./htv-titles";
 import { PHASE2_STORE, bookStore, parseOverflow, type OverflowRow, type RunStore } from "./run-store";
 
 /**
@@ -68,11 +69,13 @@ export async function storeOfQuery(root: string, list: string | null, book: stri
 }
 
 /**
- * The title of a book: title_en, else title_ja, of the metadata row whose item_id is the slug (the rule of lib/books.ts bookTitle).
+ * The title of a book: title_en, else title_ja, of the metadata row of the slug (the rule of lib/books.ts bookTitle).
+ * Unit VW111 (Q-A 3:76.1 row a): the row comes from the shared key rule (lib/htv-titles.ts rowsByKey). The key is the item_id, or the first 8
+ * characters of the item_id of a web article. Two articles with the same 8 characters give no row.
  * It reads below `root`, so a test with a made-up data folder gets its own titles. Null when no row matches.
  */
 export async function bookTitleAt(root: string, slug: string): Promise<string | null> {
-  const hit = (await loadTitleRecords(root)).find((r) => r.id === slug);
+  const hit = rowsByKey(await loadTitleRecords(root), (r) => r.id, (r) => r.kind === WEB_ARTICLE).get(slug);
   return hit ? (hit.en ?? hit.ja ?? null) : null;
 }
 

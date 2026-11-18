@@ -148,3 +148,37 @@ export function staffBookName(slug: string, titleEn?: string | null, titleJa?: s
   const n = bookNames(slug, titleEn ?? "", titleJa ?? "");
   return { main: n.main, hover: n.hover, title: n.hover ? n.main : "" };
 }
+
+/**
+ * Unit VW111 (Q-A 3:76.1 row a): the one lookup of a metadata row by the key that a screen holds. Q-A 3:72.2: "Use the real name of the book, not the file name".
+ *   - The full item_id of a row is a key. The last row of an item_id wins (the older rule of loadMetadata in lib/books.ts).
+ *   - A row of kind web-article is also a key under the first 8 characters of its item_id (the short ID that its page IDs use).
+ *     Two different item IDs with the same 8 characters give no short key, so neither gets a title (the rule of filesBookFacts above and of articleNames in lib/phase2-articles.ts).
+ *   - A full item_id that equals a short key wins over a web article (the rule of filesBookFacts).
+ * Generic over the row type, so that the rows of lib/books.ts and the records of lib/phase2-articles.ts use the same rule.
+ */
+export function rowsByKey<T>(rows: T[], idOf: (r: T) => string, isWeb: (r: T) => boolean): Map<string, T> {
+  const out = new Map<string, T>();
+  for (const r of rows) {
+    const id = idOf(r);
+    if (id) out.set(id, r);
+  }
+  const shorts = new Map<string, { ids: Set<string>; row: T }>();
+  for (const r of rows) {
+    const id = idOf(r);
+    if (!id || !isWeb(r)) continue;
+    const key = shortId(id);
+    if (out.has(key)) continue;
+    const seen = shorts.get(key);
+    if (seen) seen.ids.add(id);
+    else shorts.set(key, { ids: new Set([id]), row: r });
+  }
+  for (const [key, s] of shorts) if (s.ids.size === 1) out.set(key, s.row);
+  return out;
+}
+
+/** The title of a book as one text for a screen: the English title, else the Japanese title, else "". Both pass through cleanTitle. */
+export function plainTitle(titleEn: unknown, titleJa: unknown): string {
+  return titleText(cleanTitle(titleEn), cleanTitle(titleJa));
+}
+

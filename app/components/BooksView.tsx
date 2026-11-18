@@ -5,6 +5,7 @@ import { pageHref } from "@/lib/format";
 import { VerdictPill } from "./Pills";
 import BookDetails from "./BookDetails";
 import { RawId } from "./Named";
+import { bookNames } from "@/lib/htv-titles";
 import { capFirst, pageNumberText } from "@/lib/readable-names"; // Unit VW96 (Q-A 3:17.4): "Page 1" in place of the bare "p001", the folder name in small grey text.
 
 // Round 44 answer 13 (Q-A l142), tab Books: every book with metadata (title, author, publisher, year, confidence, page count)
@@ -41,6 +42,8 @@ export default function BooksView({ rows }: { rows: BookRow[] }) {
   );
 }
 
+const names = (r: BookRow) => bookNames(r.id, r.titleEn, r.titleJa);
+
 function BookTable({ rows }: { rows: BookRow[] }) {
   return (
     <div className="overflow-x-auto rounded border border-line bg-white">
@@ -66,9 +69,22 @@ function BookTable({ rows }: { rows: BookRow[] }) {
               <td className="px-3 py-2">
                 <RawId>{r.id}</RawId>
               </td>
-              <td className="px-3 py-2">
-                <div className="font-ja">{r.titleJa || <span className="text-muted">–</span>}</div>
-                {r.titleEn ? <div className="text-xs text-muted">{r.titleEn}</div> : null}
+              <td className="px-3 py-2" title={names(r).hover || undefined}>
+                {/* Unit VW111 (Q-A 3:76.1 row b, Q-A 3:73.2 "English, Japanese below"): the English title is the main text, the Japanese title is below it in small gray text, the folder name is the hover text. */}
+                {names(r).main === r.id ? (
+                  <span className="text-muted">–</span>
+                ) : (
+                  <>
+                    <div className={names(r).mainLang === "ja" ? "font-ja" : ""} lang={names(r).mainLang || undefined} data-book-title>
+                      {names(r).main}
+                    </div>
+                    {names(r).sub ? (
+                      <div className="font-ja text-xs text-muted" lang="ja">
+                        {names(r).sub}
+                      </div>
+                    ) : null}
+                  </>
+                )}
               </td>
               <td className="px-3 py-2 font-ja">{r.author || <span className="text-muted">–</span>}</td>
               <td className="px-3 py-2 font-ja">{r.publisher || <span className="text-muted">–</span>}</td>
