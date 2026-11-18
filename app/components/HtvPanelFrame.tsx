@@ -125,8 +125,10 @@ export default function HtvPanelFrame({
   children: React.ReactNode;
 }) {
   return (
+    // Unit VW110 (Q-A 3:74.5 part 2): below the lg width (1024 px) the panel sits under the pages, as wide as the screen (min-w-full max-w-full beat the inline width),
+    // not sticky, and without the drag handle (the width has no effect there). From lg on the classes are the old ones.
     <aside
-      className="sticky top-3 flex max-h-[calc(100vh-1.5rem)] shrink-0 flex-col rounded border border-line bg-white/60"
+      className="flex max-h-[calc(100vh-1.5rem)] min-w-full max-w-full shrink-0 flex-col rounded border border-line bg-white/60 max-lg:[&>[role=separator]]:hidden lg:sticky lg:top-3 lg:min-w-0 lg:max-w-none"
       style={{ width, ...style }}
       data-panel
       data-panel-width={width}

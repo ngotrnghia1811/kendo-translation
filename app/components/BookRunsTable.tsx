@@ -17,7 +17,10 @@ import { OpenButton, OpenConfirm, OpenGateLine, changeOpens, readOpensFrom, type
 
 const TH = "px-3 py-2";
 
-export default function BookRunsTable({ slug, runs }: { slug: string; runs: BookRunRow[] }) {
+// Unit VW110 (Q-A 3:74.5 part 4, Q-A 3:72.2 "Use the real name of the book, not the file name"): the confirm dialog names the book by its title when one exists.
+// `title` comes from the Details view (BookDetailView passes data.row.title, the title that the page header shows). Without a title the dialog shows the file name.
+export default function BookRunsTable({ slug, runs, title }: { slug: string; runs: BookRunRow[]; title?: string | null }) {
+  const bookName = title || slug;
   // A text key, so that a poll of the Details view with the same run IDs does not read the opens again.
   const idsKey = useMemo(() => runs.map((r) => r.runId ?? "").join(","), [runs]);
   const hasId = runs.some((r) => r.runId !== null);
@@ -129,7 +132,7 @@ export default function BookRunsTable({ slug, runs }: { slug: string; runs: Book
       ) : null}
       {ask ? (
         <OpenConfirm
-          title={ask.open ? `Open the run ${ask.row.runText} of ${slug} to readers?` : `Close the run ${ask.row.runText} of ${slug} to readers?`}
+          title={ask.open ? `Open the run ${ask.row.runText} of ${bookName} to readers?` : `Close the run ${ask.row.runText} of ${bookName} to readers?`}
           openBody={`Readers see the Agent text of ${ask.row.passPages} of ${ask.row.totalPages} pages after the next S2 run. The number counts the pages with the verdict PASS. You can close the run again.`}
           open={ask.open}
           busy={busy}

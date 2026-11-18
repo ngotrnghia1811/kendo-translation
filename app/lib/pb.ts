@@ -439,7 +439,8 @@ export async function catalogTitles(token: string, slug?: string): Promise<Map<s
   const params: Record<string, string> = { fields: "item_id,title_en,title_ja" };
   if (slug) params.filter = `item_id=${q(slug)}`;
   const recs = await listAll(token, "catalog_items", params);
-  return new Map(recs.map((r) => [String(r.item_id), String(r.title_en || r.title_ja || "")]));
+  // Unit VW110 (part 5): the titles pass through cleanTitle, so that a box character (U+FFFC) or a zero-width space does not reach the page heading.
+  return new Map(recs.map((r) => [String(r.item_id), titleText(cleanTitle(r.title_en), cleanTitle(r.title_ja))]));
 }
 
 /**

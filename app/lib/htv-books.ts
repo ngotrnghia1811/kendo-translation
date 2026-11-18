@@ -1,11 +1,12 @@
 import "server-only";
-import { readJson, readJsonl } from "./json";
+import { readJsonl } from "./json";
 import { loadConfig } from "./config";
 import { chaptersOf, parseChapterRows } from "./chapters";
 import { loadHtvPage, listFinishedPages } from "./htv-runs";
 import { catalogInfo, listComments, magazineChapters, PbError, runMarkOf, savedRows, savedVersions } from "./pb";
 import type { ChapterHead, HtvBookIndex, HtvBookPage, HtvBookRow, HtvPageTag, SessionUser } from "./htv-types";
-import { filesBookFacts, WEB_ARTICLE, type BookFactsData } from "./htv-titles";
+import { WEB_ARTICLE, type BookFactsData } from "./htv-titles";
+import { loadFilesFacts } from "./htv-files-titles";
 
 /*
  * Book screen of the human-translation-view (unit UXC step D, round 59).
@@ -29,9 +30,6 @@ export const BOOK_LIST_MODE: BookListMode = "all";
 
 /** The page window: a section loads its rows when it is within this many pages of the screen (VISION-viewer 15.16.2). */
 export const WINDOW_PAGES = 2;
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
-type J = any;
 
 /** "p048" to 48. */
 export function pageNumber(page: string): number {
@@ -58,14 +56,9 @@ async function fromServer(): Promise<boolean> {
  */
 async function bookFacts(token: string, slug?: string): Promise<Map<string, BookFactsData>> {
   if (await fromServer()) return catalogInfo(token, slug);
-  let rows = await readJsonl<J>("item-metadata/items.filled.jsonl");
-  if (rows.length === 0) rows = await readJsonl<J>("item-metadata/items.draft.jsonl");
-  const slugs = await readJson<J>("pilot-sample/book-slugs.json");
-  const books = ((slugs?.books ?? []) as J[])
-    .filter((b) => typeof b?.slug === "string")
-    .map((b) => ({ slug: b.slug as string, pages: typeof b.pages === "number" ? b.pages : 0 }));
   // items.filled.jsonl holds 347 rows: the 36 book folders and 311 web articles with long IDs. A web article is listed only when it has a run (see listBookRows).
-  const out = filesBookFacts(rows, books);
+  // Unit VW110: the read sits in lib/htv-files-titles.ts, because the page headings (lib/htv-runs.ts) use it too.
+  const out = await loadFilesFacts();
   if (slug) return new Map([...out].filter(([k]) => k === slug));
   return out;
 }

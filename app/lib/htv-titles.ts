@@ -15,8 +15,11 @@ export const WEB_ARTICLE = "web-article";
 /** Length of the short ID. The page IDs of a web article use the first 8 hex digits of item_id. */
 export const SHORT_ID_LENGTH = 8;
 
-/** Characters that take no space on the screen. Some titles of items.filled.jsonl hold zero-width spaces. */
-const INVISIBLE = /[\u200B-\u200D\u2060\uFEFF]/g;
+/**
+ * Characters that take no space on the screen, or show as a box. Some titles of items.filled.jsonl hold zero-width spaces.
+ * Unit VW110 (Q-A 3:74.5 part 5): U+FFFC (object replacement character) is removed too. The English title of 460f7e37 ends in it.
+ */
+const INVISIBLE = /[\u200B-\u200D\u2060\uFEFF\uFFFC]/g;
 
 /** A title as shown: a text with no zero-width characters and no outer spaces. A value that is not a text gives "". */
 export function cleanTitle(v: unknown): string {
@@ -113,4 +116,35 @@ export function bookNames(slug: string, titleEn: string, titleJa: string): BookN
   if (en) return { main: en, mainLang: "", sub: ja && ja !== en ? ja : "", hover: slug };
   if (ja) return { main: ja, mainLang: "ja", sub: "", hover: slug };
   return { main: slug, mainLang: "", sub: "", hover: "" };
+}
+
+/**
+ * Unit VW110 (Q-A 3:74.3 "File name for equal titles"): "Only in a group of equal titles, each row also shows its file name in small gray text
+ * after the Japanese title." Two rows have equal titles when the shown English title and the shown Japanese title (after cleaning) are both equal.
+ * A title equal only in English, or only in Japanese, is not equal. A row with no title shows its file name as the link, so it is never in a group.
+ * Returns the slugs of the rows in a group of 2 or more. The groups come from the rows that the screen holds, not from a fixed list.
+ */
+export function equalTitleSlugs(rows: { slug: string; titleEn: string; titleJa: string }[]): Set<string> {
+  const groups = new Map<string, string[]>();
+  for (const r of rows) {
+    const n = bookNames(r.slug, r.titleEn, r.titleJa);
+    if (n.main === r.slug) continue;
+    const key = `${n.mainLang}\u0000${n.main}\u0000${n.sub}`;
+    const g = groups.get(key);
+    if (g) g.push(r.slug);
+    else groups.set(key, [r.slug]);
+  }
+  const out = new Set<string>();
+  for (const g of groups.values()) if (g.length > 1) for (const s of g) out.add(s);
+  return out;
+}
+
+/**
+ * Unit VW110 (Q-A 3:74.5 part 4, Q-A 3:72.2): the name of a book on a staff screen. The English title, else the Japanese title, else the file name.
+ * `hover` is the file name when a title is shown (the file name is also the main text when there is no title, then there is no hover text).
+ * `title` is the title alone, "" when none exists.
+ */
+export function staffBookName(slug: string, titleEn?: string | null, titleJa?: string | null): { main: string; hover: string; title: string } {
+  const n = bookNames(slug, titleEn ?? "", titleJa ?? "");
+  return { main: n.main, hover: n.hover, title: n.hover ? n.main : "" };
 }

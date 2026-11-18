@@ -90,12 +90,19 @@ export default function HtvIndex({
     onGo(n);
   }
 
-  if (!open) return <CollapsedBar id="index" name="Book index" arrow="▶" onOpen={onOpen} />;
+  // Unit VW110 (Q-A 3:74.5 part 2): below the lg width (1024 px) the book screen stacks its columns (components/HtvBook.tsx). The bar sits in a wrapper that has no box
+  // from lg on. Below lg the index is as wide as the screen (min-w-full max-w-full beat the inline width), is not sticky, and scrolls inside a box of 18 rem.
+  if (!open)
+    return (
+      <div className="lg:contents">
+        <CollapsedBar id="index" name="Book index" arrow="▶" onOpen={onOpen} />
+      </div>
+    );
 
   return (
     <nav
       aria-label="Pages of the book"
-      className="sticky top-3 flex max-h-[calc(100vh-1.5rem)] shrink-0 flex-col rounded border border-line bg-white/60"
+      className="flex max-h-72 min-w-full max-w-full shrink-0 flex-col rounded border border-line bg-white/60 max-lg:[&>[role=separator]]:hidden lg:sticky lg:top-3 lg:max-h-[calc(100vh-1.5rem)] lg:min-w-0 lg:max-w-none"
       style={{ width, ...list.style }}
       data-index
       data-index-width={width}

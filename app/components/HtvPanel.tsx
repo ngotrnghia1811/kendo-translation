@@ -175,10 +175,24 @@ function Marks({ c, slug }: { c: MarksCard; slug: string }) {
   );
 }
 
-function Note({ c }: { c: NoteCard }) {
+// Unit VW110 (Q-A 3:74.5 part 4, Q-A 3:72.2): the "Book:" line shows the book title when the ID of the line is the book on the screen and the book has a title.
+// The ID (the file name) is then the hover text. Another ID, or a book with no title, shows the ID as before.
+function Note({ c, slug, bookTitle }: { c: NoteCard; slug: string; bookTitle: string }) {
+  const named = !!c.bookId && c.bookId === slug && !!bookTitle;
   return (
     <div className="text-[0.85em] text-muted" data-card="note">
-      {c.bookId ? <div>Book: {c.bookId}</div> : null}
+      {c.bookId ? (
+        <div>
+          Book:{" "}
+          {named ? (
+            <span title={c.bookId} data-note-book-title>
+              {bookTitle}
+            </span>
+          ) : (
+            c.bookId
+          )}
+        </div>
+      ) : null}
       {c.found ? <div>{c.found}</div> : null}
       {c.requested ? (
         <More label="Words looked up">
@@ -196,7 +210,7 @@ function Note({ c }: { c: NoteCard }) {
   );
 }
 
-function Card({ c, slug }: { c: PanelCard; slug: string }) {
+function Card({ c, slug, bookTitle }: { c: PanelCard; slug: string; bookTitle: string }) {
   switch (c.kind) {
     case "entry":
       return <Entry c={c} />;
@@ -207,13 +221,13 @@ function Card({ c, slug }: { c: PanelCard; slug: string }) {
     case "marks":
       return <Marks c={c} slug={slug} />;
     case "note":
-      return <Note c={c} />;
+      return <Note c={c} slug={slug} bookTitle={bookTitle} />;
     case "text":
       return <p className="whitespace-pre-wrap text-[0.85em]">{c.lines.join("\n")}</p>;
   }
 }
 
-function Block({ b, slug }: { b: CardBlock; slug: string }) {
+function Block({ b, slug, bookTitle }: { b: CardBlock; slug: string; bookTitle: string }) {
   return (
     <details open={b.lineCount <= OPEN_LIMIT} className="border-b border-line/70 py-1.5" data-block={b.name}>
       <summary className="cursor-pointer select-none font-semibold">
@@ -225,15 +239,18 @@ function Block({ b, slug }: { b: CardBlock; slug: string }) {
       </summary>
       <div className="mt-1.5 space-y-2">
         {b.cards.map((c, i) => (
-          <Card key={i} c={c} slug={slug} />
+          <Card key={i} c={c} slug={slug} bookTitle={bookTitle} />
         ))}
       </div>
     </details>
   );
 }
 
-/** The TL_3 information panel of one page. `slug` is the book on the screen, so that a page chip can link inside the screen. */
-export default function Tl3Panel({ panel, slug }: { panel: PanelData; slug: string }) {
+/**
+ * The TL_3 information panel of one page. `slug` is the book on the screen, so that a page chip can link inside the screen.
+ * `bookTitle` (unit VW110) is the title of that book, "" when it has none. The "Book:" line of the Note card uses it.
+ */
+export default function Tl3Panel({ panel, slug, bookTitle = "" }: { panel: PanelData; slug: string; bookTitle?: string }) {
   const blocks = panel.available ? panelCards(panel.blocks) : [];
   const shown = blocks.reduce((s, b) => s + b.lineCount, 0);
   return (
@@ -245,7 +262,7 @@ export default function Tl3Panel({ panel, slug }: { panel: PanelData; slug: stri
             Panel lines: {shown} of {panel.totalLines} message lines. Information of the whole page.
           </p>
           {blocks.map((b) => (
-            <Block key={b.name} b={b} slug={slug} />
+            <Block key={b.name} b={b} slug={slug} bookTitle={bookTitle} />
           ))}
         </>
       ) : (

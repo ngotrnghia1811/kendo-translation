@@ -392,7 +392,7 @@ export default function BookDetailView({ initial }: { initial: BookDetail }) {
 
                 {/* VISION 15.27.5 and 15.31.3, Q-A 3:11.3 V1 to V3: one table "Runs" (current run, archived runs, phase 3 run) with Place, Readers and the button */}
                 <Section part="runs" title={`Runs (${data.runs.length})`}>
-                  {data.runs.length === 0 ? <p className="text-sm text-muted">{NO_RUNS_TEXT}</p> : <BookRunsTable slug={slug} runs={data.runs} />}
+                  {data.runs.length === 0 ? <p className="text-sm text-muted">{NO_RUNS_TEXT}</p> : <BookRunsTable slug={slug} runs={data.runs} title={named ? row.title : null} />}
                 </Section>
               </>
             ) : null}

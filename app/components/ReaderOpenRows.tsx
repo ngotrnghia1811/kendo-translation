@@ -6,6 +6,7 @@ import { openKey, PILOT_SOURCE } from "@/lib/reader-opens-rule";
 import ConfirmDialog from "./ConfirmDialog";
 import { RawId } from "./Named"; // Unit VW96 (Q-A 3:17.4): a plain book name and a plain list name; the raw key stays in small grey text.
 import { bookKeyLabel } from "@/lib/readable-names";
+import { staffBookName } from "@/lib/htv-titles";
 import { listLabel } from "@/lib/phase2-articles";
 
 /*
@@ -24,6 +25,8 @@ interface BookRuns {
   runIds: string[];
   /** Pages whose run has the QA_3 verdict PASS. Readers see only such a run (the run mark of the admin can show another one). */
   passPages: number;
+  /** Unit VW110 (Q-A 3:74.5 part 4, Q-A 3:72.2): the title of the book (English, else Japanese) from `article` of a page row. "" when no page row names it. */
+  title: string;
 }
 
 /** One group for each book, in the order of the page rows. A page without a run folder (waiting) has nothing to open. */
@@ -32,12 +35,19 @@ function groupByBook(pages: RunPageRow[]): BookRuns[] {
   for (const p of pages) {
     if (!p.runFolder) continue;
     const book = p.pageId.split("/")[0];
-    const g = by.get(book) ?? { book, runIds: [], passPages: 0 };
+    const g = by.get(book) ?? { book, runIds: [], passPages: 0, title: "" };
     if (!g.runIds.includes(p.runFolder)) g.runIds.push(p.runFolder);
     if (p.qa3Verdict === "PASS") g.passPages++;
+    // The run view (lib/runs.ts) sets `article` on a page row: the title of a phase 2 article (VW94) or of a book (VW96). A not-found article has found false.
+    if (!g.title && p.article?.found) g.title = staffBookName(book, p.article.title, p.article.titleJa).title;
     by.set(book, g);
   }
   return [...by.values()];
+}
+
+/** The name of a book group in a row or a dialog: the title when one exists, else the plain name of the key (lib/readable-names.ts bookKeyLabel). */
+function groupLabel(g: BookRuns): string {
+  return g.title || bookKeyLabel(g.book);
 }
 
 export type OpenLoad = "loading" | "ready" | "signin" | "forbidden" | "error";
@@ -180,7 +190,11 @@ export default function ReaderOpenRows({ stamp, pages }: { stamp: string; pages:
                 return (
                   <tr key={g.book} className="border-t border-line first:border-t-0" data-reader-open-row={g.book}>
                     <td className="px-3 py-2">
-                      <span title={`Book key: ${g.book}`}>{bookKeyLabel(g.book)}</span> {bookKeyLabel(g.book) !== g.book ? <RawId>{g.book}</RawId> : null}
+                      {/* Unit VW110 (Q-A 3:74.5 part 4): the title first, then the file name in small gray text (the form of the other staff screens, VW96). */}
+                      <span title={`Book key: ${g.book}`} data-reader-open-name>
+                        {groupLabel(g)}
+                      </span>{" "}
+                      {groupLabel(g) !== g.book ? <RawId>{g.book}</RawId> : null}
                     </td>
                     <td className="px-3 py-2 text-muted">
                       {g.runIds.length} {g.runIds.length === 1 ? "page" : "pages"}
@@ -205,7 +219,7 @@ export default function ReaderOpenRows({ stamp, pages }: { stamp: string; pages:
       ) : null}
       {ask ? (
         <OpenConfirm
-          title={ask.open ? `Open the run of ${bookKeyLabel(ask.g.book)} (${listLabel(stamp)}) to readers?` : `Close the run of ${bookKeyLabel(ask.g.book)} (${listLabel(stamp)}) to readers?`}
+          title={ask.open ? `Open the run of ${groupLabel(ask.g)} (${listLabel(stamp)}) to readers?` : `Close the run of ${groupLabel(ask.g)} (${listLabel(stamp)}) to readers?`}
           openBody={`Readers see the Agent text of ${ask.g.passPages} of ${ask.g.runIds.length} pages after the next S2 run. The number counts the pages whose run has the verdict PASS. You can close the run again.`}
           open={ask.open}
           busy={busy}

@@ -4,9 +4,8 @@ import type { HtvBookIndex, HtvBookPage, HtvPageTag, Role } from "@/lib/htv-type
 import { INDEX_WIDTH, type PaneId, type ViewName } from "@/lib/htv-settings";
 import { parsePageNumber } from "@/lib/htv-format";
 import { VerdictPill } from "./Pills";
-import { RawId } from "./Named"; // Unit VW96 (Q-A 3:17.4): "Page 1" with the page ID in small grey text, in place of the bare "slug/p001".
-import { capFirst, pageNumberText } from "@/lib/readable-names";
-import { bookNames } from "@/lib/htv-titles";
+import { capFirst, pageNumberText } from "@/lib/readable-names"; // Unit VW96 (Q-A 3:17.4): "Page 1" in place of the bare "slug/p001".
+import { bookNames, staffBookName } from "@/lib/htv-titles";
 import HtvIndex from "./HtvIndex";
 import HtvPageSection from "./HtvPageSection";
 import HtvPanelFrame, { CollapsedBar } from "./HtvPanelFrame";
@@ -53,6 +52,7 @@ const Section = memo(function Section({
   n,
   name,
   slug,
+  bookTitle,
   tag,
   page,
   user,
@@ -67,6 +67,8 @@ const Section = memo(function Section({
   n: number;
   name: string;
   slug: string;
+  /** The title that follows "Page n" in the heading (English, else Japanese). Empty when the book has no title. */
+  bookTitle: string;
   tag: HtvPageTag | undefined;
   page: HtvBookPage | undefined;
   user: User;
@@ -79,22 +81,29 @@ const Section = memo(function Section({
   onDirty: (n: number, dirty: boolean) => void;
   onReload: (n: number) => Promise<void>;
 }) {
+  // Unit VW110 (Q-A 3:74.5 part 1, Q-A 3:72.2): the same heading as a loaded section (components/HtvPageSection.tsx): "Page 1" and then the book title.
+  // The page ID is the hover text. The attributes data-pin and data-page-heading keep the page ID.
   const pinButton = canPin ? (
     <button
       type="button"
       onClick={() => onPin(n)}
       aria-pressed={pinned}
-      title={pinned ? "The TL_3 information panel is pinned to this page. Click to follow the page in view." : "Click to show the TL_3 information panel of this page"}
+      title={`Page ID ${slug}/${name}. ` + (pinned ? "The TL_3 information panel is pinned to this page. Click to follow the page in view." : "Click to show the TL_3 information panel of this page")}
       className={"underline-offset-2 hover:underline " + (pinned ? "text-accent" : "")}
       data-pin={`${slug}/${name}`}
     >
-      {capFirst(pageNumberText(name))} <RawId>{`${slug}/${name}`}</RawId>
+      {capFirst(pageNumberText(name))}
     </button>
   ) : (
-    <span data-page-heading={`${slug}/${name}`}>
-      {capFirst(pageNumberText(name))} <RawId>{`${slug}/${name}`}</RawId>
+    <span data-page-heading={`${slug}/${name}`} title={`Page ID ${slug}/${name}`}>
+      {capFirst(pageNumberText(name))}
     </span>
   );
+  const titleText = bookTitle ? (
+    <span className="text-base font-normal text-muted" data-page-book-title>
+      {bookTitle}
+    </span>
+  ) : null;
   return (
     <section
       id={name}
@@ -107,6 +116,7 @@ const Section = memo(function Section({
       {!tag ? (
         <h2 className="flex flex-wrap items-center gap-3 text-base font-semibold">
           {pinButton}
+          {titleText}
           <span className="rounded bg-stone-200 px-2 py-0.5 text-sm font-normal text-stone-700" data-untagged>
             No agent translation
           </span>
@@ -117,6 +127,7 @@ const Section = memo(function Section({
         <div>
           <h2 className="flex flex-wrap items-center gap-3 text-lg font-semibold">
             {pinButton}
+            {titleText}
             <VerdictPill verdict={tag.verdict} score={tag.score} />
             <span className="font-mono text-xs font-normal text-muted">{tag.shownRunId}</span>
           </h2>
@@ -572,6 +583,8 @@ export default function HtvBook({
   const curChapter = pageView ? index.chapters.find((c) => c.pageStart >= 1 && cur >= c.pageStart && cur <= c.pageEnd) : undefined;
   const panelPage = loaded[panelN];
   const names = bookNames(slug, index.titleEn, index.titleJa);
+  // Unit VW110 (part 1 and part 4): the title alone (English, else Japanese), "" when the book has no title. The page headings and the panel use it.
+  const bookTitle = staffBookName(slug, index.titleEn, index.titleJa).title;
 
   return (
     <div>
@@ -643,7 +656,10 @@ export default function HtvBook({
         </p>
       ) : null}
 
-      <div className="mt-3 flex items-start gap-4">
+      {/* Unit VW110 (Q-A 3:74.5 part 2, accepted proposal "below phone width the panel goes under the pages, not hidden"): the three columns need about 640 px
+          for the two panels (index 192 px, TL_3 panel 416 px) plus the gaps, and the pages column shrank to 0 px at 390 px (the screen was 664 px wide).
+          Below the lg width (1024 px) the columns stack: index, pages, panel. From lg on the layout is the old row. */}
+      <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-start">
         <HtvIndex
           items={items}
           tags={tags}
@@ -659,7 +675,7 @@ export default function HtvBook({
           onCollapse={() => setUi((u) => ({ ...u, index: { ...u.index, open: false } }))}
           onWidth={(w) => setUi((u) => ({ ...u, index: { ...u.index, width: w } }))}
         />
-        <div className="min-w-0 flex-1" data-sections data-view-now={view}>
+        <div className="min-w-0 lg:flex-1" data-sections data-view-now={view}>
           <ColumnHeader readOnly={readOnly} />
           {pageView && curChapter ? (
             <p className="mt-2 text-lg font-semibold" data-page-chapter>
@@ -677,6 +693,7 @@ export default function HtvBook({
                 n={it.n}
                 name={it.name}
                 slug={slug}
+                bookTitle={bookTitle}
                 tag={tags[it.n]}
                 page={loaded[it.n]}
                 user={user}
@@ -720,13 +737,16 @@ export default function HtvBook({
                 No agent run for this page.
               </p>
             ) : panelPage?.data ? (
-              <Tl3Panel key={panelN} panel={panelPage.data.panel} slug={slug} />
+              <Tl3Panel key={panelN} panel={panelPage.data.panel} slug={slug} bookTitle={bookTitle} />
             ) : (
               <p className="text-muted">Loading the panel…</p>
             )}
           </HtvPanelFrame>
         ) : (
-          <CollapsedBar id="tl3" name="TL_3 information panel" arrow="◀" onOpen={() => setUi((u) => ({ ...u, tl3: { open: true } }))} />
+          // The wrapper has no box from lg on, so the bar stays a column of the row. Below lg it holds the bar, so that the sticky bar does not slide over the pages.
+          <div className="lg:contents">
+            <CollapsedBar id="tl3" name="TL_3 information panel" arrow="◀" onOpen={() => setUi((u) => ({ ...u, tl3: { open: true } }))} />
+          </div>
         )}
       </div>
     </div>

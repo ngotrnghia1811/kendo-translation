@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CommentView, HtvBookPage, HtvPageData, HtvRow, Role, SavedRow, VersionInfo } from "@/lib/htv-types";
 import { pstTime, pstTimeOrText } from "@/lib/htv-pst"; // unit TF83: PST on /translate (round 82 answer 14)
 import { readersSeeLine } from "@/lib/reader-opens-rule";
+import { capFirst, pageNumberText } from "@/lib/readable-names";
 import { VerdictPill } from "./Pills";
 import { MarkedText, TermPopup, type PickedTerm } from "./HtvMarkedText";
 import RowComments from "./HtvComments";
@@ -182,27 +183,36 @@ export default function HtvPageSection({ page, data, user, pinned, canPin, onPin
   const orphanKeys = [...new Set([...orphans.map((o) => o.groupKey), ...orphanComments.map((c) => c.groupKey)])];
 
   const verdictRun = data.runs.find((r) => r.runId === data.runId);
+  const pageText = capFirst(pageNumberText(data.page)); // "p001" gives "Page 1" (lib/readable-names.ts, unit VW96)
 
   return (
     <div>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
+          {/* Unit VW110 (Q-A 3:74.5 part 1, Q-A 3:72.2 "Use the real name of the book, not the file name"): the heading shows "Page 1" and then the book title.
+              The page ID (for example 100_practice_full/p001) is the hover text. The attributes data-pin and data-page-heading keep the page ID. */}
           <h2 className="text-lg font-semibold tracking-tight">
             {canPin ? (
               <button
                 type="button"
                 onClick={() => onPin(n)}
                 aria-pressed={pinned}
-                title={pinned ? "The TL_3 information panel is pinned to this page. Click to follow the page in view." : "Click to show the TL_3 information panel of this page"}
+                title={`Page ID ${data.pageId}. ` + (pinned ? "The TL_3 information panel is pinned to this page. Click to follow the page in view." : "Click to show the TL_3 information panel of this page")}
                 className={"underline-offset-2 hover:underline " + (pinned ? "text-accent" : "")}
                 data-pin={data.pageId}
               >
-                {data.pageId}
+                {pageText}
               </button>
             ) : (
-              <span data-page-heading={data.pageId}>{data.pageId}</span>
+              <span data-page-heading={data.pageId} title={`Page ID ${data.pageId}`}>
+                {pageText}
+              </span>
             )}
-            {data.bookTitle ? <span className="ml-3 text-base font-normal text-muted">{data.bookTitle}</span> : null}
+            {data.bookTitle ? (
+              <span className="ml-3 text-base font-normal text-muted" data-page-book-title>
+                {data.bookTitle}
+              </span>
+            ) : null}
           </h2>
           <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
             <span className="flex items-center gap-1.5">

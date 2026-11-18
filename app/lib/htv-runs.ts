@@ -2,6 +2,7 @@ import "server-only";
 import { promises as fs } from "node:fs";
 import { exists, listDir, readJson, readText } from "./json";
 import { bookTitle } from "./books";
+import { loadFilesFacts } from "./htv-files-titles";
 import { loadConfig } from "./config";
 import { folderToPageId } from "./format";
 import { isSafeSegment, PathError, resolveInside } from "./safe-path";
@@ -22,6 +23,17 @@ import type { HtvPageData, HtvPageRow, HtvRow, HtvRun } from "./htv-types";
 type J = any;
 
 const PILOT = "pilot-run";
+
+/**
+ * Unit VW110 (Q-A 3:74.5 part 1, Q-A 3:72.2): the title that follows "Page n" in the page heading, in files mode.
+ * English title, else Japanese title. The slug of a web article is the first 8 characters of its item_id, so the title comes from
+ * loadFilesFacts (lib/htv-files-titles.ts) and not from the full item_id match of bookTitle (lib/books.ts line 107), which found nothing for an article.
+ * When the facts give no title, the older bookTitle read stays as the fallback (an exact item_id row that is no book folder).
+ */
+async function filesBookTitle(slug: string, facts?: Map<string, { title: string }>): Promise<string> {
+  const f = (facts ?? (await loadFilesFacts())).get(slug);
+  return f?.title || (await bookTitle(slug));
+}
 
 /** True when the config key runSource is "pocketbase". The default "files" reads the run folders on this Mac. */
 async function fromServer(): Promise<boolean> {
@@ -80,6 +92,7 @@ export async function listFinishedPages(marks: Map<string, string>, token: strin
   if (await fromServer()) return listFinishedPagesFromServer(marks, token);
   const rows: HtvPageRow[] = [];
   const titles = new Map<string, string>();
+  const facts = await loadFilesFacts();
   for (const name of (await listDir(PILOT)).sort()) {
     const parsed = folderToPageId(name);
     if (!parsed || !isSafeSegment(name)) continue;
@@ -87,7 +100,7 @@ export async function listFinishedPages(marks: Map<string, string>, token: strin
     const pageId = `${parsed.slug}/${parsed.page}`;
     const shown = pickShownRun(runs, marks.get(pageId) ?? null);
     if (!shown) continue;
-    if (!titles.has(parsed.slug)) titles.set(parsed.slug, await bookTitle(parsed.slug));
+    if (!titles.has(parsed.slug)) titles.set(parsed.slug, await filesBookTitle(parsed.slug, facts));
     rows.push({
       pageId,
       slug: parsed.slug,
@@ -220,7 +233,7 @@ export async function loadHtvPage(slug: string, page: string, markedRunId: strin
     pageId,
     slug,
     page,
-    bookTitle: await bookTitle(slug),
+    bookTitle: await filesBookTitle(slug),
     verdict: shown.run.verdict,
     score: shown.run.score,
     runId: shown.run.runId,
