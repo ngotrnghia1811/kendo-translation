@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SIZE_LIMITS, cornerKey, dragSize, mergeSize, parseSize, serializeSize, sizeKey, type Size, type SizeLimits } from "@/lib/panel-size";
+import { RESET_EVENT } from "@/lib/panel-order";
 
 // Unit VW115 (Q-A 3:93.5, accepted design rows 1, 2 and 4 in Q-A 3:94.2), owner words: "I want to be able to resize every panel ... by dragging the borders/corners."
 // Term: handle = a thin bar on a panel edge that you drag. The border handle is DragHandle in components/HtvPanelFrame.tsx (with the new onReset).
@@ -38,6 +39,16 @@ export function useStoredSize(screen: string, panel: string, limits: SizeLimits 
     setSize(read);
     // `limits` is a constant of the caller, so the key alone names the stored value.
   }, [key]);
+  // Unit VW117 (Q-A 3:96.6 row 6): "Reset layout" of the screen removed the key already. This hook only takes the old size again.
+  useEffect(() => {
+    const on = (e: Event) => {
+      if ((e as CustomEvent<{ screen?: string }>).detail?.screen !== screen) return;
+      latest.current = {};
+      setSize({});
+    };
+    window.addEventListener(RESET_EVENT, on);
+    return () => window.removeEventListener(RESET_EVENT, on);
+  }, [screen]);
   const set = useCallback(
     (patch: { w?: number | null; h?: number | null }) => {
       const next = mergeSize(latest.current, patch);

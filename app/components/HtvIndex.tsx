@@ -7,6 +7,7 @@ import { parsePageNumber } from "@/lib/htv-format";
 import { CollapseButton, CollapsedBar, DragHandle } from "./HtvPanelFrame";
 import { PaneCog, usePaneSetting } from "./PaneSettings";
 import { CornerHandle, useStoredSize } from "./PanelResize";
+import { MoveButtons, grabClass, type BarApi } from "./PanelDragBar";
 
 // Left index of the book screen (unit UXC step D, round 59 answer 4, Q-A 2026-10-28 l222): "Left index with Go to page".
 // A column lists the pages with their tags, and the box "Go to page" jumps to a page. Month headings group the pages of a magazine year.
@@ -14,6 +15,8 @@ import { CornerHandle, useStoredSize } from "./PanelResize";
 // The width changes by drag on the right edge. The open state and the width stay in the account. In the page view a click on a page opens that page.
 // Unit VW115 (Q-A 3:94.2 row 4): a corner handle at the bottom right changes the width (160 to 400 px, in the account as before) and the height.
 // [unit default VW115] The height stays in this browser (localStorage key vw115:size:translate:index). A double click on the corner sets the old width (192 px) and height again.
+// Unit VW117 (Q-A 3:95.2 and 3:96.6 rows 4 and 5): the panel moves in the row of the book screen. The header is its title bar: a drag of it moves the panel, ◀ ▶ do the same by keyboard.
+// The width handle and the corner handle sit on the side that faces the pages (prop edge), so they stay at the border that they change after a move. The old place is the right side.
 
 interface Item {
   n: number;
@@ -64,6 +67,8 @@ export default function HtvIndex({
   onOpen,
   onCollapse,
   onWidth,
+  reorder = null,
+  edge = "right",
 }: {
   items: Item[];
   tags: Record<number, HtvPageTag>;
@@ -80,6 +85,10 @@ export default function HtvIndex({
   onOpen: () => void;
   onCollapse: () => void;
   onWidth: (w: number) => void;
+  /** Unit VW117 (Q-A 3:96.6 rows 4 and 5): the drag and the ◀ ▶ buttons of the title bar (components/PanelDragBar.tsx). Null: the bar has no move. */
+  reorder?: BarApi | null;
+  /** Unit VW117: the side of the panel that faces the pages panel. The width handle sits there, and the corner handle too. Old place: "right" (the index stands left of the pages). */
+  edge?: "left" | "right";
 }) {
   const pane = usePaneSetting("list");
   const [value, setValue] = useState("");
@@ -107,7 +116,7 @@ export default function HtvIndex({
   if (!open)
     return (
       <div className="lg:contents">
-        <CollapsedBar id="index" name="Book index" arrow="▶" onOpen={onOpen} />
+        <CollapsedBar id="index" name="Book index" arrow={edge === "right" ? "▶" : "◀"} onOpen={onOpen} />
       </div>
     );
 
@@ -119,13 +128,23 @@ export default function HtvIndex({
       data-sized={h !== undefined ? "" : undefined}
       data-index
       data-index-width={width}
+      data-reorder-item="index"
     >
-      <DragHandle side="right" width={width} min={INDEX_WIDTH.min} max={INDEX_WIDTH.max} onWidth={onWidth} label="Drag to change the width of the book index" attr="data-index-handle" />
-      <div className="flex items-center justify-between gap-2 border-b border-line/60 px-2 py-1.5" style={{ fontSize: "14px", fontFamily: "var(--font-sans)", lineHeight: 1.5 }} data-index-header>
+      <DragHandle side={edge} width={width} min={INDEX_WIDTH.min} max={INDEX_WIDTH.max} onWidth={onWidth} label="Drag to change the width of the book index" attr="data-index-handle" />
+      {/* Unit VW117 (Q-A 3:96.6 rows 1 and 5): the header is the title bar. A drag of the name moves the panel, and ◀ ▶ do the same by keyboard (from the lg width on). */}
+      <div
+        className={`flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-line/60 px-2 py-1.5 ${grabClass("lg")}`}
+        style={{ fontSize: "14px", fontFamily: "var(--font-sans)", lineHeight: 1.5 }}
+        data-index-header
+        data-panel-title="index"
+        title={reorder && reorder.count > 1 ? "Drag the title bar to move the panel" : undefined}
+        {...reorder?.dragProps}
+      >
         <span className="font-semibold">Book index</span>
-        <span className="flex items-center gap-2">
+        <span className="flex items-center gap-1.5">
+          <MoveButtons bar={reorder} name="book index panel" from="lg" />
           <PaneCog id="list" align="left" />
-          <CollapseButton id="index" name="Book index" arrow="◀" onCollapse={onCollapse} />
+          <CollapseButton id="index" name="Book index" arrow={edge === "right" ? "◀" : "▶"} onCollapse={onCollapse} />
         </span>
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-2 pr-3">
@@ -188,6 +207,7 @@ export default function HtvIndex({
       </ul>
       </div>
       <CornerHandle
+        corner={edge}
         limits={CORNER_LIMITS}
         label="Drag to change the width and the height of the book index"
         attr="data-index-corner"

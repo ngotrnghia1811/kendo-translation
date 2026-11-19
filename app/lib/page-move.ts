@@ -19,9 +19,13 @@ export interface KeyTarget {
   closest(selector: string): unknown;
 }
 
-/** The controls that use the arrow keys themselves. A button does not count. */
-const OWN_KEYS = "input, textarea, select, [role=slider], [role=separator], [role=tablist], [role=listbox], [role=menu]";
-const OWN_KEYS_NO_TABS = "input, textarea, select, [role=slider], [role=separator], [role=listbox], [role=menu]";
+/**
+ * The controls that use the arrow keys themselves. A button does not count.
+ * Unit VW117 (Q-A 3:96.6 row 5): the buttons ◀ ▶ that move a panel or a column count. After a keyboard move the focus stays on one of them,
+ * and a Left or Right key there must not open another page. The other buttons (Previous page, Next page, the stage tabs) still let the keys through.
+ */
+const OWN_KEYS = "input, textarea, select, [role=slider], [role=separator], [role=tablist], [role=listbox], [role=menu], [data-panel-move], [data-column-move]";
+const OWN_KEYS_NO_TABS = "input, textarea, select, [role=slider], [role=separator], [role=listbox], [role=menu], [data-panel-move], [data-column-move]";
 
 /**
  * True when the focus sits in a control that uses the arrow keys itself (text box, range slider, list, menu, tabs, splitter, editable text).

@@ -1,7 +1,12 @@
 "use client";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { HtvBookIndex, HtvBookPage, HtvPageTag, Role } from "@/lib/htv-types";
-import { INDEX_WIDTH, type PaneId, type ViewName } from "@/lib/htv-settings";
+import { INDEX_WIDTH, TL3_WIDTH, type PaneId, type ViewName } from "@/lib/htv-settings";
+import { COLUMN_IDS, TRANSLATE_PANEL_IDS, edgeToward, moveItem, moveVisible, shownColumns } from "@/lib/panel-order"; // Unit VW117 (Q-A 3:96.6 rows 4 to 6): the order of the panels and of the page columns.
+import { ColumnOrderContext, useColumnOrder } from "./ColumnOrder";
+import { MoveButtons, PanelTitleBar, grabClass, useReorder } from "./PanelDragBar";
+import ResetLayoutButton from "./ResetLayoutButton";
+import { usePanelOrder } from "./usePanelOrder";
 import { parsePageNumber } from "@/lib/htv-format";
 import { BAR_VAR, barHeightValue, barOffsetCss } from "@/lib/htv-bar-offset"; // Unit VW113 (Q-A 3:81.2 row 4): the jump offset follows the height of the sticky bar.
 import { VerdictPill } from "./Pills";
@@ -153,6 +158,8 @@ const HEADER_COLUMNS: { id: PaneId; label: string; writer: boolean }[] = [
   { id: "versions", label: "Version history", writer: true },
 ];
 
+const COLUMN_BY_ID = new Map<string, (typeof HEADER_COLUMNS)[number]>(HEADER_COLUMNS.map((c) => [c.id, c]));
+
 function ColumnHeader({ readOnly, onHeight }: { readOnly: boolean; onHeight: () => void }) {
   // Unit VW113 (Q-A 3:81.2 row 4): the bar takes 1 line at 1280 px and 3 lines at 390 px. It writes its height into --htv-bar-h on the element that holds the
   // sections, so that the scroll margin of each page section and chapter heading (barOffsetCss) follows the real height. The layout of the bar stays as it was.
@@ -175,6 +182,11 @@ function ColumnHeader({ readOnly, onHeight }: { readOnly: boolean; onHeight: () 
     ro.observe(el);
     return () => ro.disconnect();
   }, [onHeight]);
+  // Unit VW117 (Q-A 3:96.6 rows 4 and 5): the labels stand in the saved order of the columns, and every page section follows the same order (components/HtvPageSection.tsx).
+  // A label moves by a drag of its name or by the buttons ◀ ▶ (from the lg width on). A read-only viewer does not see the writer columns, so the order holds for the columns that it sees.
+  const { order, set } = useColumnOrder();
+  const shown = shownColumns(order, readOnly);
+  const reorder = useReorder({ ids: shown, onMove: (from, to) => set(moveVisible(order, shown, from, to)), minWidth: 1024, moveAttr: "data-column-move" });
   return (
     <div
       ref={ref}
@@ -182,12 +194,21 @@ function ColumnHeader({ readOnly, onHeight }: { readOnly: boolean; onHeight: () 
       style={{ fontFamily: "var(--font-sans)" }}
       data-column-header
     >
-      {HEADER_COLUMNS.filter((c) => !c.writer || !readOnly).map((c) => (
-        <span key={c.id} className="flex items-center gap-1.5 font-semibold" data-column={c.id}>
-          {c.label}
-          <PaneCog id={c.id} align="left" />
-        </span>
-      ))}
+      {shown.map((id) => {
+        const c = COLUMN_BY_ID.get(id);
+        if (!c) return null;
+        const bar = reorder.barFor(id);
+        return (
+          <span key={c.id} className="flex items-center gap-1 font-semibold" data-column={c.id} data-reorder-item={c.id}>
+            <span className={grabClass("lg")} title={bar && bar.count > 1 ? "Drag the name to move the column" : undefined} data-column-title={c.id} {...bar?.dragProps}>
+              {c.label}
+            </span>
+            <PaneCog id={c.id} align="left" />
+            <MoveButtons bar={bar} name={`${c.label} column`} from="lg" attr="data-column-move" small />
+          </span>
+        );
+      })}
+      {reorder.marker}
     </div>
   );
 }
@@ -304,6 +325,12 @@ export default function HtvBook({
   // Round 58 answer 5: the width of the panel is a setting of the pane tl3 (drag or cog), kept in the account.
   const [panelWidth, setPanelWidth] = useTl3Width();
   const tl3 = usePaneSetting("tl3");
+  // Unit VW117 (Q-A 3:95.2 and 3:96.6 rows 4 to 6): the order of the 3 big panels and the order of the page columns. [unit default VW117] Both stay in this browser,
+  // as the heights of the panels do (keys vw117:order:translate:panels and vw117:order:translate:columns). The order of the columns reaches every page section through a context.
+  const panelOrder = usePanelOrder("translate", "panels", TRANSLATE_PANEL_IDS);
+  const columnOrder = usePanelOrder("translate", "columns", COLUMN_IDS);
+  const panelReorder = useReorder({ ids: panelOrder.order, onMove: (from, to) => panelOrder.set(moveItem(panelOrder.order, from, to)), minWidth: 1024 });
+  const columnValue = useMemo(() => ({ order: columnOrder.order, set: columnOrder.set }), [columnOrder.order, columnOrder.set]);
   const jump = useRef<number | null>(null);
   const [near, setNear] = useState<[number, number] | null>(null);
   const [dirtyPages, setDirtyPages] = useState<number[]>([]);
@@ -635,7 +662,115 @@ export default function HtvBook({
   // Unit VW110 (part 1 and part 4): the title alone (English, else Japanese), "" when the book has no title. The page headings and the panel use it.
   const bookTitle = staffBookName(slug, index.titleEn, index.titleJa).title;
 
+  // Unit VW117 (Q-A 3:96.6 row 4): the 3 big panels in the saved order. Each one is a keyed child, so a move changes the place of its element and keeps its state (the unsaved text stays).
+  // The pages panel has no width handle, so its title bar is new. A collapsed panel keeps its place as a bar. The width handle of a panel sits on the side that faces the pages.
+  const panelNodes: Record<string, React.ReactNode> = {
+    index: (
+      <HtvIndex
+        key="index"
+        items={items}
+        tags={tags}
+        chapters={index.chapters}
+        current={shownN}
+        pageCount={pages}
+        digits={digits}
+        onGo={pageView ? movePage : goTo}
+        onPick={pageView ? movePage : null}
+        open={indexOpen}
+        width={indexWidth}
+        onOpen={() => setUi((u) => ({ ...u, index: { ...u.index, open: true } }))}
+        onCollapse={() => setUi((u) => ({ ...u, index: { ...u.index, open: false } }))}
+        onWidth={(w) => setUi((u) => ({ ...u, index: { ...u.index, width: w } }))}
+        reorder={panelReorder.barFor("index")}
+        edge={edgeToward(panelOrder.order, "index", "pages") ?? "right"}
+      />
+    ),
+    pages: (
+      <div className="min-w-0 lg:flex-1" data-sections key="pages" data-view-now={view} data-reorder-item="pages">
+        <PanelTitleBar id="pages" bar={panelReorder.barFor("pages")} title="Pages" name="pages panel" from="lg" />
+        <ColumnHeader readOnly={readOnly} onHeight={onBarHeight} />
+        {pageView && curChapter ? (
+          <p className="mt-2 text-lg font-semibold" data-page-chapter>
+            {curChapter.titleEn || curChapter.chapter}
+          </p>
+        ) : null}
+        {shownItems.map((it) => (
+          <div key={it.n}>
+            {!pageView && chapterAt.has(it.n) ? (
+              <h2 id={`chapter-${it.n}`} style={{ scrollMarginTop: barOffsetCss() }} className="mt-6 border-t-2 border-accent pt-2 text-xl font-semibold" data-chapter={it.n}>
+                {chapterAt.get(it.n)}
+              </h2>
+            ) : null}
+            <Section
+              n={it.n}
+              name={it.name}
+              slug={slug}
+              bookTitle={bookTitle}
+              tag={tags[it.n]}
+              page={loaded[it.n]}
+              user={user}
+              pinned={!pageView && pinned === it.n}
+              canPin={!pageView}
+              minHeight={heights[it.n] ?? (tags[it.n] ? TAGGED_HEIGHT : undefined)}
+              register={register}
+              onPin={togglePin}
+              onDirty={onDirty}
+              onReload={reload}
+            />
+          </div>
+        ))}
+        {pageView ? (
+          <div className="mt-4 border-t border-line pt-3">
+            <PageNav where="bottom" cur={cur} pages={pages} nameOf={nameOf} onMove={movePage} />
+          </div>
+        ) : null}
+      </div>
+    ),
+    tl3: (
+      <Fragment key="tl3">
+        {tl3Open ? (
+          <HtvPanelFrame
+            width={panelWidth}
+            onWidth={setPanelWidth}
+            onCollapse={() => setUi((u) => ({ ...u, tl3: { open: false } }))}
+            title="TL_3 information panel"
+            style={tl3.style}
+            cog={<PaneCog id="tl3" />}
+            reorder={panelReorder.barFor("tl3")}
+            edge={edgeToward(panelOrder.order, "tl3", "pages") ?? "left"}
+          >
+            <p className="mb-1 flex flex-wrap items-center gap-x-2 text-[0.85em] text-muted" data-panel-page={nameOf(panelN)}>
+              <span>
+                Page <span className="font-mono">{nameOf(panelN)}</span> {pageView ? "(page shown)" : pinned === panelN ? "(pinned)" : "(page in view)"}
+              </span>
+              {!pageView && pinned !== null ? (
+                <button type="button" onClick={() => setPinned(null)} className="text-accent underline">
+                  Follow the page in view
+                </button>
+              ) : null}
+            </p>
+            {!panelTag ? (
+              <p className="text-muted" data-panel-none>
+                No agent run for this page.
+              </p>
+            ) : panelPage?.data ? (
+              <Tl3Panel key={panelN} panel={panelPage.data.panel} slug={slug} bookTitle={bookTitle} />
+            ) : (
+              <p className="text-muted">Loading the panel…</p>
+            )}
+          </HtvPanelFrame>
+        ) : (
+          // The wrapper has no box from lg on, so the bar stays a column of the row. Below lg it holds the bar, so that the sticky bar does not slide over the pages.
+          <div className="lg:contents">
+            <CollapsedBar id="tl3" name="TL_3 information panel" arrow={edgeToward(panelOrder.order, "tl3", "pages") === "right" ? "▶" : "◀"} onOpen={() => setUi((u) => ({ ...u, tl3: { open: true } }))} />
+          </div>
+        )}
+      </Fragment>
+    ),
+  };
+
   return (
+    <ColumnOrderContext.Provider value={columnValue}>
     <div>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -692,6 +827,15 @@ export default function HtvBook({
           ))}
         </div>
         {pageView ? <PageNav where="top" cur={cur} pages={pages} nameOf={nameOf} onMove={movePage} /> : null}
+        {/* Unit VW117 (Q-A 3:96.6 row 6): one button for the order of the panels and of the columns and for the sizes of this screen. The two widths that the account keeps
+            (book index and TL_3 information panel) go back to their start values too. [unit default VW117] */}
+        <ResetLayoutButton
+          screen="translate"
+          onReset={() => {
+            setUi((u) => ({ ...u, index: { ...u.index, width: undefined } }));
+            setPanelWidth(TL3_WIDTH.default);
+          }}
+        />
       </div>
       {atNote ? (
         <p role="alert" className="mt-2 text-sm text-red-700" data-at-note>
@@ -709,95 +853,11 @@ export default function HtvBook({
           for the two panels (index 192 px, TL_3 panel 416 px) plus the gaps, and the pages column shrank to 0 px at 390 px (the screen was 664 px wide).
           Below the lg width (1024 px) the columns stack: index, pages, panel. From lg on the layout is the old row. */}
       <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-start">
-        <HtvIndex
-          items={items}
-          tags={tags}
-          chapters={index.chapters}
-          current={shownN}
-          pageCount={pages}
-          digits={digits}
-          onGo={pageView ? movePage : goTo}
-          onPick={pageView ? movePage : null}
-          open={indexOpen}
-          width={indexWidth}
-          onOpen={() => setUi((u) => ({ ...u, index: { ...u.index, open: true } }))}
-          onCollapse={() => setUi((u) => ({ ...u, index: { ...u.index, open: false } }))}
-          onWidth={(w) => setUi((u) => ({ ...u, index: { ...u.index, width: w } }))}
-        />
-        <div className="min-w-0 lg:flex-1" data-sections data-view-now={view}>
-          <ColumnHeader readOnly={readOnly} onHeight={onBarHeight} />
-          {pageView && curChapter ? (
-            <p className="mt-2 text-lg font-semibold" data-page-chapter>
-              {curChapter.titleEn || curChapter.chapter}
-            </p>
-          ) : null}
-          {shownItems.map((it) => (
-            <div key={it.n}>
-              {!pageView && chapterAt.has(it.n) ? (
-                <h2 id={`chapter-${it.n}`} style={{ scrollMarginTop: barOffsetCss() }} className="mt-6 border-t-2 border-accent pt-2 text-xl font-semibold" data-chapter={it.n}>
-                  {chapterAt.get(it.n)}
-                </h2>
-              ) : null}
-              <Section
-                n={it.n}
-                name={it.name}
-                slug={slug}
-                bookTitle={bookTitle}
-                tag={tags[it.n]}
-                page={loaded[it.n]}
-                user={user}
-                pinned={!pageView && pinned === it.n}
-                canPin={!pageView}
-                minHeight={heights[it.n] ?? (tags[it.n] ? TAGGED_HEIGHT : undefined)}
-                register={register}
-                onPin={togglePin}
-                onDirty={onDirty}
-                onReload={reload}
-              />
-            </div>
-          ))}
-          {pageView ? (
-            <div className="mt-4 border-t border-line pt-3">
-              <PageNav where="bottom" cur={cur} pages={pages} nameOf={nameOf} onMove={movePage} />
-            </div>
-          ) : null}
-        </div>
-        {tl3Open ? (
-          <HtvPanelFrame
-            width={panelWidth}
-            onWidth={setPanelWidth}
-            onCollapse={() => setUi((u) => ({ ...u, tl3: { open: false } }))}
-            title="TL_3 information panel"
-            style={tl3.style}
-            cog={<PaneCog id="tl3" />}
-          >
-            <p className="mb-1 flex flex-wrap items-center gap-x-2 text-[0.85em] text-muted" data-panel-page={nameOf(panelN)}>
-              <span>
-                Page <span className="font-mono">{nameOf(panelN)}</span> {pageView ? "(page shown)" : pinned === panelN ? "(pinned)" : "(page in view)"}
-              </span>
-              {!pageView && pinned !== null ? (
-                <button type="button" onClick={() => setPinned(null)} className="text-accent underline">
-                  Follow the page in view
-                </button>
-              ) : null}
-            </p>
-            {!panelTag ? (
-              <p className="text-muted" data-panel-none>
-                No agent run for this page.
-              </p>
-            ) : panelPage?.data ? (
-              <Tl3Panel key={panelN} panel={panelPage.data.panel} slug={slug} bookTitle={bookTitle} />
-            ) : (
-              <p className="text-muted">Loading the panel…</p>
-            )}
-          </HtvPanelFrame>
-        ) : (
-          // The wrapper has no box from lg on, so the bar stays a column of the row. Below lg it holds the bar, so that the sticky bar does not slide over the pages.
-          <div className="lg:contents">
-            <CollapsedBar id="tl3" name="TL_3 information panel" arrow="◀" onOpen={() => setUi((u) => ({ ...u, tl3: { open: true } }))} />
-          </div>
-        )}
+        {/* Unit VW117 (Q-A 3:96.6 row 4): the 3 big panels in the saved order (panelNodes above). The drop marker of the panels is drawn here. */}
+        {panelOrder.order.map((id) => panelNodes[id])}
+        {panelReorder.marker}
       </div>
     </div>
+    </ColumnOrderContext.Provider>
   );
 }

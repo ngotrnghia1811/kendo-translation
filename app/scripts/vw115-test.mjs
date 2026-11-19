@@ -381,7 +381,7 @@ await check("sources: the corner handle is on the Reader panels, the book index 
   assert.ok(read("components/ReaderPanels.tsx").includes('attr="data-reader-corner"') && read("components/ReaderPanels.tsx").includes('attr="data-reader-handle"'));
   assert.ok(read("components/HtvIndex.tsx").includes('attr="data-index-corner"') && read("components/HtvIndex.tsx").includes('attr="data-index-handle"'));
   const frame = read("components/HtvPanelFrame.tsx");
-  assert.ok(frame.includes('attr="data-panel-corner"') && frame.includes('attr="data-panel-handle"') && frame.includes('corner="left"'));
+  assert.ok(frame.includes('attr="data-panel-corner"') && frame.includes('attr="data-panel-handle"') && /corner=("left"|\{edge\})/.test(frame));
   assert.ok(frame.includes("onReset"), "DragHandle has the reset");
 });
 

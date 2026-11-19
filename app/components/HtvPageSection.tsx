@@ -8,6 +8,8 @@ import { VerdictPill } from "./Pills";
 import { MarkedText, TermPopup, type PickedTerm } from "./HtvMarkedText";
 import RowComments from "./HtvComments";
 import { Pane, useJaShare, usePaneSetting } from "./PaneSettings";
+import { useColumnOrder } from "./ColumnOrder"; // Unit VW117 (Q-A 3:96.6 row 4): the page columns follow the order of the header bar.
+import { rowGroups } from "@/lib/panel-order";
 
 // Human-translation-view, one page section of the book screen. Rounds 50 to 54 (Q-A 2026-10-28 l29-60, l94-108, l119-134), VISION-viewer 15.10 to 15.12.
 // Per sentence group: JA text, ED_3 text of the shown run, an own box, a copy button, and comments.
@@ -440,6 +442,26 @@ function RowCard({
 }) {
   const share = useJaShare();
   const own = usePaneSetting("own");
+  // Unit VW117 (Q-A 3:96.6 row 4): the blocks of the row stand in the order of the columns (header bar of the book screen). Japanese and Agent translation stand side by side
+  // when they are next to each other in the order. Your translation keeps its Comments button in its line when Comments follows it. With the old order the row looks as it did before.
+  const { order } = useColumnOrder();
+  const groups = rowGroups(order, readOnly);
+  const jaPane = (
+    <Pane key="ja" id="ja" className="font-ja text-[1.05rem] leading-relaxed" lang="ja">
+      <MarkedText text={row.ja} marks={row.jaMarks} onPick={onPick} />
+    </Pane>
+  );
+  const agentPane = (
+    <Pane key="agent" id="agent" className="font-serif text-[1.05rem] leading-relaxed" dataAttr={{ "data-ed3": "" }}>
+      {row.ed3 ? <MarkedText text={row.ed3} marks={row.edMarks} onPick={onPick} /> : <span className="text-muted">No agent text for this row.</span>}
+    </Pane>
+  );
+  const commentsButton = (
+    <button type="button" onClick={onToggleComments} className="text-accent underline">
+      Comments ({comments.length})
+    </button>
+  );
+  const commentsList = commentsOpen ? <RowComments pageId={pageId} groupKey={row.key} runId={runId} role={role} comments={comments} onChange={onComments} /> : null;
   return (
     <article className="rounded border border-line bg-white/70 p-3" data-row={row.key}>
       <div className="mb-1.5 flex items-center gap-2 text-xs text-muted">
@@ -447,45 +469,55 @@ function RowCard({
         {row.part === "block_title" ? <span className="rounded bg-stone-200 px-1.5 text-stone-700">Title</span> : null}
         <span>{Array.from(row.ja).length} JA characters</span>
       </div>
-      <div className="grid gap-6" style={{ gridTemplateColumns: `${share}fr ${100 - share}fr` }}>
-        <Pane id="ja" className="font-ja text-[1.05rem] leading-relaxed" lang="ja">
-          <MarkedText text={row.ja} marks={row.jaMarks} onPick={onPick} />
-        </Pane>
-        <Pane id="agent" className="font-serif text-[1.05rem] leading-relaxed" dataAttr={{ "data-ed3": "" }}>
-          {row.ed3 ? <MarkedText text={row.ed3} marks={row.edMarks} onPick={onPick} /> : <span className="text-muted">No agent text for this row.</span>}
-        </Pane>
-      </div>
-      {!readOnly ? (
-        <div className="mt-2">
-          {notice ? (
-            <p data-row-notice className="mb-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900">
-              {notice}
-            </p>
-          ) : null}
-          <textarea
-            aria-label={`Own translation for ${row.shortKey}`}
-            style={own.style}
-            value={text}
-            onChange={(e) => onText(e.target.value)}
-            rows={Math.max(2, Math.min(12, Math.ceil(Array.from(row.ed3 || row.ja).length / 60)))}
-            placeholder="Your own translation"
-            className="w-full rounded border border-line bg-white p-2 font-serif text-[1.05rem] leading-relaxed placeholder:text-muted"
-          />
-          <div className="mt-1 flex items-center gap-4 text-sm">
-            <label className="flex items-center gap-1.5">
-              <input type="checkbox" data-agree={row.key} checked={agree} disabled={!row.ed3} onChange={(e) => onAgree(e.target.checked)} />
-              Agree with the agent text
-            </label>
-            <button type="button" disabled={!row.ed3} onClick={() => onText(row.ed3)} className="text-accent underline disabled:text-muted disabled:no-underline">
-              Copy the agent text into the box
-            </button>
-            <button type="button" onClick={onToggleComments} className="text-accent underline">
-              Comments ({comments.length})
-            </button>
+      {groups.map((g, gi) => {
+        const gap = gi === 0 ? undefined : "mt-2";
+        if (g.kind === "texts") {
+          // The share of the row belongs to the Japanese column. Two columns: the first one in the order stands left.
+          const cols = g.ids.length === 2 ? (g.ids[0] === "ja" ? `${share}fr ${100 - share}fr` : `${100 - share}fr ${share}fr`) : "1fr";
+          return (
+            <div key={`texts-${g.ids.join("-")}`} className={"grid gap-6" + (gap ? ` ${gap}` : "")} style={{ gridTemplateColumns: cols }} data-row-block={g.ids.join("-")}>
+              {g.ids.map((id) => (id === "ja" ? jaPane : agentPane))}
+            </div>
+          );
+        }
+        if (g.kind === "comments") {
+          return (
+            <div key="comments" className={gap} data-row-block="comments">
+              <div className="flex items-center gap-4 text-sm">{commentsButton}</div>
+              {commentsList}
+            </div>
+          );
+        }
+        return (
+          <div key="own" className={gap} data-row-block="own">
+            {notice ? (
+              <p data-row-notice className="mb-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900">
+                {notice}
+              </p>
+            ) : null}
+            <textarea
+              aria-label={`Own translation for ${row.shortKey}`}
+              style={own.style}
+              value={text}
+              onChange={(e) => onText(e.target.value)}
+              rows={Math.max(2, Math.min(12, Math.ceil(Array.from(row.ed3 || row.ja).length / 60)))}
+              placeholder="Your own translation"
+              className="w-full rounded border border-line bg-white p-2 font-serif text-[1.05rem] leading-relaxed placeholder:text-muted"
+            />
+            <div className="mt-1 flex items-center gap-4 text-sm">
+              <label className="flex items-center gap-1.5">
+                <input type="checkbox" data-agree={row.key} checked={agree} disabled={!row.ed3} onChange={(e) => onAgree(e.target.checked)} />
+                Agree with the agent text
+              </label>
+              <button type="button" disabled={!row.ed3} onClick={() => onText(row.ed3)} className="text-accent underline disabled:text-muted disabled:no-underline">
+                Copy the agent text into the box
+              </button>
+              {g.withComments ? commentsButton : null}
+            </div>
+            {g.withComments ? commentsList : null}
           </div>
-          {commentsOpen ? <RowComments pageId={pageId} groupKey={row.key} runId={runId} role={role} comments={comments} onChange={onComments} /> : null}
-        </div>
-      ) : null}
+        );
+      })}
     </article>
   );
 }

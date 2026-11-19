@@ -572,3 +572,16 @@ button.border-line:not(.bg-accent):not([aria-pressed]):not([role="tab"]) {
     max-height: none;
   }
 }
+
+/* Unit VW117 (Q-A 3:95.2 and 3:96.6 rows 1 and 2): a panel that you drag. It is dimmed and has a dashed outline in the accent color, and the cursor is a closed hand.
+   The drop marker is a bar in the accent color (components/PanelDragBar.tsx). A panel that slides into its new place has the attribute data-reorder-sliding for 0.15 s.
+   With "prefers-reduced-motion: reduce" the script does not slide at all, so no rule is needed for it. */
+[data-reorder-dragging] {
+  opacity: 0.55;
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+body[data-reorder-active],
+body[data-reorder-active] * {
+  cursor: grabbing !important;
+}

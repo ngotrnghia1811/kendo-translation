@@ -3,6 +3,7 @@ import { useRef } from "react";
 import { TL3_WIDTH } from "@/lib/htv-settings";
 import { SIZE_LIMITS, type SizeLimits } from "@/lib/panel-size";
 import { CornerHandle, useStoredSize } from "./PanelResize";
+import { MoveButtons, grabClass, type BarApi } from "./PanelDragBar";
 
 // Frames of the two side panels of the book screen (unit UXC step B, unit UXC2 round 61).
 // Round 58 answer 5 (Q-A 2026-10-28 l203): "drag width". Round 60 answer 7 (Q-A l244): "Instead of `closing`, Make the left and right panel collapsible".
@@ -12,6 +13,8 @@ import { CornerHandle, useStoredSize } from "./PanelResize";
 // Unit VW115 (Q-A 3:94.2 row 4): the panel also has a corner handle. The panel stands at the right end of the row, so the corner is at the bottom LEFT (the mirror image):
 // a drag to the left and down makes the panel bigger, as the left edge handle does. [unit default VW115] The height stays in this browser (localStorage key
 // vw115:size:translate:tl3). The width stays in the account as before. A double click on the corner sets the old width (416 px) and the old height again.
+// Unit VW117 (Q-A 3:95.2 and 3:96.6 rows 4 and 5): the panel moves in the row of the book screen. The header is its title bar: a drag of it moves the panel, ◀ ▶ do the same by keyboard.
+// The width handle and the corner handle sit on the side that faces the pages (prop edge). The old place is the left side, so the corner is at the bottom left as before.
 
 /** Width of a collapsed panel in px. */
 export const BAR_WIDTH = 28;
@@ -21,7 +24,8 @@ const clamp = (w: number, min: number, max: number) => Math.min(max, Math.max(mi
 /** The thin bar of a collapsed panel: an arrow and the name of the panel. A click opens the panel. */
 export function CollapsedBar({ id, name, arrow, onOpen }: { id: string; name: string; arrow: string; onOpen: () => void }) {
   return (
-    <aside className="sticky top-3 shrink-0 self-start" style={{ width: BAR_WIDTH }} data-panel-collapsed={id}>
+    // Unit VW117 (Q-A 3:96.6 row 4): a collapsed panel keeps its place in the order of the book screen. The attribute lets the drop marker count the bar as a place.
+    <aside className="sticky top-3 shrink-0 self-start" style={{ width: BAR_WIDTH }} data-panel-collapsed={id} data-reorder-item={id}>
       <button
         type="button"
         onClick={onOpen}
@@ -135,6 +139,8 @@ export default function HtvPanelFrame({
   title,
   style: paneStyle,
   cog,
+  reorder = null,
+  edge = "left",
   children,
 }: {
   width: number;
@@ -145,6 +151,10 @@ export default function HtvPanelFrame({
   style?: React.CSSProperties;
   /** The settings cog of the pane. */
   cog?: React.ReactNode;
+  /** Unit VW117 (Q-A 3:96.6 rows 4 and 5): the drag and the ◀ ▶ buttons of the title bar (components/PanelDragBar.tsx). Null: the bar has no move. */
+  reorder?: BarApi | null;
+  /** Unit VW117: the side of the panel that faces the pages panel. The width handle and the corner handle sit there. Old place: "left" (the panel stands right of the pages). */
+  edge?: "left" | "right";
   children: React.ReactNode;
 }) {
   const stored = useStoredSize("translate", "tl3");
@@ -161,18 +171,28 @@ export default function HtvPanelFrame({
       data-sized={h !== undefined ? "" : undefined}
       data-panel
       data-panel-width={width}
+      data-reorder-item="tl3"
     >
-      <DragHandle side="left" width={width} min={TL3_WIDTH.min} max={TL3_WIDTH.max} onWidth={onWidth} label="Drag to change the width of the panel" attr="data-panel-handle" />
-      <div className="flex items-center justify-between gap-2 px-3 pt-2 pl-4" style={{ fontSize: "14px", fontFamily: "var(--font-sans)", lineHeight: 1.5 }} data-panel-header>
+      <DragHandle side={edge} width={width} min={TL3_WIDTH.min} max={TL3_WIDTH.max} onWidth={onWidth} label="Drag to change the width of the panel" attr="data-panel-handle" />
+      {/* Unit VW117 (Q-A 3:96.6 rows 1 and 5): the header is the title bar. A drag of the name moves the panel, and ◀ ▶ do the same by keyboard (from the lg width on). */}
+      <div
+        className={`flex items-center justify-between gap-2 px-3 pt-2 pl-4 ${grabClass("lg")}`}
+        style={{ fontSize: "14px", fontFamily: "var(--font-sans)", lineHeight: 1.5 }}
+        data-panel-header
+        data-panel-title="tl3"
+        title={reorder && reorder.count > 1 ? "Drag the title bar to move the panel" : undefined}
+        {...reorder?.dragProps}
+      >
         <span className="font-semibold">{title}</span>
         <span className="flex items-center gap-2">
+          <MoveButtons bar={reorder} name="TL_3 information panel" from="lg" />
           {cog}
-          <CollapseButton id="tl3" name={title} arrow="▶" onCollapse={onCollapse} />
+          <CollapseButton id="tl3" name={title} arrow={edge === "left" ? "▶" : "◀"} onCollapse={onCollapse} />
         </span>
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-3 pb-3 pl-4">{children}</div>
       <CornerHandle
-        corner="left"
+        corner={edge}
         limits={CORNER_LIMITS}
         label="Drag to change the width and the height of the panel"
         attr="data-panel-corner"

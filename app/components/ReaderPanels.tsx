@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { DragHandle } from "./HtvPanelFrame";
 import { CornerHandle, useStoredSize } from "./PanelResize";
+import { PanelTitleBar, useReorder, type BarApi } from "./PanelDragBar";
 import { PANEL_WIDTH, type ComponentId } from "@/lib/htv-settings";
 import { SIZE_LIMITS, type SizeLimits } from "@/lib/panel-size";
 
@@ -20,6 +21,11 @@ import { SIZE_LIMITS, type SizeLimits } from "@/lib/panel-size";
  *   - [unit default VW115] The height stays in this browser (localStorage key vw115:size:read:row), not in the account, so the account needs no new key.
  *   - A double click on a corner sets the old width of that panel and the old height again.
  *   - Scroll view (band) and Focus mode have no corner: the bodies have their natural height there.
+ *
+ * Unit VW117 (Q-A 3:95.2 and 3:96.6 rows 1, 2 and 5), owner words: "Also I should be able to drag each panel around to reorder them, and the should snap into place when I do so"
+ *   - The drag of the title bar is a pointer drag now (components/PanelDragBar.tsx), shared with the other 2 page views. A drop marker shows the place and the panel slides into it.
+ *   - The buttons ◀ ▶ keep their names and their labels. After a move the focus stays on a button of the moved panel.
+ *   - The order stays in the account (key components) as before. "Reset layout" in the component list stays as it was.
  */
 /** The limits of a corner drag on the Reader dashboard page view: the width range of the old handle and the general height range. */
 const CORNER_LIMITS: SizeLimits = { w: PANEL_WIDTH, h: SIZE_LIMITS.h };
@@ -37,29 +43,26 @@ const BTN = "rounded border border-line bg-white px-1.5 text-sm leading-5 hover:
 
 function PanelBox({
   spec,
-  index,
+  bar,
   count,
   saved,
   last,
   focus,
   shownOnPhone,
-  onMove,
   onHide,
   onWidth,
   corner,
   onSize,
   onSizeReset,
-  onDragFrom,
-  getDragFrom,
 }: {
   spec: PanelSpec;
-  index: number;
+  /** Unit VW117: the drag and the ◀ ▶ buttons of the title bar (components/PanelDragBar.tsx). */
+  bar: BarApi | null;
   count: number;
   saved: number | undefined;
   last: boolean;
   focus: boolean;
   shownOnPhone: boolean;
-  onMove: (from: number, to: number) => void;
   onHide: (spec: PanelSpec) => void;
   onWidth: (spec: PanelSpec, w: number) => void;
   /** True when the panel has a corner handle (not in Focus mode, not in a band). */
@@ -67,8 +70,6 @@ function PanelBox({
   /** The corner changes the width of this panel or the height of the row. */
   onSize: (spec: PanelSpec, patch: { w?: number; h?: number }) => void;
   onSizeReset: (spec: PanelSpec) => void;
-  onDragFrom: (i: number | null) => void;
-  getDragFrom: () => number | null;
 }) {
   const box = useRef<HTMLElement>(null);
   const [measured, setMeasured] = useState<number | null>(null);
@@ -86,46 +87,17 @@ function PanelBox({
   const style = fixed ? ({ "--panel-w": `${saved}px` } as React.CSSProperties) : undefined;
   const only = count === 1;
   return (
-    <section ref={box} className={cls} style={style} data-panel={spec.key} data-panel-width={fixed ? saved : undefined} aria-label={spec.title}>
+    <section ref={box} className={cls} style={style} data-panel={spec.key} data-panel-width={fixed ? saved : undefined} aria-label={spec.title} data-reorder-item={spec.key}>
       {focus ? null : (
-        <div
-          className="hidden cursor-grab items-center gap-1 border-b border-line bg-stone-100 px-2 py-1 text-sm md:flex"
-          draggable={!only}
-          title={only ? "Keep at least one panel" : "Drag the title bar to move the panel"}
-          data-panel-title={spec.key}
-          onDragStart={(e) => {
-            e.dataTransfer.setData("text/plain", spec.key);
-            e.dataTransfer.effectAllowed = "move";
-            onDragFrom(index);
-          }}
-          onDragOver={(e) => {
-            if (getDragFrom() !== null) e.preventDefault();
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            const from = getDragFrom();
-            onDragFrom(null);
-            if (from !== null) onMove(from, index);
-          }}
-          onDragEnd={() => onDragFrom(null)}
-        >
-          <span className="min-w-0 flex-1 truncate font-semibold">{spec.title}</span>
-          {index > 0 ? (
-            <button type="button" className={BTN} aria-label={`Move the ${spec.title} panel left`} data-panel-move="left" onClick={() => onMove(index, index - 1)}>
-              <span aria-hidden="true">◀</span>
-            </button>
-          ) : null}
-          {index < count - 1 ? (
-            <button type="button" className={BTN} aria-label={`Move the ${spec.title} panel right`} data-panel-move="right" onClick={() => onMove(index, index + 1)}>
-              <span aria-hidden="true">▶</span>
-            </button>
-          ) : null}
+        // Unit VW117 (Q-A 3:95.2, 3:96.6 rows 1, 2 and 5): the title bar moves the panel by a pointer drag (a drop marker shows the place, the panel slides into it) or by the
+        // buttons ◀ ▶. The old HTML5 drag and drop is gone (components/PanelDragBar.tsx). The Hide button stays as it was.
+        <PanelTitleBar id={spec.key} bar={bar} title={spec.title} name={`${spec.title} panel`} from="md">
           {only ? null : (
             <button type="button" className={BTN} aria-label={`Hide the ${spec.title} panel`} data-panel-hide onClick={() => onHide(spec)}>
               <span aria-hidden="true">×</span>
             </button>
           )}
-        </div>
+        </PanelTitleBar>
       )}
       <div className="relative min-h-0 px-3 py-2 md:flex-1 md:overflow-auto" data-panel-body={spec.key}>
         {spec.body}
@@ -186,7 +158,9 @@ export default function ReaderPanels({
   const rowSize = useStoredSize("read", "row");
   const rowH = !band ? rowSize.size.h : undefined;
   const current = panels.some((p) => p.key === tab) ? tab : (panels[0]?.key ?? "");
-  const dragFrom = useRef<number | null>(null);
+  // Unit VW117 (Q-A 3:96.6 rows 1, 2 and 5): the drag with a drop marker, the slide, and the ◀ ▶ buttons. The order stays in the account as before (onMove).
+  // The panels move from the md width (768 px) on. Below it the panels are tabs and do not move.
+  const reorder = useReorder({ ids: panels.map((p) => p.key), onMove, minWidth: 768 });
   const holder = useRef<HTMLDivElement>(null);
   // A panel that the code scrolls on purpose fires a scroll event. The map says "ignore it until this time", so the panels do not drive each other in a loop.
   const quiet = useRef(new WeakMap<Element, number>());
@@ -289,13 +263,12 @@ export default function ReaderPanels({
           <PanelBox
             key={p.key}
             spec={p}
-            index={i}
+            bar={reorder.barFor(p.key)}
             count={panels.length}
             saved={widths[p.ids[0]]}
             last={i === panels.length - 1}
             focus={focus}
             shownOnPhone={current === p.key}
-            onMove={onMove}
             onHide={onHide}
             onWidth={onWidth}
             corner={!focus && !band}
@@ -307,11 +280,10 @@ export default function ReaderPanels({
               onWidthReset?.(spec);
               rowSize.set({ h: null });
             }}
-            onDragFrom={(v) => (dragFrom.current = v)}
-            getDragFrom={() => dragFrom.current}
           />
         ))}
       </div>
+      {reorder.marker}
     </div>
   );
 }
