@@ -21,7 +21,7 @@ import {
   type DetailList,
 } from "@/lib/book-detail-rules";
 import { bookTagText } from "@/lib/book-run-rules";
-import { StatePill, VerdictPill } from "./Pills";
+import { VerdictPill } from "./Pills"; // Unit VW116 (Q-A 3:95.4 row d): the unused import StatePill is gone.
 import { BoxCode, BoxText } from "./BoxCode";
 import { GroupCode, ListStatePill, PageListStatePill, RawId } from "./Named";
 import { bookJobsText, capFirst, criticModeWord, levelModelsText, listTitle, pageNumberText } from "@/lib/readable-names";

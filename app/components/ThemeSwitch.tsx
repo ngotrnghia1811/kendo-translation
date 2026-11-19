@@ -24,8 +24,12 @@ export default function ThemeSwitch({ theme: initial }: { theme: ThemeName }) {
     window.dispatchEvent(new CustomEvent(THEME_EVENT, { detail: t }));
     await fetch("/api/theme", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ theme: t }) });
   }
+  // Unit VW116 (Q-A 3:95.4 row b): at 1280 px the Monitor bar (six tabs) squeezed this switch, so the five buttons wrapped onto 2 lines.
+  // [unit default VW116] From 1280 px up (Tailwind xl) the switch keeps one line and its own width (xl:flex-nowrap xl:shrink-0). The name of the site and the
+  // tab labels, which already wrap, take the narrower room. Below 1280 px the switch wraps as before, so the bar does not scroll sideways on a small laptop.
+  // The five names, the pressed mark (aria-pressed) and the keyboard use of the buttons stay as they were.
   return (
-    <div role="group" aria-label="Color theme" className="mb-2 ml-auto flex flex-wrap overflow-hidden rounded border border-line bg-white text-sm" data-theme-switch>
+    <div role="group" aria-label="Color theme" className="mb-2 ml-auto flex flex-wrap overflow-hidden rounded border border-line bg-white text-sm xl:shrink-0 xl:flex-nowrap" data-theme-switch>
       {OPTIONS.map((o) => (
         <button
           key={o.value}

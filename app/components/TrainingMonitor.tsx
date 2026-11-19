@@ -124,7 +124,9 @@ function BoxPanel({ stamp, box }: { stamp: string; box: string }) {
     }
   }, [stamp, box]);
   useEffect(() => {
-    void refresh();
+    // Unit VW116 (Q-A 3:95.4 row d): the code checker rule react-hooks/set-state-in-effect found the direct call `void refresh()` here, because refresh sets state.
+    // The first read now starts from a timer of 0 ms (one tick later, not visible), like the later reads that start from the interval. The cleanup clears the timer.
+    const first = setTimeout(() => void refresh(), 0);
     const visible = () => document.visibilityState === "visible";
     const id = setInterval(() => {
       if (visible()) void refresh();
@@ -134,6 +136,7 @@ function BoxPanel({ stamp, box }: { stamp: string; box: string }) {
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
+      clearTimeout(first);
       clearInterval(id);
       document.removeEventListener("visibilitychange", onVisible);
     };

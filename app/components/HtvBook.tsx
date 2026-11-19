@@ -12,6 +12,8 @@ import HtvPageSection from "./HtvPageSection";
 import HtvPanelFrame, { CollapsedBar } from "./HtvPanelFrame";
 import Tl3Panel from "./HtvPanel";
 import { PaneCog, usePaneSetting, useTl3Width, useUiSettings } from "./PaneSettings";
+import { NEXT_TITLE, PREVIOUS_TITLE } from "@/lib/page-move"; // Unit VW116 (Q-A 3:95.4 row a): the one shared key rule and the button titles that name the keys.
+import { useTranslatePageKeys } from "./useTranslatePageKeys";
 
 // Book screen of the human-translation-view (unit UXC step D, round 59). VISION-viewer 15.16.2.
 // Round 58 answer 3 (Q-A 2026-10-28 l201): "Not just translated pages. All pages. With agent translated pages tagged."
@@ -208,10 +210,11 @@ function PageNav({ where, cur, pages, nameOf, onMove }: { where: "top" | "bottom
   }
   return (
     <div className="flex flex-wrap items-center gap-2" data-page-nav={where}>
-      <button type="button" className={BTN} disabled={cur <= 1} onClick={() => onMove(cur - 1)} data-page-prev={where}>
+      {/* Unit VW116 (Q-A 3:95.4 row a): the title names the key, as on /read and on the Monitor page view. The keys work in the Page view (useTranslatePageKeys). */}
+      <button type="button" className={BTN} disabled={cur <= 1} onClick={() => onMove(cur - 1)} title={PREVIOUS_TITLE} data-page-prev={where}>
         Previous page
       </button>
-      <button type="button" className={BTN} disabled={cur >= pages} onClick={() => onMove(cur + 1)} data-page-next={where}>
+      <button type="button" className={BTN} disabled={cur >= pages} onClick={() => onMove(cur + 1)} title={NEXT_TITLE} data-page-next={where}>
         Next page
       </button>
       {where === "top" ? (
@@ -545,6 +548,9 @@ export default function HtvBook({
     },
     [pages, cur, confirmLeave, nameOf],
   );
+
+  // Unit VW116 (Q-A 3:95.4 row a): the Left and Right arrow keys do what Previous page and Next page do. Page view only: the Scroll view has no page move.
+  useTranslatePageKeys(view === "page", cur, pages, movePage);
 
   const switchView = useCallback(
     (next: ViewName) => {

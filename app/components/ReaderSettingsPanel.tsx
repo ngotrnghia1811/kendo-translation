@@ -5,7 +5,7 @@ import type { EffectiveSettings } from "@/lib/reader-layout";
 /*
  * Settings panel of the reader pages (unit RC1, round 63). One cog in the reader bar opens it (VISION-viewer 15.19.6).
  * Round 62 answer 8 (Q-A 2026-10-28 l290): "Themes, fonts, size", "Page and Scroll switch", "Focus mode". The settings stay in the account.
- * On a wide screen the panel sits at the right edge. On a phone it is a sheet over the text. The button Close closes it.
+ * On a wide screen the panel sits at the right edge (in the first-visit mode at the left edge, unit VW116). On a phone it is a sheet over the text. The button Close closes it.
  * Unit RC3 (round 66 answer 1 and 5): the page image switch moved to the reader bar (button Image in ReaderBook).
  * Unit RC4 (round 68 answer 5: "Close only at Start reading", round 69 answer 13: "Every account sees it once"): in the first-visit mode the button "Start reading" replaces
  * "Close". Only that button or the Esc key closes the panel (ReaderBook). A change of a setting does not close it. VISION-viewer 15.23.6.
@@ -13,6 +13,16 @@ import type { EffectiveSettings } from "@/lib/reader-layout";
  * Unit RT73b (round 73c answer 4): the rows Text and English text are gone. The component list replaces them (button Components in the reader bar). The first-visit
  * panel holds the same list as its first group (`componentList`, unit default D5). "Reset text settings" leaves the layout alone.
  */
+
+// Unit VW116 (Q-A 3:95.4 row c, finding 2 of VW115): on a wide screen (md, 768 px and up) the box used to sit at the right edge in both modes. In the first-visit mode it
+// covered the corner handle of the last panel of /read/<book> (the corner sits at the right edge of the panel row) until the reader pressed "Start reading".
+// [unit default VW116] In the first-visit mode the box now sits at the LEFT edge, over the page index and the left end of the first panel. No panel corner
+// handle is there: the corners of the panels stand at the right end of each panel, and the last one at the right end of the row. The box from the cog
+// (not the first-visit mode) keeps the right edge. Owner rules stay: "Close only at Start reading" (round 68 answer 5) and "Every account sees it once"
+// (round 69 answer 13). The code that shows and closes the box (ReaderBook.tsx) is not changed. On a phone (below 768 px) the box is a sheet at the bottom
+// and the panels stand one under the other with no handles, so nothing changes there.
+export const SETTINGS_SIDE = "md:right-4";
+export const FIRST_VISIT_SIDE = "md:left-4";
 
 function Seg<T extends string>({ label, value, options, onPick, disabled }: { label: string; value: T; options: { value: T; label: string }[]; onPick: (v: T) => void; disabled?: boolean }) {
   return (
@@ -65,7 +75,7 @@ export default function ReaderSettingsPanel({
       aria-label="Reading settings"
       data-reader-settings
       {...(firstVisit ? { "data-first-visit": "" } : {})}
-      className={"fixed inset-x-0 bottom-0 z-50 overflow-auto rounded-t border border-line bg-white p-4 shadow-lg md:inset-x-auto md:bottom-auto md:right-4 md:top-20 md:max-h-[85vh] md:w-80 md:rounded " + (firstVisit ? "max-h-[50vh]" : "max-h-[85vh]")}
+      className={"fixed inset-x-0 bottom-0 z-50 overflow-auto rounded-t border border-line bg-white p-4 shadow-lg md:inset-x-auto md:bottom-auto md:top-20 md:max-h-[85vh] md:w-80 md:rounded " + (firstVisit ? "max-h-[50vh] " + FIRST_VISIT_SIDE : "max-h-[85vh] " + SETTINGS_SIDE)}
     >
       {firstVisit ? componentList : null}
       <div className="mb-2 flex items-center justify-between">
