@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Nav from "@/components/Nav";
+import NavigationLoading from "@/components/NavigationLoading";
 import { monitorEnabled } from "@/lib/monitor";
 import { readTheme } from "@/lib/theme";
 
@@ -21,6 +22,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="min-h-full flex flex-col">
         <Nav monitor={monitor} theme={theme} />
         <main className="flex-1 px-6 py-5">{children}</main>
+        {/* Unit VW115 (Q-A 3:94.2 row 6): the Loading pop-up for a page change on every screen. */}
+        <NavigationLoading />
       </body>
     </html>
   );

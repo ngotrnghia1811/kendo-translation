@@ -104,8 +104,13 @@ body {
   line-height: 1.5;
 }
 
-a {
-  color: inherit;
+/* Unit VW115 (Q-A 3:93.5 note "invisible white text on yellow background in dark mode", accepted design row 5 in Q-A 3:94.2): this link rule was outside a layer,
+   so it won over every text class on a link, for example text-tab-on-ink on the active tab "Program counts" of /monitor/vector-map (white on yellow, 1.07 to 1).
+   In the layer base, a text class on a link wins again, as it does on a <button> or a <span>. A link without a text class still takes the color of its parent. */
+@layer base {
+  a {
+    color: inherit;
+  }
 }
 
 /* Unit UXC step C (round 59). Round 58 answer 6 (Q-A 2026-10-28 l204): "Whole app, per account (Recommended)". A switch Light / High-contrast dark.
@@ -257,7 +262,8 @@ a {
   --state-fail-ink: #fbf5e6;
   --state-stop: #f2dc9a;
   --state-stop-ink: #4a2f00;
-  --bar-ok: #4d7a1f;
+  /* VW115 (Q-A 3:94.2 row 5): the legend ring on /monitor/vector-map is text on the page. #4d7a1f gave 4.33 to 1 on sepia. #4a751e gives 4.6 to 1. */
+  --bar-ok: #4a751e;
   --bar-run: #2f5d8a;
   --bar-wait: #cdbd98;
   --band: #6b1a1a;
@@ -332,8 +338,9 @@ a {
   --state-fail-ink: #fdf6e3;
   --state-stop: #f0dc9c;
   --state-stop-ink: #472d00;
-  --bar-ok: #5f7f00;
-  --bar-run: #268bd2;
+  /* VW115 (Q-A 3:94.2 row 5): the legend ring and arrow on /monitor/vector-map are text on the page. #5f7f00 gave 4.30 to 1 and #268bd2 gave 3.41 to 1. These give 4.6 and 4.7 to 1. */
+  --bar-ok: #5b7a00;
+  --bar-run: #2073ae;
   --bar-wait: #c9c2a8;
   --band: #7a1715;
   --band-ink: #fdf6e3;
@@ -469,5 +476,99 @@ button.border-line:not(.bg-accent):not([aria-pressed]):not([role="tab"]) {
   :where(main) details[open] > summary {
     border-top-left-radius: inherit;
     border-top-right-radius: inherit;
+  }
+}
+
+/* Unit VW115 (Q-A 3:94.2 row 6): the Loading pop-up. One small box at the top center with the text "Loading…" and a turning circle.
+   It stays invisible for the first 0.15 s (animation-delay, set in components/LoadingPopup.tsx from LOADING_DELAY_MS), so a fast move shows nothing.
+   It never takes a click. Colors come from the theme variables: the text is --foreground on --background (7 to 1 or more in all 5 themes). */
+@layer components {
+  .loading-popup {
+    position: fixed;
+    top: 0.75rem;
+    left: 50%;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.875rem;
+    border: 1px solid var(--line);
+    border-radius: 0.5rem;
+    background: var(--background);
+    color: var(--foreground);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateX(-50%);
+    animation: loading-popup-in 150ms ease-out both;
+  }
+  .loading-spinner {
+    box-sizing: border-box;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid var(--line);
+    border-top-color: var(--accent);
+    border-radius: 9999px;
+    animation: loading-spin 0.8s linear infinite;
+  }
+  /* While a move runs, the box of components/NavigationLoading.tsx is the only box: the fallback of a loading.tsx file stays invisible (visibility keeps its place,
+     so the script can still tell that the fallback is on the screen). */
+  body:has([data-nav-loading]) [data-route-loading] {
+    visibility: hidden;
+  }
+}
+
+@keyframes loading-popup-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Reduced motion: no turning circle (the circle stays as a static ring) and no fade. The delay still holds. */
+@media (prefers-reduced-motion: reduce) {
+  .loading-popup {
+    animation-duration: 1ms;
+  }
+  .loading-spinner {
+    animation: none;
+  }
+}
+
+/* Unit VW115 (Q-A 3:94.2 rows 1 and 4): the corner handle of a panel. A small triangle in the bottom corner. The left corner is the mirror image. */
+@layer components {
+  .panel-corner {
+    background: linear-gradient(135deg, transparent 50%, var(--line) 50%);
+  }
+  .panel-corner:hover,
+  .panel-corner:focus-visible {
+    background: linear-gradient(135deg, transparent 50%, var(--accent) 50%);
+  }
+  .panel-corner-left {
+    background: linear-gradient(225deg, transparent 50%, var(--line) 50%);
+  }
+  .panel-corner-left:hover,
+  .panel-corner-left:focus-visible {
+    background: linear-gradient(225deg, transparent 50%, var(--accent) 50%);
+  }
+}
+
+/* Unit VW115 (Q-A 3:94.2 row 4): the height that the reader gave to the book index or the TL_3 information panel of /translate/<book> with the corner handle.
+   The component sets data-sized and the variable --panel-h. From the lg width on (64rem, as the lg: classes of these two panels) the height wins over the max-h class.
+   Outside a layer, so that it wins over the utility classes. Below lg the panels stack and keep their old size (row 7). */
+@media (min-width: 64rem) {
+  [data-index][data-sized],
+  [data-panel][data-sized] {
+    height: var(--panel-h);
+    max-height: none;
   }
 }

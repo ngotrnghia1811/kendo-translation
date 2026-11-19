@@ -2,19 +2,26 @@
 import { memo, useState } from "react";
 import type { ChapterHead, HtvPageTag } from "@/lib/htv-types";
 import { INDEX_WIDTH } from "@/lib/htv-settings";
+import { SIZE_LIMITS, type SizeLimits } from "@/lib/panel-size";
 import { parsePageNumber } from "@/lib/htv-format";
 import { CollapseButton, CollapsedBar, DragHandle } from "./HtvPanelFrame";
 import { PaneCog, usePaneSetting } from "./PaneSettings";
+import { CornerHandle, useStoredSize } from "./PanelResize";
 
 // Left index of the book screen (unit UXC step D, round 59 answer 4, Q-A 2026-10-28 l222): "Left index with Go to page".
 // A column lists the pages with their tags, and the box "Go to page" jumps to a page. Month headings group the pages of a magazine year.
 // Unit UXC2 (round 61 answer 4, Q-A l264): the header holds the name, one cog, and a collapse button. A collapsed index is a bar of about 28 px.
 // The width changes by drag on the right edge. The open state and the width stay in the account. In the page view a click on a page opens that page.
+// Unit VW115 (Q-A 3:94.2 row 4): a corner handle at the bottom right changes the width (160 to 400 px, in the account as before) and the height.
+// [unit default VW115] The height stays in this browser (localStorage key vw115:size:translate:index). A double click on the corner sets the old width (192 px) and height again.
 
 interface Item {
   n: number;
   name: string;
 }
+
+/** The limits of a corner drag of the book index: the width range of the edge handle and the general height range. */
+const CORNER_LIMITS: SizeLimits = { w: INDEX_WIDTH, h: SIZE_LIMITS.h };
 
 const IndexLink = memo(function IndexLink({ item, tag, current, onPick }: { item: Item; tag: HtvPageTag | undefined; current: boolean; onPick: ((n: number) => void) | null }) {
   return (
@@ -74,9 +81,14 @@ export default function HtvIndex({
   onCollapse: () => void;
   onWidth: (w: number) => void;
 }) {
-  const list = usePaneSetting("list");
+  const pane = usePaneSetting("list");
   const [value, setValue] = useState("");
   const [note, setNote] = useState("");
+  const stored = useStoredSize("translate", "index");
+  const h = stored.size.h;
+  // The height comes in through the style of the pane, so the class list and the style of the nav keep the form that scripts/vw110-test.mjs reads.
+  // The rule [data-index][data-sized] in app/globals.css uses it from the lg width on.
+  const list = h === undefined ? pane : { ...pane, style: { ...pane.style, ["--panel-h" as string]: `${h}px` } as React.CSSProperties };
   const starts = new Map<number, ChapterHead>();
   for (const c of chapters) if (c.pageStart >= 1 && c.pageStart <= pageCount && !starts.has(c.pageStart)) starts.set(c.pageStart, c);
 
@@ -104,6 +116,7 @@ export default function HtvIndex({
       aria-label="Pages of the book"
       className="flex max-h-72 min-w-full max-w-full shrink-0 flex-col rounded border border-line bg-white/60 max-lg:[&>[role=separator]]:hidden lg:sticky lg:top-3 lg:max-h-[calc(100vh-1.5rem)] lg:min-w-0 lg:max-w-none"
       style={{ width, ...list.style }}
+      data-sized={h !== undefined ? "" : undefined}
       data-index
       data-index-width={width}
     >
@@ -174,6 +187,19 @@ export default function HtvIndex({
         })}
       </ul>
       </div>
+      <CornerHandle
+        limits={CORNER_LIMITS}
+        label="Drag to change the width and the height of the book index"
+        attr="data-index-corner"
+        onSize={(p) => {
+          if (p.w !== undefined) onWidth(p.w);
+          if (p.h !== undefined) stored.set({ h: p.h });
+        }}
+        onReset={() => {
+          onWidth(INDEX_WIDTH.default);
+          stored.set({ h: null });
+        }}
+      />
     </nav>
   );
 }

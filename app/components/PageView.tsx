@@ -18,13 +18,19 @@ import { criticModeWord, pageKindWord, pageRunName } from "@/lib/readable-names"
 import { TITLE_NOT_FOUND } from "@/lib/phase2-articles";
 import { BoxCode } from "./BoxCode";
 import { PageRunStatusPill, RawId } from "./Named";
+import PageMoveLinks from "./PageMoveLinks";
+import PagePanels from "./PagePanels";
+import type { PageNeighbors } from "@/lib/page-neighbors";
+import { markNavigating } from "@/lib/loading-rule";
 
 // Unit VW96 (round 91), card P31.3, owner rule Q-A 3:17.4: the header shows the article title and "page n of m" (the page ID stays in small grey text),
 // the page kind, the run folder and the status in plain words, and each box code gets its hover (Q-A 3:18.5, "Keep codes, explain on hover").
 // Round 44 answer 13 (Q-A l142), page view: header with page ID, kind, run folder, cost, verdict.
 // Main area: ED_0 to ED_3 texts with the JA text. QA verdict and cells. Reasoning on request. 7 extra items off by default.
 // Viewer goals: best reading experience (text central), efficiency (stage tabs, one page, few clicks), flexible UI (read or compare, image on or off).
-export default function PageView({ data, names }: { data: PageData; names: PageNames }) {
+// Unit VW115 (Q-A 3:93.5 and 3:94.2 rows 1 to 3): the panels have border and corner handles (components/PagePanels.tsx), and "Previous page" and "Next page" sit at the top
+// (components/PageMoveLinks.tsx, addresses from lib/page-neighbors.ts). The sizes stay in this browser.
+export default function PageView({ data, names, neighbors }: { data: PageData; names: PageNames; neighbors: PageNeighbors }) {
   const router = useRouter();
   const stages = data.ed.map((e) => Number(e.box.slice(-1)));
   const [stage, setStage] = useState<number>(stages.length ? stages[stages.length - 1] : 3);
@@ -35,13 +41,15 @@ export default function PageView({ data, names }: { data: PageData; names: PageN
   const ed = data.ed.find((e) => e.box === `ED_${stage}`);
   const qa = data.qa.find((q) => q.box === `QA_${stage}`);
   const qa3 = data.qa.find((q) => q.box === "QA_3");
-  const cols = showImage && data.imagePath ? "grid-cols-[300px_minmax(0,1fr)_340px]" : "grid-cols-[minmax(0,1fr)_340px]";
 
   return (
     <section>
-      <Link href="/books" className="text-sm text-muted hover:text-foreground">
-        ← Books
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link href="/books" className="text-sm text-muted hover:text-foreground">
+          ← Books
+        </Link>
+        <PageMoveLinks previous={neighbors.previous} next={neighbors.next} />
+      </div>
 
       <header className="mt-2 mb-4">
         <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
@@ -64,7 +72,10 @@ export default function PageView({ data, names }: { data: PageData; names: PageN
                   <select
                     className="max-w-full rounded border border-line bg-white px-1 py-0.5 font-mono text-xs"
                     value={data.runFolder}
-                    onChange={(e) => router.push(`/page/${data.slug}/${data.pageName}?run=${encodeURIComponent(e.target.value)}`)}
+                    onChange={(e) => {
+                      markNavigating();
+                      router.push(`/page/${data.slug}/${data.pageName}?run=${encodeURIComponent(e.target.value)}`);
+                    }}
                   >
                     {data.runFolders.map((r) => (
                       <option key={r} value={r}>
@@ -165,20 +176,16 @@ export default function PageView({ data, names }: { data: PageData; names: PageN
       {data.ed.length === 0 ? (
         <p className="rounded border border-line bg-white p-4 text-muted">This run folder has no ED result yet.</p>
       ) : (
-        <div className={`grid items-start gap-6 ${cols}`}>
-          {showImage && data.imagePath ? (
-            <div className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-auto rounded border border-line bg-white">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+        <PagePanels
+          image={
+            showImage && data.imagePath ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img src={`/api/file?path=${encodeURIComponent(data.imagePath)}`} alt={`Scan of ${names.title ?? data.pageId}, ${names.pageOf}`} className="w-full" />
-            </div>
-          ) : null}
-          <div className="min-w-0 rounded border border-line bg-white p-5">
-            {mode === "read" && ed ? <ReadText stage={ed} /> : <CompareText stages={data.ed} />}
-          </div>
-          <div className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-auto">
-            <QaPanel qa={qa} />
-          </div>
-        </div>
+            ) : null
+          }
+          text={mode === "read" && ed ? <ReadText stage={ed} /> : <CompareText stages={data.ed} />}
+          side={<QaPanel qa={qa} />}
+        />
       )}
 
       <ExtraPanels page={data} stage={stage} ticks={ticks} />

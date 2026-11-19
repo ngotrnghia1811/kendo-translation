@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { DragHandle } from "./HtvPanelFrame";
+import { CornerHandle, useStoredSize } from "./PanelResize";
 import { PANEL_WIDTH, type ComponentId } from "@/lib/htv-settings";
+import { SIZE_LIMITS, type SizeLimits } from "@/lib/panel-size";
 
 /*
  * The row of panels on the reader pages (unit RT73b, round 73c answer 4, round 73d answers 5 and 6; VISION-viewer 15.26.6).
@@ -11,7 +13,16 @@ import { PANEL_WIDTH, type ComponentId } from "@/lib/htv-settings";
  *   - Focus mode: no title bars and no handles, equal widths (15.26.6.11)
  *   - band (Scroll view): the bodies have their natural height, so there is no scroll together in a band (unit default)
  * A tap on a row marks the pair in the panels that share the row key. The panels scroll so that the pair is in view, and a scroll in one panel moves the others (15.26.6.6).
+ *
+ * Unit VW115 (Q-A 3:93.5 and 3:94.2 row 4): each panel also has a handle on its bottom right corner (CornerHandle in components/PanelResize.tsx).
+ *   - Width: the same width as the handle on the right edge (280 to 720 px), kept in the account as before. The last panel takes the rest of the row, so it has no width.
+ *   - Height: all panels of a row share one height, because they stand side by side in one row. The corner of any panel changes the height of the row (120 to 20000 px).
+ *   - [unit default VW115] The height stays in this browser (localStorage key vw115:size:read:row), not in the account, so the account needs no new key.
+ *   - A double click on a corner sets the old width of that panel and the old height again.
+ *   - Scroll view (band) and Focus mode have no corner: the bodies have their natural height there.
  */
+/** The limits of a corner drag on the Reader dashboard page view: the width range of the old handle and the general height range. */
+const CORNER_LIMITS: SizeLimits = { w: PANEL_WIDTH, h: SIZE_LIMITS.h };
 
 export interface PanelSpec {
   /** Key of the panel: the component ID, or "pair" for the merged panel of Bilingual pairing. */
@@ -35,6 +46,9 @@ function PanelBox({
   onMove,
   onHide,
   onWidth,
+  corner,
+  onSize,
+  onSizeReset,
   onDragFrom,
   getDragFrom,
 }: {
@@ -48,6 +62,11 @@ function PanelBox({
   onMove: (from: number, to: number) => void;
   onHide: (spec: PanelSpec) => void;
   onWidth: (spec: PanelSpec, w: number) => void;
+  /** True when the panel has a corner handle (not in Focus mode, not in a band). */
+  corner: boolean;
+  /** The corner changes the width of this panel or the height of the row. */
+  onSize: (spec: PanelSpec, patch: { w?: number; h?: number }) => void;
+  onSizeReset: (spec: PanelSpec) => void;
   onDragFrom: (i: number | null) => void;
   getDragFrom: () => number | null;
 }) {
@@ -116,6 +135,17 @@ function PanelBox({
           <DragHandle side="right" width={width} min={PANEL_WIDTH.min} max={PANEL_WIDTH.max} onWidth={(w) => onWidth(spec, w)} label={`Drag to change the width of the ${spec.title} panel`} attr="data-reader-handle" />
         </div>
       ) : null}
+      {corner ? (
+        <CornerHandle
+          axes={last ? "height" : "both"}
+          limits={CORNER_LIMITS}
+          label={`Drag to change the ${last ? "height" : "width and the height"} of the ${spec.title} panel`}
+          attr="data-reader-corner"
+          onSize={(patch) => onSize(spec, patch)}
+          onReset={() => onSizeReset(spec)}
+          className="max-md:hidden"
+        />
+      ) : null}
     </section>
   );
 }
@@ -133,6 +163,7 @@ export default function ReaderPanels({
   onMove,
   onHide,
   onWidth,
+  onWidthReset,
 }: {
   panels: PanelSpec[];
   widths: Partial<Record<ComponentId, number>>;
@@ -147,8 +178,13 @@ export default function ReaderPanels({
   onMove: (from: number, to: number) => void;
   onHide: (spec: PanelSpec) => void;
   onWidth: (spec: PanelSpec, w: number) => void;
+  /** Unit VW115: a double click on a corner sets the old width of the panel again. */
+  onWidthReset?: (spec: PanelSpec) => void;
 }) {
   const [tab, setTab] = useState(startTab);
+  // Unit VW115: the height of the row, kept in this browser.
+  const rowSize = useStoredSize("read", "row");
+  const rowH = !band ? rowSize.size.h : undefined;
   const current = panels.some((p) => p.key === tab) ? tab : (panels[0]?.key ?? "");
   const dragFrom = useRef<number | null>(null);
   const holder = useRef<HTMLDivElement>(null);
@@ -243,8 +279,10 @@ export default function ReaderPanels({
         ref={holder}
         onClick={onClick}
         onScrollCapture={onScroll}
-        className={"md:flex md:items-stretch md:overflow-x-auto md:rounded md:border md:border-line " + (band ? "" : "md:h-[calc(100vh-9.5rem)] md:min-h-[24rem]")}
+        className={"md:flex md:items-stretch md:overflow-x-auto md:rounded md:border md:border-line " + (band ? "" : rowH !== undefined ? "md:h-[var(--row-h)] md:min-h-0" : "md:h-[calc(100vh-9.5rem)] md:min-h-[24rem]")}
+        style={rowH !== undefined ? ({ "--row-h": `${rowH}px` } as React.CSSProperties) : undefined}
         data-panel-row
+        data-resize-height
         data-panel-count={panels.length}
       >
         {panels.map((p, i) => (
@@ -260,6 +298,15 @@ export default function ReaderPanels({
             onMove={onMove}
             onHide={onHide}
             onWidth={onWidth}
+            corner={!focus && !band}
+            onSize={(spec, patch) => {
+              if (patch.w !== undefined) onWidth(spec, patch.w);
+              if (patch.h !== undefined) rowSize.set({ h: patch.h });
+            }}
+            onSizeReset={(spec) => {
+              onWidthReset?.(spec);
+              rowSize.set({ h: null });
+            }}
             onDragFrom={(v) => (dragFrom.current = v)}
             getDragFrom={() => dragFrom.current}
           />

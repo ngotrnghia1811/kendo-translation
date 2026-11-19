@@ -43,6 +43,8 @@ export interface LayoutActions {
   hide: (group: Group, drawn: ComponentId[]) => void;
   /** Resize: the width goes under the first component of the panel. */
   width: (id: ComponentId, w: number) => void;
+  /** Unit VW115: set the old width of the panel again (a double click on its corner). The width key of the component leaves the account. */
+  widthReset: (id: ComponentId) => void;
 }
 
 /** A reader mark has no EN form check. The term pop-up reads the fields result and detail, so they are null here. */
@@ -363,6 +365,7 @@ export default function ReaderPageView({
           onMove={(from, to) => actions.move(groups, from, to)}
           onHide={(spec) => actions.hide(groups.find((g) => (g.pair ? "pair" : g.ids[0]) === spec.key) as Group, drawn.ids)}
           onWidth={(spec, w) => actions.width(spec.ids[0], w)}
+          onWidthReset={(spec) => actions.widthReset(spec.ids[0])}
         />
       ) : null}
       {!anyText ? (

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import PageView from "@/components/PageView";
 import { getPage } from "@/lib/page";
 import { loadPageNames } from "@/lib/readable-load";
+import { loadPageNeighbors } from "@/lib/page-neighbors";
 import { isSafeSegment } from "@/lib/safe-path";
 import { requireMonitor } from "@/lib/monitor";
 
@@ -22,5 +23,7 @@ export default async function PageRoute({
   if (!data) notFound();
   // Unit VW96 (Q-A 3:17.4): the article title and "page n of m" for the header.
   const names = await loadPageNames(data.slug, data.pageName, data.bookTitle);
-  return <PageView data={data} names={names} />;
+  // Unit VW115 (Q-A 3:94.2 row 3): the neighbor pages in book order that have a run, for "Previous page" and "Next page".
+  const neighbors = await loadPageNeighbors(data.slug, data.pageName);
+  return <PageView data={data} names={names} neighbors={neighbors} />;
 }

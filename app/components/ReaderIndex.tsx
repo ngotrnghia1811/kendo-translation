@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { parsePageNumber } from "@/lib/htv-format";
+import { markNavigating } from "@/lib/loading-rule";
 import { chapterHeading, pad, readHref, type ReaderView } from "@/lib/reader-links";
 import { NO_TEXT, type ReaderChapter } from "@/lib/reader-types";
 
@@ -64,6 +65,7 @@ export default function ReaderIndex({
     }
     setNote("");
     onNavigate?.();
+    markNavigating();
     router.push(readHref(slug, view, n, digits));
   }
 

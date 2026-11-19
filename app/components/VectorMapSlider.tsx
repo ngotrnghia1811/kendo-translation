@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { markNavigating } from "@/lib/loading-rule";
 
 // Unit VW106, Q-A 3:64.5 row 3: "A version slider." The slider opens the address of the chosen prompt version.
 // The page renders on the server, so the slider only changes the address. The links "Earlier" and "Later" work without a script.
@@ -11,6 +12,7 @@ export default function VectorMapSlider({ versions, index, hrefs }: { versions: 
   if (versions.length === 0) return null;
   const go = (i: number) => {
     setAt(i);
+    markNavigating();
     router.push(hrefs[i]);
   };
   return (

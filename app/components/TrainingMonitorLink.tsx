@@ -2,6 +2,7 @@
 import { createContext, useContext, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { monitorHref } from "@/lib/training-monitor";
+import { markNavigating } from "@/lib/loading-rule";
 import { BoxCode } from "./BoxCode";
 
 // Unit VW98 (round 91), Q-A 3:23.3: each box code in the step view /monitor/phase-2 and in the step tree of the run view links to the training
@@ -25,6 +26,7 @@ export function BoxMonitorLink({ code }: { code: string }) {
   const go = (e: MouseEvent | KeyboardEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    markNavigating();
     router.push(href);
   };
   return (

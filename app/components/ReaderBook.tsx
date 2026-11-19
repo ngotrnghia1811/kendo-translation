@@ -10,6 +10,8 @@ import ReaderComponentList from "./ReaderComponentList";
 import ReaderPageView, { type LayoutActions } from "./ReaderPageView";
 import ReaderSettingsPanel from "./ReaderSettingsPanel";
 import { parsePageNumber } from "@/lib/htv-format";
+import { markNavigating } from "@/lib/loading-rule";
+import { NEXT_TITLE, PREVIOUS_TITLE, pageKeyDirection } from "@/lib/page-move";
 import { LAYOUT_DEFAULTS, LAYOUT_KEYS, type ComponentId, type ReaderSettings, type ThemeName } from "@/lib/htv-settings";
 import { pad, readHref, type ReaderView } from "@/lib/reader-links";
 import { componentRows, effectiveSettings, moveGroups, pageHas, pageRows, resolveLayout, toggled, workHas, workKind, type Drawn, type EffectiveSettings } from "@/lib/reader-layout";
@@ -45,22 +47,8 @@ function ToolSeg<T extends string>({ label, value, options, onPick, disabled = f
 /** Title of the Image button when it is disabled (scroll view). Unit RC3, round 66 answer 5. */
 const IMAGE_PAGE_ONLY = "Page image shows in Page view only";
 
-/**
- * Arrow keys of the page view (unit RC5, round 72). Round 71 answer 1, owner words: "Add key-arrow for navigation".
- * The direction is a reading pending owner check: the Left arrow key opens the previous page and the Right arrow key opens the next page.
- * A Japanese book reads right to left on paper, so the owner may want the other direction. To flip it, swap the two values in this one line.
- */
-const PAGE_KEYS = { previous: "ArrowLeft", next: "ArrowRight" } as const;
-const KEY_NAME: Record<string, string> = { ArrowLeft: "Left arrow key", ArrowRight: "Right arrow key" };
-/** Title of the Previous and Next links. It names the key, so a reader finds the key without a help page. */
-const PREVIOUS_TITLE = `Previous page (${KEY_NAME[PAGE_KEYS.previous]})`;
-const NEXT_TITLE = `Next page (${KEY_NAME[PAGE_KEYS.next]})`;
-
-/** True when the focus sits in a control that uses the arrow keys itself (text box, range slider, list, menu, tabs, splitter, editable text). A button does not count. */
-function ownsArrowKeys(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  return target.isContentEditable || Boolean(target.closest("input, textarea, select, [role=slider], [role=separator], [role=tablist], [role=listbox], [role=menu]"));
-}
+// Unit VW115 (Q-A 3:94.2 row 3): the arrow key constants (PAGE_KEYS, PREVIOUS_TITLE, NEXT_TITLE) and the key rule (ownsArrowKeys, pageKeyDirection) moved from this file
+// to lib/page-move.ts (unit RC5, round 72), so that the Monitor page view /page/<book>/<page> uses the same copy. The behavior here is the same.
 
 /** One button in the reader bar that turns a setting on or off. It looks like one option of ToolSeg. Unit RC3 (round 66 answer 1 and 5). */
 function ToolToggle({ label, pressed, onToggle, disabled = false, disabledTitle }: { label: string; pressed: boolean; onToggle: () => void; disabled?: boolean; disabledTitle?: string }) {
@@ -190,6 +178,7 @@ export default function ReaderBook({
   function changeView(v: ReaderView) {
     if (v === s.view) return;
     save({ view: v });
+    markNavigating();
     router.push(readHref(index.slug, v, at ?? currentN ?? index.textPages[0] ?? 1, index.digits));
   }
 
@@ -228,12 +217,12 @@ export default function ReaderBook({
     if (at === null || !user.approved || s.view !== "page") return;
     if (showSettings || showList || firstVisit || picked) return;
     const key = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.repeat || e.isComposing || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
-      if (e.key !== PAGE_KEYS.previous && e.key !== PAGE_KEYS.next) return;
-      if (ownsArrowKeys(e.target)) return;
-      const to = e.key === PAGE_KEYS.previous ? at - 1 : at + 1;
+      const direction = pageKeyDirection(e);
+      if (!direction) return;
+      const to = direction === "previous" ? at - 1 : at + 1;
       if (to < 1 || to > index.pages) return;
       e.preventDefault();
+      markNavigating();
       router.push(readHref(index.slug, "page", to, index.digits));
     };
     window.addEventListener("keydown", key);
@@ -344,6 +333,7 @@ export default function ReaderBook({
     }
     setBoxNote("");
     setBox("");
+    markNavigating();
     router.push(readHref(index.slug, s.view, n, index.digits));
   }
 
@@ -363,6 +353,22 @@ export default function ReaderBook({
     move: (groups, from, to) => save({ components: moveGroups(s.components, groups, from, to) }),
     hide: (g, drawnIds) => (g.pair ? save({ pair: false }) : save({ shown: { ...s.shown, [kind]: (s.shown?.[kind] ?? drawnIds).filter((x) => x !== g.ids[0]) } })),
     width: (id, w) => save({ widths: { ...s.widths, [id]: w } }),
+    // Unit VW115: the account keeps the whole object `widths`, so the object without the key sets the old width of that panel again.
+    // The server drops an empty object, so the last width goes away with the clear list of the route (as "Reset layout" does).
+    widthReset: (id) => {
+      if (s.widths[id] === undefined) return;
+      const rest = Object.fromEntries(Object.entries(s.widths).filter(([k]) => k !== id)) as typeof s.widths;
+      if (Object.keys(rest).length > 0) {
+        save({ widths: rest });
+        return;
+      }
+      setS((x) => ({ ...x, widths: {} }));
+      const others: ReaderSettings = { ...pending.current };
+      delete others.widths;
+      pending.current = {};
+      if (timer.current) clearTimeout(timer.current);
+      void sendJson("PUT", "/api/read/settings", { ...(Object.keys(others).length ? { reader: others } : {}), clear: ["widths"] });
+    },
   };
   const listModel = componentRows(index, s, curHas, curDrawn ?? { ids: [], missing: [], others: [], first: true }, curData?.humanBy ?? null, imageOk, kind);
   const componentList = (embedded: boolean) => (
