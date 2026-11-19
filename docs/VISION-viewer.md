@@ -4049,30 +4049,30 @@ The config panel edits the settings file. The panel is under the Monitor dashboa
 Page layout:
 
 - At the top, one sentence names the books that run now and says when a change reaches them. Example: "left_foot_full runs now at p051. It reads new values at the start of p052."
-- The left column lists the 8 groups as links. The right column shows the groups as forms. Reason: the owner jumps to one value and sees the other groups in context.
+- The left column lists the 7 groups as links (8 before unit VW113, section 15.42.13). The right column shows the groups as forms. Reason: the owner jumps to one value and sees the other groups in context.
 - Each field shows the name and one sentence of plain meaning. It shows the input. It shows the default with a button "Reset". It shows the allowed values, the unit, and the time when a change takes effect.
 - A mark "Changed" shows next to an unsaved field. A mark "Not default" shows next to a saved value that differs from the default.
 - A bar at the bottom shows "3 unsaved changes" with the buttons "Review changes" and "Discard".
 
-The 8 groups. "Today" is the value of the Translator now. It is also the default, because the settings file does not exist yet. Allowed ranges are `[unit default]` unless a file names them.
+The 7 groups (8 before unit VW113). Group 4 was removed, so the groups 5 to 8 below are the groups 4 to 7 in the panel. "Today" is the value of the Translator now. It is also the default, because the settings file does not exist yet. Allowed ranges follow `settings.py` of the Translator (section 15.42.13).
 
 | Group | Key | Plain meaning | Today | Allowed | Unit | Takes effect |
 |---|---|---|---|---|---|---|
 | 1 N | `update.N` | Critique count of one box type that starts a prompt rewrite. | 5 (N = 5 from phase 3, round 72 answer 7, `.opencode/reminders/qa/qa-memory-2026-10-30.md:35`. Unit UN73 sets 5 in the config files, round 73b answer 5, `qa-memory-2026-10-30.md:86`. It was 2.) | whole number, 1 or more | critiques | next page |
 | 2 Model and effort per level | `levels."0"` to `levels."3"`, each with `model` and `variant` | The model and the effort of the four boxes of one level. | level 0: google/antigravity-gemini-3.8-flash-high, high. Level 1: anthropic/claude-haiku-5-5, xhigh. Level 2: xai/grok-4.7, low. Level 3: anthropic/claude-sonnet-5-5, high. | model ID from the list, effort from the list | none | next page |
 | 3 Box critic model | `box_critic.model`, `box_critic.variant` | The model of the critic that reads each box. | anthropic/claude-opus-5-5, medium | same as group 2 | none | next page |
-| 4 Cost limit per page | `run.max_usd_per_page` | A page stops with "cost guard" when its cost reaches the limit. | no limit | empty, or a number above 0 | USD | next page |
-| 5 Jobs and book jobs | `run.jobs`, `run.book_jobs` | Calls in parallel inside one page. Books in parallel. | 1 and 1 | whole numbers, 1 or more | calls, books | next list or book start |
+| 4 Cost limit per page (removed by unit VW113) | `run.max_usd_per_page` | Removed. The Translator reads an old file with this key and ignores the key (Q-A 3:78.6). | none | none | none | none |
+| 5 Jobs and book jobs | `run.jobs`, `run.book_jobs` | Calls in parallel inside one page. Books in parallel. | 1 and 1 | whole numbers, 1 to 8 | calls, books | next list or book start |
 | 6 Critic mode | `run.critic_mode` | "separate": one critic session per box, 16 calls per page. "session": one critic session per page. | separate | separate or session | none | next list or book start |
-| 7 Memory and link constants | `memory.memory_k`, `memory.join_page_end`, `links.neighbor_skip_cites`, `links.window_lines` | Memory pairs for one box. Join a pair across the page end. Cited items that skip the neighbor link. Lines of the neighbor window. | 3, on, 5, 1 | whole number 1 or more, on or off, whole number 0 or more (0 is off), whole number 0 or more | pairs, lines | next page |
-| 8 Call timeout and retries | `calls.call_timeout_s`, `calls.max_attempts` | Seconds before one call times out. Attempts for one call. | 1500, 2 | whole numbers, 60 or more and 1 or more | seconds, attempts | next page |
+| 7 Memory and link constants | `memory.memory_k`, `memory.join_page_end`, `memory.join_across_title`, `links.neighbor_skip_cites`, `links.window_lines` | Memory pairs for one box. Join a pair across the page end. Join a pair across a title (added after this design). Cited items that skip the neighbor link. Lines of the neighbor window. | 3, on, on, 5, 1 | whole number 1 to 10, on or off, on or off, whole number 0 or more (0 is off), whole number 0 or more | pairs, lines | next page |
+| 8 Call timeout and retries | `calls.call_timeout_s`, `calls.max_attempts` | Seconds before one call times out. Attempts for one call. | 1500, 2 | whole numbers, 60 to 7200 and 1 to 5 | seconds, attempts | next page |
 
 Notes on the groups:
 
 - Group 1: the panel shows the line "Today N only sets the marks 'reached N'. The run program has no update step yet." The line goes when the Translator builds the update step. Replaced in round 86 answer 1: the Translator built the step in round 85 (commit `8419914`, section 15.38.3). The line is out of date. Open item 4 of section 15.38.7 asks for the new text.
 - Group 2 and 3: the list of model IDs comes from the IDs in `config/translator-models.yaml`, plus the field "Other…". An ID from "Other…" shows the warning "The Viewer cannot check this ID. A wrong ID stops the page at the start with CONFIG ERROR." Open item 6 holds the options.
-- Group 4: the field shows a hint from real data: "The pages of the last list cost $1.24 to $1.93 each." The most expensive page in the three list folders cost $4.38 (`kendojidai_2014/p0839`).
-- Group 4: an empty field means no limit. The command line value `--max-usd` also exists. The settings file wins (round 70 answer 14, item 5 of section 15.24.11).
+- Group 4 had a hint from real data about the page cost in USD. It went with the group (unit VW113). The screens report tokens, not USD (Q-A 3:6.3, section 15.42.14).
+- Group 4 was removed. Owner words: "You dont have to bother about the cost. remove any cost cap". Q-A 3:78.6 started the removal. Details are in section 15.42.13.
 - Group 5 and 6: the conflict. A list that runs cannot change jobs, book jobs, or the critic mode. The list reads them at its start, and a resume reuses the stored mode. The Translator says: "RESUME ERROR: %s ran with --critic-mode %s. A resume must use the same mode." `[file: data/scripts/translator_run.py:1953]`. The panel shows the badge "Next list or book start" on these three fields. It does not hide them. Round 69 answer 19 says "next page" for the file. Open item 4 holds the options.
 - Group 7 and 8: the Translator must read these keys. Today the values are constants in code (note of aki-main, line 112).
 
@@ -4080,14 +4080,14 @@ Validation:
 
 - The panel checks each field when the owner leaves it, and again at save. The server runs the same checks (one shared function `validateSettings`).
 - A wrong value shows a sentence at the field. Example: "N must be a whole number, 1 or more."
-- A key that the panel does not know stays in the file unchanged. The panel never shows a value whose key name holds "key", "token", "secret", or "password".
+- A key that the panel does not know shows an error. It blocks the save until the owner removes the key by hand (Q-A 2:8.5, section 15.42.13). The panel never shows a value whose key name holds "key", "token", "secret", or "password".
 
 Review, save, history, and reset:
 
 - "Review changes" opens a dialog (sketch 5). It lists each change as "name: old → new (when it takes effect)". It names the books that read the new values.
 - "Save" writes the whole file: a temporary file in the same folder, then a rename. A reader of the file never sees half a file. The form holds the sha1 of the file it loaded. If the sha1 differs at save, the server answers 409 and the panel says: "The file changed since you opened this page. Reload and check your changes."
 - Each save adds one line to `translator-settings.history.jsonl`: time, the changed keys with old and new value, and the sha1 before and after. The panel shows the last 20 lines under the form as "Change history", with a link to the full file.
-- "Reset" on a field restores the default in the form. "Reset all" does it for all fields. Both need a save. A reset saves the default value as an explicit value.
+- "Reset" on a field restores the default in the form. "Reset all" does it for all fields. Both need a save. A reset saves the default value as an explicit value. "Reset" on N removes `update.N`, so the phase rule applies again (Q-A 2:8.5, section 15.42.13).
 - Only the Viewer on the Mac writes. The write route has four conditions `[agent inference]`:
   - The monitor is on.
   - The body is JSON.
@@ -4346,7 +4346,7 @@ Tests:
   - Relative time.
   - `validateSettings` for all 21 keys, with a good and a bad value, and the diff.
 - Smoke mode `monitor` with a fixture folder that holds copies of the 3 list folders and a `config` folder. It adds fake `status.json` files: running (own pid), stopped unexpectedly (pid of a finished process), stopped by a pause, completed, and a broken file. It checks the rows, the groups, the summary line, and the 404 answers with the monitor off.
-- Settings write tests: the file is written by temp file and rename, with no temp file left. A stale sha1 gives 409. A foreign Origin and a foreign Host give 403. A key that the panel does not know stays. A save writes one line in the history. No other path in the fixture changes.
+- Settings write tests: the file is written by temp file and rename, with no temp file left. A stale sha1 gives 409. A foreign Origin and a foreign Host give 403. A key that the panel does not know gives an error and no save (Q-A 2:8.5). A save writes one line in the history. No other path in the fixture changes.
 - Pause tests extend the mode `pause`: the list with 3 books shows the dialog, and one pause file per book works. Mark tests: the button writes `request.json` in the book folder and no other file. The same test covers the button Restart on the book row and in Details. A dialog test covers each process button: the dialog opens with the focus on Cancel, and Cancel writes no file `[accepted 2026-10-31 19:21, round 75 answer 12, qa-memory-2026-10-31.md:62]` (DZ73 default 7, "Dialog test").
 - Chrome checks at 1440 x 900:
   - Keyboard through all groups and buttons.
@@ -5361,7 +5361,7 @@ Proposal (unit default):
 | Human version of web pages | `reader_versions`, `chosen_by` empty means chosen by default | 1,124 | 5.25 MB, measured by RT73a (`run-upgrade.out`, line 9). Old estimate: 5.60 MB. Rows `{key, text, facts}` |
 | Same Human version, so an admin can choose it again (D26) | `own_translations` under a disabled user "kendojidai.com", `version` 1 | 32,937 | 13.93 MB, measured by RT73a (`run-upgrade.out`, line 10). Old estimate: about 11.84 MB |
 | Search columns | `search_ja`, `search_en` of the 1,124 `reader_pages` records | | 3.68 MB and 3.37 MB |
-| v1 placeholder (JA, EN, ZH) (D27) | Replaced in round 73d answer 8 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:136`): no PocketBase record. The md files sit in `<V2>/data/v1-md/` on this Mac only. Old default D27: collection `reader_v1`, one record per page | 0 records. Old default: about 12,717 | 84.10 MiB on disk for 13,083 files in 32 folders (measured by RT73a), 0 MB on the server, and no collection `reader_v1`. Old default: about 100 MB without ZH and about 120 MB with ZH `[agent inference]` |
+| v1 placeholder (JA, EN, ZH) (D27) | Replaced in round 73d answer 8 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:136`): no PocketBase record. The md files sit in `<V2>/data/v1-md/` on this Mac only. Old default D27: collection `reader_v1`, one record per page | 0 records. Old default: about 12,717 | 84.10 MiB on disk for 13,083 files in 32 folders (measured by RT73a), 0 MB on the server, and no collection `reader_v1`. Old default: about 100 MB without ZH and about 120 MB with ZH `[agent inference]` Replaced on 2026-11-14 (Q-A 3:44.4, 3:45.2): collection `v1_placeholders`, 13,102 records (section 15.42.2). |
 
 Sources of the figures `[check: DT73b 2026-10-30 15:56 python3 -B facts_sizes.py]`. The largest JSON field of one page record is 0.014 MB, far below the 5 MB limit. The v1 figure comes from unit DT73 (EN 36.66 MB, JA 24.42 MB) plus 21.18 MB of ZH lines. It is not measured as records.
 
@@ -5468,7 +5468,7 @@ Cost: 0 USD. No model call and no network call outside localhost.
 | D24 | `en_fixed` never shows. | Show it with an AI label. |
 | D25 | Credit lines get no mark. | Mark them. |
 | D26 | The Human version is also copied into `own_translations`. | `reader_versions` only. |
-| D27 | Replaced in round 73d answer 8 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:136`): the v1 placeholder lives in md files copied to `<V2>/data/v1-md/` on this Mac. Old default: `reader_v1` records. | Records on every server (the old D27). Closed: the migration 1793300011 creates no collection `reader_v1` `[check: DZ73 2026-10-31 15:26 grep -n "reader_v1" 1793300011_v2_components.js, line 12 is a comment only]`. |
+| D27 | Replaced in round 73d answer 8 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:136`): the v1 placeholder lives in md files copied to `<V2>/data/v1-md/` on this Mac. Old default: `reader_v1` records. | Records on every server (the old D27). Closed: the migration 1793300011 creates no collection `reader_v1` `[check: DZ73 2026-10-31 15:26 grep -n "reader_v1" 1793300011_v2_components.js, line 12 is a comment only]`. Replaced on 2026-11-14 (Q-A 3:44.4, 3:45.2): the collection `v1_placeholders` holds the v1 placeholder (section 15.42.2). |
 | D28 | The block rule of 15.26.9. Asterisks go. Notes stay. | Cut dictionary remarks. |
 | D29 | A page with an image and no text shows the image and names the absent components. | None. |
 
@@ -5506,7 +5506,7 @@ Cost: 0 USD. No model call and no network call outside localhost.
 No open item remains. The one item below was decided in round 73d answer 8 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:136`, "This Mac, copy in data folder (Recommended)" `[accepted recommendation 2026-10-30 22:04]`). The text stays as history.
 
 1. Where the v1 placeholder lives. Example: `left_foot_full` p051 has no Agent text. Its page image shows on `v2.kendotranslation.com` (when it goes live). The v1 EN line "Kendo is about hidari-te, hidari-koshi, and hidari-ashi." exists in the md file on this Mac. You said that the v1 text is "for display testing purpose ONLY" (`qa-memory-2026-10-30.md:109`).
-   - (a) Chosen in round 73d answer 8: the v1 placeholder shows on this Mac only. The Viewer reads the md files from the copy in `<V2>/data/v1-md/` when a page opens. The old text said: "at request time when a switch is on". Benefit: 0 MB on the server, no migration for it, and nothing to delete later. Cost: the hosted site shows no placeholder, and the code has one more switch.
+   - (a) Chosen in round 73d answer 8: the v1 placeholder shows on this Mac only. The Viewer reads the md files from the copy in `<V2>/data/v1-md/` when a page opens. The old text said: "at request time when a switch is on". Benefit: 0 MB on the server, no migration for it, and nothing to delete later. Cost: the hosted site shows no placeholder, and the code has one more switch. Replaced on 2026-11-14 (Q-A 3:44.4, 3:45.2): the public site reads the collection `v1_placeholders` (section 15.42.2).
    - (b) The v1 placeholder goes into `reader_v1` records on every server. Benefit: the hosted site shows it, as a test reader needs. Cost: about 100 to 120 MB on the server, a larger S2 upload, and a clean-up later.
 
 All other choices of this section are unit defaults (15.26.16). The restatement of unit DW73 asks the owner to check the readings of the panel design before RT73b runs. The owner checked the readings in round 73d answers 5, 6, and 7 (`.opencode/reminders/qa/qa-memory-2026-10-30.md:133-135`): "All 5 right (Recommended)", "All 5 right (Recommended)", "All 4 right (Recommended)" `[accepted recommendation 2026-10-30 22:04]`. The defaults D4 to D23 are the design behind these readings `[agent inference]`. The 16 unit defaults of RT73b are accepted (round 75 answers 13 and 14, `qa-memory-2026-10-31.md:63-64`, section 15.28.7).
@@ -5560,7 +5560,7 @@ Source: `.opencode/reminders/qa/qa-memory-2026-10-30.md:129-141`, owner answers 
 - Answer 2 (`:130`): the readings of round 73c answers 2, 3, 9, and 11 are right `[validated reading 2026-10-30 22:04]`. Example: the v1 placeholder of `left_foot_full` p051 counts in no number on the Reader dashboard `/read`.
 - Answer 4 (`:132`): the row of a book with a waiting Restart mark reads "Mark waiting: Restart ED_2 requested HH:MM" in the group "Waiting for a run" on the Monitor dashboard `/` (15.24.4.1). Section 15.24.4.5 explains Resume and Restart. Replaced in round 74 answers 5 to 11: the row text is "Mark waiting: Restart requested HH:MM" (section 15.27.4).
 - Answers 5, 6, and 7 (`:133-135`): the readings 1 to 14 of unit DW73 are right `[validated reading 2026-10-30 22:04]`. Example: the v1 JA line of `left_foot_full` p051 has the page line "v1 Gemini placeholder text."
-- Answer 8 (`:136`): the v1 placeholder lives in `<V2>/data/v1-md/` on this Mac. It replaces the default D27 (collection `reader_v1`) and decides open item 1 of 15.26.18.
+- Answer 8 (`:136`): the v1 placeholder lives in `<V2>/data/v1-md/` on this Mac. It replaces the default D27 (collection `reader_v1`) and decides open item 1 of 15.26.18. Replaced on 2026-11-14 (Q-A 3:44.4, 3:45.2): the public site reads the collection `v1_placeholders` (section 15.42.2).
 - Answer 9 (`:137`): RT73 runs as two units. RT73a does the data and the counts. RT73b does the components and the panels.
 - Answer 10 (`:138`): aki-main runs the S2 upload to the local PocketBase `127.0.0.1:8090` once, after RT73a. Later runs stay by hand by the owner.
 - Open: the reading of round 73c answer 4 (`:124`) has no validation in answer 2. It stays `[reading pending owner check]` in 15.26.1.2 and 15.26.1.4 (conflict 4).
@@ -8677,7 +8677,7 @@ The Q-A records of these rounds live in collab.db (session chain of plan "Kendo 
   - Places: the phase 2 row, the page view, the per-call lists, the open step data, the compare table of critic modes.
 - A run with no token numbers shows "no token data" (Q-A 3:15.3). In November 2026, 28 old plan runs hold no token field.
 - A token kind that no call holds stays out of the line, so no false 0 shows (VW93 default A2).
-- The field "Cost limit per page" of the Run settings panel `/settings/run` and the cost guard of the Translator stay until plan item P32. The owner picked "Remove it after the run" (Q-A 3:17.3).
+- The field "Cost limit per page" of the Run settings panel `/settings/run` and the cost guard of the Translator were removed by plan item P32 (section 15.42.13). The owner picked "Remove it after the run" (Q-A 3:17.3).
 
 ##### 15.40.3 Phase 2 on the Monitor dashboard (units VW91 and VW94)
 
@@ -8779,10 +8779,10 @@ All read only, below `<T2>/data`:
 
 ##### 15.40.9 Open items
 
-- VW85: book runs in the step view and the training monitor, frozen boxes, the overflow queue (Q-A 3:26.3). Committed as `283f2e7` (Q-A 3:28.1). Its section comes in DZ86 part 2.
-- VW99: tabs in place of stacked monitor sections (Q-A 3:26.5 note) and more colors on all screens (Q-A 3:26.3 note). Design decided: tabs on three screens (Q-A 3:27.3), color style B (Q-A 3:27.4), defaults D1-D5 (Q-A 3:28.3). In build.
-- P32: merge into v2/translator, selftest, removal of the cost limit field and the cost guard, after the phase 2 run.
-- The bare page ID in the admin part of `/translate/<slug>` (`app/components/HtvPageSection.tsx` lines 198-203) and the "readers see" line: after the first book run.
+- VW85: book runs in the step view and the training monitor, frozen boxes, the overflow queue (Q-A 3:26.3). Committed as `283f2e7` (Q-A 3:28.1). Its section is 15.41.2.
+- VW99: tabs in place of stacked monitor sections (Q-A 3:26.5 note) and more colors on all screens (Q-A 3:26.3 note). Design decided: tabs on three screens (Q-A 3:27.3), color style B (Q-A 3:27.4), defaults D1-D5 (Q-A 3:28.3). Its section is 15.41.3 (commit 3f64bb1).
+- P32: merge into v2/translator, selftest, removal of the cost limit field and the cost guard, after the phase 2 run. Done: the Translator part is commit f799ba2 (Q-A 3:80.6). The Viewer part is unit VW113 (section 15.42.13).
+- The bare page ID in the admin part of `/translate/<slug>` (`app/components/HtvPageSection.tsx` lines 198-203) and the "readers see" line: after the first book run. The page ID part is done in unit VW110 (section 15.42.8).
 
 ##### 15.40.10 Not verified
 
@@ -8865,7 +8865,7 @@ This section adds to section 15.40. It holds the owner words, the decisions and 
 ##### 15.41.8 Open items
 
 - Merge of v2/viewer into v2/translator, the selftest, and the removal of the cost limit field: after the phase 2 run (plan item P32, Q-A 3:17.3).
-- The bare page ID in `app/components/HtvPageSection.tsx` lines 198 to 203: after the first book run.
+- The bare page ID in `app/components/HtvPageSection.tsx` lines 198 to 203: after the first book run. Done in unit VW110 (section 15.42.8): the heading shows the book title and the page ID is hover text.
 - At 320 px width, the site name wraps and the closed band is 70 px high.
 
 ##### 15.41.9 Not verified
@@ -8875,3 +8875,356 @@ This section adds to section 15.40. It holds the owner words, the decisions and 
 - A real phone, Safari, Firefox and a screen reader.
 - That Caddy on the server passes the header `X-Kendo-Client-IP`, and that Vercel sets `x-forwarded-for` to the reader address.
 - The `running_update` line during a real update point, and a real content filter wait.
+
+#### 15.42 Units VW104 to VW113 (2026-11-14 to 2026-11-18): v1 placeholder, profile, vector map, book titles, human translation folds, run settings (unit DZ86-2)
+
+This section adds to section 15.41. It holds the facts, the commits and the owner Q-A records of units VW104 to VW113 and of the tab titles. It also holds the corrections of plan item P10.
+
+- Sources: the unit reports in `/Users/nghiango-mbp/projects/kendo-translation/tools/aki-main/<unit>/report.md` and `git log` of branch `v2/viewer` (HEAD `f2e1928`).
+- A citation such as Q-A 3:63.3 means session 3, batch 63, question 3.
+- All times are PST. Commit times are the commit dates.
+- Order of commits:
+  - `b66477f` (VW104) 2026-11-14 20:39.
+  - `a53a8a1` (VW105) 2026-11-15 11:39.
+  - `fa7f8aa` (VW106) 2026-11-17 00:56.
+  - `e860713` (VW107) 2026-11-17 10:14.
+  - `9e80529` (VW108) 2026-11-17 15:38.
+  - `3af0860` (VW109) 2026-11-17 17:11.
+  - `10e757b` (VW110) 2026-11-17 19:25.
+  - `7bcf62f` (VW111) 2026-11-18 01:45.
+  - `073b6bc` (VW112) 2026-11-18 11:24.
+  - `d957500` (VW113) 2026-11-18 12:52.
+  - `f2e1928` (tab titles) 2026-11-18 12:55.
+
+##### 15.42.1 Owner words
+
+- Q-A 3:44.4, the pick "Show the placeholder on v2". It replaces the older rule that the hosted site shows no placeholder.
+- Q-A 3:62.4 (cited in Q-A 3:63.2), about the vector map: "hard add a point in the map, soft move the value of a current point on the map ... This will have the critic steer the prompt update in more controllable and detailed ways".
+- Q-A 3:63.3 note, the meaning of the values on the vector map:
+  - "Importance should be how much the point is emphasize the prompt instruction"
+  - "Comprehensiveness should be how detailed the point is described in the prompt instruction"
+  - "Each value on the map should be value of a point w.r.t the overall prompt instruction, so changing the value with provide a direction to change the prompt instruction"
+- Q-A 3:64.4 note, the model for the model score: "use haiku-high model".
+- Q-A 3:67.4 note, the start and end view of a point:
+  - "I want to be able to click on a point and see the start/end version of the point in the instruction prompt"
+  - "Also improve the UI UX and the clarity of the vector map"
+- Q-A 3:72.2 note: "Use the real name of the book, not the file name".
+- Q-A 3:76.5 note:
+  - "I said remove men0, men1 (and 1 more?) right?"
+  - "The /translate should have the same dashboard view as /read"
+- Q-A 3:78.4 note:
+  - "Also so the metadata of the books in the dashboard (for /translate, also show the monitor metadata)"
+  - "When use open a fold, change its bg color to highlight it. Apply this to every relevant user interactions also"
+- Q-A 3:80.3 note: "/translate has no table-of-contents folds inside a book, unlike /read? I literlly said use the same fold use /read for navigation".
+- Cost limit, owner words (file `AGENTS.md`, section Never): "You dont have to bother about the cost. remove any cost cap".
+- Q-A 3:6.3, tokens: "No need to report USD. Report token usage only".
+
+##### 15.42.2 The v1 placeholder from PocketBase (unit VW104, commit b66477f)
+
+- What the user sees:
+  - The public site shows the v1 placeholder from a PocketBase collection. Before this unit, only this Mac showed it.
+  - The rules of section 15.26.9 stay (Q-A 3:45.3, pick "Rules stay, defaults OK").
+    - The placeholder counts in no number and no search finds it.
+    - The page line says "v1 Gemini translation placeholder."
+    - On a page with an Agent text, the placeholder is a separate part, off at first.
+- Screen and route: Reader dashboard `/read` and the page view. No new route.
+- The collection `v1_placeholders`:
+  - Migration: `data/scripts/pocketbase/pb_migrations/1793300016_v2_v1_placeholders.js`.
+  - Read rule: an approved reader, a translator and an admin can read. A guest and an unapproved reader get no record.
+  - Create, update and delete answer 403. Only the superuser writes.
+  - The down step deletes the collection only when it holds 0 records.
+- The upload step S2, file `app/scripts/sync-runs.mjs`, has a v1 step and the option `--v1-dir DIR`:
+  - It creates new pages and updates changed pages. It compares SHA-256 and page ID. It never deletes a page.
+  - It sends 8 requests at the same time.
+  - The page ID has 3 digits, or 4 digits when the highest page of a work is above 999.
+  - It reads only files named `page_NNN.md`.
+  - It skips a file above 200,000 characters and prints a Warning. The largest real file has 90,572 characters (`kendojidai_2012/page_337.md`).
+  - A missing v1 folder gives one Warning.
+- The mode switch:
+  - With `VIEWER_RUN_SOURCE=pocketbase`, the app reads the collection. It never falls back to the files.
+  - With the value `files`, the app reads the md files in `<V2>/data/v1-md/` as before.
+- Measured on this Mac:
+  - 13,102 page files in 32 works, 84.10 MB (1,048,576 bytes per MB).
+  - S2 with `--apply` wrote 13,102 new records in 3.5 s on loopback.
+  - A second dry run gave 0 new, 0 changed and 13,102 same. Each record equals its file.
+  - The question text of Q-A 3:44.4 said about 13,100 files and 88 MB. The 88 MB is the same size in decimal MB `[agent inference]`.
+- Main files: `app/lib/reader-v1-source.ts`, `app/lib/reader-v1-pb.ts`, `app/lib/v1-placeholder-rules.ts`, `app/lib/v1-placeholder-sync.ts`, `app/scripts/sync-runs.mjs`. The commit changed 14 files (+1305 -30).
+- Tests:
+  - `app/scripts/vw104-test.mjs`: 49 passed.
+  - `data/scripts/pocketbase/test_local.py`: 303 PASS (17 migration files, 15 collections).
+  - The PocketBase test: 83 passed. The browser check: 47 passed.
+  - The tests `vw101-test.mjs` and `vw102-test.mjs` now expect 17 migration files (before: 16).
+- Owner Q-A: 3:44.4, 3:45.2 (pick "A. PocketBase collection"), 3:45.3, 3:47.3 (pick "Accept, commit").
+- Known limits (Not verified): a run on the real server, the first real upload, the size on the server, Firefox, an iPhone.
+
+##### 15.42.3 Profile page and 404 page (unit VW105, commit a53a8a1)
+
+- What the user sees:
+  - A page `/profile` for every signed-in role.
+  - The account part shows the e-mail field read only. The display name takes 1 to 100 characters. The password form takes 8 to 71 characters (71 is the PocketBase limit).
+  - Cards by role: admin 4, translator 4, approved reader 3, unapproved reader 0.
+  - "Continue reading" lists the newest 20 works. "Bookmarks" lists the newest 50 and shows "Showing the newest N of M." Dates are PST, form YYYY-MM-DD.
+  - A reader who waits for approval sees "Your account waits for approval by an admin." in 3 places.
+  - After a password change, the route clears the cookie and opens `/sign-in?changed=1`. The page says "Your password was changed. Sign in with the new password."
+  - The 404 page has the title "Page not found" and a link to `/read`. It has the reader look in all 5 themes.
+  - Staff links on `/translate`: "All books" (when a back link exists), "Read", "Readers" (admin), "Human versions" (admin), then the name link to `/profile` and "Sign out". The name in the Reader bar also links to `/profile`.
+- Screen and route: `/profile`, `PUT /api/profile/name`, `POST /api/profile/password`, `app/not-found.tsx`.
+- Fixes in the unit:
+  - `/api/read/progress` retries once after HTTP 400 (two parallel posts gave 200 and 400).
+  - The theme name "Solarized light" and the panel name "Light" now agree in `app/read/[slug]/page.tsx`.
+  - A bare "Error" in the console on the first `/read` load at 390 px on https://kendotranslation.com did not repeat. No fix. The unit proposed to log `error.digest` in 4 error boundaries.
+- Main files: `app/app/profile/page.tsx`, `app/app/api/profile/name/route.ts`, `app/app/api/profile/password/route.ts`, `app/app/not-found.tsx`, `app/lib/profile-rules.ts`, `app/lib/profile-pb.ts`, `app/lib/profile-load.ts`, `app/lib/profile-api.ts`. The commit changed 25 files (+1733 -21).
+- Tests: `app/scripts/vw105-test.mjs` 44 passed. The PocketBase test 26 passed. The browser check 435 passed (414 with the monitor off, 21 with it on).
+- Owner Q-A: 3:58.2, 3:58.3, 3:58.4 (forgot password: "Not now"), 3:60.3 (404 page: "Fix it in VW105"), 3:60.4, 3:61.2, 3:61.3, 3:62.1, 3:62.2 (pick "Push after a clean scan").
+- Known limits:
+  - Work titles on the profile have no romaji, because no romaji data for work titles exists.
+  - Not verified: the public site with real data, Chrome and Safari, a real phone, a password change on the Oracle PocketBase.
+  - Live date on https://kendotranslation.com: Not verified. No record that this unit read gives the date.
+
+##### 15.42.4 Vector map, first version (unit VW106, commit fa7f8aa)
+
+- What the user sees: a read-only map of the points of the stored prompt versions. There is one map for each of the 16 box types (TS_0 to QA_3).
+  - Across: comprehensiveness. Up: importance. The values are percent (Q-A 3:63.3, section 15.42.1).
+  - A box picker shows the version count of each box. A slider moves through the versions. The first view shows box QA_3 and its last version.
+  - A blue arrow shows a soft move of 0.1 percentage points or more. A ring shows a hard add. Removed points are listed.
+  - One axis scale holds for all versions of a box.
+  - A click on a point shows the point text in each version and the critique groups with the mark "soft" or "hard" (from `audit.marks`).
+- Screen and route: `/monitor/vector-map` on the Monitor dashboard `/` on this Mac only. With the monitor off, the route gives 404. The link sits in the tab "Phase 2 run" of the Monitor dashboard, below "Steps".
+- Point identity (Q-A 3:64.5, "Accept all rows"):
+  - The same point number and a word similarity of 0.5 or more make one point.
+  - Else the most similar free parent point with 0.5 or more.
+  - Else a new point.
+  - Similarity is 2 x LCS / (words of a + words of b).
+  - Version order follows the parent chain. Without a chain, natural sort.
+- The two measures (Q-A 3:64.4, pick "Both, side by side"):
+  - Program count. Comprehensiveness is the characters of the point divided by the characters of the whole prompt, in percent. Importance is the share of all emphasis marks of the whole prompt, in percent.
+  - Model score. A model reads each point and gives a score. The owner chose the Claude Haiku high model.
+  - The score file reader counts a score file only when its sha1 equals the sha1 of the prompt version.
+  - The owner runs the script `tools/aki-main/vector-map/point_scores.py` by hand (Q-A 3:65.6, "Accept, I run it"). The script test uses fake replies (15 passed). No real model call ran.
+- Real data on 2026-11-17 00:14: 16 box types, 246 prompt versions, 19,648 points, 578 hard adds, 84 removed points. The build of all 16 maps took 882 ms.
+- Real values check: `app/scripts/vw106-real-values.mjs`. For QA_3 version v2.1.14, point 2.4 has comprehensiveness 4.9 and importance 6.5 in this unit. Unit VW113 changed the importance (section 15.42.11).
+- Main files: `app/app/monitor/vector-map/page.tsx`, `app/lib/vector-map-rules.ts`, `app/lib/vector-map-load.ts`, `app/components/VectorMapChart.tsx`, `app/components/VectorMapSlider.tsx`, `app/components/VectorMapView.tsx`, `app/components/Phase2Row.tsx`. The commit changed 9 files (+1256 -1).
+- Tests: `app/scripts/vw106-test.mjs` 15 passed. The browser check 67 passed in Chromium. Use `localhost`, not `127.0.0.1`, because the Next.js dev server blocks the resources.
+- Owner Q-A: 3:62.4, 3:63.2 (pick "Read-only map first"), 3:63.3, 3:64.4, 3:64.5, 3:65.6.
+- Known limits:
+  - The Monitor dashboard opens the tab "Books" first when the run is stopped (`app/lib/tabs.ts` line 54). The link shows after a click on "Phase 2 run".
+  - Not verified: a real model call, and the time of a full score run (the agent estimate was 2 to 6 hours `[agent inference]`).
+
+##### 15.42.5 Vector map, start and end view and clearer map (unit VW107, commit e860713)
+
+- What the user sees (Q-A 3:67.4, 3:68.2, 3:68.3):
+  - A click on a point shows the start version and the end version of the point text side by side. Removed words are red. Added words are green.
+  - Two buttons open the whole prompt of each version in a dialog. The dialog marks the point and scrolls to it. Escape closes it. It adds no browser history entry.
+  - The per-version history stays in a closed fold.
+  - The chart fills the column. The details sit beside it at 1280 px and below it at 390 px.
+  - "Zoom to the crowded corner", a zoom by a drag box, and "Show all".
+  - A hover or a keyboard focus shows the point number, 80 characters of text, both values and the move since the previous version.
+  - A legend names the gray dot, the blue arrow, the green ring and the red cross.
+  - "Biggest moves in this version" lists at most 10 point links, in distance order.
+  - Filters: "all", "moved only", "new only".
+- Screen and route: `/monitor/vector-map`, as in section 15.42.4.
+- Unit defaults (Q-A 3:69.2, "Accept all rows", 12 builder choices). Examples:
+  - The two boxes stack below 640 px and scroll after 28 rem.
+  - The crowded corner is the 80th percentile of each axis plus 10% headroom, at least 1%.
+  - A removed point shows as a cross at its last stored values, and only under "all".
+  - Zoom and filter reset after a navigation. Word matches are case-sensitive.
+- Main files: new `app/lib/vector-map-detail.ts`, `app/components/VectorMapPrompt.tsx`, `app/scripts/vw107-test.mjs`. Changed `VectorMapChart.tsx`, `VectorMapView.tsx`, `vector-map-rules.ts`, `app/monitor/vector-map/page.tsx`. The commit changed 7 files (+474 -130).
+- Tests: `app/scripts/vw107-test.mjs` 12 test groups passed (one group runs 200 random word-diff cases). The browser check 181 passed (1280 px and 390 px, light and dark). The word diff costs O(m x n) for two texts of m and n words.
+- Owner Q-A: 3:67.4 (pick "Accept and commit"), 3:68.2 (pick "Side by side plus whole prompt"), 3:68.3, 3:69.1, 3:69.2.
+- Known limits (Not verified): other browsers, touch, and themes other than light and dark.
+
+##### 15.42.6 Fallback model piece and phone fit (unit VW108, commit 9e80529)
+
+- What the user sees (Q-A 3:71.2, 3:71.3, rows 1 to 4):
+  - Row 1. The update point line shows the fallback model piece. It sits after the "try" piece and before the time piece. Example: "... · try 2 on Claude card uonlp · fallback model 1 of 3: Fable 5.2 low · 8 min 13 s".
+  - Row 2. The page `/translate` fits 390 px. This fix was replaced later by unit VW109, which removed the Name column.
+  - Row 3. The test of the Run settings panel counts the distinct `model:` values of `config/translator-models.yaml`.
+  - Row 4. Next.js 16.4.5, as an exact version.
+- Screen and route: the Monitor dashboard `/` and the step view `/monitor/phase-2`.
+- Rules of the piece: it shows only for steps 1 to 20. Step 0, an older status file, a state between two tries and a folder rule show no piece. The function never throws. A model name such as `claude-<name>-<a>-<b>` reads "Name a.b".
+- Main files: `app/lib/fallback-model.ts`, `app/lib/update-live.ts`, `app/components/HtvList.tsx`, `app/scripts/settings-run-test.mjs`, `app/package.json`, `app/package-lock.json`. The commit changed 7 files (+344 -52).
+- Tests: `app/scripts/vw108-test.mjs` 13 passed. `settings-run-test.mjs` 25 passed. The browser check 91 passed.
+- After the copy-back, run `npm ci`, delete `app/.next` and restart the dev server.
+- Owner Q-A: 3:71.2, 3:71.3, 3:72.3 (pick "Accept and commit").
+- Known limits: the slugs broke at any letter on a phone until unit VW109. `npm audit` shows 15 vulnerabilities (6 moderate, 9 high). The unit did not read them. A live fallback on a real run: Not verified.
+
+##### 15.42.7 Real book names on the human translation view (unit VW109, commit 3af0860)
+
+- What the user sees (Q-A 3:72.2, 3:73.2, 3:73.3):
+  - On `/translate`, one column "Book". The English title is the link to `/translate/<book>`. The Japanese title sits below in small gray text. The file name shows only as hover text.
+  - On `/translate/<book>`, the heading shows the English title and a Japanese line. No file name shows.
+  - A title in one language only is the link. The same text in both languages shows once. A book without a title shows the file name as the main text.
+  - Real example: "How to Create an Ideal Kamae (Koda Kunihide)" for the item `f3a6586e`.
+- Files mode on this Mac: the 311 web articles get a title by the first 8 characters of the item ID. If two item IDs share these 8 characters, the article gets no title (Q-A 3:74.2). The code removes the zero-width characters U+200B to U+200D, U+2060 and U+FEFF from titles.
+- Main files: new `app/lib/htv-titles.ts`, `app/scripts/vw109-test.mjs`, `app/scripts/vw109-real-titles.mjs`. Changed `htv-books.ts`, `htv-types.ts`, `pb.ts`, `HtvList.tsx`, `HtvBook.tsx`. The commit changed 8 files (+602 -45).
+- Tests: `vw109-test.mjs` 32 checks. `vw109-real-titles.mjs` lists 75 real rows and writes nothing. The browser check 656 passed.
+- Owner Q-A: 3:72.2, 3:73.2 (pick "English, Japanese below"), 3:73.3, 3:74.1, 3:74.2.
+- Known limits at this unit (fixed in unit VW110 or VW111):
+  - Equal titles looked equal (for example men_full, men0, men1).
+  - A box character U+FFFC sat in the English title of `460f7e37`.
+  - The book screen was 664 px wide at 390 px.
+  - The PocketBase mode ran only with a fetch stub.
+
+##### 15.42.8 Book titles in headings and staff screens (unit VW110, commit 10e757b)
+
+- The owner picked all 5 parts in one unit (Q-A 3:74.5):
+  - Part 1. The page heading on `/translate/<book>` reads "Page n" and then the book title. The page ID is hover text and sits in `data-pin` and `data-page-heading`. Files mode loads web article titles from `app/lib/htv-files-titles.ts`.
+  - Part 2. The book screen fits 390 px. The index (192 px) and the TL_3 panel (416 px) were both fixed in width. Below 1024 px the index sits above the pages and the panel sits below them. At 1280 px nothing changes.
+  - Part 3. Books with the same English and the same Japanese title show the file name in small gray text after the Japanese title (Q-A 3:74.3, "File name for equal titles"). The real list shows 10 rows: men_full, men0, men1, ogawa_lecture_part1 to part3, mental_full, mental2_clean, ae6c06ec, d3e19e61.
+  - Part 4. Staff screens use the book title.
+    - Places: the open rows, the dialog titles, the book runs and the book detail view.
+    - The Note card of the TL_3 panel shows "Book: <title>". The file name is hover text.
+  - Part 5. The invisible character U+FFFC leaves the titles.
+- Main files: `app/lib/htv-files-titles.ts`, `app/lib/htv-runs.ts`, `app/components/HtvBook.tsx`, `HtvIndex.tsx`, `HtvPanelFrame.tsx`, `ReaderOpenRows.tsx`, `BookRunsTable.tsx`, `BookDetailView.tsx`, `HtvPanel.tsx`. The commit changed 15 files (+664 -52).
+- Tests: `app/scripts/vw110-test.mjs` 30 passed. The browser check 1598 passed. At 390 px, the scroll width equals 390.
+- Owner Q-A: 3:74.3, 3:74.5, 3:75.2 (pick "Accept and commit"), 3:75.3 (10 builder choices), 3:75.5, 3:75.6.
+- Known limits (Not verified): the PocketBase mode in a browser, the collapse and drag of the panels at 390 px, the Close button of the dialog.
+
+##### 15.42.9 Book titles on staff and admin screens (unit VW111, commit 7bcf62f)
+
+- What the user sees (Q-A 3:76.1, 3:76.2):
+  - The Marks card of the TL_3 panel names the book, for example "Made-up Book One, 12 pages read." The book ID is hover text.
+  - The titles also show in these places:
+    - The Books view and `/admin/versions`.
+    - The Run settings page `/settings/run`.
+    - The lines of the JSON viewer, the readable names and the phase 2 articles.
+  - The pair chips of the TL_3 panel use the short title (pick "Short title in the chip"). Example form: `94380515/p003 · P01`.
+- One shared title lookup: `app/lib/htv-book-titles.ts`, with `rowsByKey` and `plainTitle` in `app/lib/htv-titles.ts`.
+- The commit changed 19 files (+791 -62). Test: `app/scripts/vw111-test.mjs` 33 passed.
+- The unit has no builder report file. The facts come from the aki-main record `tools/aki-main/VW111/report.md`.
+- Checks by aki-main: `unit_check` of card P46.1 passed 8 of 8. The secret scan of the 19 files found no hit. The push `10e757b..7bcf62f` ran at 2026-11-18 01:46:09. The Vercel deployment completed at 01:46:38. The live pages `/sign-in`, `/read` and `/translate` answered 200. `/no-such-page` answered 404.
+- Owner Q-A: 3:76.1, 3:76.2, 3:76.4 (push after the commit), 3:78.2 (pick "Accept and commit"), 3:78.3.
+- Known limits (Not verified): the PocketBase mode of `/admin/versions` and the panel titles in a browser. The Monitor rows still matched the full item ID. Unit VW112 row 6 fixed this.
+
+##### 15.42.10 The human translation view uses the folds of the Reader dashboard (unit VW112, commit 073b6bc)
+
+- What the user sees (Q-A 3:76.5, 3:78.4, 3:80.3):
+  - `/translate` uses the fold tree of the Reader dashboard `/read`. The folds "Books" and "Kendo Jidai" are open. Deeper folds are closed. Web articles sit in year and month folds.
+  - A work row shows the English title as the link, the Japanese title below, and a metadata line (author, publisher, year or web date, "N pages"). It shows "Agent translation: n of m pages".
+  - In files mode, the row shows the Monitor dashboard facts: "Monitor dashboard: <state> · <x of y pages> · <status line>". The PocketBase mode shows the note "The Monitor dashboard facts show only on this Mac (files mode)."
+  - The search on `/translate` covers titles and metadata. It does not cover page text.
+  - A book with table-of-contents rows is a fold as on `/read` (22 folds in the real data). A row links to `/translate/<book>?at=pNNN#pNNN`. A chapter row shows "Agent translation: x of y pages". Without a script, the link `/translate?open=toc-<book>#toc-<book>` opens the fold.
+  - An open fold has a highlight color (Q-A 3:78.4). The theme variable `--open` holds it. Values: light `#f6e7c8`, dark `#1f2a44`, sepia `#e6d3a6`, solarized-light `#f0e2b8`, solarized-dark `#0d4a5a`. A 3 px bar sits on the left.
+    - One rule covers an open `details > summary` and a `button[aria-expanded="true"]`.
+    - The utility `bg-open` covers the pane settings cog, the Reasoning toggle and the "Extra detail" summary.
+    - Not highlighted: the menu button, the section header of the Monitor dashboard, the running entry of the training monitor, tabs, the selected point and `aria-current`.
+- Hidden books: men0, men1, mental2_clean, matsubara and morishima do not show on `/translate` and in its search. Their direct addresses still work. A hidden book gets no table-of-contents fold, and the toc route gives 404 for it. The unit report lists these five books. Its check tested the first three.
+- Unit default: `TRANSLATE_WEB_SET = "listed"`. It lists the 36 book folders and every work with a run. A web article without a run gives 404.
+- The Monitor dashboard `/` uses the shared 8-character title lookup (report row 6).
+- Table-of-contents data: files mode reads `<T2>/data/item-metadata/book-toc.jsonl`. PocketBase mode reads the collection `book_toc`.
+- Main files: `app/app/translate/page.tsx`, `app/app/api/translate/month/route.ts`, `app/app/api/translate/toc/route.ts` (staff only), `app/components/TranslateWork.tsx`, `app/components/TranslateSearch.tsx`, `app/lib/translate-dash.ts`, `app/lib/translate-dash-load.ts`, `app/lib/reader-toc.ts`, `app/lib/book-status.ts`. The commit changed 22 files (+1191 -52).
+- Tests: `app/scripts/vw112-test.mjs` 62 checks passed. The browser check 223 passed.
+- Owner Q-A: 3:76.5, 3:78.4, 3:80.2 (pick "Accept and commit"), 3:80.3, 3:81.3. The builder returned for a fix round at 2026-11-18 03:24 to 03:37 after Q-A 3:80.3.
+- Known limits:
+  - The unit check of the settings test failed 16 of 17 at first, because `<T2>` commit `f799ba2` removed `run.max_usd_per_page` from the defaults file. Unit VW113 fixed this.
+  - Not verified:
+    - The public `/translate` in PocketBase mode with real `catalog_items`.
+    - The highlight on the buttons of the JSON viewer, the step tree, `ReaderBook` and the training monitor.
+    - The 403 answer of the toc route for a reader.
+  - The books ae6c06ec and d3e19e61 share one English title. The Monitor facts line wraps to 3 lines at 390 px.
+
+##### 15.42.11 Run settings without a cost limit, heading offset, sub-points (unit VW113, commit d957500)
+
+- Row 1. The Run settings panel `/settings/run` has no field "Cost limit per page". It has 7 groups and 21 fields.
+- Row 2. An old settings file with the key `run.max_usd_per_page` loads and the key is ignored. The panel never writes it back (details in section 15.42.13).
+- Row 3. The tests count 21 keys and 7 groups. Four parity cases cover the retired key. `vw96-test.mjs` lines 403 to 409 now assert that the field is gone.
+- Row 4. On `/translate/<book>`, a page heading stays below the column bar when you jump to it.
+  - The new file `app/lib/htv-bar-offset.ts` holds the rule. `ColumnHeader` writes `--htv-bar-h`.
+  - The offset is `calc(var(--htv-bar-h, 3.5rem) + 4px)`. The bar is 61 px high at 1280 px and 87 px at 390 px. The old offset was 56 px.
+- Row 4b. The run picker (`data-run-mark-select` in `app/components/HtvPageSection.tsx`) fits 390 px.
+- Row 5. The vector map counts sub-points as emphasis marks (Q-A 3:81.4, pick "Add sub-points").
+  - A direct sub-point is a numbered point directly below. Point 2.4 counts 2.4.1 and 2.4.2. It does not count 2.4.1.1.
+  - The constant `SUB_POINT_MODE = "direct"` sits in `app/lib/vector-map-rules.ts`. The help text sits in `app/components/VectorMapView.tsx`.
+  - The match is the median Spearman rank correlation between the program count and the model score per prompt version, over 284 versions. The old count gave 0.372, with 64.8% of 23,795 points at 0 marks. Direct sub-points gave 0.608 with 53.0%. All deeper levels also gave 0.608. The unit chose "direct".
+  - For QA_3 v2.1.14, importance changed: point 2.4 from 6.5 to 4.5, point 6.7 from 9.5 to 6.6, point 6.8 from 9.0 to 8.3. Comprehensiveness did not change (4.9, 11.7, 0.3).
+- The commit changed 11 files (+389 -45). Tests: `app/scripts/vw113-test.mjs` 19 cases passed. 18 regression scripts finished with 0 failed. The browser check 108 passed.
+- Owner Q-A: 3:78.6 (pick "Start P32 as planned"), 3:81.2 (pick "VW113 as written"), 3:81.4, 3:82.1 (pick "Commit and push"), 3:82.2.
+- The error that led to this unit (Q-A 3:81.2): the Run settings panel showed "translator-settings.defaults.json: a default is absent. The file cannot be saved here." after `<T2>` commit `f799ba2`.
+- Known limits: the code keeps a dead branch `showValue` null that shows "No limit" if it runs. No chapter links exist in the real index data, so the chapter offset has only a source-level test. The live site and a real Save: Not verified.
+
+##### 15.42.12 Tab titles (commit f2e1928)
+
+- The browser tab of `/translate` pages reads "Human translation". It read "human-translation-view" before.
+- The browser tab of a book page reads "<book title> · Human translation". Example: "The Secret of Kendo and the Left Foot · Human translation".
+- A missing session, a missing title, an unsafe slug or a failed read gives the title "Human translation".
+- Files: `app/app/translate/layout.tsx` and `app/app/translate/[slug]/page.tsx` (`generateMetadata`). The commit changed 2 files (+21 -2). It has no new test script.
+- Owner Q-A: 3:82.4 (picks "Book title on book pages" and the tab text "Human translation").
+
+##### 15.42.13 Run settings: design corrections (plan item P10)
+
+- State after unit VW113 (files `app/lib/settings-schema.ts` and `<T2>/config/translator-settings.defaults.json`):
+  - The panel has 7 groups and 21 keys. The 8 groups and the 22 keys of section 15.24.11 are history.
+  - The group "Cost limit per page" is gone. Owner words: "You dont have to bother about the cost. remove any cost cap".
+- The 7 groups and their keys:
+  - N: `update.N`.
+  - Model and effort per level: `levels.0` to `levels.3`, each with `model` and `variant` (8 keys).
+  - Box critic model: `box_critic.model`, `box_critic.variant`.
+  - Jobs and book jobs: `run.jobs`, `run.book_jobs`.
+  - Critic mode: `run.critic_mode`.
+  - Memory and link constants: `memory.memory_k`, `memory.join_page_end`, `memory.join_across_title`, `links.neighbor_skip_cites`, `links.window_lines`.
+  - Call timeout and retries: `calls.call_timeout_s`, `calls.max_attempts`.
+- `memory.join_across_title` is a settings key. Its default is on (`true`). It is the third key of the group "Memory and link constants". Section 15.24.11 does not list it.
+- "Reset" for N removes the key `update.N` from the saved file. Then the phase rule applies again (Q-A 2:8.5). "Reset all" writes the default of every other key and removes `update.N`.
+- An unknown key shows an error and blocks the save (Q-A 2:8.5).
+  - The error text starts "translator-settings.json: unknown key".
+  - The form stays disabled until the owner removes the key by hand in the file. A write that replaces such a file is refused.
+  - The retired key `run.max_usd_per_page` is the exception. The Viewer and the Translator read it and ignore it (list `RETIRED_KEYS`). The panel never writes it.
+- Validation ranges (Q-A 2:8.5). The code of `settings-schema.ts` and `<T2>/data/scripts/translator/settings.py` agree:
+  - `update.N`: a whole number, 1 or more.
+  - `run.jobs` and `run.book_jobs`: whole numbers, 1 to 8.
+  - `run.critic_mode`: "separate" or "session".
+  - `memory.memory_k`: a whole number, 1 to 10.
+  - `memory.join_page_end` and `memory.join_across_title`: true or false.
+  - `links.neighbor_skip_cites` and `links.window_lines`: whole numbers, 0 or more.
+  - `calls.call_timeout_s`: a whole number, 60 to 7200.
+  - `calls.max_attempts`: a whole number, 1 to 5.
+  - A model is an ID of the form provider/model. An effort (variant) holds letters, digits, underscore, dot and hyphen.
+- The N rule: the panel reads the phase rule from `update.phase_rule` in `<T2>/config/translator-models.yaml` (`app/lib/settings-run.ts`). The source is Q-A 2:9.4. Not verified, because the record was not found.
+  - The values in the file: `update.N` 5. Phase 2: 3. Phase 3: 2. Phase 4: the bands 100: 2, 200: 3, otherwise 5.
+  - A saved `update.N` overrides this rule in every phase.
+  - If the rule is wrong, the Translator stops each book at its next start, before any page, until the owner corrects `update.phase_rule`. A saved N does not prevent this stop.
+- Effect times: `run.jobs`, `run.book_jobs` and `run.critic_mode` take effect at the next list or book start. All other keys take effect at the next page.
+
+##### 15.42.14 Token scope
+
+- Q-A 3:6.3 replaces Q-A 2:9.3. The screens and the Translator reports show token usage and no USD.
+- Q-A 3:7.2 confirmed this. The Q-A record of 2026-11-11 17:44 (batch 7) chose "New answer holds".
+- The Viewer part is in section 15.40.2 (units VW93 and VW96). The files keep the field `cost_usd`. The screens do not read it.
+- Unit VW113 removed the last USD field, the cost limit of the Run settings panel (section 15.42.13).
+
+##### 15.42.15 Older text that this section replaces
+
+- Lines changed in place:
+  - 4052, 4057, 4064, 4065, 4067, 4068: the 8 groups became 7 groups, the removed group 4, the ranges, and `memory.join_across_title`.
+  - 4074 and 4075: the cost hint and the empty field of group 4.
+  - 4083, 4090 and 4349: unknown key and "Reset" for N.
+  - 5364, 5471, 5509 and 5563: the v1 placeholder lives in the collection `v1_placeholders`.
+  - 8680, 8782, 8783, 8784, 8785 and 8868: open items of P32, VW85, VW99 and the page ID heading.
+- Lines left as they are:
+  - Lines 4197 to 4253 and 4259 to 4260 sit inside code blocks (sketches and a key list). They still show the old group 4 and the old key list without `memory.join_across_title`.
+  - These lines are history:
+    - Line 3796, the owner answer 18 with the list of 8 groups.
+    - Lines 3849 and 3850, the `run.json` keys.
+    - Lines 8185 and 8258, round 86, the cost limit of an update point.
+
+##### 15.42.16 Open items
+
+- Tie order. Line 3916 says "Inside a group, the newest event comes first. Not started books sort by slug." Line 8756 says "Events sort by clock time, with a fixed tie order." No Q-A record states the tie order. The owner must name it.
+- Reference-diff-critic. The guideline `docs/agents/translator.md` line 97 says: "The reference-diff-critic runs once per page at the end of the forward pass." No line of this file states a rule "per article". Lines 8551, 8552, 8563, 8708 and 8716 were checked. No change.
+- Old USD lines. This file has 26 lines with "USD". This unit did not check each one against Q-A 3:6.3.
+- The guideline `docs/agents/viewer.md`, section "Placeholders and pilots", holds the older rule that the hosted site shows no placeholder. Q-A 3:44.4 replaces it. The guideline is outside this unit.
+- The unit VW105 left two items:
+  - Log `error.digest` in the 4 error boundaries of `/read`, `/translate`, `/admin` and `/profile`.
+  - The text color of the link `data-continue` in `ReaderBook.tsx` line 428 (Not verified by the unit).
+- Skipped in this unit: the decisions of rounds 87 and 88 and the results of TF85 and DZ85. The unit records gave no clear facts for them.
+
+##### 15.42.17 Not verified
+
+- The live date of unit VW105 on https://kendotranslation.com.
+- A real server run of the v1 upload (VW104), a real model call for the model score (VW106), and a live fallback model piece (VW108).
+- The PocketBase mode of `/translate`, `/admin/versions` and the panel titles in a browser (VW109 to VW112).
+- A real phone, Safari, Firefox and a screen reader for the units above.
+- The record of Q-A 2:9.4, and the text of Q-A 3:81.3.
+- A live check of unit VW113 and a real Save on the Run settings panel.
+
+Status: units VW104 to VW113 and the tab titles documented by unit DZ86-2 from the unit reports, `git log` and the Q-A records. The P10 corrections are applied. The owner has not checked this section yet.

@@ -837,3 +837,47 @@ Files:
 - Unit VW100, phone menu: `components/NavMenuButton.tsx`.
 - Unit VW102, sign-up address and key: `lib/sign-up-guard.ts`.
 - Unit VW103, running update point: `lib/update-live.ts`, `lib/update-live-load.ts`, `lib/phase2-wait-reason.ts`, `components/UpdateLiveBlock.tsx`.
+
+## Units VW104 to VW113 (DZ86-2)
+
+The design is in `docs/VISION-viewer.md` section 15.42.
+
+Routes and addresses:
+
+- `/profile`: the account page of every signed-in role (unit VW105). `PUT /api/profile/name` saves the display name. `POST /api/profile/password` changes the password.
+- `/sign-in?changed=1`: the page that opens after a password change (unit VW105).
+- `app/not-found.tsx`: the page "Page not found" for an unknown address (unit VW105).
+- `/monitor/vector-map`: the read-only vector map on the Monitor dashboard `/` on this Mac only (units VW106, VW107 and VW113). With the monitor off, the route gives 404.
+- `/translate`: the human translation view uses the fold tree of the Reader dashboard `/read` (unit VW112). `/translate?open=toc-<book>#toc-<book>` opens the table-of-contents fold of one book without a script.
+- `/translate/<book>?at=pNNN#pNNN`: a book page that scrolls to one page (unit VW112).
+- `/api/translate/month` and `/api/translate/toc`: staff routes that load one month fold and one table-of-contents fold (unit VW112).
+
+Environment key and option (unit VW104):
+
+- `VIEWER_RUN_SOURCE=pocketbase`: the app reads the v1 placeholder from the collection `v1_placeholders`. The value `files` reads the md files as before.
+- `node scripts/sync-runs.mjs --v1-dir DIR`: the S2 upload step for the v1 placeholder. It creates new pages and updates changed pages. It never deletes a page.
+
+Tests (run each one from the `app` folder, one after another):
+
+- `node scripts/vw104-test.mjs`
+- `node scripts/vw105-test.mjs`
+- `node scripts/vw106-test.mjs`
+- `node scripts/vw106-real-values.mjs` (reads the real prompt versions and prints the values of one box)
+- `node scripts/vw107-test.mjs`
+- `node scripts/vw108-test.mjs`
+- `node scripts/vw109-test.mjs`
+- `node scripts/vw109-real-titles.mjs` (reads the real catalog and prints the book titles, read only)
+- `node scripts/vw110-test.mjs`
+- `node scripts/vw111-test.mjs`
+- `node scripts/vw112-test.mjs`
+- `node scripts/vw113-test.mjs`
+
+Files:
+
+- Unit VW104, v1 placeholder from PocketBase: `lib/reader-v1-source.ts`, `lib/reader-v1-pb.ts`, `lib/v1-placeholder-rules.ts`, `lib/v1-placeholder-sync.ts`, `scripts/sync-runs.mjs`.
+- Unit VW105, profile and 404 page: `app/profile/page.tsx`, `app/api/profile/name/route.ts`, `app/api/profile/password/route.ts`, `app/not-found.tsx`, `lib/profile-rules.ts`, `lib/profile-pb.ts`, `lib/profile-load.ts`, `lib/profile-api.ts`.
+- Units VW106 and VW107, vector map: `app/monitor/vector-map/page.tsx`, `lib/vector-map-rules.ts`, `lib/vector-map-load.ts`, `lib/vector-map-detail.ts`, `components/VectorMapChart.tsx`, `components/VectorMapSlider.tsx`, `components/VectorMapView.tsx`, `components/VectorMapPrompt.tsx`.
+- Unit VW108, fallback model piece: `lib/fallback-model.ts`, `lib/update-live.ts`.
+- Units VW109 to VW111, book titles: `lib/htv-titles.ts`, `lib/htv-files-titles.ts`, `lib/htv-book-titles.ts`.
+- Unit VW112, folds of the human translation view: `app/translate/page.tsx`, `components/TranslateWork.tsx`, `components/TranslateSearch.tsx`, `lib/translate-dash.ts`, `lib/translate-dash-load.ts`, `lib/reader-toc.ts`.
+- Unit VW113, run settings and page heading offset: `lib/settings-schema.ts`, `components/RunSettingsForm.tsx`, `lib/htv-bar-offset.ts`.
