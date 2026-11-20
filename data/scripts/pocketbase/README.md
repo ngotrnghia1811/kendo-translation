@@ -267,3 +267,12 @@ The Reader dashboard needs four new fields. Design: `docs/VISION-viewer.md` sect
 - `pb_hooks/sign_up_key.pb.js` refuses a create in `users` without the header `X-Kendo-Sign-Up-Key` equal to the environment variable `SIGN_UP_KEY` (at least 32 characters). A superuser passes. A missing or short `SIGN_UP_KEY` refuses every public sign-up (fail closed).
 - Copy the migration and the hook to the server together. Start PocketBase with `--hooksDir` (hand-steps sections 8.5, 8.5a and 8.6).
 - `test_local.py` covers all 16 files: 274 PASS, 0 FAIL (unit VW102 on port 8092). Each test sign-up sends its own made-up address, so the limit does not stop the test.
+
+## Visual issues: migration 1793300017 (unit VW118, plan item P53, Q-A 3:98.5 and 3:99.5)
+
+- `1793300017_v2_visual_issues.js` makes the collection `visual_issues`. Each record is one issue that a translator or an admin sends with the visual-issue tool (a picture of a part of a screen, a comment, the page address, the screen width, the theme, the state `open` or `resolved`, and a note).
+- Rules: a signed-in translator or admin creates an issue for the own user with the state `open`. An admin sees all issues. A translator sees the own issues. A reader sees none. Only an admin updates or deletes.
+- The picture field holds one PNG of at most 5 MB. It is protected, so a file address needs a short-lived file token of a user who can view the record.
+- The migration creates the collection only if it is absent. The down function deletes it only if it has 0 records.
+- `test_visual_issues.py` checks the rules, the limits, and the migration on a throwaway PocketBase on port 8092 (standard library only, `TMPDIR` and `PB_BIN` set): 71 PASS, 0 FAIL. `test_local.py` now covers all 18 files: 304 PASS, 0 FAIL.
+- Copy the migration to the v2 server only after a backup and an owner pick in a destructive question (Q-A 3:99.5 row 6). The local PocketBase on port 8090 gets it at the commit.

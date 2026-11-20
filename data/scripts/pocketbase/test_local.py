@@ -111,6 +111,12 @@ EXPECTED_RULES = {
                         "updateRule": READ_OK + " && user = @request.auth.id && @request.body.user:changed = false", "deleteRule": None},
     # Migration 1793300016 (unit VW104, Q-A 3:44.4, 3:45.2, 3:45.3): the v1 placeholder md text of each page. Same read rule as reader_pages. Only the superuser writes.
     "v1_placeholders": {"listRule": READ_OK, "viewRule": READ_OK, "createRule": None, "updateRule": None, "deleteRule": None},
+    # Migration 1793300017 (unit VW118, Q-A 3:98.5, 3:99.5): the visual issues. Own create by a translator or admin, own list for a translator, all for an admin, only an admin changes. Details: test_visual_issues.py.
+    "visual_issues": {"listRule": '@request.auth.id != "" && (@request.auth.role = "admin" || (@request.auth.role = "translator" && user = @request.auth.id))',
+                      "viewRule": '@request.auth.id != "" && (@request.auth.role = "admin" || (@request.auth.role = "translator" && user = @request.auth.id))',
+                      "createRule": '@request.auth.id != "" && (@request.auth.role = "translator" || @request.auth.role = "admin") && @request.body.user = @request.auth.id'
+                                    ' && @request.body.state = "open" && @request.body.resolve_note:isset = false',
+                      "updateRule": ADMIN, "deleteRule": ADMIN},
     # Migration 1793300005 (unit UXC, round 59 answer 6): a user reads and changes the own settings record only. Nobody deletes.
     "user_settings": {"listRule": OWN_ONLY, "viewRule": OWN_ONLY,
                       "createRule": '@request.auth.id != "" && @request.body.user = @request.auth.id',
@@ -1142,7 +1148,7 @@ def check_restart(ctx, server, shape_dir, counts):
     ctx.check("13a records survive the restart", count_records(ctx) == counts, "counts differ")
     server.stop()
     removed = forget_v2_history(shape_dir)
-    ctx.check("13b v2 history rows removed for the test (17 expected, unit VW104 added migration 1793300016)", removed == 17, "removed " + str(removed))
+    ctx.check("13b v2 history rows removed for the test (18 expected, unit VW118 added migration 1793300017)", removed == 18, "removed " + str(removed))
     try:
         server.start()
         ok, reason = True, ""
@@ -1159,7 +1165,7 @@ def check_restart(ctx, server, shape_dir, counts):
     log = open(server.log_path, "rb").read().decode("utf-8", "replace")
     exists_lines = len(re.findall(r"v2 migration: collection \w+ exists, left as it is", log))
     ctx.info("13b log lines 'collection ... exists, left as it is': " + str(exists_lines))
-    ctx.check("13b the second run reports the 15 existing collections (6 of 1793300001, user_settings, 3 of 1793300007, 2 of 1793300008, reader_opens of 1793300012, book_toc of 1793300013, v1_placeholders of 1793300016)", exists_lines == 15, "lines " + str(exists_lines))
+    ctx.check("13b the second run reports the 16 existing collections (6 of 1793300001, user_settings, 3 of 1793300007, 2 of 1793300008, reader_opens of 1793300012, book_toc of 1793300013, v1_placeholders of 1793300016, visual_issues of 1793300017)", exists_lines == 16, "lines " + str(exists_lines))
     approved_lines = len(re.findall(r"v2 migration: field approved exists, data left as it is", log))
     ctx.check("13b the second run reports that the field approved exists and leaves the data (migration 1793300006)", approved_lines == 1, "lines " + str(approved_lines))
     status, data = http("GET", "/api/collections/users/records?filter=" + urllib.parse.quote('email="' + addr("su1") + '"'), token=ctx.su_token)
@@ -1175,15 +1181,15 @@ def check_restart(ctx, server, shape_dir, counts):
 
 def check_down_up(ctx, server, shape_dir):
     server.stop()
-    code, output = run_cli(server, ["migrate", "down", "17"])
-    ctx.check("15a migrate down 17 exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
+    code, output = run_cli(server, ["migrate", "down", "18"])
+    ctx.check("15a migrate down 18 exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
     ctx.check("15q down of migration 1793300011 prints that the field own_translations.facts stays (soft down)", "the field own_translations.facts stays" in output, output.strip()[-300:])
     ctx.check("15o down of migration 1793300010 prints that the 4 fields stay (soft down)", "the fields catalog_items.translated, catalog_items.placement, reader_pages.search_ja, and reader_pages.search_en stay" in output, output.strip()[-300:])
     ctx.check("15g down turns the batch API off", batch_enabled_db(shape_dir) is False, "batch " + repr(batch_enabled_db(shape_dir)))
     ctx.check("15b down sets users authRule to empty", users_auth_rule(shape_dir) == "", "authRule " + repr(users_auth_rule(shape_dir)))
     names = {row["name"] for row in read_collections_db(shape_dir)}
     kept = {"own_translations", "comments", "run_marks", "page_runs", "user_settings"}
-    gone = {"catalog_items", "magazine_chapters", "reader_pages", "reader_versions", "page_checks", "reader_bookmarks", "reader_progress", "reader_opens", "v1_placeholders"}
+    gone = {"catalog_items", "magazine_chapters", "reader_pages", "reader_versions", "page_checks", "reader_bookmarks", "reader_progress", "reader_opens", "v1_placeholders", "visual_issues"}
     ctx.check("15c down keeps collections with records and drops empty ones",
               kept <= names and not (gone & names), "kept " + str(sorted(kept & names)) + " empty-left " + str(sorted(gone & names)))
     down_runs = next((row for row in read_collections_db(shape_dir) if row["name"] == "page_runs"), {})
@@ -1205,7 +1211,7 @@ def check_down_up(ctx, server, shape_dir):
     ctx.check("15e up sets users authRule again", users_auth_rule(shape_dir) == "disabled = false",
               "authRule " + repr(users_auth_rule(shape_dir)))
     names = {row["name"] for row in read_collections_db(shape_dir)}
-    ctx.check("15f up creates the collections again (14 with the reader collections, reader_opens, and v1_placeholders)", set(NEW_COLLECTIONS) <= names, "missing " + str(sorted(set(NEW_COLLECTIONS) - names)))
+    ctx.check("15f up creates the collections again (15 with the reader collections, reader_opens, v1_placeholders, and visual_issues)", set(NEW_COLLECTIONS) <= names, "missing " + str(sorted(set(NEW_COLLECTIONS) - names)))
     up_runs = next((row for row in read_collections_db(shape_dir) if row["name"] == "page_runs"), {})
     ctx.check("15j up sets the page_runs list and view rules to translator or admin (migration 1793300009)",
               up_runs.get("listRule") == STAFF and up_runs.get("viewRule") == STAFF,

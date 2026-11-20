@@ -593,9 +593,9 @@ try {
       assert.ok(!/cost_usd|costUsd|money\(|usd\(/.test(s.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "")), f);
     }
   });
-  await check("no new package", async () => {
+  await check("no new package (except modern-screenshot of unit VW118, Q-A 3:99.5 row 3)", async () => {
     const pkg = JSON.parse(await src("package.json"));
-    assert.deepEqual(Object.keys(pkg.dependencies).sort(), ["next", "react", "react-dom"]);
+    assert.deepEqual(Object.keys(pkg.dependencies).sort(), ["modern-screenshot", "next", "react", "react-dom"]);
   });
 } finally {
   await fs.rm(root, { recursive: true, force: true });

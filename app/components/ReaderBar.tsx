@@ -40,6 +40,10 @@ export default function ReaderBar({ name, email, role, approved, backHref, onPro
             <Link href="/admin/versions" className="text-accent underline" data-admin-link>
               Human versions
             </Link>
+            {/* Unit VW118 (Q-A 3:99.5 row 7): the list of the visual issues. */}
+            <Link href="/admin/issues" className="text-accent underline" data-admin-link>
+              Visual issues
+            </Link>
           </>
         ) : null}
       </nav>

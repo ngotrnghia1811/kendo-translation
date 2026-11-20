@@ -2360,7 +2360,7 @@ async function readTest() {
   r = await cr.req("/sign-up");
   check("The sign-up page sends a signed-in person to /read", r.go === "/read", `go ${r.go}`);
   r = await ad.req(`/read/${LF}?view=page&at=p048`);
-  check("The admin sees the links Readers and Human versions in the reader bar", (r.body.match(/data-admin-link/g) ?? []).length === 2);
+  check("The admin sees the links Readers, Human versions, and Visual issues in the reader bar", (r.body.match(/data-admin-link/g) ?? []).length === 3); // unit VW118 added "Visual issues"
   r = await cr.req(`/read/${LF}?view=page&at=p048`);
   check("A reader sees no admin link and no link to the human-translation-view", !/data-admin-link/.test(r.body) && !/href="\/translate"/.test(r.body));
 }

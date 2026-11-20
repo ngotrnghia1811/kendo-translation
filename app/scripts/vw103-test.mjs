@@ -743,7 +743,8 @@ await check("rules: wiring (the old files call the new ones, and the contract of
   // the routes and the polls do not change
   assert.match(read("components/StepView.tsx"), /useLive<StepSummary>\(url,/);
   assert.match(read("components/useLive.tsx"), /export const POLL_MS = 3000;/);
-  assert.deepEqual(JSON.parse(read("package.json")).dependencies && Object.keys(JSON.parse(read("package.json")).dependencies).sort(), ["next", "react", "react-dom"]);
+  // Unit VW118 added one library for the visual-issue tool (Q-A 3:99.5 row 3): modern-screenshot. No other dependency is added.
+  assert.deepEqual(JSON.parse(read("package.json")).dependencies && Object.keys(JSON.parse(read("package.json")).dependencies).sort(), ["modern-screenshot", "next", "react", "react-dom"]);
 });
 
 try {
