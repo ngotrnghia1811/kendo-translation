@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { NOTE_MAX, isSafePagePath, pageLabelOf, type IssueView } from "@/lib/visual-issue-rules";
+import { splitViewNote } from "@/lib/view-as";
 import { pstTime } from "@/lib/htv-pst";
 
 // Admin page of the visual issues (unit VW118, plan item P53, Q-A 3:99.5 row 7): "open issues first, with the picture, the comment, a link to the page,
@@ -29,12 +30,15 @@ export default function AdminIssues({ issues, total, titles }: { issues: IssueVi
     }
   }
 
-  const card = (i: IssueView) => (
+  // Unit VW119 (Q-A 3:103.5 row 7): an issue that was sent in a view starts its comment with the line "Viewed as: reader." The page shows that line apart, in the meta line.
+  const card = (i: IssueView) => {
+    const { view, text } = splitViewNote(i.comment);
+    return (
     <li key={i.id} data-issue={i.id} data-issue-state={i.state} className="flex flex-col gap-3 rounded border border-line bg-white p-3 text-sm md:flex-row">
       <a href={`/api/admin/issues/${i.id}/picture`} target="_blank" rel="noopener" className="block shrink-0 md:max-w-[26rem]" title="Open the picture in a new tab">
         {/* The picture is a PNG of the admin route. A plain img keeps the size of the file. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={`/api/admin/issues/${i.id}/picture`} alt={`Picture of the issue: ${i.comment.slice(0, 80)}`} loading="lazy" data-issue-picture className="max-h-72 w-auto max-w-full rounded border border-line" />
+        <img src={`/api/admin/issues/${i.id}/picture`} alt={`Picture of the issue: ${text.slice(0, 80)}`} loading="lazy" data-issue-picture className="max-h-72 w-auto max-w-full rounded border border-line" />
       </a>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
@@ -44,7 +48,7 @@ export default function AdminIssues({ issues, total, titles }: { issues: IssueVi
           <span className="text-muted">{pstTime(i.created) || i.created}</span>
         </div>
         <p className="mt-2 whitespace-pre-wrap break-words" data-issue-comment>
-          {i.comment}
+          {text}
         </p>
         <p className="mt-2 break-words text-muted" data-issue-page>
           Page:{" "}
@@ -58,6 +62,7 @@ export default function AdminIssues({ issues, total, titles }: { issues: IssueVi
         </p>
         <p className="mt-1 text-muted" data-issue-meta>
           Sent by {i.userName}. Screen width {i.screenWidth > 0 ? `${i.screenWidth} px` : "unknown"}. Theme {i.theme || "unknown"}.
+          {view ? <span data-issue-view> Viewed as {view}.</span> : null}
         </p>
         {i.state === "resolved" ? (
           <p className="mt-2" data-issue-note>
@@ -85,7 +90,8 @@ export default function AdminIssues({ issues, total, titles }: { issues: IssueVi
         )}
       </div>
     </li>
-  );
+    );
+  };
 
   return (
     <div data-admin-issues>

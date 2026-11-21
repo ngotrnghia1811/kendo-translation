@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Role } from "@/lib/htv-types";
+import ViewAsSelect from "./ViewAsSelect";
 
 // Bar of the reader pages (unit RC1, round 63). Links: all books, the human-translation-view for translators and admins, the admin pages for admins.
 // The reader pages are for reading only: the bar has no write action except Sign out.
@@ -47,7 +48,9 @@ export default function ReaderBar({ name, email, role, approved, backHref, onPro
           </>
         ) : null}
       </nav>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Unit VW119 (Q-A 3:103.5 row 1): the select "View as" shows for an admin only (the component decides from the layout context). */}
+        <ViewAsSelect />
         <span data-user>
           <Link href="/profile" className={onProfile ? "font-semibold" : "text-accent underline"} aria-current={onProfile ? "page" : undefined} data-profile-link>
             {name || email}

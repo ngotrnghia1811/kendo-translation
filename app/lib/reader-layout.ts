@@ -20,6 +20,7 @@ import { rowNote } from "./cross-page-reader";
 import {
   KEEP_ONE,
   LABEL_AGREE_ROW,
+  LABEL_V1,
   NO_HUMAN,
   NO_IMAGE,
   NO_JA,
@@ -65,10 +66,11 @@ export function effectiveSettings(r: ReaderSettings, view: ViewName): EffectiveS
   };
 }
 
+// Unit VW119 (Q-A 3:103.4): a reader sees "AI translation" for the component id "agent" (the id stays, so old saved settings load). These names are used on the reader screens only.
 export const COMPONENT_NAMES: Record<ComponentId, string> = {
   image: "Page image",
   ja: "Original text",
-  agent: "Agent text",
+  agent: "AI translation",
   human: "Human version",
   v1en: "v1 EN placeholder",
   v1zh: "v1 ZH placeholder",
@@ -107,7 +109,7 @@ export interface PageRows {
   human: PageRow[];
   v1en: PageRow[];
   v1zh: PageRow[];
-  /** True when the Original text comes from the v1 JA lines (D20). Its page line is "v1 Gemini placeholder text.". */
+  /** True when the Original text comes from the v1 JA lines (D20). Its page line is LABEL_V1_JA ("Earlier machine text (placeholder)", unit VW119). */
   jaFromV1: boolean;
 }
 
@@ -299,11 +301,12 @@ function noteOf(id: ComponentId, humanBy: ReaderPageData["humanBy"]): string {
     case "ja":
       return "The JA source text.";
     case "agent":
-      return "AI translation";
+      // Unit VW119 (Q-A 3:103.4): the name of the row is "AI translation" now, so the note does not repeat it.
+      return "";
     case "human":
       return humanBy === "admin" ? "chosen by an admin" : "from kendojidai.com";
     case "v1en":
-      return "v1 Gemini translation placeholder.";
+      return LABEL_V1;
     case "v1zh":
       return "for display testing purpose ONLY";
     default:

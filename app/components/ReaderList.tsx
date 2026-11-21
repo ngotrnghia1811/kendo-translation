@@ -23,6 +23,12 @@ function Summary({ f, known, to }: { f: Fold; known: boolean; to: DashTarget }) 
   return (
     <>
       <span className={first ? "text-lg font-semibold" : "font-semibold"}>{f.title}</span>
+      {/* Unit VW119 (Q-A 3:103.6 row 3): the author after the title in smaller gray text. Nothing when the fold has no author. Same on /read and /translate (Q-A 3:80.3). */}
+      {f.author ? (
+        <span className="text-sm text-muted" data-fold-author>
+          · {f.author}
+        </span>
+      ) : null}
       {f.titleJa ? (
         <span lang="ja" className="font-ja text-sm text-muted">
           {f.titleJa}

@@ -2,7 +2,8 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { PbError, pbRefresh, pbUserOfToken, tokenSecondsLeft } from "./pb";
-import type { SessionUser } from "./htv-types";
+import type { Role, SessionUser } from "./htv-types";
+import { VIEW_COOKIE, viewOfCookie, viewUser, type ViewAs } from "./view-as";
 
 /*
  * Sign-in state of the human-translation-view (round 54 answer 10, Q-A 2026-10-28 l129: "A login route sets an httpOnly
@@ -21,15 +22,23 @@ const REFRESH_BELOW_SECONDS = 3 * 86400;
 
 export interface Session {
   token: string;
+  /** The user as the pages see it. In a view (unit VW119) the role is the view role and `approved` is true. */
   user: SessionUser;
+  /** Unit VW119 (Q-A 3:103.5): the real role of the account. It differs from `user.role` only in a view. */
+  realRole: Role;
+  /** Unit VW119: the view of an admin ("reader" or "translator"), else null. */
+  view: ViewAs | null;
 }
 
 export async function getSession(): Promise<Session | null> {
   const jar = await cookies();
   const token = jar.get(COOKIE_NAME)?.value;
   if (!token) return null;
-  const user = await pbUserOfToken(token);
-  return user ? { token, user } : null;
+  const real = await pbUserOfToken(token);
+  if (!real) return null;
+  // Unit VW119 (Q-A 3:103.5 rows 1, 2, 4, 5): the view cookie counts for a real admin only. The pages and the routes then act as the view role.
+  const view = viewOfCookie(real.role, jar.get(VIEW_COOKIE)?.value);
+  return { token, user: viewUser(real, view), realRole: real.role, view };
 }
 
 /**
@@ -94,8 +103,21 @@ export async function setTokenCookie(req: Request, token: string): Promise<void>
   (await cookies()).set(COOKIE_NAME, token, cookieOptions(req, token));
 }
 
+/** Clear the token cookie. Unit VW119 (Q-A 3:103.5 row 2): sign out also ends a view. */
 export async function clearTokenCookie(): Promise<void> {
-  (await cookies()).delete(COOKIE_NAME);
+  const jar = await cookies();
+  jar.delete(COOKIE_NAME);
+  jar.delete(VIEW_COOKIE);
+}
+
+/** Unit VW119: set the view cookie (route handler only). It has the flags and the lifetime of the token cookie of the same token. */
+export async function setViewCookie(req: Request, token: string, view: ViewAs): Promise<void> {
+  (await cookies()).set(VIEW_COOKIE, view, cookieOptions(req, token));
+}
+
+/** Unit VW119: clear the view cookie (route handler only). A new sign-in starts in the Admin view, so the login route calls it too. */
+export async function clearViewCookie(): Promise<void> {
+  (await cookies()).delete(VIEW_COOKIE);
 }
 
 /** Token refresh (route handler only). Returns the user, or null when the token is no longer valid. */
@@ -106,5 +128,7 @@ export async function refreshSession(req: Request): Promise<{ user: SessionUser;
   const fresh = await pbRefresh(s.token);
   if (!fresh) return null;
   await setTokenCookie(req, fresh.token);
+  // Unit VW119: a view keeps its lifetime equal to the token, so the new token takes the view with it.
+  if (s.view) await setViewCookie(req, fresh.token, s.view);
   return { user: fresh.user, refreshed: true };
 }

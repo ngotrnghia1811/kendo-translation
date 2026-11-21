@@ -439,7 +439,8 @@ await check("callers: loadReaderPages asks for the v1 pages of a screen with ONE
       ["madeup_book/p004", false, false, false, 0],
     ]);
     assert.equal(pages[0].v1[0].key, "madeup_book/p001/v1/01");
-    assert.equal(pages[0].label.v1, "v1 Gemini translation placeholder.");
+    // Unit VW119 (Q-A 3:103.4): a reader sees no model name, so the page line of the v1 placeholder is now "Earlier machine translation (placeholder)".
+    assert.equal(pages[0].label.v1, "Earlier machine translation (placeholder)");
     assert.deepEqual(pages[0].rows, []);
   });
 });
@@ -563,7 +564,8 @@ await check("old claims are gone and the new text cites the owner picks: S2 comm
   for (const [f, picks] of [["scripts/sync-runs.mjs", ["Q-A 3:44.4", "Q-A 3:45.2", "Q-A 3:45.3"]], ["lib/reader-v1.ts", ["Q-A 3:44.4", "Q-A 3:45.2"]], ["lib/reader-v1-pb.ts", ["Q-A 3:44.4", "Q-A 3:45.2", "Q-A 3:45.3"]], ["lib/reader-v1-source.ts", ["Q-A 3:44.4", "Q-A 3:45.2", "Q-A 3:45.3"]], ["lib/v1-placeholder-sync.ts", ["Q-A 3:44.4", "Q-A 3:45.2", "Q-A 3:45.3"]], ["lib/v1-placeholder-rules.ts", ["Q-A 3:44.4", "Q-A 3:45.2", "Q-A 3:45.3"]]]) {
     for (const s of picks) assert.ok(read(f).includes(s), `${f} lacks ${s}`);
   }
-  assert.equal(read("lib/reader-types.ts").includes('LABEL_V1 = "v1 Gemini translation placeholder."'), true, "the page line is not changed");
+  // Unit VW119 (Q-A 3:103.4 "Keep AI label, no agent words"): the page line lost the model name. The old text was "v1 Gemini translation placeholder.".
+  assert.equal(read("lib/reader-types.ts").includes('LABEL_V1 = "Earlier machine translation (placeholder)"'), true, "the page line has the new text of unit VW119");
 });
 
 await check("no real e-mail address in the new files, and no slug other than madeup_* in this test", () => {

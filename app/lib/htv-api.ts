@@ -3,6 +3,7 @@ import { errorResponse, jsonResponse } from "./api";
 import { getSession, type Session } from "./htv-session";
 import { foreignOrigin } from "./htv-origin";
 import { PbError } from "./pb";
+import { refusalText } from "./view-as";
 import { isSafeSegment, PathError } from "./safe-path";
 
 /* Helpers for the routes /api/htv/*. */
@@ -19,7 +20,7 @@ export function parsePageId(pageId: unknown): { slug: string; page: string; page
  * Guard for a route. A request that changes data must come from the same origin and carry JSON (same rule as /api/pause).
  * Returns the session, or a response with status 401 (not signed in) or 403 (role).
  */
-export async function guard(req: Request, opts: { mutating: boolean; write?: boolean; admin?: boolean; staff?: boolean }): Promise<Session | Response> {
+export async function guard(req: Request, opts: { mutating: boolean; write?: boolean; admin?: boolean; staff?: boolean; allowInView?: boolean }): Promise<Session | Response> {
   if (opts.mutating) {
     const foreign = foreignOrigin(req);
     if (foreign) return foreign;
@@ -27,10 +28,16 @@ export async function guard(req: Request, opts: { mutating: boolean; write?: boo
   }
   const s = await getSession();
   if (!s) return jsonResponse({ error: "Sign in first." }, 401);
+  // Unit VW119 (Q-A 3:103.5 row 6): in a view nothing can change data. A request that changes data answers 403 with the plain line, before any other role check.
+  // A route that must still work in a view (the token refresh, reading progress that it skips by itself) passes `allowInView`. The routes view, login, logout,
+  // and issues do not use this check for the refusal: the view route and the issue route (row 7) are exceptions by design.
+  if (s.view && opts.mutating && !opts.allowInView) return jsonResponse({ error: refusalText(s.view) }, 403);
   if (opts.admin && s.user.role !== "admin") return jsonResponse({ error: "Only the admin can do this." }, 403);
   // Unit RC1 (round 63 answer 4): the data of the human-translation-view is for translators and admins. Readers use /read.
   if (opts.staff && s.user.role === "reader") return jsonResponse({ error: "This view is for translators and admins. Use the reader pages at /read." }, 403);
-  if (opts.write && s.user.role === "reader") return jsonResponse({ error: "Your account can read only." }, 403);
+  // Unit VW119 (Q-A 3:103.5 rows 6 and 7): the write check looks at the real role. A request that changes data is refused above in a view, and the route
+  // of the visual issues (not mutating, write: true) must work in the reader view, because the icon stays there.
+  if (opts.write && s.realRole === "reader") return jsonResponse({ error: "Your account can read only." }, 403);
   return s;
 }
 
@@ -61,8 +68,8 @@ export async function readBody(req: Request): Promise<Record<string, unknown>> {
  * Same checks as guard(), and a reader who waits for approval gets 403 with the plain line of the screen.
  * The PocketBase rules block such a reader as well, so this is a clear answer and not the only lock.
  */
-export async function guardReader(req: Request, opts: { mutating: boolean }): Promise<Session | Response> {
-  const g = await guard(req, { mutating: opts.mutating });
+export async function guardReader(req: Request, opts: { mutating: boolean; allowInView?: boolean }): Promise<Session | Response> {
+  const g = await guard(req, { mutating: opts.mutating, allowInView: opts.allowInView });
   if (isResponse(g)) return g;
   if (!g.user.approved) return jsonResponse({ error: "Your account waits for approval by an admin." }, 403);
   return g;

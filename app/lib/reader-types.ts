@@ -259,13 +259,19 @@ export const LABEL_AGENT_CHECKED = "AI translation, checked by a person";
 export const LABEL_HUMAN = "Human translation. Chosen by an admin.";
 /** Page line of the default Human version, the kendojidai.com text (round 73c answer 7, "From kendojidai.com (Recommended)"). */
 export const LABEL_HUMAN_DEFAULT = "Human translation from kendojidai.com.";
-/** Page lines of the v1 placeholder (round 73b answer 11 for EN and ZH, unit default D20 for the JA line). */
-export const LABEL_V1 = "v1 Gemini translation placeholder.";
-export const LABEL_V1_JA = "v1 Gemini placeholder text.";
+/**
+ * Page lines of the v1 placeholder (round 73b answer 11 for EN and ZH, unit default D20 for the JA line).
+ * Unit VW119 (Q-A 3:103.4 "Keep AI label, no agent words"): a reader sees no model name. The EN and ZH line is the owner-accepted text
+ * "Earlier machine translation (placeholder)". The JA line has the same form [unit default VW119]. The old lines were "v1 Gemini translation placeholder." and "v1 Gemini placeholder text.".
+ */
+export const LABEL_V1 = "Earlier machine translation (placeholder)";
+export const LABEL_V1_JA = "Earlier machine text (placeholder)";
 export const LABEL_AGREE_ROW = "AI translation, checked by a translator";
-export const LABEL_SYNOPSIS = "Written by an AI agent";
-export const NO_TEXT = "No agent translation yet";
-/** Reasons in the component list for a component that the page lacks (VISION-viewer 15.26.6.2). NO_TEXT is the reason of Agent text. */
+/** Unit VW119 (Q-A 3:103.4): the badge of a synopsis. It was "Written by an AI agent" ("Written by AI" is the proposal of aki-main, row not fixed by the owner). */
+export const LABEL_SYNOPSIS = "Written by AI";
+/** Unit VW119 (Q-A 3:103.4): the line of a page that has no AI translation. It was "No agent translation yet" (accepted example: "No English translation yet"). */
+export const NO_TEXT = "No English translation yet";
+/** Reasons in the component list for a component that the page lacks (VISION-viewer 15.26.6.2). NO_TEXT is the reason of the AI translation. */
 export const NO_HUMAN = "No human version for this page";
 export const NO_JA = "No Japanese text for this page";
 export const NO_V1 = "No v1 text for this page";

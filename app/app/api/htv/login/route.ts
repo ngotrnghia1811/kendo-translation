@@ -1,7 +1,7 @@
 import { jsonResponse } from "@/lib/api";
 import { htvError, readBody } from "@/lib/htv-api";
 import { foreignOrigin } from "@/lib/htv-origin";
-import { setTokenCookie } from "@/lib/htv-session";
+import { clearViewCookie, setTokenCookie } from "@/lib/htv-session";
 import { pbSignIn, userSettings } from "@/lib/pb";
 import { DEFAULT_THEME_READER } from "@/lib/htv-settings";
 import { hasThemeCookie, writeTheme } from "@/lib/theme";
@@ -22,6 +22,8 @@ export async function POST(req: Request) {
     const r = await pbSignIn(email, password);
     if (!r.ok) return jsonResponse({ error: r.message }, r.status === 503 ? 503 : 401);
     await setTokenCookie(req, r.token);
+    // Unit VW119 (Q-A 3:103.5 row 2): a new sign-in starts in the Admin view, so an old view cookie does not carry over.
+    await clearViewCookie();
     // Round 58 answer 6 (Q-A l204): the theme of the account goes into the cookie, so a second device gets it at sign-in.
     try {
       const saved = (await userSettings(r.token, r.user.id)).theme;

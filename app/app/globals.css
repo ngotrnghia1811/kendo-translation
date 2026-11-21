@@ -49,6 +49,7 @@
   --title: #7a1f1f;
   --button2-ink: #7a1f1f;
   --open: #f6e7c8; /* unit VW112: the highlight of an open fold (Q-A 3:78.4) */
+  --open-deep: #dfeaf3; /* unit VW119: the highlight of an open fold of level 2 or deeper (Q-A 3:103.6 row 2), theme light */
 }
 
 @theme inline {
@@ -194,6 +195,7 @@ body {
   --title: #ffff00;
   --button2-ink: #ffff00;
   --open: #1f2a44; /* unit VW112: the highlight of an open fold (Q-A 3:78.4) */
+  --open-deep: #1c3b2f; /* unit VW119: the highlight of an open fold of level 2 or deeper (Q-A 3:103.6 row 2), theme dark */
 }
 
 /* The edge of a box needs 3 to 1 on its surface. #777777 gives 3.89 to 1 on #1a1a1a and 4.69 to 1 on black. */
@@ -275,6 +277,7 @@ body {
   --title: #6e1b1b;
   --button2-ink: #6b1a1a;
   --open: #e6d3a6; /* unit VW112: the highlight of an open fold (Q-A 3:78.4) */
+  --open-deep: #d3dce0; /* unit VW119: the highlight of an open fold of level 2 or deeper (Q-A 3:103.6 row 2), theme sepia */
 }
 
 /* Solarized light, high contrast (round 63 answer 7): the Solarized paper colors with the dark base02 ink. Body text 7 to 1 or more, every other pair 4.5 to 1 or more. The script scripts/contrast-dark.mjs tests every pair. */
@@ -351,6 +354,7 @@ body {
   --title: #7a1715;
   --button2-ink: #6f1210;
   --open: #f0e2b8; /* unit VW112: the highlight of an open fold (Q-A 3:78.4) */
+  --open-deep: #d8e8e4; /* unit VW119: the highlight of an open fold of level 2 or deeper (Q-A 3:103.6 row 2), theme solarized-light */
 }
 
 /* Solarized dark, high contrast (round 63 answer 7): the Solarized dark page with base3 ink. Body text 7 to 1 or more, every other pair 4.5 to 1 or more. The script scripts/contrast-dark.mjs tests every pair. */
@@ -427,6 +431,7 @@ body {
   --title: #ffd24a;
   --button2-ink: #ffd24a;
   --open: #0d4a5a; /* unit VW112: the highlight of an open fold (Q-A 3:78.4) */
+  --open-deep: #3a3a5c; /* unit VW119: the highlight of an open fold of level 2 or deeper (Q-A 3:103.6 row 2), theme solarized-dark */
 }
 
 /* The edge of a box on the Solarized dark page. #7d9ea8 gives 3 to 1 or more on both surfaces. */
@@ -476,6 +481,13 @@ button.border-line:not(.bg-accent):not([aria-pressed]):not([role="tab"]) {
   :where(main) details[open] > summary {
     border-top-left-radius: inherit;
     border-top-right-radius: inherit;
+  }
+  /* Unit VW119 (Q-A 3:103.6 rows 1, 2, 4): an open fold of level 2 or deeper (book, year, month, table of contents; data-fold-level is 2 or more) gets a second
+     highlight color --open-deep. A fold of level 1 ("Books", "Kendo Jidai") keeps --open. Each theme has its own --open-deep. Contrast on --open-deep
+     (scripts/vw119-test.mjs): body text, muted text, accent and title text are 4.5 to 1 or more in all 5 themes. The bar at the left edge stays. /read and /translate
+     draw the same folds, so the two screens look the same. The rule above stays as it is (scripts/vw112-test.mjs checks it). */
+  :where(main) details[open][data-fold-level]:not([data-fold-level="1"]) > summary {
+    background-color: var(--open-deep);
   }
 }
 

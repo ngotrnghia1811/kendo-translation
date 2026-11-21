@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Role } from "@/lib/htv-types";
+import ViewAsSelect from "./ViewAsSelect";
 
 // Sign-in state bar of the human-translation-view (round 54 answer 9, Q-A 2026-10-28 l128: sign-in on this view only).
 // Unit VW105 (Q-A 3:61.2 "Same links in both bars"): the bar has the links of the Reader bar (components/ReaderBar.tsx): "Read" (/read),
@@ -46,6 +47,8 @@ export default function HtvBar({ name, email, role, backHref }: { name: string; 
         ) : null}
       </nav>
       <div className="flex flex-wrap items-center gap-3">
+        {/* Unit VW119 (Q-A 3:103.5 row 1): the select "View as" shows for an admin only (the component decides from the layout context). */}
+        <ViewAsSelect />
         <span data-user>
           Signed in as{" "}
           <Link href="/profile" className="font-medium text-accent underline" data-profile-link>

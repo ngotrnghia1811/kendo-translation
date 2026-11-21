@@ -106,6 +106,11 @@ export interface Fold {
    * Its rows (TocRow) load when the reader opens it. `head` is the row of the book. Without ToC data in the database no fold has this key.
    */
   toc?: string;
+  /**
+   * Unit VW119 (Q-A 3:103.6 row 3): the author of a book fold, shown after the title in smaller gray text. The English author comes first, else the Japanese author
+   * (DashWork.author holds that value). Empty or missing: nothing shows. The key is not set on a plain group such as "Books" or a month.
+   */
+  author?: string;
 }
 
 export type Node = Fold | WorkRow | ArticleRow | LineRow | TocRow;
@@ -270,7 +275,7 @@ function yearFold(year: number, idBase: string, mag: DashWork | null, chapters: 
   if (!year) return { type: "fold", id: idBase, title: "Date unknown", titleJa: "", level: 2, counts, note: "", head: null, children: [...webList].sort(byDateThenTitle).map(rowOf) };
   const { nodes } = monthFolds(year, idBase, mag, chapters, webMonths);
   const note = [mag ? `${workPages(mag).toLocaleString("en-US")} pages` : "", webList.length ? plural(webList.length, "web article", "web articles") : ""].filter(Boolean).join(" · ");
-  return { type: "fold", id: idBase, title: mag ? mag.titleEn || mag.titleJa || mag.slug : inWebFold ? String(year) : yearFoldTitle(year), titleJa: "", level: 2, counts, note, head: mag ? rowOf(mag) : null, children: nodes };
+  return { type: "fold", id: idBase, title: mag ? mag.titleEn || mag.titleJa || mag.slug : inWebFold ? String(year) : yearFoldTitle(year), titleJa: "", level: 2, counts, note, head: mag ? rowOf(mag) : null, children: nodes, ...(mag?.author ? { author: mag.author } : {}) };
 }
 
 /**
@@ -293,7 +298,14 @@ function tocFold(w: DashWork, count: TocCount, level: number, inSeries: boolean)
     children: [],
     lazy: true,
     toc: w.slug,
+    ...(w.author ? { author: w.author } : {}),
   };
+}
+
+/** Unit VW119 (Q-A 3:103.6 row 3): the author of a series fold. It is the author that all books of the series share. Books with different authors give "". */
+export function commonAuthor(list: DashWork[]): string {
+  const authors = new Set(list.map((w) => w.author));
+  return authors.size === 1 ? [...authors][0] : "";
 }
 
 /** The works of the Books fold: works with the same English title form one fold. Another work is a row. A book with ToC rows is a ToC fold instead of a row. */
@@ -321,7 +333,7 @@ function bookNodes(books: DashWork[], tocBooks?: ReadonlyMap<string, TocCount>):
       const c = tocBooks?.get(w.slug);
       return c ? tocFold(w, c, 3, true) : rowOf(w);
     });
-    out.push({ type: "fold", id: `books-series-${++n}`, title: k, titleJa: list[0].titleJa, level: 2, counts: sum(rows), note: "", head: null, children: rows });
+    out.push({ type: "fold", id: `books-series-${++n}`, title: k, titleJa: list[0].titleJa, level: 2, counts: sum(rows), note: "", head: null, children: rows, ...(commonAuthor(list) ? { author: commonAuthor(list) } : {}) });
   }
   return out;
 }

@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import NavigationLoading from "@/components/NavigationLoading";
+import ViewAsBand from "@/components/ViewAsBand";
+import { ViewAsProvider } from "@/components/ViewAsProvider";
 import VisualIssueTool from "@/components/VisualIssueTool";
 import { monitorEnabled } from "@/lib/monitor";
 import { readTheme } from "@/lib/theme";
+import { viewInfo } from "@/lib/view-as-server";
 import { canReportIssues } from "@/lib/visual-issues";
 
 // Unit VW105 (Q-A 3:60.3, finding 1 of DEPLOYCHECK): with the monitor off (the public site) the title of this layout shows only on the 404 page of a monitor path,
@@ -20,12 +23,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // Round 58 answer 6 (Q-A l204): the cookie "theme" sets data-theme on <html> at the server, so the first paint has no jump.
   const theme = await readTheme();
   // Unit VW118 (Q-A 3:99.5 row 1): the icon of the visual-issue tool shows for a signed-in translator or admin only, on every screen. The client part gets no token and no user (a flag and the theme).
+  // Unit VW119 (Q-A 3:103.5 rows 1 to 3): the two flags for the select "View as" and the band. The call starts first and runs next to the one above (no extra wait).
+  const viewPending = viewInfo();
   const reporter = await canReportIssues();
+  const { admin, view } = await viewPending;
   return (
     <html lang="en" className="h-full antialiased" data-theme={theme}>
       <body className="min-h-full flex flex-col">
-        <Nav monitor={monitor} theme={theme} />
-        <main className="flex-1 px-6 py-5">{children}</main>
+        <ViewAsProvider admin={admin} view={view} monitor={monitor}>
+          {/* Unit VW119 (Q-A 3:103.5 row 3): the colored band of a view, above the top band of the site. */}
+          <ViewAsBand />
+          <Nav monitor={monitor} theme={theme} />
+          <main className="flex-1 px-6 py-5">{children}</main>
+        </ViewAsProvider>
         {/* Unit VW115 (Q-A 3:94.2 row 6): the Loading pop-up for a page change on every screen. */}
         <NavigationLoading />
         {/* Unit VW118 (Q-A 3:98.5, 3:99.5): the visual-issue tool (a small round icon at the bottom right corner). */}

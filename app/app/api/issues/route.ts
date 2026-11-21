@@ -3,6 +3,7 @@ import { guard, htvError, isResponse } from "@/lib/htv-api";
 import { foreignOrigin } from "@/lib/htv-origin";
 import { createIssue } from "@/lib/visual-issues";
 import { checkIssueInput, isPngBytes, PICTURE_MAX_BYTES } from "@/lib/visual-issue-rules";
+import { addViewNote } from "@/lib/view-as";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,10 @@ export async function POST(req: Request) {
     if (!isPngBytes(new Uint8Array(await picture.slice(0, 8).arrayBuffer()))) return jsonResponse({ error: "The picture must be a PNG file." }, 415);
     const checked = checkIssueInput({ comment: form.get("comment"), pageUrl: form.get("page_url"), screenWidth: form.get("screen_width"), theme: form.get("theme") });
     if (!checked.ok) return jsonResponse({ error: checked.error }, 400);
-    const id = await createIssue(g.token, g.user, checked.value, new Blob([await picture.arrayBuffer()], { type: "image/png" }));
+    // Unit VW119 (Q-A 3:103.5 row 7): an issue that an admin sends in a view keeps the view in its first line, for example "Viewed as: reader." (no new field).
+    const noted = addViewNote(checked.value.comment, g.view);
+    if (!noted.ok) return jsonResponse({ error: noted.error }, 400);
+    const id = await createIssue(g.token, g.user, { ...checked.value, comment: noted.comment }, new Blob([await picture.arrayBuffer()], { type: "image/png" }));
     return jsonResponse({ ok: true, id });
   } catch (e) {
     return htvError(e);

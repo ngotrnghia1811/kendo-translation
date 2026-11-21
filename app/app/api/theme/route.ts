@@ -22,7 +22,9 @@ export async function PUT(req: Request) {
     let account = false;
     try {
       const s = await getSession();
-      if (s) {
+      // Unit VW119 (Q-A 3:103.5 row 6): in a view the theme works in this browser (the cookie), so an admin can check every theme. The account save is skipped,
+      // because nothing can change data in a view [unit default VW119].
+      if (s && !s.view) {
         await saveUserSettings(s.token, s.user.id, { theme: body.theme });
         account = true;
       }

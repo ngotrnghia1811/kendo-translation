@@ -74,7 +74,8 @@ const str = (v: unknown): string => (typeof v === "string" ? v : "");
 export async function canReportIssues(): Promise<boolean> {
   try {
     const s = await getSession();
-    return s !== null && canReportIssue(s.user.role);
+    // Unit VW119 (Q-A 3:103.5 row 7): the real role decides, so the icon stays in every view.
+    return s !== null && canReportIssue(s.realRole);
   } catch {
     return false;
   }
