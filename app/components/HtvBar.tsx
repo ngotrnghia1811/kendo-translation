@@ -43,6 +43,10 @@ export default function HtvBar({ name, email, role, backHref }: { name: string; 
             <Link href="/admin/issues" className="text-accent underline" data-admin-link>
               Visual issues
             </Link>
+            {/* Unit VW120 (Q-A 3:106.5 row 1): the page of the view-only links. */}
+            <Link href="/admin/links" className="text-accent underline" data-admin-link>
+              Links
+            </Link>
           </>
         ) : null}
       </nav>

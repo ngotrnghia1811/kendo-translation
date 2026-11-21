@@ -5,6 +5,7 @@ import { clearViewCookie, setTokenCookie } from "@/lib/htv-session";
 import { pbSignIn, userSettings } from "@/lib/pb";
 import { DEFAULT_THEME_READER } from "@/lib/htv-settings";
 import { hasThemeCookie, writeTheme } from "@/lib/theme";
+import { clearLinkCookie } from "@/lib/view-link-cookie";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,8 @@ export async function POST(req: Request) {
     await setTokenCookie(req, r.token);
     // Unit VW119 (Q-A 3:103.5 row 2): a new sign-in starts in the Admin view, so an old view cookie does not carry over.
     await clearViewCookie();
+    // Unit VW120 (Q-A 3:107.5 row 5 and the unit default): a sign-in replaces a view-only link, so the link cookie goes.
+    await clearLinkCookie();
     // Round 58 answer 6 (Q-A l204): the theme of the account goes into the cookie, so a second device gets it at sign-in.
     try {
       const saved = (await userSettings(r.token, r.user.id)).theme;

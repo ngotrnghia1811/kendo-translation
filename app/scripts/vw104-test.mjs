@@ -535,7 +535,7 @@ await check("no search and no count: the v1 code imports no search, no translate
   const importsOf = (src) => [...src.matchAll(/from "([^"]+)"/g)].map((m) => m[1]).sort();
   assert.deepEqual(importsOf(read("lib/v1-placeholder-sync.ts")), ["./reader-v1", "./v1-placeholder-rules", "node:crypto", "node:fs", "node:path"]);
   assert.deepEqual(importsOf(read("lib/v1-placeholder-rules.ts")), []);
-  assert.deepEqual(importsOf(read("lib/reader-v1-pb.ts")), ["./pb", "./reader-types", "./reader-v1", "./safe-path", "./v1-placeholder-rules"]);
+  assert.deepEqual(importsOf(read("lib/reader-v1-pb.ts")), ["./pb", "./reader-types", "./reader-v1", "./safe-path", "./v1-placeholder-rules", "./view-link"]); // unit VW120 added ./view-link (the key header of a link visitor)
   assert.deepEqual(importsOf(read("lib/reader-v1-source.ts")), ["./config", "./reader-types", "./reader-v1-files", "./reader-v1-pb"]);
   for (const f of ["lib/v1-placeholder-sync.ts", "lib/v1-placeholder-rules.ts", "lib/reader-v1-pb.ts", "lib/reader-v1-source.ts"]) {
     const code = read(f).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
@@ -675,14 +675,15 @@ await check("migration file: the header cites the owner picks, VISION 15.26.9, t
   for (const s of ["unit VW104", "Q-A 3:44.4", "Q-A 3:45.2", "Q-A 3:45.3", "VISION-viewer 15.26.9", "Show the placeholder on v2", "A. PocketBase collection", "1793300007", "Down function", "90,572 characters", "counts in no number and is not searched"]) assert.ok(src.includes(s), s);
 });
 
-// Unit VW118 added migration 1793300017: the folder holds 18 files, and the file of this unit is the second from last.
-await check("folders: 18 migration files with unique timestamps (the file of this unit is the second from last), and the file names of the other 16 are not changed", () => {
+// Unit VW118 added migration 1793300017. Unit VW120 added migration 1793300018: the folder holds 19 files, and the file of this unit is the third from last.
+await check("folders: 19 migration files with unique timestamps (the file of this unit is the third from last), and the file names of the other 17 are not changed", () => {
   const files = readdirSync(path.join(pbDir, "pb_migrations")).filter((f) => f.endsWith(".js")).sort();
-  assert.equal(files.length, 18);
-  assert.equal(files.at(-1), "1793300017_v2_visual_issues.js");
-  assert.equal(files.at(-2), MIG);
-  assert.equal(files.at(-3), "1793300015_v2_sign_up_address.js");
-  assert.equal(new Set(files.map((f) => f.split("_")[0])).size, 18);
+  assert.equal(files.length, 19);
+  assert.equal(files.at(-1), "1793300018_v2_view_links.js");
+  assert.equal(files.at(-2), "1793300017_v2_visual_issues.js");
+  assert.equal(files.at(-3), MIG);
+  assert.equal(files.at(-4), "1793300015_v2_sign_up_address.js");
+  assert.equal(new Set(files.map((f) => f.split("_")[0])).size, 19);
   assert.equal(files[0], "1793300000_v2_users_rules.js");
 });
 

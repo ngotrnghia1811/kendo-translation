@@ -4,6 +4,7 @@ import { parseV1Md } from "./reader-v1";
 import type { ReaderV1Row } from "./reader-types";
 import { isSafeSegment } from "./safe-path";
 import { V1_COLLECTION } from "./v1-placeholder-rules";
+import { authHeadersOf } from "./view-link";
 
 /*
  * Read the v1 placeholder from the PocketBase collection v1_placeholders (unit VW104).
@@ -38,7 +39,8 @@ async function listRecords(o: V1PbOptions, filter: string, fields: string): Prom
     const qs = new URLSearchParams({ perPage: String(V1_PER_PAGE), page: String(page), sort: "n", filter, fields });
     const res = await doFetch(`${o.baseUrl}/api/collections/${V1_COLLECTION}/records?${qs.toString()}`, {
       method: "GET",
-      headers: { Accept: "application/json", Authorization: o.token },
+      // Unit VW120 (Q-A 3:107.4 Route A): a link visitor sends the key header instead of Authorization (the token "viewkey:<key>" never goes out as it is).
+      headers: { Accept: "application/json", ...authHeadersOf(o.token) },
       cache: "no-store",
     });
     if (res.status < 200 || res.status >= 300) throw new Error(`PocketBase answered HTTP ${res.status} for ${V1_COLLECTION}.`);

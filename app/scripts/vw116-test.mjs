@@ -179,7 +179,7 @@ await check("row c: owner rules stay. The first-visit box has Start reading, no 
 
 await check("row c: ReaderBook still shows and closes the box by the old rules (round 68 answer 5, round 69 answer 13). The file is not changed by this unit", () => {
   const src = read("components/ReaderBook.tsx");
-  assert.ok(src.includes("const firstVisit = at !== null && user.approved && !panelSeen;"));
+  assert.ok(src.includes("const firstVisit = at !== null && user.approved && !panelSeen && !linkVisitor;")); // unit VW120: a link visitor never sees the panel
   assert.ok(src.includes("onClose={firstVisit ? closeFirstVisit : () => setShowSettings(false)}"));
   assert.ok(src.includes("save({ panelSeen: true });"));
   assert.ok(/if \(firstVisit\) closeFirstVisit\(\);/.test(src), "Esc closes the first-visit box first");

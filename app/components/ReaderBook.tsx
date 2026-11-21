@@ -15,6 +15,7 @@ import { NEXT_TITLE, PREVIOUS_TITLE, pageKeyDirection } from "@/lib/page-move";
 import { LAYOUT_DEFAULTS, LAYOUT_KEYS, type ComponentId, type ReaderSettings, type ThemeName } from "@/lib/htv-settings";
 import { pad, readHref, type ReaderView } from "@/lib/reader-links";
 import { componentRows, effectiveSettings, moveGroups, pageHas, pageRows, resolveLayout, toggled, workHas, workKind, type Drawn, type EffectiveSettings } from "@/lib/reader-layout";
+import { LINK_VIEW_COOKIE } from "@/lib/view-link";
 import { KEEP_ONE, LABEL_SYNOPSIS, LABEL_V1, WAITING, pageLabel, type BookmarkView, type ReaderBookIndex, type ReaderPageData } from "@/lib/reader-types";
 import type { Role } from "@/lib/htv-types";
 
@@ -103,6 +104,7 @@ export default function ReaderBook({
   at,
   theme: initialTheme,
   note,
+  linkVisitor = false,
 }: {
   index: ReaderBookIndex;
   initialPages: ReaderPageData[];
@@ -113,8 +115,16 @@ export default function ReaderBook({
   at: number | null;
   theme: ThemeName;
   note: string;
+  /** Unit VW120 (Q-A 3:106.5 row 4): a visitor of a view-only link. The screen sends no write, and it hides the bookmark controls and the first-visit panel. */
+  linkVisitor?: boolean;
 }) {
   const router = useRouter();
+  // Unit VW120 (Q-A 3:106.5 row 4: "no bookmarks, no reading progress ... The server refuses every change"): a link visitor sends no write at all.
+  // The server would answer 401 anyway (a link visitor has no token). This keeps the browser quiet: no request and no error line. The theme call stays: it sets a cookie only.
+  const write = useCallback(
+    (method: string, url: string, body: unknown) => (linkVisitor ? Promise.resolve({ ok: false, json: {} as Record<string, unknown> }) : sendJson(method, url, body)),
+    [linkVisitor],
+  );
   const [s, setS] = useState<EffectiveSettings>(() => effectiveSettings(settings, initialView));
   const [theme, setTheme] = useState<ThemeName>(initialTheme);
   const [loaded, setLoaded] = useState<Record<number, ReaderPageData>>({});
@@ -161,9 +171,9 @@ export default function ReaderBook({
     timer.current = setTimeout(() => {
       const body = pending.current;
       pending.current = {};
-      void sendJson("PUT", "/api/read/settings", { reader: body });
+      void write("PUT", "/api/read/settings", { reader: body });
     }, 400);
-  }, []);
+  }, [write]);
 
   // "Reset layout" (VISION-viewer 15.26.6.2): remove the layout keys and the old keys from the account. The page then uses the first layout.
   function resetLayout() {
@@ -172,12 +182,14 @@ export default function ReaderBook({
     for (const k of LAYOUT_KEYS) delete rest[k];
     pending.current = {};
     if (timer.current) clearTimeout(timer.current);
-    void sendJson("PUT", "/api/read/settings", { ...(Object.keys(rest).length ? { reader: rest } : {}), clear: LAYOUT_KEYS });
+    void write("PUT", "/api/read/settings", { ...(Object.keys(rest).length ? { reader: rest } : {}), clear: LAYOUT_KEYS });
   }
 
   function changeView(v: ReaderView) {
     if (v === s.view) return;
     save({ view: v });
+    // Unit VW120 (Q-A 3:106.5 row 4: "The theme and the view are kept only in that browser."): a link visitor has no account, so the view goes into a cookie of the browser.
+    if (linkVisitor) document.cookie = `${LINK_VIEW_COOKIE}=${v}; path=/; max-age=31536000; samesite=lax`;
     markNavigating();
     router.push(readHref(index.slug, v, at ?? currentN ?? index.textPages[0] ?? 1, index.digits));
   }
@@ -191,7 +203,8 @@ export default function ReaderBook({
   }
 
   // First-visit panel (unit RC4): a text screen of an approved account without the mark. The mark is saved with the other settings (400 ms after the last change).
-  const firstVisit = at !== null && user.approved && !panelSeen;
+  // Unit VW120: a link visitor has no account to keep the mark, so the panel never shows.
+  const firstVisit = at !== null && user.approved && !panelSeen && !linkVisitor;
   const closeFirstVisit = useCallback(() => {
     setPanelSeen(true);
     setShowSettings(false);
@@ -232,8 +245,8 @@ export default function ReaderBook({
   // Page view: save the place at each page.
   useEffect(() => {
     if (at === null || !user.approved || s.view !== "page") return;
-    void sendJson("PUT", "/api/read/progress", { pageId: `${index.slug}/p${pad(at, index.digits)}` });
-  }, [at, index.slug, index.digits, user.approved, s.view]);
+    void write("PUT", "/api/read/progress", { pageId: `${index.slug}/p${pad(at, index.digits)}` });
+  }, [at, index.slug, index.digits, user.approved, s.view, write]);
 
   // Scroll view: load the text of the pages near the screen, follow the page in view, and save the place.
   const fetchPages = useCallback(
@@ -291,7 +304,7 @@ export default function ReaderBook({
         if (save1) clearTimeout(save1);
         save1 = setTimeout(() => {
           window.history.replaceState(null, "", readHref(index.slug, "scroll", n, index.digits));
-          void sendJson("PUT", "/api/read/progress", { pageId: `${index.slug}/p${pad(n, index.digits)}` });
+          void write("PUT", "/api/read/progress", { pageId: `${index.slug}/p${pad(n, index.digits)}` });
         }, 1200);
       },
       { rootMargin: "-35% 0px -60% 0px" },
@@ -303,7 +316,7 @@ export default function ReaderBook({
     };
     // The scroll to the page runs for a new address and again when the server brings the pages of the new window (they change the height above the page).
     // A lazy load of a far page (state loaded) is not in the list, so it does not scroll again.
-  }, [scrolling, at, index.slug, index.digits, initialPages]);
+  }, [scrolling, at, index.slug, index.digits, initialPages, write]);
 
   const here = currentN ?? at;
   const hereId = here ? `${index.slug}/p${pad(here, index.digits)}` : "";
@@ -311,16 +324,16 @@ export default function ReaderBook({
   async function toggleBookmark() {
     if (!hereId) return;
     if (marked) {
-      const r = await sendJson("DELETE", "/api/read/bookmarks", { id: marked.id });
+      const r = await write("DELETE", "/api/read/bookmarks", { id: marked.id });
       if (r.ok) setBookmarks((b) => b.filter((x) => x.id !== marked.id));
     } else {
-      const r = await sendJson("POST", "/api/read/bookmarks", { pageId: hereId, note: "" });
+      const r = await write("POST", "/api/read/bookmarks", { pageId: hereId, note: "" });
       const bm = r.json.bookmark as BookmarkView | undefined;
       if (r.ok && bm) setBookmarks((b) => [...b, bm].sort((x, y) => x.n - y.n));
     }
   }
   async function dropBookmark(id: string) {
-    const r = await sendJson("DELETE", "/api/read/bookmarks", { id });
+    const r = await write("DELETE", "/api/read/bookmarks", { id });
     if (r.ok) setBookmarks((b) => b.filter((x) => x.id !== id));
   }
 
@@ -367,7 +380,7 @@ export default function ReaderBook({
       delete others.widths;
       pending.current = {};
       if (timer.current) clearTimeout(timer.current);
-      void sendJson("PUT", "/api/read/settings", { ...(Object.keys(others).length ? { reader: others } : {}), clear: ["widths"] });
+      void write("PUT", "/api/read/settings", { ...(Object.keys(others).length ? { reader: others } : {}), clear: ["widths"] });
     },
   };
   const listModel = componentRows(index, s, curHas, curDrawn ?? { ids: [], missing: [], others: [], first: true }, curData?.humanBy ?? null, imageOk, kind);
@@ -514,7 +527,8 @@ export default function ReaderBook({
 
   const prev = s.view === "page" && at > 1 ? readHref(index.slug, "page", at - 1, index.digits) : null;
   const next = s.view === "page" && at < index.pages ? readHref(index.slug, "page", at + 1, index.digits) : null;
-  const bookmarkList = (
+  // Unit VW120 (Q-A 3:106.5 row 4: "no bookmarks"): a link visitor sees no bookmark list and no bookmark button.
+  const bookmarkList = linkVisitor ? null : (
     <section className="mt-3 border-t border-line pt-2" data-bookmarks>
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Bookmarks</h3>
       {bookmarks.length === 0 ? <p className="text-xs text-muted">None yet.</p> : null}
@@ -599,9 +613,11 @@ export default function ReaderBook({
                   ) : null}
                 </>
               ) : null}
-              <button type="button" onClick={() => void toggleBookmark()} aria-pressed={Boolean(marked)} data-bookmark-toggle className="rounded border border-line px-2 py-1 text-sm">
-                {marked ? "Remove bookmark" : "Bookmark"}
-              </button>
+              {linkVisitor ? null : (
+                <button type="button" onClick={() => void toggleBookmark()} aria-pressed={Boolean(marked)} data-bookmark-toggle className="rounded border border-line px-2 py-1 text-sm">
+                  {marked ? "Remove bookmark" : "Bookmark"}
+                </button>
+              )}
               <button type="button" onClick={() => save({ focus: true })} data-focus-enter className="rounded border border-line px-2 py-1 text-sm">
                 Focus
               </button>
@@ -633,9 +649,11 @@ export default function ReaderBook({
         ) : (
           <span className="text-sm" data-bottom-page>{here ? pageLabel(here) : ""}</span>
         )}
-        <button type="button" onClick={() => void toggleBookmark()} aria-pressed={Boolean(marked)} className="min-h-[44px] rounded border border-line px-3 text-sm">
-          {marked ? "Marked" : "Mark"}
-        </button>
+        {linkVisitor ? null : (
+          <button type="button" onClick={() => void toggleBookmark()} aria-pressed={Boolean(marked)} className="min-h-[44px] rounded border border-line px-3 text-sm">
+            {marked ? "Marked" : "Mark"}
+          </button>
+        )}
         <button type="button" onClick={toggleSettings} className="min-h-[44px] rounded border border-line px-3 text-sm">
           Aa
         </button>

@@ -2,7 +2,9 @@ import { notFound } from "next/navigation";
 import ReaderBar from "@/components/ReaderBar";
 import ReaderBook from "@/components/ReaderBook";
 import { hasThemeCookie, loadPaneSettings, readTheme } from "@/lib/theme";
-import { requireReaderSession } from "@/lib/htv-session";
+import { cookies } from "next/headers";
+import { requireReaderOrLink } from "@/lib/view-link-server";
+import { LINK_VIEW_COOKIE } from "@/lib/view-link";
 import { DEFAULT_THEME_READER, isView } from "@/lib/htv-settings";
 import { loadBookmarks, loadReaderIndex, loadReaderPages } from "@/lib/reader-data";
 import { parseAt } from "@/lib/reader-links";
@@ -24,14 +26,17 @@ export default async function ReadBook({ params, searchParams }: { params: Promi
   if (!isSafeSegment(slug)) notFound();
   const atRaw = Array.isArray(q.at) ? q.at[0] : q.at;
   const viewRaw = Array.isArray(q.view) ? q.view[0] : q.view;
-  const s = await requireReaderSession(`/read/${slug}`);
+  // Unit VW120 (Q-A 3:106.5 row 3): a visitor of a live view-only link reads the book like an approved reader. A dead link goes to /link-ended.
+  const s = await requireReaderOrLink(`/read/${slug}`);
   if ("down" in s) return <p role="alert" className="text-red-700">{s.down}</p>;
 
   const index = await loadReaderIndex(s.token, s.user, slug);
   if (!index) notFound();
   const panes = await loadPaneSettings(s.token, s.user.id);
   const reader = panes.reader ?? {};
-  const view = isView(viewRaw) ? viewRaw : (reader.view ?? "page");
+  // Unit VW120 (Q-A 3:106.5 row 4): a link visitor has no account, so the browser keeps the view in the cookie htv_link_view (page or scroll).
+  const linkView = s.link === true ? (await cookies()).get(LINK_VIEW_COOKIE)?.value : undefined;
+  const view = isView(viewRaw) ? viewRaw : isView(linkView) ? linkView : (reader.view ?? "page");
   const at = parseAt(atRaw, index.pages);
   const note = atRaw && at === null ? `No such page: ${atRaw.slice(0, 12)}. This book has pages 1 to ${index.pages}. The screen shows the book page.` : "";
 
@@ -47,13 +52,14 @@ export default async function ReadBook({ params, searchParams }: { params: Promi
   }
   return (
     <>
-      <ReaderBar name={s.user.name} email={s.user.email} role={s.user.role} approved={s.user.approved} backHref={at !== null && s.user.approved ? `/read/${encodeURIComponent(slug)}` : undefined} />
+      <ReaderBar name={s.user.name} email={s.user.email} role={s.user.role} approved={s.user.approved} linkVisitor={s.link === true} backHref={at !== null && s.user.approved ? `/read/${encodeURIComponent(slug)}` : undefined} />
       <ReaderBook
         key={slug}
         index={index}
         initialPages={initial}
         user={{ name: s.user.name, email: s.user.email, role: s.user.role, approved: s.user.approved }}
         bookmarks={bookmarks}
+        linkVisitor={s.link === true}
         settings={reader}
         view={view}
         at={s.user.approved ? at : null}

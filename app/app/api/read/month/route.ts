@@ -13,7 +13,8 @@ const ID_RULE = /^(kj|web)-(\d{4}|unknown)-\d{2}$/;
 
 export async function GET(req: Request) {
   try {
-    const g = await guard(req, { mutating: false });
+    // Unit VW120 (Q-A 3:106.5 row 3): a visitor of a view-only link reads this too (GET only; a link visitor never changes data).
+    const g = await guard(req, { mutating: false, allowLink: true });
     if (isResponse(g)) return g;
     const id = new URL(req.url).searchParams.get("id") ?? "";
     if (!ID_RULE.test(id)) return jsonResponse({ error: "Send a month ID such as kj-2014-10 in the query id." }, 400);

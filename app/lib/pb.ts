@@ -11,6 +11,7 @@ import type { PaneSettings, ThemeName } from "./htv-settings";
 import { isTheme } from "./htv-settings";
 import { pstDateOfPb } from "./pst-more";
 import { cleanTitle, titleText } from "./htv-titles";
+import { authHeadersOf } from "./view-link";
 
 /*
  * ALL PocketBase calls of the app sit in this one module (round 54 answer 10, Q-A 2026-10-28 l129:
@@ -41,7 +42,8 @@ async function pbFetch(method: string, path: string, opts: { token?: string; bod
   const { pocketbaseUrl } = await loadConfig();
   const headers: Record<string, string> = { Accept: "application/json" };
   if (opts.body !== undefined) headers["Content-Type"] = "application/json";
-  if (opts.token) headers["Authorization"] = opts.token;
+  // Unit VW120 (Q-A 3:107.4 Route A): the token of a link visitor ("viewkey:<key>") goes as the header X-Kendo-View-Key, not as Authorization. Any other token is as before.
+  Object.assign(headers, authHeadersOf(opts.token));
   if (opts.headers) Object.assign(headers, opts.headers);
   let res: Response;
   try {

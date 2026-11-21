@@ -188,10 +188,11 @@ await check("pageLabelOf (Q-A 3:17.4): the book title, not the folder name, for 
 
 const migrationDir = path.resolve(app, "../data/scripts/pocketbase/pb_migrations");
 const migrationFile = path.join(migrationDir, "1793300017_v2_visual_issues.js");
-await check("the migration file 1793300017 exists, it is the newest one, and it holds the owner words and the rules in its header", () => {
+await check("the migration file 1793300017 exists, it is the second newest one (unit VW120 added 1793300018), and it holds the owner words and the rules in its header", () => {
   assert.ok(existsSync(migrationFile), migrationFile);
   const files = readdirSync(migrationDir).filter((f) => f.endsWith(".js")).sort();
-  assert.equal(files[files.length - 1], "1793300017_v2_visual_issues.js");
+  assert.equal(files[files.length - 2], "1793300017_v2_visual_issues.js");
+  assert.equal(files[files.length - 1], "1793300018_v2_view_links.js");
   const src = readFileSync(migrationFile, "utf8");
   assert.ok(src.includes("Add a visual-issue tool"), "owner words");
   assert.ok(src.includes("Q-A 3:98.5") && src.includes("Q-A 3:99.5"));

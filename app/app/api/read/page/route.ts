@@ -12,7 +12,8 @@ const MAX_IDS = 8; // [unit default] the window of the scroll view is 5 pages at
 // It holds no verdict, no score, no QA field, no TL_3 panel, and no reasoning. A reader who waits for approval gets 403.
 export async function GET(req: Request) {
   try {
-    const g = await guardReader(req, { mutating: false });
+    // Unit VW120 (Q-A 3:106.5 row 3): a visitor of a view-only link reads this too (GET only; a link visitor never changes data).
+    const g = await guardReader(req, { mutating: false, allowLink: true });
     if (isResponse(g)) return g;
     const ids = (new URL(req.url).searchParams.get("ids") ?? "").split(",").filter(Boolean);
     if (ids.length === 0) return jsonResponse({ error: "Send the page IDs in the query ids." }, 400);

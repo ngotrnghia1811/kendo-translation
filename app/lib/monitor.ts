@@ -4,6 +4,7 @@ import { loadConfig } from "./config";
 import { jsonResponse } from "./api";
 import { getSession, READER_SIGN_IN_PATH } from "./htv-session";
 import { PbError } from "./pb";
+import { hasLinkCookie } from "./view-link-cookie";
 
 /**
  * Round 58 answer 7 (Q-A 2026-10-28 l205): "A monitor setting turns the monitor pages and routes into 'not found' and hides the tabs.
@@ -34,7 +35,8 @@ export async function frontDoor(): Promise<{ down: string } | void> {
   let target: string;
   try {
     const s = await getSession();
-    target = !s ? READER_SIGN_IN_PATH : s.user.role === "reader" ? "/read" : "/translate";
+    // Unit VW120 (Q-A 3:106.5 row 3): a visitor with a cookie of a view-only link goes to /read (that page checks the link). Else the sign-in page, as before.
+    target = !s ? ((await hasLinkCookie()) ? "/read" : READER_SIGN_IN_PATH) : s.user.role === "reader" ? "/read" : "/translate";
   } catch (e) {
     if (e instanceof PbError && e.status === 503) return { down: e.message };
     throw e;

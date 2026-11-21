@@ -715,7 +715,7 @@ await check("bars (rows 1 and 4): both bars draw the select inside the provider 
   assert.doesNotMatch(asTranslator, /data-admin-link/);
   assert.match(asTranslator, /Human translation/);
   const asAdmin = reader({ admin: true, view: null, monitor: false }, "admin");
-  assert.equal([...asAdmin.matchAll(/data-admin-link/g)].length, 3);
+  assert.equal([...asAdmin.matchAll(/data-admin-link/g)].length, 4); // unit VW120 added the link Links
   const htvTranslator = htv({ admin: true, view: "translator", monitor: false }, "translator");
   assert.doesNotMatch(htvTranslator, /data-admin-link/);
   assert.match(htvTranslator, /data-read-link/);

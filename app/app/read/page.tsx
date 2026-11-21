@@ -1,7 +1,7 @@
 import ReaderBar from "@/components/ReaderBar";
 import ReaderList from "@/components/ReaderList";
 import ReaderSearch, { SearchBox } from "@/components/ReaderSearch";
-import { requireReaderSession } from "@/lib/htv-session";
+import { requireReaderOrLink } from "@/lib/view-link-server";
 import { bookTocRecords } from "@/lib/pb";
 import { digitsOf, findFold, lazyMonths, withTocRows } from "@/lib/reader-folds";
 import { loadDashboard } from "@/lib/reader-data";
@@ -23,7 +23,8 @@ const first = (v: string | string[] | undefined): string => (Array.isArray(v) ? 
 // The line "Your account waits for approval by an admin." stays. The page text stays closed (rules of PocketBase).
 export default async function ReadList({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const q = await searchParams;
-  const s = await requireReaderSession("/read");
+  // Unit VW120 (Q-A 3:106.5 row 3): a visitor of a live view-only link reads the same dashboard as an approved reader. A dead link goes to /link-ended.
+  const s = await requireReaderOrLink("/read");
   if ("down" in s) return <p role="alert" className="text-red-700">{s.down}</p>;
   const screen = Number.parseInt(first(q.screen), 10);
   const { dash: full, search } = await loadDashboard(s.token, s.user, first(q.q), Number.isFinite(screen) ? screen : 1);
@@ -47,7 +48,7 @@ export default async function ReadList({ searchParams }: { searchParams: Promise
   const t = dash.totals;
   return (
     <>
-      <ReaderBar name={s.user.name} email={s.user.email} role={s.user.role} approved={s.user.approved} />
+      <ReaderBar name={s.user.name} email={s.user.email} role={s.user.role} approved={s.user.approved} linkVisitor={s.link === true} />
       {!s.user.approved ? (
         <p role="status" className="mb-4 rounded border border-line bg-white p-3 text-sm" data-waiting>
           {WAITING}

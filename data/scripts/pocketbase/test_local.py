@@ -73,6 +73,16 @@ OWN_ONLY = '@request.auth.id != "" && user = @request.auth.id'
 READ_OK = '@request.auth.id != "" && (@request.auth.approved = true || @request.auth.role = "translator" || @request.auth.role = "admin")'
 SEE_USERS = '@request.auth.id != "" && (id = @request.auth.id || @request.auth.role = "admin" || @request.auth.role = "translator")'
 THEMES = ["light", "dark", "sepia", "solarized-light", "solarized-dark"]
+# Migration 1793300018 (unit VW120, Q-A 3:107.4 "Route A: key check"): the 7 reader lists also accept the key of a link that is on and not ended.
+# The header X-Kendo-View-Key reaches a rule as @request.headers.x_kendo_view_key. New list and view rule = "(old rule) || (LINK_OK)". Details: test_view_links.py.
+LINK_OK = ('@request.headers.x_kendo_view_key != "" && @collection.view_links:l.key ?= @request.headers.x_kendo_view_key && @collection.view_links:l.off ?= false'
+           ' && (@collection.view_links:l.ends ?= "" || @collection.view_links:l.ends ?> @now)')
+
+
+def with_link(old):
+    return "(" + old + ") || (" + LINK_OK + ")"
+
+
 # Expected rules, written again here on purpose so that the test does not trust the migration file.
 EXPECTED_RULES = {
     "users": {
@@ -94,15 +104,17 @@ EXPECTED_RULES = {
     "run_marks": {"listRule": SIGNED, "viewRule": SIGNED, "createRule": ADMIN, "updateRule": ADMIN, "deleteRule": ADMIN},
     # Migration 1793300012 (unit RT74, round 75 answer 3): reader_opens is for the admin only (readers do not list it).
     "reader_opens": {"listRule": ADMIN, "viewRule": ADMIN, "createRule": ADMIN, "updateRule": ADMIN, "deleteRule": ADMIN},
-    "catalog_items": {"listRule": SIGNED, "viewRule": SIGNED, "createRule": None, "updateRule": None, "deleteRule": None},
-    "magazine_chapters": {"listRule": SIGNED, "viewRule": SIGNED, "createRule": None, "updateRule": None, "deleteRule": None},
+    "catalog_items": {"listRule": with_link(SIGNED), "viewRule": with_link(SIGNED), "createRule": None, "updateRule": None, "deleteRule": None},
+    "magazine_chapters": {"listRule": with_link(SIGNED), "viewRule": with_link(SIGNED), "createRule": None, "updateRule": None, "deleteRule": None},
+    # Migration 1793300013 (unit VW77e): the table of contents. Unit VW120 added the link rule to the list and view rule.
+    "book_toc": {"listRule": with_link(SIGNED), "viewRule": with_link(SIGNED), "createRule": None, "updateRule": None, "deleteRule": None},
     # Migration 1793300003 (unit S2C) opened page_runs to every signed-in user. Migration 1793300009 (unit RC1, round 63 answer 3) closes it again:
     # only translators and admins read page_runs (verdict, score, and TL_3 panel are not for readers). Writes stay with the superuser.
     "page_runs": {"listRule": STAFF, "viewRule": STAFF, "createRule": None, "updateRule": None, "deleteRule": None},
     # Migrations 1793300007 and 1793300008 (unit RC1, round 63 answers 3, 6, and 7).
-    "reader_pages": {"listRule": READ_OK, "viewRule": READ_OK, "createRule": None, "updateRule": None, "deleteRule": None},
-    "reader_versions": {"listRule": READ_OK, "viewRule": READ_OK, "createRule": ADMIN, "updateRule": ADMIN, "deleteRule": ADMIN},
-    "page_checks": {"listRule": SIGNED, "viewRule": SIGNED, "createRule": ADMIN, "updateRule": ADMIN, "deleteRule": ADMIN},
+    "reader_pages": {"listRule": with_link(READ_OK), "viewRule": with_link(READ_OK), "createRule": None, "updateRule": None, "deleteRule": None},
+    "reader_versions": {"listRule": with_link(READ_OK), "viewRule": with_link(READ_OK), "createRule": ADMIN, "updateRule": ADMIN, "deleteRule": ADMIN},
+    "page_checks": {"listRule": with_link(SIGNED), "viewRule": with_link(SIGNED), "createRule": ADMIN, "updateRule": ADMIN, "deleteRule": ADMIN},
     "reader_bookmarks": {"listRule": READ_OK + " && user = @request.auth.id", "viewRule": READ_OK + " && user = @request.auth.id",
                          "createRule": READ_OK + " && @request.body.user = @request.auth.id", "updateRule": None,
                          "deleteRule": READ_OK + " && user = @request.auth.id"},
@@ -110,7 +122,13 @@ EXPECTED_RULES = {
                         "createRule": READ_OK + " && @request.body.user = @request.auth.id",
                         "updateRule": READ_OK + " && user = @request.auth.id && @request.body.user:changed = false", "deleteRule": None},
     # Migration 1793300016 (unit VW104, Q-A 3:44.4, 3:45.2, 3:45.3): the v1 placeholder md text of each page. Same read rule as reader_pages. Only the superuser writes.
-    "v1_placeholders": {"listRule": READ_OK, "viewRule": READ_OK, "createRule": None, "updateRule": None, "deleteRule": None},
+    "v1_placeholders": {"listRule": with_link(READ_OK), "viewRule": with_link(READ_OK), "createRule": None, "updateRule": None, "deleteRule": None},
+    # Migration 1793300018 (unit VW120, Q-A 3:106.5, 3:107.4): the view-only links. Only an admin reads and changes view_links (the key is a secret).
+    # view_link_opens is create-only for a key holder of a live link (the key in the body must equal the key in the header), and only an admin reads it. Details: test_view_links.py.
+    "view_links": {"listRule": ADMIN, "viewRule": ADMIN, "createRule": ADMIN, "updateRule": ADMIN, "deleteRule": ADMIN},
+    "view_link_opens": {"listRule": ADMIN, "viewRule": ADMIN,
+                        "createRule": '@request.body.key = @request.headers.x_kendo_view_key && @request.body.created:isset = false && ' + LINK_OK,
+                        "updateRule": None, "deleteRule": None},
     # Migration 1793300017 (unit VW118, Q-A 3:98.5, 3:99.5): the visual issues. Own create by a translator or admin, own list for a translator, all for an admin, only an admin changes. Details: test_visual_issues.py.
     "visual_issues": {"listRule": '@request.auth.id != "" && (@request.auth.role = "admin" || (@request.auth.role = "translator" && user = @request.auth.id))',
                       "viewRule": '@request.auth.id != "" && (@request.auth.role = "admin" || (@request.auth.role = "translator" && user = @request.auth.id))',
@@ -1148,7 +1166,7 @@ def check_restart(ctx, server, shape_dir, counts):
     ctx.check("13a records survive the restart", count_records(ctx) == counts, "counts differ")
     server.stop()
     removed = forget_v2_history(shape_dir)
-    ctx.check("13b v2 history rows removed for the test (18 expected, unit VW118 added migration 1793300017)", removed == 18, "removed " + str(removed))
+    ctx.check("13b v2 history rows removed for the test (19 expected, unit VW118 added migration 1793300017, unit VW120 added migration 1793300018)", removed == 19, "removed " + str(removed))
     try:
         server.start()
         ok, reason = True, ""
@@ -1165,7 +1183,7 @@ def check_restart(ctx, server, shape_dir, counts):
     log = open(server.log_path, "rb").read().decode("utf-8", "replace")
     exists_lines = len(re.findall(r"v2 migration: collection \w+ exists, left as it is", log))
     ctx.info("13b log lines 'collection ... exists, left as it is': " + str(exists_lines))
-    ctx.check("13b the second run reports the 16 existing collections (6 of 1793300001, user_settings, 3 of 1793300007, 2 of 1793300008, reader_opens of 1793300012, book_toc of 1793300013, v1_placeholders of 1793300016, visual_issues of 1793300017)", exists_lines == 16, "lines " + str(exists_lines))
+    ctx.check("13b the second run reports the 18 existing collections (6 of 1793300001, user_settings, 3 of 1793300007, 2 of 1793300008, reader_opens of 1793300012, book_toc of 1793300013, v1_placeholders of 1793300016, visual_issues of 1793300017, view_links and view_link_opens of 1793300018)", exists_lines == 18, "lines " + str(exists_lines))
     approved_lines = len(re.findall(r"v2 migration: field approved exists, data left as it is", log))
     ctx.check("13b the second run reports that the field approved exists and leaves the data (migration 1793300006)", approved_lines == 1, "lines " + str(approved_lines))
     status, data = http("GET", "/api/collections/users/records?filter=" + urllib.parse.quote('email="' + addr("su1") + '"'), token=ctx.su_token)
@@ -1181,15 +1199,15 @@ def check_restart(ctx, server, shape_dir, counts):
 
 def check_down_up(ctx, server, shape_dir):
     server.stop()
-    code, output = run_cli(server, ["migrate", "down", "18"])
-    ctx.check("15a migrate down 18 exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
+    code, output = run_cli(server, ["migrate", "down", "19"])
+    ctx.check("15a migrate down 19 exits with 0", code == 0, "exit " + str(code) + ": " + output.strip()[-300:])
     ctx.check("15q down of migration 1793300011 prints that the field own_translations.facts stays (soft down)", "the field own_translations.facts stays" in output, output.strip()[-300:])
     ctx.check("15o down of migration 1793300010 prints that the 4 fields stay (soft down)", "the fields catalog_items.translated, catalog_items.placement, reader_pages.search_ja, and reader_pages.search_en stay" in output, output.strip()[-300:])
     ctx.check("15g down turns the batch API off", batch_enabled_db(shape_dir) is False, "batch " + repr(batch_enabled_db(shape_dir)))
     ctx.check("15b down sets users authRule to empty", users_auth_rule(shape_dir) == "", "authRule " + repr(users_auth_rule(shape_dir)))
     names = {row["name"] for row in read_collections_db(shape_dir)}
     kept = {"own_translations", "comments", "run_marks", "page_runs", "user_settings"}
-    gone = {"catalog_items", "magazine_chapters", "reader_pages", "reader_versions", "page_checks", "reader_bookmarks", "reader_progress", "reader_opens", "v1_placeholders", "visual_issues"}
+    gone = {"catalog_items", "magazine_chapters", "reader_pages", "reader_versions", "page_checks", "reader_bookmarks", "reader_progress", "reader_opens", "v1_placeholders", "visual_issues", "view_links", "view_link_opens"}
     ctx.check("15c down keeps collections with records and drops empty ones",
               kept <= names and not (gone & names), "kept " + str(sorted(kept & names)) + " empty-left " + str(sorted(gone & names)))
     down_runs = next((row for row in read_collections_db(shape_dir) if row["name"] == "page_runs"), {})
@@ -1211,7 +1229,7 @@ def check_down_up(ctx, server, shape_dir):
     ctx.check("15e up sets users authRule again", users_auth_rule(shape_dir) == "disabled = false",
               "authRule " + repr(users_auth_rule(shape_dir)))
     names = {row["name"] for row in read_collections_db(shape_dir)}
-    ctx.check("15f up creates the collections again (15 with the reader collections, reader_opens, v1_placeholders, and visual_issues)", set(NEW_COLLECTIONS) <= names, "missing " + str(sorted(set(NEW_COLLECTIONS) - names)))
+    ctx.check("15f up creates the collections again (the reader collections, reader_opens, book_toc, v1_placeholders, visual_issues, view_links, and view_link_opens)", set(NEW_COLLECTIONS) <= names, "missing " + str(sorted(set(NEW_COLLECTIONS) - names)))
     up_runs = next((row for row in read_collections_db(shape_dir) if row["name"] == "page_runs"), {})
     ctx.check("15j up sets the page_runs list and view rules to translator or admin (migration 1793300009)",
               up_runs.get("listRule") == STAFF and up_runs.get("viewRule") == STAFF,

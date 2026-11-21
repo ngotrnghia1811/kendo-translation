@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { PbError, pbRefresh, pbUserOfToken, tokenSecondsLeft } from "./pb";
 import type { Role, SessionUser } from "./htv-types";
 import { VIEW_COOKIE, viewOfCookie, viewUser, type ViewAs } from "./view-as";
+import { hasLinkCookie } from "./view-link-cookie";
 
 /*
  * Sign-in state of the human-translation-view (round 54 answer 10, Q-A 2026-10-28 l129: "A login route sets an httpOnly
@@ -28,6 +29,8 @@ export interface Session {
   realRole: Role;
   /** Unit VW119: the view of an admin ("reader" or "translator"), else null. */
   view: ViewAs | null;
+  /** Unit VW120 (Q-A 3:106.5 row 4): true only for a visitor of a view-only link (lib/view-link-server.ts). getSession() never returns it. */
+  link?: true;
 }
 
 export async function getSession(): Promise<Session | null> {
@@ -53,6 +56,9 @@ export async function requireSession(nextPath: string, signInPath: string = SIGN
     if (e instanceof PbError && e.status === 503) return { down: e.message };
     throw e;
   }
+  // Unit VW120 (Q-A 3:106.5 row 3: "No /translate, no /admin, no /profile"): a link visitor has no session. A page that needs an account sends the visitor to /read.
+  // The pages of /read use requireReaderOrLink (lib/view-link-server.ts), so this redirect never points at a page that calls it again.
+  if (!s && !/^\/read(\/|$)/.test(nextPath) && (await hasLinkCookie())) redirect("/read");
   if (!s) redirect(`${signInPath}?next=${encodeURIComponent(nextPath)}`);
   return s;
 }

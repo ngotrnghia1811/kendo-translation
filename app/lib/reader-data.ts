@@ -41,6 +41,7 @@ import { buildFolds, matchWorks, type Dashboard } from "./reader-folds";
 import type { TocCount } from "./reader-toc";
 import { foldQuery, snippetOf, type Snippet } from "./reader-search";
 import type { DashWork } from "./reader-types";
+import { isLinkToken } from "./view-link";
 
 /*
  * Data of the reader pages (unit RC1, round 63). VISION-viewer 15.19.
@@ -72,6 +73,14 @@ async function soft<T>(fallback: T, f: () => Promise<T>): Promise<T> {
     if (e instanceof PbError && (e.status === 403 || e.status === 404)) return fallback;
     throw e;
   }
+}
+
+/**
+ * Saved places of the user. Unit VW120 (Q-A 3:106.5 row 4: "no reading progress"): a link visitor has no account, so there is nothing to read and no call goes out.
+ */
+async function progressOf(token: string, user: SessionUser): Promise<Map<string, string>> {
+  if (isLinkToken(token)) return new Map<string, string>();
+  return soft(new Map<string, string>(), () => readingProgress(token, user.id));
 }
 
 /** Hits on one screen of the search results. */
@@ -115,7 +124,7 @@ const plainJa = (r: ReaderPageRecord) => [...r.rows.map((x) => x.ja), ...r.extra
  */
 export async function loadDashboard(token: string, user: SessionUser, rawQuery: string, screenNo: number): Promise<DashboardData> {
   const works = await catalogWorks(token);
-  const progress = await soft(new Map<string, string>(), () => readingProgress(token, user.id));
+  const progress = await progressOf(token, user);
   const fallback = works.some((w) => !w.known) && user.approved ? await soft(new Map<string, number[]>(), () => readerTextNumbers(token)) : null;
   for (const w of works) {
     const at = progress.get(w.slug);
@@ -193,7 +202,7 @@ export async function loadReaderIndex(token: string, user: SessionUser, slug: st
   const textPages = sortedUnion(nums.agent, humanPages);
   const checks = await pageCheckDates(token, slug).catch(() => new Map<string, string>());
   const chapters = (await magazineChapters(token, slug)).filter((c) => c.pageStart > 0);
-  const progress = await soft(new Map<string, string>(), () => readingProgress(token, user.id));
+  const progress = await progressOf(token, user);
   const at = progress.get(slug);
   const pages = Math.max(f.pages, ...textPages, ...nums.web, 1);
   return {
@@ -302,5 +311,7 @@ export async function loadReaderPages(token: string, slug: string, nums: number[
 }
 
 export async function loadBookmarks(token: string, user: SessionUser, slug: string): Promise<BookmarkView[]> {
+  // Unit VW120 (Q-A 3:106.5 row 4: "no bookmarks"): a link visitor has none and no call goes out.
+  if (isLinkToken(token)) return [];
   return soft<BookmarkView[]>([], () => listBookmarks(token, user.id, slug));
 }

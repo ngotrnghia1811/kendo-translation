@@ -21,7 +21,8 @@ const NO_IMAGE = "No page image available.";
 // of the PocketBase hook (data/scripts/pocketbase/pb_hooks/page_images.pb.js). The text that PocketBase checks is "<slug>/<page>.webp:<exp>".
 export async function GET(req: Request, ctx: { params: Promise<{ slug: string; page: string }> }) {
   try {
-    const g = await guardReader(req, { mutating: false });
+    // Unit VW120 (Q-A 3:106.5 row 3): a visitor of a view-only link reads this too (GET only; a link visitor never changes data). The image is the same as for an approved reader.
+    const g = await guardReader(req, { mutating: false, allowLink: true });
     if (isResponse(g)) return g;
     const { slug, page } = await ctx.params;
     if (!/^[a-z0-9_]+$/.test(slug) || !/^p\d{3,4}$/.test(page)) return jsonResponse({ error: "Bad page ID." }, 400);

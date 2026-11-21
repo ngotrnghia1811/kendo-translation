@@ -13,7 +13,8 @@ export const dynamic = "force-dynamic";
 // The fold must exist on the dashboard: a book that the dashboard hides (a copy, a part of another book) has no fold and gives 404.
 export async function GET(req: Request) {
   try {
-    const g = await guard(req, { mutating: false });
+    // Unit VW120 (Q-A 3:106.5 row 3): a visitor of a view-only link reads this too (GET only; a link visitor never changes data).
+    const g = await guard(req, { mutating: false, allowLink: true });
     if (isResponse(g)) return g;
     const id = new URL(req.url).searchParams.get("id") ?? "";
     const slug = tocSlugOf(id);

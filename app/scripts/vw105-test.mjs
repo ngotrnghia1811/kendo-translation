@@ -418,7 +418,7 @@ await check("Reader bar: the name is a link to /profile for every role, and the 
     assert.match(htmlText(html), new RegExp(`Made Up \\(${role}\\)`));
     assert.ok(l.some((x) => x.href === "/read" && x.text === "All books"));
     assert.equal(l.some((x) => x.href === "/translate"), role !== "reader", role);
-    assert.equal(l.filter((x) => x.attrs.includes("data-admin-link")).length, role === "admin" ? 3 : 0, role); // unit VW118 added the link "Visual issues" (3 admin links)
+    assert.equal(l.filter((x) => x.attrs.includes("data-admin-link")).length, role === "admin" ? 4 : 0, role); // unit VW118 added the link "Visual issues" (3 admin links), unit VW120 added "Links" (4)
   }
   const noName = h(ReaderBar, { name: "", email: "person@example.com", role: "reader", approved: false });
   assert.equal(linksOf(noName).find((x) => x.attrs.includes("data-profile-link")).text, "person@example.com");
@@ -440,7 +440,7 @@ await check("translator bar (Q-A 3:61.2): Read for every staff role, Readers and
     const l = linksOf(html);
     assert.ok(l.some((x) => x.href === "/read" && x.text === "Read"), role);
     const admin = l.filter((x) => x.attrs.includes("data-admin-link"));
-    assert.deepEqual(admin.map((x) => [x.href, x.text]), role === "admin" ? [["/admin/readers", "Readers"], ["/admin/versions", "Human versions"], ["/admin/issues", "Visual issues"]] : [], role); // unit VW118 added "Visual issues"
+    assert.deepEqual(admin.map((x) => [x.href, x.text]), role === "admin" ? [["/admin/readers", "Readers"], ["/admin/versions", "Human versions"], ["/admin/issues", "Visual issues"], ["/admin/links", "Links"]] : [], role); // unit VW118 added "Visual issues", unit VW120 added "Links"
     const me = l.find((x) => x.attrs.includes("data-profile-link"));
     assert.equal(me.href, "/profile");
     assert.equal(me.text, "Made Up");
@@ -635,10 +635,10 @@ await check("source: the root layout keeps the monitor title with the monitor on
   assert.ok(!s.includes("export const metadata"), "the fixed title is gone");
 });
 
-// Unit VW118 added migration 1793300017, so the folder holds 18 files. Unit VW105 itself added none.
-await check("source: no migration is added by this unit (the folder holds 18 files with the one of VW118) and the new files sit in new modules", () => {
+// Unit VW118 added migration 1793300017 and unit VW120 added 1793300018, so the folder holds 19 files. Unit VW105 itself added none.
+await check("source: no migration is added by this unit (the folder holds 19 files with the ones of VW118 and VW120) and the new files sit in new modules", () => {
   const dir = path.resolve(app, "..", "data", "scripts", "pocketbase", "pb_migrations");
-  if (existsSync(dir)) assert.equal(readdirSync(dir).filter((f) => f.endsWith(".js")).length, 18);
+  if (existsSync(dir)) assert.equal(readdirSync(dir).filter((f) => f.endsWith(".js")).length, 19);
   for (const f of ["lib/profile-rules.ts", "lib/profile-pb.ts", "lib/profile-load.ts", "lib/profile-api.ts"]) assert.ok(existsSync(path.join(app, f)), f);
   assert.ok(!/profile/.test(read("lib/pb.ts")), "lib/pb.ts is not changed");
 });

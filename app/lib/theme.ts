@@ -2,6 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { DEFAULT_THEME, EMPTY_SETTINGS, isTheme, sanitizeSettings, type PaneSettings, type ThemeName } from "./htv-settings";
 import { userSettings } from "./pb";
+import { isLinkToken } from "./view-link";
 
 /*
  * Theme of the whole app (unit UXC step C). Round 58 answer 6 (Q-A 2026-10-28 l204): "Whole app, per account (Recommended)".
@@ -30,6 +31,8 @@ export async function writeTheme(req: Request, theme: ThemeName): Promise<void> 
 
 /** The pane settings of a user from the account (collection user_settings). A missing record or collection gives the empty settings. */
 export async function loadPaneSettings(token: string, userId: string): Promise<PaneSettings> {
+  // Unit VW120 (Q-A 3:106.5 row 4): a link visitor has no account, so there is no saved setting to read. The browser keeps the theme (cookie) and the view (cookie htv_link_view).
+  if (isLinkToken(token)) return EMPTY_SETTINGS;
   try {
     return sanitizeSettings((await userSettings(token, userId)).panes);
   } catch {
