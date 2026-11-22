@@ -17,6 +17,7 @@ export default function ConfirmDialog({
   busy = false,
   onCancel,
   onConfirm,
+  children,
 }: {
   title: string;
   body: string;
@@ -24,6 +25,8 @@ export default function ConfirmDialog({
   busy?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  /** Unit VW122 (Q-A 3:112.3 row 9): extra content under the body text, for example the values that the run will use. */
+  children?: React.ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -47,7 +50,11 @@ export default function ConfirmDialog({
         e.preventDefault();
         onCancel();
       }}
-      className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded border border-line bg-white p-4 text-foreground shadow-lg backdrop:bg-black/40"
+      className={
+        children
+          ? "m-auto max-h-[92vh] w-[min(40rem,calc(100vw-2rem))] overflow-y-auto rounded border border-line bg-white p-4 text-foreground shadow-lg backdrop:bg-black/40"
+          : "m-auto w-[min(32rem,calc(100vw-2rem))] rounded border border-line bg-white p-4 text-foreground shadow-lg backdrop:bg-black/40"
+      }
     >
       <h2 id={titleId} className="text-base font-semibold">
         {title}
@@ -55,6 +62,7 @@ export default function ConfirmDialog({
       <p id={bodyId} className="mt-2 text-sm">
         {body}
       </p>
+      {children}
       <div className="mt-4 flex justify-end gap-2">
         <button ref={cancelRef} type="button" onClick={onCancel} data-confirm-cancel className="rounded border border-line px-4 py-1.5 text-sm">
           Cancel

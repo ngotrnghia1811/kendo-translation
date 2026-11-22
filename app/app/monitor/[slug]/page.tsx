@@ -2,7 +2,10 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import BookDetailView from "@/components/BookDetailView";
+import BookSettingsForm from "@/components/BookSettingsForm"; // unit VW122
 import { loadBookDetail } from "@/lib/book-detail";
+import { readBookSettings } from "@/lib/book-settings"; // unit VW122
+import { stringifySettingsJson } from "@/lib/settings-json"; // unit VW122
 import { requireMonitor, monitorEnabled } from "@/lib/monitor";
 import { isSafeSegment } from "@/lib/safe-path";
 
@@ -26,5 +29,9 @@ export default async function BookDetailPage({ params }: { params: Promise<{ slu
   if (!isSafeSegment(slug)) notFound();
   const detail = await load(slug);
   if (!detail) notFound();
-  return <BookDetailView initial={detail} />;
+  // Unit VW122 (Q-A 3:110.3, 3:112.3 rows 1 to 4): the closed section "Run settings of this book (N changed)". The book title shows with the slug (Q-A 3:17.4).
+  // A file problem shows as an error line inside the section (readBookSettings never throws for it). A failed read of the configuration gives no section.
+  const named = detail.row.title !== detail.row.slug;
+  const settings = await readBookSettings(slug).catch(() => null);
+  return <BookDetailView initial={detail} settings={settings ? <BookSettingsForm slug={slug} title={named ? detail.row.title : null} initialText={stringifySettingsJson(settings)} /> : null} />;
 }

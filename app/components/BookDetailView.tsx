@@ -132,7 +132,8 @@ function ListFold({ list, open }: { list: DetailList; open: boolean }) {
   );
 }
 
-export default function BookDetailView({ initial }: { initial: BookDetail }) {
+// Unit VW122 (Q-A 3:112.3 row 1): `settings` is the closed section "Run settings of this book (N changed)". The page passes it, and it shows under the header, before "Last error".
+export default function BookDetailView({ initial, settings = null }: { initial: BookDetail; settings?: React.ReactNode }) {
   const slug = initial.row.slug;
   const { data, refresh, failures } = useLive<BookDetail>(`/api/monitor/books/${encodeURIComponent(slug)}`, initial, () => true);
   // The clock of the page. The relative times update every 30 s with no request (VISION 15.24.4.6).
@@ -239,6 +240,9 @@ export default function BookDetailView({ initial }: { initial: BookDetail }) {
           </div>
         </dl>
       </div>
+
+      {/* Unit VW122 (Q-A 3:112.3 row 1): closed section with the Run settings of this book */}
+      {settings}
 
       {/* Part 2: last error */}
       <Section part="last-error" title="Last error">

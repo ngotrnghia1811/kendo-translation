@@ -1097,7 +1097,8 @@ await check("no write from a link visitor, in the sources: only the four GET rou
     const s = noComments(read(f));
     if (PUBLIC.includes(f)) continue;
     if (/\bguard(Reader)?\(|\bgetSession\(/.test(s)) continue;
-    assert.ok(/monitorOffResponse|handleBookAction|handleClearMark|localWriteProblem/.test(s), f + " has no session guard and is no monitor route");
+    // Unit VW122: handleBookSettings (lib/book-settings-api.ts) is a monitor route helper like handleBookAction: it starts with monitorOffResponse and localWriteProblem.
+    assert.ok(/monitorOffResponse|handleBookAction|handleClearMark|handleBookSettings|localWriteProblem/.test(s), f + " has no session guard and is no monitor route");
     monitorLike.push(f);
   }
   console.log(`      (${chg.length} routes change data: ${chg.length - PUBLIC.length - monitorLike.length} with a session guard, ${PUBLIC.length} public by design, ${monitorLike.length} monitor routes: ${monitorLike.map((f) => f.replace("app/api/", "").replace("/route.ts", "")).join(", ")})`);

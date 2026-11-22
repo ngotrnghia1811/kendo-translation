@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
 import { BOXES, mapProblem, type BoxOptions, type QuickRow, type RestartOptions } from "@/lib/restart-rules";
+import BookSettingsValues from "./BookSettingsValues"; // unit VW122
 
 /*
  * Restart dialog of the Monitor dashboard `/` (unit VW77b2, round 82). VISION-viewer 15.31.2 (the screen), 15.32.2 (notes and facts), 15.32.3 (quick select),
@@ -93,6 +94,8 @@ export default function RestartDialog({ slug, name, busy, onCancel, onRestart }:
             : "The button writes a mark. An opencode agent runs the restart."}
         </p>
       </div>
+      {/* Unit VW122 (Q-A 3:112.3 row 9): the values that the run will use, each with "this book" or "global". */}
+      <BookSettingsValues slug={slug} />
 
       {error ? (
         <p role="alert" data-restart-error className="mt-3 text-sm text-red-700">

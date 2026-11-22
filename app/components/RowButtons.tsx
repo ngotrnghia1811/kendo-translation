@@ -3,6 +3,7 @@ import { useId, useRef, useState } from "react";
 import type { ActionButton, ActionId, MonitorRow } from "@/lib/book-status-rules";
 import ConfirmDialog from "./ConfirmDialog";
 import RestartDialog from "./RestartDialog";
+import BookSettingsValues from "./BookSettingsValues"; // unit VW122
 import { useRowMessage } from "./row-message-store";
 
 // Buttons of one book row on the Monitor dashboard `/` (unit VW77b1, round 81). VISION-viewer 15.27.2 (dialog texts), 15.27.3 (buttons table),
@@ -146,7 +147,10 @@ export default function RowButtons({ row, onChanged }: { row: MonitorRow; onChan
       {asking === "restart" ? (
         <RestartDialog slug={row.slug} name={bookName(row)} busy={busy} onCancel={close} onRestart={(prompts) => void press({ prompts })} />
       ) : asking ? (
-        <ConfirmDialog {...dialogText(asking, row)} busy={busy} onCancel={close} onConfirm={() => void press()} />
+        <ConfirmDialog {...dialogText(asking, row)} busy={busy} onCancel={close} onConfirm={() => void press()}>
+          {/* Unit VW122 (Q-A 3:112.3 row 9): Run, Run phase 4 and Resume list the values that the run will use, each with "this book" or "global". */}
+          {asking === "run" || asking === "run4" || asking === "resume" ? <BookSettingsValues slug={row.slug} /> : null}
+        </ConfirmDialog>
       ) : null}
     </div>
   );
