@@ -724,8 +724,9 @@ await check("bars (rows 1 and 4): both bars draw the select inside the provider 
 await check("sources: the layout reads the flags without a token, wraps the page in the provider, draws the band above the top band, and keeps the VW118 lines", () => {
   const src = noComments(read("app/layout.tsx"));
   assert.ok(/const viewPending = viewInfo\(\)/.test(src));
-  assert.ok(/const reporter = await canReportIssues\(\)/.test(src), "the VW118 line stays");
-  assert.ok(/\{reporter \? <VisualIssueTool theme=\{theme\} \/> : null\}/.test(src), "the VW118 line stays");
+  // Unit VW121 (Q-A 3:112.2 rows 1 and 2): the two VW118 lines became the flags of issueToolFlags(monitor); the role gate canReportIssues stays in lib/visual-issues.ts (tested above).
+  assert.ok(/const issueTool = await issueToolFlags\(monitor\)/.test(src), "the VW121 line");
+  assert.ok(/\{issueTool\.show \? <VisualIssueTool theme=\{theme\} local=\{issueTool\.local\} \/> : null\}/.test(src), "the VW121 line");
   assert.ok(/<ViewAsProvider admin=\{admin\} view=\{view\} monitor=\{monitor\}>/.test(src));
   assert.ok(src.indexOf("<ViewAsBand />") > 0 && src.indexOf("<ViewAsBand />") < src.indexOf("<Nav "), "the band is above the top band");
   for (const f of ["components/ViewAsProvider.tsx", "components/ViewAsSelect.tsx", "components/ViewAsBand.tsx"]) {

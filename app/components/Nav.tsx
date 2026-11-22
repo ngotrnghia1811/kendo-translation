@@ -10,12 +10,15 @@ import type { ThemeName } from "@/lib/htv-settings";
 // Unit VW77a (round 80), VISION-viewer 15.24.4.1: the first tab is the Monitor dashboard "/" (active for "/" and the paths that start with /monitor).
 // The old runs table is Lists "/runs". Q-A 2:8.5 adds Run settings on this Mac only.
 const TABS = [
-  { href: "/", label: "Monitor dashboard", monitor: true, match: (p: string) => p === "/" || p.startsWith("/monitor") },
+  // Unit VW121 (Q-A 3:112.2 row 6): /monitor/issues has its own tab "Issues", so this tab is not open there.
+  { href: "/", label: "Monitor dashboard", monitor: true, match: (p: string) => p === "/" || (p.startsWith("/monitor") && !p.startsWith("/monitor/issues")) },
   { href: "/runs", label: "Lists", monitor: true, match: (p: string) => p.startsWith("/runs") },
   { href: "/books", label: "Books", monitor: true, match: (p: string) => p.startsWith("/books") || p.startsWith("/page") },
   { href: "/settings/run", label: "Run settings", monitor: true, match: (p: string) => p.startsWith("/settings/run") },
   // Unit VW89 (round 90), Q-A 3:1.7 item 2: the tab "JSON viewer" (/json) on this Mac only.
   { href: "/json", label: "JSON viewer", monitor: true, match: (p: string) => p.startsWith("/json") },
+  // Unit VW121 (Q-A 3:112.2 row 6): the tab "Issues" (/monitor/issues) lists the visual issues that were saved as files on this Mac. This Mac only (monitor: true).
+  { href: "/monitor/issues", label: "Issues", monitor: true, match: (p: string) => p.startsWith("/monitor/issues") },
   // Round 54 (unit H1): third tab for the human-translation-view. Sign-in is needed on this tab only (round 54 answer 9, Q-A l128).
   { href: "/translate", label: "Human translation", monitor: false, match: (p: string) => p.startsWith("/translate") },
 ];

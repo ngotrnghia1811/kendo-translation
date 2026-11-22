@@ -42,6 +42,7 @@ const ALL = [
   ["/books", "Books"],
   ["/settings/run", "Run settings"],
   ["/json", "JSON viewer"],
+  ["/monitor/issues", "Issues"], // Unit VW121 (Q-A 3:112.2 row 6): the tab of the visual issues of this Mac
   ["/translate", "Human translation"],
 ];
 const render = (p, monitor = true, theme = "light") => (at(p), h(Nav, { monitor, theme }));
@@ -102,7 +103,7 @@ await check("closed and open classes of the menu box", () => {
 
 // ---------------------------------------------------------------- part 2: one list of links
 
-await check("monitor on: the 6 links in one list, in order, one nav, one theme switch", () => {
+await check("monitor on: the 7 links in one list, in order, one nav, one theme switch", () => {
   const html = render("/");
   const l = links(html);
   assert.deepEqual(l.map((x) => x.href), ALL.map((x) => x[0]));
@@ -110,7 +111,7 @@ await check("monitor on: the 6 links in one list, in order, one nav, one theme s
   assert.equal((html.match(/<nav/g) ?? []).length, 1);
   assert.equal((html.match(/data-theme-switch/g) ?? []).length, 1);
   assert.equal((html.match(/aria-label="Main tabs"/g) ?? []).length, 1);
-  assert.equal((html.match(/<a /g) ?? []).length, 6, "no second list for the phone");
+  assert.equal((html.match(/<a /g) ?? []).length, 7, "no second list for the phone");
   assert.equal((html.match(/<header/g) ?? []).length, 1);
 });
 

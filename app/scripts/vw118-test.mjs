@@ -801,10 +801,11 @@ await check("sources: every part of the tool carries the mark, the capture filte
 
 await check("sources: the layout gives the client part a theme and no token or user, and it renders only for a reporter (rows 1 and 2)", () => {
   const src = noComments(read("app/layout.tsx"));
-  assert.ok(/const reporter = await canReportIssues\(\)/.test(src));
-  assert.ok(/\{reporter \? <VisualIssueTool theme=\{theme\} \/> : null\}/.test(src));
+  // Unit VW121 (Q-A 3:112.2 rows 1 and 2): the layout asks issueToolFlags(monitor) (switch off: canReportIssues as before, switch on: every visitor). scripts/vw121-test.mjs tests the flags.
+  assert.ok(/const issueTool = await issueToolFlags\(monitor\)/.test(src));
+  assert.ok(/\{issueTool\.show \? <VisualIssueTool theme=\{theme\} local=\{issueTool\.local\} \/> : null\}/.test(src));
   const tool = noComments(read("components/VisualIssueTool.tsx"));
-  assert.ok(/export default function VisualIssueTool\(\{ theme \}: \{ theme: ThemeName \}\)/.test(tool));
+  assert.ok(/export default function VisualIssueTool\(\{ theme, local = false \}: \{ theme: ThemeName; local\?: boolean \}\)/.test(tool)); // VW121: the flag local
   for (const f of ["components/VisualIssueTool.tsx", "components/VisualIssueSelect.tsx", "components/VisualIssueEditor.tsx", "components/AdminIssues.tsx"]) {
     const s = noComments(read(f));
     assert.ok(!/htv_token|COOKIE_NAME|getSession|Authorization|localStorage|sessionStorage/.test(s), f);

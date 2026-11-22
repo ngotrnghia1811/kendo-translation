@@ -11,7 +11,7 @@ import { readTheme } from "@/lib/theme";
 import { viewInfo } from "@/lib/view-as-server";
 import { linkInfo } from "@/lib/view-link-server";
 import { LINK_ROBOTS } from "@/lib/view-link";
-import { canReportIssues } from "@/lib/visual-issues";
+import { issueToolFlags } from "@/lib/visual-issues-local";
 
 // Unit VW105 (Q-A 3:60.3, finding 1 of DEPLOYCHECK): with the monitor off (the public site) the title of this layout shows only on the 404 page of a monitor path,
 // for example /runs, because every other page has its own title. That title must not say "agent-translation-monitor" there. With the monitor on (this Mac) it stays as before.
@@ -32,7 +32,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const viewPending = viewInfo();
   // Unit VW120 (Q-A 3:107.5 rows 4 and 5): the band of a link visitor shows only for a live link and no signed-in person. A fault hides the band and breaks nothing.
   const linkPending = linkInfo();
-  const reporter = await canReportIssues();
+  // Unit VW121 (Q-A 3:112.2 rows 1, 2, 5): with the Monitor switch on (this Mac) the icon shows on every page for every visitor, signed out too, and an issue is saved as files.
+  // With the switch off (the live site) nothing changes: the icon shows for a signed-in translator or admin, and an issue goes to PocketBase (VW118).
+  const issueTool = await issueToolFlags(monitor);
   const { admin, view } = await viewPending;
   const { link } = await linkPending;
   return (
@@ -49,7 +51,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* Unit VW115 (Q-A 3:94.2 row 6): the Loading pop-up for a page change on every screen. */}
         <NavigationLoading />
         {/* Unit VW118 (Q-A 3:98.5, 3:99.5): the visual-issue tool (a small round icon at the bottom right corner). */}
-        {reporter ? <VisualIssueTool theme={theme} /> : null}
+        {/* Unit VW121 (Q-A 3:112.2 rows 1, 2, 5): `local` sends the issue to the file route of this Mac. The client part gets two flags and the theme, no token and no user. */}
+        {issueTool.show ? <VisualIssueTool theme={theme} local={issueTool.local} /> : null}
       </body>
     </html>
   );

@@ -15,7 +15,9 @@ import type { ThemeName } from "@/lib/htv-settings";
 
 const MARK = { [UI_ATTR]: "" } as Record<string, string>;
 
-export default function VisualIssueTool({ theme }: { theme: ThemeName }) {
+// Unit VW121 (Q-A 3:112.2 rows 1 and 5): `local` is true with the Monitor switch on (this Mac). The icon then shows for every visitor and the send goes to the file route
+// /api/monitor/issues. Without `local` (the live site) the send goes to /api/issues as before.
+export default function VisualIssueTool({ theme, local = false }: { theme: ThemeName; local?: boolean }) {
   const [step, setStep] = useState<Step>("idle");
   const [selectKey, setSelectKey] = useState(0);
   const [notice, setNotice] = useState("");
@@ -121,6 +123,7 @@ export default function VisualIssueTool({ theme }: { theme: ThemeName }) {
       {step === "editor" && shot ? (
         <VisualIssueEditor
           shot={shot}
+          local={local}
           onClose={cancel}
           onSent={() => {
             cancel();

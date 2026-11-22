@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { COMMENT_MAX, PICTURE_MAX_BYTES, clearStrokes, pageUrlOf, penWidth, undoStroke, type Stroke } from "@/lib/visual-issue-rules";
 import { UI_ATTR, paintStrokes, pngWithin } from "@/lib/visual-issue-capture";
+import { LOCAL_ISSUES_API } from "@/lib/visual-issues-local-rules";
 
 // Unit VW118 (plan item P53, Q-A 3:99.5 row 4), owner words (Q-A 3:98.5): "then write a comment and draw on the screenshot, then click send issue".
 // Row 4: "the picture opens in a pop-up with a red pen, Undo and Clear, and a comment box. 'Send issue' stores it. Esc closes the pop-up without a send."
@@ -19,7 +20,8 @@ export interface Shot {
   theme: string;
 }
 
-export default function VisualIssueEditor({ shot, onClose, onSent }: { shot: Shot; onClose: () => void; onSent: () => void }) {
+// Unit VW121 (Q-A 3:112.2 row 5): `local` (the Monitor switch is on) sends the issue to the file route of this Mac. Else it goes to /api/issues as before.
+export default function VisualIssueEditor({ shot, local = false, onClose, onSent }: { shot: Shot; local?: boolean; onClose: () => void; onSent: () => void }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const viewRef = useRef<HTMLCanvasElement>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
@@ -95,7 +97,7 @@ export default function VisualIssueEditor({ shot, onClose, onSent }: { shot: Sho
       form.set("theme", shot.theme);
       let r: Response;
       try {
-        r = await fetch("/api/issues", { method: "POST", body: form });
+        r = await fetch(local ? LOCAL_ISSUES_API : "/api/issues", { method: "POST", body: form });
       } catch {
         setError("The issue was not sent. Check the connection and try again. Your comment and drawing are kept.");
         return;

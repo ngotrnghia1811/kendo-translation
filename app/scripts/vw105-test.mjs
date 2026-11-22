@@ -488,7 +488,7 @@ await check("top band, monitor on (this Mac): the monitor screens and their 404 
   for (const p of ["/", "/runs", "/books", "/no-such-page", "/json"]) {
     const b = bandOf(p, true);
     assert.equal(b.name, "agent-translation-monitor", p);
-    assert.deepEqual(b.tabs, ["Monitor dashboard", "Lists", "Books", "Run settings", "JSON viewer", "Human translation"], p);
+    assert.deepEqual(b.tabs, ["Monitor dashboard", "Lists", "Books", "Run settings", "JSON viewer", "Issues", "Human translation"], p); // VW121: the tab Issues
   }
   assert.equal(bandOf("/translate", true).name, "human-translation-view");
   const prof = bandOf("/profile", true);

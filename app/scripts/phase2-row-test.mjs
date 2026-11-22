@@ -581,7 +581,8 @@ try {
     assert.ok(route.indexOf("monitorOffResponse()") > 0 && route.indexOf("monitorOffResponse()") < route.indexOf("loadMonitor()"));
     const files = (await fs.readdir(path.join(app, "app/api/monitor"))).filter((n) => !n.startsWith("."));
     // Unit VW95 (round 91), Q-A 3:19.3 D2: the step view adds the read-only routes phase-2 and phase-2/step. Each keeps monitorOffResponse before its read.
-    assert.deepEqual(files.sort(), ["books", "phase-2"]);
+    // Unit VW121 (Q-A 3:112.2 row 3): the file save of the visual issues of this Mac adds the route issues (POST, PATCH, and the picture). It keeps monitorOffResponse first (scripts/vw121-test.mjs tests it).
+    assert.deepEqual(files.sort(), ["books", "issues", "phase-2"]);
     for (const [f, read] of [["app/api/monitor/phase-2/route.ts", "loadStepSummary("], ["app/api/monitor/phase-2/step/route.ts", "loadStepData("]]) {
       const r = await src(f);
       assert.ok(r.indexOf("monitorOffResponse()") > 0 && r.indexOf("monitorOffResponse()") < r.indexOf(read), f);
