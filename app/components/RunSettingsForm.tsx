@@ -1,11 +1,12 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { SettingsSnapshot, ActiveBook } from "@/lib/settings-run";
 import { parseSettingsJson, pythonJson, stringifySettingsJson } from "@/lib/settings-json";
 import { bookKeyLabel, optionText } from "@/lib/readable-names";
 import { FIELDS, GROUPS, N_RULE_STOP, OLD_N, diffSettings, nestSettings, showValue, validateSettings, valueError, type FlatSettings, type Field, type Scalar } from "@/lib/settings-schema";
 import { effortKeyOf, pickModel } from "@/lib/settings-layout";
+import { catalogOf } from "@/lib/oc2-models-rules"; // unit VW125
 import SettingsFields from "./SettingsFields";
 
 const button = "rounded border border-line bg-white px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60";
@@ -54,6 +55,8 @@ export default function RunSettingsForm({ initialText, pageLabels = {}, bookLabe
   const [review, setReview] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  // Unit VW125 (Q-A 3:118.2 rows 1 and 2): the list of all oc2 models. Null when the list file is missing or broken (the picker then shows the yaml models). A reload or a save brings a fresh list.
+  const catalog = useMemo(() => catalogOf(saved.oc2), [saved.oc2]);
   const reviewButton = useRef<HTMLButtonElement>(null);
   const changes = diffSettings(saved.overrides, draft);
   const changed = new Set(changes.map((c) => c.key));
@@ -70,7 +73,7 @@ export default function RunSettingsForm({ initialText, pageLabels = {}, bookLabe
   function setModel(f: Field, id: string, stored: string[]) {
     const effortKey = effortKeyOf(f.key);
     const effort = FIELDS.find((x) => x.key === effortKey);
-    const result = pickModel(draft, f.key, id, (key) => (effort && key === effortKey ? valueOf(effort) : undefined), stored);
+    const result = pickModel(draft, f.key, id, (key) => (effort && key === effortKey ? valueOf(effort) : undefined), stored, catalog);
     if (!result.changed) return;
     setDraft(result.draft);
     setResets((p) => ({ ...p, [effortKey]: result.reset }));
@@ -111,7 +114,8 @@ export default function RunSettingsForm({ initialText, pageLabels = {}, bookLabe
     finally { setBusy(false); closeReview(); }
   }
   // The models of a model field (row M7): the yaml models, plus the value of the settings file and the value of the draft when they are missing there.
-  const modelList = (f: Field) => [...new Set([...saved.models, ...[saved.overrides[f.key], draft[f.key]].filter((v): v is string => typeof v === "string" && v !== "")])];
+  // Unit VW125: with a catalog the pickers list the whole oc2 list, so the yaml models are not needed here. The default, the file value and the draft value stay, so a value outside the list shows "(current)".
+  const modelList = (f: Field) => [...new Set([...(catalog ? [] : saved.models), ...[saved.defaults[f.key], saved.overrides[f.key], draft[f.key]].filter((v): v is string => typeof v === "string" && v !== "")])];
   const badge = (f: Field) => changed.has(f.key) ? <span className="rounded bg-amber-100 px-2 text-sm text-amber-800">Changed</span> : Object.hasOwn(saved.overrides, f.key) && (f.key === "update.N" || pythonJson(saved.overrides[f.key]) !== pythonJson(saved.defaults[f.key])) ? <span className="rounded bg-stone-100 px-2 text-sm text-stone-600">Not default</span> : null;
   const defaultText = (f: Field) => f.key === "update.N" ? "phase rule (no override)" : valueText(f.key, saved.defaults[f.key]);
   return <main className="mx-auto max-w-[1600px] px-4 py-8 md:px-8">
@@ -126,7 +130,7 @@ export default function RunSettingsForm({ initialText, pageLabels = {}, bookLabe
     <div className="mt-3 grid gap-8 md:grid-cols-[13rem_minmax(0,1fr)]">
       <aside><nav aria-label="Settings groups" className="flex flex-wrap gap-2 md:sticky md:top-4 md:flex-col md:gap-1">{GROUPS.map((g, i) => <a key={g} href={`#group-${i}`} className="rounded px-2 py-2 text-sm text-accent underline focus-visible:outline-2 focus-visible:outline-accent">{i + 1}. {g}</a>)}<a href="#change-history" className="px-2 py-2 text-sm text-accent underline">Change history</a></nav></aside>
       <div className="min-w-0 space-y-10 pb-6">
-        <SettingsFields idPrefix="" nameTitle="Name of this setting in translator-settings.json" disabled={disabled} errors={errors} resets={resets} modelList={modelList} valueOf={valueOf} defaults={saved.defaults}
+        <SettingsFields idPrefix="" nameTitle="Name of this setting in translator-settings.json" disabled={disabled} errors={errors} resets={resets} modelList={modelList} catalog={catalog} oc2={saved.oc2 ?? null} valueOf={valueOf} defaults={saved.defaults}
           status={(f) => changed.has(f.key) ? "changed" : ""} badge={badge} headingPrefix="heading-" sectionPrefix="group-" nPlaceholder="Phase rule (no override)"
           nRule={<p>{saved.n_rule ?? <span className="text-red-700">{saved.n_rule_error}</span>} Reset removes update.N{saved.defaults["update.N"] === undefined ? "" : ` instead of saving ${showValue(saved.defaults["update.N"])}`}.</p>}
           onValue={setValue} onPickModel={setModel} onEmptyN={(f) => { setDraft((p) => { const n = { ...p }; delete n[f.key]; return n; }); setErrors((p) => { const n = { ...p }; delete n[f.key]; return n; }); setNotice(""); }} onCheck={checkField}

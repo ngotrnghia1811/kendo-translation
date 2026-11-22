@@ -8,6 +8,7 @@ import { PathError } from "./safe-path";
 import { parseSettingsJson, incrementInteger, stringifySettingsJson, type JsonInteger } from "./settings-json";
 import { KEY_ORDER, SCHEMA, diffSettings, nestSettings, object, validateSettings, type FlatSettings } from "./settings-schema";
 import { readSettings, SettingsWriteError, type Change } from "./settings-run";
+import type { Oc2Block } from "./oc2-models-rules"; // unit VW125
 import { BOOK_CONFLICT, BOOK_FOLDER, bookFileLabel, effectiveRows, isSafeBookName, labelBookError, type EffectiveRow } from "./book-settings-rules";
 
 // Unit VW122 (plan P61, card P61.2, Q-A 3:112.3 rows 1 to 6 and 11). Server side of the Run settings of one book.
@@ -37,6 +38,8 @@ export type BookSettingsSnapshot = {
   defaults: FlatSettings;
   models: string[];
   variants: string[];
+  /** Unit VW125 (Q-A 3:118.2 rows 1, 2, 4): the list of all oc2 models, read with the global side. */
+  oc2: Oc2Block;
   n_rule: string | null;
   n_rule_error: string | null;
   /** For each field: the value of the next page and its source (this book or global). */
@@ -103,7 +106,7 @@ export async function readBookSettings(book: string): Promise<BookSettingsSnapsh
   const g = await readSettings();
   const snap: BookSettingsSnapshot = {
     book, file: bookFileLabel(book), sha1: null, exists: false, revision: 0, updated_utc: null, overrides: {}, error: null, history_error: null, history: [],
-    global_error: g.error, global_overrides: g.overrides, defaults: g.defaults, models: g.models, variants: g.variants, n_rule: g.n_rule, n_rule_error: g.n_rule_error, effective: [],
+    global_error: g.error, global_overrides: g.overrides, defaults: g.defaults, models: g.models, variants: g.variants, oc2: g.oc2, n_rule: g.n_rule, n_rule_error: g.n_rule_error, effective: [],
   };
   try {
     const paths = await bookPaths(cfg.translatorConfigDir, book);

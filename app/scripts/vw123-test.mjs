@@ -18,6 +18,9 @@ import { checker, installAppHooks } from "./vw-test-kit.mjs";
 const app = path.resolve(import.meta.dirname, "..");
 if (!process.env.TMPDIR) throw new Error("Set TMPDIR to a folder of the unit.");
 installAppHooks(app, "/monitor/ki_breath_full_clean");
+// unit VW125 (Q-A 3:118.2): the pages now read the list of all oc2 models (data/oc2-models.json). This test checks the VW123 behavior of the pickers with the yaml models,
+// so it names a list file that does not exist. The list behavior is tested in scripts/vw125-test.mjs.
+process.env.VIEWER_OC2_MODELS = path.join(process.env.TMPDIR, "vw123-no-oc2-list.json");
 globalThis.fetch = async () => { throw new Error("Network is disabled in VW123 tests."); };
 const { check, done } = checker();
 const req = createRequire(path.join(app, "package.json"));

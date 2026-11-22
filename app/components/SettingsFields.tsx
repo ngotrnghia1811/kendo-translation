@@ -12,6 +12,7 @@ import { parseSettingsJson } from "@/lib/settings-json";
 import { optionText } from "@/lib/readable-names";
 import { FIELDS, GROUPS, effect, type Field, type FlatSettings, type Scalar } from "@/lib/settings-schema";
 import { BOX_GROUP, LEVEL_GROUP, boxCriticRow, cards, levelRows, storedEffortsFor, type Card, type PairRow } from "@/lib/settings-layout";
+import { listLine, type Catalog, type Oc2Block } from "@/lib/oc2-models-rules"; // unit VW125
 import ModelPicker from "./ModelPicker";
 import ThinkingMenu from "./ThinkingMenu";
 
@@ -29,8 +30,12 @@ export type SettingsFieldsProps = {
   errors: Record<string, string>;
   /** Keys of effort fields that the last model pick reset to "default" (row M6). */
   resets: Record<string, boolean>;
-  /** The models of a model field (row M7). */
+  /** The models of a model field (row M7). With a catalog: the saved, draft, default and global values only (unit VW125). */
   modelList: (f: Field) => string[];
+  /** Unit VW125 (Q-A 3:118.2): the checked list of oc2 for the pickers and the Thinking menus, or null when the list file is missing or broken. */
+  catalog?: Catalog | null;
+  /** Unit VW125 (row 4): the block of the snapshot. The levels table shows one line about it ("Model list from oc2, read <time> PST", or the note). */
+  oc2?: Oc2Block | null;
   /** The value that counts now: the draft value, else the global value (book page) or the default (/settings/run). */
   valueOf: (f: Field) => Scalar | undefined;
   /** The settings that the files hold for each level, to find the efforts that are stored for a model. */
@@ -68,11 +73,11 @@ export default function SettingsFields(p: SettingsFieldsProps) {
     const invalid = !!p.errors[f.key];
     const props = { id, disabled: p.disabled, onBlur: () => p.onCheck(f), "aria-describedby": describedBy, "aria-invalid": invalid, className: control };
     if (f.kind === "boolean" || f.kind === "mode") return <select {...props} value={String(value)} onChange={(e) => p.onValue(f, f.kind === "boolean" ? e.target.value === "true" : e.target.value)}>{(f.kind === "boolean" ? ["true", "false"] : ["separate", "session"]).map((v) => <option key={v} value={v}>{optionText(f.key, v)}</option>)}</select>;
-    if (f.kind === "model") return <ModelPicker id={id} label={f.label} value={text(f)} models={p.modelList(f)} disabled={p.disabled} describedBy={describedBy} className={control} onBlurCheck={() => p.onCheck(f)} onPick={(picked) => { if (picked !== text(f)) p.onPickModel(f, picked, storedFor(picked)); }} />;
+    if (f.kind === "model") return <ModelPicker id={id} label={f.label} value={text(f)} models={p.modelList(f)} catalog={p.catalog ?? null} disabled={p.disabled} describedBy={describedBy} className={control} onBlurCheck={() => p.onCheck(f)} onPick={(picked) => { if (picked !== text(f)) p.onPickModel(f, picked, storedFor(picked)); }} />;
     if (f.kind === "variant") {
       const model = FIELDS.find((x) => x.key === modelKeyOf(f.key));
       const chosen = model ? text(model) : undefined;
-      return <ThinkingMenu id={id} label={f.label} model={chosen} value={text(f)} stored={chosen ? storedFor(chosen) : []} disabled={p.disabled} describedBy={describedBy} className={control} onBlurCheck={() => p.onCheck(f)} onPick={(picked) => { if (picked !== text(f)) p.onValue(f, picked); }} />;
+      return <ThinkingMenu id={id} label={f.label} model={chosen} value={text(f)} stored={chosen ? storedFor(chosen) : []} catalog={p.catalog ?? null} disabled={p.disabled} describedBy={describedBy} className={control} onBlurCheck={() => p.onCheck(f)} onPick={(picked) => { if (picked !== text(f)) p.onValue(f, picked); }} />;
     }
     return <input {...props} type="number" min={f.min} max={f.max} step="1" placeholder={f.key === "update.N" ? p.nPlaceholder : undefined} value={value === undefined || value === null ? "" : String(value)} onChange={(e) => {
       const entered = e.target.value;
@@ -153,6 +158,8 @@ export default function SettingsFields(p: SettingsFieldsProps) {
     <section id={levelIds ? `${p.sectionPrefix}${LEVEL_GROUP}` : undefined} aria-labelledby={levelIds} className="min-w-0 scroll-mt-6 rounded border border-line bg-stone-50 p-3">
       <h3 id={levelIds} className="text-base font-semibold">{LEVEL_GROUP + 1}. {GROUPS[LEVEL_GROUP]}</h3>
       <p className="mt-1 text-sm text-muted">One line for each level. The model and the efforts of the chosen model take effect: {effectText}. The model ID is in small gray text in the list.</p>
+      {/* Unit VW125 (row 4): one line for the whole page, because it stays in view when no list is open. It says how old the list is, or why the picker shows the yaml models. */}
+      {p.oc2 && <p data-oc2-line data-oc2-status={p.oc2.status} className={"mt-1 text-sm " + (p.oc2.status === "ok" ? "text-muted" : "text-amber-800")}>{listLine(p.oc2)}</p>}
       <table data-levels-table className="mt-2 w-full border-collapse text-sm max-lg:block">
         <thead className="max-lg:hidden"><tr>
           <th scope="col" className={th}>Level</th><th scope="col" className={th}>Model</th><th scope="col" className={th}>Thinking</th>

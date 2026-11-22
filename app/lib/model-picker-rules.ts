@@ -4,7 +4,11 @@
 // The oc2 picker is /Users/nghiango-mbp/projects/opencode-v2-custom/vendor/openchamber/packages/ui/src/components/model-picker/ModelPickerList.tsx.
 //   The sections are l551-562 (Recent without the favorites) and l626-634 (Favorites, Recent, one section for each provider).
 //   The search is matchesRankQuery of .../packages/ui/src/lib/search/fuzzySearch.ts l142-152. The fields are model name, model ID and provider name.
+// Unit VW125 (plan P66, card P66.1, Q-A 3:118.2 rows 2, 5 and 9): the functions take an optional `catalog` (lib/oc2-models-rules.ts, the list of oc2).
+//   With a catalog the picker lists ALL models of the list in the order of the list file, with the readable model name and the provider label of the list.
+//   A saved value that is not in the list goes to its own section and shows "(current)". Without a catalog everything works as in unit VW123 (the yaml models).
 import { cardNameOf, providerOf } from "./model-card";
+import type { Catalog } from "./oc2-models-rules";
 import { valueError } from "./settings-schema";
 
 /** Keys of the browser store (row M4). Both Run settings pages read the same keys. Nothing goes to the server. */
@@ -13,20 +17,27 @@ export const RECENT_KEY = "kendo.settings.model.recent";
 export const MAX_FAVORITES = 20;
 export const MAX_RECENT = 5;
 
-export type ModelRow = { id: string; provider: string; providerLabel: string; name: string };
+/** `outside` (unit VW125): the saved value is not in the list of oc2. The picker shows "(current)" next to it. */
+export type ModelRow = { id: string; provider: string; providerLabel: string; name: string; outside?: boolean };
 
-/** Split "provider/model". A Claude card shows its card name ("Claude card ntngh"), another provider shows its ID. */
-export function rowOf(id: string): ModelRow {
+/**
+ * Split "provider/model". A Claude card shows its card name ("Claude card ntngh"), another provider shows its ID.
+ * With a catalog (unit VW125): a model of the list gives the readable name and provider label of the list. A model outside the list takes the label of its provider when the list knows the provider.
+ */
+export function rowOf(id: string, catalog?: Catalog | null): ModelRow {
+  const listed = catalog?.byId.get(id);
+  if (listed) return listed;
   const provider = providerOf(id) ?? "";
   const name = provider ? id.slice(provider.length + 1) : id;
   const card = provider ? cardNameOf(provider) : null;
-  return { id, provider, providerLabel: card !== null ? `Claude card ${card}` : provider, name };
+  const known = catalog?.providers.find((p) => p.id === provider)?.label;
+  return { id, provider, providerLabel: known ?? (card !== null ? `Claude card ${card}` : provider), name };
 }
 
-/** The text of the model button (row M1): "xai · grok-4.7". An empty value gives "Choose a model". */
-export function buttonText(id: string | undefined): string {
+/** The text of the model button (row M1): "xai · grok-4.7", with a catalog "xAI · Grok 4.7". An empty value gives "Choose a model". */
+export function buttonText(id: string | undefined, catalog?: Catalog | null): string {
   if (!id) return "Choose a model";
-  const row = rowOf(id);
+  const row = rowOf(id, catalog);
   return row.providerLabel ? `${row.providerLabel} · ${row.name}` : row.name;
 }
 
@@ -47,7 +58,10 @@ export function matchesQuery(row: ModelRow, query: string): boolean {
   });
 }
 
-export type Section = { key: "favorites" | "recent" | `provider:${string}`; title: string; rows: ModelRow[] };
+export type Section = { key: "favorites" | "recent" | "outside" | `provider:${string}`; title: string; rows: ModelRow[] };
+
+/** The title of the section that holds the saved values that the list of oc2 does not know (unit VW125, row 5). */
+export const OUTSIDE_TITLE = "Saved value, not in the oc2 list";
 
 const byText = (a: string, b: string) => a.localeCompare(b, "en", { numeric: true, sensitivity: "base" });
 
@@ -55,16 +69,28 @@ const byText = (a: string, b: string) => a.localeCompare(b, "en", { numeric: tru
  * The sections of the list (row M2), in this order: Favorites, Recent (without the favorites), then one section for each provider, sorted by provider name.
  * The provider sections hold every listed model. A model that is a favorite shows in Favorites and in its provider section, as in oc2.
  * `models` is the full list (row M7). An empty section is left out.
+ * With a catalog (unit VW125, Q-A 3:118.2 rows 2 and 5): the order is Favorites, Recent, "Saved value, not in the oc2 list" (the values of `models` that the list lacks),
+ * then one section for each provider of the list in the order of the list file, each with all its models in the order of the list file. The search keeps the matching rows.
  */
-export function buildSections(models: readonly string[], favorites: readonly string[], recent: readonly string[], query: string): Section[] {
+export function buildSections(models: readonly string[], favorites: readonly string[], recent: readonly string[], query: string, catalog?: Catalog | null): Section[] {
   const keep = (rows: ModelRow[]) => rows.filter((r) => matchesQuery(r, query));
   const sections: Section[] = [];
-  const fav = keep(favorites.map(rowOf));
+  const rowFor = (id: string) => rowOf(id, catalog);
+  const fav = keep(favorites.map(rowFor));
   if (fav.length) sections.push({ key: "favorites", title: "Favorites", rows: fav });
-  const rec = keep(recent.filter((id) => !favorites.includes(id)).map(rowOf));
+  const rec = keep(recent.filter((id) => !favorites.includes(id)).map(rowFor));
   if (rec.length) sections.push({ key: "recent", title: "Recent", rows: rec });
+  if (catalog) {
+    const outside = keep([...new Set(models)].filter((id) => id !== "" && !catalog.byId.has(id)).map((id) => ({ ...rowFor(id), outside: true })));
+    if (outside.length) sections.push({ key: "outside", title: OUTSIDE_TITLE, rows: outside });
+    for (const p of catalog.providers) {
+      const rows = keep(p.models);
+      if (rows.length) sections.push({ key: `provider:${p.id}`, title: p.label, rows });
+    }
+    return sections;
+  }
   const byProvider = new Map<string, ModelRow[]>();
-  for (const row of keep([...new Set(models)].filter((id) => id !== "").map(rowOf))) {
+  for (const row of keep([...new Set(models)].filter((id) => id !== "").map((id) => rowOf(id)))) {
     const list = byProvider.get(row.providerLabel) ?? [];
     list.push(row);
     byProvider.set(row.providerLabel, list);

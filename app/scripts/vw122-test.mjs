@@ -17,6 +17,9 @@ import { checker, installAppHooks } from "./vw-test-kit.mjs";
 const app = path.resolve(import.meta.dirname, "..");
 if (!process.env.TMPDIR) throw new Error("Set TMPDIR to a folder of the unit.");
 installAppHooks(app, "/monitor/ki_breath_full_clean");
+// unit VW125 (Q-A 3:118.2): the pages now read the list of all oc2 models (data/oc2-models.json). This test checks the VW122 and VW123 behavior with the yaml models,
+// so it names a list file that does not exist. The list behavior is tested in scripts/vw125-test.mjs.
+process.env.VIEWER_OC2_MODELS = path.join(process.env.TMPDIR, "vw122-no-oc2-list.json");
 globalThis.fetch = async () => { throw new Error("Network is disabled in VW122 tests."); };
 const { check, done } = checker();
 const sha1 = (t) => createHash("sha1").update(t).digest("hex");
@@ -497,7 +500,8 @@ await check("dialog list: a book N shows in the list with the source 'this book'
 await check("the global panel files are reused, not changed: settings-run, settings-schema, settings-json and safe-path are byte for byte as at the base HEAD f05d89a (unit VW123 changed RunSettingsForm on purpose: it uses the shared fields)", () => {
   // The sha256 of the files that must stay as they are (measured at the base f05d89a before the unit).
   const BASE = {
-    "lib/settings-run.ts": "6004b65bbc7944a6c5a7643310a9505054957a92eae0d97ad7bd5525e45be54e",
+    // unit VW125 (Q-A 3:118.2 row 1): settings-run.ts changed on purpose. It adds the field `oc2` (the list of all oc2 models) to the snapshot. Base sha256 was 6004b65bbc7944a6c5a7643310a9505054957a92eae0d97ad7bd5525e45be54e.
+    "lib/settings-run.ts": "62b1e3d61ee42a3a0de96071458944a225f0ce6b192be09f00c712d0eadfd161",
     "lib/settings-schema.ts": "8ad07b654a9b2c1265d87d386f065f5cde3b4ed3d1b43234810f4e03a01fc995",
     "lib/settings-json.ts": "87a8f7b4b0b06e29a320e524a6806fb62bfdb1e389b53763b9265aebbfc13199",
     "lib/safe-path.ts": "f3fd638eefe3d3a31e137d947bac4ce05ccb4c4d10b682e7a625010bcfbcd696",

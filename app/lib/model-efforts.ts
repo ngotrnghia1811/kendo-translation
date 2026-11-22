@@ -27,7 +27,8 @@ export const DEFAULT_EFFORT = "default";
 const GENERIC = ["low", "medium", "high"];
 
 /** Models for which the run sends the model alone (launcher.py l45). They have no effort choice. */
-const NO_EFFORT_MODELS = new Set(["google/antigravity-gemini-3.8-flash-high", "gemini-web/4-hydrogen"]);
+// Unit VW125 (Q-A 3:118.2 row 3): exported, because lib/oc2-efforts.ts keeps this run-side rule above the list of oc2.
+export const NO_EFFORT_MODELS = new Set(["google/antigravity-gemini-3.8-flash-high", "gemini-web/4-hydrogen"]);
 
 /**
  * Exact rows. devin/grok-4-7 takes only "Low" with a capital letter: the run failed with "Variant unavailable for devin/grok-4-7: low"

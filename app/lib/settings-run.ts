@@ -7,11 +7,15 @@ import { loadConfig } from "./config";
 import { settingsFile, resolveInside, isSafeSegment } from "./safe-path";
 import { incrementInteger, parseSettingsJson, stringifySettingsJson, type JsonInteger } from "./settings-json";
 import { CONFLICT, KEY_ORDER, SCHEMA, diffSettings, nestSettings, object, validateSettings, type FlatSettings } from "./settings-schema";
+import { readOc2Block } from "./oc2-models"; // unit VW125
+import type { Oc2Block } from "./oc2-models-rules"; // unit VW125
 
 export type ActiveBook = { book: string; page: string | null; next: string | null; n: number | null };
 export type Change = ReturnType<typeof diffSettings>[number];
 export type SettingsHistory = { utc: string; revision: number | JsonInteger; changes: Change[]; sha1_before: string | null; sha1_after: string };
-export type SettingsSnapshot = { sha1: string | null; revision: number | JsonInteger; updated_utc: string | null; exists: boolean; overrides: FlatSettings; defaults: FlatSettings; models: string[]; variants: string[]; active: ActiveBook[]; history: SettingsHistory[]; error: string | null; n_rule: string | null; n_rule_error: string | null };
+export type SettingsSnapshot = { sha1: string | null; revision: number | JsonInteger; updated_utc: string | null; exists: boolean; overrides: FlatSettings; defaults: FlatSettings; models: string[]; variants: string[]; active: ActiveBook[]; history: SettingsHistory[]; error: string | null; n_rule: string | null; n_rule_error: string | null;
+  /** Unit VW125 (Q-A 3:118.2 rows 1, 2, 4): the list of all oc2 models for the picker (data/oc2-models.json). `models` (the yaml models) stays for the picker fallback. */
+  oc2: Oc2Block };
 export class SettingsWriteError extends Error {
   status: number; saved: boolean;
   constructor(status: number, message: string, saved = false) { super(message); this.status = status; this.saved = saved; }
@@ -141,7 +145,7 @@ export async function settingsHistoryText() {
 
 export async function readSettings(): Promise<SettingsSnapshot> {
   const cfg = await loadConfig();
-  const snap: SettingsSnapshot = { sha1: null, revision: 0, updated_utc: null, exists: false, overrides: {}, defaults: {}, models: [], variants: [], active: await activeBooks(cfg.translatorDataDir), history: [], error: null, ...(await nRule(cfg.translatorConfigDir)) };
+  const snap: SettingsSnapshot = { sha1: null, revision: 0, updated_utc: null, exists: false, overrides: {}, defaults: {}, models: [], variants: [], active: await activeBooks(cfg.translatorDataDir), history: [], error: null, ...(await nRule(cfg.translatorConfigDir)), oc2: await readOc2Block() };
   try {
     Object.assign(snap, await defaultsAndModels(cfg.translatorConfigDir));
     const c = await current(cfg.translatorConfigDir);

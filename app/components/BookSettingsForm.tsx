@@ -1,9 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { BookSettingsSnapshot } from "@/lib/book-settings";
 import { parseSettingsJson, pythonJson, stringifySettingsJson } from "@/lib/settings-json";
 import { FIELDS, N_RULE_STOP, diffSettings, effect, nestSettings, validateSettings, valueError, type Field, type FlatSettings, type Scalar } from "@/lib/settings-schema";
 import { effortKeyOf, pickModel } from "@/lib/settings-layout";
+import { catalogOf } from "@/lib/oc2-models-rules"; // unit VW125
 import SettingsFields from "./SettingsFields";
 import { SOURCE_BOOK, bookFileLabel, changedCount, globalValueText, historyValueText, labelBookError, pstText, sectionTitle, valueText } from "@/lib/book-settings-rules";
 
@@ -37,6 +38,8 @@ export default function BookSettingsForm({ slug, title, initialText }: { slug: s
   const [resets, setResets] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  // Unit VW125 (Q-A 3:118.2 rows 1 and 2): the list of all oc2 models. Null when the list file is missing or broken (the picker then shows the yaml models).
+  const catalog = useMemo(() => catalogOf(saved.oc2), [saved.oc2]);
   const changes = diffSettings(saved.overrides, draft);
   const blocked = !!saved.error || !!saved.history_error || !!saved.global_error;
   const disabled = busy || blocked;
@@ -56,7 +59,7 @@ export default function BookSettingsForm({ slug, title, initialText }: { slug: s
   function setModel(f: Field, id: string, stored: string[]) {
     const effortKey = effortKeyOf(f.key);
     const effort = FIELDS.find((x) => x.key === effortKey);
-    const result = pickModel(draft, f.key, id, (key) => (effort && key === effortKey ? valueOf(effort) : undefined), stored);
+    const result = pickModel(draft, f.key, id, (key) => (effort && key === effortKey ? valueOf(effort) : undefined), stored, catalog);
     if (!result.changed) return;
     setDraft(result.draft);
     setResets((p) => ({ ...p, [effortKey]: result.reset }));
@@ -106,7 +109,8 @@ export default function BookSettingsForm({ slug, title, initialText }: { slug: s
   }
 
   // The models of a model field (row M7): the yaml models, plus the global value, the value of the book file and the value of the draft when they are missing there.
-  const modelList = (f: Field) => [...new Set([...saved.models, ...[globalOf(f.key), saved.overrides[f.key], draft[f.key]].filter((v): v is string => typeof v === "string" && v !== "")])];
+  // Unit VW125: with a catalog the pickers list the whole oc2 list, so the yaml models are not needed here. The default, the global value, the file value and the draft value stay, so a value outside the list shows "(current)".
+  const modelList = (f: Field) => [...new Set([...(catalog ? [] : saved.models), ...[saved.defaults[f.key], globalOf(f.key), saved.overrides[f.key], draft[f.key]].filter((v): v is string => typeof v === "string" && v !== "")])];
   const statusBadge = (f: Field) => {
     const status = statusOf(f);
     return status === "" ? null : <><span data-changed-badge className="rounded bg-amber-100 px-2 text-sm text-amber-800">{STATUS_TEXT[status]}</span><span data-effect className="ml-2 text-sm text-muted">{effect(f.key)}</span></>;
@@ -130,7 +134,7 @@ export default function BookSettingsForm({ slug, title, initialText }: { slug: s
           <button type="button" className={button} disabled={busy} onClick={reload}>Reload file (discard changes)</button>
           {notice && <p role={notice.kind === "error" ? "alert" : "status"} data-book-settings-notice={notice.kind} className={"min-w-0 break-words text-sm " + (notice.kind === "error" ? "text-red-700" : "text-accent")}>{notice.text}</p>}
         </div>
-        {showFields && <SettingsFields idPrefix="book-" nameTitle="Name of this setting in the book file" disabled={disabled} errors={errors} resets={resets} modelList={modelList} valueOf={valueOf} defaults={saved.defaults}
+        {showFields && <SettingsFields idPrefix="book-" nameTitle="Name of this setting in the book file" disabled={disabled} errors={errors} resets={resets} modelList={modelList} catalog={catalog} oc2={saved.oc2 ?? null} valueOf={valueOf} defaults={saved.defaults}
           status={statusOf} badge={statusBadge} headingPrefix="book-heading-" sectionPrefix="book-group-" nPlaceholder="Phase rule (no saved N)"
           nRule={<p>{saved.n_rule ?? <span className="text-red-700">{saved.n_rule_error}</span>} A saved N of this book wins over the phase rule and over the global N, for this book only.</p>}
           onValue={setValue} onPickModel={setModel} onEmptyN={dropToGlobal} onCheck={checkField}

@@ -4,6 +4,8 @@
 // A new file, because the dev server keeps old module instances (VW77a).
 import { FIELDS, type Field, type FlatSettings, type Scalar } from "./settings-schema";
 import { DEFAULT_EFFORT, effortAfterModelChange } from "./model-efforts";
+import { effortAfterModelChangeFor } from "./oc2-efforts"; // unit VW125
+import type { Catalog } from "./oc2-models-rules"; // unit VW125
 
 const byKey = (key: string): Field => {
   const f = FIELDS.find((x) => x.key === key);
@@ -77,12 +79,13 @@ export function effortKeyOf(modelKey: string): string {
  * An empty ID changes nothing (row M5: no path writes an empty model).
  * `current(key)` gives the effort that counts now: the draft value, else the global value (book) or the default (global panel).
  */
-export function pickModel(draft: FlatSettings, modelKey: string, id: string, current: (key: string) => Scalar | undefined, stored: readonly string[]): { draft: FlatSettings; reset: boolean; changed: boolean } {
+export function pickModel(draft: FlatSettings, modelKey: string, id: string, current: (key: string) => Scalar | undefined, stored: readonly string[], catalog?: Catalog | null): { draft: FlatSettings; reset: boolean; changed: boolean } {
   if (id.trim() === "") return { draft, reset: false, changed: false };
   const next: FlatSettings = { ...draft, [modelKey]: id };
   const effortKey = effortKeyOf(modelKey);
   const now = current(effortKey);
-  const after = effortAfterModelChange(id, typeof now === "string" ? now : undefined, stored);
+  // Unit VW125 (Q-A 3:118.2 row 3): with a catalog the efforts of the new model come from the list of oc2, else from the static table (as in unit VW123).
+  const after = catalog === undefined || catalog === null ? effortAfterModelChange(id, typeof now === "string" ? now : undefined, stored) : effortAfterModelChangeFor(id, typeof now === "string" ? now : undefined, catalog, stored);
   if (after.reset && after.value !== undefined) next[effortKey] = after.value;
   return { draft: next, reset: after.reset, changed: true };
 }
