@@ -1083,10 +1083,13 @@ await check("no write from a link visitor, in the sources: only the four GET rou
   walk("app/api");
   assert.ok(files.length >= 45, `${files.length} route files`);
   const allow = files.filter((f) => /allowLink/.test(noComments(read(f))));
-  assert.deepEqual(allow.sort(), ["app/api/read/image/[slug]/[page]/route.ts", "app/api/read/month/route.ts", "app/api/read/page/route.ts", "app/api/read/toc/route.ts"]);
+  // Unit VW124 (Q-A 3:117.4 and 3:117.5): the two search routes read only, so they join the four GET routes of the reader pages.
+  assert.deepEqual(allow.sort(), ["app/api/read/book-search/route.ts", "app/api/read/image/[slug]/[page]/route.ts", "app/api/read/month/route.ts", "app/api/read/page/route.ts", "app/api/read/search/route.ts", "app/api/read/toc/route.ts"]);
   for (const f of allow) {
     const s = noComments(read(f));
     assert.ok(!/export async function (POST|PUT|PATCH|DELETE)/.test(s), f + " has only GET");
+    // Unit VW124: a search route answers each write method with the one refusal 405 (lib/search-refuse.ts) and nothing else.
+    assert.ok(!/export const (POST|PUT|PATCH|DELETE) = (?!refuseWrite;)/.test(s), f + " has a write handler that is not the refusal");
     assert.ok(/mutating: false, allowLink: true/.test(s), f);
   }
   // Every route that changes data is guarded by a session, or it is a public form by design, or it is a monitor route (off on the live site, and it never reads the cookie of a link).

@@ -38,7 +38,7 @@ interface PbResult {
 }
 
 /** One request to PocketBase. A bad HTTP status does not throw. A network failure throws a plain PbError with status 503. */
-async function pbFetch(method: string, path: string, opts: { token?: string; body?: unknown; headers?: Record<string, string> } = {}): Promise<PbResult> {
+async function pbFetch(method: string, path: string, opts: { token?: string; body?: unknown; headers?: Record<string, string>; signal?: AbortSignal } = {}): Promise<PbResult> {
   const { pocketbaseUrl } = await loadConfig();
   const headers: Record<string, string> = { Accept: "application/json" };
   if (opts.body !== undefined) headers["Content-Type"] = "application/json";
@@ -52,11 +52,21 @@ async function pbFetch(method: string, path: string, opts: { token?: string; bod
       headers,
       body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
       cache: "no-store",
+      // Unit VW124 (Q-A 3:117.4 row 1): a search call can stop at a time limit. The caller passes an AbortSignal.timeout(...).
+      ...(opts.signal ? { signal: opts.signal } : {}),
     });
   } catch {
+    if (opts.signal?.aborted) throw new PbError(504, "The search took too long.");
     throw new PbError(503, "The sign-in server is not reachable. Start PocketBase and try again.");
   }
-  const text = await res.text();
+  let text: string;
+  try {
+    text = await res.text();
+  } catch (e) {
+    // The time limit can also end while the body arrives. Any other failure stays as it was before this unit.
+    if (opts.signal?.aborted) throw new PbError(504, "The search took too long.");
+    throw e;
+  }
   let data: J = {};
   try {
     data = text ? JSON.parse(text) : {};
@@ -773,12 +783,13 @@ export const SEARCH_HIT_CAP = 2000;
  * Pages whose folded text holds the folded query (round 69 answer 10: the filter ~ on the columns search_en and search_ja).
  * Returns null when the columns do not exist (migration 1793300010 is not applied). A reader who waits for approval gets no hit (rule READ_OK).
  */
-export async function searchReaderPages(token: string, folded: string): Promise<{ hits: PageHit[]; capped: boolean } | null> {
+export async function searchReaderPages(token: string, folded: string, signal?: AbortSignal): Promise<{ hits: PageHit[]; capped: boolean } | null> {
   const hits: PageHit[] = [];
   const filter = `search_en ~ ${q(folded)} || search_ja ~ ${q(folded)}`;
   for (let page = 1; page <= SEARCH_HIT_CAP / 500; page++) {
     const qs = new URLSearchParams({ perPage: "500", page: String(page), skipTotal: "1", fields: "page_id,item_id,n", sort: "item_id,n", filter });
-    const r = await pbFetch("GET", `/api/collections/reader_pages/records?${qs.toString()}`, { token });
+    // Unit VW124: the optional `signal` is the time limit of the search page. A PbError with status 504 says that the limit passed.
+    const r = await pbFetch("GET", `/api/collections/reader_pages/records?${qs.toString()}`, { token, ...(signal ? { signal } : {}) });
     if (r.status === 400) return null;
     if (r.status === 403 || r.status === 404) return { hits: [], capped: false };
     if (!ok(r)) throw failure(r, "PocketBase could not search reader_pages.");
@@ -787,6 +798,22 @@ export async function searchReaderPages(token: string, folded: string): Promise<
     if (items.length < 500) return { hits, capped: false };
   }
   return { hits, capped: true };
+}
+
+/**
+ * Unit VW124 (Q-A 3:117.5 rows 2 and 3): the pages of ONE book whose folded text holds the folded query, in page order, with the rows that the line search reads.
+ * At most `limit` records come back. `more` is true when a later page also matches. The search columns stay out of the answer (they hold up to 100,000 characters each).
+ * Returns null when the columns do not exist (migration 1793300010 is not applied). A reader who waits for approval gets an empty list (rule READ_OK).
+ */
+export async function searchBookPages(token: string, slug: string, folded: string, limit: number, signal?: AbortSignal): Promise<{ records: ReaderPageRecord[]; more: boolean } | null> {
+  const filter = `item_id=${q(slug)} && (search_en ~ ${q(folded)} || search_ja ~ ${q(folded)})`;
+  const qs = new URLSearchParams({ perPage: String(limit + 1), page: "1", skipTotal: "1", fields: "page_id,item_id,n,run_id,rows,terms,extras,agree", sort: "n", filter });
+  const r = await pbFetch("GET", `/api/collections/reader_pages/records?${qs.toString()}`, { token, ...(signal ? { signal } : {}) });
+  if (r.status === 400) return null;
+  if (r.status === 403 || r.status === 404) return { records: [], more: false };
+  if (!ok(r)) throw failure(r, "PocketBase could not search reader_pages.");
+  const items = (r.data.items ?? []) as J[];
+  return { records: items.slice(0, limit).map(toReaderPage), more: items.length > limit };
 }
 
 // ---- reading progress and bookmarks (own records only)

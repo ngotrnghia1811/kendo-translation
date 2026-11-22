@@ -14,7 +14,8 @@ import type { SearchView } from "@/lib/reader-data";
 export const SEARCH_HINT = "Search titles, authors, and text (seme, Chūzumi, 攻め)";
 
 // Unit VW112 (Q-A 3:78.4 row 4): the human translation view /translate uses the same box with action "/translate" and its own hint.
-export function SearchBox({ query, action = "/read", hint = SEARCH_HINT }: { query: string; action?: string; hint?: string }) {
+// Unit VW124 (Q-A 3:117.4 row 5): `children` come after the button inside the form. The Reader dashboard /read puts the link "Search all" there.
+export function SearchBox({ query, action = "/read", hint = SEARCH_HINT, children }: { query: string; action?: string; hint?: string; children?: React.ReactNode }) {
   return (
     <form action={action} method="get" role="search" className="mb-3 flex flex-wrap gap-2" data-search-form>
       <label htmlFor="read-q" className="sr-only">
@@ -34,6 +35,7 @@ export function SearchBox({ query, action = "/read", hint = SEARCH_HINT }: { que
       <button type="submit" data-search-submit className="min-h-[44px] rounded border border-line px-4 py-1 font-semibold md:min-h-0">
         Search
       </button>
+      {children}
     </form>
   );
 }

@@ -1,6 +1,7 @@
 import ReaderBar from "@/components/ReaderBar";
 import ReaderList from "@/components/ReaderList";
 import ReaderSearch, { SearchBox } from "@/components/ReaderSearch";
+import SearchAllLink from "@/components/SearchAllLink";
 import { requireReaderOrLink } from "@/lib/view-link-server";
 import { bookTocRecords } from "@/lib/pb";
 import { digitsOf, findFold, lazyMonths, withTocRows } from "@/lib/reader-folds";
@@ -55,7 +56,10 @@ export default async function ReadList({ searchParams }: { searchParams: Promise
         </p>
       ) : null}
       <h1 className="mb-3 text-2xl font-semibold">{DASHBOARD_TITLE}</h1>
-      <SearchBox query={search?.query ?? ""} />
+      <SearchBox query={search?.query ?? ""}>
+        {/* Unit VW124 (Q-A 3:117.4 row 5): the link "Search all" opens /search with the same words. */}
+        <SearchAllLink query={search?.query ?? ""} />
+      </SearchBox>
       {search ? (
         <ReaderSearch view={search} approved={s.user.approved} />
       ) : (

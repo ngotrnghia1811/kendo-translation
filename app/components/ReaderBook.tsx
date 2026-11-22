@@ -1,7 +1,10 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import BookSearch from "./BookSearch"; // unit VW124 (Q-A 3:117.5)
+import SearchMark from "./SearchMark"; // unit VW124 (Q-A 3:117.4 row 3, Q-A 3:117.5 row 4)
+import { SEARCH_WORDS } from "@/lib/search-core"; // unit VW124
 import { TermPopup, type PickedTerm } from "./HtvMarkedText";
 import { CollapsedBar, CollapseButton } from "./HtvPanelFrame";
 import { THEME_EVENT } from "./ThemeSwitch";
@@ -133,6 +136,8 @@ export default function ReaderBook({
   const [showList, setShowList] = useState(false);
   const [panelSeen, setPanelSeen] = useState(Boolean(settings.panelSeen));
   const [sheet, setSheet] = useState(false);
+  // Unit VW124 (Q-A 3:117.5 row 1): the search panel of the reading view. The toolbar button and the key / open it, the key Escape closes it.
+  const [showBookSearch, setShowBookSearch] = useState(false);
   const [bookmarks, setBookmarks] = useState<BookmarkView[]>(initialBookmarks);
   const [currentN, setCurrentN] = useState<number | null>(at);
   const [box, setBox] = useState("");
@@ -442,6 +447,8 @@ export default function ReaderBook({
       <div data-book-screen>
         {note ? <p className="mb-2 text-sm text-red-700">{note}</p> : null}
         {meta}
+        {/* Unit VW124 (Q-A 3:117.5 row 1): the search box of the book screen. It searches all opened pages of this book. */}
+        <BookSearch slug={index.slug} view={s.view} mode="screen" />
         <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
           {start ? (
             <Link href={readHref(index.slug, s.view, start, index.digits)} className="min-h-[44px] rounded bg-accent px-4 py-2 font-semibold text-white md:min-h-0 md:py-1.5" data-continue>
@@ -515,6 +522,9 @@ export default function ReaderBook({
   if (s.focus) {
     return (
       <div className="fixed inset-0 z-40 overflow-auto bg-background px-4 py-8" data-focus-mode>
+        <Suspense fallback={null}>
+          <SearchMark at={at} view={s.view} />
+        </Suspense>
         {content}
         {popup}
         {firstVisit ? settingsPanel : null}
@@ -613,6 +623,9 @@ export default function ReaderBook({
                   ) : null}
                 </>
               ) : null}
+              <button type="button" onClick={() => setShowBookSearch((v) => !v)} aria-expanded={showBookSearch} data-book-search-open title="Search in this book (press /)" className="min-h-[44px] rounded border border-line px-2 py-1 text-sm md:min-h-0">
+                {SEARCH_WORDS.title}
+              </button>
               {linkVisitor ? null : (
                 <button type="button" onClick={() => void toggleBookmark()} aria-pressed={Boolean(marked)} data-bookmark-toggle className="rounded border border-line px-2 py-1 text-sm">
                   {marked ? "Remove bookmark" : "Bookmark"}
@@ -627,6 +640,18 @@ export default function ReaderBook({
             </span>
           </div>
           {boxNote ? <p role="alert" className="mb-2 text-xs text-red-700">{boxNote}</p> : null}
+          <BookSearch
+            slug={index.slug}
+            view={s.view}
+            mode="reading"
+            open={showBookSearch}
+            blocked={showSettings || showList || firstVisit || picked !== null || sheet}
+            onOpen={() => setShowBookSearch(true)}
+            onClose={() => setShowBookSearch(false)}
+          />
+          <Suspense fallback={null}>
+            <SearchMark at={at} view={s.view} />
+          </Suspense>
           {content}
           {s.view === "page" ? (
             <p className="mx-auto mt-8 flex max-w-[72ch] justify-between text-sm">

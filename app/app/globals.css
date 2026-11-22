@@ -597,3 +597,11 @@ body[data-reorder-active],
 body[data-reorder-active] * {
   cursor: grabbing !important;
 }
+
+/* Unit VW124 (Q-A 3:117.4 row 3, Q-A 3:117.5 row 4): the match of a search in the reading view is yellow. components/SearchMark.tsx fills the highlight "search-hit"
+   with the ranges of the match (CSS Custom Highlight API), so the term marks and the layout of the text stay as they are.
+   --color-amber-200 has its own value in each of the five themes (the blocks above), and the text stays --foreground, so the match is readable in the dark theme too. */
+::highlight(search-hit) {
+  background-color: var(--color-amber-200, #fde68a);
+  color: var(--foreground, inherit);
+}
