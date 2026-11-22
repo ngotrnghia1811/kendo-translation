@@ -2,8 +2,9 @@
 import { useState } from "react";
 import type { BookSettingsSnapshot } from "@/lib/book-settings";
 import { parseSettingsJson, pythonJson, stringifySettingsJson } from "@/lib/settings-json";
-import { modelOptionText, optionText } from "@/lib/readable-names";
-import { FIELDS, GROUPS, MODEL_WARNING, N_RULE_STOP, diffSettings, effect, nestSettings, validateSettings, valueError, type Field, type FlatSettings, type Scalar } from "@/lib/settings-schema";
+import { FIELDS, N_RULE_STOP, diffSettings, effect, nestSettings, validateSettings, valueError, type Field, type FlatSettings, type Scalar } from "@/lib/settings-schema";
+import { effortKeyOf, pickModel } from "@/lib/settings-layout";
+import SettingsFields from "./SettingsFields";
 import { SOURCE_BOOK, bookFileLabel, changedCount, globalValueText, historyValueText, labelBookError, pstText, sectionTitle, valueText } from "@/lib/book-settings-rules";
 
 // Unit VW122 (plan P61, card P61.2). Owner words (Q-A 3:109.5, 2026-11-21): "I want to be able to set the config of each run, before pressing run button in `http://localhost:3000/monitor/etiqu1_full`".
@@ -12,10 +13,13 @@ import { SOURCE_BOOK, bookFileLabel, changedCount, globalValueText, historyValue
 // The global form (components/RunSettingsForm.tsx) stays as it is.
 // Edit model (unit default): an edit puts the key into the draft. "Use global" takes the key out of the draft. One "Save" writes the whole draft as the book file and one history line.
 // A broken book file (row 11): the error line shows and the form keeps the file as it is. Save and "Use global" write nothing until the file is correct (reload after a fix).
+// Unit VW123 (plan P63, Q-A 3:116.4 and 3:116.5, owner issue 2026-11-22 05:36 PST): the fields are drawn by components/SettingsFields.tsx, which the global panel shares.
+// The model button with a search list and the Thinking menu replace the model select, the box "Other model ID" and the free effort box. The box wrote levels.2.model "" after a cleared box. No path writes an empty model now.
+// The state, the checks, the save and the history of this page stay here and work as in VW122.
 
-const control = "w-full rounded border border-line bg-white px-3 py-2 text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 const button = "rounded border border-line bg-white px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60";
 const primary = button.replace("bg-white", "bg-accent text-white");
+const small = button.replace("px-3 py-2", "px-2 py-1");
 
 type Status = "" | "changed" | "edited" | "removing" | "new";
 const STATUS_TEXT: Record<Exclude<Status, "">, string> = {
@@ -29,7 +33,8 @@ export default function BookSettingsForm({ slug, title, initialText }: { slug: s
   const [saved, setSaved] = useState(() => parseSettingsJson(initialText) as BookSettingsSnapshot);
   const [draft, setDraft] = useState<FlatSettings>(() => (parseSettingsJson(initialText) as BookSettingsSnapshot).overrides);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [other, setOther] = useState<Record<string, boolean>>({});
+  // Keys of effort fields that the last model pick reset to "default" (Q-A 3:116.4 row M6). The form shows "Effort reset to default for this model" next to them.
+  const [resets, setResets] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const changes = diffSettings(saved.overrides, draft);
@@ -40,15 +45,27 @@ export default function BookSettingsForm({ slug, title, initialText }: { slug: s
   // The global value of a key: the merge view holds it (global file, else default, and no value for N with no saved N).
   const globalOf = (key: string): Scalar | undefined => saved.effective.find((r) => r.key === key)?.globalValue;
 
-  function replace(next: BookSettingsSnapshot) { setSaved(next); setDraft(next.overrides); setErrors({}); setOther({}); }
+  function replace(next: BookSettingsSnapshot) { setSaved(next); setDraft(next.overrides); setErrors({}); setResets({}); }
   function setValue(f: Field, value: Scalar) {
     setDraft((prev) => ({ ...prev, [f.key]: value }));
     setNotice(null);
+    setResets((p) => ({ ...p, [f.key]: false }));
     setErrors((prev) => { const next = { ...prev }; delete next[f.key]; return next; });
+  }
+  // Unit VW123 (row M5, M6): a pick of the model picker. An empty ID writes nothing. When the new model does not offer the current effort, the effort goes to "default".
+  function setModel(f: Field, id: string, stored: string[]) {
+    const effortKey = effortKeyOf(f.key);
+    const effort = FIELDS.find((x) => x.key === effortKey);
+    const result = pickModel(draft, f.key, id, (key) => (effort && key === effortKey ? valueOf(effort) : undefined), stored);
+    if (!result.changed) return;
+    setDraft(result.draft);
+    setResets((p) => ({ ...p, [effortKey]: result.reset }));
+    setNotice(null);
+    setErrors((prev) => { const next = { ...prev }; delete next[f.key]; delete next[effortKey]; return next; });
   }
   function dropToGlobal(f: Field) {
     setDraft((prev) => { const next = { ...prev }; delete next[f.key]; return next; });
-    setOther((p) => ({ ...p, [f.key]: false }));
+    setResets((p) => ({ ...p, [f.key]: false }));
     setErrors((p) => { const n = { ...p }; delete n[f.key]; return n; });
     setNotice(null);
   }
@@ -88,30 +105,17 @@ export default function BookSettingsForm({ slug, title, initialText }: { slug: s
     finally { setBusy(false); }
   }
 
-  function input(f: Field) {
-    const value = valueOf(f);
-    const props = { id: "book-" + f.key, disabled, onBlur: () => checkField(f), "aria-describedby": `book-${f.key}-help book-${f.key}-error`, "aria-invalid": !!errors[f.key], className: control };
-    if (f.kind === "boolean" || f.kind === "mode") return <select {...props} value={String(value)} onChange={(e) => setValue(f, f.kind === "boolean" ? e.target.value === "true" : e.target.value)}>{(f.kind === "boolean" ? ["true", "false"] : ["separate", "session"]).map((v) => <option key={v} value={v}>{optionText(f.key, v)}</option>)}</select>;
-    if (f.kind === "model") {
-      // A value that is in use already (the global value, or the value saved in the book file) is a normal option, even when the yaml list lacks it.
-      // Only a new ID that you type ("Other…") gets the warning of the global panel. Unit VW122: the field of a book that follows a global ID such as xai/grok-4.7 shows no warning.
-      const known = [...new Set([...saved.models, ...[globalOf(f.key), saved.overrides[f.key]].filter((v): v is string => typeof v === "string" && v !== "")])];
-      const custom = other[f.key] || !known.includes(String(value));
-      return <div className="space-y-2"><select {...props} value={custom ? "__other" : String(value)} onChange={(e) => { const c = e.target.value === "__other"; setOther((p) => ({ ...p, [f.key]: c })); if (!c) setValue(f, e.target.value); }}>
-        {known.map((m) => <option key={m} value={m} title={`Model ID: ${m}`}>{modelOptionText(m)}</option>)}<option value="__other">Other…</option>
-      </select>{custom && <><label htmlFor={"book-" + f.key + "-other"} className="block text-sm">Other model ID</label><input {...props} id={"book-" + f.key + "-other"} value={String(value ?? "")} onChange={(e) => setValue(f, e.target.value)} /><p className="text-sm text-amber-800">{MODEL_WARNING}</p></>}</div>;
-    }
-    if (f.kind === "variant") return <><input {...props} list={"book-" + f.key + "-efforts"} value={String(value ?? "")} onChange={(e) => setValue(f, e.target.value)} /><datalist id={"book-" + f.key + "-efforts"}>{saved.variants.map((v) => <option key={v} value={v} />)}</datalist></>;
-    return <input {...props} type="number" min={f.min} max={f.max} step="1" placeholder={f.key === "update.N" ? "Phase rule (no saved N)" : undefined} value={value === undefined || value === null ? "" : String(value)} onChange={(e) => {
-      const text = e.target.value;
-      // An empty N field means "no N for this book": the key leaves the draft (the global N or the phase rule applies).
-      if (f.key === "update.N" && text === "") { dropToGlobal(f); return; }
-      try { setValue(f, text === "" ? "" : parseSettingsJson(text) as Scalar); }
-      catch { setValue(f, text); }
-    }} />;
-  }
+  // The models of a model field (row M7): the yaml models, plus the global value, the value of the book file and the value of the draft when they are missing there.
+  const modelList = (f: Field) => [...new Set([...saved.models, ...[globalOf(f.key), saved.overrides[f.key], draft[f.key]].filter((v): v is string => typeof v === "string" && v !== "")])];
+  const statusBadge = (f: Field) => {
+    const status = statusOf(f);
+    return status === "" ? null : <><span data-changed-badge className="rounded bg-amber-100 px-2 text-sm text-amber-800">{STATUS_TEXT[status]}</span><span data-effect className="ml-2 text-sm text-muted">{effect(f.key)}</span></>;
+  };
+  const nextText = (f: Field, row: NonNullable<ReturnType<typeof rowOf>>) => <><span>{effect(f.key) === "Next page" ? "Next page uses" : "Next book start uses"}: {row.key === "update.N" && row.value == null ? "phase rule (no saved N)" : valueText(row.key, row.value)}</span> <span className={row.source === SOURCE_BOOK ? "font-semibold text-amber-800" : "text-muted"}>({row.source})</span></>;
+  function rowOf(key: string) { return saved.effective.find((r) => r.key === key); }
+  const globalButton = (f: Field) => Object.hasOwn(draft, f.key) ? <button type="button" data-use-global={f.key} aria-label={`Use global for ${f.label}`} className={small} disabled={disabled} onClick={() => dropToGlobal(f)}>Use global</button> : null;
 
-  return <section data-part="book-settings" className="mb-6">
+  return <section data-part="book-settings" className="mx-auto mb-6 max-w-[1600px]">
     <details data-book-settings className="rounded border border-line bg-white">
       <summary data-book-settings-summary className="cursor-pointer px-3 py-2 text-sm font-semibold">{sectionTitle(changedCount(saved.overrides))}</summary>
       <div className="min-w-0 border-t border-line p-3 md:p-4">
@@ -126,35 +130,25 @@ export default function BookSettingsForm({ slug, title, initialText }: { slug: s
           <button type="button" className={button} disabled={busy} onClick={reload}>Reload file (discard changes)</button>
           {notice && <p role={notice.kind === "error" ? "alert" : "status"} data-book-settings-notice={notice.kind} className={"min-w-0 break-words text-sm " + (notice.kind === "error" ? "text-red-700" : "text-accent")}>{notice.text}</p>}
         </div>
-        {showFields && <div className="min-w-0 space-y-6">
-          {GROUPS.map((g, i) => <section key={g} aria-labelledby={`book-heading-${i}`} className="border-t border-line pt-4">
-            <h3 id={`book-heading-${i}`} className="text-base font-semibold">{i + 1}. {g}</h3>
-            {i === 0 && <p className="mt-1 max-w-prose text-sm">{saved.n_rule ?? <span className="text-red-700">{saved.n_rule_error}</span>} A saved N of this book wins over the phase rule and over the global N, for this book only.</p>}
-            {FIELDS.filter((f) => f.group === i).map((f) => {
-              const row = saved.effective.find((r) => r.key === f.key);
-              const status = statusOf(f);
-              return <div key={f.key} data-field={f.key} data-field-status={status} className="mt-4 min-w-0 rounded border border-line bg-white p-3">
-                <div className="flex flex-wrap items-baseline gap-2">
-                  <label htmlFor={"book-" + f.key} className="font-semibold">{f.label}</label>
-                  {status !== "" && <span data-changed-badge className="rounded bg-amber-100 px-2 text-sm text-amber-800">{STATUS_TEXT[status]}</span>}
-                  {status !== "" && <span data-effect className="text-sm text-muted">{effect(f.key)}</span>}
-                </div>
-                <p className="mt-1 text-sm text-muted">{f.meaning}</p><p className="mt-1 break-all text-xs text-muted" title="Name of this setting in the book file">{f.key}</p>
-                <div className="my-3 max-w-xl">{input(f)}</div>
-                <p id={`book-${f.key}-help`} className="text-sm text-muted">{f.allowed}. Unit: {f.unit}. Takes effect: {effect(f.key).toLowerCase()}.</p>
-                <p id={`book-${f.key}-error`} role={errors[f.key] ? "alert" : undefined} className="mt-2 break-words text-sm text-red-700">{errors[f.key]}</p>
-                {row && <p data-global-value className="mt-1 break-words text-sm text-muted">Global value: {globalValueText(row)}</p>}
-                {row && <p data-next-value data-source={row.source} className="mt-1 break-words text-sm">{effect(f.key) === "Next page" ? "Next page uses" : "Next book start uses"}: {row.key === "update.N" && row.value == null ? "phase rule (no saved N)" : valueText(row.key, row.value)} <span className={row.source === SOURCE_BOOK ? "font-semibold text-amber-800" : "text-muted"}>({row.source})</span></p>}
-                {Object.hasOwn(draft, f.key) && <div className="mt-3"><button type="button" data-use-global={f.key} className={button} disabled={disabled} onClick={() => dropToGlobal(f)}>Use global</button></div>}
-              </div>;
-            })}
-          </section>)}
-        </div>}
+        {showFields && <SettingsFields idPrefix="book-" nameTitle="Name of this setting in the book file" disabled={disabled} errors={errors} resets={resets} modelList={modelList} valueOf={valueOf} defaults={saved.defaults}
+          status={statusOf} badge={statusBadge} headingPrefix="book-heading-" sectionPrefix="book-group-" nPlaceholder="Phase rule (no saved N)"
+          nRule={<p>{saved.n_rule ?? <span className="text-red-700">{saved.n_rule_error}</span>} A saved N of this book wins over the phase rule and over the global N, for this book only.</p>}
+          onValue={setValue} onPickModel={setModel} onEmptyN={dropToGlobal} onCheck={checkField}
+          footer={(f) => { const row = rowOf(f.key); return <>
+            {row && <span data-global-value className="break-words text-muted">Global value: {globalValueText(row)}</span>}
+            {row && <span data-next-value data-source={row.source} className="break-words">{nextText(f, row)}</span>}
+            {globalButton(f)}
+          </>; }}
+          extraColumns={[
+            { id: "global", header: "Global value", cell: (f) => { const row = rowOf(f.key); return row ? <span data-global-value className="text-muted">{globalValueText(row)}</span> : null; } },
+            { id: "state", header: "State", cell: (f) => { const row = rowOf(f.key); return <>{statusBadge(f)}{row && <span data-next-value data-source={row.source} className="block text-xs">{nextText(f, row)}</span>}</>; } },
+            { id: "use", header: "Use global", cell: globalButton },
+          ]} />}
         {/* pr-16: the round tool icon of the Monitor dashboard sits at the bottom right and must not cover the Save button. */}
         <div className="sticky bottom-0 mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-white py-3 pr-16">
           <p aria-live="polite" data-unsaved>{changes.length} unsaved {changes.length === 1 ? "change" : "changes"}</p>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className={button} disabled={busy || !changes.length} onClick={() => { setDraft(saved.overrides); setErrors({}); setOther({}); setNotice(null); }}>Discard changes</button>
+            <button type="button" className={button} disabled={busy || !changes.length} onClick={() => { setDraft(saved.overrides); setErrors({}); setResets({}); setNotice(null); }}>Discard changes</button>
             <button type="button" data-save className={primary} disabled={disabled || !changes.length || Object.values(errors).some(Boolean)} onClick={save}>Save</button>
           </div>
         </div>

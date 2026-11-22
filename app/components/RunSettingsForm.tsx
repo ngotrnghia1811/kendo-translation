@@ -3,12 +3,14 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { SettingsSnapshot, ActiveBook } from "@/lib/settings-run";
 import { parseSettingsJson, pythonJson, stringifySettingsJson } from "@/lib/settings-json";
-import { bookKeyLabel, modelOptionText, optionText } from "@/lib/readable-names";
-import { FIELDS, GROUPS, N_RULE_STOP, OLD_N, MODEL_WARNING, diffSettings, effect, nestSettings, showValue, validateSettings, valueError, type FlatSettings, type Field, type Scalar } from "@/lib/settings-schema";
+import { bookKeyLabel, optionText } from "@/lib/readable-names";
+import { FIELDS, GROUPS, N_RULE_STOP, OLD_N, diffSettings, nestSettings, showValue, validateSettings, valueError, type FlatSettings, type Field, type Scalar } from "@/lib/settings-schema";
+import { effortKeyOf, pickModel } from "@/lib/settings-layout";
+import SettingsFields from "./SettingsFields";
 
-const control = "w-full rounded border border-line bg-white px-3 py-2 text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 const button = "rounded border border-line bg-white px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60";
 const primary = button.replace("bg-white", "bg-accent text-white");
+const small = button.replace("px-3 py-2", "px-2 py-1");
 function pst(utc: string) {
   const date = new Date(Date.parse(utc) - 8 * 3600_000);
   return Number.isNaN(date.getTime()) ? "Time unreadable" : date.toISOString().slice(0, 19).replace("T", " ") + " PST (UTC-8)";
@@ -47,7 +49,8 @@ export default function RunSettingsForm({ initialText, pageLabels = {}, bookLabe
   const [saved, setSaved] = useState(() => parseSettingsJson(initialText) as SettingsSnapshot);
   const [draft, setDraft] = useState<FlatSettings>(() => (parseSettingsJson(initialText) as SettingsSnapshot).overrides);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [other, setOther] = useState<Record<string, boolean>>({});
+  // Unit VW123 (Q-A 3:116.4 row M6): keys of effort fields that the last model pick reset to "default". The panel shows "Effort reset to default for this model" next to them.
+  const [resets, setResets] = useState<Record<string, boolean>>({});
   const [review, setReview] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
@@ -55,16 +58,28 @@ export default function RunSettingsForm({ initialText, pageLabels = {}, bookLabe
   const changes = diffSettings(saved.overrides, draft);
   const changed = new Set(changes.map((c) => c.key));
   const disabled = busy || !!saved.error;
-  function replace(next: SettingsSnapshot) { setSaved(next); setDraft(next.overrides); setErrors({}); setOther({}); }
+  function replace(next: SettingsSnapshot) { setSaved(next); setDraft(next.overrides); setErrors({}); setResets({}); }
   function closeReview() { setReview(false); reviewButton.current?.focus(); }
   function setValue(f: Field, value: Scalar) {
     setDraft((prev) => ({ ...prev, [f.key]: value }));
     setNotice("");
+    setResets((p) => ({ ...p, [f.key]: false }));
     setErrors((prev) => { const next = { ...prev }; delete next[f.key]; return next; });
+  }
+  // Unit VW123 (rows M5, M6): a pick of the model picker. An empty ID writes nothing. When the new model does not offer the current effort, the effort goes to "default".
+  function setModel(f: Field, id: string, stored: string[]) {
+    const effortKey = effortKeyOf(f.key);
+    const effort = FIELDS.find((x) => x.key === effortKey);
+    const result = pickModel(draft, f.key, id, (key) => (effort && key === effortKey ? valueOf(effort) : undefined), stored);
+    if (!result.changed) return;
+    setDraft(result.draft);
+    setResets((p) => ({ ...p, [effortKey]: result.reset }));
+    setNotice("");
+    setErrors((prev) => { const next = { ...prev }; delete next[f.key]; delete next[effortKey]; return next; });
   }
   function reset(f: Field) {
     setDraft((prev) => { const next = { ...prev }; if (f.key === "update.N") delete next[f.key]; else next[f.key] = saved.defaults[f.key]; return next; });
-    setOther((p) => ({ ...p, [f.key]: false }));
+    setResets((p) => ({ ...p, [f.key]: false }));
     setErrors((p) => { const n = { ...p }; delete n[f.key]; return n; });
     setNotice("");
   }
@@ -95,25 +110,11 @@ export default function RunSettingsForm({ initialText, pageLabels = {}, bookLabe
     } catch (e) { setNotice((e as Error).message); }
     finally { setBusy(false); closeReview(); }
   }
-  function input(f: Field) {
-    const value = valueOf(f);
-    const props = { id: f.key, disabled, onBlur: () => checkField(f), "aria-describedby": f.key + "-help " + f.key + "-error", "aria-invalid": !!errors[f.key], className: control };
-    if (f.kind === "boolean" || f.kind === "mode") return <select {...props} value={String(value)} onChange={(e) => setValue(f, f.kind === "boolean" ? e.target.value === "true" : e.target.value)}>{(f.kind === "boolean" ? ["true", "false"] : ["separate", "session"]).map((v) => <option key={v} value={v}>{optionText(f.key, v)}</option>)}</select>;
-    if (f.kind === "model") {
-      const custom = other[f.key] || !saved.models.includes(String(value));
-      return <div className="space-y-2"><select {...props} value={custom ? "__other" : String(value)} onChange={(e) => { const custom = e.target.value === "__other"; setOther((p) => ({ ...p, [f.key]: custom })); if (!custom) setValue(f, e.target.value); }}>
-        {saved.models.map((m) => <option key={m} value={m} title={`Model ID: ${m}`}>{modelOptionText(m)}</option>)}<option value="__other">Other…</option>
-      </select>{custom && <><label htmlFor={f.key + "-other"} className="block text-sm">Other model ID</label><input {...props} id={f.key + "-other"} value={String(value ?? "")} onChange={(e) => setValue(f, e.target.value)} /><p className="text-sm text-amber-800">{MODEL_WARNING}</p></>}</div>;
-    }
-    if (f.kind === "variant") return <><input {...props} list={f.key + "-efforts"} value={String(value ?? "")} onChange={(e) => setValue(f, e.target.value)} /><datalist id={f.key + "-efforts"}>{saved.variants.map((v) => <option key={v} value={v} />)}</datalist></>;
-    return <input {...props} type="number" min={f.min} max={f.max} step="1" placeholder={f.key === "update.N" ? "Phase rule (no override)" : undefined} value={value === undefined || value === null ? "" : String(value)} onChange={(e) => {
-      const text = e.target.value;
-      if (f.key === "update.N" && text === "") { setDraft((p) => { const n = { ...p }; delete n[f.key]; return n; }); setErrors((p) => { const n = { ...p }; delete n[f.key]; return n; }); setNotice(""); return; }
-      try { setValue(f, text === "" ? "" : parseSettingsJson(text) as Scalar); }
-      catch { setValue(f, text); }
-    }} />;
-  }
-  return <main className="mx-auto max-w-6xl px-4 py-8 md:px-8">
+  // The models of a model field (row M7): the yaml models, plus the value of the settings file and the value of the draft when they are missing there.
+  const modelList = (f: Field) => [...new Set([...saved.models, ...[saved.overrides[f.key], draft[f.key]].filter((v): v is string => typeof v === "string" && v !== "")])];
+  const badge = (f: Field) => changed.has(f.key) ? <span className="rounded bg-amber-100 px-2 text-sm text-amber-800">Changed</span> : Object.hasOwn(saved.overrides, f.key) && (f.key === "update.N" || pythonJson(saved.overrides[f.key]) !== pythonJson(saved.defaults[f.key])) ? <span className="rounded bg-stone-100 px-2 text-sm text-stone-600">Not default</span> : null;
+  const defaultText = (f: Field) => f.key === "update.N" ? "phase rule (no override)" : valueText(f.key, saved.defaults[f.key]);
+  return <main className="mx-auto max-w-[1600px] px-4 py-8 md:px-8">
     <p className="mb-2 text-sm text-muted"><Link href="/" className="text-accent underline">Monitor dashboard / on this Mac</Link> / Run settings</p>
     <h1 className="text-3xl font-semibold">Run settings</h1>
     <div className="my-5 border-y border-line py-4 text-sm"><ActiveBooks active={saved.active} labels={pageLabels} bookLabels={bookLabels} /></div>
@@ -125,18 +126,12 @@ export default function RunSettingsForm({ initialText, pageLabels = {}, bookLabe
     <div className="mt-3 grid gap-8 md:grid-cols-[13rem_minmax(0,1fr)]">
       <aside><nav aria-label="Settings groups" className="flex flex-wrap gap-2 md:sticky md:top-4 md:flex-col md:gap-1">{GROUPS.map((g, i) => <a key={g} href={`#group-${i}`} className="rounded px-2 py-2 text-sm text-accent underline focus-visible:outline-2 focus-visible:outline-accent">{i + 1}. {g}</a>)}<a href="#change-history" className="px-2 py-2 text-sm text-accent underline">Change history</a></nav></aside>
       <div className="min-w-0 space-y-10 pb-6">
-        {GROUPS.map((g, i) => <section key={g} id={`group-${i}`} aria-labelledby={`heading-${i}`} className="scroll-mt-6 border-t border-line pt-5">
-          <h2 id={`heading-${i}`} className="section-band text-xl font-semibold">{i + 1}. {g}</h2>
-          {i === 0 && <p className="mt-2 max-w-prose text-sm">{saved.n_rule ?? <span className="text-red-700">{saved.n_rule_error}</span>} Reset removes update.N{saved.defaults["update.N"] === undefined ? "" : ` instead of saving ${showValue(saved.defaults["update.N"])}`}.</p>}
-          {FIELDS.filter((f) => f.group === i).map((f) => <div key={f.key} className="mt-6 rounded border border-line bg-white p-4">
-            <div className="flex flex-wrap items-baseline gap-2"><label htmlFor={f.key} className="font-semibold">{f.label}</label>{changed.has(f.key) ? <span className="rounded bg-amber-100 px-2 text-sm text-amber-800">Changed</span> : Object.hasOwn(saved.overrides, f.key) && (f.key === "update.N" || pythonJson(saved.overrides[f.key]) !== pythonJson(saved.defaults[f.key])) ? <span className="rounded bg-stone-100 px-2 text-sm text-stone-600">Not default</span> : null}</div>
-            <p className="mt-1 text-sm text-muted">{f.meaning}</p><p className="mt-1 break-all text-xs text-muted" title="Name of this setting in translator-settings.json">{f.key}</p>
-            <div className="my-3 max-w-xl">{input(f)}</div>
-            <p id={f.key + "-help"} className="text-sm text-muted">{f.allowed}. Unit: {f.unit}. Takes effect: {effect(f.key).toLowerCase()}.</p>
-            <p id={f.key + "-error"} role={errors[f.key] ? "alert" : undefined} className="mt-2 text-sm text-red-700">{errors[f.key]}</p>
-            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm"><span className="break-words">Default: {f.key === "update.N" ? "phase rule (no override)" : valueText(f.key, saved.defaults[f.key])}</span><button className={button} disabled={disabled} onClick={() => reset(f)}>Reset {f.label}</button></div>
-          </div>)}
-        </section>)}
+        <SettingsFields idPrefix="" nameTitle="Name of this setting in translator-settings.json" disabled={disabled} errors={errors} resets={resets} modelList={modelList} valueOf={valueOf} defaults={saved.defaults}
+          status={(f) => changed.has(f.key) ? "changed" : ""} badge={badge} headingPrefix="heading-" sectionPrefix="group-" nPlaceholder="Phase rule (no override)"
+          nRule={<p>{saved.n_rule ?? <span className="text-red-700">{saved.n_rule_error}</span>} Reset removes update.N{saved.defaults["update.N"] === undefined ? "" : ` instead of saving ${showValue(saved.defaults["update.N"])}`}.</p>}
+          onValue={setValue} onPickModel={setModel} onEmptyN={(f) => { setDraft((p) => { const n = { ...p }; delete n[f.key]; return n; }); setErrors((p) => { const n = { ...p }; delete n[f.key]; return n; }); setNotice(""); }} onCheck={checkField}
+          footer={(f) => <><span className="break-words">Default: {defaultText(f)}</span><button type="button" className={small} disabled={disabled} onClick={() => reset(f)}>Reset {f.label}</button></>}
+          extraColumns={[{ id: "state", header: "State", cell: (f) => <>{badge(f)}<span className="block text-xs text-muted">Default: {defaultText(f)}</span><button type="button" className={small} disabled={disabled} onClick={() => reset(f)}>Reset {f.label}</button></> }]} />
         <section id="change-history" className="scroll-mt-6 border-t border-line pt-5"><h2 className="section-band text-xl font-semibold">Change history</h2><p className="my-2 text-sm text-muted">Last 20 saves. <a className="text-accent underline" href="/api/settings/run?history=1">Download the full history file</a></p>
           {!saved.history.length ? <p>No entry yet.</p> : <ol className="divide-y divide-line">{saved.history.map((h) => <li key={h.sha1_after} className="py-4 text-sm"><p className="font-semibold">Revision {String(h.revision)} · {pst(h.utc)}</p><ul className="mt-2 space-y-1">{h.changes.map((c) => <li key={c.key} className="break-words" title={c.key}>{FIELDS.find((f) => f.key === c.key)?.label ?? c.key}: {valueText(c.key, c.old_present ? c.old : undefined)} → {valueText(c.key, c.new_present ? c.new : undefined)} <span className="font-mono text-xs text-muted">{c.key}</span></li>)}</ul></li>)}</ol>}
         </section>
@@ -144,7 +139,7 @@ export default function RunSettingsForm({ initialText, pageLabels = {}, bookLabe
     </div>
     <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-white py-4">
       <p aria-live="polite">{changes.length} unsaved changes</p>
-      <div className="flex flex-wrap gap-2"><button className={button} disabled={disabled} onClick={() => { const next = { ...saved.defaults }; delete next["update.N"]; setDraft(next); setErrors({}); setOther({}); }}>Reset all</button><button className={button} disabled={busy || !changes.length} onClick={() => { setDraft(saved.overrides); setErrors({}); setOther({}); setNotice(""); }}>Discard</button><button ref={reviewButton} className={primary} disabled={disabled || !changes.length || Object.values(errors).some(Boolean)} onClick={prepareReview}>Review changes</button></div>
+      <div className="flex flex-wrap gap-2"><button className={button} disabled={disabled} onClick={() => { const next = { ...saved.defaults }; delete next["update.N"]; setDraft(next); setErrors({}); setResets({}); }}>Reset all</button><button className={button} disabled={busy || !changes.length} onClick={() => { setDraft(saved.overrides); setErrors({}); setResets({}); setNotice(""); }}>Discard</button><button ref={reviewButton} className={primary} disabled={disabled || !changes.length || Object.values(errors).some(Boolean)} onClick={prepareReview}>Review changes</button></div>
     </div>
     {review && <Review changes={changes} active={saved.active} labels={pageLabels} bookLabels={bookLabels} busy={busy} cancel={closeReview} save={save} />}
   </main>;

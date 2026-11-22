@@ -192,8 +192,14 @@ await check("the step data row 'Model' (plain string) uses the same text functio
   assert.match(read("lib/step-data.ts"), /modelOptionText\(str\(r\.model\) as string\)/);
 });
 await check("the model list of the Run settings panel keeps the option value 'provider/model', shows plain text, and puts the model ID in the hover", () => {
-  const s = read("components/RunSettingsForm.tsx");
-  assert.match(s, /<option key=\{m\} value=\{m\} title=\{`Model ID: \$\{m\}`\}>\{modelOptionText\(m\)\}<\/option>/);
+  // Unit VW123 (Q-A 3:116.4): the global panel and the book form use the shared model picker. A row keeps the ID 'provider/model' (data-model-option),
+  // the button shows the plain text with the card name (buttonText, rowOf and cardNameOf), and the button title is "Model ID: <value>".
+  const p = read("components/ModelPicker.tsx");
+  assert.match(read("components/SettingsFields.tsx"), /<ModelPicker /);
+  assert.match(read("components/RunSettingsForm.tsx"), /<SettingsFields /);
+  assert.match(p, /data-model-option=\{row\.id\}/);
+  assert.match(p, /title=\{value \? `Model ID: \$\{value\}` : undefined\}/);
+  assert.match(read("lib/model-picker-rules.ts"), /cardNameOf\(provider\)/);
 });
 await check("the card ID piece is a small grey RawId and shows nothing for another provider", () => {
   const s = read("components/ModelCardId.tsx");

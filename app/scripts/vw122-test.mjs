@@ -28,6 +28,9 @@ const read = (rel) => readFileSync(path.join(app, rel), "utf8");
 
 // ---------------------------------------------------------------- the made-up folders
 const T2 = "/Users/nghiango-mbp/git_repo/git_upload/reimplementation-folder/kendo-translation-translator";
+// Unit VW123: the file names of the real book folder before the run (names only, read only).
+const realBookDir = path.join(T2, "config", "book-settings");
+const realBookBefore = existsSync(realBookDir) ? readdirSync(realBookDir).sort() : null;
 const root = realpathSync(mkdtempSync(path.join(process.env.TMPDIR, "vw122-")));
 const data = path.join(root, "data");
 const cfgDir = path.join(root, "config");
@@ -414,11 +417,20 @@ await check("form (rows 1 and 5): the 7 groups of the schema, 21 fields, the rea
 });
 await check("fields (rows 2 and 5): a held key shows 'changed for this book', the gray global value, the effect word, the source, and the button Use global; a free key shows none of the badge and no button", async () => {
   const html = await formHtml(BOOK);
-  const field = (key) => new RegExp(`<div[^>]*data-field="${key.replaceAll(".", "\\.")}"[^>]*>[\\s\\S]*?(?=<div[^>]*data-field=|<div class="sticky|$)`).exec(html)[0];
+  // Unit VW123 (Q-A 3:116.5 rows L1 and L3): a level or box critic field sits in a table row. Its control is in a data-field box and its
+  // lines (Global value, state, Use global) are in data-for pieces of the same row. A card field holds everything in its data-field box.
+  const esc = (key) => key.replaceAll(".", "\\.");
+  const field = (key) => {
+    const own = new RegExp(`<div[^>]*data-field="${esc(key)}"[^>]*>[\\s\\S]*?(?=<div[^>]*data-field=|<div class="sticky|$)`).exec(html)[0];
+    const lines = [...html.matchAll(new RegExp(`<div[^>]*data-for="${esc(key)}"[^>]*>[\\s\\S]*?(?=<div[^>]*data-(?:for|field)=|</tr>|<div class="sticky|$)`, "g"))].map((m) => m[0]);
+    return [own, ...lines].join("\n");
+  };
   const l2 = strip(field("levels.2.model"));
   assert.match(field("levels.2.model"), /data-field-status="changed"/);
   assert.ok(l2.includes("changed for this book") && l2.includes("Next page") && l2.includes("Use global"));
-  assert.ok(l2.includes("Global value:") && l2.includes("grok-4.7") && l2.includes("(this book)"));
+  // A table row shows the global value in the column "Global value" (data-global-value). A card field shows the words "Global value:" in its compact line.
+  assert.ok(field("levels.2.model").includes("data-global-value") && l2.includes("grok-4.7") && l2.includes("(this book)"));
+  assert.ok(strip(field("memory.memory_k")).includes("Global value:"));
   assert.match(field("levels.2.model"), /data-use-global="levels\.2\.model"/);
   const free = field("levels.3.model");
   assert.match(free, /data-field-status=""/); assert.ok(!free.includes("changed for this book") && !free.includes("data-use-global") && strip(free).includes("(global)"));
@@ -431,14 +443,16 @@ await check("fields: a held run.jobs shows the effect word 'Next list or book st
   const field = new RegExp('<div[^>]*data-field="run\\.jobs"[^>]*>[\\s\\S]*?(?=<div[^>]*data-field="run\\.book_jobs")').exec(html)[0];
   assert.ok(strip(field).includes("Next list or book start") && strip(field).includes("Next book start uses"));
 });
-await check("model field: a model that is in use (the global xai/grok-4.7, the saved openai/gpt-6.1-terra) is an option and shows no 'Other model ID' warning; a free field with a listed model is unchanged", async () => {
+// Unit VW123 (Q-A 3:116.4 rows M1 and M5): the model field is a button with the provider and the model name (the old select and the box "Other model ID" are gone).
+await check("model field: the button of a model that is in use shows its provider and name (the saved openai/gpt-6.1-terra, the global xai/grok-4.7); no 'Other model ID' box and no warning in the closed form", async () => {
   const html = await formHtml(BOOK);
-  const sel = (key) => new RegExp(`<select id="book-${key.replaceAll(".", "\\.")}"[\\s\\S]*?</select>`).exec(html)[0];
-  assert.match(sel("levels.2.model"), /<option value="openai\/gpt-6\.1-terra"[^>]*selected=""/);
-  assert.ok(!/<option value="__other"[^>]*selected/.test(sel("levels.2.model")));
+  const btn = (h, key) => new RegExp(`<button[^>]*id="book-${key.replaceAll(".", "\\.")}"[\\s\\S]*?</button>`).exec(h)[0];
+  assert.match(btn(html, "levels.2.model"), /aria-label="Level 2 model: openai · gpt-6\.1-terra"/);
+  assert.match(btn(html, "levels.2.model"), /data-model-button-text="true">openai · gpt-6\.1-terra</);
+  assert.ok(!html.includes("<select id=\"book-levels.2.model\""));
   assert.ok(!html.includes("Other model ID") && !html.includes("The Viewer cannot check this ID"));
   const free = await formHtml("left_foot_full");
-  assert.match(free.match(/<select id="book-levels\.2\.model"[\s\S]*?<\/select>/)[0], /<option value="xai\/grok-4\.7"[^>]*selected=""/);
+  assert.match(btn(free, "levels.2.model"), /data-model-button-text="true">xai · grok-4\.7</);
   assert.ok(!free.includes("Other model ID"));
 });
 await check("form with a broken book file (row 11): the error line shows, the fields are hidden, Save is off, and the text says that the form keeps the file", async () => {
@@ -480,10 +494,9 @@ await check("dialog list: a book N shows in the list with the source 'this book'
 
 // ---------------------------------------------------------------- part 5: the sources
 
-await check("the global panel is reused, not changed: RunSettingsForm, settings-run, settings-schema, settings-json and safe-path are byte for byte as at the base HEAD f05d89a", () => {
+await check("the global panel files are reused, not changed: settings-run, settings-schema, settings-json and safe-path are byte for byte as at the base HEAD f05d89a (unit VW123 changed RunSettingsForm on purpose: it uses the shared fields)", () => {
   // The sha256 of the files that must stay as they are (measured at the base f05d89a before the unit).
   const BASE = {
-    "components/RunSettingsForm.tsx": "0700acdd135cf2bfba9a76744dac5b0dbf41c5db47655c153fd1d86194785fbe",
     "lib/settings-run.ts": "6004b65bbc7944a6c5a7643310a9505054957a92eae0d97ad7bd5525e45be54e",
     "lib/settings-schema.ts": "8ad07b654a9b2c1265d87d386f065f5cde3b4ed3d1b43234810f4e03a01fc995",
     "lib/settings-json.ts": "87a8f7b4b0b06e29a320e524a6806fb62bfdb1e389b53763b9265aebbfc13199",
@@ -494,11 +507,14 @@ await check("the global panel is reused, not changed: RunSettingsForm, settings-
   assert.ok(!src.includes("RunSettingsForm"), "the book form does not import or copy the global form");
 });
 await check("the book form is built from the schema: it maps GROUPS and filters FIELDS, uses valueError and validateSettings, and holds no group name or field key by hand", () => {
+  // Unit VW123 (Q-A 3:116.5 row L5): the fields are drawn by the shared part components/SettingsFields.tsx from GROUPS, FIELDS and lib/settings-layout.ts.
   const src = read("components/BookSettingsForm.tsx").replace(/\/\/.*$/gm, "");
-  assert.ok(src.includes("GROUPS.map") && src.includes("FIELDS.filter") && src.includes("valueError") && src.includes("validateSettings") && src.includes("effect("));
-  for (const g of S.GROUPS) assert.ok(!src.includes(`"${g}"`), g);
-  // The one key that the form names: update.N (an empty N field means "no N for this book").
-  for (const k of S.KEY_ORDER.filter((k) => k !== "update.N")) assert.ok(!src.includes(`"${k}"`), k);
+  const shared = read("components/SettingsFields.tsx").replace(/\/\/.*$/gm, "");
+  const layout = read("lib/settings-layout.ts").replace(/\/\/.*$/gm, "");
+  assert.ok(shared.includes("GROUPS[") && shared.includes("FIELDS") && layout.includes("FIELDS.filter") && src.includes("valueError") && src.includes("validateSettings") && src.includes("effect("));
+  for (const g of S.GROUPS) assert.ok(!src.includes(`"${g}"`) && !shared.includes(`"${g}"`) && !layout.includes(`"${g}"`), g);
+  // The one key that the form names: update.N (an empty N field means "no N for this book"). The layout names the box critic keys (the line of row L2).
+  for (const k of S.KEY_ORDER.filter((k) => k !== "update.N")) assert.ok(!src.includes(`"${k}"`) && !shared.includes(`"${k}"`), k);
 });
 await check("the page and the dialogs: the page passes the section to BookDetailView before 'Last error'; Run, Run phase 4 and Resume list the values; Pause and Clear do not; Restart lists them", () => {
   const page = read("app/monitor/[slug]/page.tsx");
@@ -533,7 +549,8 @@ await check("the made-up Mac ends with the files that the unit may write: the bo
   for (const f of files) assert.match(f, /^[A-Za-z0-9_.-]+\.(json|history\.jsonl)$/, f);
   assert.ok(!files.some((f) => /\.(lock|part)$/.test(f)));
   assert.equal(text(globalFile), GLOBAL_TEXT);
-  assert.ok(!existsSync(path.join(T2, "config", "book-settings")), "the real <T2>/config/book-settings does not exist");
+  // Unit VW123: the real folder holds a file since the live check of VW122 (2026-11-22). The test only compares the file names before and after its run.
+  assert.deepEqual(existsSync(realBookDir) ? readdirSync(realBookDir).sort() : null, realBookBefore, "the real <T2>/config/book-settings has the same file names as before the test");
 });
 
 done();
