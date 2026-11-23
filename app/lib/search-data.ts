@@ -1,5 +1,6 @@
 import "server-only";
-import { catalogWorks, PbError, readerPageRecords, readerVersionRecords, searchBookPages, searchReaderPages, type PageHit, type ReaderHumanVersion } from "./pb";
+import { catalogWorks, dictionaryCount, dictionaryMatches, PbError, readerPageRecords, readerVersionRecords, searchBookPages, searchReaderPages, type PageHit, type ReaderHumanVersion } from "./pb";
+import { DICT_MIN_CHARS, dictItemView, dictQuery, orderHits, type DictBrief } from "./dictionary-core";
 import { isHidden, matchWorks } from "./reader-folds";
 import type { SessionUser } from "./htv-types";
 import type { DashWork, ReaderPageRecord } from "./reader-types";
@@ -51,12 +52,13 @@ const humanTextsOf = (v: ReaderHumanVersion | undefined): string[] => (v?.rows ?
 
 const titleOf = (w: DashWork): string => w.titleEn || w.titleJa || w.slug;
 
-const zeroCounts = (): Record<SearchTabId, number> => ({ all: 0, books: 0, pages: 0 });
+const zeroCounts = (): Record<SearchTabId, number> => ({ all: 0, books: 0, pages: 0, dictionary: 0 });
 
 /**
  * The answer of the search page for one query, one tab, and one screen.
  * Books: the works whose title, author, publisher, year, web date, or synopsis hold the words (the rule of the Reader dashboard).
  * Pages: the pages whose Japanese or English text holds the words. Only for a person who may read page text (approved reader, translator, admin, link visitor).
+ * Dictionary (unit VW126, Q-A 3:117.6 row 3): the entries of the dictionary list that hold the words (dictionary fold: kana, romaji with or without macrons, English). The tab All does not count them (unit default).
  * `limitMs` is the time limit of the page search. When it passes, the answer holds the book hits and `timedOut`.
  */
 export async function loadSearch(token: string, user: SessionUser, rawQuery: string, tabRaw: unknown, screenNo: number, limitMs: number = SEARCH_TIME_LIMIT_MS): Promise<SearchResponse> {
@@ -64,7 +66,7 @@ export async function loadSearch(token: string, user: SessionUser, rawQuery: str
   const folded = foldQuery(rawQuery);
   const tabs = tabsFor(user.approved);
   const tab = pickTab(tabRaw, user.approved);
-  const base = { query, tab, tabs, waiting: !user.approved, pageSearch: true, capped: false, timedOut: false };
+  const base = { query, tab, tabs, waiting: !user.approved, pageSearch: true, dictionarySearch: true, capped: false, timedOut: false };
   if ([...folded].length < SEARCH_MIN_CHARS) return { ...base, short: true, counts: zeroCounts(), screen: 1, screens: 1, items: [] };
 
   const all = await catalogWorks(token);
@@ -84,10 +86,35 @@ export async function loadSearch(token: string, user: SessionUser, rawQuery: str
     }
   }
   const hits = (pages?.hits ?? []).filter((h) => bySlug.has(h.itemId));
-  const counts: Record<SearchTabId, number> = { all: books.length + hits.length, books: books.length, pages: hits.length };
-  const rows: ({ w: DashWork } | { hit: PageHit })[] = [
-    ...(tab === "pages" ? [] : books.map((w) => ({ w }))),
-    ...(tab === "books" ? [] : hits.map((hit) => ({ hit }))),
+  // Unit VW126: the Dictionary tab. A person who may read page text may read the dictionary list too (the same rule READ_OK). The tab All does not count the entries.
+  const dictFolded = dictQuery(rawQuery);
+  let dictRows: DictBrief[] = [];
+  let dictCount = 0;
+  let dictionarySearch = true;
+  if (user.approved && [...dictFolded].length >= DICT_MIN_CHARS) {
+    try {
+      if (tab === "dictionary") {
+        const found = await dictionaryMatches(token, dictFolded, AbortSignal.timeout(limitMs));
+        if (found === null) dictionarySearch = false;
+        else {
+          dictRows = orderHits(found, dictFolded);
+          dictCount = dictRows.length;
+        }
+      } else {
+        const n = await dictionaryCount(token, dictFolded, AbortSignal.timeout(limitMs));
+        if (n === null) dictionarySearch = false;
+        else dictCount = n;
+      }
+    } catch (e) {
+      if (!isTimeout(e)) throw e;
+      timedOut = true;
+    }
+  }
+  const counts: Record<SearchTabId, number> = { all: books.length + hits.length, books: books.length, pages: hits.length, dictionary: dictCount };
+  const rows: ({ w: DashWork } | { hit: PageHit } | { entry: DictBrief })[] = [
+    ...(tab === "all" || tab === "books" ? books.map((w) => ({ w })) : []),
+    ...(tab === "all" || tab === "pages" ? hits.map((hit) => ({ hit })) : []),
+    ...(tab === "dictionary" ? dictRows.map((entry) => ({ entry })) : []),
   ];
   const screens = screensOf(rows.length);
   const screen = Math.min(Math.max(1, screenNo), screens);
@@ -98,6 +125,7 @@ export async function loadSearch(token: string, user: SessionUser, rawQuery: str
   const versions = ids.length ? await soft(new Map<string, ReaderHumanVersion>(), () => readerVersionRecords(token, ids)) : new Map<string, ReaderHumanVersion>();
   const items: SearchItemView[] = slice.map((x): SearchItemView => {
     if ("w" in x) return workItem(x.w, folded);
+    if ("entry" in x) return dictItemView(x.entry, dictFolded, query);
     const w = bySlug.get(x.hit.itemId)!;
     const rec = recs.get(x.hit.pageId);
     const human = humanTextsOf(versions.get(x.hit.pageId));
@@ -125,6 +153,7 @@ export async function loadSearch(token: string, user: SessionUser, rawQuery: str
     screens,
     items,
     pageSearch: pages !== null,
+    dictionarySearch,
     capped: Boolean(pages?.capped),
     timedOut,
   };

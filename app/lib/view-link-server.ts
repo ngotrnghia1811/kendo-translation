@@ -13,7 +13,8 @@ import { LINK_BAR_TEXT, LINK_DEAD_PATH, LINK_DEFAULT_ORIGIN, linkToken } from ".
  * Unit VW120 (Q-A 3:106.5 rows 3 and 4, Q-A 3:107.5 rows 3 and 5): the session of a link visitor.
  * A link visitor is an approved reader with no account: no id, no e-mail, and a token that is only the key with a prefix (lib/view-link.ts).
  * `getSession()` in lib/htv-session.ts does NOT know a link visitor, so every route that calls guard() answers 401 (no write is possible).
- * Only the pages of /read and the four GET routes with `allowLink` accept a link visitor.
+ * Only the pages of /read, /search, and /dictionary and the GET routes with `allowLink` accept a link visitor: the four routes of the reader pages (page, month, ToC, page image),
+ * the two search routes (unit VW124), and the dictionary route (unit VW126, /api/read/dictionary). The list of these route files is checked in scripts/vw120-test.mjs.
  * A real session always wins over a link cookie (row 5): a person who is signed in and opens a link stays that person.
  */
 

@@ -276,3 +276,15 @@ The Reader dashboard needs four new fields. Design: `docs/VISION-viewer.md` sect
 - The migration creates the collection only if it is absent. The down function deletes it only if it has 0 records.
 - `test_visual_issues.py` checks the rules, the limits, and the migration on a throwaway PocketBase on port 8092 (standard library only, `TMPDIR` and `PB_BIN` set): 71 PASS, 0 FAIL. `test_local.py` now covers all 18 files: 304 PASS, 0 FAIL.
 - Copy the migration to the v2 server only after a backup and an owner pick in a destructive question (Q-A 3:99.5 row 6). The local PocketBase on port 8090 gets it at the commit.
+
+## Dictionary: migration 1793300019 (unit VW126, plan item P65, Q-A 3:116.8 and 3:117.6)
+
+- `1793300019_v2_dictionary.js` makes the collection `dictionary_entries`. Each record is one entry of the termbase file `termbase.draft.jsonl` of the Translator folder (1,030 entries). The live site has no access to the Translator files, so the page `/dictionary` reads this list.
+- Fields: `entry_id` (unique), `headword`, `variants`, `reading`, `romaji`, `concise_en`, `short_en`, `common`, `view` (the full entry as JSON), `search_ja`, `search_en`, `sort_key`, `created`, `updated`.
+- Rules: the same people as the reader pages read it. That is a signed-in approved reader, a translator, an admin, or a visitor with the key of a view-only link that is on. A reader who waits for approval and a signed-out person read nothing. Nobody but the superuser creates, updates, or deletes.
+- The migration needs the collection `view_links` (migration 1793300018) because the read rule points at it. If it is missing, the migration stops with a plain line and records nothing.
+- The migration creates the collection only if it is absent. The down function deletes it only if it has 0 records, and it changes no other collection.
+- The sync command `app/scripts/sync-dictionary.mjs` copies the entries from the termbase file into the list. It is a dry run by default. `--apply` writes. It is safe to run twice, it prints the counts (new, changed, same, on the server only), and it never deletes.
+- `test_dictionary.py` checks the rules, the limits, the migration, and (with `DICT_SYNC_TERMBASE` set to a copy of `termbase.draft.jsonl`) the sync command on a throwaway PocketBase on port 8092 (standard library only, `TMPDIR` and `PB_BIN` set): 138 PASS, 0 FAIL.
+- `test_local.py` now covers all 20 files. It uses port 8091. Run it through a temporary copy with port 8092 when another test runs on 8091.
+- Copy the migration to the v2 server only after a backup and an owner pick in a destructive question. Run the sync command after that, as its own owner step.

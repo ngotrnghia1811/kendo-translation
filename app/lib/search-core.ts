@@ -4,6 +4,7 @@
 import { foldQuery, foldWithMap, QUERY_MAX, type Folded } from "./reader-search";
 import { pageLabel, SEARCH_WAITING } from "./reader-types";
 import { readHref, type ReaderView } from "./reader-links";
+import type { DictItemView } from "./dictionary-core";
 
 export { foldQuery, QUERY_MAX };
 
@@ -52,13 +53,14 @@ export const SEARCH_WORDS = {
 } as const;
 
 /**
- * The tabs of the search page. ONE list: a later unit adds the Dictionary tab with one more entry here (Q-A 3:117.4 row 2).
- * `needsText`: the tab shows page text, so a reader who waits for approval does not get it (Q-A 3:117.4 row 4).
+ * The tabs of the search page. ONE list. Unit VW126 (Q-A 3:117.4 row 2, Q-A 3:117.6 row 3) adds the Dictionary tab as the fourth entry.
+ * `needsText`: the tab shows page text or dictionary text, so a reader who waits for approval does not get it (Q-A 3:117.4 row 4). The PocketBase rule READ_OK of the list dictionary_entries says the same.
  */
 export const SEARCH_TABS = [
   { id: "all", label: "All", needsText: false },
   { id: "books", label: "Books", needsText: false },
   { id: "pages", label: "Pages", needsText: true },
+  { id: "dictionary", label: "Dictionary", needsText: true },
 ] as const;
 
 export type SearchTabId = (typeof SEARCH_TABS)[number]["id"];
@@ -353,7 +355,7 @@ export interface PageItemView {
   fallback: string;
 }
 
-export type SearchItemView = WorkItemView | PageItemView;
+export type SearchItemView = WorkItemView | PageItemView | DictItemView;
 
 export interface SearchResponse {
   query: string;
@@ -366,6 +368,8 @@ export interface SearchResponse {
   waiting: boolean;
   /** False when the database has no search columns yet (migration 1793300010 and S2 missing). Then only books are searched. */
   pageSearch: boolean;
+  /** Unit VW126: False when the database has no list dictionary_entries yet (migration 1793300019 and the sync missing). Then the tab Dictionary is empty. */
+  dictionarySearch: boolean;
   capped: boolean;
   timedOut: boolean;
   items: SearchItemView[];

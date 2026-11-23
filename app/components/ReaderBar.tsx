@@ -11,7 +11,8 @@ import { LINK_ADMIN_PATH, LINK_BAR_TEXT } from "@/lib/view-link";
 // Unit VW105 (Q-A 3:60.4 row 1): the name of the person is a link to the profile page /profile. `onProfile` marks that page: "All books" is then a link and the name is the current page.
 // Unit VW120 (Q-A 3:107.5 row 9): for a visitor of a view-only link (`linkVisitor`) the bar shows "View-only link" instead of a name: no profile link, no Sign out, no human-translation link.
 // Unit VW124 (Q-A 3:117.4 row 1): the link "Search" (to /search) sits in the bar of every reader page, also for a visitor of a view-only link. `onSearch` marks the search page: it is the current page there.
-export default function ReaderBar({ name, email, role, approved, backHref, onProfile = false, onSearch = false, linkVisitor = false }: { name: string; email: string; role: Role; approved: boolean; backHref?: string; onProfile?: boolean; onSearch?: boolean; linkVisitor?: boolean }) {
+// Unit VW126 (Q-A 3:116.8 "a kendo dict web page (for all roles)"): the link "Dictionary" (to /dictionary) sits next to "Search" for every role, also for a visitor of a view-only link. `onDictionary` marks the dictionary page.
+export default function ReaderBar({ name, email, role, approved, backHref, onProfile = false, onSearch = false, onDictionary = false, linkVisitor = false }: { name: string; email: string; role: Role; approved: boolean; backHref?: string; onProfile?: boolean; onSearch?: boolean; onDictionary?: boolean; linkVisitor?: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   async function out() {
@@ -23,7 +24,7 @@ export default function ReaderBar({ name, email, role, approved, backHref, onPro
   return (
     <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-line pb-2 text-sm" data-reader-bar>
       <nav aria-label="Reader links" className="flex flex-wrap items-center gap-x-4 gap-y-1">
-        <Link href="/read" className={backHref || onProfile || onSearch ? "text-accent underline" : "font-semibold"}>
+        <Link href="/read" className={backHref || onProfile || onSearch || onDictionary ? "text-accent underline" : "font-semibold"}>
           All books
         </Link>
         {backHref ? (
@@ -33,6 +34,9 @@ export default function ReaderBar({ name, email, role, approved, backHref, onPro
         ) : null}
         <Link href="/search" className={onSearch ? "font-semibold" : "text-accent underline"} aria-current={onSearch ? "page" : undefined} data-search-link>
           Search
+        </Link>
+        <Link href="/dictionary" className={onDictionary ? "font-semibold" : "text-accent underline"} aria-current={onDictionary ? "page" : undefined} data-dictionary-link>
+          Dictionary
         </Link>
         {role !== "reader" && !linkVisitor ? (
           <Link href="/translate" className="text-accent underline">

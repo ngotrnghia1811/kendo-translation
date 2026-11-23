@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import DictEntryRow from "./DictEntryRow";
 import SearchMarked from "./SearchMarked";
 import {
   newestOnly,
@@ -18,6 +19,7 @@ import {
   type WorkItemView,
 } from "@/lib/search-core";
 import { SEARCH_NEEDS_S2 } from "@/lib/reader-types";
+import { DICT_WORDS } from "@/lib/dictionary-core";
 
 /*
  * The search page /search (unit VW124, Q-A 3:117.4 rows 1 to 4).
@@ -292,9 +294,17 @@ export default function SearchPanel({ initial, query, approved }: { initial: Sea
                 {SEARCH_WORDS.none}
               </p>
             ) : null}
+            {/* Unit VW126: the Dictionary tab needs the list dictionary_entries. Without it the tab is empty and says why. */}
+            {!shown.dictionarySearch && !shown.waiting && shown.tab === "dictionary" ? (
+              <p className="mb-2 text-sm text-muted" data-search-note="no-dictionary">
+                {DICT_WORDS.missing}
+              </p>
+            ) : null}
             <ul className="grid gap-2" data-search-list>
               {shown.items.map((it) =>
-                it.type === "work" ? (
+                it.type === "entry" ? (
+                  <DictEntryRow key={`d/${it.id}`} item={it} />
+                ) : it.type === "work" ? (
                   <WorkHit key={`w/${it.slug}`} item={it} />
                 ) : (
                   <PageHit

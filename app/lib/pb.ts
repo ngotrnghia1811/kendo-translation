@@ -12,6 +12,7 @@ import { isTheme } from "./htv-settings";
 import { pstDateOfPb } from "./pst-more";
 import { cleanTitle, titleText } from "./htv-titles";
 import { authHeadersOf } from "./view-link";
+import { DICT_BRIEF_FIELDS, DICT_COLLECTION, DICT_PER_SCREEN, type DictBrief, type DictEntryView } from "./dictionary-core";
 
 /*
  * ALL PocketBase calls of the app sit in this one module (round 54 answer 10, Q-A 2026-10-28 l129:
@@ -1021,4 +1022,83 @@ export async function adminMarks(token: string): Promise<{ chosen: Map<string, {
   const v = await listAll(token, "reader_versions", { fields: "page_id,user,version" });
   const c = await listAll(token, "page_checks", { fields: "page_id" });
   return { chosen: new Map(v.map((r) => [String(r.page_id), { userId: String(r.user ?? ""), version: Number(r.version ?? 0) }])), checked: new Set(c.map((r) => String(r.page_id))) };
+}
+
+// ---------------------------------------------------------------- dictionary (unit VW126, Q-A 3:117.6)
+
+/** The most entries that one dictionary search reads. The termbase has 1,030 entries, so the cap is never reached today. */
+export const DICT_HIT_CAP = 2000;
+
+const toBrief = (r: J): DictBrief => ({
+  entry_id: String(r.entry_id ?? ""),
+  headword: String(r.headword ?? ""),
+  variants: Array.isArray(r.variants) ? r.variants.map((v: unknown) => String(v)) : [],
+  reading: String(r.reading ?? ""),
+  romaji: String(r.romaji ?? ""),
+  concise_en: String(r.concise_en ?? ""),
+  short_en: String(r.short_en ?? ""),
+  common: String(r.common ?? ""),
+  sort_key: String(r.sort_key ?? ""),
+});
+
+const dictFilter = (folded: string): string => `search_ja ~ ${q(folded)} || search_en ~ ${q(folded)}`;
+
+/**
+ * The entries whose folded text holds the folded query (the filter ~ on search_ja and search_en), without the full view.
+ * Returns null when the list does not exist (migration 1793300019 is not applied). A reader who waits for approval gets an empty list (rule READ_OK).
+ */
+export async function dictionaryMatches(token: string, folded: string, signal?: AbortSignal): Promise<DictBrief[] | null> {
+  const out: DictBrief[] = [];
+  for (let page = 1; page <= DICT_HIT_CAP / 500; page++) {
+    const qs = new URLSearchParams({ perPage: "500", page: String(page), skipTotal: "1", fields: DICT_BRIEF_FIELDS, sort: "sort_key,entry_id", filter: dictFilter(folded) });
+    const r = await pbFetch("GET", `/api/collections/${DICT_COLLECTION}/records?${qs.toString()}`, { token, ...(signal ? { signal } : {}) });
+    if (r.status === 404) return null;
+    if (r.status === 403) return [];
+    if (!ok(r)) throw failure(r, "PocketBase could not search the dictionary.");
+    const items = (r.data.items ?? []) as J[];
+    out.push(...items.map(toBrief));
+    if (items.length < 500) break;
+  }
+  return out;
+}
+
+/** The number of entries that hold the folded query. Null when the list does not exist. */
+export async function dictionaryCount(token: string, folded: string, signal?: AbortSignal): Promise<number | null> {
+  const qs = new URLSearchParams({ perPage: "1", page: "1", fields: "id", filter: dictFilter(folded) });
+  const r = await pbFetch("GET", `/api/collections/${DICT_COLLECTION}/records?${qs.toString()}`, { token, ...(signal ? { signal } : {}) });
+  if (r.status === 404) return null;
+  if (r.status === 403) return 0;
+  if (!ok(r)) throw failure(r, "PocketBase could not count the dictionary entries.");
+  return Number(r.data.totalItems ?? 0);
+}
+
+/** One screen of the whole list in the order of the readings (the page with no query). Null when the list does not exist. */
+export async function dictionaryPage(token: string, page: number): Promise<{ records: DictBrief[]; total: number } | null> {
+  const qs = new URLSearchParams({ perPage: String(DICT_PER_SCREEN), page: String(Math.max(1, page)), fields: DICT_BRIEF_FIELDS, sort: "sort_key,entry_id" });
+  const r = await pbFetch("GET", `/api/collections/${DICT_COLLECTION}/records?${qs.toString()}`, { token });
+  if (r.status === 404) return null;
+  if (r.status === 403) return { records: [], total: 0 };
+  if (!ok(r)) throw failure(r, "PocketBase could not read the dictionary.");
+  return { records: ((r.data.items ?? []) as J[]).map(toBrief), total: Number(r.data.totalItems ?? 0) };
+}
+
+/** The full entry of one entry ID. Null when no such entry is readable. */
+export async function dictionaryEntry(token: string, entryId: string): Promise<DictEntryView | null> {
+  const qs = new URLSearchParams({ perPage: "1", page: "1", skipTotal: "1", fields: "entry_id,view", filter: `entry_id=${q(entryId)}` });
+  const r = await pbFetch("GET", `/api/collections/${DICT_COLLECTION}/records?${qs.toString()}`, { token });
+  if (r.status === 404 || r.status === 403) return null;
+  if (!ok(r)) throw failure(r, "PocketBase could not read the dictionary entry.");
+  const v = (r.data.items?.[0] as J | undefined)?.view;
+  if (!v || typeof v !== "object") return null;
+  return {
+    id: String(v.id ?? entryId),
+    headword: String(v.headword ?? ""),
+    variants: Array.isArray(v.variants) ? v.variants.map((x: unknown) => String(x)) : [],
+    readings: Array.isArray(v.readings) ? v.readings.map((x: unknown) => String(x)) : [],
+    romaji: String(v.romaji ?? ""),
+    common: String(v.common ?? ""),
+    langs: Array.isArray(v.langs) ? (v.langs as DictEntryView["langs"]) : [],
+    sources: Array.isArray(v.sources) ? v.sources.map((x: unknown) => String(x)) : [],
+    insideLonger: v.insideLonger === true,
+  };
 }

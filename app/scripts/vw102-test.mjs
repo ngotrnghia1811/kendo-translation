@@ -549,15 +549,17 @@ await check("migration 1793300014 is not changed (the rule and the X-Forwarded-F
 });
 
 // Unit VW104 added migration 1793300016. Unit VW118 added migration 1793300017. Unit VW120 added migration 1793300018: the folder holds 19 files, and the file of this unit is the fourth from last.
-await check("folders: 19 migration files with unique timestamps (the file of this unit is the fourth from last), and 2 hook files", () => {
+// Unit VW126 added migration 1793300019 (the dictionary): the folder holds 20 files, so every position from the end moves by one.
+await check("folders: 20 migration files with unique timestamps (the file of this unit is the fifth from last), and 2 hook files", () => {
   const files = readdirSync(path.join(pbDir, "pb_migrations")).filter((f) => f.endsWith(".js")).sort();
-  assert.equal(files.length, 19);
-  assert.equal(files.at(-1), "1793300018_v2_view_links.js");
-  assert.equal(files.at(-2), "1793300017_v2_visual_issues.js");
-  assert.equal(files.at(-3), "1793300016_v2_v1_placeholders.js");
-  assert.equal(files.at(-4), MIGRATION);
-  assert.equal(files.at(-5), PREVIOUS);
-  assert.equal(new Set(files.map((f) => f.split("_")[0])).size, 19);
+  assert.equal(files.length, 20); // unit VW126
+  assert.equal(files.at(-1), "1793300019_v2_dictionary.js"); // unit VW126
+  assert.equal(files.at(-2), "1793300018_v2_view_links.js");
+  assert.equal(files.at(-3), "1793300017_v2_visual_issues.js");
+  assert.equal(files.at(-4), "1793300016_v2_v1_placeholders.js");
+  assert.equal(files.at(-5), MIGRATION);
+  assert.equal(files.at(-6), PREVIOUS);
+  assert.equal(new Set(files.map((f) => f.split("_")[0])).size, 20);
   assert.equal(files[0], "1793300000_v2_users_rules.js");
   const hooks = readdirSync(path.join(pbDir, "pb_hooks")).filter((f) => f.endsWith(".pb.js")).sort();
   assert.deepEqual(hooks, ["page_images.pb.js", HOOK]);

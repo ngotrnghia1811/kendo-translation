@@ -1084,7 +1084,8 @@ await check("no write from a link visitor, in the sources: only the four GET rou
   assert.ok(files.length >= 45, `${files.length} route files`);
   const allow = files.filter((f) => /allowLink/.test(noComments(read(f))));
   // Unit VW124 (Q-A 3:117.4 and 3:117.5): the two search routes read only, so they join the four GET routes of the reader pages.
-  assert.deepEqual(allow.sort(), ["app/api/read/book-search/route.ts", "app/api/read/image/[slug]/[page]/route.ts", "app/api/read/month/route.ts", "app/api/read/page/route.ts", "app/api/read/search/route.ts", "app/api/read/toc/route.ts"]);
+  // Unit VW126 (Q-A 3:117.6 row 1): the dictionary route reads only, so it joins the list (app/api/read/dictionary/route.ts).
+  assert.deepEqual(allow.sort(), ["app/api/read/book-search/route.ts", "app/api/read/dictionary/route.ts", "app/api/read/image/[slug]/[page]/route.ts", "app/api/read/month/route.ts", "app/api/read/page/route.ts", "app/api/read/search/route.ts", "app/api/read/toc/route.ts"]);
   for (const f of allow) {
     const s = noComments(read(f));
     assert.ok(!/export async function (POST|PUT|PATCH|DELETE)/.test(s), f + " has only GET");

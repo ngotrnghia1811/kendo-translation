@@ -156,14 +156,15 @@ await check("the Human version text counts as English lines after the page lines
   assert.equal(C.firstLineHit(src, [], "kiai").term, "kiai");
 });
 
-await check("the tabs come from ONE list: All, Books, Pages (no Dictionary tab now); a waiting reader gets Books only; a wrong tab falls back to the first tab", () => {
+// Unit VW126 (Q-A 3:117.6 row 3): the fourth tab "Dictionary" joined the list, so this check expects four tabs (before: "no Dictionary tab now").
+await check("the tabs come from ONE list: All, Books, Pages, Dictionary; a waiting reader gets Books only; a wrong tab falls back to the first tab", () => {
   assert.deepEqual(
     C.SEARCH_TABS.map((t) => t.id),
-    ["all", "books", "pages"],
+    ["all", "books", "pages", "dictionary"],
   );
-  assert.deepEqual(C.SEARCH_TABS.map((t) => t.label), ["All", "Books", "Pages"]);
-  assert.ok(!C.SEARCH_TABS.some((t) => /dictionary/i.test(t.label)));
-  assert.deepEqual(C.tabsFor(true), ["all", "books", "pages"]);
+  assert.deepEqual(C.SEARCH_TABS.map((t) => t.label), ["All", "Books", "Pages", "Dictionary"]);
+  assert.ok(C.SEARCH_TABS.some((t) => /dictionary/i.test(t.label)));
+  assert.deepEqual(C.tabsFor(true), ["all", "books", "pages", "dictionary"]);
   assert.deepEqual(C.tabsFor(false), ["books"]);
   assert.equal(C.pickTab("pages", true), "pages");
   assert.equal(C.pickTab("pages", false), "books");
@@ -409,7 +410,7 @@ await check("tab counts: All is Books plus Pages; the answer lists the tabs All,
   const r = await api({ q: "seme" });
   assert.equal(r.status, 200);
   const j = r.json;
-  assert.deepEqual(j.tabs, ["all", "books", "pages"]);
+  assert.deepEqual(j.tabs, ["all", "books", "pages", "dictionary"]); // unit VW126: the fourth tab
   assert.equal(j.tab, "all");
   assert.equal(j.counts.books, 1, "made_up_book: title Seme and Kamae");
   assert.equal(j.counts.pages, 2, "p001 'basics of seme' and p002 'contest of seme' (the term romaji of p003 is kiai)");
@@ -498,7 +499,7 @@ await check("the gate (Q-A 3:117.4 row 4): an approved reader, a translator, an 
     who(id, link);
     const r = await api({ q: "seme" });
     assert.equal(r.status, 200, name);
-    assert.deepEqual(r.json.tabs, ["all", "books", "pages"], name);
+    assert.deepEqual(r.json.tabs, ["all", "books", "pages", "dictionary"], name); // unit VW126: the fourth tab
     assert.equal(r.json.counts.pages, 2, name);
     assert.equal(r.json.waiting, false, name);
     assert.ok(r.json.items.some((x) => x.type === "page"), name);
@@ -902,7 +903,8 @@ await check("the search page draws the first result on the server from the addre
   const html = renderToStaticMarkup(h(SearchPanel, { initial: j, query: "seme", approved: true }));
   const text = strip(html);
   assert.ok(text.includes("All (3)") && text.includes("Books (1)") && text.includes("Pages (2)"), text.slice(0, 300));
-  assert.ok(!/Dictionary/.test(html), "no Dictionary tab now");
+  // Unit VW126: the Dictionary tab shows with its count (the made-up database of this test has no dictionary list, so the count is 0).
+  assert.ok(text.includes("Dictionary (0)"), "the Dictionary tab with its count");
   assert.ok(text.includes("3 hits for seme"));
   assert.ok(html.includes('value="seme"'));
   assert.ok(html.includes("bg-amber-200"), "the match is yellow");
@@ -983,7 +985,8 @@ await check("the files that this unit adds hold no key or token helper, no conso
   for (const f of ["lib/search-data.ts", "lib/search-core.ts"]) assert.ok(!/verdict|reasoning|TL_3|page_runs/i.test(noComments(read(f))), f + " reads the research layer");
   assert.ok(read("lib/search-data.ts").startsWith('import "server-only";'));
   assert.ok(!/import ["']server-only["']/.test(read("lib/search-core.ts")), "search-core is client-safe");
-  assert.ok(!/^import /m.test(read("lib/search-core.ts").replace(/^import [^\n]*(reader-search|reader-types|reader-links)[^\n]*$/gm, "")), "search-core imports only the three client-safe modules");
+  // Unit VW126: search-core takes the type DictItemView from lib/dictionary-core.ts (a client-safe module without server-only), so the list holds four modules.
+  assert.ok(!/^import /m.test(read("lib/search-core.ts").replace(/^import [^\n]*(reader-search|reader-types|reader-links|dictionary-core)[^\n]*$/gm, "")), "search-core imports only the four client-safe modules");
 });
 
 await new Promise((resolve) => server.close(resolve));

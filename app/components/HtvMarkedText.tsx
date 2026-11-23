@@ -1,5 +1,7 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { DICT_WORDS, dictHref } from "@/lib/dictionary-core";
 import type { TermEntry, TermMark } from "@/lib/htv-types";
 
 // Round 50 answer 11 (Q-A 2026-10-28 l32): "Highlight from stored marks". Round 51 answer 12 (l57): the JA side of a mark
@@ -93,6 +95,12 @@ export function TermPopup({ picked, entry, onClose, hideCheck = false }: { picke
       {!entry ? <p className="mt-2 text-muted">No termbase entry text for {picked.mark.entryId}.</p> : null}
       {entry ? (
         <div className="mt-2 space-y-2">
+          {/* Unit VW126 (Q-A 3:117.6 row 5): the link to the entry on the dictionary page. It sits at the top of the pop-up, so it stays on screen when the pop-up is taller than the space below the mark (browser check, 1280x800). */}
+          <div>
+            <Link href={dictHref({ entry: entry.id })} prefetch={false} className="text-xs text-accent underline" data-term-dictionary-link>
+              {DICT_WORDS.openIn}
+            </Link>
+          </div>
           {entry.common ? <div className="text-xs text-muted">Kind: {entry.common}</div> : null}
           {!hideCheck && picked.mark.result ? (
             <div className="text-xs text-muted">

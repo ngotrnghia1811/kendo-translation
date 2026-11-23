@@ -238,16 +238,19 @@ function runMigration() {
 }
 
 // Unit VW102 added migration 1793300015. Unit VW104 added migration 1793300016. Unit VW118 added migration 1793300017. Unit VW120 added migration 1793300018 (the view-only links): the folder holds 19 files, and the file of this unit is the fifth from last.
-await check("migration folder: the 19 files are in the folder, the file of this unit is the fifth from last, and the timestamps are unique", () => {
+// Unit VW126 added migration 1793300019 (the dictionary): the folder holds 20 files, so every position from the end moves by one.
+// (unit VW126: now 20 files, and the file of this unit is the sixth from last)
+await check("migration folder: the 20 files are in the folder, the file of this unit is the sixth from last, and the timestamps are unique", () => {
   assert.ok(dir, "no migration folder found");
   const files = readdirSync(dir).filter((f) => f.endsWith(".js")).sort();
-  assert.equal(files.length, 19);
-  assert.equal(files.at(-5), FILE);
-  assert.equal(files.at(-4), "1793300015_v2_sign_up_address.js");
-  assert.equal(files.at(-3), "1793300016_v2_v1_placeholders.js");
-  assert.equal(files.at(-2), "1793300017_v2_visual_issues.js");
-  assert.equal(files.at(-1), "1793300018_v2_view_links.js");
-  assert.equal(new Set(files.map((f) => f.split("_")[0])).size, 19);
+  assert.equal(files.length, 20); // unit VW126
+  assert.equal(files.at(-6), FILE);
+  assert.equal(files.at(-5), "1793300015_v2_sign_up_address.js");
+  assert.equal(files.at(-4), "1793300016_v2_v1_placeholders.js");
+  assert.equal(files.at(-3), "1793300017_v2_visual_issues.js");
+  assert.equal(files.at(-2), "1793300018_v2_view_links.js");
+  assert.equal(files.at(-1), "1793300019_v2_dictionary.js"); // unit VW126
+  assert.equal(new Set(files.map((f) => f.split("_")[0])).size, 20);
   assert.equal(files[0], "1793300000_v2_users_rules.js");
 });
 

@@ -636,9 +636,10 @@ await check("source: the root layout keeps the monitor title with the monitor on
 });
 
 // Unit VW118 added migration 1793300017 and unit VW120 added 1793300018, so the folder holds 19 files. Unit VW105 itself added none.
-await check("source: no migration is added by this unit (the folder holds 19 files with the ones of VW118 and VW120) and the new files sit in new modules", () => {
+// Unit VW126 added migration 1793300019 (the dictionary): the folder holds 20 files, so every position from the end moves by one.
+await check("source: no migration is added by this unit (the folder holds 20 files with the ones of VW118, VW120, and VW126) and the new files sit in new modules", () => {
   const dir = path.resolve(app, "..", "data", "scripts", "pocketbase", "pb_migrations");
-  if (existsSync(dir)) assert.equal(readdirSync(dir).filter((f) => f.endsWith(".js")).length, 19);
+  if (existsSync(dir)) assert.equal(readdirSync(dir).filter((f) => f.endsWith(".js")).length, 20); // unit VW126
   for (const f of ["lib/profile-rules.ts", "lib/profile-pb.ts", "lib/profile-load.ts", "lib/profile-api.ts"]) assert.ok(existsSync(path.join(app, f)), f);
   assert.ok(!/profile/.test(read("lib/pb.ts")), "lib/pb.ts is not changed");
 });
