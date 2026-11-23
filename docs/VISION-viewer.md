@@ -60,7 +60,7 @@
 - The Viewer is a new app that starts empty `[accepted recommendation 2026-10-02 19:20]` "New app, live stays v1 (Recommended)".
 - Place in v2 `[validated reading 2026-10-07 20:05]` "Correct reading (Recommended)".
   - No v1 code or v1 decision carries over, except the three roles of section 4 `[validated reading 2026-10-07 20:05]`.
-  - The live site stays v1 until the owner names a switch date `[validated reading 2026-10-07 20:05]`.
+  - The live site switched to v2 on 2026-11-15 03:41 PST (Q-A 3:54.3 "Switch now"). The earlier rule was "The live site stays v1 until the owner names a switch date" `[validated reading 2026-10-07 20:05]`.
 - Order of work `[user 2026-10-07 14:05]` "Work on viewer vision -> desgin of both -> then code".
   - The design phase starts with the Translator `[accepted option 2026-10-07 14:58]` "Translator design first". Round 39 update: the owner asked for Viewer work during the Translator tests and design polish `[user 2026-10-25 21:47]` "We should start working on viewer while testing Translator and polishing its design" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:13]`. Round 40 decision: the owner picked option 1 `[user 2026-10-25 22:43]` "OPtion 1." `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:38]`. Option 1 is "Design now, code later (Recommended)". The Viewer design starts now, in parallel with the Translator tests and the Translator design polish. Viewer code waits until both designs are done. Round 42 decision: the owner picked "Design a topic, then code it (Recommended)" `[accepted recommendation 2026-10-26 12:56]` `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:85]`. Each Viewer topic goes design, owner check, then code. The first topic is the agent-translation-monitor (named Translator loop pages before round 43). The code stack is a later design point. This settles the conflict between round 40 answer 14 and round 41 answer 16 `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:66]`.
   - The shared output format of the two apps is decided in the design phase `[validated reading 2026-10-07 20:05]`.
@@ -77,7 +77,7 @@
 - Readers are the public, in all languages `[validated reading 2026-10-07 20:05]` "option 1. Also admin have to validate reader signup before they can actually view the contents".
   - Audience `[accepted recommendation 2026-10-02 19:40]` "Public readers (Recommended)".
   - No language group comes first `[user 2026-10-07 14:05]` "Reader across ALL languages".
-- Every person signs in, and three roles exist `[user 2026-10-07 14:58]` "all users need sign in - 3 roles (reader - translator - admin) like in v1". Round 43 role meanings `[user 2026-10-26 15:17]` "this `Comment` refer to comment on the translation content, NOT the agent translation design\nNote: When we refer to `translator`, we are refer to `human-translator`, who task is to translate the content themselves.\nWhen we refer to `admin` we are refering to `researcher` (me), who are working on the agent translation design and running the agent translation process." `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:113]`: "translator" means human translator, and "admin" means researcher (section 15.1). Round 50 answer 12 adds real sign-in now, with a password, and asks to reuse the test users of v1 `[user 2026-10-27 20:54]` "option 2. we have test user in v1 right? can we reuse them?" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:33]`. The option text "real sign-in with a password" comes from the brief of unit D2 and is Not verified in the Q-A file. Round 51 answer 2 decides the method: a local PocketBase with the v1 setup files, and the four v1 test accounts created again `[user 2026-10-28 08:21]` "option 2. Also what is the process for replacing v1 with v2 on https://kendotranslation.com/? We should do it soon" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:47]` (sections 15.10.4 and 15.11.6). History: the method was open. The process to replace v1 on https://kendotranslation.com/ is open (unit DB1).
+- Every person signs in, and three roles exist `[user 2026-10-07 14:58]` "all users need sign in - 3 roles (reader - translator - admin) like in v1". Round 43 role meanings `[user 2026-10-26 15:17]` "this `Comment` refer to comment on the translation content, NOT the agent translation design\nNote: When we refer to `translator`, we are refer to `human-translator`, who task is to translate the content themselves.\nWhen we refer to `admin` we are refering to `researcher` (me), who are working on the agent translation design and running the agent translation process." `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:113]`: "translator" means human translator, and "admin" means researcher (section 15.1). Round 50 answer 12 adds real sign-in now, with a password, and asks to reuse the test users of v1 `[user 2026-10-27 20:54]` "option 2. we have test user in v1 right? can we reuse them?" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:33]`. The option text "real sign-in with a password" comes from the brief of unit D2 and is Not verified in the Q-A file. Round 51 answer 2 decides the method: a local PocketBase with the v1 setup files, and the four v1 test accounts created again `[user 2026-10-28 08:21]` "option 2. Also what is the process for replacing v1 with v2 on https://kendotranslation.com/? We should do it soon" `[file: .opencode/reminders/qa/qa-memory-2026-10-28.md:47]` (sections 15.10.4 and 15.11.6). History: the method was open. The process to replace v1 on https://kendotranslation.com/ is open (unit DB1). Exception: a view-only link. An admin makes a link on /admin/links. A person who opens /v/<key> reads what an approved reader reads, with no sign-up, and can change nothing. A link that is off or ended stops at once, also in the PocketBase rules. Owner words (Q-A 3:105.8): "Can we create a view-only link: people with link can be a reader without sign-up, but all operation is only strictly view-only?" Picks Q-A 3:106.5, 3:107.4, 3:107.5. Unit VW120, commit ea6eeff (section 15.43.6).
   - A reader reads, picks components, and reports problems `[validated reading 2026-10-07 20:05]`.
   - A translator and an admin also see the research layer and the scores (section 11) `[validated reading 2026-10-07 20:05]`.
   - No role edits the agent translation (ED_3 and all box results) or the JA source in the Viewer (section 3) `[accepted recommendation 2026-10-27 01:16]` "Fix VISION-viewer line 83 (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-27.md:11]`. Human translators write their own translation in the human-translation-view. The Viewer stores it as a separate translation per user. It never overwrites the agent translation `[user 2026-10-26 21:33]` "option 1. Human translation are stored as separate user's translation, not an update of agent translation" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:134]`. Round 45 answer 1 asked for this fix `[accepted recommendation 2026-10-26 22:44]` "Accept, fix line 83 (Recommended)" `[file: .opencode/reminders/qa/qa-memory-2026-10-26.md:154]`. History: this line read "No role edits text in the Viewer" `[accepted option 2026-10-08 07:00]` "No editing in the Viewer". Round 44 answer 5 replaces that decision for human translators.
@@ -272,7 +272,7 @@
   - The article page unit `[accepted recommendation 2026-10-07 14:58]` "Decide in the design phase (Recommended)".
   - Storage and serving of original page images `[validated reading 2026-10-08 07:00]` "option 1. Also note: the item pdfs (in universal-agents) are very large (they are high-resolution scans), we should be able to siginifcantly compress the pdfs without reducing quality".
     - Design-phase note on PDF compression, owner words `[user 2026-10-08 07:00]` "Also note: the item pdfs (in universal-agents) are very large (they are high-resolution scans), we should be able to siginifcantly compress the pdfs without reducing quality".
-- Switch date of the live site from v1 to v2: the owner names it `[validated reading 2026-10-07 20:05]` "Correct reading (Recommended)".
+- Switch date of the live site from v1 to v2: decided, 2026-11-15 03:41 PST (Q-A 3:54.3 "Switch now"). The earlier reading was "the owner names it" `[validated reading 2026-10-07 20:05]` "Correct reading (Recommended)".
 - Feedback processing is a later topic `[user 2026-10-07 14:05]` "We will go through the feedback processing later".
   - More status values come later `[accepted recommendation 2026-10-07 14:58]` "\"Received\" now, more later (Recommended)".
 
@@ -1284,7 +1284,7 @@ Status: open.
   - The v1 README says that the flag `--migrationsDir` is required, or the custom migrations are skipped `[file: kendo-translation-viewer-v1/migration/pocketbase/README.md:121]`.
   - The v1 README names a reverse proxy (Caddy or nginx) for the case of no real domain `[file: kendo-translation-viewer-v1/migration/pocketbase/README.md:133]`.
   - The v2 app calls PocketBase from server routes with plain `fetch`. The browser never calls PocketBase `[file: docs/VISION-viewer.md:1014]`. So the browser needs no cross-origin setting for PocketBase `[agent inference]`.
-  - The live site stays v1 until the owner names a switch date `[file: docs/VISION-viewer.md:63]`.
+  - The live site switched to v2 on 2026-11-15 (Q-A 3:54.3) `[file: docs/VISION-viewer.md:63]`.
 - Steps, in order. Each step is a fact or a proposal, and the status is marked:
   - Step 1, the server. Add a second PocketBase in its own folder, with its own port, its own `pb_data`, and its own systemd service. The v1 service keeps its name and its folder. Status: proposal. The ports and the proxy of v1 are Not verified.
   - Step 2, the proxy. Two PocketBase servers cannot both listen on port 443. A reverse proxy (Caddy or nginx) can route by host name. Status: `[agent inference]`. How v1 is served now is Not verified.
@@ -9228,3 +9228,63 @@ This section adds to section 15.41. It holds the facts, the commits and the owne
 - A live check of unit VW113 and a real Save on the Run settings panel.
 
 Status: units VW104 to VW113 and the tab titles documented by unit DZ86-2 from the unit reports, `git log` and the Q-A records. The P10 corrections are applied. The owner has not checked this section yet.
+
+#### 15.43 Units VW115 to VW127 (2026-11-19 to 2026-11-22)
+
+Source: the commit texts, the unit records in `/Users/nghiango-mbp/projects/kendo-translation/tools/aki-main/VW1xx/`, and the Q-A records. Each unit has a commit on `v2/viewer`. All are pushed. The live site is at `afcec51`.
+
+##### 15.43.1 Page view panels (VW115, commit 577b828, plan P50)
+- Page view panels resize by border and corner. The arrow keys go to the previous and the next page.
+- Fixes: tab text in dark mode, contrast in 5 themes, one loading pop-up on every screen.
+
+##### 15.43.2 Human translation view keys (VW116, commit 4ee5c3c, plan P51)
+- Arrow keys on /translate/<book>. The theme choice sits on one line from 1280 px. The first-visit box stays clear of the corner handle.
+
+##### 15.43.3 Panel drag (VW117, commit 9dd952b, plan P52)
+- A panel moves by its title bar, with a drop marker and a slide, on /page, /read/<book> and /translate/<book>.
+
+##### 15.43.4 Visual-issue tool (VW118, commit 25bdcc9, plan P53, Q-A 3:99.5, 3:100.2, 3:100.3)
+- A floating icon for translators and admins. The person selects a part of the page, draws, comments and sends.
+- The admin list /admin/issues has "Mark resolved". PocketBase list `visual_issues` (migration 1793300017, server step 8.16).
+
+##### 15.43.5 View as (VW119, commit acb0a56, plan P56, Q-A 3:103.4, 3:103.5)
+- An admin select "View as" (Admin, Translator, Reader) with a band. A view changes no data.
+- Reader screens show no word "agent" and no model name. Open folds of level 2 and deeper get a second color.
+
+##### 15.43.6 View-only link (VW120, commit ea6eeff, plan P58)
+- See the exception at the end of the line "Every person signs in" in section 4. List `view_links` and `view_link_opens` (migration 1793300018, server step 8.17). The band text: "This is a view-only page. Please sign up to save your place and bookmarks: Create an account."
+
+##### 15.43.7 Visual-issue icon on every page of this Mac (VW121, commit f05d89a, plan P60, Q-A 3:109.5, 3:110.2, 3:112.2)
+- Owner words (Q-A 3:109.5): "Every page should have it".
+- With the Monitor switch on, the icon shows on every page, also when signed out. Issues go to `data/visual-issues-local/` (git ignored) and show on /monitor/issues.
+
+##### 15.43.8 Run settings of one book (VW122, commit 8bda323, plan P61, Q-A 3:110.3, 3:112.3, 3:114.2)
+- Owner words (Q-A 3:109.5): "I want to be able to set the config of each run, before pressing run button".
+- A closed section "Run settings of this book" on /monitor/<book>. Save writes `<T2>/config/book-settings/<book>.json` (changed values only). The run reads it on top of the global file (unit TR101).
+
+##### 15.43.9 Model picker like oc2 (VW123, commit 036a39c, plan P63, Q-A 3:116.4 to 3:116.6, 3:117.2)
+- Search, Favorites, Recent, a section per provider, keys. A Thinking menu with the efforts of the chosen model. A compact levels table.
+
+##### 15.43.10 Search like v1 (VW124, commit df7f81b, plan P64, Q-A 3:115.5, 3:117.4, 3:117.5, 3:119.2)
+- Owner words (Q-A 3:115.5): "Implement a comprehensive search function similar to in v1".
+- /search: results while typing, tabs All, Books, Pages with counts, 20 per screen, "Show context", a hit opens the exact page with the match marked.
+- A search inside the open book (key `/`), hits grouped by page, at most 80. The same reader gate as /read.
+
+##### 15.43.11 All oc2 models (VW125, commit 1624169, plan P66, Q-A 3:118.2)
+- Owner words: "The model picker should have show ALL models in oc2, not just some specific models".
+- Both settings pages read `data/oc2-models.json` (244 models, 14 providers, git ignored, written by aki-main).
+
+##### 15.43.12 Kendo dictionary (VW126, commit 18a0cca, plan P65, Q-A 3:117.6, 3:117.7, 3:122.2, 3:122.3)
+- Owner words (Q-A 3:115.5): "We need to also update the kendo dictionary as agent translation progress. Design a system that agent can propose update to the kendo dict (add/revise) during their working process".
+- /dictionary on the live site and on this Mac: search by Japanese, kana, romaji or English, and the full entry. A Dictionary tab on /search.
+- "Agent proposals" tab for translators and admins, on this Mac only: Accept, Edit then accept, Reject. The proposals come from the ED and QA boxes (unit TR102).
+- PocketBase list `dictionary_entries` (migration 1793300019, server step 8.18). First live sync 2026-11-23 00:19 PST: 1,030 entries.
+
+##### 15.43.13 Color highlights on the Monitor pages (VW127, commit afcec51, plan P67, Q-A 3:122.4)
+- Book titles bold accent, page IDs in blue chips, box names by stage (TS teal, TL blue, ED purple, QA orange, critic dashed), times green, durations and counts bold, last sign of life green, amber or red. Text unchanged.
+
+##### 15.43.14 Not verified
+- Safari, Firefox, a real phone and a screen reader for these units.
+- The search speed on the live site with a word that is on many pages.
+
+Status: written by aki-main from the commit texts and unit records. The owner has not checked this section.
