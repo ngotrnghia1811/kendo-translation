@@ -1,6 +1,8 @@
 import type { StageText } from "@/lib/types";
 import Reasoning from "./Reasoning";
 import { BoxCode } from "./BoxCode"; // Unit VW96 (Q-A 3:18.5): box codes keep their place, the readable name shows on hover.
+// Unit VW127 (Q-A 3:122.4 row 6): the term count bold. No text change.
+import { HlCount } from "./HlSpan";
 
 // Round 44 answer 13 (Q-A l142): ED_0 to ED_3 texts, line by line, with the JA text next to them.
 //
@@ -109,7 +111,7 @@ function TermList({ stage }: { stage: StageText }) {
   if (stage.termList.length === 0) return null;
   return (
     <details className="mt-3 text-sm">
-      <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted">EN terms in <BoxCode code={stage.box} /> ({stage.termList.length})</summary>
+      <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted">EN terms in <BoxCode code={stage.box} /> (<HlCount>{stage.termList.length}</HlCount>)</summary>
       <ul className="mt-1 space-y-0.5">
         {stage.termList.map((t, k) => (
           <li key={k}>

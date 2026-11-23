@@ -1,4 +1,4 @@
-import { PHASE2_LINE } from "@/lib/book-status-rules";
+import { PHASE2_LINE, agoText } from "@/lib/book-status-rules";
 import { phase2Text } from "@/lib/phase2-row";
 import type { Phase2Line, Phase2View } from "@/lib/phase2-row";
 import { PHASE2_STATE_HELP, pageText, phase2Overrides } from "@/lib/phase2-articles";
@@ -6,6 +6,8 @@ import type { Phase2ArticlesView } from "@/lib/phase2-articles";
 // Unit VW103 (round 91), Q-A 3:36.4: the running update point. The lines come from lib/update-live.ts, so a node test checks the same words.
 import { updateLines } from "@/lib/update-live";
 import { BoxText } from "./BoxCode";
+// Unit VW127 (Q-A 3:122.4 row 5): the age of the last sign of life gets its color from the exact heartbeat age (the text stays the same).
+import { HlAlive } from "./HlSpan";
 
 const STEPS_LINE: Phase2Line = { key: "steps", text: "Step view of the whole run, page by page and step by step: ", links: [{ text: "Steps", href: "/monitor/phase-2" }] };
 // Unit VW106 (Q-A 3:64.5 row 3): the vector map of the prompt points, one map for each box type, read only.
@@ -79,7 +81,13 @@ export default function Phase2Row({ view, now, articles }: { view: Phase2View | 
       <ul className="mt-1 space-y-0.5 text-muted">
         {lines.map((l) => (
           <li key={l.key} data-phase2-item={l.key} className={l.error ? "break-words text-red-700" : undefined}>
-            <BoxText text={l.text} />
+            {l.key === "alive" && view.heartbeat !== null && l.text === `Last sign of life ${agoText(view.heartbeat, now, true)}.` ? (
+              <>
+                Last sign of life <HlAlive ageSeconds={now - view.heartbeat}>{agoText(view.heartbeat, now, true)}</HlAlive>.
+              </>
+            ) : (
+              <BoxText text={l.text} />
+            )}
             {l.links?.map((k, i) => (
               <span key={k.href}>
                 {i > 0 ? " · " : l.text.endsWith(" ") ? "" : " "}

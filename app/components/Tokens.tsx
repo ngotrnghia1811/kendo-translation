@@ -1,5 +1,7 @@
 // Token parts of the Viewer screens (unit VW93, round 91). Q-A 3:15.2 "Short in tables, all 5 in details", Q-A 3:15.3 "Show 'no token data'".
 // The text comes from lib/tokens-view.ts. "no token data" uses the existing grey class text-muted (no new color, so scripts/contrast-dark.mjs needs no new pair).
+// Unit VW127 (Q-A 3:122.4 row 6): token counts are bold. The sums keep their text; BoxText only cuts it (lib/hl-rules.ts).
+import { HlText } from "./HlSpan";
 import { NO_TOKEN_DATA, TOKEN_KEYS, TOKEN_KIND_HEADS, missingNote, tokenCell, tokensBody, tokensShort, type TokenCounts, type TokenSum } from "@/lib/tokens-view";
 
 /** "no token data" in grey. */
@@ -9,7 +11,7 @@ export function NoTokenData() {
 
 /** The short form for a table cell or a one-line place: "1,234,567 / 345,678", or "no token data" in grey. */
 export function TokensShort({ tokens }: { tokens: TokenCounts | null }) {
-  return tokens ? <span data-tokens-short>{tokensShort(tokens)}</span> : <NoTokenData />;
+  return tokens ? <span data-tokens-short className="hl-count" data-hl="count">{tokensShort(tokens)}</span> : <NoTokenData />;
 }
 
 /** The 5-kind line with no "Tokens: " in front (the place shows the label), or "no token data" in grey. `sum` adds the note of the parts without token data. */
@@ -18,7 +20,7 @@ export function TokensDetail({ tokens, sum, one = "call", many = "calls" }: { to
   const note = sum ? missingNote(sum, one, many) : "";
   return (
     <span data-tokens-detail>
-      {tokensBody(tokens)}
+      <HlText text={tokensBody(tokens)} />
       {note ? <span className="text-muted">{note}</span> : null}
     </span>
   );
@@ -49,7 +51,9 @@ export function TokenCells({ tokens, className }: { tokens: TokenCounts | null; 
     <>
       {TOKEN_KEYS.map((k) => (
         <td key={k} className={className}>
-          {tokenCell(tokens, k)}
+          <span className="hl-count" data-hl="count">
+            {tokenCell(tokens, k)}
+          </span>
         </td>
       ))}
     </>

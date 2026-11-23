@@ -9,6 +9,8 @@ import { jsonViewHref } from "@/lib/json-view";
 import { TOKENS_LABEL, missingNote, sumTokens, tokensLine } from "@/lib/tokens-view";
 import { NoTokenData, TokenCells, TokenHeads, TokensDetail } from "./Tokens";
 import { BoxText } from "./BoxCode";
+// Unit VW127 (Q-A 3:122.4 rows 4 and 6): the seconds and counts bold, a failed count above 0 red. No text changes.
+import { HlCount, HlDuration, HlFailed, HlText } from "./HlSpan";
 import { GroupCode, RawId, SessionId } from "./Named";
 import { criticFolderName, criticModeWord, critiqueLabel, modelOptionText, pageNumberText, pageRunStatusWord } from "@/lib/readable-names";
 
@@ -119,8 +121,12 @@ export function Calls({ rows }: { rows: any[] }) {
                 {r.variant ? <span className="text-muted"> ({r.variant})</span> : null}
               </td>
               <TokenCells tokens={r.tokenCounts ?? null} className={td + " text-right tabular-nums"} />
-              <td className={td + " text-right tabular-nums"}>{r.seconds ?? "–"}</td>
-              <td className={td + " text-right tabular-nums"}>{r.retries}</td>
+              <td className={td + " text-right tabular-nums"}>
+                <HlDuration>{r.seconds ?? "–"}</HlDuration>
+              </td>
+              <td className={td + " text-right tabular-nums"}>
+                <HlCount>{r.retries}</HlCount>
+              </td>
               <td className={td + " text-xs"}>
                 {r.sessionTurn !== null && r.sessionTurn !== undefined ? (
                   <span className="mr-1 rounded bg-stone-100 px-1.5 text-stone-700" title="Turn of the critic session that held this call">
@@ -150,7 +156,9 @@ export function Calls({ rows }: { rows: any[] }) {
               {missingNote(total, "call", "calls") ? <span className="font-normal text-muted">{missingNote(total, "call", "calls")}</span> : null}
             </td>
             <TokenCells tokens={total.tokens} className={td + " text-right tabular-nums"} />
-            <td className={td + " text-right tabular-nums"}>{sec.toFixed(1)}</td>
+            <td className={td + " text-right tabular-nums"}>
+              <HlDuration>{sec.toFixed(1)}</HlDuration>
+            </td>
             <td colSpan={2} />
           </tr>
         </tfoot>
@@ -236,7 +244,7 @@ function Failed({ d }: { d: any }) {
           <span className="text-xs text-muted">{f.model}</span>
           <div className="text-xs text-red-700">{f.error}</div>
           <div className="text-xs text-muted">
-            retries {f.retries ?? 0}, {f.seconds ?? "–"} s, {f.tokens ? tokensLine(f.tokens) : <NoTokenData />}
+            retries <HlCount>{f.retries ?? 0}</HlCount>, <HlDuration>{f.seconds ?? "–"} s</HlDuration>, {f.tokens ? tokensLine(f.tokens) : <NoTokenData />}
           </div>
         </div>
       ))}
@@ -287,7 +295,7 @@ function Programs({ d }: { d: any }) {
           <Empty>No file.</Empty>
         ) : (
           <p>
-            {d.termMarks.length} marks. Without a short English explanation: {d.termMarks.filter((m: any) => m.explained === false).length}.
+            <HlCount>{d.termMarks.length} marks</HlCount>. Without a short English explanation: <HlCount>{d.termMarks.filter((m: any) => m.explained === false).length}</HlCount>.
           </p>
         )}
       </div>
@@ -298,7 +306,7 @@ function Programs({ d }: { d: any }) {
         ) : (
           <>
             <p>
-              {d.structure.total} parts compared. Not found: {d.structure.notFound.length}.
+              <HlCount>{d.structure.total} parts</HlCount> compared. Not found: <HlCount>{d.structure.notFound.length}</HlCount>.
             </p>
             <ul className="text-xs text-red-800">
               {d.structure.notFound.map((i: any, k: number) => (
@@ -361,8 +369,12 @@ function Counts({ page }: { page: PageData }) {
             <td className={td + " font-mono text-xs"}>
               <GroupCode code={c.boxType} />
             </td>
-            <td className={td + " text-right tabular-nums"}>{c.critiques}</td>
-            <td className={td + " text-right tabular-nums"}>{c.n ?? "–"}</td>
+            <td className={td + " text-right tabular-nums"}>
+              <HlCount>{c.critiques}</HlCount>
+            </td>
+            <td className={td + " text-right tabular-nums"}>
+              <HlCount>{c.n ?? "–"}</HlCount>
+            </td>
             <td className={td}>{c.reachedN === null ? "–" : c.reachedN ? "yes" : "no"}</td>
             <td className={td + " text-xs text-muted"}>{c.note}</td>
           </tr>
@@ -397,7 +409,7 @@ export function ChainInputs({ d }: { d: any }) {
           )}{" "}
           <RawId title="Page ID of the previous page">{String(d.previous.pageId)}</RawId>{" "}
           <span className="ml-1 text-xs text-muted">
-            Each box reads the pair of the same box on that page. {d.previous.note}
+            Each box reads the pair of the same box on that page. <HlText text={String(d.previous.note ?? "")} />
           </span>
         </p>
       ) : (
@@ -468,16 +480,16 @@ export function CriticOnly({ rows, stage, runRel }: { rows: any[]; stage: number
               ) : (
                 ""
               )}
-              , {r.modelCalls ?? "–"} calls,{" "}
+              , <HlCount>{r.modelCalls ?? "–"} calls</HlCount>,{" "}
               {r.failedCalls.length > 0 ? (
-                <span className="text-red-700">
-                  {r.failedCalls.length} failed (<BoxText text={r.failedCalls.join(", ")} />)
+                <span>
+                  <HlFailed n={r.failedCalls.length}>{r.failedCalls.length} failed</HlFailed> (<BoxText text={r.failedCalls.join(", ")} />)
                 </span>
               ) : (
-                "0 failed"
+                <HlCount>0 failed</HlCount>
               )}
               ,{" "}
-              {r.seconds ?? "–"} s
+              <HlDuration>{r.seconds ?? "–"} s</HlDuration>
               {r.session ? `, session: ${r.session.turns ?? "?"} turns, ${r.session.sessionIds.length} session, ${r.session.restarts} restarts, turn message ${r.session.turnMessage || "–"}` : ""}
             </p>
           ) : null}

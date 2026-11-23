@@ -86,6 +86,8 @@ export async function snapshot(dir) {
 /** The visible text of rendered HTML, with the common entities decoded and the spaces joined. */
 export function htmlText(html) {
   return html
+    // unit VW127 (Q-A 3:122.4): a highlight span (data-hl) only colors a piece of a text. It adds no space, so "(" + span + ")" reads "(5)" as in the browser.
+    .replace(/<span [^>]*data-hl="[^"]*"[^>]*>([^<]*)<\/span>/g, "$1")
     .replace(/<[^>]+>/g, " ")
     .replace(/&#x27;/g, "'")
     .replace(/&quot;/g, '"')

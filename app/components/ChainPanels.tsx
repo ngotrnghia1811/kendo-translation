@@ -4,6 +4,8 @@ import type { ChainRow } from "@/lib/types";
 import type { CompareView, CompareVariantTotals, MemoryPage } from "@/lib/chain";
 import { TokenCells, TokenHeads } from "./Tokens";
 import { pstFromUtcText } from "@/lib/pst-more";
+// Unit VW127 (Q-A 3:122.4 rows 1, 2, 4, 6): the book title in the accent color, the page chips, the times green, the counts bold, a failed count above 0 red. No text changes.
+import { HlCount, HlFailed, HlPage, HlTimeText, HlTitle } from "./HlSpan";
 import Link from "next/link";
 import { jsonViewHref } from "@/lib/json-view";
 // Unit VW96 (card P31.3, Q-A 3:17.4): plain chain states, book titles, page numbers, run times and critique group hovers.
@@ -37,7 +39,7 @@ function ChainState({ state }: { state: string }) {
 function BookName({ book, title }: { book: string; title?: string | null }) {
   return title ? (
     <>
-      <span className="font-medium">{title}</span> <RawId title="Book key (folder name)">{book}</RawId>
+      <HlTitle>{title}</HlTitle> <RawId title="Book key (folder name)">{book}</RawId>
     </>
   ) : (
     <span className="font-mono text-xs" title="Book key (folder name). No title is known for it.">
@@ -68,15 +70,23 @@ export function ChainTable({ chains }: { chains: ChainRow[] }) {
               <td className={td}>
                 <BookName book={c.book} title={c.title} />
               </td>
-              <td className={td + " text-right tabular-nums"}>{c.pages.length}</td>
+              <td className={td + " text-right tabular-nums"}>
+                <HlCount>{c.pages.length}</HlCount>
+              </td>
               <td className={td}>
                 <ChainState state={c.state} />
               </td>
               <td className={td + " text-right tabular-nums"}>
-                {c.accepted.length} / {c.pages.length}
+                <HlCount>
+                  {c.accepted.length} / {c.pages.length}
+                </HlCount>
               </td>
-              <td className={td + " text-right tabular-nums"}>{c.memoryPairs ?? "–"}</td>
-              <td className={td + " text-right tabular-nums " + (c.criticFailures ? "font-semibold text-red-700" : "")}>{c.criticFailures ?? "–"}</td>
+              <td className={td + " text-right tabular-nums"}>
+                <HlCount>{c.memoryPairs ?? "–"}</HlCount>
+              </td>
+              <td className={td + " text-right tabular-nums"}>
+                <HlFailed n={c.criticFailures}>{c.criticFailures ?? "–"}</HlFailed>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -162,7 +172,10 @@ export function MemoryView({ d }: { d: MemoryData }) {
       {d.pages.map((pg) => (
         <div key={pg.pageId}>
           <h3 className="mb-1 text-sm font-semibold">
-            {pageNumberText(pg.pageId)} <RawId>{pg.pageId}</RawId> <span className="font-normal text-muted">({pg.pairs.length} pairs)</span>
+            {pageNumberText(pg.pageId)} <HlPage>{pg.pageId}</HlPage>{" "}
+            <span className="font-normal text-muted">
+              (<HlCount>{pg.pairs.length} pairs</HlCount>)
+            </span>
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -193,7 +206,7 @@ export function MemoryView({ d }: { d: MemoryData }) {
                       ) : null}
                     </td>
                     <td className={td + " whitespace-nowrap"} title={p.writtenAt ? `Stored as ${p.writtenAt} (UTC)` : undefined}>
-                      {p.writtenAt ? pstFromUtcText(p.writtenAt) : "–"}
+                      {p.writtenAt ? <HlTimeText text={pstFromUtcText(p.writtenAt)} /> : "–"}
                     </td>
                   </tr>
                 ))}
@@ -245,7 +258,7 @@ export function ComparePanel({ stamp, isChain }: { stamp: string; isChain: boole
               Open the compare files
             </Link>{" "}
             <RawId>critic-compare/{c.folder}</RawId>
-            , made {c.generatedUtc ? pstFromUtcText(c.generatedUtc) : "at an unknown time"}, {c.pageCount} pages, {c.commonPageCount} pages in every variant.
+            , made {c.generatedUtc ? <HlTimeText text={pstFromUtcText(c.generatedUtc)} /> : "at an unknown time"}, <HlCount>{c.pageCount} pages</HlCount>, <HlCount>{c.commonPageCount} pages</HlCount> in every variant.
           </p>
           <TotalsTable title="All pages" rows={c.all} />
           {c.common.length > 0 && c.all.length > 1 ? <TotalsTable title="Pages that every variant covers" rows={c.common} /> : null}
@@ -294,18 +307,40 @@ export function TotalsTable({ title, rows }: { title: string; rows: CompareVaria
                   <span className="font-mono">{r.variant}</span>
                 )}
               </td>
-              <td className={td + " text-right tabular-nums"}>{n0(r.pages)}</td>
-              <td className={td + " text-right tabular-nums font-semibold"}>{n0(r.critiques)}</td>
-              <td className={td + " text-right tabular-nums"}>{n0(r.byBoxType.TS)}</td>
-              <td className={td + " text-right tabular-nums"}>{n0(r.byBoxType.TL)}</td>
-              <td className={td + " text-right tabular-nums"}>{n0(r.byBoxType.ED)}</td>
-              <td className={td + " text-right tabular-nums"}>{n0(r.byBoxType.QA)}</td>
-              <td className={td + " text-right tabular-nums"}>{n0(r.citingIssues)}</td>
-              <td className={td + " text-right tabular-nums"}>{n0(r.citingOtherQa)}</td>
-              <td className={td + " text-right tabular-nums"}>{n0(r.calls)}</td>
-              <td className={td + " text-right tabular-nums " + (r.failedCalls ? "font-semibold text-red-700" : "")}>{n0(r.failedCalls)}</td>
+              <td className={td + " text-right tabular-nums"}>
+                <HlCount>{n0(r.pages)}</HlCount>
+              </td>
+              <td className={td + " text-right tabular-nums"}>
+                <HlCount>{n0(r.critiques)}</HlCount>
+              </td>
+              <td className={td + " text-right tabular-nums"}>
+                <HlCount>{n0(r.byBoxType.TS)}</HlCount>
+              </td>
+              <td className={td + " text-right tabular-nums"}>
+                <HlCount>{n0(r.byBoxType.TL)}</HlCount>
+              </td>
+              <td className={td + " text-right tabular-nums"}>
+                <HlCount>{n0(r.byBoxType.ED)}</HlCount>
+              </td>
+              <td className={td + " text-right tabular-nums"}>
+                <HlCount>{n0(r.byBoxType.QA)}</HlCount>
+              </td>
+              <td className={td + " text-right tabular-nums"}>
+                <HlCount>{n0(r.citingIssues)}</HlCount>
+              </td>
+              <td className={td + " text-right tabular-nums"}>
+                <HlCount>{n0(r.citingOtherQa)}</HlCount>
+              </td>
+              <td className={td + " text-right tabular-nums"}>
+                <HlCount>{n0(r.calls)}</HlCount>
+              </td>
+              <td className={td + " text-right tabular-nums"}>
+                <HlFailed n={r.failedCalls}>{n0(r.failedCalls)}</HlFailed>
+              </td>
               <TokenCells tokens={r.tokens ?? null} className={td + " text-right tabular-nums"} />
-              <td className={td + " text-right tabular-nums"}>{r.seconds === null ? "–" : r.seconds.toFixed(1)}</td>
+              <td className={td + " text-right tabular-nums"}>
+                <HlCount>{r.seconds === null ? "–" : r.seconds.toFixed(1)}</HlCount>
+              </td>
             </tr>
           ))}
         </tbody>

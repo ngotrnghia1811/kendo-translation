@@ -11,6 +11,8 @@ import { KindTicks, MonitorHeader, TimeLine } from "./TrainingMonitorView";
 import { FROZEN_HELP, storeQuery } from "@/lib/run-store";
 import { RunStoreQueryProvider } from "./RunStoreQuery";
 import { FrozenLine, OverflowList } from "./RunStoreParts";
+// Unit VW127 (Q-A 3:122.4 row 4): the time of the last check in green. No text change.
+import { HlTime } from "./HlSpan";
 
 // Unit VW98 (round 91). Section "Training monitor" of the run view /runs/<stamp> of a phase 2 list (Q-A 3:23.3 "Section with box picker in the run view").
 // 16 box buttons; a click shows the history of that box below and sets ?box=TL_2 in the address, so a kept link opens that box.
@@ -145,7 +147,15 @@ function BoxPanel({ stamp, box }: { stamp: string; box: string }) {
     <div data-monitor-box={box} className="mt-3">
       <p className="mb-2 inline-flex items-center gap-1.5 text-xs text-muted">
         <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-        Live, refresh every 3 seconds{updated !== null ? ` · last check ${pstClock(updated)}` : ""}
+        Live, refresh every 3 seconds
+        {updated !== null ? (
+          <>
+            {" · last check "}
+            <HlTime>{pstClock(updated)}</HlTime>
+          </>
+        ) : (
+          ""
+        )}
       </p>
       {failed ? <p className="mb-2 text-sm text-red-700">{failed}</p> : null}
       {data ? (

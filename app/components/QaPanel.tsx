@@ -2,6 +2,8 @@ import type { QaStage } from "@/lib/types";
 import { VerdictPill } from "./Pills";
 import Reasoning from "./Reasoning";
 import { BoxCode } from "./BoxCode"; // Unit VW96 (Q-A 3:18.5)
+// Unit VW127 (Q-A 3:122.4 row 6): the score, the penalty and the counts bold. No text changes.
+import { HlCount } from "./HlSpan";
 import { issueAnchor, markTone } from "@/lib/page-labels";
 
 // Round 44 answer 13 (Q-A l142), page view: QA verdict, score, the 8 cells with row names, and issues.
@@ -20,7 +22,7 @@ export default function QaPanel({ qa }: { qa: QaStage | undefined }) {
         <VerdictPill verdict={qa.verdict} score={qa.score} />
       </div>
       <p className="mt-1 text-xs text-muted">
-        Page score {qa.score?.toFixed(1) ?? "–"} of 10. Penalty {qa.penalty?.toFixed(1) ?? "–"}.
+        Page score <HlCount>{qa.score?.toFixed(1) ?? "–"}</HlCount> of 10. Penalty <HlCount>{qa.penalty?.toFixed(1) ?? "–"}</HlCount>.
       </p>
 
       <h3 className="mt-4 mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Cells</h3>
@@ -35,7 +37,7 @@ export default function QaPanel({ qa }: { qa: QaStage | undefined }) {
         ))}
       </ul>
 
-      <h3 className="mt-4 mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Issues ({qa.issues.length})</h3>
+      <h3 className="mt-4 mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Issues (<HlCount>{qa.issues.length}</HlCount>)</h3>
       {qa.issues.length === 0 ? (
         <p className="text-xs text-muted">No issue found.</p>
       ) : (
@@ -61,7 +63,7 @@ export default function QaPanel({ qa }: { qa: QaStage | undefined }) {
       {qa.marks.length + qa.programMarks.length > 0 ? (
         <details className="mt-4">
           <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted">
-            Marks ({qa.marks.length + qa.programMarks.length})
+            Marks (<HlCount>{qa.marks.length + qa.programMarks.length}</HlCount>)
           </summary>
           <ul className="mt-2 space-y-2">
             {[...qa.marks, ...qa.programMarks].map((m, k) => (

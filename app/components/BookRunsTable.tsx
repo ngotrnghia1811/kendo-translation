@@ -5,6 +5,8 @@ import { openKey } from "@/lib/reader-opens-rule";
 import { BOOK_RUN_SOURCE } from "@/lib/book-run-rules";
 import { phaseText } from "@/lib/book-status-rules";
 import { OpenButton, OpenConfirm, OpenGateLine, changeOpens, readOpensFrom, type OpenLoad, type OpensRead } from "./ReaderOpenRows";
+// Unit VW127 (Q-A 3:122.4 rows 3, 4, 6): the run time in green, the pages done bold, the box names of the prompts with their stage colors. No text changes.
+import { HlCount, HlText, HlTimeText } from "./HlSpan";
 
 /*
  * Unit VW77e (Q-A 3:11.3 V1 to V3): the table "Runs" of the Details view /monitor/<book>.
@@ -95,15 +97,21 @@ export default function BookRunsTable({ slug, runs, title }: { slug: string; run
               return (
                 <tr key={a.key} data-book-run={a.runId ?? a.key} data-archived-run={a.place === "archive" ? a.folder : undefined} className="border-t border-line align-top">
                   <td data-archived-id className={"px-3 py-2 " + (a.runIdForm ? "" : "font-mono")}>
-                    {a.runText}
+                    <HlTimeText text={a.runText} />
                   </td>
                   {/* Unit VW96 (Q-A 3:17.4): "Phase 4 · production run" in place of the raw key "agent-phase-4". */}
                   <td className="px-3 py-2" title={a.phase ?? undefined}>
                     {phaseText(a.phase) ?? a.phase ?? "Not stored"}
                   </td>
-                  <td className="px-3 py-2 tabular-nums">{a.pagesText}</td>
-                  <td className="px-3 py-2 text-xs">{a.promptsStart}</td>
-                  <td className="px-3 py-2 text-xs">{a.promptsEnd}</td>
+                  <td className="px-3 py-2 tabular-nums">
+                    <HlCount>{a.pagesText}</HlCount>
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    <HlText text={a.promptsStart} />
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    <HlText text={a.promptsEnd} />
+                  </td>
                   <td data-book-run-place className="px-3 py-2">
                     {a.placeText}
                   </td>

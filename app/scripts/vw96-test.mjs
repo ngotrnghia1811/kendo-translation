@@ -429,7 +429,9 @@ await check("the step view shows the model with its provider in plain words (tre
 });
 await check("the Details view line and note send box codes through BoxText (hover name)", () => {
   const s = read("components/BookDetailView.tsx");
-  assert.match(s, /<BoxText text=\{sentence\} \/>/);
+  // unit VW127 (Q-A 3:122.4): the sentence goes through HlLine, which draws its box pieces through BoxText (components/HlLine.tsx) and colors the other pieces.
+  assert.match(s, /<BoxText text=\{sentence\} \/>|<HlLine segs=\{row\.line2\} now=\{now\} \/>/);
+  assert.match(read("components/HlLine.tsx"), /BoxText/);
   assert.match(s, /<BoxText text=\{row\.note\} \/>/);
 });
 

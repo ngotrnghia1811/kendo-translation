@@ -23,6 +23,9 @@ import {
 import { bookTagText } from "@/lib/book-run-rules";
 import { VerdictPill } from "./Pills"; // Unit VW116 (Q-A 3:95.4 row d): the unused import StatePill is gone.
 import { BoxCode, BoxText } from "./BoxCode";
+// Unit VW127 (Q-A 3:122.4 rows 1, 2, 4, 5, 6, 8): the title, the page chips, the times, durations, counts and failed counts with their colors. No text changes.
+import HlLine from "./HlLine";
+import { HlCount, HlDuration, HlFailed, HlPage, HlText, HlTime, HlTimeText, HlTitle } from "./HlSpan";
 import { GroupCode, ListStatePill, PageListStatePill, RawId } from "./Named";
 import { bookJobsText, capFirst, criticModeWord, levelModelsText, listTitle, pageNumberText } from "@/lib/readable-names";
 import { listKindWord } from "@/lib/run-view-words";
@@ -70,9 +73,17 @@ function ListFold({ list, open }: { list: DetailList; open: boolean }) {
         </Link>{" "}
         <RawId title="Folder name of the list">{list.stamp}</RawId>
         <span className="ml-3 text-muted">
-          Started {pstDateTimeOrDash(list.startedEpoch)}. Ended {end}. Kind: {listKindWord(list.listKind, list.phase2List === true)}. Critic mode:{" "}
+          Started <HlTimeText text={pstDateTimeOrDash(list.startedEpoch)} />. Ended <HlTimeText text={end} />. Kind: {listKindWord(list.listKind, list.phase2List === true)}. Critic mode:{" "}
           <span title={criticModeWord(list.criticMode).help}>{criticModeWord(list.criticMode).label}</span>.
-          {list.bookJobs !== null ? ` Jobs: ${bookJobsText(list.bookJobs)}.` : ""}
+          {/* Unit VW127 (Q-A 3:122.4 row 6): the count of book jobs is bold. */}
+          {list.bookJobs !== null ? (
+            <>
+              {" Jobs: "}
+              <HlText text={bookJobsText(list.bookJobs)} />.
+            </>
+          ) : (
+            ""
+          )}
         </span>{" "}
         <ListStatePill state={list.state} />
       </summary>
@@ -103,7 +114,7 @@ function ListFold({ list, open }: { list: DetailList; open: boolean }) {
                   ) : (
                     <span className="text-muted">{capFirst(pageNumberText(p.page))}</span>
                   )}{" "}
-                  <RawId title="Page name">{p.page}</RawId>
+                  <HlPage title="Page name">{p.page}</HlPage>
                 </td>
                 <td className="px-3 py-2">
                   <PageListStatePill state={p.state} />
@@ -114,15 +125,21 @@ function ListFold({ list, open }: { list: DetailList; open: boolean }) {
                   ) : null}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">
-                  {p.callsDone} / {p.callsTotal}
-                  {p.callsFailed ? <span className="ml-1 font-semibold text-red-700">({p.callsFailed} failed)</span> : null}
+                  <HlCount>
+                    {p.callsDone} / {p.callsTotal}
+                  </HlCount>
+                  {p.callsFailed ? (
+                    <span className="ml-1">
+                      <HlFailed n={p.callsFailed}>({p.callsFailed} failed)</HlFailed>
+                    </span>
+                  ) : null}
                 </td>
                 <td className="px-3 py-2">
                   <VerdictPill verdict={p.qa3Verdict} score={p.qa3Score} />
                 </td>
                 <TokenCells tokens={p.tokens} className="px-3 py-2 text-right tabular-nums" />
-                <td className="px-3 py-2 text-right tabular-nums">{p.minutes === null ? "–" : `${p.minutes.toFixed(1)} min`}</td>
-                <td className="px-3 py-2 text-xs">{p.pairs === null ? <span className="text-muted">–</span> : `${p.pairs} ${p.pairs === 1 ? "pair" : "pairs"}`}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{p.minutes === null ? "–" : <HlDuration>{`${p.minutes.toFixed(1)} min`}</HlDuration>}</td>
+                <td className="px-3 py-2 text-xs">{p.pairs === null ? <span className="text-muted">–</span> : <HlCount>{`${p.pairs} ${p.pairs === 1 ? "pair" : "pairs"}`}</HlCount>}</td>
               </tr>
             ))}
           </tbody>
@@ -164,8 +181,8 @@ export default function BookDetailView({ initial, settings = null }: { initial: 
       <div data-part="header" className="mt-2 mb-6">
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <h1 className="text-xl font-semibold">
-            {named ? <span>{row.title} </span> : null}
-            <code className={"font-mono " + (named ? "text-base font-normal text-muted" : "")}>{named ? `(${row.slug})` : row.slug}</code>
+            {named ? <HlTitle>{row.title} </HlTitle> : null}
+            <code data-hl={named ? "folder" : undefined} className={named ? "hl-folder" : "font-mono"}>{named ? `(${row.slug})` : row.slug}</code>
             {/* Unit VW96 (Q-A 3:17.4): an article slug (8 hex digits) with no title in items.filled.jsonl says so. */}
             {!named && /^[0-9a-f]{8}$/.test(row.slug) ? <span className="ml-2 text-sm font-normal text-muted">(title not found)</span> : null}
           </h1>
@@ -179,7 +196,7 @@ export default function BookDetailView({ initial, settings = null }: { initial: 
             </span>
           ) : null}
           <span data-updated className="text-sm text-muted">
-            Updated {pstClockSeconds(data.generatedAt)} ({agoText(data.generatedAt, now, true)})
+            Updated <HlTime>{pstClockSeconds(data.generatedAt)}</HlTime> (<HlDuration>{agoText(data.generatedAt, now, true)}</HlDuration>)
           </span>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -187,14 +204,18 @@ export default function BookDetailView({ initial, settings = null }: { initial: 
           {row.phase ? (
             <span data-col="phase" className="text-sm">
               {row.phase}
-              {row.run ? <span className="ml-2 text-muted">{row.run}</span> : null}
+              {row.run ? (
+                <span className="ml-2 text-muted">
+                  <HlText text={row.run} />
+                </span>
+              ) : null}
             </span>
           ) : null}
           <RowButtons row={row} onChanged={refresh} />
         </div>
         {sentence || row.note ? (
           <p data-row-line2 className="mt-2 text-sm text-muted">
-            <BoxText text={sentence} />
+            <HlLine segs={row.line2} now={now} />
             {row.note ? (
               <span data-row-note className="ml-2 font-medium text-foreground">
                 <BoxText text={row.note} />
@@ -204,19 +225,19 @@ export default function BookDetailView({ initial, settings = null }: { initial: 
         ) : null}
         {row.refused ? (
           <p data-row-refused className="mt-1 text-sm font-medium text-foreground">
-            {row.refused}
+            <HlText text={row.refused} />
           </p>
         ) : null}
         {row.warning ? (
           <p data-row-warning className="mt-1 text-sm text-amber-800">
-            Warning: {row.warning}
+            Warning: <HlText text={row.warning} />
           </p>
         ) : null}
         <dl data-header-facts className="mt-3 flex flex-wrap gap-x-8 gap-y-1 text-sm">
           <div>
             <dt className="text-xs uppercase tracking-wide text-muted">Pages done</dt>
             <dd data-fact="pages" className="tabular-nums">
-              {progressText(row)}
+              <HlCount>{progressText(row)}</HlCount>
             </dd>
           </div>
           <div>
@@ -229,13 +250,13 @@ export default function BookDetailView({ initial, settings = null }: { initial: 
           <div>
             <dt className="text-xs uppercase tracking-wide text-muted">Page time</dt>
             <dd data-fact="time" className="tabular-nums">
-              {row.minutes === null ? "–" : `${row.minutes} min`}
+              {row.minutes === null ? "–" : <HlDuration>{`${row.minutes} min`}</HlDuration>}
             </dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-muted">List folders</dt>
             <dd data-fact="lists" className="tabular-nums">
-              {data.lists.length}
+              <HlCount>{data.lists.length}</HlCount>
             </dd>
           </div>
         </dl>
@@ -251,7 +272,7 @@ export default function BookDetailView({ initial, settings = null }: { initial: 
             <p>
               <BoxText text={data.lastError.text} />
             </p>
-            {data.lastError.epoch !== null ? <p data-error-time>Time: {pstDateTimeOrDash(data.lastError.epoch)}</p> : null}
+            {data.lastError.epoch !== null ? <p data-error-time>Time: <HlTimeText text={pstDateTimeOrDash(data.lastError.epoch)} /></p> : null}
             {data.lastError.file ? (
               <p>
                 {/* Unit VW89 (round 90), Q-A 3:1.7 item 3: the file path opens in the JSON viewer (before: the plain text from /api/file). */}
@@ -323,7 +344,7 @@ export default function BookDetailView({ initial, settings = null }: { initial: 
                             <td className="px-3 py-2">Total</td>
                             {BOX_TYPES.map((t) => (
                               <td key={t} className="px-3 py-2 text-right tabular-nums">
-                                {totals.counts[t]}
+                                <HlCount>{totals.counts[t]}</HlCount>
                                 {data.flags.filter((f) => f.box.startsWith(t + "_")).map((f) => (
                                   <span key={f.box} data-flag-mark={f.box} className="ml-1 text-xs font-normal text-red-700">
                                     ▲ <BoxCode code={f.box} /> stopped
@@ -331,16 +352,16 @@ export default function BookDetailView({ initial, settings = null }: { initial: 
                                 ))}
                               </td>
                             ))}
-                            <td className="px-3 py-2 text-right tabular-nums">{totals.nMixed ? "varies" : (totals.n ?? "–")}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{totals.nMixed ? "varies" : <HlCount>{totals.n ?? "–"}</HlCount>}</td>
                           </tr>
                           {data.critiques.map((r) => (
                             <tr key={r.pageId} data-critique-row={r.page} className="border-t border-line">
                               <td className="px-3 py-2">
-                                {capFirst(pageNumberText(r.page))} <RawId title="Page name">{r.page}</RawId>
+                                {capFirst(pageNumberText(r.page))} <HlPage title="Page name">{r.page}</HlPage>
                               </td>
                               {BOX_TYPES.map((t) => (
                                 <td key={t} className="px-3 py-2 text-right tabular-nums">
-                                  {r.counts[t]}
+                                  <HlCount>{r.counts[t]}</HlCount>
                                   {r.reached[t] ? (
                                     <span title="This count reached N" className="ml-1">
                                       ★<span className="sr-only"> reached N</span>
@@ -348,7 +369,9 @@ export default function BookDetailView({ initial, settings = null }: { initial: 
                                   ) : null}
                                 </td>
                               ))}
-                              <td className="px-3 py-2 text-right tabular-nums">{r.n ?? "–"}</td>
+                              <td className="px-3 py-2 text-right tabular-nums">
+                                <HlCount>{r.n ?? "–"}</HlCount>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -364,7 +387,10 @@ export default function BookDetailView({ initial, settings = null }: { initial: 
                   ) : (
                     <details className="rounded border border-line bg-white">
                       <summary className="cursor-pointer px-3 py-2 text-sm">
-                        {data.settings.length} {data.settings.length === 1 ? "page" : "pages"}, {data.settings.filter((s) => s.changed).length} with a change of settings
+                        <HlCount>
+                          {data.settings.length} {data.settings.length === 1 ? "page" : "pages"}
+                        </HlCount>
+                        , <HlCount>{data.settings.filter((s) => s.changed).length}</HlCount> with a change of settings
                       </summary>
                       <div className="relative overflow-x-auto border-t border-line">
                         <table className="w-full text-sm">
@@ -380,9 +406,11 @@ export default function BookDetailView({ initial, settings = null }: { initial: 
                             {data.settings.map((s) => (
                               <tr key={s.pageId} data-settings-row={s.page} className="border-t border-line">
                                 <td className="px-3 py-2">
-                                  {capFirst(pageNumberText(s.page))} <RawId title="Page name">{s.page}</RawId>
+                                  {capFirst(pageNumberText(s.page))} <HlPage title="Page name">{s.page}</HlPage>
                                 </td>
-                                <td className="px-3 py-2 text-right tabular-nums">{s.n ?? "–"}</td>
+                                <td className="px-3 py-2 text-right tabular-nums">
+                                  <HlCount>{s.n ?? "–"}</HlCount>
+                                </td>
                                 <td className="px-3 py-2 text-xs">{s.models ? levelModelsText(s.models) : "Not stored"}</td>
                                 <td className="px-3 py-2 text-xs font-medium">{s.changed ? SETTINGS_CHANGED_TEXT : ""}</td>
                               </tr>
@@ -443,10 +471,10 @@ export default function BookDetailView({ initial, settings = null }: { initial: 
                                 <BoxCode code={box} />
                               </td>
                               <td data-share-used className="px-3 py-2 tabular-nums">
-                                {shareText(s.used, s.total, s.used_percent)}
+                                <HlText text={shareText(s.used, s.total, s.used_percent)} />
                               </td>
                               <td data-share-dropped className="px-3 py-2 tabular-nums">
-                                {shareText(s.dropped, s.total, s.dropped_percent)}
+                                <HlText text={shareText(s.dropped, s.total, s.dropped_percent)} />
                               </td>
                             </tr>
                           ))}

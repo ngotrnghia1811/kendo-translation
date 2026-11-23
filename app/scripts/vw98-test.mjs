@@ -451,7 +451,9 @@ const allOn = { call: true, critique: true, update: true, rubric: true };
 const html = renderToStaticMarkup(
   React.createElement(React.Fragment, null, React.createElement(V.MonitorHeader, { data: tl2 }), React.createElement(V.KindTicks, { events: tl2.events, shown: allOn, setShown: () => {} }), React.createElement(V.TimeLine, { data: tl2, shown: allOn, opened: {}, setOpened: () => {}, tick: 0 })),
 );
-const text = html.replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/\s+/g, " ");
+// unit VW127 (Q-A 3:122.4): a highlight span (data-hl) adds no space to the text.
+const unHl = (html) => html.replace(/<span [^>]*data-hl="[^"]*"[^>]*>([^<]*)<\/span>/g, "$1");
+const text = html.replace(/<span [^>]*data-hl="[^"]*"[^>]*>([^<]*)<\/span>/g, "$1").replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/\s+/g, " ");
 
 await check("render: the lines read as the owner proposal (page words, model with card name, tokens, prompt version, groups, audit, version change)", () => {
   for (const s of [
@@ -486,9 +488,9 @@ await check("render: no money and no e-mail address in the rendered text", () =>
 await check("render: a QA box shows verdicts and the mean page score; a box with no events shows a plain line", async () => {
   const qa = await Lo.loadBoxMonitor(root, L2, "QA_3");
   const h = renderToStaticMarkup(React.createElement(V.MonitorHeader, { data: qa }));
-  assert.ok(h.includes("verdict PASS 1 · FAIL 1"));
+  assert.ok(unHl(h).includes("verdict PASS 1 · FAIL 1")); // unit VW127: a highlight span splits the raw markup, the text is the same
   assert.ok(h.includes("mean page score 6.3"));
-  assert.ok(h.includes("1 changes in this run"));
+  assert.ok(unHl(h).includes("1 changes in this run")); // unit VW127
   const none = await Lo.loadBoxMonitor(root, L2, "TS_3");
   const t = renderToStaticMarkup(React.createElement(V.TimeLine, { data: none, shown: allOn, opened: {}, setOpened: () => {}, tick: 0 }));
   assert.ok(t.includes("No line to show"));
@@ -498,7 +500,7 @@ await check("render: tick boxes off hide a kind", () => {
   const h = renderToStaticMarkup(React.createElement(V.TimeLine, { data: tl2, shown: { ...allOn, critique: false }, opened: {}, setOpened: () => {}, tick: 0 }));
   assert.ok(!h.includes('data-monitor-event="critique"'));
   assert.ok(h.includes('data-monitor-event="call"'));
-  assert.ok(h.includes("4 of 9 lines shown"));
+  assert.ok(unHl(h).includes("4 of 9 lines shown")); // unit VW127: the count "4 of 9" is a highlight span
 });
 
 await check("render: the box picker shows 16 codes with the readable name on hover, and marks the picked box", () => {

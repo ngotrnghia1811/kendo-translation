@@ -2,6 +2,8 @@
 import { useState } from "react";
 import type { BookDetail, ChapterArticle, ChapterRow, ChapterWeb, WebRow } from "@/lib/types";
 import { pageRange } from "@/lib/chapters";
+// Unit VW127 (Q-A 3:122.4 rows 1 and 6): the chapter title in the accent color, the counts bold. No text changes.
+import { HlCount } from "./HlSpan";
 import { describeValue, groupMetadata } from "@/lib/meta-fields";
 
 // Round 47 answer 13 (Q-A 2026-10-27 l35): "Books tab shows all metadata". Round 48 answer 9 (Q-A 2026-10-27 l55): "the Books Details part
@@ -106,7 +108,7 @@ function Chapters({ rows, web, webFileFound }: { rows: ChapterRow[] | null; web:
   const linked = rows.reduce((n, c) => n + c.articles.filter((a) => a.webLink).length, 0);
   return (
     <section>
-      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Month chapters ({rows.length})</h3>
+      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Month chapters (<HlCount>{rows.length}</HlCount>)</h3>
       {title ? <p className="mb-1 text-sm font-medium">{title}</p> : null}
       <p className="mb-2 text-xs text-muted">
         {webFileFound ? `${linked} articles of this year link to a web article.` : "No web candidate file found."}
@@ -116,11 +118,23 @@ function Chapters({ rows, web, webFileFound }: { rows: ChapterRow[] | null; web:
           <li key={c.chapter} className="rounded border border-line bg-white">
             <details>
               <summary className="cursor-pointer px-3 py-1 text-sm">
-                <span className="font-medium">{c.chapterTitleEn || c.chapter}</span>
+                <span data-hl="title" className="hl-title">{c.chapterTitleEn || c.chapter}</span>
                 {c.chapterTitleJa ? <span className="font-ja ml-2 text-xs text-muted">{c.chapterTitleJa}</span> : null}
                 <span className="ml-3 text-xs text-muted">
-                  {pageRange(c.pageStart, c.pageEnd)}, {c.articleCount} {c.articleCount === 1 ? "article" : "articles"}
-                  {web[c.chapter] ? `, ${web[c.chapter].linked.length} linked web ${web[c.chapter].linked.length === 1 ? "article" : "articles"}` : ""}
+                  {pageRange(c.pageStart, c.pageEnd)},{" "}
+                  <HlCount>
+                    {c.articleCount} {c.articleCount === 1 ? "article" : "articles"}
+                  </HlCount>
+                  {web[c.chapter] ? (
+                    <>
+                      ,{" "}
+                      <HlCount>
+                        {web[c.chapter].linked.length} linked web {web[c.chapter].linked.length === 1 ? "article" : "articles"}
+                      </HlCount>
+                    </>
+                  ) : (
+                    ""
+                  )}
                 </span>
               </summary>
               <Articles chapter={c} />
@@ -200,7 +214,7 @@ function WebCandidates({ chapter, web }: { chapter: string; web: ChapterWeb | un
       <h4 className="font-semibold uppercase tracking-wide text-muted">Web candidates of this chapter</h4>
       {web.linked.length > 0 ? (
         <div>
-          <p className="mb-1 text-muted">Linked web articles ({web.linked.length})</p>
+          <p className="mb-1 text-muted">Linked web articles (<HlCount>{web.linked.length}</HlCount>)</p>
           <ul className="space-y-1.5">
             {web.linked.map((r) => (
               <WebRowItem key={r.recordId} row={r} chapter={chapter} />

@@ -17,6 +17,8 @@ import type { PageNames } from "@/lib/readable-load";
 import { criticModeWord, pageKindWord, pageRunName } from "@/lib/readable-names";
 import { TITLE_NOT_FOUND } from "@/lib/phase2-articles";
 import { BoxCode } from "./BoxCode";
+// Unit VW127 (Q-A 3:122.4 rows 1, 4, 6): the article title in the accent color, the minutes and the counts bold. No text changes.
+import { HlCount, HlDuration, HlText } from "./HlSpan";
 import { PageRunStatusPill, RawId } from "./Named";
 import PageMoveLinks from "./PageMoveLinks";
 import PagePanels from "./PagePanels";
@@ -53,7 +55,7 @@ export default function PageView({ data, names, neighbors }: { data: PageData; n
 
       <header className="mt-2 mb-4">
         <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
-          <h1 data-page-title className="text-xl font-semibold">
+          <h1 data-page-title data-hl={names.title ? "title" : undefined} className={"text-xl font-semibold" + (names.title ? " hl-title" : "")}>
             {names.title ?? (names.shortId ? TITLE_NOT_FOUND : names.pageOf)}
           </h1>
           {names.title || names.shortId ? <span data-page-of className="text-muted">{names.pageOf}</span> : null}
@@ -105,8 +107,8 @@ export default function PageView({ data, names, neighbors }: { data: PageData; n
           </div>
           {/* Unit VW93 (Q-A 3:15.2): the 5 token kinds of the page run in place of the two costs. A run with no token numbers shows "no token data" (Q-A 3:15.3). */}
           <Fact label={TOKENS_LABEL} value={<TokensDetail tokens={data.tokenSum.tokens} sum={data.tokenSum} />} />
-          <Fact label="Minutes" value={minutes(data.wallSeconds)} />
-          <Fact label="Calls" value={data.modelCalls === null ? "–" : String(data.modelCalls)} />
+          <Fact label="Minutes" value={<HlDuration>{minutes(data.wallSeconds)}</HlDuration>} />
+          <Fact label="Calls" value={data.modelCalls === null ? "–" : <HlCount>{String(data.modelCalls)}</HlCount>} />
           <div className="flex items-center gap-2">
             <dt className="text-xs uppercase tracking-wide text-muted">
               <BoxCode code="QA_3" />
@@ -117,15 +119,17 @@ export default function PageView({ data, names, neighbors }: { data: PageData; n
           </div>
           {/* Round 48 answer 9 (Q-A 2026-10-27 l55): critic mode, session turns, book memory write, critic-only runs. An old summary has no critic mode key, so that fact reads "not stored". The other two facts stay hidden without data. */}
           <Fact label="Critic mode" value={<span title={criticModeWord(data.criticMode).help}>{criticModeText(data)}</span>} />
-          {data.bookMemory ? <Fact label="Book memory" value={bookMemoryText(data.bookMemory)} /> : null}
-          {data.criticOnlyFolders.length > 0 ? <Fact label="Critic-only runs" value={String(data.criticOnlyFolders.length)} /> : null}
+          {data.bookMemory ? <Fact label="Book memory" value={<HlText text={bookMemoryText(data.bookMemory)} />} /> : null}
+          {data.criticOnlyFolders.length > 0 ? <Fact label="Critic-only runs" value={<HlCount>{String(data.criticOnlyFolders.length)}</HlCount>} /> : null}
         </dl>
         {data.failures.length > 0 ? (
           <div className="mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">
             <div className="font-semibold">This run has failures.</div>
             <ul className="mt-1 list-disc pl-5">
               {data.failures.map((f, k) => (
-                <li key={k}>{f}</li>
+                <li key={k}>
+                  <HlText text={f} />
+                </li>
               ))}
             </ul>
           </div>

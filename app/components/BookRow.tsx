@@ -2,6 +2,9 @@ import { lineText, progressText, type MonitorRow } from "@/lib/book-status-rules
 import { TOKENS_SHORT_HELP, TOKENS_SHORT_LABEL } from "@/lib/tokens-view";
 import { TokensShort } from "./Tokens";
 import { BoxText } from "./BoxCode"; // Unit VW96 (Q-A 3:18.5): box codes in the sentences keep their place and show the readable name on hover.
+// Unit VW127 (Q-A 3:122.4 rows 1, 4, 6, 8): the title in the accent color, the counts and durations bold, the folder name in gray monospace, line 2 with its colors.
+import HlLine from "./HlLine";
+import { HlCount, HlDuration, HlText, HlTitle } from "./HlSpan";
 import StateLabel from "./StateLabel";
 import RowButtons from "./RowButtons";
 import { jsonViewHref } from "@/lib/json-view";
@@ -27,8 +30,8 @@ export default function BookRow({ row, now, onChanged }: { row: MonitorRow; now:
               the title and the slug are one link to the Details view `/monitor/<slug>`, the same href as the link Details (round 87 answer 8, D1: Details stays on every row).
               The link is the first element of the row in the DOM, so Tab reaches it before the buttons (RowButtons) and before the link Details. */}
           <a data-title-link href={`/monitor/${encodeURIComponent(row.slug)}`} className="underline-offset-2 hover:underline focus-visible:underline">
-            {row.title !== row.slug ? <span className="font-medium">{row.title} </span> : null}
-            <code className={"font-mono text-xs " + (row.title !== row.slug ? "text-muted" : "font-medium")}>{row.title !== row.slug ? `(${row.slug})` : row.slug}</code>
+            {row.title !== row.slug ? <HlTitle>{row.title} </HlTitle> : null}
+            <code data-hl={row.title !== row.slug ? "folder" : undefined} className={row.title !== row.slug ? "hl-folder" : "font-mono text-xs font-medium"}>{row.title !== row.slug ? `(${row.slug})` : row.slug}</code>
           </a>
           {/* Unit VW96 (Q-A 3:17.4): an article slug (8 hex digits) with no title in items.filled.jsonl says so. */}
           {row.title === row.slug && /^[0-9a-f]{8}$/.test(row.slug) ? <span className="ml-2 text-xs text-muted">(title not found)</span> : null}
@@ -43,7 +46,11 @@ export default function BookRow({ row, now, onChanged }: { row: MonitorRow; now:
             {/* Round 81 answer 22 (Q-A 2026-11-02 l27): a pilot row has an empty phase cell. */}
             <div className="w-52 text-sm" data-col="phase">
               {row.phase}
-              {row.run ? <div className="text-xs text-muted">{row.run}</div> : null}
+              {row.run ? (
+                <div className="text-xs text-muted">
+                  <HlText text={row.run} />
+                </div>
+              ) : null}
             </div>
             <div className="flex w-52 items-center gap-2 text-sm" data-col="progress">
               {row.pagesTotal && row.pagesDone !== null ? (
@@ -51,7 +58,9 @@ export default function BookRow({ row, now, onChanged }: { row: MonitorRow; now:
                   <div className="h-2 bg-bar-ok" style={{ width: `${pct}%` }} />
                 </div>
               ) : null}
-              <span className="tabular-nums">{progressText(row)}</span>
+              <span className="tabular-nums">
+                <HlCount>{progressText(row)}</HlCount>
+              </span>
             </div>
             {/* Unit VW93 (Q-A 3:15.2): input / output tokens in place of the cost. The column is wider for two counts with thousands separators.
                 [unit default VW93] The row has no column heads, so a small grey line under the counts names them, as the run text under the phase does. */}
@@ -64,7 +73,7 @@ export default function BookRow({ row, now, onChanged }: { row: MonitorRow; now:
               ) : null}
             </div>
             <div className="w-20 text-right text-sm tabular-nums" data-col="time">
-              {row.minutes === null ? "–" : `${row.minutes} min`}
+              {row.minutes === null ? "–" : <HlDuration>{`${row.minutes} min`}</HlDuration>}
             </div>
           </>
         ) : null}
@@ -77,7 +86,7 @@ export default function BookRow({ row, now, onChanged }: { row: MonitorRow; now:
       </div>
       {line2 || row.note ? (
         <p data-row-line2 className="mt-1 text-sm text-muted">
-          <BoxText text={line2} />
+          <HlLine segs={row.line2} now={now} />
           {row.note ? (
             <span data-row-note className="ml-2 font-medium text-foreground">
               <BoxText text={row.note} />

@@ -9,6 +9,8 @@ import { ListStatePill, RawId } from "./Named";
 import { bookJobsText, criticModeWord, listTitle } from "@/lib/readable-names";
 import { listKindWord } from "@/lib/run-view-words";
 import { LiveBadge, useLive } from "./useLive";
+// Unit VW127 (Q-A 3:122.4 rows 4 and 6): times green, counts bold, a failed count above 0 red. No text changes.
+import { HlCount, HlFailed, HlText, HlTimeText } from "./HlSpan";
 
 // Unit VW77a (round 80): the tab is called Lists and sits at /runs. Round 44 answer 13 (Q-A l142), tab Runs: "runs with state and cost". Newest first.
 // Viewer goals: fast lookup (one table, state and cost in one row) and few steps (one click opens a run).
@@ -20,7 +22,9 @@ export default function RunsTable({ initial }: { initial: RunSummary[] }) {
     <section>
       <div className="mb-3 flex items-baseline gap-4">
         <h1 className="text-xl font-semibold">Lists</h1>
-        <span className="text-sm text-muted">{data.length} lists, newest first</span>
+        <span className="text-sm text-muted">
+          <HlCount>{data.length} lists</HlCount>, newest first
+        </span>
         <LiveBadge live={live} />
       </div>
       {data.length === 0 ? (
@@ -70,7 +74,7 @@ export default function RunsTable({ initial }: { initial: RunSummary[] }) {
                     <div className="mt-0.5 text-muted">
                       {r.criticMode || r.bookJobs !== null ? (
                         <>
-                          <span title={criticModeWord(r.criticMode).help}>{criticModeWord(r.criticMode).label}</span>, {bookJobsText(r.bookJobs)}
+                          <span title={criticModeWord(r.criticMode).help}>{criticModeWord(r.criticMode).label}</span>, <HlText text={bookJobsText(r.bookJobs)} />
                         </>
                       ) : (
                         <span title={criticModeWord(null).help}>Critic mode and book jobs not stored (older run)</span>
@@ -79,21 +83,33 @@ export default function RunsTable({ initial }: { initial: RunSummary[] }) {
                   </td>
                   <td className="px-3 py-2">
                     <ListStatePill state={r.state} />
-                    {r.state === "paused" && r.pausedSinceEpoch ? <span className="ml-2 text-xs text-muted">since {pstClockOrDash(r.pausedSinceEpoch)}</span> : null}
+                    {r.state === "paused" && r.pausedSinceEpoch ? <span className="ml-2 text-xs text-muted">since <HlTimeText text={pstClockOrDash(r.pausedSinceEpoch)} /></span> : null}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
-                    {r.pagesDone} / {r.pagesTotal}
+                    <HlCount>
+                      {r.pagesDone} / {r.pagesTotal}
+                    </HlCount>
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
-                    {r.callsDone} / {r.callsTotal}
+                    <HlCount>
+                      {r.callsDone} / {r.callsTotal}
+                    </HlCount>
                   </td>
-                  <td className={"px-3 py-2 text-right tabular-nums " + (r.callsFailed ? "font-semibold text-red-700" : "")}>{r.callsFailed}</td>
-                  <td className={"px-3 py-2 text-right tabular-nums " + (r.callsFlagged ? "font-semibold text-amber-700" : "")}>{r.callsFlagged}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    <HlFailed n={r.callsFailed}>{r.callsFailed}</HlFailed>
+                  </td>
+                  <td className={"px-3 py-2 text-right tabular-nums " + (r.callsFlagged ? "font-semibold text-amber-700" : "")}>
+                    <HlCount>{r.callsFlagged}</HlCount>
+                  </td>
                   <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
                     <TokensShort tokens={r.tokens} />
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap">{pstDateTimeOrDash(r.startedEpoch)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{pstDateTimeOrDash(r.updatedEpoch)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <HlTimeText text={pstDateTimeOrDash(r.startedEpoch)} />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <HlTimeText text={pstDateTimeOrDash(r.updatedEpoch)} />
+                  </td>
                 </tr>
               ))}
             </tbody>

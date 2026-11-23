@@ -8,6 +8,8 @@ import { FIELDS, GROUPS, N_RULE_STOP, OLD_N, diffSettings, nestSettings, showVal
 import { effortKeyOf, pickModel } from "@/lib/settings-layout";
 import { catalogOf } from "@/lib/oc2-models-rules"; // unit VW125
 import SettingsFields from "./SettingsFields";
+// Unit VW127 (Q-A 3:122.4 rows 1, 4, 6, 8, scope /settings/run): the book title in the accent color, the times green, the counts bold, the raw IDs gray monospace. No text changes.
+import { HlCount, HlFolder, HlTimeText } from "./HlSpan";
 
 const button = "rounded border border-line bg-white px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60";
 const primary = button.replace("bg-white", "bg-accent text-white");
@@ -18,11 +20,11 @@ function pst(utc: string) {
 }
 // Unit VW96 (round 91), card P31.3, owner rule Q-A 3:17.4: a book key, a page ID, a model option and a mode show in plain words. The raw key or ID stays in small grey text or in the hover.
 function valueText(key: string, v: Scalar | undefined) { return typeof v === "string" || typeof v === "boolean" ? optionText(key, String(v)) : showValue(v, key); }
-function PageName({ id, labels }: { id: string; labels: Record<string, string> }) { return <><strong title={id}>{labels[id] ?? id}</strong> <span className="font-mono text-xs text-muted">{id}</span></>; }
+function PageName({ id, labels }: { id: string; labels: Record<string, string> }) { return <><strong title={id}>{labels[id] ?? id}</strong> <HlFolder>{id}</HlFolder></>; }
 function ActiveBooks({ active, labels, bookLabels }: { active: ActiveBook[]; labels: Record<string, string>; bookLabels: Record<string, string> }) {
   return <div className="space-y-1">
     {!active.length && <p>No active run exists.</p>}
-    {active.map((a) => <p key={a.book}><strong title={`Book key: ${a.book}`}>{bookKeyLabel(a.book, bookLabels)}</strong> runs now{a.page ? <> at <PageName id={a.page} labels={labels} /></> : ". No current page is stored"}. It reads new values at the start of {a.next && a.next !== a.page ? <><PageName id={a.next} labels={labels} /></> : "the next page"}.{a.n !== null && <> Current page N: {a.n}.</>}</p>)}
+    {active.map((a) => <p key={a.book}><strong data-hl="title" className="hl-title" title={`Book key: ${a.book}`}>{bookKeyLabel(a.book, bookLabels)}</strong> runs now{a.page ? <> at <PageName id={a.page} labels={labels} /></> : ". No current page is stored"}. It reads new values at the start of {a.next && a.next !== a.page ? <><PageName id={a.next} labels={labels} /></> : "the next page"}.{a.n !== null && <> Current page N: {a.n}.</>}</p>)}
     <p>{OLD_N}</p>
     <p>Jobs, book jobs, and critic mode apply at the next list or book start.</p>
   </div>;
@@ -122,7 +124,7 @@ export default function RunSettingsForm({ initialText, pageLabels = {}, bookLabe
     <p className="mb-2 text-sm text-muted"><Link href="/" className="text-accent underline">Monitor dashboard / on this Mac</Link> / Run settings</p>
     <h1 className="text-3xl font-semibold">Run settings</h1>
     <div className="my-5 border-y border-line py-4 text-sm"><ActiveBooks active={saved.active} labels={pageLabels} bookLabels={bookLabels} /></div>
-    <p className="text-sm text-muted">translator-settings.json: {saved.exists ? `revision ${saved.revision}${saved.updated_utc ? ", " + pst(saved.updated_utc) : ""}` : "not created yet. The Translator uses its defaults and phase rule."}</p>
+    <p className="text-sm text-muted">translator-settings.json: {saved.exists ? <>revision <HlCount>{String(saved.revision)}</HlCount>{saved.updated_utc ? <>, <HlTimeText text={pst(saved.updated_utc)} /></> : ""}</> : "not created yet. The Translator uses its defaults and phase rule."}</p>
     {saved.error && <div role="alert" className="my-4 rounded border border-line bg-red-50 p-4 text-red-700"><p>{saved.error}</p><p>The file cannot be saved here. Correct the file by hand, then reload. Unknown keys must be removed by hand.</p></div>}
     {saved.n_rule_error && <div role="alert" className="my-4 rounded border border-line bg-red-50 p-4 text-red-700"><p>N rule error: {saved.n_rule_error}</p><p>{N_RULE_STOP}</p>{!saved.error && <p>This error does not block a save of translator-settings.json.</p>}</div>}
     <button className={button + " my-4"} disabled={busy} onClick={reload}>Reload file (discard changes)</button>
@@ -137,12 +139,12 @@ export default function RunSettingsForm({ initialText, pageLabels = {}, bookLabe
           footer={(f) => <><span className="break-words">Default: {defaultText(f)}</span><button type="button" className={small} disabled={disabled} onClick={() => reset(f)}>Reset {f.label}</button></>}
           extraColumns={[{ id: "state", header: "State", cell: (f) => <>{badge(f)}<span className="block text-xs text-muted">Default: {defaultText(f)}</span><button type="button" className={small} disabled={disabled} onClick={() => reset(f)}>Reset {f.label}</button></> }]} />
         <section id="change-history" className="scroll-mt-6 border-t border-line pt-5"><h2 className="section-band text-xl font-semibold">Change history</h2><p className="my-2 text-sm text-muted">Last 20 saves. <a className="text-accent underline" href="/api/settings/run?history=1">Download the full history file</a></p>
-          {!saved.history.length ? <p>No entry yet.</p> : <ol className="divide-y divide-line">{saved.history.map((h) => <li key={h.sha1_after} className="py-4 text-sm"><p className="font-semibold">Revision {String(h.revision)} · {pst(h.utc)}</p><ul className="mt-2 space-y-1">{h.changes.map((c) => <li key={c.key} className="break-words" title={c.key}>{FIELDS.find((f) => f.key === c.key)?.label ?? c.key}: {valueText(c.key, c.old_present ? c.old : undefined)} → {valueText(c.key, c.new_present ? c.new : undefined)} <span className="font-mono text-xs text-muted">{c.key}</span></li>)}</ul></li>)}</ol>}
+          {!saved.history.length ? <p>No entry yet.</p> : <ol className="divide-y divide-line">{saved.history.map((h) => <li key={h.sha1_after} className="py-4 text-sm"><p className="font-semibold">Revision {String(h.revision)} · <HlTimeText text={pst(h.utc)} /></p><ul className="mt-2 space-y-1">{h.changes.map((c) => <li key={c.key} className="break-words" title={c.key}>{FIELDS.find((f) => f.key === c.key)?.label ?? c.key}: {valueText(c.key, c.old_present ? c.old : undefined)} → {valueText(c.key, c.new_present ? c.new : undefined)} <span className="font-mono text-xs text-muted">{c.key}</span></li>)}</ul></li>)}</ol>}
         </section>
       </div>
     </div>
     <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-white py-4">
-      <p aria-live="polite">{changes.length} unsaved changes</p>
+      <p aria-live="polite"><HlCount>{changes.length}</HlCount> unsaved changes</p>
       <div className="flex flex-wrap gap-2"><button className={button} disabled={disabled} onClick={() => { const next = { ...saved.defaults }; delete next["update.N"]; setDraft(next); setErrors({}); setResets({}); }}>Reset all</button><button className={button} disabled={busy || !changes.length} onClick={() => { setDraft(saved.overrides); setErrors({}); setResets({}); setNotice(""); }}>Discard</button><button ref={reviewButton} className={primary} disabled={disabled || !changes.length || Object.values(errors).some(Boolean)} onClick={prepareReview}>Review changes</button></div>
     </div>
     {review && <Review changes={changes} active={saved.active} labels={pageLabels} bookLabels={bookLabels} busy={busy} cancel={closeReview} save={save} />}

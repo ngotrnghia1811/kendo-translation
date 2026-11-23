@@ -6,6 +6,8 @@ import { FIELDS, N_RULE_STOP, diffSettings, effect, nestSettings, validateSettin
 import { effortKeyOf, pickModel } from "@/lib/settings-layout";
 import { catalogOf } from "@/lib/oc2-models-rules"; // unit VW125
 import SettingsFields from "./SettingsFields";
+// Unit VW127 (Q-A 3:122.4 rows 1, 4, 6, 8, scope /settings/run): the book title in the accent color, the times green, the counts bold, the folder name gray monospace. No text changes.
+import { HlCount, HlTimeText } from "./HlSpan";
 import { SOURCE_BOOK, bookFileLabel, changedCount, globalValueText, historyValueText, labelBookError, pstText, sectionTitle, valueText } from "@/lib/book-settings-rules";
 
 // Unit VW122 (plan P61, card P61.2). Owner words (Q-A 3:109.5, 2026-11-21): "I want to be able to set the config of each run, before pressing run button in `http://localhost:3000/monitor/etiqu1_full`".
@@ -123,9 +125,9 @@ export default function BookSettingsForm({ slug, title, initialText }: { slug: s
     <details data-book-settings className="rounded border border-line bg-white">
       <summary data-book-settings-summary className="cursor-pointer px-3 py-2 text-sm font-semibold">{sectionTitle(changedCount(saved.overrides))}</summary>
       <div className="min-w-0 border-t border-line p-3 md:p-4">
-        <p className="text-sm">{title ? <><strong>{title}</strong> </> : null}<code className="font-mono text-xs text-muted">{slug}</code></p>
+        <p className="text-sm">{title ? <><strong data-hl="title" className="hl-title">{title}</strong> </> : null}<code data-hl="folder" className="hl-folder">{slug}</code></p>
         <p className="mt-1 text-sm text-muted">Set a value for this book only. The run reads the global Run settings first and then the book file on each page. A key that the book file does not hold follows the global value.</p>
-        <p data-book-file className="mt-1 break-all text-xs text-muted">{bookFileLabel(slug)}: {saved.exists ? `revision ${String(saved.revision)}${saved.updated_utc ? ", " + pstText(saved.updated_utc) : ""}` : "not created yet. The run uses the global values."}</p>
+        <p data-book-file className="mt-1 break-all text-xs text-muted">{bookFileLabel(slug)}: {saved.exists ? <>revision <HlCount>{String(saved.revision)}</HlCount>{saved.updated_utc ? <>, <HlTimeText text={pstText(saved.updated_utc)} /></> : ""}</> : "not created yet. The run uses the global values."}</p>
         {saved.error && <div role="alert" data-book-settings-error className="my-3 rounded border border-line bg-red-50 p-3 text-sm text-red-700"><p className="break-words">{saved.error}</p><p>The form keeps the file as it is. Correct the file by hand, then reload. A run does not start until the file is correct.</p></div>}
         {saved.history_error && <div role="alert" data-book-history-error className="my-3 rounded border border-line bg-red-50 p-3 text-sm text-red-700"><p className="break-words">{saved.history_error}</p><p>Save is off until the history file is correct.</p></div>}
         {saved.global_error && <div role="alert" data-book-global-error className="my-3 rounded border border-line bg-red-50 p-3 text-sm text-red-700"><p className="break-words">The global settings file has an error: {saved.global_error}</p><p>Save is off until the global file is correct, because the global values are unknown.</p></div>}
@@ -150,14 +152,14 @@ export default function BookSettingsForm({ slug, title, initialText }: { slug: s
           ]} />}
         {/* pr-16: the round tool icon of the Monitor dashboard sits at the bottom right and must not cover the Save button. */}
         <div className="sticky bottom-0 mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-white py-3 pr-16">
-          <p aria-live="polite" data-unsaved>{changes.length} unsaved {changes.length === 1 ? "change" : "changes"}</p>
+          <p aria-live="polite" data-unsaved><HlCount>{changes.length}</HlCount> unsaved {changes.length === 1 ? "change" : "changes"}</p>
           <div className="flex flex-wrap gap-2">
             <button type="button" className={button} disabled={busy || !changes.length} onClick={() => { setDraft(saved.overrides); setErrors({}); setResets({}); setNotice(null); }}>Discard changes</button>
             <button type="button" data-save className={primary} disabled={disabled || !changes.length || Object.values(errors).some(Boolean)} onClick={save}>Save</button>
           </div>
         </div>
         <div data-book-history className="mt-4 border-t border-line pt-4"><h3 className="text-base font-semibold">Saves of this book</h3><p className="my-1 text-sm text-muted">Newest first. The last 20 saves of {bookFileLabel(slug)}. Times are PST.</p>
-          {!saved.history.length ? <p className="text-sm">No save yet.</p> : <ol className="divide-y divide-line">{saved.history.map((h) => <li key={h.sha1_after} data-history-row className="py-3 text-sm"><p className="font-semibold">Revision {String(h.revision)} · {pstText(h.utc)}</p><ul className="mt-1 space-y-1">{h.changes.map((c) => <li key={c.key} className="break-words" title={c.key}>{FIELDS.find((f) => f.key === c.key)?.label ?? c.key}: {historyValueText(c.key, c.old, c.old_present)} → {historyValueText(c.key, c.new, c.new_present)} <span className="text-xs text-muted">({c.effect})</span></li>)}</ul></li>)}</ol>}
+          {!saved.history.length ? <p className="text-sm">No save yet.</p> : <ol className="divide-y divide-line">{saved.history.map((h) => <li key={h.sha1_after} data-history-row className="py-3 text-sm"><p className="font-semibold">Revision {String(h.revision)} · <HlTimeText text={pstText(h.utc)} /></p><ul className="mt-1 space-y-1">{h.changes.map((c) => <li key={c.key} className="break-words" title={c.key}>{FIELDS.find((f) => f.key === c.key)?.label ?? c.key}: {historyValueText(c.key, c.old, c.old_present)} → {historyValueText(c.key, c.new, c.new_present)} <span className="text-xs text-muted">({c.effect})</span></li>)}</ul></li>)}</ol>}
         </div>
       </div>
     </details>

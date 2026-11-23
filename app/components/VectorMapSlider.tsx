@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { markNavigating } from "@/lib/loading-rule";
+import { HlCount } from "./HlSpan";
 
 // Unit VW106, Q-A 3:64.5 row 3: "A version slider." The slider opens the address of the chosen prompt version.
 // The page renders on the server, so the slider only changes the address. The links "Earlier" and "Later" work without a script.
@@ -42,7 +43,8 @@ export default function VectorMapSlider({ versions, index, hrefs }: { versions: 
         </a>
       ) : null}
       <span data-vm-version className="font-mono">
-        {versions[at]} ({at + 1} of {versions.length})
+        {/* Unit VW127 (Q-A 3:122.4 row 6): the position "2 of 5" is a count, bold. */}
+        {versions[at]} (<HlCount>{at + 1} of {versions.length}</HlCount>)
       </span>
     </div>
   );

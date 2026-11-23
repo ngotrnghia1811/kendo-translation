@@ -10,6 +10,8 @@ import { pageStateWord } from "@/lib/run-view-words";
 import { BoxCode } from "./BoxCode";
 import { capFirst, pageKindWord, pageNumberText, pageRunName } from "@/lib/readable-names";
 import { RawId } from "./Named";
+// Unit VW127 (Q-A 3:122.4 rows 1, 2, 4, 6): the page IDs as chips, the article title in the accent color, the counts bold, a failed count above 0 red. No text changes.
+import { HlCount, HlDuration, HlFailed, HlPage, HlText } from "./HlSpan";
 
 // Unit VW99 (Q-A 3:27.3): the page table of the run view /runs/<stamp>, moved out of components/RunView.tsx without a change of its logic,
 // so that the tab "Pages" holds it. Round 44 answer 13: one row per page with state, calls, tokens, minutes, QA_3 verdict and a page view link.
@@ -36,19 +38,19 @@ export default function RunPagesTable({ run, isChain }: { run: RunDetail; isChai
             <tr key={p.pageId} className="border-t border-line hover:bg-stone-50">
               <td className="px-3 py-2" data-run-page={p.pageId}>
                 {p.runFolder ? (
-                  <Link href={p.href} className="font-mono text-accent underline-offset-2 hover:underline">
+                  <Link href={p.href} data-hl="page" className="hl-page underline-offset-2 hover:underline">
                     {p.pageId}
                   </Link>
                 ) : p.acceptedBefore ? (
-                  <Link href={p.acceptedBefore.href} className="font-mono text-accent underline-offset-2 hover:underline">
+                  <Link href={p.acceptedBefore.href} data-hl="page" className="hl-page underline-offset-2 hover:underline">
                     {p.pageId}
                   </Link>
                 ) : (
-                  <span className="font-mono text-muted">{p.pageId}</span>
+                  <HlPage>{p.pageId}</HlPage>
                 )}
                 {p.article ? (
                   <div data-run-page-article className="mt-0.5 max-w-xs text-xs">
-                    <span className={p.article.found ? "text-foreground" : "italic text-muted"}>{p.article.title}</span>
+                    <span data-hl={p.article.found ? "title" : undefined} className={p.article.found ? "hl-title" : "italic text-muted"}>{p.article.title}</span>
                     {p.article.pageOf ? <span className="text-muted">, {p.article.pageOf}</span> : null}
                     {p.article.titleJa ? (
                       <span lang="ja" className="block text-muted">
@@ -70,7 +72,7 @@ export default function RunPagesTable({ run, isChain }: { run: RunDetail; isChai
                   <div data-accepted-before title={ACCEPTED_BEFORE_HELP}>
                     <StatePill state="accepted before restart" />
                     <div className="mt-1 max-w-xs text-xs text-muted">
-                      {p.acceptedBefore.text}{" "}
+                      <HlText text={p.acceptedBefore.text} />{" "}
                       <Link href={p.acceptedBefore.href} className="text-accent underline underline-offset-2">
                         {p.acceptedBefore.runFolder ? pageRunName(p.acceptedBefore.runFolder).label : "Page run"}
                       </Link>
@@ -100,17 +102,25 @@ export default function RunPagesTable({ run, isChain }: { run: RunDetail; isChai
                 <FailureLists forward={p.forwardFailures} critic={p.criticFailures} />
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
-                {p.callsDone} / {p.callsTotal}
-                {p.callsFailed ? <span className="ml-1 font-semibold text-red-700">({p.callsFailed} failed)</span> : null}
+                <HlCount>
+                  {p.callsDone} / {p.callsTotal}
+                </HlCount>
+                {p.callsFailed ? (
+                  <span className="ml-1">
+                    <HlFailed n={p.callsFailed}>({p.callsFailed} failed)</HlFailed>
+                  </span>
+                ) : null}
               </td>
               <TokenCells tokens={p.tokens} className="px-3 py-2 text-right tabular-nums" />
-              <td className="px-3 py-2 text-right tabular-nums">{minutes(p.minutes === null ? null : p.minutes * 60)}</td>
+              <td className="px-3 py-2 text-right tabular-nums">
+                <HlDuration>{minutes(p.minutes === null ? null : p.minutes * 60)}</HlDuration>
+              </td>
               <td className="px-3 py-2">
                 <VerdictPill verdict={p.qa3Verdict} score={p.qa3Score} />
               </td>
               {isChain ? (
                 <td className="px-3 py-2 text-xs">
-                  {p.bookMemory ? (p.bookMemory.written ? `${p.bookMemory.pairs ?? "?"} pairs written` : `${p.bookMemory.verdict ?? "no verdict"}, nothing written`) : <span className="text-muted">–</span>}
+                  {p.bookMemory ? <HlText text={p.bookMemory.written ? `${p.bookMemory.pairs ?? "?"} pairs written` : `${p.bookMemory.verdict ?? "no verdict"}, nothing written`} /> : <span className="text-muted">–</span>}
                 </td>
               ) : null}
             </tr>

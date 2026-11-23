@@ -414,7 +414,8 @@ await onReal("the real list holds every model of translator-models.yaml (the mod
 await check("the line (row 4): both pages show 'Model list from oc2, read 2026-11-22 14:10 PST' once, in the levels section", () => {
   for (const [name, html] of [["book", withList.bookHtml], ["global", withList.globalHtml]]) {
     assert.equal(count(html, /data-oc2-line/g), 1, name);
-    assert.match(html, /<p[^>]*data-oc2-line[^>]*data-oc2-status="ok"[^>]*>Model list from oc2, read 2026-11-22 14:10 PST<\/p>/, name);
+    // unit VW127 (Q-A 3:122.4 row 4): the read time is a green piece (span data-hl="time"), so the pin allows that span. The text is the same.
+    assert.match(html, /<p[^>]*data-oc2-line[^>]*data-oc2-status="ok"[^>]*>Model list from oc2, read (?:<span data-hl="time" class="hl-time">)?2026-11-22 14:10 PST(?:<\/span>)?<\/p>/, name);
     assert.ok(html.indexOf("data-oc2-line") > html.indexOf("data-levels-table") - 400 && html.indexOf("data-oc2-line") < html.indexOf("data-levels-table"), `${name}: the line sits above the levels table`);
   }
 });

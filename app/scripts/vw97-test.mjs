@@ -163,7 +163,7 @@ await check("render: the card ID piece gives small grey text 'claude-xxxxxxxx' w
   const html = (value) => renderToStaticMarkup(createElement(ModelCardId, { value }));
   for (const [id] of CARDS) {
     const h = html(`${id}/claude-haiku-5-5`);
-    assert.match(h, new RegExp(`<span class="whitespace-nowrap"><span data-raw-id="true" class="[^"]*text-muted[^"]*" title="Provider ID of the Claude card: ${id}">${id}</span></span>`), h);
+    assert.match(h, new RegExp(`<span class="whitespace-nowrap"><span data-raw-id="true" class="[^"]*text-muted[^"]*" title="Provider ID of the Claude card: ${id}"(?: data-hl="folder")?>${id}</span></span>`), h); // unit VW127 (Q-A 3:122.4 row 8): RawId adds data-hl="folder" and the class hl-folder
     assert.ok(h.startsWith(" "), "a space separates the ID from the text before it");
     assert.ok(!h.includes("@"));
   }

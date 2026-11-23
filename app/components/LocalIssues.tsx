@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { isSafePagePath } from "@/lib/visual-issue-rules";
 import { LOCAL_ISSUES_API, localPageLabel, NOT_SIGNED_IN, type LocalIssueView } from "@/lib/visual-issues-local-rules";
+// Unit VW127 (Q-A 3:122.4 rows 4 and 6, scope /monitor/issues): the time green, the counts and the screen width bold. No text changes.
+import { HlCount, HlTimeText } from "./HlSpan";
 
 // Unit VW121 (plan item P60, Q-A 3:112.2 row 6): the list of the visual issues of this Mac (the folder data/visual-issues-local/), the newest first.
 // Each card: the picture, the comment, the page address as a link (with the title of the book, Q-A 3:17.4), the time in PST, who sent it, and the button "Resolved".
@@ -41,7 +43,7 @@ export default function LocalIssues({ issues, skipped, hidden, titles }: { issue
             {i.state === "open" ? "Open" : "Resolved"}
           </span>
           <span className="text-muted" data-issue-time>
-            {i.createdPst || "(no time)"}
+            <HlTimeText text={i.createdPst || "(no time)"} />
           </span>
         </div>
         <p className="mt-2 whitespace-pre-wrap break-words" data-issue-comment>
@@ -58,7 +60,7 @@ export default function LocalIssues({ issues, skipped, hidden, titles }: { issue
           )}
         </p>
         <p className="mt-1 text-muted" data-issue-meta>
-          {i.sentBy === NOT_SIGNED_IN ? "Sent by a person who was not signed in." : `Sent by ${i.sentBy}${i.sentByRole ? ` (${i.sentByRole})` : ""}.`} Screen width {i.screenWidth > 0 ? `${i.screenWidth} px` : "unknown"}. Theme{" "}
+          {i.sentBy === NOT_SIGNED_IN ? "Sent by a person who was not signed in." : `Sent by ${i.sentBy}${i.sentByRole ? ` (${i.sentByRole})` : ""}.`} Screen width {i.screenWidth > 0 ? <HlCount>{`${i.screenWidth} px`}</HlCount> : "unknown"}. Theme{" "}
           {i.theme || "unknown"}.
           {i.viewedAs ? <span data-issue-view> Viewed as {i.viewedAs}.</span> : null}
         </p>
@@ -102,7 +104,7 @@ export default function LocalIssues({ issues, skipped, hidden, titles }: { issue
       ) : null}
       <section className="mb-6" aria-labelledby="open-h">
         <h2 id="open-h" className="section-band mb-2 text-lg font-semibold">
-          Open issues ({open.length})
+          Open issues (<HlCount>{open.length}</HlCount>)
         </h2>
         {open.length === 0 ? (
           <p className="text-sm text-muted" data-none-open>
@@ -112,7 +114,7 @@ export default function LocalIssues({ issues, skipped, hidden, titles }: { issue
         <ul className="space-y-3">{open.map(card)}</ul>
       </section>
       <details data-resolved-section>
-        <summary className="section-band mb-2 cursor-pointer text-lg font-semibold">Resolved ({resolved.length})</summary>
+        <summary className="section-band mb-2 cursor-pointer text-lg font-semibold">Resolved (<HlCount>{resolved.length}</HlCount>)</summary>
         {resolved.length === 0 ? <p className="text-sm text-muted">No issue is resolved yet.</p> : null}
         <ul className="mt-2 space-y-3">{resolved.map(card)}</ul>
       </details>

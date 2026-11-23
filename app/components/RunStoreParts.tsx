@@ -1,4 +1,6 @@
 import { BoxCode } from "./BoxCode";
+// Unit VW127 (Q-A 3:122.4 rows 3, 4, 6): times green, counts bold, box names with their stage colors. No text changes.
+import { HlCount, HlText, HlTime } from "./HlSpan";
 import { RawId } from "./Named";
 import { pstDateTime } from "@/lib/pst";
 import { FROZEN_HELP, OVERFLOW_HELP, bookPageText, overflowCountText, overflowStartText, type BookWatch, type FrozenBox, type OverflowRow } from "@/lib/run-store";
@@ -22,7 +24,11 @@ export function FrozenLine({ f, title }: { f: FrozenBox; title?: string | null }
         {f.text}
       </span>
       {f.page ? <RawId title={f.page}>{bookPageText(f.page, title ?? null)}</RawId> : null}
-      {f.epoch !== null ? <span className="text-xs text-muted">{pstDateTime(f.epoch)}</span> : null}
+      {f.epoch !== null ? (
+        <span className="text-xs text-muted">
+          <HlTime>{pstDateTime(f.epoch)}</HlTime>
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -34,7 +40,7 @@ export function FrozenBoxes({ frozen, title, book }: { frozen: FrozenBox[] | und
   return (
     <section data-frozen-boxes className="mt-3 rounded border border-line bg-white p-3 text-sm">
       <h3 className="text-sm font-semibold" title={FROZEN_HELP}>
-        Frozen boxes ({list.length})
+        Frozen boxes (<HlCount>{list.length}</HlCount>)
       </h3>
       {list.length ? (
         <ul className="mt-1 space-y-1">
@@ -57,7 +63,7 @@ export function OverflowList({ box, rows, title }: { box: string; rows: Overflow
   return (
     <section data-overflow-list={box} className="mt-3 rounded border border-line bg-white p-3 text-sm">
       <h3 className="text-sm font-semibold" title={OVERFLOW_HELP}>
-        Overflow critiques that started at <BoxCode code={box} /> ({list.length})
+        Overflow critiques that started at <BoxCode code={box} /> (<HlCount>{list.length}</HlCount>)
       </h3>
       {list.length ? (
         <ol className="mt-1 space-y-2">
@@ -65,7 +71,7 @@ export function OverflowList({ box, rows, title }: { box: string; rows: Overflow
             <li key={r.queueId} data-overflow-row={r.queueId} className="border-t border-line pt-1">
               <p>
                 <span className="text-xs text-muted">Start point: </span>
-                {overflowStartText(r, title ?? null)}
+                <HlText text={overflowStartText(r, title ?? null)} />
               </p>
               {r.failureMode ? (
                 <p className="break-words">
@@ -143,7 +149,9 @@ export function BookRunWatch({ watch, title }: { watch: BookWatch; title?: strin
         <span className="text-xs text-muted" title={OVERFLOW_HELP}>
           Overflow:{" "}
         </span>
-        <span data-book-overflow-count={watch.overflow.count}>{overflowCountText(watch.overflow.count)}</span>
+        <span data-book-overflow-count={watch.overflow.count}>
+          <HlText text={overflowCountText(watch.overflow.count)} />
+        </span>
         {watch.overflow.byBox.length ? (
           <span className="text-muted">
             {" "}
@@ -151,7 +159,7 @@ export function BookRunWatch({ watch, title }: { watch: BookWatch; title?: strin
             {watch.overflow.byBox.map((b, i) => (
               <span key={b.box}>
                 {i ? ", " : ""}
-                <BoxCode code={b.box} /> {b.n}
+                <BoxCode code={b.box} /> <HlCount>{b.n}</HlCount>
               </span>
             ))}
             )

@@ -506,12 +506,19 @@ try {
       compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
     }).outputText;
     await fs.writeFile(path.join(root, "BoxCode.ts"), boxCode);
+    // unit VW127 (Q-A 3:122.4): BoxCode and Phase2Row import "./HlSpan" (the highlight pieces). It is compiled into the sample folder the same way.
+    const hlSpan = ts.transpileModule(await fs.readFile(path.join(app, "components/HlSpan.tsx"), "utf8"), {
+      compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+    await fs.writeFile(path.join(root, "HlSpan.ts"), hlSpan);
     const Phase2Row = (await import(pathToFileURL(file).href)).default;
     const { createElement } = await import("react");
     const { renderToStaticMarkup } = await import("react-dom/server");
     // Unit VW94 fix round (Q-A 3:18.5): a box code shows as the code. Its hover text sits in a visually hidden span, which the reader does not see.
-    const unBox = (html) => html.replace(/<span data-box-code="[^"]*"[^>]*>([^<]*)<span class="sr-only">[^<]*<\/span><\/span>/g, "$1");
-    const plain = (html) => unBox(html).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    // unit VW127 (Q-A 3:122.4): a highlight span (data-hl: page chip, time, count, reason) only colors a piece. unBox takes it away too, so the raw pins below read the same text.
+    const unBox = (html) => html.replace(/<span data-box-code="[^"]*"[^>]*>([^<]*)<span class="sr-only">[^<]*<\/span><\/span>/g, "$1").replace(/<span [^>]*data-hl="[^"]*"[^>]*>([^<]*)<\/span>/g, "$1");
+    // unit VW127: a highlight span (data-hl) adds no space to the text.
+    const plain = (html) => unBox(html).replace(/<span [^>]*data-hl="[^"]*"[^>]*>([^<]*)<\/span>/g, "$1").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
     // running
     const run = (await text(base)).v;

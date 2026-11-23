@@ -10,6 +10,7 @@
 import type { ReactNode } from "react";
 import { parseSettingsJson } from "@/lib/settings-json";
 import { optionText } from "@/lib/readable-names";
+import { HlText } from "./HlSpan"; // Unit VW127 (Q-A 3:122.4)
 import { FIELDS, GROUPS, effect, type Field, type FlatSettings, type Scalar } from "@/lib/settings-schema";
 import { BOX_GROUP, LEVEL_GROUP, boxCriticRow, cards, levelRows, storedEffortsFor, type Card, type PairRow } from "@/lib/settings-layout";
 import { listLine, type Catalog, type Oc2Block } from "@/lib/oc2-models-rules"; // unit VW125
@@ -159,7 +160,7 @@ export default function SettingsFields(p: SettingsFieldsProps) {
       <h3 id={levelIds} className="text-base font-semibold">{LEVEL_GROUP + 1}. {GROUPS[LEVEL_GROUP]}</h3>
       <p className="mt-1 text-sm text-muted">One line for each level. The model and the efforts of the chosen model take effect: {effectText}. The model ID is in small gray text in the list.</p>
       {/* Unit VW125 (row 4): one line for the whole page, because it stays in view when no list is open. It says how old the list is, or why the picker shows the yaml models. */}
-      {p.oc2 && <p data-oc2-line data-oc2-status={p.oc2.status} className={"mt-1 text-sm " + (p.oc2.status === "ok" ? "text-muted" : "text-amber-800")}>{listLine(p.oc2)}</p>}
+      {p.oc2 && <p data-oc2-line data-oc2-status={p.oc2.status} className={"mt-1 text-sm " + (p.oc2.status === "ok" ? "text-muted" : "text-amber-800")}>{/* Unit VW127 (Q-A 3:122.4 row 4): the read time in green. */}<HlText text={listLine(p.oc2)} /></p>}
       <table data-levels-table className="mt-2 w-full border-collapse text-sm max-lg:block">
         <thead className="max-lg:hidden"><tr>
           <th scope="col" className={th}>Level</th><th scope="col" className={th}>Model</th><th scope="col" className={th}>Thinking</th>

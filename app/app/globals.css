@@ -50,6 +50,19 @@
   --button2-ink: #7a1f1f;
   --open: #f6e7c8; /* unit VW112: the highlight of an open fold (Q-A 3:78.4) */
   --open-deep: #dfeaf3; /* unit VW119: the highlight of an open fold of level 2 or deeper (Q-A 3:103.6 row 2), theme light */
+  /* Unit VW127 (Q-A 3:122.4 rows 2 to 7, theme light): the highlight colors of the Monitor pages. Chips: ink on fill. Text colors: on the page and on the card, 4.5 to 1 or more (scripts/vw127-test.mjs). */
+  --hl-page: #bfdbfe;
+  --hl-page-ink: #1e3a8a;
+  --hl-ts: #ccfbf1;
+  --hl-ts-ink: #115e59;
+  --hl-ed: #e9d5ff;
+  --hl-ed-ink: #581c87;
+  --hl-qa: #ffedd5;
+  --hl-qa-ink: #9a3412;
+  --hl-time: #166534;
+  --hl-good: #166534;
+  --hl-warn: #92400e;
+  --hl-bad: #991b1b;
 }
 
 @theme inline {
@@ -196,6 +209,19 @@ body {
   --button2-ink: #ffff00;
   --open: #1f2a44; /* unit VW112: the highlight of an open fold (Q-A 3:78.4) */
   --open-deep: #1c3b2f; /* unit VW119: the highlight of an open fold of level 2 or deeper (Q-A 3:103.6 row 2), theme dark */
+  /* Unit VW127 (Q-A 3:122.4 rows 2 to 7, theme dark): the highlight colors of the Monitor pages. Chips: ink on fill. Text colors: on the page and on the card, 4.5 to 1 or more (scripts/vw127-test.mjs). */
+  --hl-page: #1e3a8a;
+  --hl-page-ink: #dbeafe;
+  --hl-ts: #134e4a;
+  --hl-ts-ink: #99f6e4;
+  --hl-ed: #3b0764;
+  --hl-ed-ink: #e9d5ff;
+  --hl-qa: #431407;
+  --hl-qa-ink: #fed7aa;
+  --hl-time: #4ade80;
+  --hl-good: #4ade80;
+  --hl-warn: #fbbf24;
+  --hl-bad: #fca5a5;
 }
 
 /* The edge of a box needs 3 to 1 on its surface. #777777 gives 3.89 to 1 on #1a1a1a and 4.69 to 1 on black. */
@@ -278,6 +304,19 @@ body {
   --button2-ink: #6b1a1a;
   --open: #e6d3a6; /* unit VW112: the highlight of an open fold (Q-A 3:78.4) */
   --open-deep: #d3dce0; /* unit VW119: the highlight of an open fold of level 2 or deeper (Q-A 3:103.6 row 2), theme sepia */
+  /* Unit VW127 (Q-A 3:122.4 rows 2 to 7, theme sepia): the highlight colors of the Monitor pages. Chips: ink on fill. Text colors: on the page and on the card, 4.5 to 1 or more (scripts/vw127-test.mjs). */
+  --hl-page: #c9d8ea;
+  --hl-page-ink: #1a3557;
+  --hl-ts: #cfe3dc;
+  --hl-ts-ink: #134e4a;
+  --hl-ed: #e6d8ea;
+  --hl-ed-ink: #4a1f5c;
+  --hl-qa: #f3d9bc;
+  --hl-qa-ink: #7a3300;
+  --hl-time: #2f6012;
+  --hl-good: #2f6012;
+  --hl-warn: #7a4e00;
+  --hl-bad: #8f1d1d;
 }
 
 /* Solarized light, high contrast (round 63 answer 7): the Solarized paper colors with the dark base02 ink. Body text 7 to 1 or more, every other pair 4.5 to 1 or more. The script scripts/contrast-dark.mjs tests every pair. */
@@ -355,6 +394,19 @@ body {
   --button2-ink: #6f1210;
   --open: #f0e2b8; /* unit VW112: the highlight of an open fold (Q-A 3:78.4) */
   --open-deep: #d8e8e4; /* unit VW119: the highlight of an open fold of level 2 or deeper (Q-A 3:103.6 row 2), theme solarized-light */
+  /* Unit VW127 (Q-A 3:122.4 rows 2 to 7, theme solarized-light): the highlight colors of the Monitor pages. Chips: ink on fill. Text colors: on the page and on the card, 4.5 to 1 or more (scripts/vw127-test.mjs). */
+  --hl-page: #c4d6e6;
+  --hl-page-ink: #0f3550;
+  --hl-ts: #cfe6e2;
+  --hl-ts-ink: #0d4a45;
+  --hl-ed: #e3dbef;
+  --hl-ed-ink: #3d2a75;
+  --hl-qa: #f1d6b8;
+  --hl-qa-ink: #783000;
+  --hl-time: #2f5d00;
+  --hl-good: #2f5d00;
+  --hl-warn: #744a00;
+  --hl-bad: #8f1a17;
 }
 
 /* Solarized dark, high contrast (round 63 answer 7): the Solarized dark page with base3 ink. Body text 7 to 1 or more, every other pair 4.5 to 1 or more. The script scripts/contrast-dark.mjs tests every pair. */
@@ -432,6 +484,19 @@ body {
   --button2-ink: #ffd24a;
   --open: #0d4a5a; /* unit VW112: the highlight of an open fold (Q-A 3:78.4) */
   --open-deep: #3a3a5c; /* unit VW119: the highlight of an open fold of level 2 or deeper (Q-A 3:103.6 row 2), theme solarized-dark */
+  /* Unit VW127 (Q-A 3:122.4 rows 2 to 7, theme solarized-dark): the highlight colors of the Monitor pages. Chips: ink on fill. Text colors: on the page and on the card, 4.5 to 1 or more (scripts/vw127-test.mjs). */
+  --hl-page: #1a4f7a;
+  --hl-page-ink: #e6f2ff;
+  --hl-ts: #0d4a45;
+  --hl-ts-ink: #c4f5ec;
+  --hl-ed: #2e2350;
+  --hl-ed-ink: #e4d9ff;
+  --hl-qa: #4a2208;
+  --hl-qa-ink: #ffd9b5;
+  --hl-time: #8fe0a0;
+  --hl-good: #8fe0a0;
+  --hl-warn: #fbc934;
+  --hl-bad: #ffb0aa;
 }
 
 /* The edge of a box on the Solarized dark page. #7d9ea8 gives 3 to 1 or more on both surfaces. */
@@ -604,4 +669,93 @@ body[data-reorder-active] * {
 ::highlight(search-hit) {
   background-color: var(--color-amber-200, #fde68a);
   color: var(--foreground, inherit);
+}
+
+/* Unit VW127 (Q-A 3:122.4 rows 1 to 8; owner visual issue 20261122-164451-f6e316 "Add some highlight color to the information. Use as much color highlight as possible").
+   The classes of the highlight pieces on the Monitor pages (components/HlSpan.tsx, components/BoxCode.tsx). Every color is a variable of the theme blocks above.
+   Color is never the only sign: a page chip, a box chip, a critic (dashed border), a reason pill and a bold count keep their own shape or weight.
+   Contrast (scripts/vw127-test.mjs): chips and pills are ink on fill, the text colors are on the page, the card, the fills stone-50 and stone-100 and the two open-fold fills. All 4.5 to 1 or more in 5 themes.
+   In the layer components, so a utility class with its own color still wins. */
+@layer components {
+  .hl-title {
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .hl-page {
+    background: var(--hl-page);
+    color: var(--hl-page-ink);
+    border-radius: 0.25rem;
+    padding: 0 0.3em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85em;
+  }
+  .hl-box {
+    border: 1px solid transparent;
+  }
+  .hl-box-ts {
+    background: var(--hl-ts);
+    color: var(--hl-ts-ink);
+  }
+  .hl-box-tl {
+    background: var(--chip-tl);
+    color: var(--chip-tl-ink);
+  }
+  .hl-box-ed {
+    background: var(--hl-ed);
+    color: var(--hl-ed-ink);
+  }
+  .hl-box-qa {
+    background: var(--hl-qa);
+    color: var(--hl-qa-ink);
+  }
+  .hl-box.hl-critic,
+  .hl-critic {
+    border: 1px dashed currentColor;
+  }
+  .hl-time {
+    color: var(--hl-time);
+  }
+  .hl-duration,
+  .hl-count {
+    font-weight: 700;
+  }
+  .hl-failed {
+    font-weight: 700;
+    color: var(--hl-bad);
+  }
+  .hl-alive {
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .hl-alive[data-hl-tone="good"] {
+    color: var(--hl-good);
+  }
+  .hl-alive[data-hl-tone="warn"] {
+    color: var(--hl-warn);
+  }
+  .hl-alive[data-hl-tone="bad"] {
+    color: var(--hl-bad);
+  }
+  .hl-reason {
+    border-radius: 9999px;
+    padding: 0 0.5em;
+    font-weight: 600;
+  }
+  .hl-reason[data-hl-tone="good"] {
+    background: var(--state-ok);
+    color: var(--state-ok-ink);
+  }
+  .hl-reason[data-hl-tone="warn"] {
+    background: var(--state-stop);
+    color: var(--state-stop-ink);
+  }
+  .hl-reason[data-hl-tone="bad"] {
+    background: var(--state-fail);
+    color: var(--state-fail-ink);
+  }
+  .hl-folder {
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.75rem;
+  }
 }

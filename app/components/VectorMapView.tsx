@@ -5,6 +5,8 @@ import VectorMapPrompt from "./VectorMapPrompt";
 import { pstTime } from "@/lib/htv-pst";
 import { BOX_TYPES, moved, oneDecimal, pointBody, pointHistory, type BoxMap, type PointStep } from "@/lib/vector-map-rules";
 import { pointEnds, wordDiff } from "@/lib/vector-map-detail";
+// Unit VW127 (Q-A 3:122.4 rows 3, 4, 6): the box counts and the point counts bold, the time of the version in green. No text changes.
+import { HlCount, HlTimeText } from "./HlSpan";
 
 // Unit VW106: the vector map screen /monitor/vector-map on the Monitor dashboard on this Mac (Q-A 3:64.5 row 3).
 // Box, version, axes, and point stay in the address. VW107 zoom, filters, and the prompt dialog stay local.
@@ -129,7 +131,9 @@ export default function VectorMapView({ map, counts, state }: { map: BoxMap; cou
             data-vm-box-link={b}
             className={`rounded border px-2 py-0.5 ${b === map.box ? "border-foreground font-semibold" : "border-line"}`}
           >
-            <BoxCode code={b} /> <span className="text-muted">{counts[b] ?? 0}</span>
+            <BoxCode code={b} /> <span className="text-muted">
+              <HlCount>{counts[b] ?? 0}</HlCount>
+            </span>
           </a>
         ))}
       </nav>
@@ -141,10 +145,22 @@ export default function VectorMapView({ map, counts, state }: { map: BoxMap; cou
         <>
           <VectorMapSlider key={`${map.box}-${idx}`} versions={versions} index={idx} hrefs={versions.map((v) => here({ version: v }))} />
           <p data-vm-version-line className="mt-1 text-sm text-muted">
-            {cur.created_utc ? `Written ${pstTime(cur.created_utc) || cur.created_utc}. ` : ""}
+            {cur.created_utc ? (
+              <>
+                Written <HlTimeText text={pstTime(cur.created_utc) || cur.created_utc} />.{" "}
+              </>
+            ) : (
+              ""
+            )}
             {cur.update_point ? `Update point after page ${cur.update_point}. ` : "The first prompt version. "}
-            {prev ? `${cur.groupCount} critique groups, ${cur.critiqueCount} critiques. ` : ""}
-            {cur.chars.toLocaleString("en-US")} characters, {pts.length} points.
+            {prev ? (
+              <>
+                <HlCount>{cur.groupCount} critique groups</HlCount>, <HlCount>{cur.critiqueCount} critiques</HlCount>.{" "}
+              </>
+            ) : (
+              ""
+            )}
+            <HlCount>{cur.chars.toLocaleString("en-US")} characters</HlCount>, <HlCount>{pts.length} points</HlCount>.
           </p>
           {map.fallback ? (
             <p data-vm-fallback className="text-sm text-muted">
@@ -166,7 +182,7 @@ export default function VectorMapView({ map, counts, state }: { map: BoxMap; cou
             )}
           </div>
           <p data-vm-counts className="mt-2 text-sm">
-            {pts.length} points · {added} new (hard add) · {movedCount} moved {prev ? `since ${prev.version}` : ""} · {cur.removed.length} removed
+            <HlCount>{pts.length} points</HlCount> · <HlCount>{added}</HlCount> new (hard add) · <HlCount>{movedCount}</HlCount> moved {prev ? `since ${prev.version}` : ""} · <HlCount>{cur.removed.length}</HlCount> removed
           </p>
           <div className="mt-4 min-w-0">
             <VectorMapChart key={`${map.box}-${cur.version}-${axes}`} points={pts} removed={prev?.points.filter((p) => cur.removed.some((r) => r.id === p.id)) ?? []} axes={axes} top={top} selected={state.point} hrefs={Object.fromEntries([...pts, ...cur.removed].map((p) => [p.id, here({ point: p.id })]))} prevVersion={prev?.version ?? null} details={state.point ? <PointDetails map={map} id={state.point} /> : null} />

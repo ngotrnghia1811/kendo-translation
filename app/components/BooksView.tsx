@@ -5,6 +5,8 @@ import { pageHref } from "@/lib/format";
 import { VerdictPill } from "./Pills";
 import BookDetails from "./BookDetails";
 import { RawId } from "./Named";
+// Unit VW127 (Q-A 3:122.4 rows 1 and 6): the book title in the accent color, the page count bold. No text changes.
+import { HlCount } from "./HlSpan";
 import { bookNames } from "@/lib/htv-titles";
 import { capFirst, pageNumberText } from "@/lib/readable-names"; // Unit VW96 (Q-A 3:17.4): "Page 1" in place of the bare "p001", the folder name in small grey text.
 
@@ -75,7 +77,7 @@ function BookTable({ rows }: { rows: BookRow[] }) {
                   <span className="text-muted">–</span>
                 ) : (
                   <>
-                    <div className={names(r).mainLang === "ja" ? "font-ja" : ""} lang={names(r).mainLang || undefined} data-book-title>
+                    <div className={"hl-title" + (names(r).mainLang === "ja" ? " font-ja" : "")} lang={names(r).mainLang || undefined} data-book-title data-hl="title">
                       {names(r).main}
                     </div>
                     {names(r).sub ? (
@@ -90,7 +92,7 @@ function BookTable({ rows }: { rows: BookRow[] }) {
               <td className="px-3 py-2 font-ja">{r.publisher || <span className="text-muted">–</span>}</td>
               <td className="px-3 py-2 text-right tabular-nums">{r.year ?? "–"}</td>
               <td className="px-3 py-2">{r.confidence ? <Confidence value={r.confidence} /> : <span className="text-muted">–</span>}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{r.pages ?? "–"}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{r.pages === null || r.pages === undefined ? "–" : <HlCount>{r.pages}</HlCount>}</td>
               <td className="px-3 py-2">
                 {r.pagesWithRuns.length === 0 ? (
                   <span className="text-muted">none</span>

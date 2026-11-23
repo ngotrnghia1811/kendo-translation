@@ -10,10 +10,10 @@ import { listStateWord, pageStateWord } from "@/lib/run-view-words";
 // and lib/run-view-words.ts (VW94). Box codes use components/BoxCode.tsx (Q-A 3:18.5 "Keep codes, explain on hover").
 // A new file, because the dev server keeps old module instances (VW77a).
 
-/** The raw name (stamp, folder, slug) in small grey text, so a person can find the folder. */
+/** The raw name (stamp, folder, slug) in small grey text, so a person can find the folder. Unit VW127 (Q-A 3:122.4 row 8): the class hl-folder (gray, monospace, small). */
 export function RawId({ children, title }: { children: React.ReactNode; title?: string }) {
   return (
-    <span data-raw-id className="font-mono text-xs break-all text-muted" title={title}>
+    <span data-raw-id className="font-mono text-xs break-all text-muted hl-folder" title={title} data-hl="folder">
       {children}
     </span>
   );
@@ -48,7 +48,7 @@ export function GroupCode({ code }: { code: string }) {
   const help = groupHelp(code);
   if (!help) return <>{code}</>;
   return (
-    <span data-group-code={code} title={help} className={`relative cursor-help underline decoration-dotted underline-offset-2 rounded px-1 ${KIND_CHIP[code] ?? ""}`}>
+    <span data-group-code={code} data-hl="box" data-stage={code} title={help} className={`relative cursor-help underline decoration-dotted underline-offset-2 rounded px-1 ${KIND_CHIP[code] ?? ""}`}>
       {code}
       <span className="sr-only"> ({help})</span>
     </span>

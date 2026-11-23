@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { jsonViewHref, parentOf, sizeMb, type FolderEntry } from "@/lib/json-view";
 import type { ReportItem } from "@/lib/json-view-load";
+// Unit VW127 (Q-A 3:122.4 rows 6 and 8, scope /json): the file sizes and the entry counts bold, the folder paths gray monospace. The JSON text keeps its own colors.
+import { HlCount } from "./HlSpan";
 
 // Unit VW89 (round 90), Q-A 3:1.7 item 4 "Folder list, reports first": /json with no path shows the folders of the Translator data folder.
 // A click on a folder shows its entries. A click on a file opens it. The phase 2 report files come first when they exist.
@@ -23,7 +25,7 @@ export default function JsonFolderList({ path, entries, total, reports, lines = 
                   <Link href={jsonViewHref(r.path)} data-report-link className="text-accent underline-offset-2 hover:underline">
                     {r.label}
                   </Link>{" "}
-                  <span className="font-mono text-xs text-muted break-all">{r.path}{r.folder ? "/" : ""}</span>
+                  <span data-hl="folder" className="hl-folder break-all">{r.path}{r.folder ? "/" : ""}</span>
                 </li>
               ))}
             </ul>
@@ -55,7 +57,7 @@ export default function JsonFolderList({ path, entries, total, reports, lines = 
                     {e.name}
                   </span>
                 )}
-                <span className="text-xs text-muted tabular-nums">{e.folder ? "folder" : e.bytes === null ? "" : sizeMb(e.bytes)}</span>
+                <span className="text-xs text-muted tabular-nums">{e.folder ? "folder" : e.bytes === null ? "" : <HlCount>{sizeMb(e.bytes)}</HlCount>}</span>
                 {lines[e.path] ? (
                   <span data-entry-line className="basis-full font-sans text-xs text-muted">
                     {lines[e.path]}
@@ -67,7 +69,7 @@ export default function JsonFolderList({ path, entries, total, reports, lines = 
         )}
         {total > entries.length ? (
           <p className="mt-2 text-sm text-muted">
-            The list shows the first {entries.length} of {total} entries.
+            The list shows the first <HlCount>{entries.length} of {total} entries</HlCount>.
           </p>
         ) : null}
       </section>

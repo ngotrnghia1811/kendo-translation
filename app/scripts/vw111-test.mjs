@@ -232,15 +232,16 @@ await check("place 2: getBookDetail of an article reads the same row", () =>
     assert.equal((await BK.getBookDetail("dupe0001")).meta, null);
   }));
 
+// unit VW127 (Q-A 3:122.4 row 1): the book title is bold in the accent color (class hl-title, data-hl="title"), so the two regexes below allow these two attributes.
 await check("place 2: the Articles table shows the English title as the main text, the Japanese below, the folder name in its column and as hover text", () =>
   inFiles(async () => {
     const rows = await BK.listBooks();
     const html = renderToStaticMarkup(React.createElement(BooksView, { rows }));
     const art = /<tr class="border-t border-line align-top hover:bg-stone-50"><td[^>]*><span data-raw-id[^>]*>f3a6586e<\/span><\/td>[\s\S]*?<\/tr>/.exec(html)?.[0] ?? "";
     assert.ok(art, "the row of f3a6586e exists");
-    assert.match(art, /<td class="px-3 py-2" title="f3a6586e"><div class="" data-book-title(?:="[^"]*")?>How to Create an Ideal Kamae \(Koda Kunihide\)<\/div><div class="font-ja text-xs text-muted" lang="ja">理想の構え<\/div><\/td>/);
+    assert.match(art, /<td class="px-3 py-2" title="f3a6586e"><div class="(?:hl-title)?" data-book-title(?:="[^"]*")?(?: data-hl="title")?>How to Create an Ideal Kamae \(Koda Kunihide\)<\/div><div class="font-ja text-xs text-muted" lang="ja">理想の構え<\/div><\/td>/);
     const ja = /<tr [^>]*><td[^>]*><span data-raw-id[^>]*>made_book_jaonly<\/span><\/td>[\s\S]*?<\/tr>/.exec(html)?.[0] ?? "";
-    assert.match(ja, /<div class="font-ja" lang="ja" data-book-title(?:="[^"]*")?>日本語だけの本<\/div>/);
+    assert.match(ja, /<div class="(?:hl-title )?font-ja" lang="ja" data-book-title(?:="[^"]*")?(?: data-hl="title")?>日本語だけの本<\/div>/);
     const none = /<tr [^>]*><td[^>]*><span data-raw-id[^>]*>made_book_none<\/span><\/td>[\s\S]*?<\/tr>/.exec(html)?.[0] ?? "";
     assert.match(none, /<td class="px-3 py-2"><span class="text-muted">–<\/span><\/td>/, "no title: the dash as before");
     const dupe = /<tr [^>]*><td[^>]*><span data-raw-id[^>]*>dupe0001<\/span><\/td>[\s\S]*?<\/tr>/.exec(html)?.[0] ?? "";
@@ -275,11 +276,11 @@ await check("place 3: the Run settings panel says '<book title> runs now at page
     { book: "made_book_none", page: null, next: null, n: null },
   ];
   const html = renderToStaticMarkup(React.createElement(RunSettingsForm, { initialText: settingsSnapshot(active), pageLabels: {}, bookLabels: { made_book_one: "Made-up Book One" } }));
-  assert.match(html, /<strong title="Book key: made_book_one">Made-up Book One<\/strong> runs now at /);
-  assert.match(html, /<strong title="Book key: paired-dataset">The phase 2 run<\/strong> runs now/);
-  assert.match(html, /<strong title="Book key: made_book_none">made_book_none<\/strong> runs now/, "no title: the key as before");
+  assert.match(html, /<strong data-hl="title" class="hl-title" title="Book key: made_book_one">Made-up Book One<\/strong> runs now at /);
+  assert.match(html, /<strong data-hl="title" class="hl-title" title="Book key: paired-dataset">The phase 2 run<\/strong> runs now/);
+  assert.match(html, /<strong data-hl="title" class="hl-title" title="Book key: made_book_none">made_book_none<\/strong> runs now/, "no title: the key as before");
   const noProp = renderToStaticMarkup(React.createElement(RunSettingsForm, { initialText: settingsSnapshot(active) }));
-  assert.match(noProp, /<strong title="Book key: made_book_one">made_book_one<\/strong> runs now/, "no title map: the key as before");
+  assert.match(noProp, /<strong data-hl="title" class="hl-title" title="Book key: made_book_one">made_book_one<\/strong> runs now/, "no title map: the key as before");
 });
 
 await check("place 3: the page loads the labels for the active books and passes them to the form", async () => {

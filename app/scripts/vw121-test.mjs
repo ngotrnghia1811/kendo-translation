@@ -615,7 +615,9 @@ await check("the list component (row 6): the picture, the comment, the page link
     { ...base, id: "20261121-100000-bbbbbb", state: "open", createdPst: "2026-11-21 10:00 PST", comment: "Older open.", sentBy: "Made Up Admin", sentByRole: "admin", viewedAs: "reader" },
     { ...base, id: "20261120-100000-cccccc", state: "resolved", createdPst: "2026-11-20 10:00 PST", comment: "Done one.", resolvedPst: "2026-11-21 19:00 PST", pageUrl: "//evil.example/x" },
   ];
-  const html = renderToStaticMarkup(h(LocalIssues, { issues, skipped: 0, hidden: 0, titles: { made_up_book: "Made Up Book" } }));
+  // unit VW127 (Q-A 3:122.4): a highlight span (data-hl) only colors a count or a time. unHl takes the span away so that the text compare stays the same.
+  const unHl = (m) => m.replace(/<span [^>]*data-hl="[^"]*"[^>]*>([^<]*)<\/span>/g, "$1");
+  const html = unHl(renderToStaticMarkup(h(LocalIssues, { issues, skipped: 0, hidden: 0, titles: { made_up_book: "Made Up Book" } })));
   assert.ok(html.indexOf("Newer open.") < html.indexOf("Older open."), "the order of the input stays (newest first)");
   assert.equal((html.match(/data-issue-resolve/g) ?? []).length, 2, "a button on each open issue, none on the resolved one");
   assert.equal((html.match(/>Resolved<\/button>/g) ?? []).length, 2);
@@ -630,7 +632,7 @@ await check("the list component (row 6): the picture, the comment, the page link
   assert.ok(html.includes("Viewed as reader."));
   assert.ok(!html.includes('href="//evil.example/x"'), "an unsafe page address is no link");
   assert.ok(!/@/.test(html.replace(/@example\.test/g, "")), "no e-mail address");
-  const skippedHtml = renderToStaticMarkup(h(LocalIssues, { issues: [], skipped: 2, hidden: 5, titles: {} }));
+  const skippedHtml = unHl(renderToStaticMarkup(h(LocalIssues, { issues: [], skipped: 2, hidden: 5, titles: {} })));
   assert.ok(skippedHtml.includes("No issue is open.") && skippedHtml.includes("2 folders have no readable issue.json") && skippedHtml.includes("5 older folders are not shown"));
 });
 

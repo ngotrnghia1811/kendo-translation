@@ -12,6 +12,8 @@ import { modelOptionText } from "@/lib/readable-names";
 import { ModelCardId } from "./ModelCardId"; // Unit VW97 (Q-A 3:21.3): the Claude card ID in small grey text next to the card name.
 import { StatePill, VerdictPill } from "./Pills";
 import { BoxText } from "./BoxCode";
+// Unit VW127 (Q-A 3:122.4 rows 1 to 8): titles, page chips, times, durations, counts and folder names with their colors. No text changes.
+import { HlCount, HlDuration, HlFolder, HlPage, HlText, HlTime } from "./HlSpan";
 // Unit VW98 (Q-A 3:23.3): a box code links to the training monitor of its box.
 import { BoxMonitorLink } from "./TrainingMonitorLink";
 import { useRunStoreQuery, withStoreQuery } from "./RunStoreQuery"; // unit VW85
@@ -70,13 +72,11 @@ export function StepTree({ summary, choices, setChoice }: TreeProps) {
     <div data-step-tree>
       <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
         <span data-steps-run className="font-semibold">
-          {summary.runLabel}
+          <HlText text={summary.runLabel} />
         </span>
         <StatePill state={summary.runWord.pill} label={summary.runWord.label} help={summary.runWord.help} />
         {summary.runId ? (
-          <span className="font-mono text-xs text-muted" title="Run ID of history.jsonl (key run_id)">
-            {summary.runId}
-          </span>
+          <HlFolder title="Run ID of history.jsonl (key run_id)">{summary.runId}</HlFolder>
         ) : null}
       </div>
       {summary.lists.length ? (
@@ -86,14 +86,17 @@ export function StepTree({ summary, choices, setChoice }: TreeProps) {
               <Link href={`/runs/${l.stamp}`} className="text-accent underline underline-offset-2">
                 {l.label}
               </Link>{" "}
-              <span className="font-mono">{l.stamp}</span>
+              <HlFolder>{l.stamp}</HlFolder>
             </li>
           ))}
         </ul>
       ) : null}
       <p data-steps-counts className="mb-3 text-sm text-muted">
-        {ended} {ended === 1 ? "page" : "pages"} ended, {running} translating now, {summary.notStarted.length} not started yet. The tree updates every 3 s while this tab is visible. Summary read in{" "}
-        {summary.millis} ms.
+        <HlCount>
+          {ended} {ended === 1 ? "page" : "pages"}
+        </HlCount>{" "}
+        ended, <HlCount>{running}</HlCount> translating now, <HlCount>{summary.notStarted.length}</HlCount> not started yet. The tree updates every 3 s while this tab is visible. Summary read in{" "}
+        <HlDuration>{summary.millis} ms</HlDuration>.
       </p>
       {summary.error ? (
         <p data-steps-error className="mb-3 text-sm text-red-700">
@@ -107,12 +110,14 @@ export function StepTree({ summary, choices, setChoice }: TreeProps) {
       </ol>
       {summary.notStarted.length ? (
         <details data-steps-not-started className="mt-3 rounded border border-line bg-white px-3 py-2 text-sm">
-          <summary className="cursor-pointer">Not started yet: {summary.notStarted.length} pages, in list order</summary>
+          <summary className="cursor-pointer">Not started yet: <HlCount>{summary.notStarted.length} pages</HlCount>, in list order</summary>
           <ol className="mt-2 space-y-1">
             {summary.notStarted.map((p) => (
               <li key={p.pageId} className="break-words">
-                <span>{p.title}</span>
-                {p.pageOf ? <span className="text-muted">, {p.pageOf}</span> : null} <span className="font-mono text-xs text-muted">{p.pageId}</span>
+                <span data-hl="title" className="hl-title">
+                  {p.title}
+                </span>
+                {p.pageOf ? <span className="text-muted">, {p.pageOf}</span> : null} <HlPage>{p.pageId}</HlPage>
               </li>
             ))}
           </ol>
@@ -132,9 +137,11 @@ function PageItem({ n, page, choices, setChoice, tick, live }: { n: number; page
       <Toggle open={open} onClick={() => setChoice(key, !open)} label={`Page ${n}: ${page.title}, ${page.pageOf ?? page.pageId}`} mark={page.running}>
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
           <span className="font-mono text-xs text-muted">p{n}</span>
-          <span className={page.titleFound ? "font-medium" : "italic text-muted"}>{page.title}</span>
+          <span data-hl={page.titleFound ? "title" : undefined} className={page.titleFound ? "hl-title" : "italic text-muted"}>
+            {page.title}
+          </span>
           {page.pageOf ? <span className="text-muted">{page.pageOf}</span> : null}
-          <span className="font-mono text-xs text-muted">{page.pageId}</span>
+          <HlPage>{page.pageId}</HlPage>
           <StatePill state={word.pill} label={word.label} help={word.help} />
           <span title="QA_3 verdict and page score of this page run">
             <VerdictPill verdict={page.verdict} score={page.score} />
@@ -146,12 +153,27 @@ function PageItem({ n, page, choices, setChoice, tick, live }: { n: number; page
           </span>
         ) : null}
         <span className="block text-xs text-muted">
-          {minutes(page.seconds)} min · {page.calls} model calls ·{" "}
+          <HlDuration>{minutes(page.seconds)} min</HlDuration> · <HlCount>{page.calls} model calls</HlCount> ·{" "}
           <span title={TOKENS_SHORT_HELP}>
-            {TOKENS_SHORT_LABEL} {tokensShort(page.tokens)}
+            {TOKENS_SHORT_LABEL} <HlCount>{tokensShort(page.tokens)}</HlCount>
           </span>
-          {page.epoch !== null ? ` · ${page.running ? "started" : "ended"} ${pstDateTime(page.epoch)}` : ""}
-          {page.listLabel ? ` · ${page.listLabel}` : ""}
+          {page.epoch !== null ? (
+            <>
+              {` · ${page.running ? "started" : "ended"} `}
+              <HlTime>{pstDateTime(page.epoch)}</HlTime>
+            </>
+          ) : (
+            ""
+          )}
+          {/* Unit VW127 (Q-A 3:122.4 row 4): the list start time in green. */}
+          {page.listLabel ? (
+            <>
+              {" · "}
+              <HlText text={page.listLabel} />
+            </>
+          ) : (
+            ""
+          )}
         </span>
         {page.running && page.runningBoxes.length ? (
           <span className="block text-xs text-muted">
@@ -182,7 +204,7 @@ function PageItem({ n, page, choices, setChoice, tick, live }: { n: number; page
                 <a href={jsonViewHref(page.folder)} className="text-accent underline underline-offset-2">
                   Page run folder in the JSON viewer
                 </a>
-                <span className="font-mono text-muted">{page.runFolder}</span>
+                <HlFolder>{page.runFolder}</HlFolder>
               </>
             ) : null}
           </p>
@@ -236,19 +258,40 @@ function StepItem({ page, step, choices, setChoice, tick, live }: { page: PageNo
         <span className="block text-xs text-muted">
           {step.model ? `model ${modelOptionText(step.model)}` : "no model stored"}
           {step.model ? <ModelCardId value={step.model} /> : null}
-          {step.seconds !== null ? ` · ${secondsText(step.seconds)}` : ""}
+          {step.seconds !== null ? (
+            <>
+              {" · "}
+              <HlDuration>{secondsText(step.seconds)}</HlDuration>
+            </>
+          ) : (
+            ""
+          )}
           {step.calls > 0 ? (
             <>
               {" · "}
               <span title={TOKENS_SHORT_HELP}>
-                {TOKENS_SHORT_LABEL} {tokensShort(step.tokens)}
+                {TOKENS_SHORT_LABEL} <HlCount>{tokensShort(step.tokens)}</HlCount>
               </span>
             </>
           ) : (
             ""
           )}
-          {step.calls > 1 ? ` · ${step.calls} calls` : ""}
-          {step.startedEpoch !== null ? ` · started ${pstClock(step.startedEpoch)}` : ""}
+          {step.calls > 1 ? (
+            <>
+              {" · "}
+              <HlCount>{step.calls} calls</HlCount>
+            </>
+          ) : (
+            ""
+          )}
+          {step.startedEpoch !== null ? (
+            <>
+              {" · started "}
+              <HlTime>{pstClock(step.startedEpoch)}</HlTime>
+            </>
+          ) : (
+            ""
+          )}
         </span>
         {step.note ? (
           <span className="block text-xs text-muted">
@@ -452,11 +495,11 @@ export function PromptUpdates({ updates, choices, setChoice, tick, live = null }
             <li key={key} data-prompt-update={`${u.box}@${u.page}`} className="rounded border border-line bg-white">
               <Toggle open={open} onClick={() => setChoice(key, !open)} label={`Prompt update of ${u.box} after page ${u.page}`} mark={u.endedEpoch === null}>
                 <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                  <span className="text-muted">{u.startedEpoch !== null ? pstDateTime(u.startedEpoch) : "time not stored"}</span>
+                  <span className="text-muted">{u.startedEpoch !== null ? <HlTime>{pstDateTime(u.startedEpoch)}</HlTime> : "time not stored"}</span>
                   <Code code={u.box} />
                   <StatePill state={u.endedEpoch === null ? "running" : "done"} label={u.endedEpoch === null ? "Working now" : (u.result ?? "Ended")} help={u.endedEpoch === null ? "The update point started and did not end yet." : `Result of the update point (history.jsonl event update-point-ended): ${u.result ?? "not stored"}.`} />
                 </span>
-                <span className="block text-xs text-muted">after page: {u.pageText}</span>
+                <span className="block text-xs text-muted">after page: <HlText text={u.pageText} /></span>
                 <span className="block text-xs text-muted">
                   <BoxText text={updateNote(u)} />
                 </span>

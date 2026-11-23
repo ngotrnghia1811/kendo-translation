@@ -26,6 +26,8 @@ import {
   type UpdateEvent,
 } from "@/lib/training-monitor";
 import { BoxCode } from "./BoxCode";
+// Unit VW127 (Q-A 3:122.4 rows 2 to 8): page chips, times green, durations and counts bold, a failed count above 0 red, raw IDs gray monospace. No text changes.
+import { HlCount, HlDuration, HlFailed, HlFolder, HlPage, HlText, HlTime } from "./HlSpan";
 import { ModelCardId } from "./ModelCardId";
 import { StatePill, VerdictPill } from "./Pills";
 import { StepDataPanel } from "./StepTree";
@@ -86,7 +88,7 @@ export function MonitorHeader({ data }: { data: BoxMonitor }) {
         <p data-monitor-now className="mt-1 text-sm">
           {data.now.thisBox ? <StatePill state="running" label="This box works now" help="The box or its critic or its update point runs now (status.json running_boxes, history.jsonl)." /> : null}{" "}
           <span className="text-muted">
-            Now: {data.now.pageLabel ? `translating ${data.now.pageLabel}` : data.now.page ? `page ${data.now.page}` : "between pages"}
+            Now: <HlText text={data.now.pageLabel ? `translating ${data.now.pageLabel}` : data.now.page ? `page ${data.now.page}` : "between pages"} />
             {data.now.boxes.length ? ", working box " : ""}
             {data.now.boxes.map((b, i) => (
               <span key={b}>
@@ -101,26 +103,33 @@ export function MonitorHeader({ data }: { data: BoxMonitor }) {
       <h4 className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted">Training statistics</h4>
       <dl data-monitor-stats className="mt-1 grid grid-cols-1 gap-x-4 text-sm sm:grid-cols-[minmax(9rem,max-content)_1fr]">
         <Row name="Critiques" help="Rows of critiques/queue-<BOX>.jsonl of each page run of this run.">
-          {s.critiques.total} in total
-          <span className="block text-xs text-muted">by source: {countsText(s.critiques.bySource)}</span>
-          <span className="block text-xs text-muted">by state: {countsText(s.critiques.byStatus)}</span>
+          <HlCount>{s.critiques.total}</HlCount> in total
+          <span className="block text-xs text-muted">by source: <HlText text={countsText(s.critiques.bySource)} /></span>
+          <span className="block text-xs text-muted">by state: <HlText text={countsText(s.critiques.byStatus)} /></span>
           <span className="block text-xs text-muted">
-            group marks: {s.critiques.soft} soft, {s.critiques.hard} hard, {s.critiques.noMark} without a mark (not grouped yet, or mark not stored)
+            group marks: <HlCount>{s.critiques.soft}</HlCount> soft, <HlCount>{s.critiques.hard}</HlCount> hard, <HlCount>{s.critiques.noMark}</HlCount> without a mark (not grouped yet, or mark not stored)
           </span>
         </Row>
         <Row name="Waiting in the queue" help="Critiques of accepted pages that no update point used yet (critique_queue.py).">
-          <span data-monitor-waiting>{waitingText(s.waiting)}</span>
-          <span className="block text-xs text-muted">{nText(s.waiting.n, s.waiting.nSource)}</span>
+          <span data-monitor-waiting>
+            <HlText text={waitingText(s.waiting)} />
+          </span>
+          <span className="block text-xs text-muted">
+            <HlText text={nText(s.waiting.n, s.waiting.nSource)} />
+          </span>
         </Row>
         <Row name="Failure modes" help="Key critique.failure_mode of each critique, cut to 120 characters.">
-          {s.critiques.failureModes} different
+          <HlCount>{s.critiques.failureModes}</HlCount> different
           {s.critiques.byFailureMode.length ? (
             <details className="text-xs">
               <summary className="cursor-pointer text-muted">Show the failure modes, most frequent first{s.critiques.byFailureMode.length < s.critiques.failureModes ? ` (first ${s.critiques.byFailureMode.length})` : ""}</summary>
               <ol className="mt-1 space-y-0.5">
                 {s.critiques.byFailureMode.map((c, i) => (
                   <li key={i} className="break-words">
-                    <span className="font-mono text-muted">{c.n}×</span> {c.label}
+                    <span className="font-mono text-muted">
+                      <HlCount>{c.n}×</HlCount>
+                    </span>{" "}
+                    {c.label}
                   </li>
                 ))}
               </ol>
@@ -128,31 +137,62 @@ export function MonitorHeader({ data }: { data: BoxMonitor }) {
           ) : null}
         </Row>
         <Row name="Update points" help="history.jsonl: update-point-started and update-point-ended of this box in this run.">
-          {s.updates.total} in total{s.updates.running ? `, ${s.updates.running} runs now` : ""}
-          <span className="block text-xs text-muted">by result: {countsText(s.updates.byResult)}</span>
-          <span className="block text-xs text-muted">audit verdicts: {countsText(s.updates.audit)}</span>
+          <HlCount>{s.updates.total}</HlCount> in total
+          {s.updates.running ? (
+            <>
+              , <HlCount>{s.updates.running}</HlCount> runs now
+            </>
+          ) : (
+            ""
+          )}
+          <span className="block text-xs text-muted">by result: <HlText text={countsText(s.updates.byResult)} /></span>
+          <span className="block text-xs text-muted">audit verdicts: <HlText text={countsText(s.updates.audit)} /></span>
           <span className="block text-xs text-muted">
-            prompt rewrites that the program check rejected: {s.updates.rejectedTries} · critique groups: {groupsWords(s.updates.softGroups, s.updates.hardGroups) ?? "–"}
+            prompt rewrites that the program check rejected: <HlCount>{s.updates.rejectedTries}</HlCount> · critique groups: <HlText text={groupsWords(s.updates.softGroups, s.updates.hardGroups) ?? "–"} />
           </span>
         </Row>
         <Row name="Prompt versions" help="Files prompts/<BOX>/v*.json and the file current.">
-          {versions.length ? `${versions[0]} to ${versions[versions.length - 1]} (${versions.length} versions)` : "no version file"} · live {s.versions.live ?? "not stored"}
+          {versions.length ? (
+            <>
+              {`${versions[0]} to ${versions[versions.length - 1]} (`}
+              <HlCount>{versions.length} versions</HlCount>)
+            </>
+          ) : (
+            "no version file"
+          )}{" "}
+          · live {s.versions.live ?? "not stored"}
         </Row>
         <Row name="Page calls" help="Rows of calls.jsonl of each page run with the tag of this box.">
-          {s.calls.pages} pages{s.calls.failed ? `, ${s.calls.failed} failed` : ""} · {durationText(s.calls.seconds)} in total, mean {durationText(s.calls.meanSeconds)} per page
+          <HlCount>{s.calls.pages} pages</HlCount>
+          {s.calls.failed ? (
+            <>
+              , <HlFailed n={s.calls.failed}>{s.calls.failed} failed</HlFailed>
+            </>
+          ) : (
+            ""
+          )}{" "}
+          · <HlDuration>{durationText(s.calls.seconds)}</HlDuration> in total, mean <HlDuration>{durationText(s.calls.meanSeconds)}</HlDuration> per page
           <span className="block text-xs text-muted">
             <Tokens tokens={s.calls.tokens} />
           </span>
           {qa ? (
             <span data-monitor-qa className="block text-xs text-muted">
-              verdict PASS {qa.pass} · FAIL {qa.fail}
-              {qa.other ? ` · other ${qa.other}` : ""} · mean page score {mean(qa.meanScore)}
+              verdict PASS <HlCount>{qa.pass}</HlCount> · FAIL <HlCount>{qa.fail}</HlCount>
+              {qa.other ? (
+                <>
+                  {" · other "}
+                  <HlCount>{qa.other}</HlCount>
+                </>
+              ) : (
+                ""
+              )}{" "}
+              · mean page score {mean(qa.meanScore)}
             </span>
           ) : null}
         </Row>
         {s.rubric ? (
           <Row name="Rubric table" help="rubric-tables/changes.jsonl rows of this box, and rubric-tables/<BOX>/current.">
-            {s.rubric.changes} changes in this run · live version {s.rubric.live ?? "not stored"}
+            <HlCount>{s.rubric.changes}</HlCount> changes in this run · live version {s.rubric.live ?? "not stored"}
           </Row>
         ) : null}
         <Row name="Critiques per page" help="One bar per page in run order. Hover a bar for the page and the count.">
@@ -182,7 +222,10 @@ export function Trend({ trend }: { trend: BoxMonitor["stats"]["trend"] }) {
         ))}
       </span>
       <span className="block text-xs text-muted">
-        {withAny} of {trend.length} pages got critiques · most on one page: {max === 1 && withAny === 0 ? 0 : max}
+        <HlCount>
+          {withAny} of {trend.length} pages
+        </HlCount>{" "}
+        got critiques · most on one page: {max === 1 && withAny === 0 ? 0 : max}
       </span>
     </span>
   );
@@ -196,24 +239,34 @@ function CallLine({ e }: { e: CallEvent }) {
     <>
       <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
         <span className="text-xs font-semibold text-muted">Page call</span>
-        <span>{pageWords(e.page)}</span>
+        <span>
+          <HlText text={pageWords(e.page)} />
+        </span>
         <StatePill state={w.pill} label={w.label} help={w.help} />
         {e.verdict ? <VerdictPill verdict={e.verdict} score={e.score} /> : null}
       </span>
       <span className="block text-xs text-muted">
         {e.model ? `model ${modelOptionText(e.model)}` : "no model stored"}
         {e.model ? <ModelCardId value={e.model} /> : null}
-        {` · ${durationText(e.seconds)}`}
+        {" · "}
+        <HlDuration>{durationText(e.seconds)}</HlDuration>
         {e.calls > 0 ? (
           <>
             {" · "}
             <Tokens tokens={e.tokens} />
           </>
         ) : null}
-        {e.calls > 1 ? ` · ${e.calls} calls` : ""}
+        {e.calls > 1 ? (
+          <>
+            {" · "}
+            <HlCount>{e.calls} calls</HlCount>
+          </>
+        ) : (
+          ""
+        )}
         {` · prompt ${e.promptVersion ?? "version not stored"}`}
         {e.score !== null ? ` · page score ${e.score}` : ""}
-        {e.error ? ` · error: ${e.error}` : ""}
+        {e.error ? <HlText text={` · error: ${e.error}`} /> : ""}
       </span>
       <TimeAndId epoch={e.running ? null : e.epoch} id={e.page.id} running={e.running} />
     </>
@@ -231,8 +284,15 @@ function CritiqueLine({ e }: { e: CritiqueEvent }) {
       <span className="block break-words text-sm">{e.failureMode ?? "no failure mode stored"}</span>
       {e.reason ? <span className="block break-words text-xs text-muted">{e.reason}</span> : null}
       <span className="block text-xs text-muted">
-        on {pageWords(e.page)} · prompt {e.instructionVersion ?? "version not stored"}
-        {e.usedEpoch !== null ? ` · used by the update point of ${pstDateTime(e.usedEpoch)}` : ""}
+        on <HlText text={pageWords(e.page)} /> · prompt {e.instructionVersion ?? "version not stored"}
+        {e.usedEpoch !== null ? (
+          <>
+            {" · used by the update point of "}
+            <HlTime>{pstDateTime(e.usedEpoch)}</HlTime>
+          </>
+        ) : (
+          ""
+        )}
       </span>
       <TimeAndId epoch={e.epoch} id={e.queueId} running={false} prefix="critic call" />
     </>
@@ -246,18 +306,40 @@ function UpdateLine({ e }: { e: UpdateEvent }) {
     <>
       <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
         <span className="text-xs font-semibold text-muted">Update point</span>
-        <span>{e.epoch !== null ? pstDateTime(e.epoch) : "time not stored"}</span>
+        <span>{e.epoch !== null ? <HlTime>{pstDateTime(e.epoch)}</HlTime> : "time not stored"}</span>
         <StatePill state={w.pill} label={e.running ? w.label : (e.result ?? "result not stored")} help={w.help} />
       </span>
       <span className="block text-sm">
-        after {e.pageText} · {groups ?? "group counts not stored"} · audit {e.audit ?? (e.running ? "not yet" : "not stored")} ·{" "}
+        after <HlText text={e.pageText} /> · {groups ?? "group counts not stored"} · audit {e.audit ?? (e.running ? "not yet" : "not stored")} ·{" "}
         <span className="font-mono">{versionChange(e.parent, e.version) ?? "no new version"}</span>
       </span>
       <span className="block text-xs text-muted">
-        {e.queueCount} critiques used
-        {e.rejected ? ` · ${e.rejected} rewrite ${e.rejected === 1 ? "try" : "tries"} rejected` : ""}
-        {e.seconds !== null ? ` · ${durationText(e.seconds)}` : ""}
-        {e.calls ? ` · ${e.calls} calls` : ""}
+        <HlCount>{e.queueCount} critiques</HlCount> used
+        {e.rejected ? (
+          <>
+            {" · "}
+            <HlCount>{e.rejected}</HlCount>
+            {` rewrite ${e.rejected === 1 ? "try" : "tries"} rejected`}
+          </>
+        ) : (
+          ""
+        )}
+        {e.seconds !== null ? (
+          <>
+            {" · "}
+            <HlDuration>{durationText(e.seconds)}</HlDuration>
+          </>
+        ) : (
+          ""
+        )}
+        {e.calls ? (
+          <>
+            {" · "}
+            <HlCount>{e.calls} calls</HlCount>
+          </>
+        ) : (
+          ""
+        )}
         {e.calls ? (
           <>
             {" · "}
@@ -275,14 +357,18 @@ function RubricLine({ e }: { e: RubricEvent }) {
     <>
       <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
         <span className="text-xs font-semibold text-muted">Rubric table change</span>
-        <span>{e.epoch !== null ? pstDateTime(e.epoch) : "time not stored"}</span>
-        <span className="font-mono text-xs">{e.changeId}</span>
+        <span>{e.epoch !== null ? <HlTime>{pstDateTime(e.epoch)}</HlTime> : "time not stored"}</span>
+        <HlFolder>{e.changeId}</HlFolder>
       </span>
       <span className="block text-sm">
         {e.changeKind ?? "change"} · row {e.row ?? "?"}
         {e.name ? ` (${e.name})` : ""} · <span className="font-mono">{versionChange(e.parent, e.version) ?? "no version stored"}</span>
       </span>
-      {e.pageText ? <span className="block text-xs text-muted">after {e.pageText}</span> : null}
+      {e.pageText ? (
+        <span className="block text-xs text-muted">
+          after <HlText text={e.pageText} />
+        </span>
+      ) : null}
     </>
   );
 }
@@ -290,7 +376,17 @@ function RubricLine({ e }: { e: RubricEvent }) {
 function TimeAndId({ epoch, id, running, prefix }: { epoch: number | null; id: string; running: boolean; prefix?: string }) {
   return (
     <span className="block text-xs text-muted">
-      {running ? "runs now" : epoch !== null ? `${prefix ? `${prefix} ` : ""}${pstDateTime(epoch)}` : "time not stored"} · <span className="font-mono">{id}</span>
+      {running ? (
+        "runs now"
+      ) : epoch !== null ? (
+        <>
+          {prefix ? `${prefix} ` : ""}
+          <HlTime>{pstDateTime(epoch)}</HlTime>
+        </>
+      ) : (
+        "time not stored"
+      )}{" "}
+      · {/^p\d{3,4}$/.test(id) ? <HlPage>{id}</HlPage> : <HlFolder>{id}</HlFolder>}
     </span>
   );
 }
@@ -347,7 +443,7 @@ export function KindTicks({ events, shown, setShown }: { events: MonitorEvent[];
       {EVENT_KINDS.map((k) => (
         <label key={k} className="inline-flex items-center gap-1.5">
           <input type="checkbox" data-monitor-tick={k} checked={shown[k]} onChange={(ev) => setShown(k, ev.target.checked)} />
-          {EVENT_KIND_WORDS[k]} ({events.filter((e) => e.kind === k).length})
+          {EVENT_KIND_WORDS[k]} (<HlCount>{events.filter((e) => e.kind === k).length}</HlCount>)
         </label>
       ))}
     </fieldset>
@@ -372,7 +468,11 @@ export function TimeLine({
   return (
     <div data-monitor-timeline className="mt-2">
       <p className="text-xs text-muted">
-        Time line in run order, across restarts: {list.length} of {data.events.length} lines shown. A critique has no time of its own, so it shows at the time of
+        Time line in run order, across restarts:{" "}
+        <HlCount>
+          {list.length} of {data.events.length} lines
+        </HlCount>{" "}
+        shown. A critique has no time of its own, so it shows at the time of
         its critic call.
       </p>
       {list.length === 0 ? <p className="mt-2 text-sm text-muted">No line to show. Tick an event kind above, or wait for the first page call of this box.</p> : null}

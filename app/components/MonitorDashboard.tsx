@@ -4,6 +4,8 @@ import type { MonitorData, GroupName } from "@/lib/book-status-rules";
 import { NO_RUN_TEXT, agoText, emptyLine, groupRows, groupShows, tabTitle } from "@/lib/book-status-rules";
 import { pstClockSeconds } from "@/lib/format";
 import { allBooksText } from "@/lib/tokens-view";
+// Unit VW127 (Q-A 3:122.4 rows 4 and 6): the update time in green, its age and the counts in bold. The texts stay the same.
+import { HlDuration, HlNumberParts, HlText, HlTime } from "./HlSpan";
 import { useLive } from "./useLive";
 import { useGroupOpen } from "./monitor-open-store";
 import BookRow from "./BookRow";
@@ -80,7 +82,7 @@ export default function MonitorDashboard({ initial }: { initial: MonitorData }) 
       <div className="mb-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
         <h1 className="text-xl font-semibold">Monitor dashboard</h1>
         <span data-updated className="text-sm text-muted">
-          Updated {pstClockSeconds(data.generatedAt)} ({agoText(data.generatedAt, now, true)})
+          Updated <HlTime>{pstClockSeconds(data.generatedAt)}</HlTime> (<HlDuration>{agoText(data.generatedAt, now, true)}</HlDuration>)
         </span>
         <button type="button" onClick={() => void refresh()} className="rounded border border-line px-2.5 py-1 text-sm text-foreground">
           Refresh
@@ -114,11 +116,11 @@ export default function MonitorDashboard({ initial }: { initial: MonitorData }) 
                 <>
                   <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
                     <p data-monitor-summary className="text-sm">
-                      {data.summary.text}
+                      <HlNumberParts text={data.summary.text} />
                     </p>
                     {/* Unit VW93 (Q-A 3:15.2, 3:15.3): input / output tokens of all books in place of the model cost. No dollar amount shows. */}
                     <p data-monitor-tokens className="text-sm text-muted">
-                      {allBooksText(data.summary.tokens)}
+                      <HlText text={allBooksText(data.summary.tokens)} />
                     </p>
                   </div>
                   {data.noRun ? (

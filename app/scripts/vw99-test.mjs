@@ -274,7 +274,8 @@ await check("every new color class in the components has a variable", () => {
   const files = ["components/Tabs.tsx", "components/ProgressBar.tsx", "components/BoxCode.tsx", "components/Pills.tsx", "components/StateLabel.tsx", "components/Phase2Row.tsx", "components/Phase2Articles.tsx", "components/Nav.tsx", "components/BookRow.tsx", "components/TrainingMonitor.tsx", "components/StepTree.tsx"];
   const names = new Set();
   for (const f of files) for (const m of read(f).matchAll(/\b(?:bg|text|border)-((?:chip|state|bar|band|tab|section|title|button2)[a-z0-9-]*)/g)) names.add(m[1]);
-  assert.ok(names.size >= 20, `found ${names.size}`);
+  // unit VW127 (Q-A 3:122.4 row 3): the 4 box chips moved from bg-chip-* classes to hl-box-* classes (app/globals.css), so BoxCode.tsx no longer adds names here. Was 20.
+  assert.ok(names.size >= 15, `found ${names.size}`);
   for (const n of names) assert.ok(VW99_VARS.includes(n), `class color ${n} has no variable`);
 });
 
@@ -283,10 +284,11 @@ await check("box code chips: TS grey, TL blue, ED green, QA purple; the code tex
   const { GroupCode } = await import("../components/Named.tsx");
   for (const [code, kind] of [["TS_0", "ts"], ["TL_2", "tl"], ["ED_1", "ed"], ["QA_3", "qa"], ["box-critic.ED_2", "ed"]]) {
     const html = h(BoxCode, { code });
-    assert.ok(html.includes(`bg-chip-${kind} text-chip-${kind}-ink`), code);
+    // unit VW127 (Q-A 3:122.4 row 3): the chip colors are now TS teal, TL blue, ED purple, QA orange (class hl-box-<kind>; scripts/vw127-test.mjs tests the contrast).
+    assert.ok(html.includes(`hl-box hl-box-${kind}`), code);
     assert.match(html, new RegExp(`<span data-box-code="${code.replace(".", "\\.")}" title="[^"]+"[^>]*>${code.replace(".", "\\.")}<span class="sr-only">`), code);
   }
-  assert.ok(h(GroupCode, { code: "TL" }).includes("bg-chip-tl text-chip-tl-ink"));
+  assert.ok(h(GroupCode, { code: "TL" }).includes("hl-box hl-box-tl"));
 });
 
 await check("state pills: color by meaning, the word stays on the pill", async () => {

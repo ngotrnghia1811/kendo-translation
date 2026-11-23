@@ -27,6 +27,8 @@ import { Tabs } from "./Tabs";
 import { runDefaultTab, runTabs } from "@/lib/tabs";
 import RunPagesTable from "./RunPagesTable";
 import { RunProgress } from "./ProgressBar";
+// Unit VW127 (Q-A 3:122.4 rows 4, 6, 8): the times green, the counts bold, a failed count above 0 red, the folder name gray monospace. No text changes.
+import { HlCount, HlFailed, HlText, HlTimeText } from "./HlSpan";
 
 // Round 44 answer 13 (Q-A l142): a list opens a run view with one row per page: state, calls, cost (unit VW93: tokens, Q-A 3:15.2), minutes,
 // QA_3 verdict and score, link to the page view. Viewer goal: few steps from a run to a page text.
@@ -45,7 +47,7 @@ export default function RunView({ initial }: { initial: RunDetail }) {
       <div data-run-head className="mt-2 mb-4 flex flex-wrap items-center gap-x-5 gap-y-2">
         <h1 data-run-heading className="text-xl font-semibold">
           {runHeading(run.stamp, run.listKind, run.phase2List === true)}{" "}
-          <span data-run-stamp className="ml-1 font-mono text-sm font-normal text-muted" title="List folder name (UTC stamp), the same as in the URL">
+          <span data-run-stamp data-hl="folder" className="hl-folder ml-1" title="List folder name (UTC stamp), the same as in the URL">
             {run.stamp}
           </span>
         </h1>
@@ -54,17 +56,17 @@ export default function RunView({ initial }: { initial: RunDetail }) {
       </div>
       <RunProgress pages={run.pages} />
       <div className="mb-4 flex flex-wrap gap-x-8 gap-y-1 text-sm">
-        <Stat label="Pages" value={`${run.pagesDone} / ${run.pagesTotal}`} />
-        <Stat label="Calls" value={`${run.callsDone} / ${run.callsTotal}`} />
-        <Stat label="Failed" value={String(run.callsFailed)} warn={run.callsFailed > 0} />
-        <Stat label="Flagged" value={String(run.callsFlagged)} warn={run.callsFlagged > 0} />
+        <Stat label="Pages" value={<HlCount>{`${run.pagesDone} / ${run.pagesTotal}`}</HlCount>} />
+        <Stat label="Calls" value={<HlCount>{`${run.callsDone} / ${run.callsTotal}`}</HlCount>} />
+        <Stat label="Failed" value={<HlFailed n={run.callsFailed}>{String(run.callsFailed)}</HlFailed>} />
+        <Stat label="Flagged" value={<HlCount>{String(run.callsFlagged)}</HlCount>} warn={run.callsFlagged > 0} />
         {/* Unit VW93 (Q-A 3:15.2): the 5 token kinds of the list in place of the two costs. An older list shows "no token data" (Q-A 3:15.3). */}
         <Stat label={TOKENS_LABEL} value={<TokensDetail tokens={run.tokens} />} />
-        <Stat label="Started" value={pstDateTimeOrDash(run.startedEpoch)} />
-        <Stat label="Updated" value={pstDateTimeOrDash(run.updatedEpoch)} />
+        <Stat label="Started" value={<HlTimeText text={pstDateTimeOrDash(run.startedEpoch)} />} />
+        <Stat label="Updated" value={<HlTimeText text={pstDateTimeOrDash(run.updatedEpoch)} />} />
         <Stat label="List kind" value={<span title={`List kind ${run.listKind} (progress.json key kind)`}>{listKindWord(run.listKind, run.phase2List === true)}</span>} />
         <Stat label="Critic mode" value={<span title={criticModeWord(run.criticMode).help}>{criticModeWord(run.criticMode).label}</span>} />
-        {run.bookJobs !== null ? <Stat label="Book jobs" value={bookJobsText(run.bookJobs)} /> : null}
+        {run.bookJobs !== null ? <Stat label="Book jobs" value={<HlText text={bookJobsText(run.bookJobs)} />} /> : null}
       </div>
       <div className="mb-4">
         <PauseButton stamp={run.stamp} state={run.state} fileExists={run.pauseFileExists} pausedSinceEpoch={run.pausedSinceEpoch} onDone={refresh} />

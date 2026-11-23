@@ -3,6 +3,8 @@ import { useMemo, useState } from "react";
 import { countText, parseJsonText, parseJsonlText, rowTitle, startsOpen, type JsonViewKind, type JsonlRow, type OpenMode } from "@/lib/json-view";
 // Unit VW92 (round 91): the error lines show no parse message of the engine (it differs between Node and Firefox, React error #418). See lib/json-error-text.ts.
 import { jsonErrorText, jsonlErrorText } from "@/lib/json-error-text";
+// Unit VW127 (Q-A 3:122.4 row 6, scope /json): the file size bold. The JSON text keeps its own colors.
+import { HlCount } from "./HlSpan";
 
 // Unit VW89 (round 90), Q-A 3:1.8 (2026-11-09 16:55 PST):
 //   item 1 "Tree view": keys on their own lines, each part opens and closes, the first 2 levels open, own colors for keys, text,
@@ -32,7 +34,7 @@ export default function JsonViewer({ path, kind, size, text }: { path: string; k
     <div data-json-file={path} data-json-kind={kind}>
       <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
         <span className="text-sm text-muted">
-          {facts}, {size}
+          {facts}, <HlCount>{size}</HlCount>
         </span>
         {tree ? (
           <div className="flex gap-2" role="group" aria-label="Tree buttons">

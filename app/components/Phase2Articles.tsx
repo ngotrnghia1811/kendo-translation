@@ -1,4 +1,6 @@
 import type { ArticleLine, ArticleStateKey, Phase2ArticlesView } from "@/lib/phase2-articles";
+// Unit VW127 (Q-A 3:122.4 rows 1, 6, 8): the article title in the accent color, the page counts bold, the short ID in gray monospace. The texts stay the same.
+import { HlCount, HlFailed, HlNumberParts, HlText } from "./HlSpan";
 import { ARTICLES_TITLE, ARTICLE_STATE_HELP, TITLES_NOTE, TITLE_NOT_FOUND, articlesCountText, listLabel } from "@/lib/phase2-articles";
 
 // Unit VW94 (round 91). Owner pick Q-A 3:17.4 (2026-11-11): "One grouped row": the 40 articles show as one closed group "Phase 2 articles (40)"
@@ -25,7 +27,7 @@ function ArticleRow({ a }: { a: ArticleLine }) {
   return (
     <li data-phase2-article={a.shortId} data-article-state={a.key} className="border-t border-line px-3 py-2">
       <div className="flex flex-wrap items-baseline gap-x-2">
-        <span data-article-title className={found ? "font-medium text-foreground" : "italic text-muted"}>
+        <span data-article-title data-hl={found ? "title" : undefined} className={found ? "hl-title" : "italic text-muted"}>
           {main}
         </span>
         {found && a.name.en && a.name.ja ? (
@@ -33,7 +35,7 @@ function ArticleRow({ a }: { a: ArticleLine }) {
             {a.name.ja}
           </span>
         ) : null}
-        <span data-article-id className="font-mono text-xs text-muted" title="Short ID: the first 8 characters of the item ID of the article">
+        <span data-article-id data-hl="folder" className="hl-folder" title="Short ID: the first 8 characters of the item ID of the article">
           {a.shortId}
         </span>
       </div>
@@ -42,8 +44,17 @@ function ArticleRow({ a }: { a: ArticleLine }) {
           {a.stateText}
         </span>
         <span className="text-muted">
-          {a.pagesTotal} {a.pagesTotal === 1 ? "page" : "pages"}
-          {a.failVerdicts > 0 ? `, ${a.failVerdicts} accepted with verdict FAIL` : ""}:
+          <HlCount>
+            {a.pagesTotal} {a.pagesTotal === 1 ? "page" : "pages"}
+          </HlCount>
+          {a.failVerdicts > 0 ? (
+            <>
+              , <HlFailed n={a.failVerdicts}>{a.failVerdicts} accepted with verdict FAIL</HlFailed>
+            </>
+          ) : (
+            ""
+          )}
+          :
         </span>
         {a.pages.map((p) => (
           <span key={p.pageId} data-article-page={p.pageId} data-page-state={p.state}>
@@ -73,7 +84,11 @@ export default function Phase2Articles({ view }: { view: Phase2ArticlesView | nu
         <span data-phase2-articles-title className="font-semibold">
           {ARTICLES_TITLE} ({n})
         </span>
-        {count ? <span data-phase2-articles-count className="text-muted">: {count}</span> : null}
+        {count ? (
+          <span data-phase2-articles-count className="text-muted">
+            : <HlNumberParts text={count} />
+          </span>
+        ) : null}
       </summary>
       {view.kind === "no-list" || n === 0 ? (
         <p data-phase2-articles-empty className="border-t border-line px-3 py-2 text-muted">
@@ -90,7 +105,7 @@ export default function Phase2Articles({ view }: { view: Phase2ArticlesView | nu
                   <a data-phase2-articles-run-view href={view.runViewHref} className="text-accent underline underline-offset-2">
                     Run view
                   </a>{" "}
-                  ({listLabel(view.listStamp)}).
+                  (<HlText text={listLabel(view.listStamp)} />).
                 </>
               ) : null}
             </p>
