@@ -1,6 +1,6 @@
 import "server-only";
 import { catalogWorks, dictionaryCount, dictionaryMatches, PbError, readerPageRecords, readerVersionRecords, searchBookPages, searchReaderPages, type PageHit, type ReaderHumanVersion } from "./pb";
-import { DICT_MIN_CHARS, dictItemView, dictQuery, orderHits, type DictBrief } from "./dictionary-core";
+import { DICT_MIN_CHARS, dictExact, dictItemView, dictQuery, exactOnly, orderHits, type DictBrief } from "./dictionary-core";
 import { isHidden, matchWorks } from "./reader-folds";
 import type { SessionUser } from "./htv-types";
 import type { DashWork, ReaderPageRecord } from "./reader-types";
@@ -67,16 +67,20 @@ export async function loadSearch(token: string, user: SessionUser, rawQuery: str
   const tabs = tabsFor(user.approved);
   const tab = pickTab(tabRaw, user.approved);
   const base = { query, tab, tabs, waiting: !user.approved, pageSearch: true, dictionarySearch: true, capped: false, timedOut: false };
-  if ([...folded].length < SEARCH_MIN_CHARS) return { ...base, short: true, counts: zeroCounts(), screen: 1, screens: 1, items: [] };
+  // Unit VW128 (Q-A 3:127.4): the Dictionary tab searches from 1 character. Books and pages keep the rule of 2 characters, so a shorter query skips them.
+  const pagesReady = [...folded].length >= SEARCH_MIN_CHARS;
+  const dictFolded = dictQuery(rawQuery);
+  const dictReadyNow = [...dictFolded].length >= DICT_MIN_CHARS;
+  if (!pagesReady && !(tab === "dictionary" && dictReadyNow)) return { ...base, short: true, counts: zeroCounts(), screen: 1, screens: 1, items: [] };
 
-  const all = await catalogWorks(token);
+  const all = pagesReady ? await catalogWorks(token) : [];
   const visible = all.filter((w) => !isHidden(w, all));
   const bySlug = new Map(visible.map((w) => [w.slug, w]));
-  const books = matchWorks(visible, folded);
+  const books = pagesReady ? matchWorks(visible, folded) : [];
 
   let pages: { hits: PageHit[]; capped: boolean } | null = { hits: [], capped: false };
   let timedOut = false;
-  if (user.approved) {
+  if (user.approved && pagesReady) {
     try {
       pages = await searchReaderPages(token, folded, AbortSignal.timeout(limitMs));
     } catch (e) {
@@ -87,19 +91,24 @@ export async function loadSearch(token: string, user: SessionUser, rawQuery: str
   }
   const hits = (pages?.hits ?? []).filter((h) => bySlug.has(h.itemId));
   // Unit VW126: the Dictionary tab. A person who may read page text may read the dictionary list too (the same rule READ_OK). The tab All does not count the entries.
-  const dictFolded = dictQuery(rawQuery);
+  // A query in double quotes is an exact search (owner note Q-A 3:127.4).
+  const dictExactOn = dictExact(rawQuery);
   let dictRows: DictBrief[] = [];
   let dictCount = 0;
   let dictionarySearch = true;
-  if (user.approved && [...dictFolded].length >= DICT_MIN_CHARS) {
+  if (user.approved && dictReadyNow) {
     try {
       if (tab === "dictionary") {
         const found = await dictionaryMatches(token, dictFolded, AbortSignal.timeout(limitMs));
         if (found === null) dictionarySearch = false;
         else {
-          dictRows = orderHits(found, dictFolded);
+          dictRows = orderHits(dictExactOn ? exactOnly(found, dictFolded) : found, dictFolded);
           dictCount = dictRows.length;
         }
+      } else if (dictExactOn) {
+        const found = await dictionaryMatches(token, dictFolded, AbortSignal.timeout(limitMs));
+        if (found === null) dictionarySearch = false;
+        else dictCount = exactOnly(found, dictFolded).length;
       } else {
         const n = await dictionaryCount(token, dictFolded, AbortSignal.timeout(limitMs));
         if (n === null) dictionarySearch = false;

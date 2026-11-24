@@ -10,6 +10,7 @@ import {
   SEARCH_WORDS,
   searchHref,
   searchReady,
+  searchReadyFor,
   tabLabel,
   tabsFor,
   type LineHit,
@@ -148,7 +149,7 @@ export default function SearchPanel({ initial, query, approved }: { initial: Sea
     const id = newest.start();
     abort.current?.abort();
     window.history.replaceState(null, "", searchHref(words.trim(), tabId, screenNo));
-    if (!searchReady(words)) {
+    if (!searchReadyFor(words, tabId)) {
       setRes(null);
       setBusy(false);
       setFailed("");
@@ -185,7 +186,7 @@ export default function SearchPanel({ initial, query, approved }: { initial: Sea
     timer.current = setTimeout(() => void load(words, tabId, screenNo), delay);
   }
 
-  const ready = searchReady(text);
+  const ready = searchReadyFor(text, tab);
   const shown = res && ready ? res : null;
   const total = shown?.counts[tab === "all" ? "all" : tab] ?? 0;
 
@@ -236,7 +237,8 @@ export default function SearchPanel({ initial, query, approved }: { initial: Sea
       <nav aria-label="Result tabs" className="mb-3 flex gap-1 overflow-x-auto border-b border-line" data-search-tabs>
         {SEARCH_TABS.filter((t) => tabs.includes(t.id)).map((t) => {
           const on = t.id === tab;
-          const n = shown?.counts[t.id];
+          // Unit VW128: a 1-character query searches the Dictionary tab only, so the other tabs show no count for it.
+          const n = shown && (t.id === "dictionary" || searchReady(text)) ? shown.counts[t.id] : undefined;
           return (
             <Link
               key={t.id}

@@ -106,6 +106,10 @@ export default function DictionaryPanel({ initial, query }: { initial: DictListR
           {DICT_WORDS.hint}
         </p>
       ) : null}
+      {/* Unit VW128 (owner note Q-A 3:127.4): how to make an exact search. */}
+      <p className="mb-2 text-xs text-muted" data-dict-tip>
+        {DICT_WORDS.tip}
+      </p>
 
       <section aria-label="Dictionary entries" aria-busy={busy} data-dict-results>
         {failed ? (
@@ -132,6 +136,7 @@ export default function DictionaryPanel({ initial, query }: { initial: DictListR
                   for <strong>{shownQuery}</strong>
                 </>
               ) : null}
+              {res.ready && res.exact ? <span data-dict-exact>{` (${DICT_WORDS.exact})`}</span> : null}
             </p>
             {res.count === 0 ? (
               <p className="text-sm text-muted" data-dict-empty>

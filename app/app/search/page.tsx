@@ -2,7 +2,7 @@ import ReaderBar from "@/components/ReaderBar";
 import SearchPanel from "@/components/SearchPanel";
 import { requireReaderOrLink } from "@/lib/view-link-server";
 import { WAITING } from "@/lib/reader-types";
-import { parseSearchParams, pickTab, SEARCH_WORDS, searchReady } from "@/lib/search-core";
+import { parseSearchParams, pickTab, SEARCH_WORDS, searchReadyFor } from "@/lib/search-core";
 import { loadSearch } from "@/lib/search-data";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const p = parseSearchParams(await searchParams);
   const s = await requireReaderOrLink("/search");
   if ("down" in s) return <p role="alert" className="text-red-700">{s.down}</p>;
-  const initial = searchReady(p.q) ? await loadSearch(s.token, s.user, p.q, p.tab, p.screen) : null;
+  const initial = searchReadyFor(p.q, pickTab(p.tab, s.user.approved)) ? await loadSearch(s.token, s.user, p.q, p.tab, p.screen) : null;
   return (
     <>
       <ReaderBar name={s.user.name} email={s.user.email} role={s.user.role} approved={s.user.approved} linkVisitor={s.link === true} onSearch />

@@ -1,10 +1,10 @@
 // Unit VW124 (Q-A 3:115.5 "Implement a comprehensive search function similar to in v1", Q-A 3:116.7 "A + B + C", Q-A 3:117.4 rows 1 to 5, Q-A 3:117.5 rows 1 to 4).
 // The shared rules of the search page /search and the search inside one book. No server-only marker, so the server loaders, the client components, and the test script can load it.
-// It imports only the fold rule and two small helper modules (reader-types, reader-links).
+// It imports only the fold rule, two small helper modules (reader-types, reader-links), and the ready rule of the dictionary (unit VW128).
 import { foldQuery, foldWithMap, QUERY_MAX, type Folded } from "./reader-search";
 import { pageLabel, SEARCH_WAITING } from "./reader-types";
 import { readHref, type ReaderView } from "./reader-links";
-import type { DictItemView } from "./dictionary-core";
+import { dictReady, type DictItemView } from "./dictionary-core";
 
 export { foldQuery, QUERY_MAX };
 
@@ -33,7 +33,7 @@ export const SEARCH_WORDS = {
   bookPlaceholder: "Search this book",
   bookOpen: "Search in book",
   bookClose: "Close search",
-  hint: "Type at least 2 characters.",
+  hint: "Type at least 2 characters. The Dictionary tab searches from 1 character.",
   none: "No hits. Try other words.",
   searching: "Searching…",
   failed: "The search did not work. Try again.",
@@ -110,6 +110,14 @@ export function searchHref(q: string, tab: SearchTabId = "all", screen = 1): str
 /** True when the query has enough characters to search. */
 export function searchReady(raw: string): boolean {
   return [...foldQuery(raw)].length >= SEARCH_MIN_CHARS;
+}
+
+/**
+ * True when the query can search on this tab (unit VW128, owner pick Q-A 3:127.4): the Dictionary tab searches from 1 character (DICT_MIN_CHARS),
+ * the other tabs keep SEARCH_MIN_CHARS. Example: 面 is ready on the Dictionary tab only.
+ */
+export function searchReadyFor(raw: string, tab: SearchTabId): boolean {
+  return searchReady(raw) || (tab === "dictionary" && dictReady(raw));
 }
 
 /**

@@ -70,7 +70,7 @@ const py = (code, args = []) => {
 
 await check("row 3 (Q-A 3:117.6): the constants and the words: 2 characters, 0.35 s, 25 entries on a screen, the list name, the page address", () => {
   assert.equal(DC.DICT_PATH, "/dictionary");
-  assert.equal(DC.DICT_MIN_CHARS, 2);
+  assert.equal(DC.DICT_MIN_CHARS, 1, "unit VW128 (Q-A 3:127.4): the dictionary searches from 1 character");
   assert.equal(DC.DICT_DELAY_MS, 350);
   assert.equal(DC.DICT_PER_SCREEN, 25);
   assert.equal(DC.DICT_COLLECTION, "dictionary_entries");
@@ -98,11 +98,38 @@ await check("katakana count as hiragana: ヒキワザ = ひきわざ, the long v
   assert.equal(DC.kataToHira("カーテン abc"), "かーてん abc");
   assert.equal(DC.dictFold("ヒキワザ"), DC.dictFold("ひきわざ"));
   assert.equal(DC.dictReady("小手"), true);
-  assert.equal(DC.dictReady("こ"), false);
+  // unit VW128 (Q-A 3:127.4): 1 character is enough
+  assert.equal(DC.dictReady("こ"), true);
+  assert.equal(DC.dictReady("面"), true);
   assert.equal(DC.dictReady("ko"), true);
-  assert.equal(DC.dictReady("k"), false);
+  assert.equal(DC.dictReady("k"), true);
   assert.equal(DC.dictReady("  "), false);
-  assert.equal(DC.dictReady("k o"), true, "the space is removed, so 'ko' has 2 characters");
+  assert.equal(DC.dictReady('""'), false, "quotes alone are no word");
+  assert.equal(DC.dictReady("k o"), true, "the space is removed");
+});
+
+await check("unit VW128 (owner note Q-A 3:127.4 \"we can use \\\" \\\" for exact search\"): double quotes make an exact search; the quotes never reach the filter", () => {
+  assert.equal(DC.dictQuery('"面"'), "面");
+  assert.equal(DC.dictQuery('\u201ckote\u201d'), "kote");
+  assert.equal(DC.dictQuery('\uff02小手\uff02'), "小手");
+  assert.equal(DC.dictExact('"面"'), true);
+  assert.equal(DC.dictExact(' "men" '), true);
+  assert.equal(DC.dictExact('\u201cmen\u201d'), true);
+  assert.equal(DC.dictExact('\uff02面\uff02'), true);
+  assert.equal(DC.dictExact("面"), false);
+  assert.equal(DC.dictExact('"面'), false);
+  assert.equal(DC.dictExact('""'), false);
+  assert.equal(DC.dictExact('" "'), false);
+  const recs = [
+    { entry_id: "a", headword: "面", variants: [], reading: "めん", romaji: "men", concise_en: "head", short_en: "", common: "", sort_key: "めん" },
+    { entry_id: "b", headword: "引き面", variants: [], reading: "ひきめん", romaji: "hiki-men", concise_en: "retreating head strike", short_en: "", common: "", sort_key: "ひきめん" },
+    { entry_id: "c", headword: "お面", variants: ["面"], reading: "おめん", romaji: "omen", concise_en: "mask", short_en: "", common: "", sort_key: "おめん" },
+  ];
+  assert.deepEqual(DC.exactOnly(recs, "面").map((r) => r.entry_id), ["a", "c"], "the headword or an other writing is the whole word");
+  assert.deepEqual(DC.exactOnly(recs, "men").map((r) => r.entry_id), ["a"]);
+  assert.deepEqual(DC.exactOnly(recs, "hikimen").map((r) => r.entry_id), ["b"], "the fold removes the hyphen");
+  assert.deepEqual(DC.exactOnly(recs, "head").map((r) => r.entry_id), ["a"], "the EN form counts, a word inside it does not");
+  assert.ok(DC.DICT_WORDS.tip.includes('"面"'));
 });
 
 await check("the query for the filter: the wildcard characters % and \\ never reach PocketBase, and the query is cut to 80 characters", () => {
@@ -1169,7 +1196,18 @@ await check("row 4: with no words (or one character) the list shows ALL entries 
   const row = j.items.find((x) => x.id === "c-aaaaaaaa0001");
   assert.equal(row.headword[0].t, "引き面");
   assert.equal(row.shortEn.map((p) => p.t).join(""), "Hiki-men (引き面) is a technique that strikes the opponent's men while the practitioner moves backward.");
-  assert.equal((await api({ q: "k" })).json.count, 6, "one character: the whole list");
+  // unit VW128 (Q-A 3:127.4): one character searches
+  const one = (await api({ q: "面" })).json;
+  assert.equal(one.ready, true);
+  assert.equal(one.exact, false);
+  assert.ok(one.items.some((x) => x.id === "c-aaaaaaaa0001"), "引き面 holds 面");
+  assert.ok(one.count < 6, "one character no longer lists all entries");
+  const ex = (await api({ q: '"小手"' })).json;
+  assert.equal(ex.exact, true);
+  assert.deepEqual(ex.items.map((x) => x.id), ["c-aaaaaaaa0002"]);
+  assert.deepEqual((await api({ q: '"kote"' })).json.items.map((x) => x.id), ["c-aaaaaaaa0002"], "romaji with or without macron, exact");
+  assert.ok((await api({ q: "hiki" })).json.count >= 2, "hiki sits inside 2 entries");
+  assert.equal((await api({ q: '"hiki"' })).json.count, 0, "no entry is the whole word hiki");
   // 30 entries make two screens
   const extra = [];
   for (let i = 0; i < 24; i++) extra.push({ id: "dictx" + String(i).padStart(10, "0"), entry_id: "c-bulk" + String(i).padStart(4, "0"), headword: "語" + i, variants: [], reading: "ご" + String.fromCharCode(0x3042 + i), romaji: "go" + i, concise_en: "word " + i, short_en: "", common: "common", view: {}, search_ja: "語" + i, search_en: "go" + i + "word" + i, sort_key: "ご" + String(i).padStart(2, "0") });
@@ -1270,10 +1308,34 @@ await check("row 3 (Q-A 3:117.4, 3:119.2): the fourth tab Dictionary of /search 
   assert.equal(tab.dictionarySearch, true);
   const kana = await D.loadSearch(u(READER).token, u(READER).user, "ひきわざ", "dictionary", 1);
   assert.deepEqual(kana.items.map((x) => x.id), ["c-aaaaaaaa0003"]);
-  const short = await D.loadSearch(u(READER).token, u(READER).user, "k", "dictionary", 1);
+  // unit VW128 (Q-A 3:127.4): one character searches the Dictionary tab; the other tabs keep the rule of 2 characters
+  const short = await D.loadSearch(u(READER).token, u(READER).user, "k", "all", 1);
   assert.equal(short.short, true);
   assert.equal(short.counts.dictionary, 0);
   assert.deepEqual(short.items, []);
+  const one = await D.loadSearch(u(READER).token, u(READER).user, "面", "dictionary", 1);
+  assert.notEqual(one.short, true);
+  assert.equal(one.counts.books, 0);
+  assert.equal(one.counts.pages, 0);
+  assert.ok(one.items.some((x) => x.id === "c-aaaaaaaa0001"));
+  assert.equal(one.counts.dictionary, one.items.length);
+  const exTab = await D.loadSearch(u(READER).token, u(READER).user, '"小手"', "dictionary", 1);
+  assert.deepEqual(exTab.items.map((x) => x.id), ["c-aaaaaaaa0002"]);
+  assert.equal((await D.loadSearch(u(READER).token, u(READER).user, '"hiki"', "dictionary", 1)).counts.dictionary, 0);
+  assert.ok((await D.loadSearch(u(READER).token, u(READER).user, "hiki", "books", 1)).counts.dictionary >= 2);
+  assert.equal((await D.loadSearch(u(READER).token, u(READER).user, '"hiki"', "books", 1)).counts.dictionary, 0, "the count of the tab follows the exact rule");
+  const SCm = await import("../lib/search-core.ts");
+  assert.equal(SCm.searchReadyFor("面", "dictionary"), true);
+  assert.equal(SCm.searchReadyFor("面", "all"), false);
+  assert.equal(SCm.searchReadyFor("kote", "pages"), true);
+  const { default: SearchPanel1 } = await import("../components/SearchPanel.tsx");
+  const oneHtml = htmlText(renderToStaticMarkup(h(SearchPanel1, { initial: one, query: "面", approved: true })));
+  assert.ok(oneHtml.includes(`Dictionary (${one.counts.dictionary})`), oneHtml.slice(0, 300));
+  assert.ok(!oneHtml.includes("Books (0)") && !oneHtml.includes("Pages (0)"), "no count on the tabs that did not search");
+  const { default: DictionaryPanel1 } = await import("../components/DictionaryPanel.tsx");
+  const exHtml = renderToStaticMarkup(h(DictionaryPanel1, { initial: { ...exTab, query: '"小手"', ready: true, exact: true, missing: false, count: 1, screen: 1, screens: 1, items: exTab.items }, query: '"小手"' }));
+  assert.ok(exHtml.includes("data-dict-exact") && htmlText(exHtml).includes("(exact match)"));
+  assert.ok(exHtml.includes("data-dict-tip"));
   const { default: SearchPanel } = await import("../components/SearchPanel.tsx");
   const html = renderToStaticMarkup(h(SearchPanel, { initial: tab, query: "kote", approved: true }));
   const txt = htmlText(html);

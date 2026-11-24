@@ -8,8 +8,14 @@ import type { TermLang } from "./htv-types";
 
 /** The address of the dictionary page. */
 export const DICT_PATH = "/dictionary";
-/** A query shorter than this (counted in characters of the folded text) does not search. The same number as SEARCH_MIN_CHARS of the search page. */
-export const DICT_MIN_CHARS = 2;
+/**
+ * A query shorter than this (counted in characters of the folded text) does not search.
+ * Unit VW128 (owner pick Q-A 3:127.4 "1 character in the dictionary"): 1, so that one-kanji terms such as 面 (men) and 胴 (dō) can be found.
+ * The page search of /search keeps SEARCH_MIN_CHARS (2).
+ */
+export const DICT_MIN_CHARS = 1;
+/** The quote marks of an exact search (owner note Q-A 3:127.4: "we can use \" \" for exact search"): straight, curly, and full-width double quotes. */
+export const DICT_QUOTES = /["\u201c\u201d\uff02]/g;
 /** Entries on one screen of the dictionary page (unit default: 25, because one entry takes 3 lines). */
 export const DICT_PER_SCREEN = 25;
 /** The pause after the last key before the search runs. The same as SEARCH_DELAY_MS of the search page. */
@@ -26,7 +32,9 @@ export const DICT_WORDS = {
   title: "Dictionary",
   inputLabel: "Search the dictionary",
   placeholder: "Japanese, kana, romaji, or English",
-  hint: "Type at least 2 characters to search. The list shows all entries.",
+  hint: "Type a word to search. The list shows all entries.",
+  tip: "Put the word in double quotes for an exact match, for example \"面\" or \"men\".",
+  exact: "exact match",
   none: "No entries. Try other words.",
   searching: "Searching…",
   failed: "The search did not work. Try again.",
@@ -77,9 +85,26 @@ export function dictFoldWithMap(source: string): Folded {
 
 export const dictFold = (source: string): string => dictFoldWithMap(source).text;
 
-/** The query for the filter: dictionary fold, at most QUERY_MAX characters. The characters % and \ are removed (they are wildcards for PocketBase). */
+/**
+ * The query for the filter: dictionary fold, at most QUERY_MAX characters. The characters % and \ are removed (they are wildcards for PocketBase).
+ * The double quotes of an exact search are removed too (unit VW128), so '"面"' gives '面'.
+ */
 export function dictQuery(raw: string): string {
-  return dictFold(raw.replace(/[%\\]/g, " ")).slice(0, QUERY_MAX);
+  return dictFold(raw.replace(/[%\\]/g, " ").replace(DICT_QUOTES, " ")).slice(0, QUERY_MAX);
+}
+
+/**
+ * True when the typed text is an exact search: it starts and ends with a double quote and holds a word between them (unit VW128, owner note Q-A 3:127.4).
+ * Example: '"面"' and '“men”' are exact. '面', '"面' and '""' are not.
+ */
+export function dictExact(raw: string): boolean {
+  const t = raw.trim();
+  return t.length >= 3 && /^["\u201c\u201d\uff02]/u.test(t) && /["\u201c\u201d\uff02]$/u.test(t) && dictQuery(t) !== "";
+}
+
+/** The entries of an exact search: the folded query is a whole headword, other writing, reading, romaji, or EN form (rank 0 of rankOf). */
+export function exactOnly(recs: DictBrief[], folded: string): DictBrief[] {
+  return recs.filter((r) => rankOf(r, folded) === 0);
 }
 
 /** True when the query has enough characters to search. */
@@ -247,10 +272,12 @@ export function dictHref(o: { q?: string; screen?: number; entry?: string; tab?:
 
 // ---------------------------------------------------------------- the answers
 
-/** The answer of GET /api/read/dictionary for a list. `ready` is false when the query is too short: the list then shows all entries. `missing` is true when the list is not on the server. */
+/** The answer of GET /api/read/dictionary for a list. `ready` is false when the query is empty: the list then shows all entries. `missing` is true when the list is not on the server. */
 export interface DictListResponse {
   query: string;
   ready: boolean;
+  /** True for an exact search in double quotes (unit VW128). */
+  exact: boolean;
   missing: boolean;
   count: number;
   screen: number;
