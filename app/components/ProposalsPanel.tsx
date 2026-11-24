@@ -1,19 +1,23 @@
 "use client";
+import Link from "next/link";
 import { useState } from "react";
-import type { GroupView } from "@/lib/proposals-core";
+import { dictHref } from "@/lib/dictionary-core";
+import { bookName, countsText, OPEN_COUNT_EVENT, pageViewHref, type TermView } from "@/lib/proposal-terms"; // unit VW129 (Q-A 3:129.4 rows 2 to 4)
 import type { ProposalsView } from "@/lib/proposals-data";
-import { pstInOutput, pstRange, pstScreen } from "@/lib/proposals-times"; // unit VW126 PST fix (Q-A 3:122.2): the files keep UTC, the screen shows PST
+import { pstInOutput, pstScreen } from "@/lib/proposals-times"; // unit VW126 PST fix (Q-A 3:122.2): the files keep UTC, the screen shows PST
 
 /*
- * The tab "Agent proposals" of /dictionary (unit VW126, Q-A 3:116.8, Q-A 3:117.7 rows 1 to 6, Q-A 3:121.2).
+ * The tab "Agent proposals" of /dictionary (unit VW126, Q-A 3:116.8, Q-A 3:117.7 rows 1 to 6, Q-A 3:121.2; unit VW129, Q-A 3:129.4 rows 2 to 5).
  * The server draws the first view, so the tab needs no script to read. The buttons call the routes under /api/dictionary:
  *   Comment (translator or admin), Accept, Edit then accept, Reject (admin only), and Rebuild the dictionary (admin only).
+ * Unit VW129: ONE row per term (add and revise together). A click on the row opens the list of all its proposals, newest first.
+ * A term that is the headword or another writing of an entry has the mark "Already in the dictionary". Accept then changes that entry (revise).
  * A decided group moves to the section "Accepted" or to the closed section "Rejected". Nothing is deleted.
  */
 
 type Role = "translator" | "admin";
 type Message = { kind: "ok" | "error"; text: string } | null;
-type Edit = { id: string; ja_term: string; reading: string; romaji: string; concise_en: string; detailed_en: string };
+type Edit = { id: string; as: "add" | "revise"; ja_term: string; reading: string; romaji: string; concise_en: string; detailed_en: string };
 
 async function call(url: string, method: "GET" | "POST", body?: unknown): Promise<{ ok: boolean; status: number; data: Record<string, unknown> }> {
   const r = await fetch(url, { method, headers: body === undefined ? undefined : { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -21,38 +25,68 @@ async function call(url: string, method: "GET" | "POST", body?: unknown): Promis
   return { ok: r.ok, status: r.status, data };
 }
 
-const kindText = (g: GroupView): string => (g.kind === "add" ? "New term" : `Revise of the entry ${g.entry_id ?? ""}`);
+/** The page number of a page ID such as "left_foot_full/p038": "page 38". */
+const pageText = (pageId: string): string => {
+  const m = /\/p(\d+)$/.exec(pageId);
+  return m ? `page ${Number(m[1])}` : pageId;
+};
 
-function Counts({ g }: { g: GroupView }) {
+/** The clicks on these elements do not open or close the row. */
+const OWN_CLICK = "a, button, input, textarea, select, label, summary";
+
+/** The mark of row 4, or the kind of a term that is not in the dictionary. */
+function KindMark({ g }: { g: TermView }) {
+  if (g.existing) {
+    return (
+      <span className="inline-flex flex-wrap items-baseline gap-x-1 rounded bg-chip-tl px-1.5 py-0.5 text-xs font-semibold" data-proposal-exists={g.existing.entry_id}>
+        <span className="text-chip-tl-ink">Already in the dictionary:</span>
+        <Link href={dictHref({ entry: g.existing.entry_id })} prefetch={false} className="underline" data-proposal-entry-link>
+          <span lang="ja" className="font-ja text-chip-tl-ink">
+            {g.existing.headword}
+          </span>
+          <span className="text-chip-tl-ink">{g.existing.isHeadword ? "" : ` (other writing ${g.existing.writing})`}</span>
+        </Link>
+      </span>
+    );
+  }
   return (
-    <p className="text-sm text-muted" data-proposal-counts>
-      Proposed {g.count} {g.count === 1 ? "time" : "times"} · {g.boxes.length} {g.boxes.length === 1 ? "box" : "boxes"} · {g.pages.length} {g.pages.length === 1 ? "page" : "pages"} · {g.books.length} {g.books.length === 1 ? "book" : "books"}
-      {g.since > 0 ? ` · ${g.since} more since the decision` : ""}
-    </p>
+    <span className="rounded bg-chip-ts px-1.5 py-0.5 text-xs font-semibold" data-proposal-kind>
+      <span className="text-chip-ts-ink">{g.kind === "add" ? "New term" : `Revise of the entry ${g.entry_id ?? ""}`}</span>
+    </span>
   );
 }
 
-function GroupBody({ g }: { g: GroupView }) {
+/** The head of a row (row 2): the term, its reading and romaji, the mark, the counts, the books, the last time, and the EN form that Accept writes. */
+function TermHead({ g, titles }: { g: TermView; titles: Record<string, string> }) {
   const others = g.concise_en_forms.filter((f) => f.text !== g.newest.concise_en);
   return (
     <>
-      <p className="flex flex-wrap items-baseline gap-x-3">
+      <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span lang="ja" className="font-ja text-lg font-semibold" data-proposal-term>
-          {g.kind === "add" ? g.ja_term : (g.current?.headword ?? g.ja_term)}
+          {g.ja_term}
         </span>
-        {g.kind === "add" && g.reading ? (
+        {g.reading ? (
           <span lang="ja" className="font-ja text-muted">
             {g.reading}
           </span>
         ) : null}
-        {g.kind === "add" && g.romaji ? <span className="font-serif italic">{g.romaji}</span> : null}
-        <span className="rounded border border-line px-1 text-xs text-muted" data-proposal-kind>
-          {kindText(g)}
-        </span>
+        {g.romaji ? (
+          <span className="font-serif italic" data-proposal-romaji>
+            {g.romaji}
+          </span>
+        ) : null}
+        <KindMark g={g} />
       </p>
-      <Counts g={g} />
+      <p className="text-sm text-muted" data-proposal-counts>
+        {countsText(g)} · <span data-proposal-times>last {pstScreen(g.last_utc)}</span>
+        {g.since > 0 ? ` · ${g.since} more since the decision` : ""}
+      </p>
+      <p className="text-sm text-muted" data-proposal-books>
+        {g.books.length === 1 ? "Book: " : "Books: "}
+        {g.books.map((b) => bookName(b, titles)).join("; ")}
+      </p>
       <p className="mt-1 text-sm" data-proposal-en>
-        <span className="text-muted">{g.kind === "add" ? "Proposed EN form: " : "Proposed new EN form: "}</span>
+        <span className="text-muted">{g.kind === "revise" ? "Proposed new EN form: " : "Proposed EN form: "}</span>
         <strong>{g.newest.concise_en}</strong>
         {g.kind === "revise" && g.current ? <span className="text-muted"> (now: {g.current.concise_en || "none"})</span> : null}
       </p>
@@ -61,19 +95,72 @@ function GroupBody({ g }: { g: GroupView }) {
           Other forms: {others.map((f) => `${f.text} ×${f.count}`).join("; ")}
         </p>
       ) : null}
-      {g.newest.detailed_en ? (
-        <p className="mt-1 text-sm text-muted" data-proposal-detailed>
-          {g.newest.detailed_en}
-        </p>
-      ) : null}
-      {g.newest.reason ? (
-        <p className="mt-1 text-xs text-muted" data-proposal-reason>
-          Reason: {g.newest.reason}
-        </p>
-      ) : null}
-      <p className="text-xs text-muted" data-proposal-times>
-        {pstRange(g.first_utc, g.last_utc)} · {g.newest.page_id} · {g.newest.box}
-      </p>
+    </>
+  );
+}
+
+/** The list of all proposals of the term, newest first (row 3). */
+export function Details({ g, titles, id }: { g: TermView; titles: Record<string, string>; id: string }) {
+  return (
+    <ol id={id} className="mt-2 grid gap-2 border-l-2 border-line pl-3" data-proposal-details>
+      {g.rows.map((r) => {
+        const href = pageViewHref(r.page_id);
+        return (
+          <li key={r.proposal_id} className="text-sm" data-proposal-row={r.proposal_id} data-proposal-row-kind={r.kind}>
+            <p className="text-xs text-muted" data-proposal-row-where>
+              {pstScreen(r.utc)} · {bookName(r.book, titles)} ·{" "}
+              {href ? (
+                <Link href={href} prefetch={false} className="text-accent underline" data-proposal-page-link>
+                  {pageText(r.page_id)}
+                </Link>
+              ) : (
+                r.page_id
+              )}{" "}
+              · {r.box} · {r.kind}
+            </p>
+            <p data-proposal-row-en>
+              <span className="text-muted">EN form: </span>
+              {r.concise_en}
+            </p>
+            {r.detailed_en ? (
+              <p data-proposal-row-detailed>
+                <span className="text-muted">Short English explanation: </span>
+                {r.detailed_en}
+              </p>
+            ) : null}
+            {r.reason ? (
+              <p data-proposal-row-reason>
+                <span className="text-muted">Reason: </span>
+                {r.reason}
+              </p>
+            ) : null}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** One row per term: the head, the button that opens the details, the details, and the comments. `children` holds the actions or the decision line. */
+function TermRow({ g, titles, children }: { g: TermView; titles: Record<string, string>; children?: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const listId = `proposal-details-${g.proposal_ids[0] ?? g.key}`;
+  return (
+    <li data-proposal-group={g.id} data-proposal-term-text={g.ja_term} data-proposal-open={open ? "yes" : "no"} className="rounded border border-line bg-white p-3">
+      <div
+        className="cursor-pointer"
+        onClick={(e) => {
+          if ((e.target as Element).closest(OWN_CLICK)) return;
+          setOpen(!open);
+        }}
+        data-proposal-head
+      >
+        <TermHead g={g} titles={titles} />
+        <button type="button" className="mt-1 text-sm font-semibold text-accent underline" aria-expanded={open} aria-controls={listId} onClick={() => setOpen(!open)} data-proposal-toggle>
+          {open ? "Hide the proposals" : `Show all ${g.count} ${g.count === 1 ? "proposal" : "proposals"} (newest first)`}
+        </button>
+      </div>
+      {open ? <Details g={g} titles={titles} id={listId} /> : null}
       {g.comments.length ? (
         <ul className="mt-1 space-y-0.5 text-sm" data-proposal-comments>
           {g.comments.map((c, i) => (
@@ -86,7 +173,8 @@ function GroupBody({ g }: { g: GroupView }) {
           ))}
         </ul>
       ) : null}
-    </>
+      {children}
+    </li>
   );
 }
 
@@ -102,13 +190,19 @@ export default function ProposalsPanel({ role, initial, initialError }: { role: 
 
   async function reload(keep?: Message) {
     const r = await call("/api/dictionary/proposals", "GET");
-    if (r.ok) setView(r.data as unknown as ProposalsView);
-    else setMessage({ kind: "error", text: String(r.data.error ?? "The tab could not load.") });
+    if (r.ok) {
+      const v = r.data as unknown as ProposalsView;
+      setView(v);
+      // Unit VW129 (Q-A 3:129.4 row 1): the button "Agent proposals (N open)" shows the new count.
+      window.dispatchEvent(new CustomEvent(OPEN_COUNT_EVENT, { detail: v.counts.open }));
+    } else setMessage({ kind: "error", text: String(r.data.error ?? "The tab could not load.") });
     if (keep && r.ok) setMessage(keep);
   }
 
-  async function decide(g: GroupView, action: "accept" | "edit-accept" | "reject", values?: Record<string, unknown>) {
+  async function decide(g: TermView, action: "accept" | "edit-accept" | "reject", values?: Record<string, unknown>) {
     if (!view) return;
+    // Unit VW129 (Q-A 3:129.4 row 4): Accept of a term that is in the dictionary changes that entry. The confirm text says so.
+    if (action === "accept" && g.kind === "revise" && !window.confirm(acceptConfirmText(g))) return;
     setBusy(g.id);
     setMessage(null);
     const r = await call("/api/dictionary/proposals/decide", "POST", { group: g.id, action, text: action === "reject" ? (rejectNote[g.id] ?? "") : "", values, etag: { decisions: view.etag.decisions, newest: g.newest.proposal_id } });
@@ -122,7 +216,7 @@ export default function ProposalsPanel({ role, initial, initialError }: { role: 
     setBusy("");
   }
 
-  async function comment(g: GroupView) {
+  async function comment(g: TermView) {
     const text = (comments[g.id] ?? "").trim();
     if (!text) return;
     setBusy(g.id);
@@ -153,6 +247,7 @@ export default function ProposalsPanel({ role, initial, initialError }: { role: 
       </p>
     );
   }
+  const titles = view.bookTitles ?? {};
   const open = view.groups.filter((g) => g.status === "open");
   const accepted = view.groups.filter((g) => g.status === "accepted");
   const rejected = view.groups.filter((g) => g.status === "rejected");
@@ -208,18 +303,43 @@ export default function ProposalsPanel({ role, initial, initialError }: { role: 
           </li>
         ) : null}
         {open.map((g) => (
-          <li key={g.id} data-proposal-group={g.id} data-proposal-term-text={g.ja_term} className="rounded border border-line bg-white p-3">
-            <GroupBody g={g} />
+          <TermRow key={g.id} g={g} titles={titles}>
             {edit?.id === g.id ? (
               <form
                 className="mt-2 grid gap-2"
                 data-proposal-edit-form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  void decide(g, "edit-accept", g.kind === "add" ? { ja_term: edit.ja_term, reading: edit.reading, romaji: edit.romaji, concise_en: edit.concise_en, detailed_en: edit.detailed_en || null } : { concise_en: edit.concise_en, detailed_en: edit.detailed_en || null });
+                  void decide(
+                    g,
+                    "edit-accept",
+                    edit.as === "add"
+                      ? { as: "add", ja_term: edit.ja_term, reading: edit.reading, romaji: edit.romaji, concise_en: edit.concise_en, detailed_en: edit.detailed_en || null }
+                      : { as: "revise", concise_en: edit.concise_en, detailed_en: edit.detailed_en || null },
+                  );
                 }}
               >
-                {g.kind === "add" ? (
+                {g.existing ? (
+                  // Unit VW129 (Q-A 3:129.4 row 4): the admin chooses. A change of the entry is the default. A new entry needs another Japanese term, because the builder refuses a second entry for one headword.
+                  <fieldset className="grid gap-1 text-sm" data-edit-as>
+                    <legend className="font-semibold">What to write</legend>
+                    <label className="flex items-center gap-2">
+                      <input type="radio" name={`as-${g.id}`} checked={edit.as === "revise"} onChange={() => setEdit({ ...edit, as: "revise" })} data-edit-as-choice="revise" />
+                      <span>
+                        Change the entry{" "}
+                        <span lang="ja" className="font-ja">
+                          {g.existing.headword}
+                        </span>{" "}
+                        (revise, recommended)
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="radio" name={`as-${g.id}`} checked={edit.as === "add"} onChange={() => setEdit({ ...edit, as: "add" })} data-edit-as-choice="add" />
+                      <span>Add a new entry (needs another Japanese term)</span>
+                    </label>
+                  </fieldset>
+                ) : null}
+                {edit.as === "add" ? (
                   <>
                     <label className="text-sm">
                       Japanese term
@@ -268,7 +388,7 @@ export default function ProposalsPanel({ role, initial, initialError }: { role: 
                     type="button"
                     className={btn}
                     disabled={busy !== ""}
-                    onClick={() => setEdit({ id: g.id, ja_term: g.ja_term, reading: g.reading, romaji: g.romaji, concise_en: g.newest.concise_en, detailed_en: g.newest.detailed_en ?? "" })}
+                    onClick={() => setEdit({ id: g.id, as: g.kind, ja_term: g.ja_term, reading: g.reading, romaji: g.romaji, concise_en: g.newest.concise_en, detailed_en: g.newest.detailed_en ?? "" })}
                     data-action="edit"
                   >
                     Edit then accept
@@ -297,22 +417,21 @@ export default function ProposalsPanel({ role, initial, initialError }: { role: 
                 Add comment
               </button>
             </div>
-          </li>
+          </TermRow>
         ))}
       </ul>
 
       <h3 className="mt-5 text-base font-semibold">Accepted ({accepted.length})</h3>
       <ul className="mt-1 grid gap-2" data-proposals-accepted>
         {accepted.map((g) => (
-          <li key={g.id} data-proposal-group={g.id} data-proposal-term-text={g.ja_term} className="rounded border border-line bg-white p-3">
-            <GroupBody g={g} />
-            <p className="text-sm" data-proposal-decision>
+          <TermRow key={g.id} g={g} titles={titles}>
+            <p className="mt-1 text-sm" data-proposal-decision>
               {g.decision === "edit-accept" ? "Accepted with edits" : "Accepted"} as {g.decision_id} by {g.decided_by} at {pstScreen(g.decided_utc)}.{" "}
               <span className="text-muted" data-proposal-indict>
                 {g.in_dictionary ? "In the dictionary." : "Not in the dictionary yet."}
               </span>
             </p>
-          </li>
+          </TermRow>
         ))}
       </ul>
 
@@ -320,15 +439,20 @@ export default function ProposalsPanel({ role, initial, initialError }: { role: 
         <summary className="cursor-pointer text-base font-semibold">Rejected ({rejected.length})</summary>
         <ul className="mt-1 grid gap-2">
           {rejected.map((g) => (
-            <li key={g.id} data-proposal-group={g.id} data-proposal-term-text={g.ja_term} className="rounded border border-line bg-white p-3">
-              <GroupBody g={g} />
-              <p className="text-sm" data-proposal-decision>
+            <TermRow key={g.id} g={g} titles={titles}>
+              <p className="mt-1 text-sm" data-proposal-decision>
                 Rejected by {g.decided_by} at {pstScreen(g.decided_utc)}.{g.decision_text ? ` Note: ${g.decision_text}` : ""}
               </p>
-            </li>
+            </TermRow>
           ))}
         </ul>
       </details>
     </div>
   );
+}
+
+/** The confirm text of Accept for a term that is in the dictionary (row 4). */
+export function acceptConfirmText(g: Pick<TermView, "ja_term" | "existing" | "entry_id" | "newest">): string {
+  const head = g.existing ? `${g.ja_term} is already in the dictionary (entry ${g.existing.headword}, ${g.existing.entry_id}).` : `Accept changes the entry ${g.entry_id ?? ""}.`;
+  return `${head} Accept changes that entry (revise) to the EN form "${g.newest.concise_en}". It makes no second entry. Continue?`;
 }

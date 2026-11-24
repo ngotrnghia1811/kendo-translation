@@ -741,7 +741,8 @@ const ADMIN = "adm000000000001";
 const TRANS = "trn000000000001";
 const READER = "rdr000000000001";
 const WAITING = "rdr000000000002";
-const findGroup = (view, term) => view.groups.find((g) => g.entry_id === term || g.ja_term === term || g.key.startsWith(term + "\t"));
+// unit VW129 (Q-A 3:129.4 row 2): one group per term, so the group also matches by its term.
+const findGroup = (view, term) => view.groups.find((g) => g.entry_id === term || g.ja_term === term || g.term === term || g.key.startsWith(term + "\t"));
 async function decide(who_, term, action, extra = {}) {
   who(who_);
   const v = (await call(VIEW, "GET")).json;
@@ -786,8 +787,8 @@ await check("row 2: who sees the tab data: signed-out and a link visitor get 401
     who(id);
     const r = await call(VIEW, "GET");
     assert.equal(r.status, 200, id);
-    assert.equal(r.json.groups.length, 7);
-    assert.equal(r.json.counts.open, 7);
+    assert.equal(r.json.groups.length, 6, "unit VW129 (Q-A 3:129.4 row 2): the add and the revise of 小手 are one group");
+    assert.equal(r.json.counts.open, 6, "unit VW129");
     assert.equal(r.json.counts.rows, 9);
     assert.equal(r.json.counts.accepted, 0);
     assert.equal(r.json.pending.length, 0);
@@ -797,11 +798,15 @@ await check("row 2: who sees the tab data: signed-out and a link visitor get 401
   who(ADMIN);
   const v = (await call(VIEW, "GET")).json;
   assert.equal(v.groups[0].count, 3);
-  assert.equal(v.groups[0].id, "add\t引き逆胴\tひきぎゃくどう");
+  assert.equal(v.groups[0].id, "term\t引き逆胴", "unit VW129: the group ID names the term");
   assert.equal(v.groups.find((g) => g.entry_id === "c-aaaaaaaa0002").current.concise_en, "wrist");
   assert.equal(v.groups.find((g) => g.entry_id === "c-aaaaaaaa0006").problem.includes("Found 0"), true);
   assert.equal(v.groups.find((g) => g.ja_term === "抜き胴").problem.includes("kana"), true);
-  assert.equal(v.groups.find((g) => g.ja_term === "小手").problem.includes("entry already"), true);
+  // unit VW129 (Q-A 3:129.4 row 4): the add of 小手 names an entry, so the group is a revise of that entry and Accept is allowed.
+  const kote = v.groups.find((g) => g.term === "小手");
+  assert.equal(kote.kind, "revise");
+  assert.equal(kote.entry_id, "c-aaaaaaaa0002");
+  assert.equal(kote.problem, "");
   assert.equal(v.groups.find((g) => g.ja_term === "引き小手").problem, "");
 });
 
@@ -900,7 +905,7 @@ await check("a person who views as a translator or a reader (admin 'View as') ca
   who(ADMIN);
   jar.set("htv_view_as", "translator");
   const v = (await call(VIEW, "GET")).json;
-  assert.equal(v.groups.length, 7);
+  assert.equal(v.groups.length, 6, "unit VW129");
   const g = findGroup(v, "引き小手");
   const etag = { decisions: v.etag.decisions, newest: g.newest.proposal_id };
   const before = await snapshot(dir);
@@ -966,7 +971,7 @@ await check("row 4 and row 5 (Q-A 3:117.7, 3:121.2 row 3): Accept of an add writ
   assert.equal(g.in_dictionary, false);
   assert.deepEqual(v.pending, ["d-0007"], "the dictionary needs a rebuild");
   assert.equal(v.counts.accepted, 1);
-  assert.equal(v.counts.open, 6);
+  assert.equal(v.counts.open, 5, "unit VW129");
   assert.equal(g.problem, "");
   const again = await decide(ADMIN, "引き小手", "accept");
   assert.equal(again.status, 409, "a decided group is not decided twice");
@@ -1033,7 +1038,7 @@ await check("row 5: Reject writes NO decisions line and no backup; it writes one
   const g = findGroup(v, "c-aaaaaaaa0002");
   assert.equal(g.status, "rejected");
   assert.equal(g.decision_text, "Not needed.");
-  assert.equal(v.groups.length, 7, "nothing is deleted");
+  assert.equal(v.groups.length, 6, "nothing is deleted (unit VW129: 6 term groups)");
   assert.equal(v.counts.rejected, 1);
   assert.deepEqual(v.pending, []);
   const late = await decide(ADMIN, "c-aaaaaaaa0002", "accept");
@@ -1103,8 +1108,9 @@ await check("a lock file blocks a second decision (409) and stays on disk; a sta
   const bad = await decide(ADMIN, "c-aaaaaaaa0006", "accept");
   assert.equal(bad.status, 409);
   assert.equal(existsSync(lock), false, "the lock is removed after a refused decision");
-  const p = await decide(ADMIN, "小手", "accept");
-  assert.equal(p.status, 409);
+  // unit VW129 (Q-A 3:129.4 row 4): Accept of 小手 is now a revise of its entry, so the refused call uses the reading that is not kana.
+  const p = await decide(ADMIN, "抜き胴", "accept");
+  assert.equal(p.status, 400);
   assert.equal(existsSync(lock), false);
   assert.equal(rd(dir, "decisions.jsonl"), before);
   assert.equal(existsSync(path.join(dir, "decisions-backups")), false);
@@ -1435,8 +1441,9 @@ await check("the tab page for an admin: the groups with count, boxes, pages, EN 
   let html = await renderPage({ tab: "proposals" });
   const t = htmlText(html);
   assert.ok(html.includes("data-proposals-panel"));
-  assert.equal((html.match(/data-proposal-group=/g) ?? []).length, 7);
-  for (const w of ["引き 逆胴", "Revise of the entry c-aaaaaaaa0001", "Proposed 3 times · 3 boxes · 3 pages · 2 books", "backward left-side strike", "retreating strike to the left side ×2", "7 open · 0 accepted · 0 rejected · 9 proposals in the file"]) assert.ok(t.includes(w) || html.includes(w), w);
+  assert.equal((html.match(/data-proposal-group=/g) ?? []).length, 6, "unit VW129");
+  // unit VW129 (Q-A 3:129.4 rows 2 and 4): the counts line and the mark of an entry changed.
+  for (const w of ["引き 逆胴", "Already in the dictionary:", "Proposed 3 times · 3 add, 0 revise", "backward left-side strike", "retreating strike to the left side ×2", "6 open · 0 accepted · 0 rejected · 9 proposals in the file"]) assert.ok(t.includes(w) || html.includes(w), w);
   assert.ok(html.includes('data-action="accept"') && html.includes('data-action="edit"') && html.includes('data-action="reject"'));
   assert.equal(html.includes("data-pending-note"), false, "nothing waits for a rebuild yet");
   who(TRANS);
@@ -1609,7 +1616,10 @@ await gated("the real termbase copy end to end: Accept, Edit then accept, and Re
   assert.equal(v0.groups.length, 6);
   assert.equal(v0.counts.rows, 8);
   assert.equal(findGroup(v0, "引き逆胴").count, 3);
-  assert.equal(findGroup(v0, "剣").problem.includes("entry already"), true);
+  // unit VW129 (Q-A 3:129.4 row 4): 剣 is a headword, so its group is a revise of that entry and has no problem.
+  assert.equal(findGroup(v0, "剣").kind, "revise");
+  assert.ok(findGroup(v0, "剣").existing?.entry_id);
+  assert.equal(findGroup(v0, "剣").problem, "");
   assert.equal(findGroup(v0, "引き払い胴").problem.includes("kana"), true);
   assert.equal(findGroup(v0, "c-d9d4f8509527").problem, "");
   // Accept the revise of 引き面 and 段取り and the two adds, fix 抜き胴 by Edit then accept, and reject 剣.

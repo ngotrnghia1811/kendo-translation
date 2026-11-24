@@ -2,11 +2,13 @@ import Link from "next/link";
 import DictEntryDetail from "@/components/DictEntryDetail";
 import DictionaryPanel from "@/components/DictionaryPanel";
 import ProposalsPanel from "@/components/ProposalsPanel";
+import ProposalsTabLabel from "@/components/ProposalsTabLabel";
 import ReaderBar from "@/components/ReaderBar";
 import { DICT_WORDS, dictHref, parseDictParams, PROPOSALS_TAB } from "@/lib/dictionary-core";
 import { loadDictionaryEntry, loadDictionaryList } from "@/lib/dictionary-data";
 import { monitorEnabled } from "@/lib/monitor";
 import { ProposalProblem } from "@/lib/proposals-core";
+import { openTermCount } from "@/lib/proposal-terms-data";
 import { loadProposalsView, type ProposalsView } from "@/lib/proposals-data";
 import { WAITING } from "@/lib/reader-types";
 import { requireReaderOrLink } from "@/lib/view-link-server";
@@ -29,6 +31,9 @@ export default async function DictionaryPage({ searchParams }: { searchParams: P
   const onProposals = proposalsOn && p.tab === PROPOSALS_TAB;
 
   let body: React.ReactNode = null;
+  // Unit VW129 (Q-A 3:129.4 row 1): the number of open terms for the button "Agent proposals (N open)". Null: no count (the termbase folder is not set or a file is missing).
+  let openCount: number | null = null;
+  if (proposalsOn && s.user.approved && !onProposals) openCount = await openTermCount();
   if (!s.user.approved) {
     body = null;
   } else if (onProposals) {
@@ -40,6 +45,7 @@ export default async function DictionaryPage({ searchParams }: { searchParams: P
       if (!(e instanceof ProposalProblem)) throw e;
       error = e.message;
     }
+    openCount = view ? view.counts.open : null;
     body = <ProposalsPanel role={s.user.role === "admin" ? "admin" : "translator"} initial={view} initialError={error} />;
   } else if (p.entry) {
     const entry = await loadDictionaryEntry(s.token, p.entry);
@@ -68,10 +74,11 @@ export default async function DictionaryPage({ searchParams }: { searchParams: P
       ) : null}
       <h1 className="mb-3 text-2xl font-semibold">{DICT_WORDS.title}</h1>
       {proposalsOn && s.user.approved ? (
-        <nav aria-label="Dictionary tabs" className="mb-3 flex gap-1 overflow-x-auto border-b border-line" data-dict-tabs>
+        // Unit VW129 (Q-A 3:129.4 row 1): two real buttons "Dictionary" and "Agent proposals (N open)" with the look of the Monitor tabs (components/Tabs.tsx).
+        <nav aria-label="Dictionary tabs" className="mb-4 flex flex-wrap gap-1.5 border-b-2 border-tab-on pb-2" data-dict-tabs>
           {[
-            { id: "entries", label: DICT_WORDS.tabEntries, href: dictHref(), on: !onProposals },
-            { id: "proposals", label: DICT_WORDS.tabProposals, href: dictHref({ tab: PROPOSALS_TAB }), on: onProposals },
+            { id: "entries", label: <>{DICT_WORDS.title}</>, href: dictHref(), on: !onProposals },
+            { id: "proposals", label: <ProposalsTabLabel initial={openCount} />, href: dictHref({ tab: PROPOSALS_TAB }), on: onProposals },
           ].map((t) => (
             <Link
               key={t.id}
@@ -79,9 +86,10 @@ export default async function DictionaryPage({ searchParams }: { searchParams: P
               prefetch={false}
               aria-current={t.on ? "page" : undefined}
               data-dict-tab={t.id}
-              className={`inline-flex min-h-[44px] items-center whitespace-nowrap px-3 py-1 text-sm md:min-h-0 ${t.on ? "border-b-2 border-accent font-semibold" : "text-accent underline"}`}
+              className={`inline-flex min-h-[44px] items-center whitespace-nowrap rounded border-2 px-4 py-1 text-sm font-semibold no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:min-h-0 md:py-1.5 ${t.on ? "border-tab-on bg-tab-on" : "border-line bg-white hover:border-tab-on"}`}
             >
-              {t.label}
+              {/* The color sits on a span, because the rule "a { color: inherit }" of app/globals.css wins over a color class on the link (see components/Tabs.tsx). */}
+              <span className={t.on ? "text-tab-on-ink" : "text-foreground"}>{t.label}</span>
             </Link>
           ))}
         </nav>
