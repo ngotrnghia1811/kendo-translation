@@ -2,8 +2,9 @@ import { BoxCode } from "./BoxCode";
 import VectorMapChart, { type Axes } from "./VectorMapChart";
 import VectorMapSlider from "./VectorMapSlider";
 import VectorMapPrompt from "./VectorMapPrompt";
+import VectorMapBookSelect from "./VectorMapBookSelect"; // unit VW130
 import { pstTime } from "@/lib/htv-pst";
-import { BOX_TYPES, moved, oneDecimal, pointBody, pointHistory, type BoxMap, type PointStep } from "@/lib/vector-map-rules";
+import { BOX_TYPES, PAIRED_BOOK, VECTOR_MAP_PATH, moved, oneDecimal, pointBody, pointHistory, type BoxMap, type PointStep } from "@/lib/vector-map-rules";
 import { pointEnds, wordDiff } from "@/lib/vector-map-detail";
 // Unit VW127 (Q-A 3:122.4 rows 3, 4, 6): the box counts and the point counts bold, the time of the version in green. No text changes.
 import { HlCount, HlTimeText } from "./HlSpan";
@@ -11,17 +12,28 @@ import { HlCount, HlTimeText } from "./HlSpan";
 // Unit VW106: the vector map screen /monitor/vector-map on the Monitor dashboard on this Mac (Q-A 3:64.5 row 3).
 // Box, version, axes, and point stay in the address. VW107 zoom, filters, and the prompt dialog stay local.
 
-export const VM_PATH = "/monitor/vector-map";
+export const VM_PATH = VECTOR_MAP_PATH;
 
 export interface VmState {
   box: string;
   version: string | null;
   axes: Axes;
   point: string | null;
+  /** Unit VW130: the book folder. Not set, or paired-dataset, is the map of today, and its addresses have no `book` key. */
+  book?: string;
+}
+
+/** Unit VW130 (Q-A 3:133.2 row 1): the select of the book. `options` are the books with prompt versions after the first choice "Phase 2 paired dataset". */
+export interface VmBooks {
+  options: { slug: string; label: string; versions: number }[];
+  /** A note above the select, for example when the address named a book that has no prompt versions. */
+  note: string | null;
 }
 
 export function vmHref(s: VmState): string {
-  const q = new URLSearchParams({ box: s.box });
+  const q = new URLSearchParams();
+  if (s.book && s.book !== PAIRED_BOOK) q.set("book", s.book);
+  q.set("box", s.box);
   if (s.version) q.set("v", s.version);
   if (s.axes === "model") q.set("axes", "model");
   if (s.point) q.set("p", s.point);
@@ -105,13 +117,13 @@ function PointDetails({ map, id }: { map: BoxMap; id: string }) {
   );
 }
 
-export default function VectorMapView({ map, counts, state }: { map: BoxMap; counts: Record<string, number>; state: VmState }) {
+export default function VectorMapView({ map, counts, state, books }: { map: BoxMap; counts: Record<string, number>; state: VmState; books?: VmBooks }) {
   const versions = map.versions.map((v) => v.version);
   const idx = state.version && versions.includes(state.version) ? versions.indexOf(state.version) : versions.length - 1;
   const cur = idx >= 0 ? map.versions[idx] : null;
   const prev = idx > 0 ? map.versions[idx - 1] : null;
   const axes: Axes = state.axes === "model" && cur?.measured ? "model" : "program";
-  const here = (over: Partial<VmState>) => vmHref({ box: map.box, version: cur?.version ?? null, axes, point: state.point, ...over });
+  const here = (over: Partial<VmState>) => vmHref({ box: map.box, version: cur?.version ?? null, axes, point: state.point, book: state.book, ...over });
   const top = axes === "program" ? { comp: map.max.comp, imp: map.max.imp } : { comp: map.max.modelComp, imp: map.max.modelImp };
   const pts = cur?.points ?? [];
   const added = pts.filter((p) => p.added).length;
@@ -121,12 +133,22 @@ export default function VectorMapView({ map, counts, state }: { map: BoxMap; cou
     return v && moved(v, pv);
   }).length;
   return (
-    <div data-vm-view data-vm-box={map.box}>
+    <div data-vm-view data-vm-box={map.box} data-vm-book={state.book && state.book !== PAIRED_BOOK ? state.book : undefined}>
+      {books ? (
+        <>
+          <VectorMapBookSelect value={state.book ?? PAIRED_BOOK} box={map.box} options={books.options} />
+          {books.note ? (
+            <p data-vm-book-note className="mb-3 text-sm font-medium">
+              {books.note}
+            </p>
+          ) : null}
+        </>
+      ) : null}
       <nav aria-label="Box type" data-vm-boxes className="mb-3 flex flex-wrap gap-1.5 text-sm">
         {BOX_TYPES.map((b) => (
           <a
             key={b}
-            href={vmHref({ box: b, version: null, axes: "program", point: null })}
+            href={vmHref({ box: b, version: null, axes: "program", point: null, book: state.book })}
             aria-current={b === map.box ? "page" : undefined}
             data-vm-box-link={b}
             className={`rounded border px-2 py-0.5 ${b === map.box ? "border-foreground font-semibold" : "border-line"}`}

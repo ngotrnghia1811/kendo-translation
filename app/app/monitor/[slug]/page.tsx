@@ -8,6 +8,9 @@ import { readBookSettings } from "@/lib/book-settings"; // unit VW122
 import { stringifySettingsJson } from "@/lib/settings-json"; // unit VW122
 import { requireMonitor, monitorEnabled } from "@/lib/monitor";
 import { isSafeSegment } from "@/lib/safe-path";
+import { dataRoot } from "@/lib/config"; // unit VW130
+import { bookHasPromptVersions } from "@/lib/vector-map-load"; // unit VW130
+import { vectorMapBookHref } from "@/lib/vector-map-rules"; // unit VW130
 
 export const dynamic = "force-dynamic";
 
@@ -33,5 +36,13 @@ export default async function BookDetailPage({ params }: { params: Promise<{ slu
   // A file problem shows as an error line inside the section (readBookSettings never throws for it). A failed read of the configuration gives no section.
   const named = detail.row.title !== detail.row.slug;
   const settings = await readBookSettings(slug).catch(() => null);
-  return <BookDetailView initial={detail} settings={settings ? <BookSettingsForm slug={slug} title={named ? detail.row.title : null} initialText={stringifySettingsJson(settings)} /> : null} />;
+  // Unit VW130 (Q-A 3:133.2 note): the button "Vector map" shows only when the book has at least one stored prompt version. A read problem hides the button.
+  const hasMap = await dataRoot().then((root) => bookHasPromptVersions(root, slug)).catch(() => false);
+  return (
+    <BookDetailView
+      initial={detail}
+      settings={settings ? <BookSettingsForm slug={slug} title={named ? detail.row.title : null} initialText={stringifySettingsJson(settings)} /> : null}
+      vectorMapHref={hasMap ? vectorMapBookHref(slug) : null}
+    />
+  );
 }

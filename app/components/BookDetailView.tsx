@@ -150,7 +150,9 @@ function ListFold({ list, open }: { list: DetailList; open: boolean }) {
 }
 
 // Unit VW122 (Q-A 3:112.3 row 1): `settings` is the closed section "Run settings of this book (N changed)". The page passes it, and it shows under the header, before "Last error".
-export default function BookDetailView({ initial, settings = null }: { initial: BookDetail; settings?: React.ReactNode }) {
+// Unit VW130 (Q-A 3:133.2 note "add the vector-map button in http://localhost:3000/monitor/left_foot_full"): `vectorMapHref` is the address of the vector map of this book.
+// The page sets it only when the book has at least one stored prompt version. The link has the look of the link "Details" of the book rows on the Monitor dashboard.
+export default function BookDetailView({ initial, settings = null, vectorMapHref = null }: { initial: BookDetail; settings?: React.ReactNode; vectorMapHref?: string | null }) {
   const slug = initial.row.slug;
   const { data, refresh, failures } = useLive<BookDetail>(`/api/monitor/books/${encodeURIComponent(slug)}`, initial, () => true);
   // The clock of the page. The relative times update every 30 s with no request (VISION 15.24.4.6).
@@ -212,6 +214,11 @@ export default function BookDetailView({ initial, settings = null }: { initial: 
             </span>
           ) : null}
           <RowButtons row={row} onChanged={refresh} />
+          {vectorMapHref ? (
+            <a data-vector-map-link href={vectorMapHref} title="Open the vector map of the prompt versions of this book" className="rounded border border-line bg-white px-3 py-1 text-sm font-medium text-foreground hover:bg-stone-50">
+              Vector map
+            </a>
+          ) : null}
         </div>
         {sentence || row.note ? (
           <p data-row-line2 className="mt-2 text-sm text-muted">

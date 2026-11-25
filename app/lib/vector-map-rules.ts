@@ -412,3 +412,49 @@ export function parseScoreFile(raw: unknown, sha1: string): Map<string, ModelVal
 export const BOX_TYPES = ["TS_0", "TS_1", "TS_2", "TS_3", "TL_0", "TL_1", "TL_2", "TL_3", "ED_0", "ED_1", "ED_2", "ED_3", "QA_0", "QA_1", "QA_2", "QA_3"] as const;
 
 export const isBoxType = (v: unknown): v is (typeof BOX_TYPES)[number] => typeof v === "string" && (BOX_TYPES as readonly string[]).includes(v);
+
+// ---------------------------------------------------------------- the book choice (unit VW130)
+// Owner note (batch 132): "Run the vector-map for left_foot_full phase 4". Owner pick Q-A 3:133.2 "Accept rows 1 to 4".
+// The map reads the prompt versions of one book: <data>/book-store/<book>/prompts/<box>/v*.json. The default is the phase 2 paired dataset (folder paired-dataset).
+
+/** The folder of the phase 2 paired dataset. It is the default book of the map, and the map of today. */
+export const PAIRED_BOOK = "paired-dataset";
+
+/** The address of the vector map screen. */
+export const VECTOR_MAP_PATH = "/monitor/vector-map";
+
+/** A book folder name below book-store: one safe path segment, the same rule as isSafeSegment in lib/safe-path.ts, with at most 80 characters. */
+export const isBookSlug = (v: unknown): v is string => typeof v === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(v) && !v.includes("..");
+
+/** A book that has stored prompt versions. `versions` counts the files prompts/<box>/v*.json of the 16 box types. */
+export interface BookChoice {
+  slug: string;
+  versions: number;
+}
+
+/** The note when the address names a book that has no stored prompt version. No name from the address is echoed. */
+export const BOOK_FALLBACK_NOTE = "The book in the address has no stored prompt versions. The map shows the Phase 2 paired dataset.";
+
+/**
+ * The book of an address. [unit default VW130] An address with no book, or with the paired dataset, gives the paired dataset.
+ * A book that is not a safe folder name, or not in the list of books with prompt versions, gives the paired dataset and a note. It never gives a 404.
+ */
+export function resolveBook(param: string | null, books: readonly BookChoice[]): { book: string; note: string | null } {
+  if (param === null || param === "" || param === PAIRED_BOOK) return { book: PAIRED_BOOK, note: null };
+  if (isBookSlug(param) && books.some((b) => b.slug === param)) return { book: param, note: null };
+  return { book: PAIRED_BOOK, note: BOOK_FALLBACK_NOTE };
+}
+
+/** The address that opens the vector map of one book, for the button on the Monitor book page. */
+export const vectorMapBookHref = (slug: string): string => `${VECTOR_MAP_PATH}?book=${encodeURIComponent(slug)}`;
+
+/** The text of a book in the select and on the page: "<title> (<folder>)", or the folder name alone when the book has no title (Q-A 3:17.4, 3:72.2). */
+export const bookLabel = (slug: string, title: string | undefined): string => (title ? `${title} (${slug})` : slug);
+
+/** The options of the book select after the first one: the books, sorted by their label. `titles` maps a folder name to its title. */
+export function bookOptions(books: readonly BookChoice[], titles: ReadonlyMap<string, string>): { slug: string; label: string; versions: number }[] {
+  return books
+    .filter((b) => b.slug !== PAIRED_BOOK)
+    .map((b) => ({ slug: b.slug, label: bookLabel(b.slug, titles.get(b.slug)), versions: b.versions }))
+    .sort((a, b) => a.label.localeCompare(b.label) || a.slug.localeCompare(b.slug));
+}
