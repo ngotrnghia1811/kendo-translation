@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Role } from "@/lib/htv-types";
 import ViewAsSelect from "./ViewAsSelect";
+import { clearOfflineCopies } from "@/lib/offline-copy-client"; // unit VW131
 
 // Sign-in state bar of the human-translation-view (round 54 answer 9, Q-A 2026-10-28 l128: sign-in on this view only).
 // Unit VW105 (Q-A 3:61.2 "Same links in both bars"): the bar has the links of the Reader bar (components/ReaderBar.tsx): "Read" (/read),
@@ -16,6 +17,8 @@ export default function HtvBar({ name, email, role, backHref }: { name: string; 
   const [busy, setBusy] = useState(false);
   async function out() {
     setBusy(true);
+    // Unit VW131 (Q-A 3:134.3 row 6, privacy): Sign out removes every offline copy of this device first (translators and admins can save one too).
+    await clearOfflineCopies().catch(() => undefined);
     await fetch("/api/htv/logout", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
     router.push("/translate/sign-in");
     router.refresh();

@@ -6,6 +6,7 @@ import type { TocRow } from "@/lib/reader-toc";
 import { pageLabel } from "@/lib/reader-types";
 import { agentLine, translatePageHref, type DashTarget } from "@/lib/translate-dash";
 import TranslateWork from "./TranslateWork";
+import { OfflineMark } from "./OfflineBits"; // unit VW131 (Q-A 3:134.3 row 4)
 
 /*
  * The rows of the Reader dashboard (unit RC4, round 70): a work, a magazine article, and a chapter line.
@@ -50,6 +51,7 @@ export function WorkItem({ r, approved, compact, to = "read" }: { r: WorkRow; ap
             {w.titleJa}
           </span>
         ) : null}
+        <OfflineMark slug={w.slug} />
       </p>
       {facts ? <p className="text-sm text-muted">{facts}</p> : null}
       <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">

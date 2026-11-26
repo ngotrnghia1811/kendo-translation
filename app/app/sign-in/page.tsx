@@ -7,6 +7,7 @@ import { DEFAULT_THEME_READER } from "@/lib/htv-settings";
 import { PbError } from "@/lib/pb";
 import { PASSWORD_CHANGED_NOTICE } from "@/lib/profile-rules";
 import { hasThemeCookie } from "@/lib/theme";
+import { OfflineGuard } from "@/components/OfflineBits";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Sign in" };
@@ -30,6 +31,8 @@ export default async function ReaderSignInPage({ searchParams }: { searchParams:
   return (
     <>
       <ReaderThemeDefault theme={DEFAULT_THEME_READER} explicit={await hasThemeCookie()} />
+      {/* Unit VW131 (Q-A 3:134.3 row 6): this form shows only with no valid sign-in (a signed-out or turned-off account), so it removes every offline copy. */}
+      <OfflineGuard clear />
       {down ? <p role="alert" className="text-red-700">{down}</p> : null}
       {changed === "1" ? (
         <p role="status" className="mx-auto mt-6 max-w-sm rounded border border-line bg-white p-3 text-sm text-green-800" data-password-changed>

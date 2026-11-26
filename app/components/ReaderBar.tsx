@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { Role } from "@/lib/htv-types";
 import ViewAsSelect from "./ViewAsSelect";
 import { LINK_ADMIN_PATH, LINK_BAR_TEXT } from "@/lib/view-link";
+import { clearOfflineCopies } from "@/lib/offline-copy-client"; // unit VW131
 
 // Bar of the reader pages (unit RC1, round 63). Links: all books, the human-translation-view for translators and admins, the admin pages for admins.
 // The reader pages are for reading only: the bar has no write action except Sign out.
@@ -17,7 +18,9 @@ export default function ReaderBar({ name, email, role, approved, backHref, onPro
   const [busy, setBusy] = useState(false);
   async function out() {
     setBusy(true);
-    await fetch("/api/htv/logout", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    // Unit VW131 (Q-A 3:134.3 row 6, privacy): Sign out removes every offline copy of this device first. It works with no network too.
+    await clearOfflineCopies().catch(() => undefined);
+    await fetch("/api/htv/logout", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(() => undefined);
     router.push("/sign-in");
     router.refresh();
   }

@@ -9,6 +9,8 @@ import { DEFAULT_THEME_READER, isView } from "@/lib/htv-settings";
 import { loadBookmarks, loadReaderIndex, loadReaderPages } from "@/lib/reader-data";
 import { parseAt } from "@/lib/reader-links";
 import { isSafeSegment } from "@/lib/safe-path";
+import { OfflineGuard } from "@/components/OfflineBits";
+import { mustClearOffline } from "@/lib/offline-copy";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +54,8 @@ export default async function ReadBook({ params, searchParams }: { params: Promi
   }
   return (
     <>
+      {/* Unit VW131 (Q-A 3:134.3 rows 1 and 6): a visitor of a view-only link or a reader who waits keeps no offline copy on this device. */}
+      <OfflineGuard clear={mustClearOffline({ signedIn: true, approved: s.user.approved, linkVisitor: s.link === true })} />
       <ReaderBar name={s.user.name} email={s.user.email} role={s.user.role} approved={s.user.approved} linkVisitor={s.link === true} backHref={at !== null && s.user.approved ? `/read/${encodeURIComponent(slug)}` : undefined} />
       <ReaderBook
         key={slug}

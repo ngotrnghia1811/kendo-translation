@@ -9,6 +9,8 @@ import { loadDashboard } from "@/lib/reader-data";
 import { buildTocRows, tocSlugOf } from "@/lib/reader-toc";
 import { foldProgress } from "@/lib/reader-translated";
 import { DASHBOARD_TITLE, WAITING } from "@/lib/reader-types";
+import { OfflineGuard } from "@/components/OfflineBits";
+import { mustClearOffline } from "@/lib/offline-copy";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +51,8 @@ export default async function ReadList({ searchParams }: { searchParams: Promise
   const t = dash.totals;
   return (
     <>
+      {/* Unit VW131 (Q-A 3:134.3 rows 1 and 6): a visitor of a view-only link or a reader who waits keeps no offline copy on this device. */}
+      <OfflineGuard clear={mustClearOffline({ signedIn: true, approved: s.user.approved, linkVisitor: s.link === true })} />
       <ReaderBar name={s.user.name} email={s.user.email} role={s.user.role} approved={s.user.approved} linkVisitor={s.link === true} />
       {!s.user.approved ? (
         <p role="status" className="mb-4 rounded border border-line bg-white p-3 text-sm" data-waiting>

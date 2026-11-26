@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { COMMENT_MAX, PICTURE_MAX_BYTES, clearStrokes, pageUrlOf, penWidth, undoStroke, type Stroke } from "@/lib/visual-issue-rules";
 import { UI_ATTR, paintStrokes, pngWithin } from "@/lib/visual-issue-capture";
 import { LOCAL_ISSUES_API } from "@/lib/visual-issues-local-rules";
+import { OFFLINE_WORDS } from "@/lib/offline-copy"; // unit VW131
 
 // Unit VW118 (plan item P53, Q-A 3:99.5 row 4), owner words (Q-A 3:98.5): "then write a comment and draw on the screenshot, then click send issue".
 // Row 4: "the picture opens in a pop-up with a red pen, Undo and Clear, and a comment box. 'Send issue' stores it. Esc closes the pop-up without a send."
@@ -99,7 +100,8 @@ export default function VisualIssueEditor({ shot, local = false, onClose, onSent
       try {
         r = await fetch(local ? LOCAL_ISSUES_API : "/api/issues", { method: "POST", body: form });
       } catch {
-        setError("The issue was not sent. Check the connection and try again. Your comment and drawing are kept.");
+        // Unit VW131 (Q-A 3:134.3 row 5): with no network the tool says "Not available offline".
+        setError(navigator.onLine === false ? OFFLINE_WORDS.issue : "The issue was not sent. Check the connection and try again. Your comment and drawing are kept.");
         return;
       }
       if (!r.ok) {

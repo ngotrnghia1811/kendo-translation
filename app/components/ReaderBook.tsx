@@ -21,6 +21,9 @@ import { componentRows, effectiveSettings, moveGroups, pageHas, pageRows, resolv
 import { LINK_VIEW_COOKIE } from "@/lib/view-link";
 import { KEEP_ONE, LABEL_SYNOPSIS, LABEL_V1, WAITING, pageLabel, type BookmarkView, type ReaderBookIndex, type ReaderPageData } from "@/lib/reader-types";
 import type { Role } from "@/lib/htv-types";
+import OfflineSave from "./OfflineSave"; // unit VW131 (Q-A 3:134.3 rows 1 and 2)
+import { OfflineNote } from "./OfflineBits"; // unit VW131 (Q-A 3:134.3 row 5)
+import { OFFLINE_WORDS, canSaveOffline } from "@/lib/offline-copy"; // unit VW131
 
 /*
  * The book screen and the reading view of the reader pages (unit RC1, round 63). VISION-viewer 15.19.3 to 15.19.7.
@@ -108,6 +111,7 @@ export default function ReaderBook({
   theme: initialTheme,
   note,
   linkVisitor = false,
+  offline = false,
 }: {
   index: ReaderBookIndex;
   initialPages: ReaderPageData[];
@@ -120,13 +124,15 @@ export default function ReaderBook({
   note: string;
   /** Unit VW120 (Q-A 3:106.5 row 4): a visitor of a view-only link. The screen sends no write, and it hides the bookmark controls and the first-visit panel. */
   linkVisitor?: boolean;
+  /** Unit VW131 (Q-A 3:134.3 rows 3 and 5): the screen draws a saved copy with no network (components/OfflineReader.tsx). No write goes out, and search and bookmarks say "Not available offline". */
+  offline?: boolean;
 }) {
   const router = useRouter();
   // Unit VW120 (Q-A 3:106.5 row 4: "no bookmarks, no reading progress ... The server refuses every change"): a link visitor sends no write at all.
   // The server would answer 401 anyway (a link visitor has no token). This keeps the browser quiet: no request and no error line. The theme call stays: it sets a cookie only.
   const write = useCallback(
-    (method: string, url: string, body: unknown) => (linkVisitor ? Promise.resolve({ ok: false, json: {} as Record<string, unknown> }) : sendJson(method, url, body)),
-    [linkVisitor],
+    (method: string, url: string, body: unknown) => (linkVisitor || offline ? Promise.resolve({ ok: false, json: {} as Record<string, unknown> }) : sendJson(method, url, body)),
+    [linkVisitor, offline],
   );
   const [s, setS] = useState<EffectiveSettings>(() => effectiveSettings(settings, initialView));
   const [theme, setTheme] = useState<ThemeName>(initialTheme);
@@ -328,6 +334,11 @@ export default function ReaderBook({
   const marked = bookmarks.find((b) => b.pageId === hereId);
   async function toggleBookmark() {
     if (!hereId) return;
+    // Unit VW131 (Q-A 3:134.3 row 5): bookmarks need the network.
+    if (offline) {
+      setBoxNote(OFFLINE_WORDS.notAvailableOf("Bookmarks"));
+      return;
+    }
     if (marked) {
       const r = await write("DELETE", "/api/read/bookmarks", { id: marked.id });
       if (r.ok) setBookmarks((b) => b.filter((x) => x.id !== marked.id));
@@ -448,7 +459,9 @@ export default function ReaderBook({
         {note ? <p className="mb-2 text-sm text-red-700">{note}</p> : null}
         {meta}
         {/* Unit VW124 (Q-A 3:117.5 row 1): the search box of the book screen. It searches all opened pages of this book. */}
-        <BookSearch slug={index.slug} view={s.view} mode="screen" />
+        {/* Unit VW131 (Q-A 3:134.3 rows 1 and 2): the control "Read offline", for an approved account that is not a visitor of a view-only link. */}
+        {!offline && canSaveOffline({ approved: user.approved, linkVisitor }) ? <OfflineSave slug={index.slug} /> : null}
+        {offline ? <OfflineNote what="Search" /> : <BookSearch slug={index.slug} view={s.view} mode="screen" />}
         <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
           {start ? (
             <Link href={readHref(index.slug, s.view, start, index.digits)} className="min-h-[44px] rounded bg-accent px-4 py-2 font-semibold text-white md:min-h-0 md:py-1.5" data-continue>
@@ -457,6 +470,7 @@ export default function ReaderBook({
           ) : null}
           <span className="text-muted">Default view: {s.view === "page" ? "Page view" : "Scroll view"}</span>
         </div>
+        {offline ? <OfflineNote what="Bookmarks" /> : null}
         {bookmarks.length > 0 ? (
           <section className="mb-4" data-bookmarks>
             <h2 className="text-sm font-semibold">Bookmarks</h2>
@@ -541,7 +555,7 @@ export default function ReaderBook({
   const bookmarkList = linkVisitor ? null : (
     <section className="mt-3 border-t border-line pt-2" data-bookmarks>
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Bookmarks</h3>
-      {bookmarks.length === 0 ? <p className="text-xs text-muted">None yet.</p> : null}
+      {offline ? <p className="text-xs">{OFFLINE_WORDS.notAvailableOf("Bookmarks")}</p> : bookmarks.length === 0 ? <p className="text-xs text-muted">None yet.</p> : null}
       <ul>
         {bookmarks.map((b) => (
           <li key={b.id} className="flex items-center justify-between gap-2 text-sm" data-bookmark={b.pageId}>
@@ -640,7 +654,8 @@ export default function ReaderBook({
             </span>
           </div>
           {boxNote ? <p role="alert" className="mb-2 text-xs text-red-700">{boxNote}</p> : null}
-          <BookSearch
+          {offline && showBookSearch ? <OfflineNote what="Search" /> : null}
+          {offline ? null : <BookSearch
             slug={index.slug}
             view={s.view}
             mode="reading"
@@ -648,7 +663,7 @@ export default function ReaderBook({
             blocked={showSettings || showList || firstVisit || picked !== null || sheet}
             onOpen={() => setShowBookSearch(true)}
             onClose={() => setShowBookSearch(false)}
-          />
+          />}
           <Suspense fallback={null}>
             <SearchMark at={at} view={s.view} />
           </Suspense>
