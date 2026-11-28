@@ -91,7 +91,7 @@ export default function RunsTable({ initial }: { initial: RunSummary[] }) {
                     </HlCount>
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
-                    <HlCount>
+                    <HlCount title={r.callsTitle}>
                       {r.callsDone} / {r.callsTotal}
                     </HlCount>
                   </td>

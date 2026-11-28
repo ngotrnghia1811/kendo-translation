@@ -157,6 +157,7 @@ async function loadLists(slug: string): Promise<{ lists: DetailList[]; folders: 
         running: p.running,
         callsDone: p.callsDone,
         callsTotal: p.callsTotal,
+        ...(p.callsTitle ? { callsTitle: p.callsTitle } : {}), // unit VW132: only a page that skips a call has the hover text
         callsFailed: p.callsFailed,
         usd: p.usd,
         tokens: p.tokens,

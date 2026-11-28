@@ -103,7 +103,10 @@ export interface DetailPage {
   state: string;
   running: string[];
   callsDone: number;
+  /** Unit VW132 (Q-A 3:140.3): the model calls that run for this page, without the skipped box-critic calls (lib/page-calls.ts). */
   callsTotal: number;
+  /** Unit VW132: hover text of "done / total". Null when the page skips no call. */
+  callsTitle?: string | null;
   callsFailed: number;
   usd: number;
   /** Unit VW93: the tokens of the page row (progress.json). Null in an older list. */

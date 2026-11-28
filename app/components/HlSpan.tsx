@@ -82,9 +82,10 @@ export function HlDuration({ children }: { children: ReactNode }) {
 }
 
 /** Row 6: a count, bold. */
-export function HlCount({ children }: { children: ReactNode }) {
+// Unit VW132 (Q-A 3:140.3): the optional `title` is the hover text of "done / total" when a page skips box-critic calls. Without it the span has no title attribute.
+export function HlCount({ children, title }: { children: ReactNode; title?: string | null }) {
   return (
-    <span data-hl="count" className="hl-count">
+    <span data-hl="count" className="hl-count" title={title ?? undefined}>
       {children}
     </span>
   );

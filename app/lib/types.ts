@@ -9,7 +9,10 @@ export interface RunSummary {
   pagesDone: number;
   pagesTotal: number;
   callsDone: number;
+  /** Unit VW132 (Q-A 3:140.3): the model calls that run in the list. The box-critic calls of frozen boxes are not counted (rule: lib/page-calls.ts). */
   callsTotal: number;
+  /** Unit VW132: hover text that says how many planned calls are skipped. Null or missing when the list skips none. */
+  callsTitle?: string | null;
   callsFailed: number;
   callsFlagged: number;
   costModelsUsd: number;
@@ -35,7 +38,10 @@ export interface RunPageRow {
   state: string;
   runFolder: string; // folder name, e.g. 20261026T190914Z-r41
   callsDone: number;
+  /** Unit VW132 (Q-A 3:140.3): the model calls that run for this page. The box-critic calls of frozen boxes are not counted (rule: lib/page-calls.ts). */
   callsTotal: number;
+  /** Unit VW132: hover text that says which planned calls are skipped. Null or missing when the page skips none. */
+  callsTitle?: string | null;
   callsFailed: number;
   running: string[];
   usd: number;

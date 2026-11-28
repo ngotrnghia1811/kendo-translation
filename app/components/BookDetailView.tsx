@@ -125,7 +125,7 @@ function ListFold({ list, open }: { list: DetailList; open: boolean }) {
                   ) : null}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">
-                  <HlCount>
+                  <HlCount title={p.callsTitle}>
                     {p.callsDone} / {p.callsTotal}
                   </HlCount>
                   {p.callsFailed ? (

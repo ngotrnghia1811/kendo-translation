@@ -16,6 +16,9 @@ import { runIdText } from "./pst";
 import { bookTitle } from "./books";
 import { pageNumberText } from "./readable-names";
 import { bookRunBookOf } from "./run-store"; // unit VW85 (Q-A 3:26.3 (a))
+// Unit VW132 (Q-A 3:140.3): the number after the slash counts the model calls that run, not the planned 32. The rule is in lib/page-calls.ts.
+import { callsTitle, listCallsTitle, listCallsTotal, pageCalls, pageInputOf, summaryBoxesOf, type PageCalls } from "./page-calls";
+import { forecastBoxesOf, loadListCalls } from "./page-calls-load";
 
 const LISTS = "pilot-run/lists";
 export const PAUSE_NAME = "PAUSE";
@@ -35,7 +38,10 @@ async function readListFiles(stamp: string): Promise<{ listJson: J; summaryJson:
   };
 }
 
-function summarize(stamp: string, p: J, listJson: J = null, summaryJson: J = null): RunSummary {
+// Unit VW132: `callsRun` is the total of the list without the skipped box-critic calls. Missing: the planned total of progress.json (the old value).
+function summarize(stamp: string, p: J, listJson: J = null, summaryJson: J = null, callsRun?: number): RunSummary {
+  const planned = num(p.calls_total);
+  const total = callsRun ?? planned;
   return {
     // Round 48 answer 9 (Q-A 2026-10-27 l55): the list kind, the critic mode, and the book jobs show in the Runs table and the run view.
     listKind: listKindOf(p, listJson, summaryJson),
@@ -47,7 +53,8 @@ function summarize(stamp: string, p: J, listJson: J = null, summaryJson: J = nul
     pagesDone: num(p.pages_done),
     pagesTotal: num(p.pages_total),
     callsDone: num(p.calls_done),
-    callsTotal: num(p.calls_total),
+    callsTotal: total, // unit VW132: was num(p.calls_total)
+    callsTitle: listCallsTitle(total, planned),
     callsFailed: num(p.calls_failed),
     callsFlagged: num(p.calls_flagged),
     costModelsUsd: num(p.cost_models_usd),
@@ -67,7 +74,7 @@ export async function listRuns(): Promise<RunSummary[]> {
     const p = await readJson<J>(`${LISTS}/${stamp}/progress.json`);
     if (p) {
       const { listJson } = await readListFiles(stamp);
-      out.push(summarize(stamp, p, listJson));
+      out.push(summarize(stamp, p, listJson, null, (await loadListCalls(p)).total)); // unit VW132
     }
   }
   return out;
@@ -90,11 +97,15 @@ export async function getRun(stamp: string): Promise<RunDetail | null> {
   }
   const now = Date.now() / 1000;
   const rows: RunPageRow[] = [];
+  // Unit VW132 (Q-A 3:140.3): the frozen boxes of a live phase 4 list, and the calls that run for each page.
+  const forecast = await forecastBoxesOf(p);
+  const pageRuns: PageCalls[] = [];
   for (const pg of (p.pages ?? []) as J[]) {
     const sr = summaryRows.get(String(pg.page_id));
     const folderRel = pg.folder ? stripDataPrefix(String(pg.folder)) : "";
     let qa3Verdict: string | null = null;
     let qa3Score: number | null = null;
+    let skippedBoxes: string[] | null = null;
     if (folderRel) {
       const s = await readJson<J>(`${folderRel}/summary.json`);
       const q = s?.qa?.QA_3;
@@ -102,7 +113,10 @@ export async function getRun(stamp: string): Promise<RunDetail | null> {
         qa3Verdict = q.verdict ?? null;
         qa3Score = q.page_score ?? null;
       }
+      skippedBoxes = summaryBoxesOf(s); // unit VW132: key critic_skipped_boxes
     }
+    const calls = pageCalls(pageInputOf(pg, skippedBoxes, forecast));
+    pageRuns.push(calls);
     const started = pg.started_epoch ?? null;
     const ended = pg.ended_epoch ?? null;
     let minutes: number | null = null;
@@ -115,7 +129,8 @@ export async function getRun(stamp: string): Promise<RunDetail | null> {
       state: String(pg.state ?? ""),
       runFolder: folderName,
       callsDone: num(pg.calls_done),
-      callsTotal: num(pg.calls_total),
+      callsTotal: calls.total, // unit VW132: was num(pg.calls_total). The model calls that run.
+      callsTitle: callsTitle(calls),
       callsFailed: num(pg.calls_failed),
       running: Array.isArray(pg.running) ? pg.running.map(String) : [],
       usd: num(pg.models_usd),
@@ -145,7 +160,7 @@ export async function getRun(stamp: string): Promise<RunDetail | null> {
   // Unit VW85 (Q-A 3:26.3 (a)): a book-run list of a real book gets the step tree and the training monitor in the run view.
   const runBook = bookRunBookOf(p);
   return {
-    ...summarize(stamp, p, listJson, summaryJson),
+    ...summarize(stamp, p, listJson, summaryJson, listCallsTotal(pageRuns, num(p.calls_total))), // unit VW132
     phase2Note,
     phase2List: isPhase2List(p), // fix round: the run view heading "Phase 2 run, list started ..."
     ...(runBook ? { bookRunBook: runBook, bookRunTitle: (await bookTitle(runBook)) || null } : {}),

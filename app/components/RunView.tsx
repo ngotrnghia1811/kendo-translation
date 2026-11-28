@@ -57,7 +57,7 @@ export default function RunView({ initial }: { initial: RunDetail }) {
       <RunProgress pages={run.pages} />
       <div className="mb-4 flex flex-wrap gap-x-8 gap-y-1 text-sm">
         <Stat label="Pages" value={<HlCount>{`${run.pagesDone} / ${run.pagesTotal}`}</HlCount>} />
-        <Stat label="Calls" value={<HlCount>{`${run.callsDone} / ${run.callsTotal}`}</HlCount>} />
+        <Stat label="Calls" value={<HlCount title={run.callsTitle}>{`${run.callsDone} / ${run.callsTotal}`}</HlCount>} />
         <Stat label="Failed" value={<HlFailed n={run.callsFailed}>{String(run.callsFailed)}</HlFailed>} />
         <Stat label="Flagged" value={<HlCount>{String(run.callsFlagged)}</HlCount>} warn={run.callsFlagged > 0} />
         {/* Unit VW93 (Q-A 3:15.2): the 5 token kinds of the list in place of the two costs. An older list shows "no token data" (Q-A 3:15.3). */}

@@ -102,7 +102,7 @@ export default function RunPagesTable({ run, isChain }: { run: RunDetail; isChai
                 <FailureLists forward={p.forwardFailures} critic={p.criticFailures} />
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
-                <HlCount>
+                <HlCount title={p.callsTitle}>
                   {p.callsDone} / {p.callsTotal}
                 </HlCount>
                 {p.callsFailed ? (
